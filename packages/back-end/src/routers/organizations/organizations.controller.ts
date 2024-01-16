@@ -4,6 +4,7 @@ import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   accountFeatures,
   getAccountPlan,
+  getEffectiveAccountPlan,
   getLicense,
   setLicense,
 } from "enterprise";
@@ -39,6 +40,7 @@ import {
   NamespaceUsage,
   OrganizationInterface,
   OrganizationSettings,
+  SDKAttribute,
 } from "../../../types/organization";
 import {
   auditDetailsUpdate,
@@ -628,7 +630,10 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   }
 
   // Some other global org data needed by the front-end
-  const apiKeys = await getAllApiKeysByOrganization(org.id);
+  const apiKeys = await getAllApiKeysByOrganization(
+    org.id,
+    req.readAccessFilter
+  );
   const enterpriseSSO = isEnterpriseSSO(req.loginMethod)
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
@@ -654,9 +659,8 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     apiKeys,
     enterpriseSSO,
     accountPlan: getAccountPlan(org),
-    commercialFeatures: res.locals.licenseError
-      ? []
-      : [...accountFeatures[getAccountPlan(org)]],
+    effectiveAccountPlan: getEffectiveAccountPlan(org),
+    commercialFeatures: [...accountFeatures[getEffectiveAccountPlan(org)]],
     roles: getRoles(org),
     members: expandedMembers,
     currentUserPermissions,
@@ -1240,9 +1244,66 @@ export async function putOrganization(
   }
 }
 
+export const autoAddGroupsAttribute = async (
+  req: AuthRequest<never>,
+  res: Response<{ status: 200; added: boolean }>
+) => {
+  // Add missing `$groups` attribute automatically if it's being referenced by a Saved Group
+  const { org } = getOrgFromReq(req);
+
+  req.checkPermissions("manageTargetingAttributes");
+
+  let added = false;
+
+  const attributeSchema = org.settings?.attributeSchema;
+  if (
+    attributeSchema &&
+    !attributeSchema.some((attribute) => attribute.property === "$groups")
+  ) {
+    const newAttributeSchema: SDKAttribute[] = [
+      ...attributeSchema,
+      {
+        property: "$groups",
+        datatype: "string[]",
+      },
+    ];
+
+    const orig = {
+      settings: {
+        ...org.settings,
+      },
+    };
+
+    const updates = {
+      settings: {
+        ...org.settings,
+        attributeSchema: newAttributeSchema,
+      },
+    };
+
+    added = true;
+
+    await updateOrganization(org.id, updates);
+
+    await req.audit({
+      event: "organization.update",
+      entity: {
+        object: "organization",
+        id: org.id,
+      },
+      details: auditDetailsUpdate(orig, updates),
+    });
+  }
+
+  return res.status(200).json({
+    status: 200,
+    added,
+  });
+};
+
 export async function getApiKeys(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
-  const keys = await getAllApiKeysByOrganization(org.id);
+  const keys = await getAllApiKeysByOrganization(org.id, req.readAccessFilter);
   const filteredKeys = keys.filter((k) => !k.userId || k.userId === req.userId);
 
   res.status(200).json({
@@ -1293,7 +1354,7 @@ export async function postApiKey(
       req.checkPermissions("manageApiKeys");
     }
   } else {
-    req.checkPermissions("manageEnvironments", "", [environment]);
+    req.checkPermissions("manageEnvironments", project, [environment]);
   }
 
   // Handle user personal access tokens
@@ -1362,6 +1423,7 @@ export async function deleteApiKey(
 
   const keyObj = await getApiKeyByIdOrKey(
     org.id,
+    req.readAccessFilter,
     id || undefined,
     key || undefined
   );
@@ -1747,20 +1809,21 @@ export async function putLicenseKey(
     );
   }
 
-  const { licenseKey } = req.body;
+  const licenseKey = req.body.licenseKey.trim();
   if (!licenseKey) {
     throw new Error("missing license key");
   }
 
   const currentLicenseData = getLicense();
   let licenseData = null;
+  let error = null;
   try {
     // set new license
-    await initializeLicense(licenseKey);
-    licenseData = getLicense();
+    licenseData = await initializeLicense(licenseKey);
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error("setting new license failed", e);
+    error = e;
   }
   if (!licenseData) {
     // setting license failed, revert to previous
@@ -1772,7 +1835,11 @@ export async function putLicenseKey(
       console.error("reverting to old license failed", e);
       await setLicense(null);
     }
-    throw new Error("Invalid license key");
+    if (error.message.includes("Could not connect")) {
+      throw new Error(error?.message);
+    } else {
+      throw new Error("Invalid license key");
+    }
   }
 
   try {

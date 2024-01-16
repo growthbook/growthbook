@@ -16,11 +16,11 @@ import {
   isAnalysisAllowed,
   getMatchingRules,
   MatchingRule,
+  validateCondition,
 } from "shared/util";
 import {
   ExperimentMetricInterface,
   getRegressionAdjustmentsForMetric,
-  isBinomialMetric,
   isFactMetric,
   isFactMetricId,
 } from "shared/experiments";
@@ -47,10 +47,7 @@ import {
   createExperimentSnapshotModel,
   updateSnapshotAnalysis,
 } from "../models/ExperimentSnapshotModel";
-import {
-  Dimension,
-  ExperimentMetricQueryResponseRows,
-} from "../types/Integration";
+import { Dimension } from "../types/Integration";
 import {
   Condition,
   MetricInterface,
@@ -65,7 +62,6 @@ import {
   LinkedFeatureInfo,
   LinkedFeatureState,
 } from "../../types/experiment";
-import { promiseAllChunks } from "../util/promise";
 import { findDimensionById } from "../models/DimensionModel";
 import { findSegmentById } from "../models/SegmentModel";
 import {
@@ -105,7 +101,13 @@ import { getFeatureRevisionsByFeatureIds } from "../models/FeatureRevisionModel"
 import { ExperimentRefRule, FeatureRule } from "../../types/feature";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
-import { analyzeExperimentMetric, analyzeExperimentResults } from "./stats";
+import {
+  MetricSettingsForStatsEngine,
+  QueryResultsForStatsEngine,
+  analyzeExperimentMetric,
+  analyzeExperimentResults,
+  getMetricSettingsForStatsEngine,
+} from "./stats";
 import { getEnvironmentIdsFromOrg } from "./organizations";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
@@ -137,7 +139,7 @@ export async function getExperimentMetricById(
 
 export async function refreshMetric(
   metric: MetricInterface,
-  orgId: string,
+  org: OrganizationInterface,
   metricAnalysisDays: number = DEFAULT_METRIC_ANALYSIS_DAYS
 ) {
   if (metric.datasource) {
@@ -149,7 +151,7 @@ export async function refreshMetric(
 
     let segment: SegmentInterface | undefined = undefined;
     if (metric.segment) {
-      segment = (await findSegmentById(metric.segment, orgId)) || undefined;
+      segment = (await findSegmentById(metric.segment, org.id)) || undefined;
       if (!segment || segment.datasource !== metric.datasource) {
         throw new Error("Invalid user segment chosen");
       }
@@ -165,7 +167,7 @@ export async function refreshMetric(
     const to = new Date();
     to.setDate(to.getDate() + 1);
 
-    const queryRunner = new MetricAnalysisQueryRunner(metric, integration);
+    const queryRunner = new MetricAnalysisQueryRunner(metric, integration, org);
     await queryRunner.startAnalysis({
       from,
       to,
@@ -206,6 +208,7 @@ export function generateTrackingKey(name: string, n: number): string {
 
 export async function getManualSnapshotData(
   experiment: ExperimentInterface,
+  analysisSettings: ExperimentSnapshotAnalysisSettings,
   phaseIndex: number,
   users: number[],
   metrics: {
@@ -221,55 +224,57 @@ export async function getManualSnapshotData(
     metrics: {},
   }));
 
-  await promiseAllChunks(
-    Object.keys(metrics).map((m) => {
-      const stats = metrics[m];
-      const metric = metricMap.get(m);
-      return async () => {
-        if (!metric) return;
-        const rows: ExperimentMetricQueryResponseRows = stats.map((s, i) => {
-          return {
-            dimension: "All",
-            variation: experiment.variations[i].key || i + "",
-            users: s.count,
-            count: s.count,
-            statistic_type: "mean", // ratio not supported for now
-            main_metric_type: isBinomialMetric(metric) ? "binomial" : "count",
-            main_sum: s.mean * s.count,
-            main_sum_squares: sumSquaresFromStats(
-              s.mean * s.count,
-              Math.pow(s.stddev, 2),
-              s.count
-            ),
-          };
-        });
+  const metricSettings: Record<string, MetricSettingsForStatsEngine> = {};
+  const queryResults: QueryResultsForStatsEngine[] = [];
+  Object.keys(metrics).forEach((m) => {
+    const stats = metrics[m];
+    const metric = metricMap.get(m);
+    if (!metric) return null;
 
-        const res = await analyzeExperimentMetric({
-          variations: getReportVariations(experiment, phase),
-          metric: metric,
-          rows: rows,
-          phaseLengthHours: Math.max(
-            hoursBetween(phase.dateStarted, phase.dateEnded ?? new Date()),
-            1
+    metricSettings[m] = {
+      ...getMetricSettingsForStatsEngine(metric, metricMap),
+      // no ratio or regression adjustment for manual snapshots
+      statistic_type: "mean",
+    };
+    queryResults.push({
+      rows: stats.map((s, i) => {
+        return {
+          dimension: "All",
+          variation: experiment.variations[i].key || i + "",
+          users: s.count,
+          count: s.count,
+          main_sum: s.mean * s.count,
+          main_sum_squares: sumSquaresFromStats(
+            s.mean * s.count,
+            Math.pow(s.stddev, 2),
+            s.count
           ),
-          coverage: 1,
-          dimension: null,
-          statsEngine: DEFAULT_STATS_ENGINE,
-          sequentialTestingEnabled: false,
-          sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-          baselineVariationIndex: 0,
-          pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
-          differenceType: "relative",
-        });
-        const data = res.dimensions[0];
-        if (!data) return;
-        data.variations.map((v, i) => {
-          variations[i].metrics[m] = v;
-        });
-      };
-    }),
-    3
-  );
+        };
+      }),
+      metrics: [m],
+    });
+  });
+
+  const result = await analyzeExperimentMetric({
+    variations: getReportVariations(experiment, phase),
+    phaseLengthHours: Math.max(
+      hoursBetween(phase.dateStarted, phase.dateEnded ?? new Date()),
+      1
+    ),
+    coverage: experiment.phases?.[phaseIndex]?.coverage ?? 1,
+    analyses: [{ ...analysisSettings, regressionAdjusted: false }], // no RA for manual snapshots
+    metrics: metricSettings,
+    queryResults: queryResults,
+  });
+
+  result.forEach(({ metric, analyses }) => {
+    const res = analyses[0];
+    const data = res.dimensions[0];
+    if (!data) return;
+    data.variations.map((v, i) => {
+      variations[i].metrics[metric] = v;
+    });
+  });
 
   const srm = checkSrm(users, phase.variationWeights);
 
@@ -415,11 +420,12 @@ export async function createManualSnapshot(
   metrics: {
     [key: string]: MetricStats[];
   },
-  settings: ExperimentSnapshotAnalysisSettings,
+  analysisSettings: ExperimentSnapshotAnalysisSettings,
   metricMap: Map<string, ExperimentMetricInterface>
 ) {
   const { srm, variations } = await getManualSnapshotData(
     experiment,
+    analysisSettings,
     phaseIndex,
     users,
     metrics,
@@ -439,7 +445,7 @@ export async function createManualSnapshot(
     settings: getSnapshotSettings({
       experiment,
       phaseIndex,
-      settings,
+      settings: analysisSettings,
       metricRegressionAdjustmentStatuses: [],
       metricMap,
     }),
@@ -449,7 +455,7 @@ export async function createManualSnapshot(
       {
         dateCreated: new Date(),
         status: "success",
-        settings: settings,
+        settings: analysisSettings,
         results: [
           {
             name: "All",
@@ -616,6 +622,7 @@ export async function createSnapshot({
   const queryRunner = new ExperimentResultsQueryRunner(
     snapshot,
     integration,
+    organization,
     useCache
   );
   await queryRunner.startAnalysis({
@@ -673,11 +680,11 @@ export async function createSnapshotAnalysis({
   const results = await analyzeExperimentResults({
     queryData: queryMap,
     snapshotSettings: snapshot.settings,
-    analysisSettings: analysisSettings,
+    analysisSettings: [analysisSettings],
     variationNames: experiment.variations.map((v) => v.name),
     metricMap: metricMap,
   });
-  analysis.results = results.dimensions || [];
+  analysis.results = results[0]?.dimensions || [];
   analysis.status = "success";
   analysis.error = undefined;
 
@@ -740,7 +747,11 @@ export async function toExperimentApiInterface(
     status: experiment.status,
     autoRefresh: !!experiment.autoSnapshots,
     hashAttribute: experiment.hashAttribute || "id",
+    fallbackAttribute: experiment.fallbackAttribute,
     hashVersion: experiment.hashVersion || 2,
+    disableStickyBucketing: experiment.disableStickyBucketing,
+    bucketVersion: experiment.bucketVersion,
+    minBucketVersion: experiment.minBucketVersion,
     variations: experiment.variations.map((v) => ({
       variationId: v.id,
       key: v.key,
@@ -1617,26 +1628,33 @@ export function postExperimentApiPayloadToInterface(
   organization: OrganizationInterface,
   datasource: DataSourceInterface
 ): Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> {
-  const phases: ExperimentPhase[] = payload.phases?.map((p) => ({
-    ...p,
-    dateStarted: new Date(p.dateStarted),
-    dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
-    reason: p.reason || "",
-    coverage: p.coverage != null ? p.coverage : 1,
-    condition: p.condition || "{}",
-    savedGroups: (p.savedGroupTargeting || []).map((s) => ({
-      match: s.matchType,
-      ids: s.savedGroups,
-    })),
-    namespace: {
-      name: p.namespace?.namespaceId || "",
-      range: toNamespaceRange(p.namespace?.range),
-      enabled: p.namespace?.enabled != null ? p.namespace.enabled : false,
-    },
-    variationWeights:
-      p.variationWeights ||
-      payload.variations.map(() => 1 / payload.variations.length),
-  })) || [
+  const phases: ExperimentPhase[] = payload.phases?.map((p) => {
+    const conditionRes = validateCondition(p.condition);
+    if (!conditionRes.success) {
+      throw new Error(`Invalid targeting condition: ${conditionRes.error}`);
+    }
+
+    return {
+      ...p,
+      dateStarted: new Date(p.dateStarted),
+      dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
+      reason: p.reason || "",
+      coverage: p.coverage != null ? p.coverage : 1,
+      condition: p.condition || "{}",
+      savedGroups: (p.savedGroupTargeting || []).map((s) => ({
+        match: s.matchType,
+        ids: s.savedGroups,
+      })),
+      namespace: {
+        name: p.namespace?.namespaceId || "",
+        range: toNamespaceRange(p.namespace?.range),
+        enabled: p.namespace?.enabled != null ? p.namespace.enabled : false,
+      },
+      variationWeights:
+        p.variationWeights ||
+        payload.variations.map(() => 1 / payload.variations.length),
+    };
+  }) || [
     {
       coverage: 1,
       dateStarted: new Date(),
@@ -1763,29 +1781,38 @@ export function updateExperimentApiPayloadToInterface(
       : {}),
     ...(phases
       ? {
-          phases: phases.map((p) => ({
-            ...p,
-            dateStarted: new Date(p.dateStarted),
-            dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
-            reason: p.reason || "",
-            coverage: p.coverage != null ? p.coverage : 1,
-            condition: p.condition || "{}",
-            savedGroups: (p.savedGroupTargeting || []).map((s) => ({
-              match: s.matchType,
-              ids: s.savedGroups,
-            })),
-            namespace: {
-              name: p.namespace?.namespaceId || "",
-              range: toNamespaceRange(p.namespace?.range),
-              enabled:
-                p.namespace?.enabled != null ? p.namespace.enabled : false,
-            },
-            variationWeights:
-              p.variationWeights ||
-              (payload.variations || experiment.variations)?.map(
-                (_v, _i, arr) => 1 / arr.length
-              ),
-          })),
+          phases: phases.map((p) => {
+            const conditionRes = validateCondition(p.condition);
+            if (!conditionRes.success) {
+              throw new Error(
+                `Invalid targeting condition: ${conditionRes.error}`
+              );
+            }
+
+            return {
+              ...p,
+              dateStarted: new Date(p.dateStarted),
+              dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
+              reason: p.reason || "",
+              coverage: p.coverage != null ? p.coverage : 1,
+              condition: p.condition || "{}",
+              savedGroups: (p.savedGroupTargeting || []).map((s) => ({
+                match: s.matchType,
+                ids: s.savedGroups,
+              })),
+              namespace: {
+                name: p.namespace?.namespaceId || "",
+                range: toNamespaceRange(p.namespace?.range),
+                enabled:
+                  p.namespace?.enabled != null ? p.namespace.enabled : false,
+              },
+              variationWeights:
+                p.variationWeights ||
+                (payload.variations || experiment.variations)?.map(
+                  (_v, _i, arr) => 1 / arr.length
+                ),
+            };
+          }),
         }
       : {}),
     dateUpdated: new Date(),

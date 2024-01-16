@@ -1,8 +1,9 @@
 from abc import abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import List, Optional, Tuple, Union
 
 import numpy as np
+from pydantic.dataclasses import dataclass
 from scipy.stats import norm  # type: ignore
 
 
@@ -14,19 +15,16 @@ from gbstats.messages import (
     NO_UNITS_IN_VARIATION_MESSAGE,
 )
 from gbstats.bayesian.dists import Beta, Norm
-from gbstats.shared.models import (
-    BaseConfig,
-    BayesianTestResult,
+from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
+from gbstats.models.statistics import (
     ProportionStatistic,
     RatioStatistic,
     SampleMeanStatistic,
-    Statistic,
-    Uplift,
+    TestStatistic,
 )
-from gbstats.shared.tests import BaseABTest
-from gbstats.shared.constants import DifferenceType
 
 
+# Configs
 @dataclass
 class GaussianPrior:
     mean: float = 0
@@ -59,6 +57,14 @@ class GaussianBayesianConfig(BayesianConfig):
     epsilon: float = 1e-4
 
 
+# Results
+@dataclass
+class BayesianTestResult(TestResult):
+    chance_to_win: float
+    risk: List[float]
+    error_message: Optional[str] = None
+
+
 """
 Medium article inspiration:
     https://towardsdatascience.com/how-to-do-bayesian-a-b-testing-fast-41ee00d55be8
@@ -71,8 +77,8 @@ Original code:
 class BayesianABTest(BaseABTest):
     def __init__(
         self,
-        stat_a: Statistic,
-        stat_b: Statistic,
+        stat_a: TestStatistic,
+        stat_b: TestStatistic,
         inverse: bool = False,
         ccr: float = 0.05,
     ):
@@ -113,9 +119,9 @@ class BayesianABTest(BaseABTest):
 
     def chance_to_win(self, mean_diff: float, std_diff: float) -> float:
         if self.inverse:
-            return 1 - norm.sf(0, mean_diff, std_diff)
+            return 1 - norm.sf(0, mean_diff, std_diff)  # type: ignore
         else:
-            return norm.sf(0, mean_diff, std_diff)
+            return norm.sf(0, mean_diff, std_diff)  # type: ignore
 
     def scale_result(
         self, result: BayesianTestResult, p: float, d: float
@@ -148,8 +154,8 @@ class BinomialBayesianABTest(BayesianABTest):
         super().__init__(stat_a, stat_b, config.inverse, config.ccr)
         self.prior_a = config.prior_a
         self.prior_b = config.prior_b
-        self.relative = config.difference_type == DifferenceType.RELATIVE
-        self.scaled = config.difference_type == DifferenceType.SCALED
+        self.relative = config.difference_type == "relative"
+        self.scaled = config.difference_type == "scaled"
         self.traffic_proportion_b = config.traffic_proportion_b
         self.phase_length_days = config.phase_length_days
 
@@ -212,8 +218,8 @@ class GaussianBayesianABTest(BayesianABTest):
         self.prior_a = config.prior_a
         self.prior_b = config.prior_b
         self.epsilon = config.epsilon
-        self.relative = config.difference_type == DifferenceType.RELATIVE
-        self.scaled = config.difference_type == DifferenceType.SCALED
+        self.relative = config.difference_type == "relative"
+        self.scaled = config.difference_type == "scaled"
         self.traffic_proportion_b = config.traffic_proportion_b
         self.phase_length_days = config.phase_length_days
 

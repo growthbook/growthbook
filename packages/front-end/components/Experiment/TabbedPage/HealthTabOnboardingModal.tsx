@@ -1,6 +1,9 @@
 import React, { FC, ReactElement, useEffect, useState } from "react";
 import { DimensionSlicesInterface } from "back-end/types/dimension";
-import { ExposureQuery } from "back-end/types/datasource";
+import {
+  DataSourceInterfaceWithParams,
+  ExposureQuery,
+} from "back-end/types/datasource";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
@@ -10,7 +13,6 @@ import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import Modal from "@/components/Modal";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import RadioSelector from "@/components/Forms/RadioSelector";
 import {
   DimensionSlicesRunner,
@@ -21,6 +23,8 @@ import track, { trackSnapshot } from "@/services/track";
 type HealthTabOnboardingModalProps = {
   open: boolean;
   close: () => void;
+  dataSource: DataSourceInterfaceWithParams;
+  exposureQuery: ExposureQuery;
   healthTabOnboardingPurpose: HealthTabOnboardingPurpose;
   healthTabConfigParams: HealthTabConfigParams;
 };
@@ -28,7 +32,6 @@ type HealthTabOnboardingModalProps = {
 export type HealthTabConfigParams = {
   experiment: ExperimentInterfaceStringDates;
   phase: number;
-  exposureQueryDimensions: string[];
   refreshOrganization: () => void;
   mutateSnapshot: () => void;
   setAnalysisSettings: (
@@ -44,13 +47,14 @@ type RefreshTypes = "refresh" | "norefresh";
 export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
   open,
   close,
+  dataSource,
+  exposureQuery,
   healthTabOnboardingPurpose,
   healthTabConfigParams,
 }) => {
   const {
     experiment,
     phase,
-    exposureQueryDimensions,
     refreshOrganization,
     mutateSnapshot,
     setAnalysisSettings,
@@ -63,28 +67,14 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
   const [setupChoice, setSetupChoice] = useState<RefreshTypes>("refresh");
   const [step, setStep] = useState(startingStep);
   const [lastStep, setLastStep] = useState(startingStep);
-  const { getDatasourceById } = useDefinitions();
-  const dataSource = getDatasourceById(experiment.datasource);
 
   const source = "health-tab-onboarding";
-
-  if (!dataSource) {
-    throw new Error("Data Source Not Found");
-  }
-  const exposureQuery = dataSource.settings.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId
-  );
-  if (!exposureQuery) {
-    throw new Error("Exposure Query Not Found");
-  }
 
   const metadataId = exposureQuery.dimensionSlicesId;
   const dataSourceId = dataSource.id;
   const exposureQueryId = exposureQuery.id;
 
-  const [id, setId] = useState<string | null>(
-    exposureQuery.dimensionSlicesId || null
-  );
+  const [id, setId] = useState<string | null>(metadataId || null);
   const { data, error, mutate } = useApi<{
     dimensionSlices: DimensionSlicesInterface;
   }>(`/dimension-slices/${id}`);
@@ -110,10 +100,13 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
           specifiedSlices: r.dimensionSlices.map((dv) => dv.name),
         })),
       };
-      await apiCall(`/datasource/${dataSource.id}/${exposureQuery.id}`, {
-        method: "PUT",
-        body: JSON.stringify({ updates }),
-      });
+      await apiCall(
+        `/datasource/${dataSource.id}/exposureQuery/${exposureQuery.id}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ updates }),
+        }
+      );
     }
     if (setupChoice === "refresh") {
       setLoading(true);
@@ -211,7 +204,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
     data?.dimensionSlices?.results &&
     data.dimensionSlices.results.length > 0;
 
-  const showDimensionsPage = exposureQueryDimensions.length > 0;
+  const showDimensionsPage = exposureQuery.dimensions.length > 0;
 
   const pages: {
     header: string;

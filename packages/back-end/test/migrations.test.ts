@@ -8,6 +8,7 @@ import {
 import omit from "lodash/omit";
 import { LegacyMetricInterface, MetricInterface } from "../types/metric";
 import {
+  migrateSavedGroup,
   migrateSnapshot,
   upgradeDatasourceObject,
   upgradeExperimentDoc,
@@ -33,6 +34,8 @@ import {
 } from "../types/experiment-snapshot";
 import { ExperimentReportResultDimension } from "../types/report";
 import { Queries } from "../types/query";
+import { ExperimentPhase } from "../types/experiment";
+import { LegacySavedGroupInterface } from "../types/saved-group";
 
 describe("Metric Migration", () => {
   it("updates old metric objects - earlyStart", () => {
@@ -794,94 +797,95 @@ describe("Feature Migration", () => {
 });
 
 describe("Experiment Migration", () => {
-  it("upgrades experiment objects", () => {
-    const exp: any = {
-      trackingKey: "test",
-      attributionModel: "allExposures",
-      variations: [
-        {
-          screenshots: [],
+  const exp: any = {
+    trackingKey: "test",
+    attributionModel: "allExposures",
+    variations: [
+      {
+        screenshots: [],
+        name: "",
+      },
+      {
+        screenshots: [],
+      },
+      {
+        id: "foo",
+        key: "bar",
+        name: "Baz",
+        screenshots: [],
+      },
+    ],
+    phases: [
+      {
+        phase: "main",
+      },
+      {
+        phase: "main",
+        name: "New Name",
+      },
+    ],
+  };
+
+  const upgraded = {
+    trackingKey: "test",
+    hashAttribute: "",
+    hashVersion: 2,
+    releasedVariationId: "",
+    attributionModel: "experimentDuration",
+    variations: [
+      {
+        id: "0",
+        key: "0",
+        name: "Control",
+        screenshots: [],
+      },
+      {
+        id: "1",
+        key: "1",
+        name: "Variation 1",
+        screenshots: [],
+      },
+      {
+        id: "foo",
+        key: "bar",
+        name: "Baz",
+        screenshots: [],
+      },
+    ],
+    phases: [
+      {
+        phase: "main",
+        name: "Main",
+        condition: "",
+        coverage: 1,
+        seed: "test",
+        namespace: {
+          enabled: false,
           name: "",
+          range: [0, 1],
         },
-        {
-          screenshots: [],
+      },
+      {
+        phase: "main",
+        name: "New Name",
+        condition: "",
+        coverage: 1,
+        seed: "test",
+        namespace: {
+          enabled: false,
+          name: "",
+          range: [0, 1],
         },
-        {
-          id: "foo",
-          key: "bar",
-          name: "Baz",
-          screenshots: [],
-        },
-      ],
-      phases: [
-        {
-          phase: "main",
-        },
-        {
-          phase: "main",
-          name: "New Name",
-        },
-      ],
-    };
+      },
+    ],
+    sequentialTestingEnabled: false,
+    sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  };
 
-    const upgraded = {
-      trackingKey: "test",
-      hashAttribute: "",
-      hashVersion: 2,
-      releasedVariationId: "",
-      attributionModel: "experimentDuration",
-      variations: [
-        {
-          id: "0",
-          key: "0",
-          name: "Control",
-          screenshots: [],
-        },
-        {
-          id: "1",
-          key: "1",
-          name: "Variation 1",
-          screenshots: [],
-        },
-        {
-          id: "foo",
-          key: "bar",
-          name: "Baz",
-          screenshots: [],
-        },
-      ],
-      phases: [
-        {
-          phase: "main",
-          name: "Main",
-          condition: "",
-          coverage: 1,
-          seed: "test",
-          namespace: {
-            enabled: false,
-            name: "",
-            range: [0, 1],
-          },
-        },
-        {
-          phase: "main",
-          name: "New Name",
-          condition: "",
-          coverage: 1,
-          seed: "test",
-          namespace: {
-            enabled: false,
-            name: "",
-            range: [0, 1],
-          },
-        },
-      ],
-      sequentialTestingEnabled: false,
-      sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-    };
-
+  it("upgrades experiment objects", () => {
     expect(upgradeExperimentDoc(exp)).toEqual(upgraded);
-
+  });
+  it("upgrades stopped experiments with results", () => {
     expect(
       upgradeExperimentDoc({
         ...exp,
@@ -893,7 +897,8 @@ describe("Experiment Migration", () => {
       status: "stopped",
       results: "dnf",
     });
-
+  });
+  it("sets releasedVariationId to `0` for lost experiments", () => {
     expect(
       upgradeExperimentDoc({
         ...exp,
@@ -906,7 +911,8 @@ describe("Experiment Migration", () => {
       results: "lost",
       releasedVariationId: "0",
     });
-
+  });
+  it("sets releasedVariationId to `1` for won experiments", () => {
     expect(
       upgradeExperimentDoc({
         ...exp,
@@ -919,7 +925,8 @@ describe("Experiment Migration", () => {
       results: "won",
       releasedVariationId: "1",
     });
-
+  });
+  it("Uses `winner` to set releasedVariationId", () => {
     expect(
       upgradeExperimentDoc({
         ...exp,
@@ -934,8 +941,8 @@ describe("Experiment Migration", () => {
       winner: 2,
       releasedVariationId: "foo",
     });
-
-    // Doesn't overwrite other attribution models
+  });
+  it("Doesn't overwrite other attribution models", () => {
     expect(
       upgradeExperimentDoc({
         ...exp,
@@ -944,6 +951,35 @@ describe("Experiment Migration", () => {
     ).toEqual({
       ...upgraded,
       attributionModel: "firstExposure",
+    });
+  });
+  it("Fixes namespaces that are missing range and name", () => {
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        phases: [
+          ...exp.phases.map((p: ExperimentPhase, i: number) => {
+            return {
+              ...p,
+              namespace: i
+                ? { enabled: true }
+                : { enabled: true, name: "test", range: [0.1, 0.2] },
+            };
+          }),
+        ],
+      })
+    ).toEqual({
+      ...upgraded,
+      phases: [
+        ...upgraded.phases.map((p, i) => {
+          return {
+            ...p,
+            namespace: i
+              ? { enabled: false, name: "", range: [0, 1] }
+              : { enabled: true, name: "test", range: [0.1, 0.2] },
+          };
+        }),
+      ],
     });
   });
 });
@@ -1319,5 +1355,100 @@ describe("Snapshot Migration", () => {
     expect(
       migrateSnapshot(initial as LegacyExperimentSnapshotInterface)
     ).toEqual(result);
+  });
+});
+
+describe("saved group migrations", () => {
+  const baseSavedGroup: LegacySavedGroupInterface = {
+    id: "grp_123",
+    organization: "org_123",
+    groupName: "test",
+    owner: "user_123",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+  };
+
+  it("migrates old saved groups without source", () => {
+    expect(
+      migrateSavedGroup({
+        ...baseSavedGroup,
+        attributeKey: "foo",
+        values: ["a", "b"],
+      })
+    ).toEqual({
+      ...baseSavedGroup,
+      attributeKey: "foo",
+      values: ["a", "b"],
+      type: "list",
+    });
+  });
+
+  it("migrates saved groups with source=inline", () => {
+    expect(
+      migrateSavedGroup({
+        ...baseSavedGroup,
+        attributeKey: "foo",
+        values: ["a", "b"],
+        source: "inline",
+      })
+    ).toEqual({
+      ...baseSavedGroup,
+      attributeKey: "foo",
+      values: ["a", "b"],
+      type: "list",
+    });
+  });
+
+  it("migrates saved groups with source=runtime", () => {
+    expect(
+      migrateSavedGroup({
+        ...baseSavedGroup,
+        attributeKey: "foo",
+        values: [],
+        source: "runtime",
+      })
+    ).toEqual({
+      ...baseSavedGroup,
+      attributeKey: "foo",
+      values: [],
+      type: "condition",
+      condition: JSON.stringify({ $groups: { $elemMatch: { $eq: "foo" } } }),
+    });
+  });
+
+  it("does not migrate saved groups that already have type=list", () => {
+    expect(
+      migrateSavedGroup({
+        ...baseSavedGroup,
+        attributeKey: "foo",
+        values: ["a", "b"],
+        source: "inline",
+        type: "list",
+      })
+    ).toEqual({
+      ...baseSavedGroup,
+      attributeKey: "foo",
+      values: ["a", "b"],
+      type: "list",
+    });
+  });
+
+  it("does not migrate saved groups that already have type=condition", () => {
+    expect(
+      migrateSavedGroup({
+        ...baseSavedGroup,
+        attributeKey: "foo",
+        values: [],
+        source: "runtime",
+        type: "condition",
+        condition: JSON.stringify({ id: { $eq: "123" } }),
+      })
+    ).toEqual({
+      ...baseSavedGroup,
+      attributeKey: "foo",
+      values: [],
+      type: "condition",
+      condition: JSON.stringify({ id: { $eq: "123" } }),
+    });
   });
 });

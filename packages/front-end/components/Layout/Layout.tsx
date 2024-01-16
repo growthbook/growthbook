@@ -21,7 +21,6 @@ import TopNav from "./TopNav";
 import styles from "./Layout.module.scss";
 import { usePageHead } from "./PageHead";
 
-// move experiments inside of 'analysis' menu
 const navlinks: SidebarLinkProps[] = [
   {
     name: "Get Started",
@@ -198,6 +197,13 @@ const navlinks: SidebarLinkProps[] = [
         href: "/integrations/slack",
         path: /^integrations\/slack/,
         feature: "slack-integration",
+        permissions: ["manageIntegrations"],
+      },
+      {
+        name: "GitHub",
+        href: "/integrations/github",
+        path: /^integrations\/github/,
+        feature: "github-integration",
         permissions: ["manageIntegrations"],
       },
       {

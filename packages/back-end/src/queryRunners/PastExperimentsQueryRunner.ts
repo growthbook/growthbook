@@ -29,6 +29,7 @@ export class PastExperimentsQueryRunner extends QueryRunner<
         run: (query, setExternalId) =>
           this.integration.runPastExperimentQuery(query, setExternalId),
         process: (rows) => this.processPastExperimentQueryResponse(rows),
+        queryType: "pastExperiment",
       }),
     ];
   }

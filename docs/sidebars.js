@@ -88,6 +88,11 @@ const sidebars = {
           id: "visual-editor",
           label: "Visual Editor",
         },
+        {
+          type: "doc",
+          id: "sticky-bucketing",
+          label: "Sticky Bucketing",
+        },
       ],
     },
     {
@@ -352,12 +357,24 @@ const sidebars = {
       },
       items: ["self-host/environment-variables", "self-host/config-yml"],
     },
+    /*
+        {
+      type: "category",
+      label: "Advanced",
+      collapsed: true,
+      items: [
+        { type: "doc", id: "api-overview", label: "API" },
+        { type: "doc", id: "self-host/proxy", label: "Proxy" },
+        { type: "doc", id: "webhooks", label: "Webhooks" },
+      ],
+    },
+     */
     { type: "doc", id: "self-host/proxy", label: "Proxy" },
     { type: "doc", id: "api-overview", label: "API" },
     { type: "doc", id: "webhooks", label: "Webhooks" },
     {
       type: "category",
-      label: "How to Guides",
+      label: "Installation Tutorials",
       collapsed: true,
       link: {
         type: "doc",
@@ -382,13 +399,20 @@ const sidebars = {
         },
         {
           type: "doc",
-          id: "guide/rudderstack-and-nextjs-with-growthbook",
-          label: "Rudderstack + Next.js",
+          id: "integrations/shopify",
+          label: "Shopify + GrowthBook",
+          className: "pill-new",
         },
         {
-          type: "link",
-          href: "https://docs.growthbook.io/open-guide-to-ab-testing.v1.0.pdf",
-          label: "Guide to A/B Testing",
+          type: "doc",
+          id: "integrations/webflow",
+          label: "Webflow + GrowthBook",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "guide/rudderstack-and-nextjs-with-growthbook",
+          label: "Rudderstack + Next.js",
         },
         {
           type: "doc",
@@ -444,18 +468,6 @@ const sidebars = {
           label: "SCIM",
           className: "pill-new",
         },
-        {
-          type: "doc",
-          id: "integrations/shopify",
-          label: "Shopify + GrowthBook",
-          className: "pill-new",
-        },
-        {
-          type: "doc",
-          id: "integrations/webflow",
-          label: "Webflow + GrowthBook",
-          className: "pill-new",
-        },
       ],
     },
     { type: "doc", id: "faq", label: "FAQ" },
@@ -468,6 +480,63 @@ const sidebars = {
           type: "doc",
           id: "account/user-permissions",
           label: "Roles & Permissions",
+        },
+        {
+          type: "doc",
+          id: "account/audit-logs",
+          label: "Audit Logs",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "GrowthBook Guide",
+      collapsed: true,
+      className: "top-divider",
+      link: {
+        type: "doc",
+        id: "using/index",
+      },
+      items: [
+        {
+          type: "doc",
+          id: "using/fundamentals",
+          label: "Fundamentals of AB testing",
+        },
+        {
+          type: "doc",
+          id: "using/experimentation-best-practices",
+          label: "Best Practices",
+        },
+        {
+          type: "doc",
+          id: "using/experimentation-problems",
+          label: "Common Problems",
+        },
+        {
+          type: "doc",
+          id: "using/product-development",
+          label: "Experimentation in Product Development",
+        },
+        {
+          type: "doc",
+          id: "using/experimenting",
+          label: "Experimenting in GrowthBook",
+        },
+        {
+          type: "doc",
+          id: "using/growthbook-best-practices",
+          label: "Organizing GrowthBook",
+        },
+        {
+          type: "doc",
+          id: "using/security",
+          label: "Securing GrowthBook",
+        },
+        {
+          type: "doc",
+          id: "using/programs",
+          label: "Experimentation Programs",
         },
       ],
     },

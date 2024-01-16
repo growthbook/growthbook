@@ -1,5 +1,11 @@
 # Changelog
 
+## **0.32.0** - Jan 11, 2024
+
+- Fix bug when visual editor loaded before `document.body` was available
+- Sticky Bucketing support with built-in implementations for persisting in localStorage, cookies (both browser and Node.js), and Redis. Off by default, an implementation must be passed into the GrowthBook constructor to enable.
+- The following methods are now async and return a Promise: `setAttributes`, `setAttributeOverrides`, `setForcedVariations`, `setURL`. No code changes are required since these all returned `void` prior to this.
+
 ## **0.31.0** - Nov 14, 2023
 
 - Fix bug with multi-page visual editor experiments

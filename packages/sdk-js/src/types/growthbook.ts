@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { GrowthBook } from "..";
+import type { GrowthBook, StickyBucketService } from "..";
 import { ConditionInterface } from "./mongrule";
 
 declare global {
@@ -23,7 +23,11 @@ export type FeatureRule<T = any> = {
   weights?: number[];
   key?: string;
   hashAttribute?: string;
+  fallbackAttribute?: string;
   hashVersion?: number;
+  disableStickyBucketing?: boolean;
+  bucketVersion?: number;
+  minBucketVersion?: number;
   range?: VariationRange;
   coverage?: number;
   /** @deprecated */
@@ -91,7 +95,11 @@ export type Experiment<T> = {
   namespace?: [string, number, number];
   force?: number;
   hashAttribute?: string;
+  fallbackAttribute?: string;
   hashVersion?: number;
+  disableStickyBucketing?: boolean;
+  bucketVersion?: number;
+  minBucketVersion?: number;
   active?: boolean;
   /** @deprecated */
   status?: ExperimentStatus;
@@ -125,12 +133,12 @@ export interface Result<T> {
   name?: string;
   bucket?: number;
   passthrough?: boolean;
-
   inExperiment: boolean;
   hashUsed?: boolean;
   hashAttribute: string;
   hashValue: string;
   featureId: string | null;
+  stickyBucketUsed?: boolean;
 }
 
 export type Attributes = Record<string, any>;
@@ -147,6 +155,12 @@ export interface Context {
   features?: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
   forcedVariations?: Record<string, number>;
+  stickyBucketAssignmentDocs?: Record<
+    StickyAttributeKey,
+    StickyAssignmentsDocument
+  >;
+  stickyBucketIdentifierAttributes?: string[];
+  stickyBucketService?: StickyBucketService;
   log?: (msg: string, ctx: any) => void;
   qaMode?: boolean;
   backgroundSync?: boolean;
@@ -292,9 +306,7 @@ export type ApiHost = string;
 export type ClientKey = string;
 
 export type LoadFeaturesOptions = {
-  /**
-   * @deprecated
-   */
+  /** @deprecated */
   autoRefresh?: boolean;
   timeout?: number;
   skipCache?: boolean;
@@ -314,4 +326,13 @@ export interface Filter {
   hashVersion: number;
   // Only include these resulting ranges
   ranges: VariationRange[];
+}
+
+export type StickyAttributeKey = string; // `${attributeName}||${attributeValue}`
+export type StickyExperimentKey = string; // `${experimentId}__{version}`
+export type StickyAssignments = Record<StickyExperimentKey, string>;
+export interface StickyAssignmentsDocument {
+  attributeName: string;
+  attributeValue: string;
+  assignments: StickyAssignments;
 }

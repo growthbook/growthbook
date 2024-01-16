@@ -40,7 +40,14 @@ export default function CreateOrganization(): ReactElement {
   const { apiCall, logout } = useAuth();
   const { updateUser } = useUser();
 
-  const { data: recommendedOrgData } = useApi(`/user/getRecommendedOrg`);
+  const { data: recommendedOrgData } = useApi<{
+    organization: {
+      id: string;
+      name: string;
+      members: number;
+      currentUserIsPending: boolean;
+    };
+  }>(`/user/getRecommendedOrg`);
   const org = recommendedOrgData?.organization;
 
   useEffect(() => {

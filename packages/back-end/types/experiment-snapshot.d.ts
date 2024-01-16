@@ -1,5 +1,7 @@
-import { ExperimentMetricInterface } from "shared/experiments";
-import { ExperimentMetricQueryResponseRows } from "../src/types/Integration";
+import {
+  MetricSettingsForStatsEngine,
+  QueryResultsForStatsEngine,
+} from "../src/services/stats";
 import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
 import { DifferenceType, StatsEngine } from "./stats";
@@ -192,15 +194,11 @@ export interface ExperimentSnapshotTrafficDimension {
 // Params for gbstats
 export interface ExperimentMetricAnalysisParams {
   variations: ExperimentReportVariation[];
-  metric: ExperimentMetricInterface;
-  rows: ExperimentMetricQueryResponseRows;
-  dimension: string | null;
-  baselineVariationIndex: number;
-  differenceType: DifferenceType;
   phaseLengthHours: number;
   coverage: number;
-  statsEngine: StatsEngine;
-  sequentialTestingEnabled: boolean;
-  sequentialTestingTuningParameter: number;
-  pValueThreshold: number;
+
+  analyses: ExperimentSnapshotAnalysisSettings[];
+
+  queryResults: QueryResultsForStatsEngine[];
+  metrics: Record<string, MetricSettingsForStatsEngine>;
 }

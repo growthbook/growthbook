@@ -10,6 +10,13 @@ const licenseSchema = new mongoose.Schema({
   plan: String, // The plan (pro, enterprise, etc.) for this license
   archived: { type: Boolean, default: false }, // True if this license has been deleted/archived
   seatsInUse: { type: Number, default: 0 }, // Number of seats currently in use
+  remoteDowngrade: { type: Boolean, default: false }, // True if this license was downgraded remotely
+  message: {
+    text: String, // The text to show in the account notice
+    className: String, // The class name to apply to the account notice
+    tooltipText: String, // The text to show in the tooltip
+    showAllUsers: Boolean, // True if all users should see the notice rather than just the admins
+  },
   installationUsers: {
     type: Map,
     of: { _id: false, date: Date, userHashes: [String] },

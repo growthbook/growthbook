@@ -9,7 +9,7 @@ import {
   AutoExperiment,
   GrowthBook,
 } from "@growthbook/growthbook";
-import { validateFeatureValue } from "shared/util";
+import { validateCondition, validateFeatureValue } from "shared/util";
 import { scrubFeatures, SDKCapability } from "shared/sdk-versioning";
 import {
   AutoExperimentWithProject,
@@ -136,6 +136,10 @@ function generateVisualExperimentsPayload({
         })) as AutoExperimentWithProject["variations"],
         hashVersion: e.hashVersion,
         hashAttribute: e.hashAttribute,
+        fallbackAttribute: e.fallbackAttribute,
+        disableStickyBucketing: e.disableStickyBucketing,
+        bucketVersion: e.bucketVersion,
+        minBucketVersion: e.minBucketVersion,
         urlPatterns: v.urlPatterns,
         weights: phase.variationWeights,
         meta: e.variations.map((v) => ({ key: v.key, name: v.name })),
@@ -190,11 +194,17 @@ export async function getSavedGroupMap(
 
   const groupMap: GroupMap = new Map(
     allGroups.map((group) => {
-      const attributeType = attributeMap?.get(group.attributeKey);
-      const values = getGroupValues(group.values, attributeType);
+      let values: (string | number)[] = [];
+      if (group.type === "list" && group.attributeKey && group.values) {
+        const attributeType = attributeMap?.get(group.attributeKey);
+        values = getGroupValues(group.values, attributeType);
+      }
       return [
         group.id,
-        { values, key: group.attributeKey, source: group.source },
+        {
+          ...group,
+          values,
+        },
       ];
     })
   );
@@ -387,19 +397,7 @@ async function getFeatureDefinitionsResponse({
     }
   }
 
-  // todo: enable once done monitoring deltas:
-  // =========================================
-  // features = scrubFeatures(features, capabilities);
-
-  // todo: remove:
-  const scrubbedFeatures = scrubFeatures(features, capabilities);
-  if (!isEqual(scrubbedFeatures, features)) {
-    logger.error(
-      { scrubbedFeatures, features, capabilities },
-      "scrubbedFeatures delta"
-    );
-  }
-  // end remove
+  features = scrubFeatures(features, capabilities);
 
   if (!encryptionKey) {
     return {
@@ -969,6 +967,13 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
   rules: ApiFeatureEnvSettingsRules
 ): FeatureInterface["environmentSettings"][string]["rules"] =>
   rules.map((r) => {
+    const conditionRes = validateCondition(r.condition);
+    if (!conditionRes.success) {
+      throw new Error(
+        "Invalid targeting condition JSON: " + conditionRes.error
+      );
+    }
+
     if (r.type === "experiment-ref") {
       const experimentRule: ExperimentRefRule = {
         // missing id will be filled in by addIdsToRules

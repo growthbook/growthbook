@@ -18,6 +18,9 @@ import {
   HealthTabOnboardingModal,
 } from "./HealthTabOnboardingModal";
 
+const noExposureQueryMessage =
+  "The health tab only works when your experiment has an Exposure Assignment Table. On the Results tab, click Analysis Settings and ensure you have selected the correct Exposure Assignment Table.";
+
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   onDrawerNotify: () => void;
@@ -59,7 +62,6 @@ export default function HealthTab({
   const healthTabConfigParams: HealthTabConfigParams = {
     experiment,
     phase,
-    exposureQueryDimensions: exposureQuery?.dimensions || [],
     refreshOrganization,
     mutateSnapshot,
     setAnalysisSettings,
@@ -86,12 +88,21 @@ export default function HealthTab({
     [onDrawerNotify]
   );
 
-  // If org has not updated settings since the health tab was introduced, prompt the user
-  // to enable the traffic query setting
+  // If org has the health tab turned to off and has no data, prompt set up if the
+  // datasource and exposure query are present
   if (
     !runHealthTrafficQuery &&
     !snapshot?.health?.traffic.dimension?.dim_exposure_date
   ) {
+    // If for some reason the datasource and exposure query are missing, then we should
+    // not show the onboarding flow as there are other problems with this experiment
+    if (!datasource || !exposureQuery) {
+      return (
+        <div className="alert alert-info mt-3 d-flex">
+          {noExposureQueryMessage}
+        </div>
+      );
+    }
     return (
       <div className="alert alert-info mt-3 d-flex">
         {runHealthTrafficQuery === undefined
@@ -114,6 +125,8 @@ export default function HealthTab({
               <HealthTabOnboardingModal
                 open={setupModalOpen}
                 close={() => setSetupModalOpen(false)}
+                dataSource={datasource}
+                exposureQuery={exposureQuery}
                 healthTabOnboardingPurpose={"setup"}
                 healthTabConfigParams={healthTabConfigParams}
               />
@@ -173,6 +186,16 @@ export default function HealthTab({
         </div>
       );
     }
+    if (!datasource || !exposureQuery) {
+      return (
+        <div className="alert alert-info mt-3">
+          {noExposureQueryMessage}
+          {
+            " Then, next time you update results, the health tab will be available."
+          }
+        </div>
+      );
+    }
     return (
       <div className="alert alert-info mt-3">
         Please return to the results page and run a query to see health data.
@@ -207,6 +230,8 @@ export default function HealthTab({
           variations={variations}
           totalUsers={totalUsers}
           onNotify={handleDrawerNotify}
+          dataSource={datasource}
+          exposureQuery={exposureQuery}
           healthTabConfigParams={healthTabConfigParams}
         />
       </div>

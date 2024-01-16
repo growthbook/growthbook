@@ -7,7 +7,7 @@ export async function uploadFile(
 ) {
   let fileURL = "";
   try {
-    ({ fileURL } = await apiCall("/putupload", {
+    ({ fileURL } = await apiCall("/upload", {
       method: "PUT",
 
       headers: {

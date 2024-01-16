@@ -1,30 +1,36 @@
 ---
 title: Feature Flag Targeting
 description: Learn about how to target with GrowthBook
-sidebar_label: Targeting Attributes
+sidebar_label: Targeting
 slug: /features/targeting
 ---
 
-## Targeting Attributes
+# Targeting
 
-Feature values can be targeted to specific users or groups of users. In order for this to work, you must pass targeting
+GrowthBook lets you target a specific feature value or experiment to a subset of your users. This is accomplished with **Attributes**, **Conditions**, and **Saved Groups**.
+
+## Attributes
+
+In order for targeting to work, you must pass
 attributes into the GrowthBook SDK and also list them in the GrowthBook App.
 
-This is an example of specifying the targeting attributes in the SDK:
+Attributes are passed into your SDKs as key-value pairs. The keys you use are completely custom and there are no requirements or restrictions. Use whatever makes sense for your application.
+
+Here's an example from our JavaScript SDK:
 
 ```ts
 growthbook.setAttributes({
-  id: user.id,
-  email: user.email,
-  country: user.country,
+  id: "123",
+  email: "hello@growthbook.io",
+  country: "US",
   url: window.location.href,
   userAgent: navigator.userAgent,
-  admin: user.isAdmin,
-  age: user.age,
+  admin: true,
+  age: 50,
 });
 ```
 
-You can update the attributes in the GrowthBook App under **SDK Connections** > **Attributes**:
+In addition to passing attributes into the SDK, you also must update the GrowthBook App with these same attribute keys. You can do this under **SDK Connections** > **Attributes**:
 
 ![List of targeting attributes](/images/edit-targeting-attributes.png)
 
@@ -56,54 +62,173 @@ GrowthBook supports the following attribute data types:
 
 #### Semantic Version Targeting
 
-In version 2.2, we introduced support for semantic version targeting. Using the string data type and defining a format, you can leverage semantic versioning comparisons in your targeting definitions.
+In version 2.2, we introduced support for semantic version string comparisons. Without this, the string `1.0.9` will be seen as "greater" than `1.0.10`.
 
 To leverage this feature, you first need to create a version string attribute. Navigate to **SDK Configurations > Attributes** and create or edit a String attribute. In the format dropdown, select: **Version string.**
 
 ![Version string attribute](/images/targeting-semantic-versions.png)
 
-When defining the semantic version targeting condition for a feature flag, just select the string attribute and the appropriate comparison operator.
+After saving, the targeting operators (e.g. `is greater than`) will automatically start using a version-safe comparison function.
 
-![Setting semantic version target](/images/setting-semantic-version-target.png)
+:::note
+
+This is only supported in some of our SDKs. Check the release notes for the specific SDK you are using to make sure you have a compatible version installed.
+
+:::
+
+## Targeting Conditions
+
+GrowthBook provides a nice UI for defining simple targeting conditions using your attributes.
+
+![Simple targeting conditions](/images/targeting-simple.png)
+
+### Advanced Mode
+
+If you need support for something more advanced you can enter targeting conditions with JSON instead by clicking the "Advanced Mode" link.
+
+The JSON structure is inspired by the MongoDB Query syntax. Multiple conditions are always joined with `AND` (except when explicitly using `$or`/`$nor`). Below are all of the supported operators with examples.
+
+- Key/value pairs for simple equality
+  ```json
+  {
+    "attribute1": "value1",
+    "attribute2": 123,
+    "attribute3": false
+  }
+  ```
+- Basic comparison operators for string/number attributes
+  - `$eq` (equals)
+  - `$ne` (not equals)
+  - `$lt` (less than)
+  - `$lte` (less than or equal to)
+  - `$gt` (greater than)
+  - `$gte` (greater than or equal to)
+  - `$regex` (regular expression match, string attributes only)
+  - `$in` (in array)
+  - `$nin` (not in array)
+  ```json
+  {
+    "foo": {
+      "$gt": 10,
+      "$lte": 99
+    },
+    "bar": {
+      "$in": ["a","b","c"]
+    },
+    "baz": {
+      "$regex": "^test-([0-9]+)$"
+    }
+  }
+  ```
+- Comparison operators for semantic version strings (semver):
+  - `$veq` (equals)
+  - `$vne` (not equals)
+  - `$vlt` (less than)
+  - `$vlte` (less than or equal to)
+  - `$vgt` (greater than)
+  - `$vgte` (greater than or equal to)
+  ```json
+  {
+    "appVersion": {
+      "$vgt": "1.5.6",
+      "$vlte": "5.4.0"
+    }
+  }
+  ```
+- Operators for array attributes
+  - `$elemMatch` (at least one element must match the specified condition)
+  - `$all` (all of the specified values must exist in the array)
+  - `$size` (array length must match the specified condition)
+  ```json
+  {
+    "emails": {
+      "$elemMatch": {
+        "$regex": "@gmail.com$"
+      }
+    },
+    "hobies": {
+      "$all": ["hiking","tennis","chess"]
+    },
+    "tags": {
+      "$size": {
+        "$gt": 5
+      }
+    }
+  }
+  ```
+- Misc operators
+  - `$exists` (tests if the attribute value is null or not)
+  - `$type` (tests if the attribute's type matches the type specified)
+  - `$not` (inverts a nested condition)
+  ```json
+  {
+    "alternateEmail": {
+      "$exists": true
+    },
+    "foo": {
+      "$type": "string"
+    },
+    "name": {
+      "$not": {
+        "$regex": "^J"
+      }
+    }
+  }
+  ```
+- Logical operators with arbitrary nesting levels
+  - `$or`
+  - `$nor`
+  - `$and`
+  - `$not`
+  ```json
+  {
+    "$or": [
+      {
+        "$not": {
+          "foo": "abc"
+        }
+      },
+      {
+        "$and": [
+          {"bar": true},
+          {"baz": 123}
+        ]
+      }
+    ]
+  }
+  ```
+
+:::note
+
+We use the MongoDB query syntax because it is easy to read and write and is well documented. The conditions are never actually executed against a database. Instead, our SDKs include a light-weight interpreter for this syntax that runs entirely locally.
+
+:::
 
 ## Saved Groups
 
-In addition to targeting by attributes, GrowthBook also the concept of **Saved Groups**, which make it easy to target the same group of users across multiple features/experiments.
+In addition to targeting by attributes, GrowthBook has also the concept of **Saved Groups**, which makes it easy to target the same group of users across multiple features/experiments.
+
+Once you define your Saved Groups, you can easily reference them from any Feature rule or Experiment. Updates to saved groups apply immediately and will be instantly propagated to all matching Features and Experiments.
+
+![Saved Group Targeting](/images/saved-groups-targeting.png)
 
 There are two types of Saved Groups:
 
-- **Inline Saved Groups** - Pick an attribute and define a list of values directly within the GrowthBook UI. For example, you can make an `Admin` group and add the `userId` of all of your admins.
-- **Runtime Saved Groups** - Determine group membership in your application at runtime. For example, you can have a `Premium User` group and your application can pass into the SDK whether or not the current user is premium.
+- **ID Lists** - Pick an attribute and define a list of values directly within the GrowthBook UI. For example, you can make an `Admin` group and add the `userId` of all of your admins.
+- **Condition Groups** - Configure advanced targeting rules based on a user's attributes. For example, "all users located in the US on a mobile device".
 
-![Saved Groups](/images/saved-groups.png)
+:::note
 
-### Runtime Saved Groups
+ID Lists are currently limited to a maximum of **100 values**. These values are included directly in the payload sent to your SDKs and large payloads can slow down your application. Support for largers lists is coming soon!
 
-Runtime groups require some changes to your SDK integration.
+:::
 
-Every runtime group has a unique **Group Identifier**. You need to include a special attribute in your integration named `$groups` that contains an array of these identifiers as strings.
+![Saved Groups UI](/images/saved-groups.png)
 
-Here's an example using our Javascript SDK:
+:::note
 
-```ts
-// Build an array of groups
-const groups = [];
+GrowthBook 2.7 introduced a naming change. "Inline Groups" were renamed to "ID Lists". "Runtime Groups" were renamed to "Condition Groups" and now support arbitrary targeting conditions.
 
-// Use whatever custom logic you need to determine group membership
-if (isPro()) {
-  groups.push("premium"); // "premium" is the Group Identifier
-}
+Only ID Lists can be referenced in the **Target by Attribute** field. Both types of Saved Groups can be referenced with the newer **Saved Group Targeting** field.
 
-// Include it as a special `$groups` attribute:
-const attributes = {
-  id: "123",
-  loggedIn: true,
-  "$groups": groups,
-}
-
-// Create your GrowthBook instance and include the special `$groups` attribute
-const gb = new GrowthBook({
-  attributes: attributes,
-  // ... other options
-});
-```
+:::
