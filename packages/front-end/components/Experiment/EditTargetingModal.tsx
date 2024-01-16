@@ -4,11 +4,11 @@ import {
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
 } from "back-end/types/experiment";
-import { FaExclamationCircle } from "react-icons/fa";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import React, { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
+import { MdInfoOutline } from "react-icons/md";
 import useIncrementer from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import { getEqualWeights } from "@/services/utils";
@@ -20,6 +20,7 @@ import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
@@ -239,14 +240,6 @@ export default function EditTargetingModal({
             setChangeType={setChangeType}
           />
 
-          {changeType === "advanced" && (
-            <div className="alert alert-warning px-3 py-2 small">
-              <FaExclamationCircle /> When making multiple types of changes, it
-              can be difficult to control for the impact of each change. Proceed
-              with caution.
-            </div>
-          )}
-
           <div className="mt-4">
             <label>
               Current experiment targeting and traffic (for reference)
@@ -304,8 +297,9 @@ function ChangeTypeSelector({
   const { namespaces } = useOrgSettings();
 
   const options = [
+    { label: "Start a New Phase", value: "phase" },
     {
-      label: "Saved Group and/or Attribute Targeting",
+      label: "Saved Group & Attribute Targeting",
       value: "targeting",
     },
     {
@@ -315,8 +309,15 @@ function ChangeTypeSelector({
     },
     { label: "Traffic Percent", value: "traffic" },
     { label: "Variation Weights", value: "weights" },
-    { label: "Start a New Phase", value: "phase" },
-    { label: "Advanced (multiple things at once)", value: "advanced" },
+    {
+      label: (
+        <Tooltip body="Warning: When making multiple changes at the same time, it can be difficult to control for the impact of each change. The risk of introducing experimental bias increases. Proceed with caution.">
+          Advanced: multiple changes at once{" "}
+          <MdInfoOutline className="text-warning-orange" />
+        </Tooltip>
+      ),
+      value: "advanced",
+    },
   ];
 
   return (
@@ -338,7 +339,7 @@ function ChangeTypeSelector({
                   onChange={() => setChangeType(o.value as ChangeType)}
                 />
                 <label
-                  className="form-check-label cursor-pointer text-dark hover-underline"
+                  className="form-check-label cursor-pointer text-dark font-weight-bold hover-underline"
                   htmlFor={`changeType-${o.value}`}
                 >
                   {o.label}
