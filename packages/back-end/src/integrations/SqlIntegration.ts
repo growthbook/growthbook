@@ -573,21 +573,23 @@ export default abstract class SqlIntegration
           count: parseInt(row.users) || 0,
           main_sum: parseFloat(row.main_sum) || 0,
           main_sum_squares: parseFloat(row.main_sum_squares) || 0,
-          ...(row.denominator_sum && {
+          ...(row.denominator_sum !== undefined && {
             denominator_sum: parseFloat(row.denominator_sum) || 0,
             denominator_sum_squares:
               parseFloat(row.denominator_sum_squares) || 0,
             main_denominator_sum_product:
               parseFloat(row.main_denominator_sum_product) || 0,
           }),
-          ...(row.covariate_sum && {
+          ...(row.covariate_sum !== undefined && {
             covariate_sum: parseFloat(row.covariate_sum) || 0,
             covariate_sum_squares: parseFloat(row.covariate_sum_squares) || 0,
             main_covariate_sum_product:
               parseFloat(row.main_covariate_sum_product) || 0,
           }),
-          ...(row.main_cap_value && { main_cap_value: row.main_cap_value }),
-          ...(row.denominator_cap_value && {
+          ...(row.main_cap_value !== undefined && {
+            main_cap_value: row.main_cap_value,
+          }),
+          ...(row.denominator_cap_value !== undefined && {
             denominator_cap_value: row.denominator_cap_value,
           }),
         };
