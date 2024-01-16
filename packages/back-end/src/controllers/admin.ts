@@ -58,17 +58,22 @@ export async function getLicenseData(req: AuthRequest, res: Response) {
 export async function getLicenseReport(req: AuthRequest, res: Response) {
   req.checkPermissions("manageBilling");
 
-  // Force refresh the license data
+  const timestamp = new Date().toISOString();
   const licenseMetaData = await getLicenseMetaData();
   const userLicenseCodes = await getUserLicenseCodes();
 
   // Create a hmac signature of the license data
   const hmac = crypto.createHmac("sha256", licenseMetaData.installationId);
 
-  return res.status(200).json({
-    status: 200,
+  const report = {
+    timestamp,
     licenseMetaData,
     userLicenseCodes,
-    signature: hmac.update(JSON.stringify(userLicenseCodes)).digest("hex"),
+  };
+
+  return res.status(200).json({
+    status: 200,
+    ...report,
+    signature: hmac.update(JSON.stringify(report)).digest("hex"),
   });
 }
