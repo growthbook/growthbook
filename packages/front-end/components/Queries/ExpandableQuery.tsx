@@ -14,8 +14,7 @@ import { FaBoltLightning } from "react-icons/fa6";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Code from "../SyntaxHighlighting/Code";
 import Tooltip from "../Tooltip/Tooltip";
-
-const numberFormatter = Intl.NumberFormat();
+import QueryStatsRow from "./QueryStatsRow";
 
 const ExpandableQuery: FC<{
   query: QueryInterface;
@@ -150,29 +149,21 @@ const ExpandableQuery: FC<{
       )}
       {query.status === "succeeded" && (
         <div>
-          <div className="row">
-            <div className="col-auto mb-2">
-              <em>Total time</em>:{" "}
-              <strong>
-                {formatDistanceStrict(
-                  getValidDate(query.startedAt),
-                  getValidDate(query.finishedAt)
-                )}
-              </strong>
+          {query.statistics ? (
+            <QueryStatsRow queries={[query]} />
+          ) : (
+            <div className="row">
+              <div className="col-auto mb-2">
+                <em>Total time</em>:{" "}
+                <strong>
+                  {formatDistanceStrict(
+                    getValidDate(query.startedAt),
+                    getValidDate(query.finishedAt)
+                  )}
+                </strong>
+              </div>
             </div>
-            {query.statistics
-              ? Object.entries(query.statistics).map(([k, v]) => (
-                  <div className="col-auto mb-2" key={k}>
-                    <em>{k}</em>:{" "}
-                    <strong>
-                      {typeof v === "number"
-                        ? numberFormatter.format(v)
-                        : JSON.stringify(v)}
-                    </strong>
-                  </div>
-                ))
-              : null}
-          </div>
+          )}
         </div>
       )}
       {query.status === "running" && (
