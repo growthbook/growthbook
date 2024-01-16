@@ -1574,6 +1574,9 @@ export async function deleteExperiment(
     });
     return;
   }
+  const project = experiment.project
+    ? await findProjectById(experiment.project, org.id, req.readAccessFilter)
+    : null;
 
   if (experiment.organization !== org.id) {
     res.status(403).json({
@@ -1598,7 +1601,7 @@ export async function deleteExperiment(
       experiment,
       org,
       res.locals.eventAudit,
-      req.readAccessFilter
+      project
     ),
     removeExperimentFromPresentations(experiment.id),
   ]);
