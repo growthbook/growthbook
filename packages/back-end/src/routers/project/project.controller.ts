@@ -171,6 +171,12 @@ export const deleteProject = async (
 
   const { org } = getOrgFromReq(req);
 
+  const project = await findProjectById(id, org.id, req.readAccessFilter);
+
+  if (!project) {
+    throw new Error("Could not find project");
+  }
+
   await deleteProjectById(id, org.id);
 
   // Cleanup functions from other models
@@ -239,12 +245,10 @@ export const deleteProject = async (
   if (deleteExperiments) {
     try {
       req.checkPermissions("createAnalyses", id);
-
       await deleteAllExperimentsForAProject({
-        projectId: id,
+        project,
         organization: org,
         user: res.locals.eventAudit,
-        readAccessFilter: req.readAccessFilter,
       });
     } catch (e) {
       return res.json({

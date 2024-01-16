@@ -31,6 +31,7 @@ import { EventAuditUser } from "../events/event-types";
 import { FeatureInterface } from "../../types/feature";
 import { getAffectedSDKPayloadKeys } from "../util/features";
 import { getEnvironmentIdsFromOrg } from "../services/organizations";
+import { ProjectInterface } from "../../types/project";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -770,7 +771,7 @@ export async function deleteExperimentByIdForOrganization(
   experiment: ExperimentInterface,
   organization: OrganizationInterface,
   user: EventAuditUser,
-  readAccessFilter: ReadAccessFilter
+  project: ProjectInterface | null
 ) {
   try {
     await ExperimentModel.deleteOne({
@@ -780,7 +781,7 @@ export async function deleteExperimentByIdForOrganization(
 
     await VisualChangesetModel.deleteMany({ experiment: experiment.id });
 
-    await onExperimentDelete(organization, user, experiment, readAccessFilter);
+    await onExperimentDelete(organization, user, experiment, project);
   } catch (e) {
     logger.error(e);
   }
@@ -793,25 +794,23 @@ export async function deleteExperimentByIdForOrganization(
  * @param user
  */
 export async function deleteAllExperimentsForAProject({
-  projectId,
+  project,
   organization,
   user,
-  readAccessFilter,
 }: {
-  projectId: string;
+  project: ProjectInterface;
   organization: OrganizationInterface;
   user: EventAuditUser;
-  readAccessFilter: ReadAccessFilter;
 }) {
   const experimentsToDelete = await ExperimentModel.find({
     organization: organization.id,
-    project: projectId,
+    project: project.id,
   });
 
   for (const experiment of experimentsToDelete) {
     await experiment.delete();
     VisualChangesetModel.deleteMany({ experiment: experiment.id });
-    await onExperimentDelete(organization, user, experiment, readAccessFilter);
+    await onExperimentDelete(organization, user, experiment, project);
   }
 }
 
@@ -1080,18 +1079,12 @@ export const logExperimentDeleted = async (
   organization: OrganizationInterface,
   user: EventAuditUser,
   experiment: ExperimentInterface,
-  readAccessFilter: ReadAccessFilter
+  project: ProjectInterface | null
 ): Promise<string | undefined> => {
   const apiExperiment = await toExperimentApiInterface(
     organization,
     experiment,
-    experiment.project //TODO: Is this another place I can just pass in the project so I can avoid having to pass in the readAccessFilter?
-      ? await findProjectById(
-          experiment.project,
-          organization.id,
-          readAccessFilter
-        )
-      : null
+    project
   );
   const payload: ExperimentDeletedNotificationEvent = {
     object: "experiment",
@@ -1388,9 +1381,9 @@ const onExperimentDelete = async (
   organization: OrganizationInterface,
   user: EventAuditUser,
   experiment: ExperimentInterface,
-  readAccessFilter: ReadAccessFilter
+  project: ProjectInterface | null
 ) => {
-  await logExperimentDeleted(organization, user, experiment, readAccessFilter);
+  await logExperimentDeleted(organization, user, experiment, project);
 
   const featureIds = [...(experiment.linkedFeatures || [])];
   let linkedFeatures: FeatureInterface[] = [];
