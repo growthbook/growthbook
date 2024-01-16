@@ -16,6 +16,7 @@ const DownloadLicenseUsageButton: FC = () => {
         status: number;
         licenseMetaData: LicenseMetaData;
         userLicenseCodes: string[];
+        signature: string;
       }>(`/admin/license-report`, {
         method: "GET",
       });
@@ -32,6 +33,8 @@ const DownloadLicenseUsageButton: FC = () => {
               licenseMetaData: res.licenseMetaData,
               userLicenseCodes: res.userLicenseCodes,
               seatsUsed: res.userLicenseCodes.length,
+              signature: res.signature,
+              timestamp: new Date().toISOString(),
             },
             null,
             2

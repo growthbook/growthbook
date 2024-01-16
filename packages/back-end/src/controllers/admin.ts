@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { Response } from "express";
 import { AuthRequest } from "../types/AuthRequest";
 import { findAllOrganizations } from "../models/OrganizationModel";
@@ -61,9 +62,13 @@ export async function getLicenseReport(req: AuthRequest, res: Response) {
   const licenseMetaData = await getLicenseMetaData();
   const userLicenseCodes = await getUserLicenseCodes();
 
+  // Create a hmac signature of the license data
+  const hmac = crypto.createHmac("sha256", licenseMetaData.installationId);
+
   return res.status(200).json({
     status: 200,
     licenseMetaData,
     userLicenseCodes,
+    signature: hmac.update(JSON.stringify(userLicenseCodes)).digest("hex"),
   });
 }
