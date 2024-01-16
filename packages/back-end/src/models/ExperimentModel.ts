@@ -675,7 +675,7 @@ const logExperimentCreated = async (
   const apiExperiment = await toExperimentApiInterface(
     organization,
     experiment,
-    experiment.project //TODO: Is this another place I can just pass in the project so I can avoid having to pass in the readAccessFilter?
+    experiment.project
       ? await findProjectById(
           experiment.project,
           organization.id,
@@ -720,7 +720,7 @@ const logExperimentUpdated = async ({
   const previousApiExperimentPromise = toExperimentApiInterface(
     organization,
     previous,
-    previous.project //TODO: Is this another place I can just pass in the project so I can avoid having to pass in the readAccessFilter?
+    previous.project
       ? await findProjectById(
           previous.project,
           organization.id,
@@ -731,7 +731,7 @@ const logExperimentUpdated = async ({
   const currentApiExperimentPromise = toExperimentApiInterface(
     organization,
     current,
-    current.project //TODO: Is this another place I can just pass in the project so I can avoid having to pass in the readAccessFilter?
+    current.project
       ? await findProjectById(
           current.project,
           organization.id,
