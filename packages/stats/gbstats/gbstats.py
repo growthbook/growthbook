@@ -493,6 +493,7 @@ def process_single_metric(
             ],
         )
     pdrows = pd.DataFrame(rows)
+    # TODO validate data in rows matches metric settings
 
     # Detect any variations that are not in the returned metric rows
     all_var_ids: Set[str] = set([v for a in analyses for v in a.var_ids])
