@@ -7,18 +7,17 @@ import numpy as np
 from gbstats.messages import ZERO_NEGATIVE_VARIANCE_MESSAGE
 from gbstats.frequentist.tests import (
     FrequentistConfig,
+    FrequentistTestResult,
     SequentialConfig,
     SequentialTwoSidedTTest,
     TwoSidedTTest,
 )
-from gbstats.shared.constants import DifferenceType
-from gbstats.shared.models import (
-    FrequentistTestResult,
+from gbstats.models.statistics import (
     ProportionStatistic,
     RegressionAdjustedStatistic,
     SampleMeanStatistic,
-    Uplift,
 )
+from gbstats.models.tests import Uplift
 
 DECIMALS = 5
 round_ = partial(np.round, decimals=DECIMALS)
@@ -61,7 +60,7 @@ class TestTwoSidedTTest(TestCase):
             TwoSidedTTest(
                 stat_a,
                 stat_b,
-                FrequentistConfig(difference_type=DifferenceType.ABSOLUTE),
+                FrequentistConfig(difference_type="absolute"),
             ).compute_result()
         )
         expected_rounded_dict = asdict(

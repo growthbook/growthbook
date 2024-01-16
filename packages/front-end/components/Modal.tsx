@@ -189,7 +189,7 @@ const Modal: FC<ModalProps> = ({
               tipPosition="top"
             >
               <button
-                className={`btn btn-${ctaEnabled ? submitColor : "secondary"}`}
+                className={`btn btn-${submitColor}`}
                 type="submit"
                 disabled={!ctaEnabled}
               >

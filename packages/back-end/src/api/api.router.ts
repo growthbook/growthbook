@@ -6,7 +6,6 @@ import bodyParser from "body-parser";
 import authenticateApiRequestMiddleware from "../middleware/authenticateApiRequestMiddleware";
 import { getBuild } from "../util/handler";
 import { ApiRequestLocals } from "../../types/api";
-import verifyLicenseMiddleware from "../services/auth/verifyLicenseMiddleware";
 import featuresRouter from "./features/features.router";
 import experimentsRouter from "./experiments/experiments.router";
 import metricsRouter from "./metrics/metrics.router";
@@ -46,7 +45,6 @@ router.use(bodyParser.json({ limit: "1mb" }));
 router.use(bodyParser.urlencoded({ limit: "1mb", extended: true }));
 
 router.use(authenticateApiRequestMiddleware);
-router.use(verifyLicenseMiddleware);
 
 const API_RATE_LIMIT_MAX = Number(process.env.API_RATE_LIMIT_MAX) || 60;
 // Rate limit API keys to 60 requests per minute

@@ -7,7 +7,7 @@ import { IS_CLOUD } from "../util/secrets";
 import { getInstallationDatasources } from "../models/DataSourceModel";
 import { getUserLicenseCodes } from "./users";
 
-async function getMetaData() {
+export async function getLicenseMetaData() {
   const installationId = await getInstallationId();
   const rootPath = path.join(__dirname, "..", "..", "..", "..");
 
@@ -61,9 +61,14 @@ export async function initializeLicense(
   forceRefresh = false
 ) {
   const key = licenseKey || process.env.LICENSE_KEY;
-  if (!IS_CLOUD && (!key || key.startsWith("license_"))) {
+  if (
+    !IS_CLOUD &&
+    (!key ||
+      key.startsWith("license_") ||
+      process.env.LICENSE_KEY?.startsWith("license_"))
+  ) {
     const userLicenseCodes = await getUserLicenseCodes();
-    const metaData = await getMetaData();
+    const metaData = await getLicenseMetaData();
     return await licenseInit(
       licenseKey,
       userLicenseCodes,

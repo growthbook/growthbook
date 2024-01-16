@@ -4,6 +4,7 @@ import {
   QueryInterface,
   QueryPointer,
   QueryStatus,
+  QueryType,
 } from "../../types/query";
 import {
   createNewQuery,
@@ -19,6 +20,7 @@ import {
 } from "../types/Integration";
 import { logger } from "../util/logger";
 import { promiseAllChunks } from "../util/promise";
+import { OrganizationInterface } from "../../types/organization";
 
 export type QueryMap = Map<string, QueryInterface>;
 
@@ -38,7 +40,7 @@ export type QueryStatusEndpointResponse = {
   total: number;
 };
 
-export type RowsType = Record<string, string | boolean | number>[];
+export type RowsType = Record<string, string | boolean | number | object>[];
 // eslint-disable-next-line
 export type ProcessedRowsType = Record<string, any>;
 
@@ -51,6 +53,7 @@ export type StartQueryParams<Rows, ProcessedRows> = {
     setExternalId: ExternalIdCallback
   ) => Promise<QueryResponse<Rows>>;
   process: (rows: Rows) => ProcessedRows;
+  queryType: QueryType;
 };
 
 const FINISH_EVENT = "finish";
@@ -82,6 +85,7 @@ export abstract class QueryRunner<
 > {
   public model: Model;
   public integration: SourceIntegrationInterface;
+  public organization: OrganizationInterface;
   private timer: null | NodeJS.Timeout = null;
   private emitter: EventEmitter;
   public status: RunnerStatus = "pending";
@@ -101,11 +105,13 @@ export abstract class QueryRunner<
   public constructor(
     model: Model,
     integration: SourceIntegrationInterface,
+    organization: OrganizationInterface,
     useCache = true
   ) {
     this.model = model;
     this.integration = integration;
     this.useCache = useCache;
+    this.organization = organization;
     this.emitter = new EventEmitter();
   }
 
@@ -473,7 +479,7 @@ export abstract class QueryRunner<
     Rows extends RowsType,
     ProcessedRows extends ProcessedRowsType
   >(params: StartQueryParams<Rows, ProcessedRows>): Promise<QueryPointer> {
-    const { name, query, dependencies, run, process } = params;
+    const { name, query, dependencies, run, process, queryType } = params;
     // Re-use recent identical query if it exists
     if (this.useCache) {
       logger.debug("Trying to reuse existing query");
@@ -536,6 +542,7 @@ export abstract class QueryRunner<
     const readyToRun = dependencies.length === 0;
     const doc = await createNewQuery({
       query,
+      queryType,
       datasource: this.integration.datasource,
       organization: this.integration.organization,
       language: this.integration.getSourceProperties().queryLanguage,
