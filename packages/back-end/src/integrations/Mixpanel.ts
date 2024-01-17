@@ -1,3 +1,4 @@
+import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceProperties,
   DataSourceSettings,
@@ -9,6 +10,7 @@ import { MetricInterface, MetricType } from "../../types/metric";
 import { decryptDataSourceParams } from "../services/datasource";
 import { formatQuery, runQuery } from "../services/mixpanel";
 import {
+  DimensionSlicesQueryResponse,
   ExperimentAggregateUnitsQueryResponse,
   ExperimentMetricQueryResponse,
   ExperimentQueryResponses,
@@ -28,6 +30,7 @@ import {
 } from "../util/mixpanel";
 import { compileSqlTemplate } from "../util/sql";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
+import { applyMetricOverrides } from "../util/integration";
 
 export default class Mixpanel implements SourceIntegrationInterface {
   type!: DataSourceType;
@@ -100,10 +103,19 @@ export default class Mixpanel implements SourceIntegrationInterface {
 
   getExperimentResultsQuery(
     snapshotSettings: ExperimentSnapshotSettings,
-    metrics: MetricInterface[],
-    activationMetric: MetricInterface,
+    metricDocs: MetricInterface[],
+    activationMetricDoc: MetricInterface,
     dimension: DimensionInterface
   ): string {
+    const activationMetric = cloneDeep<MetricInterface>(activationMetricDoc);
+    applyMetricOverrides(activationMetric, snapshotSettings);
+
+    const metrics = metricDocs.map((m) => {
+      const mCopy = cloneDeep<MetricInterface>(m);
+      applyMetricOverrides(mCopy, snapshotSettings);
+      return mCopy;
+    });
+
     const hasEarlyStartMetrics =
       metrics.filter(
         (m) => m.conversionDelayHours && m.conversionDelayHours < 0
@@ -549,6 +561,12 @@ export default class Mixpanel implements SourceIntegrationInterface {
     throw new Error("Method not implemented.");
   }
   async runPastExperimentQuery(): Promise<PastExperimentQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  getDimensionSlicesQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  async runDimensionSlicesQuery(): Promise<DimensionSlicesQueryResponse> {
     throw new Error("Method not implemented.");
   }
   getSensitiveParamKeys(): string[] {

@@ -65,3 +65,16 @@ export function getValidDate(
   }
   return d;
 }
+/**
+ * This function will offset the time passed in
+ * to show its "true" time eg if you pass in
+ * `12/04/2023` if will show `12/04/2023`
+ * even if the user is in pacific time
+ *
+ */
+export function getValidDateOffsetByUTC(
+  ...params: Parameters<typeof getValidDate>
+): Date {
+  const date = getValidDate(...params);
+  return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+}

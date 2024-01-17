@@ -32,6 +32,10 @@ router.delete(
   "/organization/namespaces/:name",
   organizationsController.deleteNamespace
 );
+router.post(
+  "/organization/auto-groups-attribute",
+  organizationsController.autoAddGroupsAttribute
+);
 router.get("/invite/:key", organizationsController.getInviteInfo);
 router.post("/invite/accept", organizationsController.postInviteAccept);
 router.post("/invite", organizationsController.postInvite);

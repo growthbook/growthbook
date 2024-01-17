@@ -621,6 +621,10 @@ export async function importConfig(
         if (!ds) return;
         k = k.toLowerCase();
         try {
+          if (ds?.params && "privateKey" in ds.params) {
+            // Fix newlines in the private keys:
+            ds.params.privateKey = ds.params?.privateKey?.replace(/\\n/g, "\n");
+          }
           const existing = await getDataSourceById(k, organization.id);
           if (existing) {
             let params = existing.params;
@@ -650,7 +654,6 @@ export async function importConfig(
                 },
               },
             };
-
             await updateDataSource(existing, organization.id, updates);
           } else {
             await createDataSource(

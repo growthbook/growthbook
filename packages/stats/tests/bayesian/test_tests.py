@@ -5,6 +5,7 @@ from unittest import TestCase, main as unittest_main
 import numpy as np
 
 from gbstats.bayesian.tests import (
+    BayesianTestResult,
     BetaPrior,
     BinomialBayesianABTest,
     BinomialBayesianConfig,
@@ -12,21 +13,21 @@ from gbstats.bayesian.tests import (
     GaussianPrior,
     GaussianBayesianConfig,
 )
-from gbstats.shared.models import (
-    BayesianTestResult,
-    Uplift,
+from gbstats.models.statistics import (
     ProportionStatistic,
     SampleMeanStatistic,
 )
+from gbstats.models.tests import Uplift
 
 DECIMALS = 5
 round_ = partial(np.round, decimals=DECIMALS)
 
 
 def round_results_dict(result_dict):
-    # round result
     for k, v in result_dict.items():
-        if k == "uplift":
+        if k == "error_message":
+            pass
+        elif k == "uplift":
             v = {
                 kk: round_(vv) if isinstance(vv, float) else vv for kk, vv in v.items()
             }
@@ -41,7 +42,6 @@ class TestBinom(TestCase):
         stat_a = ProportionStatistic(sum=49, n=100)
         stat_b = ProportionStatistic(sum=51, n=100)
         result = BinomialBayesianABTest(stat_a, stat_b).compute_result()
-
         expected_rounded_dict = asdict(
             BayesianTestResult(
                 expected=0.0404,

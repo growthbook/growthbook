@@ -1,6 +1,12 @@
-import { getUserPermissions } from "../src/util/organization.util";
+import { getReadAccessFilter, hasReadAccess } from "shared/permissions";
+import {
+  getUserPermissions,
+  roleToPermissionMap,
+} from "../src/util/organization.util";
 import { OrganizationInterface } from "../types/organization";
 import { TeamInterface } from "../types/team";
+import { FeatureInterface } from "../types/feature";
+import { MetricInterface } from "../types/metric";
 
 describe("Build base user permissions", () => {
   const testOrg: OrganizationInterface = {
@@ -21,6 +27,13 @@ describe("Build base user permissions", () => {
         teams: [],
       },
     ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
   };
   // Basic user permissions - no project-level permissions or teams
   it("should throw error if user isn't in the org", async () => {
@@ -29,45 +42,32 @@ describe("Build base user permissions", () => {
     ).rejects.toThrow("User is not a member of this organization");
   });
 
+  it("should build permissions for a basic noaccess user with no project-level permissions or teams correctly", async () => {
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [{ ...testOrg.members[0], role: "noaccess" }],
+      },
+      []
+    );
+    expect(userPermissions).toEqual({
+      global: {
+        environments: [],
+        limitAccessByEnvironment: false,
+        permissions: roleToPermissionMap("noaccess", testOrg),
+      },
+      projects: {},
+    });
+  });
+
   it("should build permissions for a basic readonly user with no project-level permissions or teams correctly", async () => {
     const userPermissions = getUserPermissions("base_user_123", testOrg, []);
     expect(userPermissions).toEqual({
       global: {
         environments: [],
         limitAccessByEnvironment: false,
-        permissions: {
-          createPresentations: false,
-          createDimensions: false,
-          createSegments: false,
-          organizationSettings: false,
-          superDelete: false,
-          manageTeam: false,
-          manageTags: false,
-          manageApiKeys: false,
-          manageArchetype: false,
-          manageFactTables: false,
-          manageIntegrations: false,
-          manageWebhooks: false,
-          manageBilling: false,
-          manageNorthStarMetric: false,
-          manageTargetingAttributes: false,
-          manageNamespaces: false,
-          manageSavedGroups: false,
-          viewEvents: false,
-          addComments: false,
-          createFeatureDrafts: false,
-          manageFeatures: false,
-          manageProjects: false,
-          createAnalyses: false,
-          createIdeas: false,
-          createMetrics: false,
-          createDatasources: false,
-          editDatasourceSettings: false,
-          runQueries: false,
-          publishFeatures: false,
-          manageEnvironments: false,
-          runExperiments: false,
-        },
+        permissions: roleToPermissionMap("readonly", testOrg),
       },
       projects: {},
     });
@@ -86,39 +86,7 @@ describe("Build base user permissions", () => {
       global: {
         environments: [],
         limitAccessByEnvironment: false,
-        permissions: {
-          createPresentations: true,
-          createDimensions: false,
-          createSegments: false,
-          organizationSettings: false,
-          superDelete: false,
-          manageTeam: false,
-          manageTags: false,
-          manageApiKeys: false,
-          manageArchetype: false,
-          manageFactTables: false,
-          manageIntegrations: false,
-          manageWebhooks: false,
-          manageBilling: false,
-          manageNorthStarMetric: false,
-          manageTargetingAttributes: false,
-          manageNamespaces: false,
-          manageSavedGroups: false,
-          viewEvents: false,
-          addComments: true,
-          createFeatureDrafts: false,
-          manageFeatures: false,
-          manageProjects: false,
-          createAnalyses: false,
-          createIdeas: true,
-          createMetrics: false,
-          createDatasources: false,
-          editDatasourceSettings: false,
-          runQueries: false,
-          publishFeatures: false,
-          manageEnvironments: false,
-          runExperiments: false,
-        },
+        permissions: roleToPermissionMap("collaborator", testOrg),
       },
       projects: {},
     });
@@ -137,39 +105,7 @@ describe("Build base user permissions", () => {
       global: {
         environments: [],
         limitAccessByEnvironment: false,
-        permissions: {
-          createPresentations: true,
-          createDimensions: false,
-          createSegments: false,
-          organizationSettings: false,
-          superDelete: false,
-          manageTeam: false,
-          manageTags: true,
-          manageApiKeys: false,
-          manageIntegrations: false,
-          manageArchetype: true,
-          manageFactTables: false,
-          manageWebhooks: false,
-          manageBilling: false,
-          manageNorthStarMetric: false,
-          manageTargetingAttributes: true,
-          manageNamespaces: true,
-          manageSavedGroups: true,
-          viewEvents: false,
-          addComments: true,
-          createFeatureDrafts: true,
-          manageFeatures: true,
-          manageProjects: false,
-          createAnalyses: false,
-          createIdeas: true,
-          createMetrics: false,
-          createDatasources: false,
-          editDatasourceSettings: false,
-          runQueries: false,
-          publishFeatures: true,
-          manageEnvironments: true,
-          runExperiments: true,
-        },
+        permissions: roleToPermissionMap("engineer", testOrg),
       },
       projects: {},
     });
@@ -188,39 +124,7 @@ describe("Build base user permissions", () => {
       global: {
         environments: [],
         limitAccessByEnvironment: false,
-        permissions: {
-          createPresentations: true,
-          createDimensions: true,
-          createSegments: false,
-          organizationSettings: false,
-          superDelete: false,
-          manageTeam: false,
-          manageTags: true,
-          manageApiKeys: false,
-          manageArchetype: false,
-          manageFactTables: true,
-          manageIntegrations: false,
-          manageWebhooks: false,
-          manageBilling: false,
-          manageNorthStarMetric: false,
-          manageTargetingAttributes: false,
-          manageNamespaces: false,
-          manageSavedGroups: false,
-          viewEvents: false,
-          addComments: true,
-          createFeatureDrafts: false,
-          manageFeatures: false,
-          manageProjects: false,
-          createAnalyses: true,
-          createIdeas: true,
-          createMetrics: true,
-          createDatasources: false,
-          editDatasourceSettings: true,
-          runQueries: true,
-          publishFeatures: false,
-          manageEnvironments: false,
-          runExperiments: false,
-        },
+        permissions: roleToPermissionMap("analyst", testOrg),
       },
       projects: {},
     });
@@ -239,39 +143,7 @@ describe("Build base user permissions", () => {
       global: {
         environments: [],
         limitAccessByEnvironment: false,
-        permissions: {
-          createPresentations: true,
-          createDimensions: true,
-          createSegments: true,
-          organizationSettings: false,
-          superDelete: false,
-          manageTeam: false,
-          manageTags: true,
-          manageApiKeys: false,
-          manageIntegrations: false,
-          manageArchetype: true,
-          manageFactTables: true,
-          manageWebhooks: false,
-          manageBilling: false,
-          manageNorthStarMetric: false,
-          manageTargetingAttributes: true,
-          manageNamespaces: true,
-          manageSavedGroups: true,
-          viewEvents: false,
-          addComments: true,
-          createFeatureDrafts: true,
-          manageFeatures: true,
-          manageProjects: false,
-          createAnalyses: true,
-          createIdeas: true,
-          createMetrics: true,
-          createDatasources: false,
-          editDatasourceSettings: true,
-          runQueries: true,
-          publishFeatures: true,
-          manageEnvironments: true,
-          runExperiments: true,
-        },
+        permissions: roleToPermissionMap("experimenter", testOrg),
       },
       projects: {},
     });
@@ -290,39 +162,99 @@ describe("Build base user permissions", () => {
       global: {
         environments: [],
         limitAccessByEnvironment: false,
-        permissions: {
-          createPresentations: true,
-          createDimensions: true,
-          createSegments: true,
-          organizationSettings: true,
-          superDelete: true,
-          manageTeam: true,
-          manageTags: true,
-          manageApiKeys: true,
-          manageIntegrations: true,
-          manageArchetype: true,
-          manageFactTables: true,
-          manageWebhooks: true,
-          manageBilling: true,
-          manageNorthStarMetric: true,
-          manageTargetingAttributes: true,
-          manageNamespaces: true,
-          manageSavedGroups: true,
-          viewEvents: true,
-          addComments: true,
-          createFeatureDrafts: true,
-          manageFeatures: true,
-          manageProjects: true,
-          createAnalyses: true,
-          createIdeas: true,
-          createMetrics: true,
-          createDatasources: true,
-          editDatasourceSettings: true,
-          runQueries: true,
-          publishFeatures: true,
-          manageEnvironments: true,
-          runExperiments: true,
+        permissions: roleToPermissionMap("admin", testOrg),
+      },
+      projects: {},
+    });
+  });
+
+  it("should ignore limitAccessByEnvironment for roles that don't apply", async () => {
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            role: "admin",
+            limitAccessByEnvironment: true,
+            environments: ["development"],
+            projectRoles: [
+              {
+                project: "prj_exl5jr5dl4rbw856",
+                role: "collaborator",
+                limitAccessByEnvironment: true,
+                environments: ["staging"],
+              },
+            ],
+          },
+        ],
+      },
+      []
+    );
+    expect(userPermissions).toEqual({
+      global: {
+        environments: ["development"],
+        limitAccessByEnvironment: false,
+        permissions: roleToPermissionMap("admin", testOrg),
+      },
+      projects: {
+        prj_exl5jr5dl4rbw856: {
+          environments: ["staging"],
+          limitAccessByEnvironment: false,
+          permissions: roleToPermissionMap("collaborator", testOrg),
         },
+      },
+    });
+  });
+
+  it("detects when all environments are selected", async () => {
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            role: "engineer",
+            limitAccessByEnvironment: true,
+            environments: ["staging", "development", "production"],
+          },
+        ],
+      },
+      []
+    );
+    expect(userPermissions).toEqual({
+      global: {
+        environments: ["staging", "development", "production"],
+        limitAccessByEnvironment: false,
+        permissions: roleToPermissionMap("engineer", testOrg),
+      },
+      projects: {},
+    });
+  });
+
+  it("ignores unknown environments", async () => {
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            role: "engineer",
+            limitAccessByEnvironment: true,
+            environments: ["staging", "production", "unknown"],
+          },
+        ],
+      },
+      []
+    );
+    expect(userPermissions).toEqual({
+      global: {
+        environments: ["staging", "production", "unknown"],
+        limitAccessByEnvironment: true,
+        permissions: roleToPermissionMap("engineer", testOrg),
       },
       projects: {},
     });
@@ -355,77 +287,13 @@ describe("Build base user permissions", () => {
       global: {
         environments: [],
         limitAccessByEnvironment: false,
-        permissions: {
-          createPresentations: false,
-          createDimensions: false,
-          createSegments: false,
-          organizationSettings: false,
-          superDelete: false,
-          manageTeam: false,
-          manageTags: false,
-          manageApiKeys: false,
-          manageIntegrations: false,
-          manageWebhooks: false,
-          manageBilling: false,
-          manageNorthStarMetric: false,
-          manageTargetingAttributes: false,
-          manageArchetype: false,
-          manageFactTables: false,
-          manageNamespaces: false,
-          manageSavedGroups: false,
-          viewEvents: false,
-          addComments: false,
-          createFeatureDrafts: false,
-          manageFeatures: false,
-          manageProjects: false,
-          createAnalyses: false,
-          createIdeas: false,
-          createMetrics: false,
-          createDatasources: false,
-          editDatasourceSettings: false,
-          runQueries: false,
-          publishFeatures: false,
-          manageEnvironments: false,
-          runExperiments: false,
-        },
+        permissions: roleToPermissionMap("readonly", testOrg),
       },
       projects: {
         prj_exl5jr5dl4rbw856: {
           environments: [],
           limitAccessByEnvironment: false,
-          permissions: {
-            createPresentations: true,
-            createDimensions: false,
-            createSegments: false,
-            organizationSettings: false,
-            superDelete: false,
-            manageTeam: false,
-            manageTags: true,
-            manageApiKeys: false,
-            manageIntegrations: false,
-            manageArchetype: true,
-            manageFactTables: false,
-            manageWebhooks: false,
-            manageBilling: false,
-            manageNorthStarMetric: false,
-            manageTargetingAttributes: true,
-            manageNamespaces: true,
-            manageSavedGroups: true,
-            viewEvents: false,
-            addComments: true,
-            createFeatureDrafts: true,
-            manageFeatures: true,
-            manageProjects: false,
-            createAnalyses: false,
-            createIdeas: true,
-            createMetrics: false,
-            createDatasources: false,
-            editDatasourceSettings: false,
-            runQueries: false,
-            publishFeatures: true,
-            manageEnvironments: true,
-            runExperiments: true,
-          },
+          permissions: roleToPermissionMap("engineer", testOrg),
         },
       },
     });
@@ -463,114 +331,18 @@ describe("Build base user permissions", () => {
       global: {
         environments: [],
         limitAccessByEnvironment: false,
-        permissions: {
-          createPresentations: false,
-          createDimensions: false,
-          createSegments: false,
-          organizationSettings: false,
-          superDelete: false,
-          manageTeam: false,
-          manageTags: false,
-          manageApiKeys: false,
-          manageArchetype: false,
-          manageFactTables: false,
-          manageIntegrations: false,
-          manageWebhooks: false,
-          manageBilling: false,
-          manageNorthStarMetric: false,
-          manageTargetingAttributes: false,
-          manageNamespaces: false,
-          manageSavedGroups: false,
-          viewEvents: false,
-          addComments: false,
-          createFeatureDrafts: false,
-          manageFeatures: false,
-          manageProjects: false,
-          createAnalyses: false,
-          createIdeas: false,
-          createMetrics: false,
-          createDatasources: false,
-          editDatasourceSettings: false,
-          runQueries: false,
-          publishFeatures: false,
-          manageEnvironments: false,
-          runExperiments: false,
-        },
+        permissions: roleToPermissionMap("readonly", testOrg),
       },
       projects: {
         prj_exl5jr5dl4rbw856: {
           environments: [],
           limitAccessByEnvironment: false,
-          permissions: {
-            createPresentations: true,
-            createDimensions: false,
-            createSegments: false,
-            organizationSettings: false,
-            superDelete: false,
-            manageTeam: false,
-            manageTags: true,
-            manageApiKeys: false,
-            manageIntegrations: false,
-            manageWebhooks: false,
-            manageBilling: false,
-            manageArchetype: true,
-            manageFactTables: false,
-            manageNorthStarMetric: false,
-            manageTargetingAttributes: true,
-            manageNamespaces: true,
-            manageSavedGroups: true,
-            viewEvents: false,
-            addComments: true,
-            createFeatureDrafts: true,
-            manageFeatures: true,
-            manageProjects: false,
-            createAnalyses: false,
-            createIdeas: true,
-            createMetrics: false,
-            createDatasources: false,
-            editDatasourceSettings: false,
-            runQueries: false,
-            publishFeatures: true,
-            manageEnvironments: true,
-            runExperiments: true,
-          },
+          permissions: roleToPermissionMap("engineer", testOrg),
         },
         prj_exl5jr5dl4rbw123: {
           environments: [],
           limitAccessByEnvironment: false,
-          permissions: {
-            createPresentations: true,
-            createDimensions: true,
-            createSegments: false,
-            organizationSettings: false,
-            superDelete: false,
-            manageTeam: false,
-            manageTags: true,
-            manageApiKeys: false,
-            manageIntegrations: false,
-            manageArchetype: false,
-            manageFactTables: true,
-            manageWebhooks: false,
-            manageBilling: false,
-            manageNorthStarMetric: false,
-            manageTargetingAttributes: false,
-            manageNamespaces: false,
-            manageSavedGroups: false,
-            viewEvents: false,
-            addComments: true,
-            createFeatureDrafts: false,
-            manageFeatures: false,
-            manageProjects: false,
-            createAnalyses: true,
-            createIdeas: true,
-            createMetrics: true,
-            createDatasources: false,
-            editDatasourceSettings: true,
-            runQueries: true,
-            publishFeatures: false,
-            manageEnvironments: false,
-            runExperiments: false,
-          },
+          permissions: roleToPermissionMap("analyst", testOrg),
         },
       },
     });
@@ -597,39 +369,7 @@ describe("Build base user permissions", () => {
       global: {
         environments: ["staging", "development"],
         limitAccessByEnvironment: true,
-        permissions: {
-          createPresentations: true,
-          createDimensions: false,
-          createSegments: false,
-          organizationSettings: false,
-          superDelete: false,
-          manageTeam: false,
-          manageTags: true,
-          manageApiKeys: false,
-          manageIntegrations: false,
-          manageWebhooks: false,
-          manageBilling: false,
-          manageNorthStarMetric: false,
-          manageTargetingAttributes: true,
-          manageNamespaces: true,
-          manageSavedGroups: true,
-          manageArchetype: true,
-          manageFactTables: false,
-          viewEvents: false,
-          addComments: true,
-          createFeatureDrafts: true,
-          manageFeatures: true,
-          manageProjects: false,
-          createAnalyses: false,
-          createIdeas: true,
-          createMetrics: false,
-          createDatasources: false,
-          editDatasourceSettings: false,
-          runQueries: false,
-          publishFeatures: true,
-          manageEnvironments: true,
-          runExperiments: true,
-        },
+        permissions: roleToPermissionMap("engineer", testOrg),
       },
       projects: {},
     });
@@ -670,114 +410,18 @@ describe("Build base user permissions", () => {
       global: {
         environments: ["staging", "development"],
         limitAccessByEnvironment: true,
-        permissions: {
-          createPresentations: true,
-          createDimensions: false,
-          createSegments: false,
-          organizationSettings: false,
-          superDelete: false,
-          manageTeam: false,
-          manageTags: true,
-          manageApiKeys: false,
-          manageIntegrations: false,
-          manageWebhooks: false,
-          manageBilling: false,
-          manageArchetype: true,
-          manageFactTables: false,
-          manageNorthStarMetric: false,
-          manageTargetingAttributes: true,
-          manageNamespaces: true,
-          manageSavedGroups: true,
-          viewEvents: false,
-          addComments: true,
-          createFeatureDrafts: true,
-          manageFeatures: true,
-          manageProjects: false,
-          createAnalyses: false,
-          createIdeas: true,
-          createMetrics: false,
-          createDatasources: false,
-          editDatasourceSettings: false,
-          runQueries: false,
-          publishFeatures: true,
-          manageEnvironments: true,
-          runExperiments: true,
-        },
+        permissions: roleToPermissionMap("engineer", testOrg),
       },
       projects: {
         prj_exl5jr5dl4rbw856: {
           environments: ["production"],
           limitAccessByEnvironment: true,
-          permissions: {
-            createPresentations: true,
-            createDimensions: false,
-            createSegments: false,
-            organizationSettings: false,
-            superDelete: false,
-            manageTeam: false,
-            manageTags: true,
-            manageApiKeys: false,
-            manageIntegrations: false,
-            manageWebhooks: false,
-            manageArchetype: true,
-            manageFactTables: false,
-            manageBilling: false,
-            manageNorthStarMetric: false,
-            manageTargetingAttributes: true,
-            manageNamespaces: true,
-            manageSavedGroups: true,
-            viewEvents: false,
-            addComments: true,
-            createFeatureDrafts: true,
-            manageFeatures: true,
-            manageProjects: false,
-            createAnalyses: false,
-            createIdeas: true,
-            createMetrics: false,
-            createDatasources: false,
-            editDatasourceSettings: false,
-            runQueries: false,
-            publishFeatures: true,
-            manageEnvironments: true,
-            runExperiments: true,
-          },
+          permissions: roleToPermissionMap("engineer", testOrg),
         },
         prj_exl5jr5dl4rbw123: {
           environments: [],
           limitAccessByEnvironment: false,
-          permissions: {
-            createPresentations: true,
-            createDimensions: true,
-            createSegments: false,
-            organizationSettings: false,
-            superDelete: false,
-            manageTeam: false,
-            manageTags: true,
-            manageApiKeys: false,
-            manageIntegrations: false,
-            manageWebhooks: false,
-            manageBilling: false,
-            manageNorthStarMetric: false,
-            manageTargetingAttributes: false,
-            manageNamespaces: false,
-            manageSavedGroups: false,
-            manageArchetype: false,
-            manageFactTables: true,
-            viewEvents: false,
-            addComments: true,
-            createFeatureDrafts: false,
-            manageFeatures: false,
-            manageProjects: false,
-            createAnalyses: true,
-            createIdeas: true,
-            createMetrics: true,
-            createDatasources: false,
-            editDatasourceSettings: true,
-            runQueries: true,
-            publishFeatures: false,
-            manageEnvironments: false,
-            runExperiments: false,
-          },
+          permissions: roleToPermissionMap("analyst", testOrg),
         },
       },
     });
@@ -833,114 +477,18 @@ describe("Build base user permissions", () => {
       global: {
         environments: [],
         limitAccessByEnvironment: false,
-        permissions: {
-          createPresentations: true,
-          createDimensions: false,
-          createSegments: false,
-          organizationSettings: false,
-          superDelete: false,
-          manageTeam: false,
-          manageTags: false,
-          manageApiKeys: false,
-          manageArchetype: false,
-          manageFactTables: false,
-          manageIntegrations: false,
-          manageWebhooks: false,
-          manageBilling: false,
-          manageNorthStarMetric: false,
-          manageTargetingAttributes: false,
-          manageNamespaces: false,
-          manageSavedGroups: false,
-          viewEvents: false,
-          addComments: true,
-          createFeatureDrafts: false,
-          manageFeatures: false,
-          manageProjects: false,
-          createAnalyses: false,
-          createIdeas: true,
-          createMetrics: false,
-          createDatasources: false,
-          editDatasourceSettings: false,
-          runQueries: false,
-          publishFeatures: false,
-          manageEnvironments: false,
-          runExperiments: false,
-        },
+        permissions: roleToPermissionMap("collaborator", testOrg),
       },
       projects: {
         prj_exl5jr5dl4rbw856: {
           environments: ["production"],
           limitAccessByEnvironment: true,
-          permissions: {
-            createPresentations: true,
-            createDimensions: false,
-            createSegments: false,
-            organizationSettings: false,
-            superDelete: false,
-            manageTeam: false,
-            manageTags: true,
-            manageApiKeys: false,
-            manageIntegrations: false,
-            manageWebhooks: false,
-            manageBilling: false,
-            manageArchetype: true,
-            manageFactTables: false,
-            manageNorthStarMetric: false,
-            manageTargetingAttributes: true,
-            manageNamespaces: true,
-            manageSavedGroups: true,
-            viewEvents: false,
-            addComments: true,
-            createFeatureDrafts: true,
-            manageFeatures: true,
-            manageProjects: false,
-            createAnalyses: false,
-            createIdeas: true,
-            createMetrics: false,
-            createDatasources: false,
-            editDatasourceSettings: false,
-            runQueries: false,
-            publishFeatures: true,
-            manageEnvironments: true,
-            runExperiments: true,
-          },
+          permissions: roleToPermissionMap("engineer", testOrg),
         },
         prj_exl5jr5dl4rbw123: {
           environments: [],
           limitAccessByEnvironment: false,
-          permissions: {
-            createPresentations: true,
-            createDimensions: true,
-            createSegments: false,
-            organizationSettings: false,
-            superDelete: false,
-            manageTeam: false,
-            manageTags: true,
-            manageApiKeys: false,
-            manageIntegrations: false,
-            manageWebhooks: false,
-            manageArchetype: false,
-            manageFactTables: true,
-            manageBilling: false,
-            manageNorthStarMetric: false,
-            manageTargetingAttributes: false,
-            manageNamespaces: false,
-            manageSavedGroups: false,
-            viewEvents: false,
-            addComments: true,
-            createFeatureDrafts: false,
-            manageFeatures: false,
-            manageProjects: false,
-            createAnalyses: true,
-            createIdeas: true,
-            createMetrics: true,
-            createDatasources: false,
-            editDatasourceSettings: true,
-            runQueries: true,
-            publishFeatures: false,
-            manageEnvironments: false,
-            runExperiments: false,
-          },
+          permissions: roleToPermissionMap("analyst", testOrg),
         },
       },
     });
@@ -983,45 +531,59 @@ describe("Build base user permissions", () => {
       global: {
         environments: [],
         limitAccessByEnvironment: false,
-        permissions: {
-          createPresentations: true,
-          createDimensions: true,
-          createSegments: true,
-          organizationSettings: true,
-          superDelete: true,
-          manageTeam: true,
-          manageTags: true,
-          manageApiKeys: true,
-          manageIntegrations: true,
-          manageWebhooks: true,
-          manageBilling: true,
-          manageNorthStarMetric: true,
-          manageTargetingAttributes: true,
-          manageNamespaces: true,
-          manageSavedGroups: true,
-          viewEvents: true,
-          addComments: true,
-          manageArchetype: true,
-          manageFactTables: true,
-          createFeatureDrafts: true,
-          manageFeatures: true,
-          manageProjects: true,
-          createAnalyses: true,
-          createIdeas: true,
-          createMetrics: true,
-          createDatasources: true,
-          editDatasourceSettings: true,
-          runQueries: true,
-          publishFeatures: true,
-          manageEnvironments: true,
-          runExperiments: true,
-        },
+        permissions: roleToPermissionMap("admin", testOrg),
       },
       projects: {},
     });
   });
 
   it("should build permissions for a basic engineer user with no environment specific permissions and project-level roles that have environment specific permissions correctly where the user is on a team that has engineer permissions", async () => {
+    const teams: TeamInterface[] = [
+      {
+        id: "team_123",
+        name: "Team Engineers",
+        organization: "org_id_1234",
+        description: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: "Demo User",
+        role: "engineer",
+        limitAccessByEnvironment: true,
+        environments: ["staging"],
+        projectRoles: [],
+        managedByIdp: false,
+      },
+    ];
+
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            role: "engineer",
+            limitAccessByEnvironment: true,
+            environments: ["production"],
+            projectRoles: [],
+            teams: ["team_123"],
+          },
+        ],
+      },
+      teams
+    );
+
+    expect(userPermissions).toEqual({
+      global: {
+        environments: ["production", "staging"],
+        limitAccessByEnvironment: true,
+        permissions: roleToPermissionMap("engineer", testOrg),
+      },
+      projects: {},
+    });
+  });
+
+  it("disables limitAccessByEnvironment when all environments are included after merging team permissions", async () => {
     const teams: TeamInterface[] = [
       {
         id: "team_123",
@@ -1060,40 +622,8 @@ describe("Build base user permissions", () => {
     expect(userPermissions).toEqual({
       global: {
         environments: ["production", "staging", "development"],
-        limitAccessByEnvironment: true,
-        permissions: {
-          createPresentations: true,
-          createDimensions: false,
-          createSegments: false,
-          organizationSettings: false,
-          superDelete: false,
-          manageTeam: false,
-          manageTags: true,
-          manageApiKeys: false,
-          manageIntegrations: false,
-          manageWebhooks: false,
-          manageBilling: false,
-          manageNorthStarMetric: false,
-          manageArchetype: true,
-          manageFactTables: false,
-          manageTargetingAttributes: true,
-          manageNamespaces: true,
-          manageSavedGroups: true,
-          viewEvents: false,
-          addComments: true,
-          createFeatureDrafts: true,
-          manageFeatures: true,
-          manageProjects: false,
-          createAnalyses: false,
-          createIdeas: true,
-          createMetrics: false,
-          createDatasources: false,
-          editDatasourceSettings: false,
-          runQueries: false,
-          publishFeatures: true,
-          manageEnvironments: true,
-          runExperiments: true,
-        },
+        limitAccessByEnvironment: false,
+        permissions: roleToPermissionMap("engineer", testOrg),
       },
       projects: {},
     });
@@ -1150,77 +680,87 @@ describe("Build base user permissions", () => {
       global: {
         environments: [],
         limitAccessByEnvironment: false,
-        permissions: {
-          createPresentations: false,
-          createDimensions: false,
-          createSegments: false,
-          organizationSettings: false,
-          superDelete: false,
-          manageTeam: false,
-          manageTags: false,
-          manageApiKeys: false,
-          manageIntegrations: false,
-          manageWebhooks: false,
-          manageBilling: false,
-          manageNorthStarMetric: false,
-          manageTargetingAttributes: false,
-          manageNamespaces: false,
-          manageSavedGroups: false,
-          viewEvents: false,
-          addComments: false,
-          createFeatureDrafts: false,
-          manageFeatures: false,
-          manageProjects: false,
-          manageArchetype: false,
-          manageFactTables: false,
-          createAnalyses: false,
-          createIdeas: false,
-          createMetrics: false,
-          createDatasources: false,
-          editDatasourceSettings: false,
-          runQueries: false,
-          publishFeatures: false,
-          manageEnvironments: false,
-          runExperiments: false,
-        },
+        permissions: roleToPermissionMap("readonly", testOrg),
       },
       projects: {
         prj_exl5jr5dl4rbw856: {
           environments: [],
           limitAccessByEnvironment: false,
-          permissions: {
-            createPresentations: true,
-            createDimensions: false,
-            createSegments: false,
-            organizationSettings: false,
-            superDelete: false,
-            manageTeam: false,
-            manageArchetype: true,
-            manageFactTables: false,
-            manageTags: true,
-            manageApiKeys: false,
-            manageIntegrations: false,
-            manageWebhooks: false,
-            manageBilling: false,
-            manageNorthStarMetric: false,
-            manageTargetingAttributes: true,
-            manageNamespaces: true,
-            manageSavedGroups: true,
-            viewEvents: false,
-            addComments: true,
-            createFeatureDrafts: true,
-            manageFeatures: true,
-            manageProjects: false,
-            createAnalyses: false,
-            createIdeas: true,
-            createMetrics: false,
-            createDatasources: false,
-            editDatasourceSettings: false,
-            runQueries: false,
-            publishFeatures: true,
-            manageEnvironments: true,
-            runExperiments: true,
+          permissions: roleToPermissionMap("engineer", testOrg),
+        },
+      },
+    });
+  });
+
+  it("should ignore limitAccessByEnvironment in teams with roles that don't support that", async () => {
+    const teams: TeamInterface[] = [
+      {
+        id: "team_123",
+        name: "Test Team",
+        organization: "org_id_1234",
+        description: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: "Demo User",
+        role: "admin",
+        limitAccessByEnvironment: true,
+        environments: ["development"],
+        projectRoles: [
+          {
+            project: "prj_test",
+            role: "collaborator",
+            limitAccessByEnvironment: true,
+            environments: ["staging"],
           },
+          {
+            project: "prj_exl5jr5dl4rbw856",
+            role: "collaborator",
+            limitAccessByEnvironment: true,
+            environments: ["staging"],
+          },
+        ],
+        managedByIdp: false,
+      },
+    ];
+
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            projectRoles: [
+              {
+                project: "prj_exl5jr5dl4rbw856",
+                role: "engineer",
+                limitAccessByEnvironment: true,
+                environments: ["production"],
+              },
+            ],
+            teams: ["team_123"],
+          },
+        ],
+      },
+      teams
+    );
+
+    expect(userPermissions).toEqual({
+      global: {
+        environments: ["development"],
+        limitAccessByEnvironment: false,
+        permissions: roleToPermissionMap("admin", testOrg),
+      },
+      projects: {
+        prj_test: {
+          environments: [],
+          limitAccessByEnvironment: false,
+          permissions: roleToPermissionMap("collaborator", testOrg),
+        },
+        prj_exl5jr5dl4rbw856: {
+          environments: ["production"],
+          limitAccessByEnvironment: true,
+          permissions: roleToPermissionMap("engineer", testOrg),
         },
       },
     });
@@ -1263,39 +803,7 @@ describe("Build base user permissions", () => {
       global: {
         environments: ["staging", "production"],
         limitAccessByEnvironment: true,
-        permissions: {
-          createPresentations: true,
-          createDimensions: false,
-          createSegments: false,
-          organizationSettings: false,
-          superDelete: false,
-          manageTeam: false,
-          manageTags: true,
-          manageApiKeys: false,
-          manageIntegrations: false,
-          manageWebhooks: false,
-          manageBilling: false,
-          manageNorthStarMetric: false,
-          manageTargetingAttributes: true,
-          manageNamespaces: true,
-          manageSavedGroups: true,
-          viewEvents: false,
-          manageArchetype: true,
-          manageFactTables: false,
-          addComments: true,
-          createFeatureDrafts: true,
-          manageFeatures: true,
-          manageProjects: false,
-          createAnalyses: false,
-          createIdeas: true,
-          createMetrics: false,
-          createDatasources: false,
-          editDatasourceSettings: false,
-          runQueries: false,
-          publishFeatures: true,
-          manageEnvironments: true,
-          runExperiments: true,
-        },
+        permissions: roleToPermissionMap("engineer", testOrg),
       },
       projects: {},
     });
@@ -1338,39 +846,7 @@ describe("Build base user permissions", () => {
       global: {
         environments: [],
         limitAccessByEnvironment: false,
-        permissions: {
-          createPresentations: true,
-          createDimensions: true,
-          createSegments: true,
-          organizationSettings: true,
-          superDelete: true,
-          manageTeam: true,
-          manageTags: true,
-          manageApiKeys: true,
-          manageIntegrations: true,
-          manageWebhooks: true,
-          manageBilling: true,
-          manageNorthStarMetric: true,
-          manageTargetingAttributes: true,
-          manageNamespaces: true,
-          manageSavedGroups: true,
-          viewEvents: true,
-          addComments: true,
-          createFeatureDrafts: true,
-          manageFeatures: true,
-          manageProjects: true,
-          createAnalyses: true,
-          createIdeas: true,
-          createMetrics: true,
-          manageArchetype: true,
-          manageFactTables: true,
-          createDatasources: true,
-          editDatasourceSettings: true,
-          runQueries: true,
-          publishFeatures: true,
-          manageEnvironments: true,
-          runExperiments: true,
-        },
+        permissions: roleToPermissionMap("admin", testOrg),
       },
       projects: {},
     });
@@ -1413,39 +889,7 @@ describe("Build base user permissions", () => {
       global: {
         environments: [],
         limitAccessByEnvironment: false,
-        permissions: {
-          createPresentations: true,
-          createDimensions: true,
-          createSegments: true,
-          organizationSettings: false,
-          superDelete: false,
-          manageTeam: false,
-          manageTags: true,
-          manageApiKeys: false,
-          manageIntegrations: false,
-          manageWebhooks: false,
-          manageBilling: false,
-          manageArchetype: true,
-          manageFactTables: true,
-          manageNorthStarMetric: false,
-          manageTargetingAttributes: true,
-          manageNamespaces: true,
-          manageSavedGroups: true,
-          viewEvents: false,
-          addComments: true,
-          createFeatureDrafts: true,
-          manageFeatures: true,
-          manageProjects: false,
-          createAnalyses: true,
-          createIdeas: true,
-          createMetrics: true,
-          createDatasources: false,
-          editDatasourceSettings: true,
-          runQueries: true,
-          publishFeatures: true,
-          manageEnvironments: true,
-          runExperiments: true,
-        },
+        permissions: roleToPermissionMap("experimenter", testOrg),
       },
       projects: {},
     });
@@ -1463,7 +907,7 @@ describe("Build base user permissions", () => {
         createdBy: "Demo User",
         role: "experimenter",
         limitAccessByEnvironment: true,
-        environments: ["staging", "development"],
+        environments: ["staging"],
         projectRoles: [],
         managedByIdp: false,
       },
@@ -1488,41 +932,9 @@ describe("Build base user permissions", () => {
 
     expect(userPermissions).toEqual({
       global: {
-        environments: ["production", "staging", "development"],
+        environments: ["production", "staging"],
         limitAccessByEnvironment: true,
-        permissions: {
-          createPresentations: true,
-          createDimensions: true,
-          createSegments: true,
-          organizationSettings: false,
-          superDelete: false,
-          manageTeam: false,
-          manageTags: true,
-          manageApiKeys: false,
-          manageIntegrations: false,
-          manageWebhooks: false,
-          manageBilling: false,
-          manageNorthStarMetric: false,
-          manageTargetingAttributes: true,
-          manageNamespaces: true,
-          manageArchetype: true,
-          manageFactTables: true,
-          manageSavedGroups: true,
-          viewEvents: false,
-          addComments: true,
-          createFeatureDrafts: true,
-          manageFeatures: true,
-          manageProjects: false,
-          createAnalyses: true,
-          createIdeas: true,
-          createMetrics: true,
-          createDatasources: false,
-          editDatasourceSettings: true,
-          runQueries: true,
-          publishFeatures: true,
-          manageEnvironments: true,
-          runExperiments: true,
-        },
+        permissions: roleToPermissionMap("experimenter", testOrg),
       },
       projects: {},
     });
@@ -1579,77 +991,13 @@ describe("Build base user permissions", () => {
       global: {
         environments: [],
         limitAccessByEnvironment: false,
-        permissions: {
-          createPresentations: false,
-          createDimensions: false,
-          createSegments: false,
-          organizationSettings: false,
-          superDelete: false,
-          manageTeam: false,
-          manageTags: false,
-          manageApiKeys: false,
-          manageIntegrations: false,
-          manageWebhooks: false,
-          manageArchetype: false,
-          manageFactTables: false,
-          manageBilling: false,
-          manageNorthStarMetric: false,
-          manageTargetingAttributes: false,
-          manageNamespaces: false,
-          manageSavedGroups: false,
-          viewEvents: false,
-          addComments: false,
-          createFeatureDrafts: false,
-          manageFeatures: false,
-          manageProjects: false,
-          createAnalyses: false,
-          createIdeas: false,
-          createMetrics: false,
-          createDatasources: false,
-          editDatasourceSettings: false,
-          runQueries: false,
-          publishFeatures: false,
-          manageEnvironments: false,
-          runExperiments: false,
-        },
+        permissions: roleToPermissionMap("readonly", testOrg),
       },
       projects: {
         prj_exl5jr5dl4rbw856: {
           environments: ["development"],
           limitAccessByEnvironment: true,
-          permissions: {
-            createPresentations: true,
-            createDimensions: true,
-            createSegments: false,
-            organizationSettings: false,
-            superDelete: false,
-            manageTeam: false,
-            manageTags: true,
-            manageApiKeys: false,
-            manageIntegrations: false,
-            manageWebhooks: false,
-            manageArchetype: true,
-            manageFactTables: true,
-            manageBilling: false,
-            manageNorthStarMetric: false,
-            manageTargetingAttributes: true,
-            manageNamespaces: true,
-            manageSavedGroups: true,
-            viewEvents: false,
-            addComments: true,
-            createFeatureDrafts: true,
-            manageFeatures: true,
-            manageProjects: false,
-            createAnalyses: true,
-            createIdeas: true,
-            createMetrics: true,
-            createDatasources: false,
-            editDatasourceSettings: true,
-            runQueries: true,
-            publishFeatures: true,
-            manageEnvironments: true,
-            runExperiments: true,
-          },
+          permissions: roleToPermissionMap("experimenter", testOrg),
         },
       },
     });
@@ -1699,77 +1047,13 @@ describe("Build base user permissions", () => {
       global: {
         environments: [],
         limitAccessByEnvironment: false,
-        permissions: {
-          createPresentations: false,
-          createDimensions: false,
-          createSegments: false,
-          organizationSettings: false,
-          superDelete: false,
-          manageTeam: false,
-          manageTags: false,
-          manageApiKeys: false,
-          manageIntegrations: false,
-          manageWebhooks: false,
-          manageBilling: false,
-          manageNorthStarMetric: false,
-          manageTargetingAttributes: false,
-          manageNamespaces: false,
-          manageArchetype: false,
-          manageFactTables: false,
-          manageSavedGroups: false,
-          viewEvents: false,
-          addComments: false,
-          createFeatureDrafts: false,
-          manageFeatures: false,
-          manageProjects: false,
-          createAnalyses: false,
-          createIdeas: false,
-          createMetrics: false,
-          createDatasources: false,
-          editDatasourceSettings: false,
-          runQueries: false,
-          publishFeatures: false,
-          manageEnvironments: false,
-          runExperiments: false,
-        },
+        permissions: roleToPermissionMap("readonly", testOrg),
       },
       projects: {
         prj_exl5jr5dl4rbw856: {
           environments: [],
           limitAccessByEnvironment: false,
-          permissions: {
-            createPresentations: true,
-            createDimensions: true,
-            createSegments: false,
-            organizationSettings: false,
-            superDelete: false,
-            manageTeam: false,
-            manageTags: true,
-            manageApiKeys: false,
-            manageIntegrations: false,
-            manageArchetype: false,
-            manageFactTables: true,
-            manageWebhooks: false,
-            manageBilling: false,
-            manageNorthStarMetric: false,
-            manageTargetingAttributes: false,
-            manageNamespaces: false,
-            manageSavedGroups: false,
-            viewEvents: false,
-            addComments: true,
-            createFeatureDrafts: false,
-            manageFeatures: false,
-            manageProjects: false,
-            createAnalyses: true,
-            createIdeas: true,
-            createMetrics: true,
-            createDatasources: false,
-            editDatasourceSettings: true,
-            runQueries: true,
-            publishFeatures: false,
-            manageEnvironments: false,
-            runExperiments: false,
-          },
+          permissions: roleToPermissionMap("analyst", testOrg),
         },
       },
     });
@@ -1826,77 +1110,13 @@ describe("Build base user permissions", () => {
       global: {
         environments: ["staging", "development"],
         limitAccessByEnvironment: true,
-        permissions: {
-          createPresentations: true,
-          createDimensions: true,
-          createSegments: true,
-          organizationSettings: false,
-          superDelete: false,
-          manageTeam: false,
-          manageTags: true,
-          manageApiKeys: false,
-          manageIntegrations: false,
-          manageWebhooks: false,
-          manageBilling: false,
-          manageNorthStarMetric: false,
-          manageTargetingAttributes: true,
-          manageNamespaces: true,
-          manageSavedGroups: true,
-          viewEvents: false,
-          addComments: true,
-          manageArchetype: true,
-          manageFactTables: true,
-          createFeatureDrafts: true,
-          manageFeatures: true,
-          manageProjects: false,
-          createAnalyses: true,
-          createIdeas: true,
-          createMetrics: true,
-          createDatasources: false,
-          editDatasourceSettings: true,
-          runQueries: true,
-          publishFeatures: true,
-          manageEnvironments: true,
-          runExperiments: true,
-        },
+        permissions: roleToPermissionMap("experimenter", testOrg),
       },
       projects: {
         prj_exl5jr5dl4rbw856: {
           environments: [],
           limitAccessByEnvironment: false,
-          permissions: {
-            createPresentations: true,
-            createDimensions: false,
-            createSegments: false,
-            organizationSettings: false,
-            superDelete: false,
-            manageTeam: false,
-            manageTags: true,
-            manageApiKeys: false,
-            manageIntegrations: false,
-            manageArchetype: true,
-            manageFactTables: false,
-            manageWebhooks: false,
-            manageBilling: false,
-            manageNorthStarMetric: false,
-            manageTargetingAttributes: true,
-            manageNamespaces: true,
-            manageSavedGroups: true,
-            viewEvents: false,
-            addComments: true,
-            createFeatureDrafts: true,
-            manageFeatures: true,
-            manageProjects: false,
-            createAnalyses: false,
-            createIdeas: true,
-            createMetrics: false,
-            createDatasources: false,
-            editDatasourceSettings: false,
-            runQueries: false,
-            publishFeatures: true,
-            manageEnvironments: true,
-            runExperiments: true,
-          },
+          permissions: roleToPermissionMap("engineer", testOrg),
         },
       },
     });
@@ -1920,7 +1140,7 @@ describe("Build base user permissions", () => {
             project: "prj_exl5jr5dl4rbw856",
             role: "engineer",
             limitAccessByEnvironment: true,
-            environments: ["production", "staging"],
+            environments: ["production"],
           },
         ],
         managedByIdp: false,
@@ -1939,7 +1159,7 @@ describe("Build base user permissions", () => {
                 project: "prj_exl5jr5dl4rbw856",
                 role: "engineer",
                 limitAccessByEnvironment: true,
-                environments: ["dev"],
+                environments: ["development"],
               },
             ],
             teams: ["team_123"],
@@ -1953,77 +1173,13 @@ describe("Build base user permissions", () => {
       global: {
         environments: ["staging", "development"],
         limitAccessByEnvironment: true,
-        permissions: {
-          createPresentations: true,
-          createDimensions: true,
-          createSegments: true,
-          organizationSettings: false,
-          superDelete: false,
-          manageTeam: false,
-          manageTags: true,
-          manageApiKeys: false,
-          manageIntegrations: false,
-          manageWebhooks: false,
-          manageBilling: false,
-          manageNorthStarMetric: false,
-          manageTargetingAttributes: true,
-          manageNamespaces: true,
-          manageSavedGroups: true,
-          viewEvents: false,
-          addComments: true,
-          createFeatureDrafts: true,
-          manageFeatures: true,
-          manageProjects: false,
-          manageArchetype: true,
-          manageFactTables: true,
-          createAnalyses: true,
-          createIdeas: true,
-          createMetrics: true,
-          createDatasources: false,
-          editDatasourceSettings: true,
-          runQueries: true,
-          publishFeatures: true,
-          manageEnvironments: true,
-          runExperiments: true,
-        },
+        permissions: roleToPermissionMap("experimenter", testOrg),
       },
       projects: {
         prj_exl5jr5dl4rbw856: {
-          environments: ["dev", "production", "staging"],
+          environments: ["development", "production"],
           limitAccessByEnvironment: true,
-          permissions: {
-            createPresentations: true,
-            createDimensions: false,
-            createSegments: false,
-            organizationSettings: false,
-            superDelete: false,
-            manageTeam: false,
-            manageTags: true,
-            manageApiKeys: false,
-            manageIntegrations: false,
-            manageWebhooks: false,
-            manageBilling: false,
-            manageNorthStarMetric: false,
-            manageArchetype: true,
-            manageFactTables: false,
-            manageTargetingAttributes: true,
-            manageNamespaces: true,
-            manageSavedGroups: true,
-            viewEvents: false,
-            addComments: true,
-            createFeatureDrafts: true,
-            manageFeatures: true,
-            manageProjects: false,
-            createAnalyses: false,
-            createIdeas: true,
-            createMetrics: false,
-            createDatasources: false,
-            editDatasourceSettings: false,
-            runQueries: false,
-            publishFeatures: true,
-            manageEnvironments: true,
-            runExperiments: true,
-          },
+          permissions: roleToPermissionMap("engineer", testOrg),
         },
       },
     });
@@ -2073,79 +1229,577 @@ describe("Build base user permissions", () => {
       global: {
         environments: [],
         limitAccessByEnvironment: false,
-        permissions: {
-          createPresentations: true,
-          createDimensions: false,
-          createSegments: false,
-          organizationSettings: false,
-          superDelete: false,
-          manageTeam: false,
-          manageTags: true,
-          manageApiKeys: false,
-          manageIntegrations: false,
-          manageArchetype: true,
-          manageFactTables: false,
-          manageWebhooks: false,
-          manageBilling: false,
-          manageNorthStarMetric: false,
-          manageTargetingAttributes: true,
-          manageNamespaces: true,
-          manageSavedGroups: true,
-          viewEvents: false,
-          addComments: true,
-          createFeatureDrafts: true,
-          manageFeatures: true,
-          manageProjects: false,
-          createAnalyses: false,
-          createIdeas: true,
-          createMetrics: false,
-          createDatasources: false,
-          editDatasourceSettings: false,
-          runQueries: false,
-          publishFeatures: true,
-          manageEnvironments: true,
-          runExperiments: true,
-        },
+        permissions: roleToPermissionMap("engineer", testOrg),
       },
       projects: {
         prj_exl5jr5dl4rbw856: {
           environments: [],
           limitAccessByEnvironment: false,
-          permissions: {
-            createPresentations: false,
-            createDimensions: false,
-            createSegments: false,
-            organizationSettings: false,
-            superDelete: false,
-            manageTeam: false,
-            manageTags: false,
-            manageApiKeys: false,
-            manageIntegrations: false,
-            manageWebhooks: false,
-            manageBilling: false,
-            manageNorthStarMetric: false,
-            manageTargetingAttributes: false,
-            manageNamespaces: false,
-            manageArchetype: false,
-            manageFactTables: false,
-            manageSavedGroups: false,
-            viewEvents: false,
-            addComments: false,
-            createFeatureDrafts: false,
-            manageFeatures: false,
-            manageProjects: false,
-            createAnalyses: false,
-            createIdeas: false,
-            createMetrics: false,
-            createDatasources: false,
-            editDatasourceSettings: false,
-            runQueries: false,
-            publishFeatures: false,
-            manageEnvironments: false,
-            runExperiments: false,
-          },
+          permissions: roleToPermissionMap("readonly", testOrg),
         },
       },
     });
+  });
+});
+
+describe("Build user's readAccessPermissions object", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("user with global no access role should have no read access", async () => {
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [{ ...testOrg.members[0], role: "noaccess" }],
+      },
+      []
+    );
+
+    const readAccessFilter = getReadAccessFilter(userPermissions);
+
+    expect(readAccessFilter).toEqual({
+      globalReadAccess: false,
+      projects: [],
+    });
+  });
+
+  it("user with global readonly role should have global read access", async () => {
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [{ ...testOrg.members[0], role: "readonly" }],
+      },
+      []
+    );
+
+    const readAccessFilter = getReadAccessFilter(userPermissions);
+
+    expect(readAccessFilter).toEqual({
+      globalReadAccess: true,
+      projects: [],
+    });
+  });
+
+  it("user with global readonly role, and project noaccess should have global read access, but the project should have no read access", async () => {
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            role: "readonly",
+            projectRoles: [
+              {
+                project: "prj_exl5jr5dl4rbw856",
+                role: "noaccess",
+                limitAccessByEnvironment: true,
+                environments: ["staging"],
+              },
+            ],
+          },
+        ],
+      },
+      []
+    );
+
+    const readAccessFilter = getReadAccessFilter(userPermissions);
+
+    expect(readAccessFilter).toEqual({
+      globalReadAccess: true,
+      projects: [
+        {
+          id: "prj_exl5jr5dl4rbw856",
+          readAccess: false,
+        },
+      ],
+    });
+  });
+
+  it("user with global noaccess role, and project collaborator should not have global read access, but the project should have read access", async () => {
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            role: "noaccess",
+            projectRoles: [
+              {
+                project: "prj_exl5jr5dl4rbw856",
+                role: "collaborator",
+                limitAccessByEnvironment: true,
+                environments: ["staging"],
+              },
+            ],
+          },
+        ],
+      },
+      []
+    );
+
+    const readAccessFilter = getReadAccessFilter(userPermissions);
+
+    expect(readAccessFilter).toEqual({
+      globalReadAccess: false,
+      projects: [
+        {
+          id: "prj_exl5jr5dl4rbw856",
+          readAccess: true,
+        },
+      ],
+    });
+  });
+
+  it("should build the readAccessFilter correctly for a user with multiple project roles", async () => {
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            role: "noaccess",
+            projectRoles: [
+              {
+                project: "prj_exl5jr5dl4rbw856",
+                role: "collaborator",
+                limitAccessByEnvironment: true,
+                environments: ["staging"],
+              },
+              {
+                project: "prj_exl5jr5dl4rbw123",
+                role: "engineer",
+                limitAccessByEnvironment: true,
+                environments: [],
+              },
+              {
+                project: "prj_exl5jr5dl4rbw456",
+                role: "engineer",
+                limitAccessByEnvironment: true,
+                environments: ["staging"],
+              },
+            ],
+          },
+        ],
+      },
+      []
+    );
+
+    const readAccessFilter = getReadAccessFilter(userPermissions);
+
+    expect(readAccessFilter).toEqual({
+      globalReadAccess: false,
+      projects: [
+        {
+          id: "prj_exl5jr5dl4rbw856",
+          readAccess: true,
+        },
+        {
+          id: "prj_exl5jr5dl4rbw123",
+          readAccess: true,
+        },
+        {
+          id: "prj_exl5jr5dl4rbw456",
+          readAccess: true,
+        },
+      ],
+    });
+  });
+});
+
+describe("hasReadAccess filter", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("hasReadAccess should filter out all features for user with global no access role", async () => {
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [{ ...testOrg.members[0], role: "noaccess" }],
+      },
+      []
+    );
+
+    const readAccessFilter = getReadAccessFilter(userPermissions);
+
+    const features: Partial<FeatureInterface>[] = [
+      {
+        id: "test-feature-123",
+        project: "",
+      },
+    ];
+
+    const filteredFeatures = features.filter((feature) =>
+      hasReadAccess(readAccessFilter, [feature.project || ""])
+    );
+
+    expect(filteredFeatures).toEqual([]);
+  });
+
+  it("hasReadAccess should not filter out all features for user with global readonly role", async () => {
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [{ ...testOrg.members[0], role: "readonly" }],
+      },
+      []
+    );
+
+    const readAccessFilter = getReadAccessFilter(userPermissions);
+
+    const features: Partial<FeatureInterface>[] = [
+      {
+        id: "test-feature-123",
+        project: "",
+      },
+    ];
+
+    const filteredFeatures = features.filter((feature) =>
+      hasReadAccess(readAccessFilter, [feature.project || ""])
+    );
+
+    expect(filteredFeatures).toEqual([
+      {
+        id: "test-feature-123",
+        project: "",
+      },
+    ]);
+  });
+
+  it("hasReadAccess should filter out all projects aside from the project the user has collaborator access to", async () => {
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            role: "noaccess",
+            projectRoles: [
+              {
+                project: "prj_exl5jr5dl4rbw856",
+                role: "collaborator",
+                limitAccessByEnvironment: true,
+                environments: ["staging"],
+              },
+            ],
+          },
+        ],
+      },
+      []
+    );
+
+    const readAccessFilter = getReadAccessFilter(userPermissions);
+
+    const features: Partial<FeatureInterface>[] = [
+      {
+        id: "test-feature-123",
+        project: "",
+      },
+      {
+        id: "test-feature-456",
+        project: "prj_exl5jr5dl4rbw856",
+      },
+      {
+        id: "test-feature-789",
+        project: "prj_exl5jr5dl4rbw123",
+      },
+    ];
+
+    const filteredFeatures = features.filter((feature) =>
+      hasReadAccess(readAccessFilter, [feature.project || ""])
+    );
+
+    expect(filteredFeatures).toEqual([
+      {
+        id: "test-feature-456",
+        project: "prj_exl5jr5dl4rbw856",
+      },
+    ]);
+  });
+
+  it("hasReadAccess should filter out all projects aside from the project the user has collaborator access to", async () => {
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            role: "collaborator",
+            projectRoles: [
+              {
+                project: "prj_exl5jr5dl4rbw856",
+                role: "noaccess",
+                limitAccessByEnvironment: true,
+                environments: ["staging"],
+              },
+            ],
+          },
+        ],
+      },
+      []
+    );
+
+    const readAccessFilter = getReadAccessFilter(userPermissions);
+
+    const features: Partial<FeatureInterface>[] = [
+      {
+        id: "test-feature-123",
+        project: "",
+      },
+      {
+        id: "test-feature-456",
+        project: "prj_exl5jr5dl4rbw856",
+      },
+      {
+        id: "test-feature-789",
+        project: "prj_exl5jr5dl4rbw123",
+      },
+    ];
+
+    const filteredFeatures = features.filter((feature) =>
+      hasReadAccess(readAccessFilter, [feature.project || ""])
+    );
+
+    expect(filteredFeatures).toEqual([
+      {
+        id: "test-feature-123",
+        project: "",
+      },
+      {
+        id: "test-feature-789",
+        project: "prj_exl5jr5dl4rbw123",
+      },
+    ]);
+  });
+
+  // e.g. user's global role is noaccess, but they have project-level permissions for a singular project - if their collaborator permissions include atleast 1 project on the metric, they should get access
+  it("hasReadAccess should allow access if user has readAccess for atleast 1 project on an experiment", async () => {
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            role: "noaccess",
+            projectRoles: [
+              {
+                project: "prj_exl5jr5dl4rbw856",
+                role: "collaborator",
+                limitAccessByEnvironment: true,
+                environments: ["staging"],
+              },
+            ],
+          },
+        ],
+      },
+      []
+    );
+
+    const readAccessFilter = getReadAccessFilter(userPermissions);
+
+    const metrics: Partial<MetricInterface>[] = [
+      {
+        id: "test-feature-123",
+        projects: [],
+      },
+      {
+        id: "test-feature-456",
+        projects: ["prj_exl5jr5dl4rbw856", "prj_exl5jr5dl4rbw123"],
+      },
+      {
+        id: "test-feature-789",
+        projects: ["prj_exl5jr5dl4rbw123"],
+      },
+    ];
+
+    const filteredMetrics = metrics.filter((metric) =>
+      hasReadAccess(readAccessFilter, metric.projects || [])
+    );
+
+    expect(filteredMetrics).toEqual([
+      {
+        id: "test-feature-456",
+        projects: ["prj_exl5jr5dl4rbw856", "prj_exl5jr5dl4rbw123"],
+      },
+    ]);
+  });
+
+  // The user's global role is collaborator, but they have project-level permissions for two projects that take away readaccess. If a metric is in both of the projects the user has noaccess role, AND a project the user doesn't have a specific permission for, the user should be able to access it due to their global permission
+  it("hasReadAccess should not allow access if user has ", async () => {
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            role: "collaborator",
+            projectRoles: [
+              {
+                project: "prj_exl5jr5dl4rbw856",
+                role: "noaccess",
+                limitAccessByEnvironment: true,
+                environments: ["staging"],
+              },
+              {
+                project: "prj_exl5jr5dl4rbw123",
+                role: "noaccess",
+                limitAccessByEnvironment: true,
+                environments: ["staging"],
+              },
+            ],
+          },
+        ],
+      },
+      []
+    );
+
+    const readAccessFilter = getReadAccessFilter(userPermissions);
+
+    const metrics: Partial<MetricInterface>[] = [
+      {
+        id: "test-feature-123",
+        projects: [],
+      },
+      {
+        id: "test-feature-456",
+        projects: ["prj_exl5jr5dl4rbw856", "prj_exl5jr5dl4rbw123", "abc123"],
+      },
+      {
+        id: "test-feature-789",
+        projects: ["prj_exl5jr5dl4rbw123"],
+      },
+    ];
+
+    const filteredMetrics = metrics.filter((metric) =>
+      hasReadAccess(readAccessFilter, metric.projects || [])
+    );
+
+    expect(filteredMetrics).toEqual([
+      {
+        id: "test-feature-123",
+        projects: [],
+      },
+      {
+        id: "test-feature-456",
+        projects: ["prj_exl5jr5dl4rbw856", "prj_exl5jr5dl4rbw123", "abc123"],
+      },
+    ]);
+  });
+
+  // The user's global role is collaborator, but they have project-level permissions for two projects. If a metric is in both of the projects the user has a noaccess role for, the user shouldn't be able to access it
+  it("hasReadAccess should not allow access if user has ", async () => {
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            role: "collaborator",
+            projectRoles: [
+              {
+                project: "prj_exl5jr5dl4rbw856",
+                role: "noaccess",
+                limitAccessByEnvironment: true,
+                environments: ["staging"],
+              },
+              {
+                project: "prj_exl5jr5dl4rbw123",
+                role: "noaccess",
+                limitAccessByEnvironment: true,
+                environments: ["staging"],
+              },
+            ],
+          },
+        ],
+      },
+      []
+    );
+
+    const readAccessFilter = getReadAccessFilter(userPermissions);
+
+    const metrics: Partial<MetricInterface>[] = [
+      {
+        id: "test-feature-123",
+        projects: [],
+      },
+      {
+        id: "test-feature-456",
+        projects: ["prj_exl5jr5dl4rbw856", "prj_exl5jr5dl4rbw123"],
+      },
+      {
+        id: "test-feature-789",
+        projects: ["prj_exl5jr5dl4rbw123"],
+      },
+    ];
+
+    const filteredMetrics = metrics.filter((metric) =>
+      hasReadAccess(readAccessFilter, metric.projects || [])
+    );
+
+    expect(filteredMetrics).toEqual([
+      {
+        id: "test-feature-123",
+        projects: [],
+      },
+    ]);
   });
 });

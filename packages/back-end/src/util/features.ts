@@ -1,5 +1,8 @@
 import isEqual from "lodash/isEqual";
-import { FeatureRule as FeatureDefinitionRule } from "@growthbook/growthbook";
+import {
+  ConditionInterface,
+  FeatureRule as FeatureDefinitionRule,
+} from "@growthbook/growthbook";
 import { includeExperimentInPayload } from "shared/util";
 import {
   FeatureInterface,
@@ -19,19 +22,24 @@ type GroupMapValue = GroupMap extends Map<any, infer I> ? I : never;
 
 function getSavedGroupCondition(
   group: GroupMapValue,
+  groupMap: GroupMap,
   include: boolean
-): Record<string, unknown> {
-  if (group.source === "runtime") {
-    const cond = {
-      $groups: {
-        $elemMatch: { $eq: group.key },
-      },
-    };
-    return include ? cond : { $not: cond };
+): null | ConditionInterface {
+  if (group.type === "condition") {
+    try {
+      const cond = JSON.parse(
+        replaceSavedGroupsInCondition(group.condition || "{}", groupMap)
+      );
+      return include ? cond : { $not: cond };
+    } catch (e) {
+      return null;
+    }
   }
 
+  if (!group.attributeKey) return null;
+
   return {
-    [group.key]: { [include ? "$in" : "$nin"]: group.values },
+    [group.attributeKey]: { [include ? "$in" : "$nin"]: group.values || [] },
   };
 }
 
@@ -40,12 +48,13 @@ export function getParsedCondition(
   condition?: string,
   savedGroups?: SavedGroupTargeting[]
 ) {
-  const conditions = [];
+  const conditions: ConditionInterface[] = [];
   if (condition && condition !== "{}") {
     try {
-      conditions.push(
-        JSON.parse(replaceSavedGroupsInCondition(condition, groupMap))
+      const cond = JSON.parse(
+        replaceSavedGroupsInCondition(condition, groupMap)
       );
+      if (cond) conditions.push(cond);
     } catch (e) {
       // ignore condition parse errors here
     }
@@ -55,30 +64,47 @@ export function getParsedCondition(
     savedGroups.forEach(({ ids, match }) => {
       const groups = ids
         .map((id) => groupMap.get(id))
-        // Must either have at least 1 value or be defined at runtime
-        .filter(
-          (group) => group?.source === "runtime" || !!group?.values?.length
-        ) as GroupMapValue[];
+        // Must either have at least 1 value or be a non-empty condition
+        .filter((group) => {
+          if (!group) return false;
+          if (group.type === "condition") {
+            if (!group.condition || group.condition === "{}") return false;
+          } else {
+            if (!group.values?.length) return false;
+          }
+          return true;
+        }) as GroupMapValue[];
       if (!groups.length) return;
 
       // Add each group as a separate top-level AND
       if (match === "all") {
         groups.forEach((group) => {
-          conditions.push(getSavedGroupCondition(group, true));
+          const cond = getSavedGroupCondition(group, groupMap, true);
+          if (cond) conditions.push(cond);
         });
       }
       // Add one top-level AND with nested OR conditions
       else if (match === "any") {
-        const ors: Record<string, unknown>[] = [];
+        const ors: ConditionInterface[] = [];
         groups.forEach((group) => {
-          ors.push(getSavedGroupCondition(group, true));
+          const cond = getSavedGroupCondition(group, groupMap, true);
+          if (cond) ors.push(cond);
         });
-        conditions.push(ors.length > 1 ? { $or: ors } : ors[0]);
+
+        // Multiple OR conditions, add them as a nested OR
+        if (ors.length > 1) {
+          conditions.push({ $or: ors });
+        }
+        // Single OR condition, not really doing anything, just add it to top-level
+        else if (ors.length === 1) {
+          conditions.push(ors[0]);
+        }
       }
       // Add each group as a separate top-level AND with a NOT condition
       else if (match === "none") {
         groups.forEach((group) => {
-          conditions.push(getSavedGroupCondition(group, false));
+          const cond = getSavedGroupCondition(group, groupMap, false);
+          if (cond) conditions.push(cond);
         });
       }
     });
@@ -105,7 +131,7 @@ export function replaceSavedGroupsInCondition(
     /[\s|\n]*"\$(inGroup|notInGroup)"[\s|\n]*:[\s|\n]*"([^"]*)"[\s|\n]*/g,
     (match: string, operator: string, groupId: string) => {
       const newOperator = operator === "inGroup" ? "$in" : "$nin";
-      const ids: string[] | number[] = groupMap.get(groupId)?.values ?? [];
+      const ids: (string | number)[] = groupMap.get(groupId)?.values ?? [];
       return `"${newOperator}": ${JSON.stringify(ids)}`;
     }
   );
@@ -346,7 +372,18 @@ export function getFeatureDefinition({
             if (exp.hashAttribute) {
               rule.hashAttribute = exp.hashAttribute;
             }
-
+            if (exp.fallbackAttribute) {
+              rule.fallbackAttribute = exp.fallbackAttribute;
+            }
+            if (exp.disableStickyBucketing) {
+              rule.disableStickyBucketing = exp.disableStickyBucketing;
+            }
+            if (exp.bucketVersion) {
+              rule.bucketVersion = exp.bucketVersion;
+            }
+            if (exp.minBucketVersion) {
+              rule.minBucketVersion = exp.minBucketVersion;
+            }
             if (
               phase.namespace &&
               phase.namespace.enabled &&
@@ -432,6 +469,18 @@ export function getFeatureDefinition({
             }
             if (r.hashAttribute) {
               rule.hashAttribute = r.hashAttribute;
+            }
+            if (r.fallbackAttribute) {
+              rule.fallbackAttribute = r.fallbackAttribute;
+            }
+            if (r.disableStickyBucketing) {
+              rule.disableStickyBucketing = r.disableStickyBucketing;
+            }
+            if (r.bucketVersion) {
+              rule.bucketVersion = r.bucketVersion;
+            }
+            if (r.minBucketVersion) {
+              rule.minBucketVersion = r.minBucketVersion;
             }
             if (r?.namespace && r.namespace.enabled && r.namespace.name) {
               rule.namespace = [

@@ -224,7 +224,7 @@ export async function refreshReport(
     report.args.datasource,
     true
   );
-  const queryRunner = new ReportQueryRunner(report, integration, useCache);
+  const queryRunner = new ReportQueryRunner(report, integration, org, useCache);
 
   const updatedReport = await queryRunner.startAnalysis({
     metricMap,
@@ -300,7 +300,7 @@ export async function putReport(
       updatedReport.args.datasource,
       true
     );
-    const queryRunner = new ReportQueryRunner(updatedReport, integration);
+    const queryRunner = new ReportQueryRunner(updatedReport, integration, org);
 
     await queryRunner.startAnalysis({
       metricMap,
@@ -333,7 +333,7 @@ export async function cancelReport(
     org.id,
     report.args.datasource
   );
-  const queryRunner = new ReportQueryRunner(report, integration);
+  const queryRunner = new ReportQueryRunner(report, integration, org);
   await queryRunner.cancelQueries();
 
   res.status(200).json({ status: 200 });

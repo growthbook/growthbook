@@ -30,6 +30,10 @@ import {
   MetricForSnapshot,
 } from "../../types/experiment-snapshot";
 import { getEnvironments } from "../services/organizations";
+import {
+  LegacySavedGroupInterface,
+  SavedGroupInterface,
+} from "../../types/saved-group";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -84,7 +88,7 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
     });
   }
 
-  if (doc.cap) {
+  if (doc.capping === undefined && doc.cap) {
     newDoc.capValue = doc.cap;
     newDoc.capping = "absolute";
   }
@@ -432,6 +436,15 @@ export function upgradeExperimentDoc(
         name: "",
         range: [0, 1],
       };
+      // Some experiments have a namespace with only `enabled` set, no idea why
+      // This breaks namespaces, so add default values if missing
+      if (!phase.namespace.range) {
+        phase.namespace = {
+          enabled: false,
+          name: "",
+          range: [0, 1],
+        };
+      }
     });
   }
 
@@ -579,6 +592,7 @@ export function migrateSnapshot(
             regressionAdjustmentEnabled &&
             regressionSettings?.regressionAdjustmentEnabled
           ),
+          regressionAdjustmentAvailable: !!regressionSettings?.regressionAdjustmentAvailable,
           regressionAdjustmentReason: regressionSettings?.reason || "",
         },
       };
@@ -631,4 +645,33 @@ export function migrateSnapshot(
   }
 
   return snapshot;
+}
+
+export function migrateSavedGroup(
+  legacy: LegacySavedGroupInterface
+): SavedGroupInterface {
+  // Add `type` field to legacy groups
+  const { source, type, ...otherFields } = legacy;
+  const group: SavedGroupInterface = {
+    ...otherFields,
+    type: type || (source === "runtime" ? "condition" : "list"),
+  };
+
+  // Migrate legacy runtime groups to use a condition
+  if (
+    group.type === "condition" &&
+    !group.condition &&
+    source === "runtime" &&
+    group.attributeKey
+  ) {
+    group.condition = JSON.stringify({
+      $groups: {
+        $elemMatch: {
+          $eq: group.attributeKey,
+        },
+      },
+    });
+  }
+
+  return group;
 }

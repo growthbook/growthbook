@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import { useState } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { daysLeft } from "shared/dates";
+import { date, daysLeft } from "shared/dates";
 import usePermissions from "@/hooks/usePermissions";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
 import { isCloud } from "@/services/env";
@@ -22,6 +22,19 @@ export default function AccountPlanNotices() {
     trialEnd,
     subscriptionStatus,
   } = useStripeSubscription();
+
+  if (
+    license?.message &&
+    (license.message.showAllUsers || permissions.manageBilling)
+  ) {
+    return (
+      <Tooltip body={<>{license.message.tooltipText}</>}>
+        <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
+          <FaExclamationTriangle /> {license.message.text}
+        </div>
+      </Tooltip>
+    );
+  }
 
   // GrowthBook Cloud-specific Notices
   if (isCloud() && permissions.manageBilling) {
@@ -88,8 +101,10 @@ export default function AccountPlanNotices() {
   // Self-hosted-specific Notices
   if (!isCloud() && license) {
     // Trial license is up
-    const licenseTrialRemaining = license.trial ? daysLeft(license.exp) : -1;
-    if (license?.org && license.org !== organization.id) {
+    const licenseTrialRemaining = license.isTrial
+      ? daysLeft(license.dateExpires)
+      : -1;
+    if (license?.organizationId && license.organizationId !== organization.id) {
       return (
         <Tooltip
           body={
@@ -125,12 +140,13 @@ export default function AccountPlanNotices() {
     }
 
     // License expired
-    if (license.exp < new Date().toISOString().substring(0, 10)) {
+    if (license.dateExpires < new Date().toISOString().substring(0, 10)) {
       return (
         <Tooltip
           body={
             <>
-              Your license expired on <strong>{license.exp}</strong>. Contact
+              Your license expired on{" "}
+              <strong>{date(license.dateExpires)}</strong>. Contact
               sales@growthbook.io to renew.
             </>
           }
@@ -143,12 +159,12 @@ export default function AccountPlanNotices() {
     }
 
     // More seats than the license allows for
-    if (activeAndInvitedUsers > license.qty) {
+    if (activeAndInvitedUsers > license.seats) {
       return (
         <Tooltip
           body={
             <>
-              Your license is valid for <strong>{license.qty} seats</strong>,
+              Your license is valid for <strong>{license.seats} seats</strong>,
               but you are currently using{" "}
               <strong>{activeAndInvitedUsers}</strong>. Contact
               sales@growthbook.io to extend your quota.

@@ -9,7 +9,8 @@ import {
   AutoExperiment,
   GrowthBook,
 } from "@growthbook/growthbook";
-import { validateFeatureValue } from "shared/util";
+import { validateCondition, validateFeatureValue } from "shared/util";
+import { scrubFeatures, SDKCapability } from "shared/sdk-versioning";
 import {
   AutoExperimentWithProject,
   FeatureDefinition,
@@ -130,6 +131,10 @@ function generateVisualExperimentsPayload({
         })) as AutoExperimentWithProject["variations"],
         hashVersion: e.hashVersion,
         hashAttribute: e.hashAttribute,
+        fallbackAttribute: e.fallbackAttribute,
+        disableStickyBucketing: e.disableStickyBucketing,
+        bucketVersion: e.bucketVersion,
+        minBucketVersion: e.minBucketVersion,
         urlPatterns: v.urlPatterns,
         weights: phase.variationWeights,
         meta: e.variations.map((v) => ({ key: v.key, name: v.name })),
@@ -184,11 +189,17 @@ export async function getSavedGroupMap(
 
   const groupMap: GroupMap = new Map(
     allGroups.map((group) => {
-      const attributeType = attributeMap?.get(group.attributeKey);
-      const values = getGroupValues(group.values, attributeType);
+      let values: (string | number)[] = [];
+      if (group.type === "list" && group.attributeKey && group.values) {
+        const attributeType = attributeMap?.get(group.attributeKey);
+        values = getGroupValues(group.values, attributeType);
+      }
       return [
         group.id,
-        { values, key: group.attributeKey, source: group.source },
+        {
+          ...group,
+          values,
+        },
       ];
     })
   );
@@ -288,6 +299,7 @@ export type FeatureDefinitionsResponseArgs = {
   attributes?: SDKAttributeSchema;
   secureAttributeSalt?: string;
   projects: string[];
+  capabilities: SDKCapability[];
 };
 async function getFeatureDefinitionsResponse({
   features,
@@ -300,6 +312,7 @@ async function getFeatureDefinitionsResponse({
   attributes,
   secureAttributeSalt,
   projects,
+  capabilities,
 }: FeatureDefinitionsResponseArgs) {
   if (!includeDraftExperiments) {
     experiments = experiments?.filter((e) => e.status !== "draft") || [];
@@ -366,6 +379,8 @@ async function getFeatureDefinitionsResponse({
     }
   }
 
+  features = scrubFeatures(features, capabilities);
+
   if (!encryptionKey) {
     return {
       features,
@@ -393,6 +408,7 @@ async function getFeatureDefinitionsResponse({
 
 export type FeatureDefinitionArgs = {
   organization: string;
+  capabilities: SDKCapability[];
   environment?: string;
   projects?: string[];
   encryptionKey?: string;
@@ -411,6 +427,7 @@ export type FeatureDefinitionSDKPayload = {
 
 export async function getFeatureDefinitions({
   organization,
+  capabilities,
   environment = "production",
   projects,
   encryptionKey,
@@ -447,6 +464,7 @@ export async function getFeatureDefinitions({
         attributes,
         secureAttributeSalt,
         projects: projects || [],
+        capabilities,
       });
     }
   } catch (e) {
@@ -474,6 +492,7 @@ export async function getFeatureDefinitions({
       attributes,
       secureAttributeSalt,
       projects: projects || [],
+      capabilities,
     });
   }
 
@@ -520,19 +539,25 @@ export async function getFeatureDefinitions({
     attributes,
     secureAttributeSalt,
     projects: projects || [],
+    capabilities,
   });
 }
 
-export async function evaluateFeature(
-  feature: FeatureInterface,
-  revision: FeatureRevisionInterface,
-  attributes: ArchetypeAttributeValues,
-  org: OrganizationInterface
-) {
-  const groupMap = await getSavedGroupMap(org);
-  const experimentMap = await getAllPayloadExperiments(org.id);
-  const environments = getEnvironmentIdsFromOrg(org);
-
+export function evaluateFeature({
+  feature,
+  attributes,
+  environments,
+  groupMap,
+  experimentMap,
+  revision,
+}: {
+  feature: FeatureInterface;
+  attributes: ArchetypeAttributeValues;
+  groupMap: GroupMap;
+  experimentMap: Map<string, ExperimentInterface>;
+  environments: Environment[];
+  revision: FeatureRevisionInterface;
+}) {
   const results: FeatureTestResult[] = [];
 
   // change the NODE ENV so that we can get the debug log information:
@@ -545,19 +570,19 @@ export async function evaluateFeature(
   // the values in the feature will be wrong.
   environments.forEach((env) => {
     const thisEnvResult: FeatureTestResult = {
-      env: env,
+      env: env.id,
       result: null,
       enabled: false,
       defaultValue: revision.defaultValue,
     };
-    const settings = feature.environmentSettings[env] ?? null;
+    const settings = feature.environmentSettings[env.id] ?? null;
     if (settings) {
       thisEnvResult.enabled = settings.enabled;
       const definition = getFeatureDefinition({
         feature,
         groupMap,
         experimentMap,
-        environment: env,
+        environment: env.id,
         revision,
         returnRuleId: true,
       });
@@ -568,7 +593,6 @@ export async function evaluateFeature(
           features: {
             [feature.id]: definition,
           },
-          disableDevTools: true,
           attributes: attributes,
           log: (msg: string, ctx: never) => {
             log.push([msg, ctx]);
@@ -577,6 +601,7 @@ export async function evaluateFeature(
         gb.debug = true;
         thisEnvResult.result = gb.evalFeature(feature.id);
         thisEnvResult.log = log;
+        gb.destroy();
       }
     }
     results.push(thisEnvResult);
@@ -924,6 +949,13 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
   rules: ApiFeatureEnvSettingsRules
 ): FeatureInterface["environmentSettings"][string]["rules"] =>
   rules.map((r) => {
+    const conditionRes = validateCondition(r.condition);
+    if (!conditionRes.success) {
+      throw new Error(
+        "Invalid targeting condition JSON: " + conditionRes.error
+      );
+    }
+
     if (r.type === "experiment-ref") {
       const experimentRule: ExperimentRefRule = {
         // missing id will be filled in by addIdsToRules

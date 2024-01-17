@@ -53,6 +53,8 @@ function getMetricRegressionAdjustmentStatusesFromSnapshot(
         (analysisSettings.regressionAdjusted &&
           m.computedSettings?.regressionAdjustmentEnabled) ||
         false,
+      regressionAdjustmentAvailable:
+        m.computedSettings?.regressionAdjustmentAvailable ?? true,
     };
   });
 }
@@ -96,6 +98,21 @@ export function reportArgsFromSnapshot(
   };
 }
 
+export function getAnalysisSettingsFromReportArgs(
+  args: ExperimentReportArgs
+): ExperimentSnapshotAnalysisSettings {
+  return {
+    dimensions: args.dimension ? [args.dimension] : [],
+    statsEngine: args.statsEngine || DEFAULT_STATS_ENGINE,
+    regressionAdjusted: args.regressionAdjustmentEnabled,
+    pValueCorrection: null,
+    sequentialTesting: args.sequentialTestingEnabled,
+    sequentialTestingTuningParameter: args.sequentialTestingTuningParameter,
+    pValueThreshold: args.pValueThreshold,
+    differenceType: "relative",
+    baselineVariationIndex: 0,
+  };
+}
 export function getSnapshotSettingsFromReportArgs(
   args: ExperimentReportArgs,
   metricMap: Map<string, ExperimentMetricInterface>
@@ -137,17 +154,7 @@ export function getSnapshotSettingsFromReportArgs(
     })),
     coverage: args.coverage,
   };
-  // TODO: add baselineVariation here
-  const analysisSettings: ExperimentSnapshotAnalysisSettings = {
-    dimensions: args.dimension ? [args.dimension] : [],
-    statsEngine: args.statsEngine || DEFAULT_STATS_ENGINE,
-    regressionAdjusted: args.regressionAdjustmentEnabled,
-    pValueCorrection: null,
-    sequentialTesting: args.sequentialTestingEnabled,
-    sequentialTestingTuningParameter: args.sequentialTestingTuningParameter,
-    pValueThreshold: args.pValueThreshold,
-    differenceType: "relative",
-  };
+  const analysisSettings = getAnalysisSettingsFromReportArgs(args);
 
   return { snapshotSettings, analysisSettings };
 }
@@ -187,6 +194,8 @@ export function getMetricForSnapshot(
         DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
       regressionAdjustmentEnabled:
         regressionAdjustmentStatus?.regressionAdjustmentEnabled ?? false,
+      regressionAdjustmentAvailable:
+        regressionAdjustmentStatus?.regressionAdjustmentAvailable ?? true,
       regressionAdjustmentReason: regressionAdjustmentStatus?.reason ?? "",
     },
   };

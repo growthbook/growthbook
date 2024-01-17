@@ -119,7 +119,11 @@ export interface ExperimentInterface {
    */
   userIdType?: "anonymous" | "user";
   hashAttribute: string;
+  fallbackAttribute?: string;
   hashVersion: 1 | 2;
+  disableStickyBucketing?: boolean;
+  bucketVersion?: number;
+  minBucketVersion?: number;
   name: string;
   dateCreated: Date;
   dateUpdated: Date;
@@ -181,19 +185,19 @@ export type ExperimentTargetingData = Pick<
 > &
   Pick<
     ExperimentInterfaceStringDates,
-    "hashAttribute" | "hashVersion" | "trackingKey"
+    | "hashAttribute"
+    | "fallbackAttribute"
+    | "hashVersion"
+    | "disableStickyBucketing"
+    | "bucketVersion"
+    | "minBucketVersion"
+    | "trackingKey"
   > & {
     newPhase: boolean;
     reseed: boolean;
   };
 
-export type LinkedFeatureState =
-  | "locked"
-  | "live"
-  | "draft"
-  | "discarded"
-  | "requested-review"
-  | "approved";
+export type LinkedFeatureState = "locked" | "live" | "draft" | "discarded";
 
 export type LinkedFeatureEnvState =
   | "missing"

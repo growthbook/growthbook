@@ -151,17 +151,27 @@ export default class BigQuery extends SqlIntegration {
     return `CAST(${column} as DATETIME)`;
   }
   percentileCapSelectClause(
-    capPercentile: number,
-    metricTable: string
+    values: {
+      valueCol: string;
+      outputCol: string;
+      percentile: number;
+    }[],
+    metricTable: string,
+    where: string = ""
   ): string {
     return `
-    SELECT 
-      APPROX_QUANTILES(value, 100000)[OFFSET(${Math.trunc(
-        100000 * capPercentile
-      )})] AS cap_value
-    FROM ${metricTable}
-    WHERE value IS NOT NULL
-  `;
+    SELECT
+      ${values
+        .map(
+          (v) =>
+            `APPROX_QUANTILES(${v.valueCol}, 100000)[OFFSET(${Math.trunc(
+              100000 * v.percentile
+            )})] AS ${v.outputCol}`
+        )
+        .join(",\n")}
+      FROM ${metricTable}
+      ${where}
+    `;
   }
   getDefaultDatabase() {
     return this.params.projectId || "";

@@ -54,7 +54,7 @@
       "prettier --write"
     ],
     "./**/*.{ts,tsx}": [
-      "yarn lint"
+      "yarn eslint  --fix --max-warnings 0 --cache --cache-strategy content"
     ],
     "./packages/stats/{gbstats,tests}/**/*.py": [
       "bash -c \"yarn workspace stats lint\" && :"

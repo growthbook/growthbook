@@ -1,4 +1,4 @@
-import { getValidDate } from "shared/dates";
+import { getValidDateOffsetByUTC } from "shared/dates";
 import { MetricAnalysis, MetricInterface } from "../../types/metric";
 import { Queries, QueryStatus } from "../../types/query";
 import { getMetricById, updateMetric } from "../models/MetricModel";
@@ -24,6 +24,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
         run: (query, setExternalId) =>
           this.integration.runMetricValueQuery(query, setExternalId),
         process: (rows) => processMetricValueQueryResponse(rows),
+        queryType: "metricAnalysis",
       }),
     ];
   }
@@ -53,7 +54,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
         total += dateTotal;
         count += d.count || 0;
         dates.push({
-          d: getValidDate(d.date),
+          d: getValidDateOffsetByUTC(d.date),
           v: mean,
           c: d.count || 0,
           s: stddev,

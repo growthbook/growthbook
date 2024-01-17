@@ -13,7 +13,11 @@ import {
   ProjectScopedPermission,
   UserPermissions,
 } from "back-end/types/organization";
-import type { AccountPlan, CommercialFeature, LicenseData } from "enterprise";
+import type {
+  AccountPlan,
+  CommercialFeature,
+  LicenseInterface,
+} from "enterprise";
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { useRouter } from "next/router";
 import {
@@ -42,6 +46,7 @@ type OrgSettingsResponse = {
   apiKeys: ApiKeyInterface[];
   enterpriseSSO: SSOConnectionInterface | null;
   accountPlan: AccountPlan;
+  effectiveAccountPlan: AccountPlan;
   commercialFeatures: CommercialFeature[];
   licenseKey?: string;
   currentUserPermissions: UserPermissions;
@@ -83,6 +88,7 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   organizationSettings: false,
   superDelete: false,
   viewEvents: false,
+  readData: false,
 };
 
 export interface UserContextValue {
@@ -90,7 +96,7 @@ export interface UserContextValue {
   name?: string;
   email?: string;
   superAdmin?: boolean;
-  license?: LicenseData;
+  license?: LicenseInterface;
   user?: ExpandedMember;
   users: Map<string, ExpandedMember>;
   getUserDisplay: (id: string, fallback?: boolean) => string;
@@ -100,6 +106,7 @@ export interface UserContextValue {
   settings: OrganizationSettings;
   enterpriseSSO?: SSOConnectionInterface;
   accountPlan?: AccountPlan;
+  effectiveAccountPlan?: AccountPlan;
   commercialFeatures: CommercialFeature[];
   apiKeys: ApiKeyInterface[];
   organization: Partial<OrganizationInterface>;
@@ -117,7 +124,7 @@ interface UserResponse {
   verified: boolean;
   superAdmin: boolean;
   organizations?: UserOrganizations;
-  license?: LicenseData;
+  license?: LicenseInterface;
   currentUserPermissions: UserPermissions;
 }
 
@@ -360,9 +367,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
           if (!u && fallback) return id;
           return u?.name || u?.email || "";
         },
-        refreshOrganization: async () => {
-          await refreshOrganization();
-        },
+        refreshOrganization: refreshOrganization as () => Promise<void>,
         roles: currentOrg?.roles || [],
         permissions: {
           ...permissionsObj,
@@ -372,6 +377,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         license: data?.license,
         enterpriseSSO: currentOrg?.enterpriseSSO || undefined,
         accountPlan: currentOrg?.accountPlan,
+        effectiveAccountPlan: currentOrg?.effectiveAccountPlan,
         commercialFeatures: currentOrg?.commercialFeatures || [],
         apiKeys: currentOrg?.apiKeys || [],
         // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'OrganizationInterface | undefined' is not as... Remove this comment to see the full error message

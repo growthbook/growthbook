@@ -1,7 +1,8 @@
 import { ReactNode, useMemo } from "react";
 import { MemberRole, MemberRoleInfo } from "back-end/types/organization";
 import uniqid from "uniqid";
-import { roleSupportsEnvLimit } from "@/services/auth";
+import { roleSupportsEnvLimit } from "shared/permissions";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useUser } from "../../../services/UserContext";
 import { useEnvironments } from "../../../services/features";
 import MultiSelectField from "../../Forms/MultiSelectField";
@@ -22,8 +23,18 @@ export default function SingleRoleSelector({
   includeAdminRole?: boolean;
   disabled?: boolean;
 }) {
+  const growthbook = useGrowthBook();
   const { roles, hasCommercialFeature } = useUser();
   const hasFeature = hasCommercialFeature("advanced-permissions");
+  const isNoAccessRoleEnabled =
+    growthbook?.isOn("no-access-role-type") &&
+    hasCommercialFeature("no-access-role");
+
+  let roleOptions = [...roles];
+
+  if (!isNoAccessRoleEnabled) {
+    roleOptions = roles.filter((r) => r.id !== "noaccess");
+  }
 
   const availableEnvs = useEnvironments();
 
@@ -40,7 +51,7 @@ export default function SingleRoleSelector({
             role,
           });
         }}
-        options={roles
+        options={roleOptions
           .filter((r) => includeAdminRole || r.id !== "admin")
           .map((r) => ({
             label: r.id,
