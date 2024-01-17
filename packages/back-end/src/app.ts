@@ -98,7 +98,6 @@ import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
 import { projectRouter } from "./routers/project/project.router";
 import { factTableRouter } from "./routers/fact-table/fact-table.router";
-import verifyLicenseMiddleware from "./services/auth/verifyLicenseMiddleware";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
@@ -318,9 +317,6 @@ app.use(
   }
 );
 
-// Validate self hosted license key if present
-app.use(verifyLicenseMiddleware);
-
 // Logged-in auth requests
 if (!useSSO) {
   app.post("/auth/change-password", authController.postChangePassword);
@@ -423,10 +419,6 @@ app.get(
   experimentsController.getSnapshotWithDimension
 );
 app.post("/experiment/:id/snapshot", experimentsController.postSnapshot);
-app.post(
-  "/experiment/:id/snapshot/:phase/preview",
-  experimentsController.previewManualSnapshot
-);
 app.post("/experiment/:id", experimentsController.postExperiment);
 app.delete("/experiment/:id", experimentsController.deleteExperiment);
 app.get("/experiment/:id/watchers", experimentsController.getWatchingUsers);
@@ -656,6 +648,7 @@ app.use("/teams", teamRouter);
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);
 app.get("/admin/license", adminController.getLicenseData);
+app.get("/admin/license-report", adminController.getLicenseReport);
 
 // Meta info
 app.get("/meta/ai", (req, res) => {

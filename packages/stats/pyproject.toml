@@ -1,7 +1,7 @@
 [tool]
 [tool.poetry]
 name = "gbstats"
-version = "0.6.0"
+version = "0.7.0"
 homepage = "https://github.com/growthbook/growthbook/tree/main/packages/stats"
 description = "Stats engine for GrowthBook, the open source feature flagging and A/B testing platform."
 authors = ["Jeremy Dorn <jeremy@growthbook.io>"]
@@ -29,6 +29,8 @@ pandas = "^1.5.1"
 scipy = "^1.9.2"
 numpy = "^1.23.4"
 nbformat = "^5.8.0"
+pydantic = "^2.5.3"
+packaging = ">=20.0.0"
 
 [tool.poetry.group.dev.dependencies]
 certifi = "2022.12.7"

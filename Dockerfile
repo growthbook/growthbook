@@ -8,8 +8,8 @@ COPY ./packages/stats .
 RUN \
   pip3 install poetry \
   && poetry install --no-root --no-dev --no-interaction --no-ansi \
-  && poetry build
-
+  && poetry build \
+  && poetry export -f requirements.txt --output requirements.txt
 
 # Build the nodejs app
 FROM node:${NODE_MAJOR}-slim AS nodebuild
@@ -54,12 +54,8 @@ RUN apt-get update && \
   apt-get install -yqq nodejs=$(apt-cache show nodejs|grep Version|grep nodesource|cut -c 10-) yarn && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
-RUN pip3 install \
-    nbformat \
-    numpy \
-    pandas \
-    scipy \
-  && rm -rf /root/.cache/pip
+COPY --from=pybuild /usr/local/src/app/requirements.txt /usr/local/src/requirements.txt
+RUN pip3 install -r /usr/local/src/requirements.txt && rm -rf /root/.cache/pip
 COPY --from=nodebuild /usr/local/src/app/packages ./packages
 COPY --from=nodebuild /usr/local/src/app/node_modules ./node_modules
 COPY --from=nodebuild /usr/local/src/app/package.json ./package.json

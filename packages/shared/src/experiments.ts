@@ -65,6 +65,17 @@ export function isFunnelMetric(
   return !!denominatorMetric && isBinomialMetric(denominatorMetric);
 }
 
+export function isRegressionAdjusted(
+  m: ExperimentMetricInterface,
+  denominatorMetric?: ExperimentMetricInterface
+) {
+  return (
+    (m.regressionAdjustmentDays ?? 0) > 0 &&
+    !!m.regressionAdjustmentEnabled &&
+    !isRatioMetric(m, denominatorMetric)
+  );
+}
+
 export function getConversionWindowHours(
   metric: ExperimentMetricInterface
 ): number {

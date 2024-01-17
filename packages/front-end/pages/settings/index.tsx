@@ -21,6 +21,7 @@ import {
 import { OrganizationSettings } from "@/../back-end/types/organization";
 import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { MdInfoOutline } from "react-icons/md";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
@@ -318,7 +319,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       },
       runHealthTrafficQuery: false,
       srmThreshold: DEFAULT_SRM_THRESHOLD,
-      multipleExposureMinPercent: 0.01 * 100,
+      multipleExposureMinPercent: 0.01,
       confidenceLevel: 0.95,
       pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
       pValueCorrection: null,
@@ -842,6 +843,46 @@ const GeneralSettingsPage = (): React.ReactElement => {
                         />
                       </div>
                     )}
+                  </div>
+
+                  <div className="d-flex form-group mb-3">
+                    <label
+                      className="mr-1"
+                      htmlFor="toggle-factTableQueryOptimization"
+                    >
+                      <PremiumTooltip
+                        commercialFeature="multi-metric-queries"
+                        body={
+                          <>
+                            <p>
+                              If multiple metrics from the same Fact Table are
+                              added to an experiment, this will combine them
+                              into a single query, which is much faster and more
+                              efficient.
+                            </p>
+                            <p>
+                              For data sources with usage-based billing like
+                              BigQuery or SnowFlake, this can result in
+                              substantial cost savings.
+                            </p>
+                          </>
+                        }
+                      >
+                        Fact Table Query Optimization{" "}
+                        <MdInfoOutline className="text-info" />
+                      </PremiumTooltip>
+                    </label>
+                    <Toggle
+                      id={"toggle-factTableQueryOptimization"}
+                      value={
+                        hasCommercialFeature("multi-metric-queries") &&
+                        !form.watch("disableMultiMetricQueries")
+                      }
+                      setValue={(value) => {
+                        form.setValue("disableMultiMetricQueries", !value);
+                      }}
+                      disabled={!hasCommercialFeature("multi-metric-queries")}
+                    />
                   </div>
 
                   <StatsEngineSelect

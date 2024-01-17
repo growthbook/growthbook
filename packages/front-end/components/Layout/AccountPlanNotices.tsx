@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import { useState } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { daysLeft } from "shared/dates";
+import { date, daysLeft } from "shared/dates";
 import usePermissions from "@/hooks/usePermissions";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
 import { isCloud } from "@/services/env";
@@ -22,6 +22,19 @@ export default function AccountPlanNotices() {
     trialEnd,
     subscriptionStatus,
   } = useStripeSubscription();
+
+  if (
+    license?.message &&
+    (license.message.showAllUsers || permissions.manageBilling)
+  ) {
+    return (
+      <Tooltip body={<>{license.message.tooltipText}</>}>
+        <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
+          <FaExclamationTriangle /> {license.message.text}
+        </div>
+      </Tooltip>
+    );
+  }
 
   // GrowthBook Cloud-specific Notices
   if (isCloud() && permissions.manageBilling) {
@@ -132,8 +145,9 @@ export default function AccountPlanNotices() {
         <Tooltip
           body={
             <>
-              Your license expired on <strong>{license.dateExpires}</strong>.
-              Contact sales@growthbook.io to renew.
+              Your license expired on{" "}
+              <strong>{date(license.dateExpires)}</strong>. Contact
+              sales@growthbook.io to renew.
             </>
           }
         >

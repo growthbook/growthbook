@@ -4,6 +4,7 @@ import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   accountFeatures,
   getAccountPlan,
+  getEffectiveAccountPlan,
   getLicense,
   setLicense,
 } from "enterprise";
@@ -658,9 +659,8 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     apiKeys,
     enterpriseSSO,
     accountPlan: getAccountPlan(org),
-    commercialFeatures: res.locals.licenseError
-      ? []
-      : [...accountFeatures[getAccountPlan(org)]],
+    effectiveAccountPlan: getEffectiveAccountPlan(org),
+    commercialFeatures: [...accountFeatures[getEffectiveAccountPlan(org)]],
     roles: getRoles(org),
     members: expandedMembers,
     currentUserPermissions,
@@ -1809,19 +1809,21 @@ export async function putLicenseKey(
     );
   }
 
-  const { licenseKey } = req.body;
+  const licenseKey = req.body.licenseKey.trim();
   if (!licenseKey) {
     throw new Error("missing license key");
   }
 
   const currentLicenseData = getLicense();
   let licenseData = null;
+  let error = null;
   try {
     // set new license
     licenseData = await initializeLicense(licenseKey);
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error("setting new license failed", e);
+    error = e;
   }
   if (!licenseData) {
     // setting license failed, revert to previous
@@ -1833,7 +1835,11 @@ export async function putLicenseKey(
       console.error("reverting to old license failed", e);
       await setLicense(null);
     }
-    throw new Error("Invalid license key");
+    if (error.message.includes("Could not connect")) {
+      throw new Error(error?.message);
+    } else {
+      throw new Error("Invalid license key");
+    }
   }
 
   try {

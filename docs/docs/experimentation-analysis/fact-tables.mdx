@@ -161,6 +161,20 @@ Keep in mind, these two things are answering slightly different questions.
 `How much longer do people stay after viewing the experiment?` vs `How much longer is an average session that includes the experiment?`.
 The first question is more direct and often a more strict test of your hypothesis, but it may not be worth the extra running time.
 
+## Fact Table Query Optimization
+
+GrowthBook Enterprise customers can enable Fact Table Query Optimization for faster, more efficient queries.
+
+If multiple metrics from the same Fact Table are added to an experiment, they will be combined into a single SQL query. For data sourcees with usage-based billing, this can result in dramatic cost savings.
+
+There are some restrictions that limit when this optimization can be performed:
+
+- Ratio metrics where the numerator and denominator are part of different Fact Tables are always excluded from this optimization
+- If `Ignore In-Progress Conversions` is set for an experiment, optimization is disabled for all metrics
+- If you are using MySQL and a metric has percentile capping, it will be excluded from optimization
+
+In all other cases, this optimization is enabled by default for all Enterprise customers. It can be disabled under **Settings -> General -> Experiment Settings**. When disabled, a separate SQL query will always be run for every individual metric.
+
 ## Migrating Existing Metrics to Fact Tables
 
 Fact Tables are brand new to GrowthBook, first launching in October 2023. Eventually, we see Fact Tables completely replacing the existing way of defining metrics. Right now though, Fact Tables are still in early preview mode and there are some rough edges.

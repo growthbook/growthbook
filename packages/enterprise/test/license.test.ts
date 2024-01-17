@@ -46,7 +46,7 @@ describe("licenseInit", () => {
       },
     },
     signedChecksum:
-      "cz1WRb7-O1tVDGWObQFELdwQ0BsVFttkEJau_w7uJ-Rjn-W0jEK0HgGiNKKjPT5_exisacjiSef-w8BXOJB6oDa6urYkQSQ1m1VD62aNH3tcDXhpDzIZxRLcjOSVYvJ-Xtwl4eAVJD8NQ_CV3YaPXuvCnTORJR9nsa1-yCA-oTfbELMyqwI14BsvrQGhfbDaxDuMuOPrhO3g3QHVSV10FytUcNO7dKO-OSOAkNAgiaODnFqECZ-Z7E1E3KyzW1lAcGGNK4RXolWBf18a6d2BSLZ8fDObqHTYTKKiF-I2C2BtoOWddY4pJ4uww0UTpQtuWAh-2qZBvzzFXVCRZz0seOZJlD0DL-mgxzZJfPR6ImOkt1lMwY-MMS7YpApkjG_H8_-kmcLKPmyga2KMzfZWixSXE92l27u_wmbDBfomTrWDyzE5sivh-Uozrr8uOoqU4gi3_arEAq3SfMzFQPqjqbQjvMZVwiU3r-4zFvW7cNGn7GvfYkAPoPYEkRzmP31fH7C5kq6eluFqKie0zsWqeE3DIUt3wUFPVj_OcjWklq1zIB0m5b24GGjzB_0TYVaHReRfbo2sM1MEsL00DRb6zyv5oEpfDJd4bOWlDOrL8oS9QRk8XykFjKOoUC-Aun58hfQBEp1FDb50jnwR7M4U1YRb8lW7Kgh5tko_WmLqo5M",
+      "JbSjKDDBxAu-8BtOrBCsPMl9vGUpdIYwOi6AIHdLE9y7NJfdsjK_oMeL8FrSY9BiBOIrzLR3qV6_AG-62L-nd5HOHo_YTbrCKCrOKxVO1_HpqzbBcfBaMIIF___7GYilnH5vncnJxIhxu3n2ZJTnmbjVfCGkz6-NEiU-oI5ifGI1akK7l3kTTz-X7M0N3c-8vkt2AwbxmBq0MoVU0Ekrf25_ybexRZVY0LhjHX_DYjQwCbZafdtC5E-1XsfvTX-zyUo2pZP7lEyGcV8BQso1psLB5AAt_2m8aMNJTK5Gi6JhA8wepyiel-G8dCTCjHs7NrVHqbn9uNVnAtUwpcFJcscJx0ZWcJXMFwrkKBp-jq6i94-1ridYJO1DFnGy23iTKAaKmcP5QLhbPaCBm4_EYMp2k4BQPHbRQyERzDF-I2rRphJGa3h3ZAUJjdjcnDzqinnDJcnqU1waWauIclvE51l3g0LFL6YTg4CSZm0VavKfrvcK2-ofCD66kuFhXVoxg3rUvufC1SWd9RoMCd8BEng3XEPzJIOD4f_s8Nl8XAldlQVDj4gUKm_Jb5tUYi2CQwti6PVg39XGFLw7CxrndeLZ46jd35k10HMXzkEvL_wCswh9e2NEzKDc-sHfjmNMqm5R2xNd2pfwIMyjFUQZCHcXn58QysX5dARJbHRJjH0",
   };
   const licenseData2 = cloneDeep(licenseData);
   licenseData2.seatsInUse = 2;
@@ -258,6 +258,7 @@ describe("licenseInit", () => {
       beforeEach(() => {
         const mockedResponse: Response = ({
           ok: false,
+          statusText: "internal server error",
         } as unknown) as Response; // Create a mock Response object
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
@@ -273,7 +274,7 @@ describe("licenseInit", () => {
             async () =>
               await licenseInit(licenseKey, userLicenseCodes, metaData)
           ).rejects.toThrowError(
-            "License server is not working and no cached license data exists"
+            "License server errored with internal server error"
           );
         });
       });
