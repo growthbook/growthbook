@@ -10,7 +10,7 @@ import {
 import * as EventWebHookLog from "../../models/EventWebHookLogModel";
 
 import { AuthRequest } from "../../types/AuthRequest";
-import { getOrgFromReq } from "../../services/organizations";
+import { getContextFromReq } from "../../services/organizations";
 import { EventWebHookLogInterface } from "../../../types/event-webhook-log";
 import { NotificationEventName } from "../../events/base-types";
 
@@ -28,7 +28,7 @@ export const getEventWebHooks = async (
 ) => {
   req.checkPermissions("manageWebhooks");
 
-  const { org } = getOrgFromReq(req);
+  const { org } = await getContextFromReq(req);
 
   const eventWebHooks = await EventWebHook.getAllEventWebHooks(org.id);
 
@@ -51,7 +51,7 @@ export const getEventWebHook = async (
 ) => {
   req.checkPermissions("manageWebhooks");
 
-  const { org } = getOrgFromReq(req);
+  const { org } = await getContextFromReq(req);
   const { eventWebHookId } = req.params;
 
   const eventWebHook = await getEventWebHookById(eventWebHookId, org.id);
@@ -87,7 +87,7 @@ export const createEventWebHook = async (
 ) => {
   req.checkPermissions("manageWebhooks");
 
-  const { org } = getOrgFromReq(req);
+  const { org } = await getContextFromReq(req);
   const { url, name, events, enabled } = req.body;
 
   const created = await EventWebHook.createEventWebHook({
@@ -120,7 +120,7 @@ export const getEventWebHookLogs = async (
 ) => {
   req.checkPermissions("manageWebhooks");
 
-  const { org } = getOrgFromReq(req);
+  const { org } = await getContextFromReq(req);
 
   const eventWebHookLogs = await EventWebHookLog.getLatestRunsForWebHook(
     org.id,
@@ -147,7 +147,7 @@ export const deleteEventWebHook = async (
 ) => {
   req.checkPermissions("manageWebhooks");
 
-  const { org } = getOrgFromReq(req);
+  const { org } = await getContextFromReq(req);
 
   const successful = await deleteEventWebHookById({
     eventWebHookId: req.params.eventWebHookId,
@@ -185,7 +185,7 @@ export const putEventWebHook = async (
 ) => {
   req.checkPermissions("manageWebhooks");
 
-  const { org } = getOrgFromReq(req);
+  const { org } = await getContextFromReq(req);
 
   const successful = await updateEventWebHook(
     {

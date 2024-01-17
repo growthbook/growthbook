@@ -130,23 +130,6 @@ export async function getContextFromReq(req: AuthRequest): Promise<ReqContext> {
   };
 }
 
-export function getOrgFromReq(req: AuthRequest) {
-  if (!req.organization) {
-    throw new Error("Must be part of an organization to make that request");
-  }
-  if (!req.userId || !req.email) {
-    throw new Error("Must be logged in");
-  }
-
-  return {
-    org: req.organization,
-    userId: req.userId,
-    email: req.email,
-    environments: getEnvironmentIdsFromOrg(req.organization),
-    userName: req.name || "",
-  };
-}
-
 export function getEnvironmentIdsFromOrg(org: OrganizationInterface): string[] {
   return getEnvironments(org).map((e) => e.id);
 }

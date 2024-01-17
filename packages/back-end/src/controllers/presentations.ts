@@ -7,12 +7,12 @@ import {
   deletePresentationById,
   getPresentationSnapshots,
 } from "../services/presentations";
-import { getOrgFromReq, userHasAccess } from "../services/organizations";
+import { getContextFromReq, userHasAccess } from "../services/organizations";
 import { ExperimentInterface } from "../../types/experiment";
 import { PresentationInterface } from "../../types/presentation";
 
 export async function getPresentations(req: AuthRequest, res: Response) {
-  const { org } = getOrgFromReq(req);
+  const { org } = await getContextFromReq(req);
   const presentations = await getPresentationsByOrganization(org.id);
 
   res.status(200).json({
@@ -26,7 +26,7 @@ export async function getPresentation(
   res: Response
 ) {
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
+  const { org } = await getContextFromReq(req);
 
   const pres = await getPresentationById(id);
 
@@ -65,7 +65,7 @@ export async function getPresentation(
 
 export async function getPresentationPreview(req: AuthRequest, res: Response) {
   const { expIds } = req.query as { expIds: string };
-  const { org } = getOrgFromReq(req);
+  const { org } = await getContextFromReq(req);
 
   if (!expIds) {
     res.status(403).json({
@@ -91,7 +91,7 @@ export async function deletePresentation(
   req.checkPermissions("createPresentations");
 
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
+  const { org } = await getContextFromReq(req);
 
   const p = await getPresentationById(id);
 
@@ -133,7 +133,7 @@ export async function postPresentation(
   req.checkPermissions("createPresentations");
 
   const data = req.body;
-  const { org } = getOrgFromReq(req);
+  const { org } = await getContextFromReq(req);
   data.organization = org.id;
 
   data.userId = req.userId;
@@ -158,7 +158,7 @@ export async function updatePresentation(
 
   const { id } = req.params;
   const data = req.body;
-  const { org } = getOrgFromReq(req);
+  const { org } = await getContextFromReq(req);
 
   const p = await getPresentationById(id);
 

@@ -1,7 +1,7 @@
 import type { Response } from "express";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
-import { getOrgFromReq } from "../../services/organizations";
+import { getContextFromReq } from "../../services/organizations";
 import { ProjectInterface, ProjectSettings } from "../../../types/project";
 import {
   createProject,
@@ -58,7 +58,7 @@ export const postProject = async (
   req.checkPermissions("manageProjects", "");
 
   const { name, description } = req.body;
-  const { org } = getOrgFromReq(req);
+  const { org } = await getContextFromReq(req);
 
   const doc = await createProject(org.id, {
     name,
@@ -101,7 +101,7 @@ export const putProject = async (
   const { id } = req.params;
   req.checkPermissions("manageProjects", id);
 
-  const { org } = getOrgFromReq(req);
+  const { org } = await getContextFromReq(req);
 
   const project = await findProjectById(id, org.id);
 
@@ -169,7 +169,7 @@ export const deleteProject = async (
 
   req.checkPermissions("manageProjects", id);
 
-  const { org } = getOrgFromReq(req);
+  const { org } = await getContextFromReq(req);
 
   await deleteProjectById(id, org.id);
 
@@ -304,7 +304,7 @@ export const putProjectSettings = async (
   const { id } = req.params;
   req.checkPermissions("manageProjects", id);
 
-  const { org } = getOrgFromReq(req);
+  const { org } = await getContextFromReq(req);
 
   const project = await findProjectById(id, org.id);
 

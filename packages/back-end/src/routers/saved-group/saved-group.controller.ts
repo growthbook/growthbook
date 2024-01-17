@@ -3,7 +3,7 @@ import { isEqual } from "lodash";
 import { validateCondition } from "shared/util";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
-import { getOrgFromReq } from "../../services/organizations";
+import { getContextFromReq } from "../../services/organizations";
 import {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
@@ -41,7 +41,7 @@ export const postSavedGroup = async (
   req: CreateSavedGroupRequest,
   res: Response<CreateSavedGroupResponse>
 ) => {
-  const { org, userName } = getOrgFromReq(req);
+  const { org, userName } = await getContextFromReq(req);
   const { groupName, owner, attributeKey, values, type, condition } = req.body;
 
   req.checkPermissions("manageSavedGroups");
@@ -108,7 +108,7 @@ export const putSavedGroup = async (
   req: PutSavedGroupRequest,
   res: Response<PutSavedGroupResponse | ApiErrorResponse>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const { org } = await getContextFromReq(req);
   const { groupName, owner, values, condition } = req.body;
   const { id } = req.params;
 
@@ -219,7 +219,7 @@ export const deleteSavedGroup = async (
   req.checkPermissions("manageSavedGroups");
 
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
+  const { org } = await getContextFromReq(req);
 
   const savedGroup = await getSavedGroupById(id, org.id);
 

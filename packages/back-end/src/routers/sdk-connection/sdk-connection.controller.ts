@@ -1,7 +1,7 @@
 import type { Response } from "express";
 import { orgHasPremiumFeature } from "enterprise";
 import { AuthRequest } from "../../types/AuthRequest";
-import { getOrgFromReq } from "../../services/organizations";
+import { getContextFromReq } from "../../services/organizations";
 import {
   SDKConnectionInterface,
   CreateSDKConnectionParams,
@@ -24,7 +24,7 @@ export const getSDKConnections = async (
     connections: SDKConnectionInterface[];
   }>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const { org } = await getContextFromReq(req);
   const connections = await findSDKConnectionsByOrganization(org.id);
   res.status(200).json({
     status: 200,
@@ -39,7 +39,7 @@ export const postSDKConnection = async (
     connection: SDKConnectionInterface;
   }>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const { org } = await getContextFromReq(req);
   const params = req.body;
 
   req.checkPermissions("manageEnvironments", params.projects, [
@@ -84,7 +84,7 @@ export const putSDKConnection = async (
   req: AuthRequest<EditSDKConnectionParams, { id: string }>,
   res: Response<{ status: 200 }>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const { org } = await getContextFromReq(req);
   const { id } = req.params;
   const connection = await findSDKConnectionById(id);
 
@@ -141,7 +141,7 @@ export const deleteSDKConnection = async (
   res: Response<{ status: 200 }>
 ) => {
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
+  const { org } = await getContextFromReq(req);
   const connection = await findSDKConnectionById(id);
 
   if (!connection || connection.organization !== org.id) {
@@ -167,7 +167,7 @@ export const checkSDKConnectionProxyStatus = async (
   }>
 ) => {
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
+  const { org } = await getContextFromReq(req);
   const connection = await findSDKConnectionById(id);
 
   if (!connection || connection.organization !== org.id) {

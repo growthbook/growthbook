@@ -8,7 +8,7 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { AuthRequest } from "../../types/AuthRequest";
-import { getOrgFromReq } from "../../services/organizations";
+import { getContextFromReq } from "../../services/organizations";
 import { EventAuditUserForResponseLocals } from "../../events/event-types";
 import { PostgresConnectionParams } from "../../../types/integrations/postgres";
 import { createDataSource } from "../../models/DataSourceModel";
@@ -158,7 +158,7 @@ export const postDemoDatasourceProject = async (
   req.checkPermissions("createMetrics", "");
   req.checkPermissions("createAnalyses", "");
 
-  const { org, environments } = getOrgFromReq(req);
+  const { org, environments } = await getContextFromReq(req);
 
   const demoProjId = getDemoDatasourceProjectIdForOrganization(org.id);
   const existingDemoProject: ProjectInterface | null = await findProjectById(
