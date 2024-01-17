@@ -85,6 +85,9 @@ export async function processJWT(
   req.email = email || "";
   req.name = name || "";
   req.verified = verified || false;
+  req.context = {
+    readAccessFilter: { globalReadAccess: false, projects: [] },
+  };
 
   let teams: TeamInterface[] = [];
 
@@ -164,6 +167,7 @@ export async function processJWT(
         undefined;
 
       if (req.organization) {
+        req.context.organization = req.organization;
         if (
           !req.superAdmin &&
           !req.organization.members.filter((m) => m.id === req.userId).length
@@ -190,7 +194,7 @@ export async function processJWT(
 
         // init license for org if it exists
         await initializeLicense(req.organization.licenseKey);
-        req.readAccessFilter = getReadAccessFilter(
+        req.context.readAccessFilter = getReadAccessFilter(
           getUserPermissions(user.id, req.organization, teams)
         );
       } else {

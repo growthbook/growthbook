@@ -630,10 +630,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   }
 
   // Some other global org data needed by the front-end
-  const apiKeys = await getAllApiKeysByOrganization(
-    org.id,
-    req.readAccessFilter
-  );
+  const apiKeys = await getAllApiKeysByOrganization(req.context);
   const enterpriseSSO = isEnterpriseSSO(req.loginMethod)
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
@@ -1302,8 +1299,7 @@ export const autoAddGroupsAttribute = async (
 };
 
 export async function getApiKeys(req: AuthRequest, res: Response) {
-  const { org } = getOrgFromReq(req);
-  const keys = await getAllApiKeysByOrganization(org.id, req.readAccessFilter);
+  const keys = await getAllApiKeysByOrganization(req.context);
   const filteredKeys = keys.filter((k) => !k.userId || k.userId === req.userId);
 
   res.status(200).json({
@@ -1422,8 +1418,7 @@ export async function deleteApiKey(
   }
 
   const keyObj = await getApiKeyByIdOrKey(
-    org.id,
-    req.readAccessFilter,
+    req.context,
     id || undefined,
     key || undefined
   );
