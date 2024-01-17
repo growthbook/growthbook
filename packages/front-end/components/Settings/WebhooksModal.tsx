@@ -47,12 +47,8 @@ const WebhooksModal: FC<{
       sdkid,
     },
   });
-  // if (showSDKMode && form.getValues("sendPayload") === undefined) {
-  //   console.log("testing");
-  //   form.setValue("sendPayload", false);
-  // }
+
   const handleApiCall = async (value) => {
-    console.log(JSON.stringify(value));
     if (showSDKMode) {
       console.log(current, "current");
       await apiCall(current.id ? `/webhook/${current.id}` : "/webhooks/sdk", {
@@ -190,7 +186,7 @@ const WebhooksModal: FC<{
         }}
         helpText={
           <>
-            Must accept <code>POST</code> requests
+            Must accept <code>{form.watch("httpMethod")}</code> requests
             {isCloud() ? (
               <>
                 {" "}

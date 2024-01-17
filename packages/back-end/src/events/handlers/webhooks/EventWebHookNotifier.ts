@@ -214,7 +214,7 @@ export class EventWebHookNotifier implements Notifier {
     });
 
     await createEventWebHookLog({
-      webhookId,
+      eventWebHookId,
       organizationId,
       payload,
       result: {

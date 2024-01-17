@@ -79,7 +79,7 @@ type CreateSdkWebHookLogOptions = {
  * @param options CreateSdkWebHookLogOptions
  * @returns Promise<SdkWebHookLogInterface>
  */
-export const createEventWebhookLog = async ({
+export const createSdkWebhookLog = async ({
   webhookId,
   webhookReduestId,
   organizationId,

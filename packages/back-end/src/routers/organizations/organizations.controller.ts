@@ -65,7 +65,7 @@ import {
 import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
 import { getAllSavedGroups } from "../../models/SavedGroupModel";
 import { getMetricsByOrganization } from "../../models/MetricModel";
-import { WebhookModel } from "../../models/WebhookModel";
+import { WebhookModel, countWebhooksByOrg } from "../../models/WebhookModel";
 import { createWebhook, createWebhookSDK } from "../../services/webhooks";
 import {
   createOrganization,
@@ -1492,8 +1492,36 @@ export async function postWebhookSDK(
 ) {
   req.checkPermissions("manageWebhooks");
 
+  // enterprise is unlimited
+  const LiMITS = {
+    pro: 99,
+    starter: 2,
+  };
   const { org } = getOrgFromReq(req);
   const { name, endpoint, sdkid, sendPayload, headers, httpMethod } = req.body;
+  const webhookcount = await countWebhooksByOrg(org.id);
+  if (
+    // IS_CLOUD &&
+    getAccountPlan(org).includes("pro") &&
+    webhookcount > LiMITS.pro
+  ) {
+    res.status(426).json({
+      status: 426,
+      message: "limit has been reaced for pro account",
+    });
+  }
+
+  if (
+    // IS_CLOUD &&
+    getAccountPlan(org).includes("starter") &&
+    webhookcount > LiMITS.starter
+  ) {
+    res.status(426).json({
+      status: 426,
+      message:
+        "limit has been reaced for starter account please upgrade to pro",
+    });
+  }
   const webhook = await createWebhookSDK({
     organization: org.id,
     name,

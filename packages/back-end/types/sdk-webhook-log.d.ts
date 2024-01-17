@@ -1,4 +1,4 @@
-export interface EventWebHookLogInterface {
+export interface SdkWebHookLogInterface {
   id: string;
   webhookId: string;
   webhookReduestId: string;

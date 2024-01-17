@@ -52,3 +52,7 @@ export async function findWebhookById(id: string) {
     id,
   });
 }
+
+export async function countWebhooksByOrg(organization: string) {
+  return await WebhookModel.countDocuments({ organization }).exec();
+}
