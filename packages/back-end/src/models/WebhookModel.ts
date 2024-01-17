@@ -36,7 +36,7 @@ export const WebhookModel = mongoose.model<WebhookInterface>(
   webhookSchema
 );
 
-export async function findWebhooksBySDks(
+export async function findWebhooksBySdks(
   sdkKeys: string[]
 ): Promise<WebhookInterface[]> {
   return (

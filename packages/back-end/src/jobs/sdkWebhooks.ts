@@ -10,7 +10,7 @@ import {
 } from "../models/SdkConnectionModel";
 import { SDKConnectionInterface } from "../../types/sdk-connection";
 import { logger } from "../util/logger";
-import { findWebhookById, findWebhooksBySDks } from "../models/WebhookModel";
+import { findWebhookById, findWebhooksBySdks } from "../models/WebhookModel";
 import { WebhookInterface, WebhookMethod } from "../../types/webhook";
 import { createSdkWebhookLog } from "../models/SdkWebhookLogModel";
 
@@ -71,7 +71,7 @@ async function singleWebhooksJob(webhook: WebhookInterface) {
   await job.save();
 }
 export async function queueSingleWebhookJob(sdk: SDKConnectionInterface) {
-  const webhooks = await findWebhooksBySDks([sdk.key]);
+  const webhooks = await findWebhooksBySdks([sdk.key]);
   for (const webhook of webhooks) {
     return webhook ? singleWebhooksJob(webhook) : null;
   }
@@ -102,7 +102,7 @@ export async function queueWebhookUpdate(
       sdkKeys.push(connection.key);
     }
   }
-  const webhooks = await findWebhooksBySDks(sdkKeys);
+  const webhooks = await findWebhooksBySdks(sdkKeys);
 
   for (const webhook of webhooks) {
     if (webhook) singleWebhooksJob(webhook);
