@@ -184,7 +184,7 @@ export default function ConditionInput(props: Props) {
     <div className="form-group">
       <label className={props.labelClassName || ""}>{title}</label>
       <div
-        className={`mb-3 bg-light px-3 ${isPrerequisite ? "mb-0" : "pb-3"} ${
+        className={`mb-3 bg-light px-3 ${!isPrerequisite && "pb-3"} ${
           styles.conditionbox
         }`}
       >
@@ -334,50 +334,52 @@ export default function ConditionInput(props: Props) {
                     <span className={`${styles.and} mr-2`}>IF</span>
                   )}
                   <div className="col-sm-12 col-md mb-2">
-                    <Tooltip
-                      body={
-                        isPrerequisite
-                          ? "The evaluated value of the prerequisite feature"
-                          : ""
+                    {field === "@parent" ? (
+                      <div className="appbox bg-light mb-0 px-3 py-2">
+                        {field.replace("@parent", "value")}
+                        {field === "@parent" && (
+                          <Tooltip
+                            className="ml-1"
+                            body="The evaluated value of the prerequisite feature"
+                          />
+                        )}
+                      </div>
+                    ): (
+                    <SelectField
+                      value={field}
+                      options={
+                        !isPrerequisite
+                          ? attributeSchema.map((s) => ({
+                              label: s.property,
+                              value: s.property,
+                            }))
+                          : [
+                              // todo: JSON type prereqs?
+                              { label: "@parent", value: "@parent" },
+                            ]
                       }
-                      shouldDisplay={isPrerequisite}
-                    >
-                      <SelectField
-                        value={field}
-                        options={
-                          !isPrerequisite
-                            ? attributeSchema.map((s) => ({
-                                label: s.property,
-                                value: s.property,
-                              }))
-                            : [
-                                // todo: JSON type prereqs?
-                                { label: "@parent", value: "@parent" },
-                              ]
-                        }
-                        name="field"
-                        className={styles.firstselect}
-                        onChange={(value) => {
-                          const newConds = [...conds];
-                          newConds[i] = { ...newConds[i] };
-                          newConds[i]["field"] = value;
+                      name="field"
+                      className={styles.firstselect}
+                      onChange={(value) => {
+                        const newConds = [...conds];
+                        newConds[i] = { ...newConds[i] };
+                        newConds[i]["field"] = value;
 
-                          const newAttribute = attributes.get(value);
-                          const hasAttrChanged =
-                            newAttribute?.datatype !== attribute.datatype ||
-                            newAttribute?.array !== attribute.array;
-                          if (hasAttrChanged && newAttribute) {
-                            newConds[i]["operator"] = getDefaultOperator(
-                              newAttribute
-                            );
-                            newConds[i]["value"] = newConds[i]["value"] || "";
-                          }
-                          setConds(newConds);
-                        }}
-                        isSearchable={!isPrerequisite}
-                        disabled={isPrerequisite}
-                      />
-                    </Tooltip>
+                        const newAttribute = attributes.get(value);
+                        const hasAttrChanged =
+                          newAttribute?.datatype !== attribute.datatype ||
+                          newAttribute?.array !== attribute.array;
+                        if (hasAttrChanged && newAttribute) {
+                          newConds[i]["operator"] = getDefaultOperator(
+                            newAttribute
+                          );
+                          newConds[i]["value"] = newConds[i]["value"] || "";
+                        }
+                        setConds(newConds);
+                      }}
+                      isSearchable={!isPrerequisite}
+                      disabled={isPrerequisite}
+                    />)}
                   </div>
                   <div className="col-sm-12 col-md mb-2">
                     <SelectField
@@ -507,6 +509,7 @@ export default function ConditionInput(props: Props) {
             );
           })}
         </ul>
+        {!isPrerequisite && (
         <div className="d-flex align-items-center">
           {attributeSchema.length > 0 && (
             <a
@@ -545,6 +548,7 @@ export default function ConditionInput(props: Props) {
             Advanced mode
           </a>
         </div>
+        )}
       </div>
     </div>
   );

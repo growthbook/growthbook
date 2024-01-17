@@ -117,9 +117,7 @@ const featureSchema = new mongoose.Schema({
     {
       _id: false,
       parentId: String,
-      description: String,
       parentCondition: String,
-      enabled: Boolean,
     },
   ],
   environmentSettings: {},

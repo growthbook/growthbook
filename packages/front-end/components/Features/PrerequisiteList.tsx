@@ -19,11 +19,12 @@ export default function PrerequisiteList({
   setVersion: (version: number) => void;
   locked: boolean;
 }) {
-  const items = getPrerequisites(feature);
+  let items = getPrerequisites(feature);
+  items = [...items, ...items];
 
   if (!items.length) {
     return (
-      <div className="px-3 mb-3">
+      <div className="mx-2 mt-2 mb-3">
         <em>None</em>
       </div>
     );

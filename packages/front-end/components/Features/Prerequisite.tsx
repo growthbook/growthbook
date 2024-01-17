@@ -4,8 +4,6 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getPrerequisites } from "@/services/features";
 import usePermissions from "@/hooks/usePermissions";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import Button from "../Button";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import MoreMenu from "../Dropdown/MoreMenu";
 import ConditionDisplay from "./ConditionDisplay";
@@ -43,36 +41,14 @@ export default function Prerequisite({
     permissions.check("manageFeatures", feature.project) &&
     permissions.check("createFeatureDrafts", feature.project);
 
-  const prerequisiteDisabled = !prerequisite.enabled;
-
   return (
     <div
-      className={`p-3 ${
-        i < prerequisites.length - 1 ? "border-bottom" : ""
+      className={`mx-3 py-3 ${
+        i < prerequisites.length ? "border-bottom" : ""
       } bg-white`}
     >
-      <div className="d-flex mb-2 align-items-center">
-        <div>
-          <Tooltip
-            body={
-              prerequisiteDisabled ? "This prerequisite will be skipped" : ""
-            }
-          >
-            <div
-              className={`text-light border rounded-circle text-center font-weight-bold ${
-                prerequisiteDisabled ? "bg-secondary" : "bg-purple"
-              }`}
-              style={{
-                width: 28,
-                height: 28,
-                lineHeight: "28px",
-              }}
-            >
-              {i + 1}
-            </div>
-          </Tooltip>
-        </div>
-        <div className="flex-1 mx-2">
+      <div className="d-flex align-items-center">
+        <div className="flex-1 mr-2">
           {parentFeature?.id ? (
             <>
               <span className="mr-2">Prerequisite Feature:</span>
@@ -104,37 +80,6 @@ export default function Prerequisite({
               >
                 Edit
               </a>
-              <Button
-                color=""
-                className="dropdown-item"
-                onClick={async () => {
-                  track(
-                    prerequisite.enabled
-                      ? "Disable Prerequisite"
-                      : "Enable Prerequisite",
-                    {
-                      prerequisiteIndex: i,
-                    }
-                  );
-                  const res = await apiCall<{ version: number }>(
-                    `/feature/${feature.id}/${version}/rule`,
-                    {
-                      method: "PUT",
-                      body: JSON.stringify({
-                        prerequisite: {
-                          ...prerequisite,
-                          enabled: !prerequisite.enabled,
-                        },
-                        i,
-                      }),
-                    }
-                  );
-                  await mutate();
-                  res.version && setVersion(res.version);
-                }}
-              >
-                {prerequisite.enabled ? "Disable" : "Enable"}
-              </Button>
               <DeleteButton
                 className="dropdown-item"
                 displayName="Rule"
@@ -159,12 +104,9 @@ export default function Prerequisite({
           )}
         </div>
       </div>
-      <div className="d-flex">
+      <div className="d-flex ml-2">
         <div
-          style={{
-            maxWidth: "100%",
-            opacity: prerequisiteDisabled ? 0.4 : 1,
-          }}
+          style={{ maxWidth: "100%" }}
           className="pt-1 flex-1 position-relative"
         >
           <div className="row mb-1 align-items-top">

@@ -151,5 +151,4 @@ export interface FeatureTestResult {
 export interface FeaturePrerequisite {
   parentId: string;
   parentCondition: string;
-  enabled: boolean;
 }
