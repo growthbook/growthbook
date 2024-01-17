@@ -47,10 +47,6 @@ const WebhooksModal: FC<{
       sdkid,
     },
   });
-  // if (showSDKMode && form.getValues("sendPayload") === undefined) {
-  //   console.log("testing");
-  //   form.setValue("sendPayload", false);
-  // }
   const handleApiCall = async (value) => {
     console.log(JSON.stringify(value));
     if (showSDKMode) {
