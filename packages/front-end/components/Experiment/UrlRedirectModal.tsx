@@ -7,37 +7,41 @@ import Field from "../Forms/Field";
 import Modal from "../Modal";
 import Tooltip from "../Tooltip/Tooltip";
 
-const defaultType = "simple";
-
 const UrlRedirectModal: FC<{
   mode: "add" | "edit";
   experiment: ExperimentInterfaceStringDates;
   visualChangeset?: VisualChangesetInterface;
   mutate: () => void;
   close: () => void;
-  onCreate?: (vc: VisualChangesetInterface) => void;
   cta?: string;
-}> = ({ mode, experiment, visualChangeset, mutate, close, onCreate, cta }) => {
+}> = ({ mode, experiment, visualChangeset, mutate, close, cta }) => {
   const { apiCall } = useAuth();
 
   const form = useForm({
     defaultValues: {
-      originUrl: visualChangeset?.urlRedirects[0].url ?? "",
-      destinationUrls: visualChangeset?.urlPatterns.map((p) => p.pattern) ?? [],
-      urlPatterns: visualChangeset?.urlPatterns ?? [
-        { pattern: "", type: defaultType, include: true },
-      ],
-      persistQueryString: false,
+      originUrl: visualChangeset?.urlPatterns[0].pattern ?? "",
+      destinationUrls: visualChangeset?.urlRedirects.map((r) => r.url) ?? [],
+      persistQueryString: true,
     },
   });
 
   const onSubmit = form.handleSubmit(async (value) => {
     const payload = {
-      editorUrl: value.originUrl,
-      urlPatterns: value.urlPatterns,
+      urlPatterns: {
+        type: "simple",
+        pattern: value.originUrl,
+        include: true,
+      },
+      urlRedirects: experiment.variations.map((v) => {
+        return {
+          variation: v.name,
+          url: value.destinationUrls[v.key],
+        };
+      }),
+      persistQueryString: value.persistQueryString,
     };
     if (mode === "add") {
-      const res = await apiCall<{ visualChangeset: VisualChangesetInterface }>(
+      await apiCall<{ visualChangeset: VisualChangesetInterface }>(
         `/experiments/${experiment.id}/visual-changeset`,
         {
           method: "POST",
@@ -45,7 +49,6 @@ const UrlRedirectModal: FC<{
         }
       );
       mutate();
-      res.visualChangeset && onCreate && onCreate(res.visualChangeset);
     } else {
       await apiCall(`/visual-changesets/${visualChangeset?.id}`, {
         method: "PUT",

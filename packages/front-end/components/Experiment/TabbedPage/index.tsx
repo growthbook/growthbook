@@ -216,10 +216,6 @@ export default function TabbedPage({
           experiment={experiment}
           mutate={mutate}
           close={() => setUrlRedirectModal(false)}
-          onCreate={async (vc) => {
-            // Try to immediately open the visual editor
-            await openVisualEditor(vc, apiCall);
-          }}
           cta="Add Redirect"
         />
       )}

@@ -2238,7 +2238,7 @@ export async function postVisualChangeset(
     throw new Error("urlPatterns needs to be defined");
   }
 
-  if (!req.body.editorUrl) {
+  if (!req.body.editorUrl && !req.body.urlRedirects) {
     throw new Error("editorUrl needs to be defined");
   }
 
@@ -2257,9 +2257,11 @@ export async function postVisualChangeset(
   const visualChangeset = await createVisualChangeset({
     experiment,
     urlPatterns: req.body.urlPatterns,
+    urlRedirects: req.body.urlRedirects,
     editorUrl: req.body.editorUrl,
     organization: org,
     user: res.locals.eventAudit,
+    persistQueryString: req.body.persistQueryString,
   });
 
   res.status(200).json({

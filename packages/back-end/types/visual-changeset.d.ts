@@ -7,7 +7,7 @@ interface DOMMutation {
   insertBeforeSelector?: string;
 }
 
-interface URLRedirect {
+export interface URLRedirect {
   url: string;
   variation: string;
 }

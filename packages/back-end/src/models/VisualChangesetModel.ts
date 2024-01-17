@@ -7,6 +7,7 @@ import { ExperimentInterface, Variation } from "../../types/experiment";
 import { ApiVisualChangeset } from "../../types/openapi";
 import { OrganizationInterface } from "../../types/organization";
 import {
+  URLRedirect,
   VisualChange,
   VisualChangesetInterface,
   VisualChangesetURLPattern,
@@ -59,7 +60,7 @@ const visualChangesetSchema = new mongoose.Schema<VisualChangesetInterface>({
   },
   editorUrl: {
     type: String,
-    required: true,
+    // required: true,
   },
   experiment: {
     type: String,
@@ -106,30 +107,11 @@ const visualChangesetSchema = new mongoose.Schema<VisualChangesetInterface>({
   urlRedirects: [
     {
       _id: false,
-      id: {
-        type: String,
-        required: true,
-      },
-      description: String,
-      originUrl: String,
-      urlPatterns: {
-        type: [visualChangesetURLPatternSchema],
-        required: true,
-      },
-      destinationUrls: [
-        {
-          url: String,
-          description: String,
-          variation: {
-            type: String,
-            index: true,
-            required: true,
-          },
-        },
-      ],
-      persistQueryString: Boolean,
+      variation: String,
+      url: String,
     },
   ],
+  persistQueryString: Boolean,
 });
 
 export type VisualChangesetDocument = mongoose.Document &
@@ -289,13 +271,17 @@ export const createVisualChangeset = async ({
   editorUrl,
   visualChanges,
   user,
+  urlRedirects,
+  persistQueryString,
 }: {
   experiment: ExperimentInterface;
   organization: OrganizationInterface;
   urlPatterns: VisualChangesetURLPattern[];
-  editorUrl: VisualChangesetInterface["editorUrl"];
+  editorUrl?: VisualChangesetInterface["editorUrl"];
   visualChanges?: VisualChange[];
   user: EventAuditUser;
+  urlRedirects?: URLRedirect[];
+  persistQueryString?: boolean;
 }): Promise<VisualChangesetInterface> => {
   const visualChangeset = toInterface(
     await VisualChangesetModel.create({
@@ -306,6 +292,8 @@ export const createVisualChangeset = async ({
       editorUrl,
       visualChanges:
         visualChanges || experiment.variations.map(genNewVisualChange),
+      urlRedirects,
+      persistQueryString,
     })
   );
 
