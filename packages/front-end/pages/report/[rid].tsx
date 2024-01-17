@@ -484,6 +484,7 @@ export default function ReportPage() {
                     report.args.metricRegressionAdjustmentStatuses
                   }
                   sequentialTestingEnabled={sequentialTestingEnabled}
+                  differenceType={"relative"}
                 />
               ) : (
                 <BreakDownResults_old

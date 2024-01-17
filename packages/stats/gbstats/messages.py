@@ -1,17 +1,9 @@
-from gbstats.shared.constants import StatsEngine
-from gbstats.shared.models import RegressionAdjustedStatistic, Statistic
-
-
 RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR = (
     "RegressionAdjustedStatistic cannot be used with the Bayesian statistics engine"
 )
-
-
-# Raises error if bayesian engine and regression adjustment used together
-def raise_error_if_bayesian_ra(stat: Statistic, engine: StatsEngine):
-    if isinstance(stat, RegressionAdjustedStatistic) and engine == StatsEngine.BAYESIAN:
-        raise ValueError(RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR)
-
+COMPARE_PROPORTION_NON_PROPORTION_ERROR = (
+    "Cannot compare proportion and non-proportion statistics."
+)
 
 # Default stats response error messages
 NO_UNITS_IN_VARIATION_MESSAGE = "NO_UNITS_IN_VARIATION"

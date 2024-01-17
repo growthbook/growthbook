@@ -87,7 +87,7 @@ import { getBuild } from "./util/handler";
 import { getCustomLogProps, httpLogger } from "./util/logger";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
-import { putUploadRouter } from "./routers/upload/put-upload.router";
+import { uploadRouter } from "./routers/upload/upload.router";
 import { eventsRouter } from "./routers/events/events.router";
 import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.router";
 import { tagRouter } from "./routers/tag/tag.router";
@@ -98,13 +98,11 @@ import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
 import { projectRouter } from "./routers/project/project.router";
 import { factTableRouter } from "./routers/fact-table/fact-table.router";
-import verifyLicenseMiddleware from "./services/auth/verifyLicenseMiddleware";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
-import { staticFilesRouter } from "./routers/upload/static-files.router";
 import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
 
 const app = express();
@@ -304,8 +302,6 @@ app.post("/auth/refresh", authController.postRefresh);
 app.post("/auth/logout", authController.postLogout);
 app.get("/auth/hasorgs", authController.getHasOrganizations);
 
-app.use("/upload", staticFilesRouter);
-
 // All other routes require a valid JWT
 const auth = getAuthConnection();
 app.use(auth.middleware);
@@ -320,9 +316,6 @@ app.use(
     next();
   }
 );
-
-// Validate self hosted license key if present
-app.use(verifyLicenseMiddleware);
 
 // Logged-in auth requests
 if (!useSSO) {
@@ -426,10 +419,6 @@ app.get(
   experimentsController.getSnapshotWithDimension
 );
 app.post("/experiment/:id/snapshot", experimentsController.postSnapshot);
-app.post(
-  "/experiment/:id/snapshot/:phase/preview",
-  experimentsController.previewManualSnapshot
-);
 app.post("/experiment/:id", experimentsController.postExperiment);
 app.delete("/experiment/:id", experimentsController.deleteExperiment);
 app.get("/experiment/:id/watchers", experimentsController.getWatchingUsers);
@@ -651,7 +640,7 @@ app.delete(
   discussionsController.deleteComment
 );
 app.get("/discussions/recent/:num", discussionsController.getRecentDiscussions);
-app.use("/putupload", putUploadRouter);
+app.use("/upload", uploadRouter);
 
 // Teams
 app.use("/teams", teamRouter);
@@ -659,6 +648,7 @@ app.use("/teams", teamRouter);
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);
 app.get("/admin/license", adminController.getLicenseData);
+app.get("/admin/license-report", adminController.getLicenseReport);
 
 // Meta info
 app.get("/meta/ai", (req, res) => {

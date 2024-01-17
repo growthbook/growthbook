@@ -31,7 +31,7 @@ export default function (ag: Agenda) {
 
     const { features, dateUpdated } = await getFeatureDefinitions({
       organization: webhook.organization,
-      capabilities: [],
+      capabilities: ["bucketingV2"],
       environment:
         webhook.environment === undefined ? "production" : webhook.environment,
       projects: webhook.project ? [webhook.project] : [],

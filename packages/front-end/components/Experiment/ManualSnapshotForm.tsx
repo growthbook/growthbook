@@ -1,8 +1,7 @@
-import { FC, useState, useEffect } from "react";
+import { FC } from "react";
 import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotAnalysis,
-  SnapshotVariation,
 } from "back-end/types/experiment-snapshot";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { MetricInterface, MetricStats } from "back-end/types/metric";
@@ -14,15 +13,8 @@ import {
   getMetricFormatter,
 } from "@/services/metrics";
 import { trackSnapshot } from "@/services/track";
-import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
-import { useUser } from "@/services/UserContext";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
-
-type SnapshotPreview = {
-  srm: number;
-  variations: SnapshotVariation[];
-};
 
 const ManualSnapshotForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -34,8 +26,6 @@ const ManualSnapshotForm: FC<{
   const { metrics, getMetricById } = useDefinitions();
   const { apiCall } = useAuth();
   const { getDatasourceById } = useDefinitions();
-  const { settings } = useUser();
-  const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
   const filteredMetrics: MetricInterface[] = [];
 
@@ -97,11 +87,9 @@ const ManualSnapshotForm: FC<{
       }
     }
   });
-  const [hash, setHash] = useState<string | null>(null);
   const form = useForm({
     defaultValues: initialValue,
   });
-  const [preview, setPreview] = useState<SnapshotPreview | null>(null);
 
   const values = {
     metrics: form.watch("metrics"),
@@ -151,58 +139,6 @@ const ManualSnapshotForm: FC<{
     return ret;
   }
 
-  // Get preview stats when the value changes
-  useEffect(() => {
-    if (!hash) return;
-
-    // Only preview when all variations have number of users set
-    if (values.users.filter((n) => n <= 0).length > 0) {
-      setPreview(null);
-      return;
-    }
-    const metricsToTest: { [key: string]: MetricStats[] } = {};
-    const stats = getStats();
-    Object.keys(stats).forEach((key) => {
-      // Only preview metrics which have all variations filled out
-      if (
-        stats[key].filter((n) => Math.min(n.count, n.mean, n.stddev) <= 0)
-          .length > 0
-      ) {
-        setPreview(null);
-        return;
-      }
-      metricsToTest[key] = stats[key];
-    });
-
-    // Make sure there's at least 1 metric fully entered
-    if (Object.keys(metricsToTest).length > 0) {
-      let cancel = false;
-      (async () => {
-        try {
-          const res = await apiCall<{ snapshot: SnapshotPreview }>(
-            `/experiment/${experiment.id}/snapshot/${phase}/preview`,
-            {
-              method: "POST",
-              body: JSON.stringify({
-                users: values.users,
-                metrics: metricsToTest,
-              }),
-            }
-          );
-          if (cancel) return;
-          setPreview(res.snapshot);
-        } catch (e) {
-          console.error(e);
-        }
-      })();
-
-      return () => {
-        // If the effect is removed, set a flag to abort the api call above
-        cancel = true;
-      };
-    }
-  }, [hash]);
-
   const onSubmit = form.handleSubmit(async (values) => {
     const res = await apiCall<{
       status: number;
@@ -236,13 +172,7 @@ const ManualSnapshotForm: FC<{
       submit={onSubmit}
     >
       <p>Manually enter the latest data for the experiment below.</p>
-      <div
-        style={{ overflowY: "auto", overflowX: "hidden" }}
-        onBlur={(e) => {
-          if (e.target.tagName !== "INPUT") return;
-          setHash(JSON.stringify(form.getValues()));
-        }}
-      >
+      <div style={{ overflowY: "auto", overflowX: "hidden" }}>
         <div className="mb-3">
           <h4>Users</h4>
           <div className="row">
@@ -257,15 +187,6 @@ const ManualSnapshotForm: FC<{
                 />
               </div>
             ))}
-            {preview && preview.srm < srmThreshold && (
-              <div className="col-12">
-                <div className="my-2 alert alert-danger">
-                  Sample Ratio Mismatch (SRM) detected. Please double check the
-                  number of users. If they are correct, there is likely a bug in
-                  the test implementation.
-                </div>
-              </div>
-            )}
           </div>
         </div>
         {filteredMetrics.map((m) => {
@@ -294,7 +215,6 @@ const ManualSnapshotForm: FC<{
                     {m.type === "binomial" && (
                       <th>{getMetricConversionTitle(m.type)}</th>
                     )}
-                    <th>Chance to Beat Baseline</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -302,14 +222,16 @@ const ManualSnapshotForm: FC<{
                     <tr key={i}>
                       <td>{v.name}</td>
                       {showCount && (
-                        <Field
-                          type="number"
-                          step={m.type === "binomial" ? "1" : "any"}
-                          required
-                          {...form.register(`metrics.${m.id}.${i}.count`, {
-                            valueAsNumber: true,
-                          })}
-                        />
+                        <td>
+                          <Field
+                            type="number"
+                            step={m.type === "binomial" ? "1" : "any"}
+                            required
+                            {...form.register(`metrics.${m.id}.${i}.count`, {
+                              valueAsNumber: true,
+                            })}
+                          />
+                        </td>
                       )}
                       {m.type === "binomial" ? (
                         <td>
@@ -343,15 +265,6 @@ const ManualSnapshotForm: FC<{
                           </td>
                         </>
                       )}
-                      <td>
-                        {i > 0 &&
-                          preview &&
-                          preview.variations[i].metrics[m.id] &&
-                          parseFloat(
-                            // prettier-ignore
-                            ((preview.variations[i].metrics[m.id].chanceToWin ?? 0) * 100).toFixed(2)
-                          ) + "%"}
-                      </td>
                     </tr>
                   ))}
                 </tbody>

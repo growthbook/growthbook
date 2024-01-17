@@ -352,6 +352,11 @@ export interface components {
               type: string;
               trackingKey?: string;
               hashAttribute?: string;
+              fallbackAttribute?: string;
+              disableStickyBucketing?: any;
+              bucketVersion?: number;
+              minBucketVersion?: number;
+              excludeBlockedBucketUsers?: boolean;
               namespace?: {
                 enabled: boolean;
                 name: string;
@@ -414,6 +419,11 @@ export interface components {
                 type: string;
                 trackingKey?: string;
                 hashAttribute?: string;
+                fallbackAttribute?: string;
+                disableStickyBucketing?: any;
+                bucketVersion?: number;
+                minBucketVersion?: number;
+                excludeBlockedBucketUsers?: boolean;
                 namespace?: {
                   enabled: boolean;
                   name: string;
@@ -487,6 +497,11 @@ export interface components {
           type: string;
           trackingKey?: string;
           hashAttribute?: string;
+          fallbackAttribute?: string;
+          disableStickyBucketing?: any;
+          bucketVersion?: number;
+          minBucketVersion?: number;
+          excludeBlockedBucketUsers?: boolean;
           namespace?: {
             enabled: boolean;
             name: string;
@@ -549,6 +564,11 @@ export interface components {
             type: string;
             trackingKey?: string;
             hashAttribute?: string;
+            fallbackAttribute?: string;
+            disableStickyBucketing?: any;
+            bucketVersion?: number;
+            minBucketVersion?: number;
+            excludeBlockedBucketUsers?: boolean;
             namespace?: {
               enabled: boolean;
               name: string;
@@ -610,6 +630,11 @@ export interface components {
       type: string;
       trackingKey?: string;
       hashAttribute?: string;
+      fallbackAttribute?: string;
+      disableStickyBucketing?: any;
+      bucketVersion?: number;
+      minBucketVersion?: number;
+      excludeBlockedBucketUsers?: boolean;
       namespace?: {
         enabled: boolean;
         name: string;
@@ -684,6 +709,11 @@ export interface components {
       type: string;
       trackingKey?: string;
       hashAttribute?: string;
+      fallbackAttribute?: string;
+      disableStickyBucketing?: any;
+      bucketVersion?: number;
+      minBucketVersion?: number;
+      excludeBlockedBucketUsers?: boolean;
       namespace?: {
         enabled: boolean;
         name: string;
@@ -751,8 +781,13 @@ export interface components {
       status: string;
       autoRefresh: boolean;
       hashAttribute: string;
+      fallbackAttribute?: string;
       /** @enum {number} */
       hashVersion: 1 | 2;
+      disableStickyBucketing?: any;
+      bucketVersion?: number;
+      minBucketVersion?: number;
+      excludeBlockedBucketUsers?: boolean;
       variations: ({
           variationId: string;
           key: string;
@@ -1042,16 +1077,20 @@ export interface components {
     };
     SavedGroup: {
       id: string;
+      /** @enum {string} */
+      type: "condition" | "list";
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
       dateUpdated: string;
       name: string;
-      /** @enum {string} */
-      source: "inline" | "runtime";
       owner?: string;
-      attributeKey: string;
-      values: (string)[];
+      /** @description When type = 'condition', this is the JSON-encoded condition for the group */
+      condition?: string;
+      /** @description When type = 'list', this is the attribute key the group is based on */
+      attributeKey?: string;
+      /** @description When type = 'list', this is the list of values for the attribute key */
+      values?: (string)[];
     };
     Organization: {
       /** @description The Growthbook unique identifier for the organization */
@@ -1163,6 +1202,11 @@ export interface operations {
                         type: string;
                         trackingKey?: string;
                         hashAttribute?: string;
+                        fallbackAttribute?: string;
+                        disableStickyBucketing?: any;
+                        bucketVersion?: number;
+                        minBucketVersion?: number;
+                        excludeBlockedBucketUsers?: boolean;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -1225,6 +1269,11 @@ export interface operations {
                           type: string;
                           trackingKey?: string;
                           hashAttribute?: string;
+                          fallbackAttribute?: string;
+                          disableStickyBucketing?: any;
+                          bucketVersion?: number;
+                          minBucketVersion?: number;
+                          excludeBlockedBucketUsers?: boolean;
                           namespace?: {
                             enabled: boolean;
                             name: string;
@@ -1465,6 +1514,11 @@ export interface operations {
                       type: string;
                       trackingKey?: string;
                       hashAttribute?: string;
+                      fallbackAttribute?: string;
+                      disableStickyBucketing?: any;
+                      bucketVersion?: number;
+                      minBucketVersion?: number;
+                      excludeBlockedBucketUsers?: boolean;
                       namespace?: {
                         enabled: boolean;
                         name: string;
@@ -1527,6 +1581,11 @@ export interface operations {
                         type: string;
                         trackingKey?: string;
                         hashAttribute?: string;
+                        fallbackAttribute?: string;
+                        disableStickyBucketing?: any;
+                        bucketVersion?: number;
+                        minBucketVersion?: number;
+                        excludeBlockedBucketUsers?: boolean;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -1632,6 +1691,11 @@ export interface operations {
                       type: string;
                       trackingKey?: string;
                       hashAttribute?: string;
+                      fallbackAttribute?: string;
+                      disableStickyBucketing?: any;
+                      bucketVersion?: number;
+                      minBucketVersion?: number;
+                      excludeBlockedBucketUsers?: boolean;
                       namespace?: {
                         enabled: boolean;
                         name: string;
@@ -1694,6 +1758,11 @@ export interface operations {
                         type: string;
                         trackingKey?: string;
                         hashAttribute?: string;
+                        fallbackAttribute?: string;
+                        disableStickyBucketing?: any;
+                        bucketVersion?: number;
+                        minBucketVersion?: number;
+                        excludeBlockedBucketUsers?: boolean;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -1923,6 +1992,11 @@ export interface operations {
                       type: string;
                       trackingKey?: string;
                       hashAttribute?: string;
+                      fallbackAttribute?: string;
+                      disableStickyBucketing?: any;
+                      bucketVersion?: number;
+                      minBucketVersion?: number;
+                      excludeBlockedBucketUsers?: boolean;
                       namespace?: {
                         enabled: boolean;
                         name: string;
@@ -1985,6 +2059,11 @@ export interface operations {
                         type: string;
                         trackingKey?: string;
                         hashAttribute?: string;
+                        fallbackAttribute?: string;
+                        disableStickyBucketing?: any;
+                        bucketVersion?: number;
+                        minBucketVersion?: number;
+                        excludeBlockedBucketUsers?: boolean;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -2094,6 +2173,11 @@ export interface operations {
                       type: string;
                       trackingKey?: string;
                       hashAttribute?: string;
+                      fallbackAttribute?: string;
+                      disableStickyBucketing?: any;
+                      bucketVersion?: number;
+                      minBucketVersion?: number;
+                      excludeBlockedBucketUsers?: boolean;
                       namespace?: {
                         enabled: boolean;
                         name: string;
@@ -2156,6 +2240,11 @@ export interface operations {
                         type: string;
                         trackingKey?: string;
                         hashAttribute?: string;
+                        fallbackAttribute?: string;
+                        disableStickyBucketing?: any;
+                        bucketVersion?: number;
+                        minBucketVersion?: number;
+                        excludeBlockedBucketUsers?: boolean;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -2616,8 +2705,13 @@ export interface operations {
                 status: string;
                 autoRefresh: boolean;
                 hashAttribute: string;
+                fallbackAttribute?: string;
                 /** @enum {number} */
                 hashVersion: 1 | 2;
+                disableStickyBucketing?: any;
+                bucketVersion?: number;
+                minBucketVersion?: number;
+                excludeBlockedBucketUsers?: boolean;
                 variations: ({
                     variationId: string;
                     key: string;
@@ -2735,8 +2829,13 @@ export interface operations {
           status?: "draft" | "running" | "stopped";
           autoRefresh?: boolean;
           hashAttribute?: string;
+          fallbackAttribute?: string;
           /** @enum {number} */
           hashVersion?: 1 | 2;
+          disableStickyBucketing?: any;
+          bucketVersion?: number;
+          minBucketVersion?: number;
+          excludeBlockedBucketUsers?: boolean;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
           variations: ({
@@ -2802,8 +2901,13 @@ export interface operations {
               status: string;
               autoRefresh: boolean;
               hashAttribute: string;
+              fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
+              disableStickyBucketing?: any;
+              bucketVersion?: number;
+              minBucketVersion?: number;
+              excludeBlockedBucketUsers?: boolean;
               variations: ({
                   variationId: string;
                   key: string;
@@ -2914,8 +3018,13 @@ export interface operations {
               status: string;
               autoRefresh: boolean;
               hashAttribute: string;
+              fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
+              disableStickyBucketing?: any;
+              bucketVersion?: number;
+              minBucketVersion?: number;
+              excludeBlockedBucketUsers?: boolean;
               variations: ({
                   variationId: string;
                   key: string;
@@ -3029,8 +3138,13 @@ export interface operations {
           status?: "draft" | "running" | "stopped";
           autoRefresh?: boolean;
           hashAttribute?: string;
+          fallbackAttribute?: string;
           /** @enum {number} */
           hashVersion?: 1 | 2;
+          disableStickyBucketing?: any;
+          bucketVersion?: number;
+          minBucketVersion?: number;
+          excludeBlockedBucketUsers?: boolean;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
           variations?: ({
@@ -3096,8 +3210,13 @@ export interface operations {
               status: string;
               autoRefresh: boolean;
               hashAttribute: string;
+              fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
+              disableStickyBucketing?: any;
+              bucketVersion?: number;
+              minBucketVersion?: number;
+              excludeBlockedBucketUsers?: boolean;
               variations: ({
                   variationId: string;
                   key: string;
@@ -3828,8 +3947,13 @@ export interface operations {
               status: string;
               autoRefresh: boolean;
               hashAttribute: string;
+              fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
+              disableStickyBucketing?: any;
+              bucketVersion?: number;
+              minBucketVersion?: number;
+              excludeBlockedBucketUsers?: boolean;
               variations: ({
                   variationId: string;
                   key: string;
@@ -4001,16 +4125,20 @@ export interface operations {
           "application/json": ({
             savedGroups: ({
                 id: string;
+                /** @enum {string} */
+                type: "condition" | "list";
                 /** Format: date-time */
                 dateCreated: string;
                 /** Format: date-time */
                 dateUpdated: string;
                 name: string;
-                /** @enum {string} */
-                source: "inline" | "runtime";
                 owner?: string;
-                attributeKey: string;
-                values: (string)[];
+                /** @description When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string;
+                /** @description When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string;
+                /** @description When type = 'list', this is the list of values for the attribute key */
+                values?: (string)[];
               })[];
           }) & {
             limit: number;
@@ -4031,12 +4159,17 @@ export interface operations {
         "application/json": {
           /** @description The display name of the Saved Group */
           name: string;
-          /** @enum {string} */
-          source?: "inline" | "runtime";
-          /** @description An array of values to target (Ex: a list of userIds). Not applicable for runtime groups */
+          /**
+           * @description The type of Saved Group (inferred from other arguments if missing) 
+           * @enum {string}
+           */
+          type?: "condition" | "list";
+          /** @description When type = 'condition', this is the JSON-encoded condition for the group */
+          condition?: string;
+          /** @description When type = 'list', this is the attribute key the group is based on */
+          attributeKey?: string;
+          /** @description When type = 'list', this is the list of values for the attribute key */
           values?: (string)[];
-          /** @description For inline groups, the name of the attribute the values belong to (e.g. `user_id`). For runtime groups, the group name you reference in your code */
-          attributeKey: string;
           /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
           owner?: string;
         };
@@ -4048,16 +4181,20 @@ export interface operations {
           "application/json": {
             savedGroup: {
               id: string;
+              /** @enum {string} */
+              type: "condition" | "list";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
               name: string;
-              /** @enum {string} */
-              source: "inline" | "runtime";
               owner?: string;
-              attributeKey: string;
-              values: (string)[];
+              /** @description When type = 'condition', this is the JSON-encoded condition for the group */
+              condition?: string;
+              /** @description When type = 'list', this is the attribute key the group is based on */
+              attributeKey?: string;
+              /** @description When type = 'list', this is the list of values for the attribute key */
+              values?: (string)[];
             };
           };
         };
@@ -4078,16 +4215,20 @@ export interface operations {
           "application/json": {
             savedGroup: {
               id: string;
+              /** @enum {string} */
+              type: "condition" | "list";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
               name: string;
-              /** @enum {string} */
-              source: "inline" | "runtime";
               owner?: string;
-              attributeKey: string;
-              values: (string)[];
+              /** @description When type = 'condition', this is the JSON-encoded condition for the group */
+              condition?: string;
+              /** @description When type = 'list', this is the attribute key the group is based on */
+              attributeKey?: string;
+              /** @description When type = 'list', this is the list of values for the attribute key */
+              values?: (string)[];
             };
           };
         };
@@ -4107,12 +4248,12 @@ export interface operations {
         "application/json": {
           /** @description The display name of the Saved Group */
           name?: string;
-          /** @description An array of values to target (Ex: a list of userIds). */
+          /** @description When type = 'condition', this is the JSON-encoded condition for the group */
+          condition?: string;
+          /** @description When type = 'list', this is the list of values for the attribute key */
           values?: (string)[];
           /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
           owner?: string;
-          /** @description (Runtime groups only) The key used to reference the Saved Group in the SDK */
-          attributeKey?: string;
         };
       };
     };
@@ -4122,16 +4263,20 @@ export interface operations {
           "application/json": {
             savedGroup: {
               id: string;
+              /** @enum {string} */
+              type: "condition" | "list";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
               name: string;
-              /** @enum {string} */
-              source: "inline" | "runtime";
               owner?: string;
-              attributeKey: string;
-              values: (string)[];
+              /** @description When type = 'condition', this is the JSON-encoded condition for the group */
+              condition?: string;
+              /** @description When type = 'list', this is the attribute key the group is based on */
+              attributeKey?: string;
+              /** @description When type = 'list', this is the list of values for the attribute key */
+              values?: (string)[];
             };
           };
         };

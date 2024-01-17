@@ -196,6 +196,7 @@ const ExperimentPage = (): ReactElement => {
           experiment={experiment}
           mutate={mutate}
           i={editPhaseId}
+          editTargeting={editTargeting}
         />
       )}
       {editPhasesOpen && (
@@ -203,6 +204,7 @@ const ExperimentPage = (): ReactElement => {
           close={() => setEditPhasesOpen(false)}
           mutateExperiment={mutate}
           experiment={experiment}
+          editTargeting={editTargeting}
         />
       )}
       {targetingModalOpen && (
