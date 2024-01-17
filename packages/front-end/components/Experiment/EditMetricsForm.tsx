@@ -16,9 +16,8 @@ import Modal from "../Modal";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
 import UpgradeMessage from "../Marketing/UpgradeMessage";
 import UpgradeModal from "../Settings/UpgradeModal";
-import Tooltip from "../Tooltip/Tooltip";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
-import MetricsSelector, { MetricsSelectorTooltipBody } from "./MetricsSelector";
+import MetricsSelector, { MetricsSelectorTooltip } from "./MetricsSelector";
 import MetricSelector from "./MetricSelector";
 
 export interface EditMetricsFormInterface {
@@ -165,7 +164,7 @@ const EditMetricsForm: FC<{
           <span className="font-italic">
             Metrics you are trying to improve with this experiment.{" "}
           </span>
-          <Tooltip body={MetricsSelectorTooltipBody()} />
+          <MetricsSelectorTooltip />
         </div>
         <MetricsSelector
           selected={form.watch("metrics")}
@@ -185,7 +184,7 @@ const EditMetricsForm: FC<{
             Metrics you want to monitor, but are NOT specifically trying to
             improve.{" "}
           </span>
-          <Tooltip body={MetricsSelectorTooltipBody()} />
+          <MetricsSelectorTooltip />
         </div>
         <MetricsSelector
           selected={form.watch("guardrails")}
@@ -203,7 +202,7 @@ const EditMetricsForm: FC<{
           <span className="font-italic">
             Users must convert on this metric before being included.{" "}
           </span>
-          <Tooltip body={MetricsSelectorTooltipBody(true)} />
+          <MetricsSelectorTooltip onlyBinomial={true} />
         </div>
         <MetricSelector
           initialOption="None"

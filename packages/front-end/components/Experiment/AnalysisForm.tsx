@@ -27,10 +27,9 @@ import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import UpgradeMessage from "../Marketing/UpgradeMessage";
 import UpgradeModal from "../Settings/UpgradeModal";
-import Tooltip from "../Tooltip/Tooltip";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
-import MetricsSelector, { MetricsSelectorTooltipBody } from "./MetricsSelector";
+import MetricsSelector, { MetricsSelectorTooltip } from "./MetricsSelector";
 import {
   EditMetricsFormInterface,
   fixMetricOverridesBeforeSaving,
@@ -412,8 +411,7 @@ const AnalysisForm: FC<{
           labelClassName="font-weight-bold"
           label={
             <>
-              Activation Metric{" "}
-              <Tooltip body={MetricsSelectorTooltipBody(true)} />
+              Activation Metric <MetricsSelectorTooltip onlyBinomial={true} />
             </>
           }
           initialOption="None"
@@ -612,7 +610,7 @@ const AnalysisForm: FC<{
               <span className="font-italic">
                 Metrics you are trying to improve with this experiment.{" "}
               </span>
-              <Tooltip body={MetricsSelectorTooltipBody()} />
+              <MetricsSelectorTooltip />
             </div>
             <MetricsSelector
               selected={form.watch("metrics")}
@@ -632,7 +630,7 @@ const AnalysisForm: FC<{
                 Metrics you want to monitor, but are NOT specifically trying to
                 improve.{" "}
               </span>
-              <Tooltip body={MetricsSelectorTooltipBody()} />
+              <MetricsSelectorTooltip />
             </div>
             <MetricsSelector
               selected={form.watch("guardrails")}

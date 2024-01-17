@@ -36,8 +36,7 @@ import NamespaceSelector from "../Features/NamespaceSelector";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "../Features/SavedGroupTargetingField";
-import Tooltip from "../Tooltip/Tooltip";
-import MetricsSelector, { MetricsSelectorTooltipBody } from "./MetricsSelector";
+import MetricsSelector, { MetricsSelectorTooltip } from "./MetricsSelector";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -572,7 +571,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 <span className="font-italic">
                   Metrics you are trying to improve with this experiment.{" "}
                 </span>
-                <Tooltip body={MetricsSelectorTooltipBody()} />
+                <MetricsSelectorTooltip />
               </div>
               <MetricsSelector
                 selected={form.watch("metrics") ?? []}
@@ -590,7 +589,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   Metrics you want to monitor, but are NOT specifically trying
                   to improve.{" "}
                 </span>
-                <Tooltip body={MetricsSelectorTooltipBody()} />
+                <MetricsSelectorTooltip />
               </div>
               <MetricsSelector
                 selected={form.watch("guardrails") ?? []}

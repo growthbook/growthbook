@@ -30,7 +30,7 @@ import useApi from "@/hooks/useApi";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { trackReport } from "@/services/track";
 import MetricsSelector, {
-  MetricsSelectorTooltipBody,
+  MetricsSelectorTooltip,
 } from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
@@ -38,7 +38,6 @@ import SelectField from "../Forms/SelectField";
 import DimensionChooser from "../Dimensions/DimensionChooser";
 import { AttributionModelTooltip } from "../Experiment/AttributionModelTooltip";
 import MetricSelector from "../Experiment/MetricSelector";
-import Tooltip from "../Tooltip/Tooltip";
 
 export default function ConfigureReport({
   report,
@@ -327,7 +326,7 @@ export default function ConfigureReport({
           <span className="font-italic">
             Metrics you are trying to improve with this experiment.{" "}
           </span>
-          <Tooltip body={MetricsSelectorTooltipBody()} />
+          <MetricsSelectorTooltip />
         </div>
         <MetricsSelector
           selected={form.watch("metrics")}
@@ -345,7 +344,7 @@ export default function ConfigureReport({
             Metrics you want to monitor, but are NOT specifically trying to
             improve.{" "}
           </span>
-          <Tooltip body={MetricsSelectorTooltipBody()} />
+          <MetricsSelectorTooltip />
         </div>
         <MetricsSelector
           selected={form.watch("guardrails") ?? []}
@@ -373,8 +372,7 @@ export default function ConfigureReport({
         includeFacts={true}
         label={
           <>
-            Activation Metric{" "}
-            <Tooltip body={MetricsSelectorTooltipBody(true)} />
+            Activation Metric <MetricsSelectorTooltip onlyBinomial={true} />
           </>
         }
         labelClassName="font-weight-bold"
