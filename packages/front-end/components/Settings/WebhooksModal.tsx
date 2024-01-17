@@ -32,7 +32,6 @@ const WebhooksModal: FC<{
   ];
   const { projects, project } = useDefinitions();
   const environments = useEnvironments();
-  console.log(current);
   const form = useForm({
     defaultValues: {
       name: current.name || "My Webhook",
