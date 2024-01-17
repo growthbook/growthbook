@@ -1,0 +1,64 @@
+---
+title: What is Carryover Bias?
+description: Carryover Bias
+sidebar_label: Carryover Bias
+slug: carryover-bias
+---
+
+# What is Carryover Bias?
+
+In most experimentation systems, such as GrowthBook, users are randomly assigned to different variations (A, B, C, etc.) in a way that ensures that past experiments do not affect one variation more than any other.
+
+However, if an experimenter creates a new phase of an experiment without re-randomizing user assignment to variations the new phase of the experiment will be affected by **carryover bias**. This happens when restarting an experiment and when creating an analysis using the last few days or weeks of an experiment. In short, without re-randomization, the effects of the first phase of the experiment can contaminate the second phase of the experiment if any users return to the experiment in the second phase.
+
+The rest of this document provides an example of carryover bias and how to avoid it in GrowthBook.
+
+### Example of Carryover bias
+
+Imagine an experiment with two variations (A and B) that runs for 3 days before you realize that there is a bug in variation B that is causing users to churn at a high rate. Let's call this Phase 1.
+
+To mitigate this issue, you fix the bug and now want to restart your experiment. Furthermore, you don't want to re-randomize users because you want returning users in Phase 2 to get the same variation that they saw in Phase 1. So, you restart the experiment without re-randomizing users (let's call this Phase 2).
+
+However, **this choice to not re-randomize will lead to carryover bias**!
+
+How so? Well, consider what will happen after you restart the experiment. Let's say in Phase 2 each variation gets 100 totally new users. However, we also have some users returning to the app who were exposed to the experiment in Phase 1. In variation A, there are 50 returning users and in variation B, where the bug was causing churn, there are 10 returning users.
+
+Then, your experiment has 150 users in A and 110 users in B! This imbalance is caused because the effects of first phase of the experiment is _carrying over_ to the second phase of the experiment.
+
+The best way to deal with carryover bias is to prevent it from happening in the first place, because this kind of bias can **unpredictably affect your results** and is **hard to detect**.
+
+#### The effects of carryover bias can be unpredictable
+
+Carryover bias works to affect your results in many different ways:
+
+- It could cause B to look **better** than it is; if the 10 people that returned in variation B are particularly persistent power users, then B will look good not because of the feature you're testing, but because you're getting power users bucketed into variation B.
+- It could cause B to look **worse** than it is because the bad taste of the buggy experience from Phase 1 could cause returning users in B to be less engaged. That "bad taste" won't be spread across variations in Phase 2 because you did not re-randomize users.
+
+#### Carryover bias can be hard to detect
+
+In the above example, the discrepancy in users in variations B and A will eventually trigger a Sample Ratio Mismatch (SRM) warning, alerting you to some issue with your experiment. However, SRM warnings will not always fire in cases where there is carryover bias, because either (1) the discrepancy is too small or the total user count is too low; or (2) the carryover bias doesn't actually come from differences in user return rates, but comes from other differences in user behavior across variations that was caused by the first phase of the experiment.
+
+### What causes carryover bias and how can I prevent it?
+
+In short, anything that causes users in an experiment analysis to not be randomly assigned to a variation can cause bias. For carryover bias specifically, common causes are:
+
+#### (1) Creating a new "Phase" to restart an experiment without re-randomizing
+
+In this case, carryover bias is best prevented by re-randomizing users whenever you restart an experiment — either by starting an entirely new experiment or choosing to "re-randomize", which is an option we provide in GrowthBook's SDKs. We provide specific guidance on when you should re-randomize users in GrowthBook.
+
+#### (2) Manually restarting a new experiment with the same experiment key
+
+Similarly, if you also manually restart an experiment with the same experiment key, the randomization from the previous experiment will carry over to the new experiment. It's best in these cases to change the experiment key to ensure users are re-randomized into groups.
+
+#### (3) Creating a new "Phase" for analysis
+
+Suppose you create a new phase with the last 7 days of an experiment. Doing this will mean that GrowthBook cannot deduplicate users across the full history of the experiment and the users that show up in the last 7 days of an experiment won't be randomly assigned across variations. If any variation causes more return users, then you'll get carryover bias.
+
+In this case, rather than utilize a "Phase" to analyze a particular date range in an experiment, you should instead focus on your **Metric** date windows (not **Experiment** date windows, which are controlled by Phases). There will be more work in the future to make this easier to achieve within GrowthBook, but for now you can:
+
+- Add a "conversion delay". If you are using the "First Exposure" attribution model, you can use the **conversion delay** setting in GrowthBook to delay tracking metric data until a number of hours or days after an exposure to prevent novelty effects.
+- Add a "lookback window". If you are using the "Experiment Duration" attribution model, you create a "lookback" version of a metric by adding a filter to your Metric like the following (for BigQuery):
+
+`timestamp BETWEEN TIMESTAMP_SUB('{{ endDate }}', INTERVAL 7 DAY) AND TIMESTAMP('{{ endDate }}')`
+
+In the Metric filter above, GrowthBook will use the end of the experiment (or the current date if the experiment is still running) in place of `{{ endDate }}`. In the future, we plan to make creating lookback metrics more hands-off in GrowthBook. You can read more about [template variables here.](https://docs.growthbook.io/app/metrics#sql-templates)
