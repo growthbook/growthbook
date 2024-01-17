@@ -287,8 +287,10 @@ export async function getApiKeyByIdOrKey(
 
   if (!organization) return null;
 
+  const orgId = organization.id;
+
   const doc = await ApiKeyModel.findOne(
-    id ? { organization, id } : { organization, key }
+    id ? { organization: orgId, id } : { organization: orgId, key }
   );
 
   if (!doc) return null;
@@ -342,9 +344,11 @@ export async function getAllApiKeysByOrganization(
 
   if (!organization) return [];
 
+  const orgId = organization.id;
+
   const docs: ApiKeyDocument[] = await ApiKeyModel.find(
     {
-      organization,
+      organization: orgId,
     },
     { encryptionKey: 0 }
   );
