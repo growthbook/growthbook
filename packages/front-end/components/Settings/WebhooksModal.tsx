@@ -32,7 +32,6 @@ const WebhooksModal: FC<{
   ];
   const { projects, project } = useDefinitions();
   const environments = useEnvironments();
-  console.log(current);
   const form = useForm({
     defaultValues: {
       name: current.name || "My Webhook",
@@ -50,7 +49,6 @@ const WebhooksModal: FC<{
 
   const handleApiCall = async (value) => {
     if (showSDKMode) {
-      console.log(current, "current");
       await apiCall(current.id ? `/webhook/${current.id}` : "/webhooks/sdk", {
         method: current.id ? "PUT" : "POST",
         body: JSON.stringify(value),
