@@ -1572,7 +1572,7 @@ export async function postWebhookSDK(
   ) {
     res.status(426).json({
       status: 426,
-      message: "limit has been reaced for pro account",
+      message: "SDK webhook limit has been reached",
     });
   }
 
