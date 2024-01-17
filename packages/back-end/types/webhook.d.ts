@@ -10,7 +10,7 @@ export interface WebhookInterface {
   lastSuccess: Date | null;
   error: string;
   created: Date;
-  useSDKMode: boolean;
+  useSdkMode: boolean;
   sendPayload: boolean;
   sdks: string[];
   headers?: string;

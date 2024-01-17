@@ -66,7 +66,7 @@ import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
 import { getAllSavedGroups } from "../../models/SavedGroupModel";
 import { getMetricsByOrganization } from "../../models/MetricModel";
 import { WebhookModel, countWebhooksByOrg } from "../../models/WebhookModel";
-import { createWebhook, createWebhookSDK } from "../../services/webhooks";
+import { createWebhook, createSdkWebhook } from "../../services/webhooks";
 import {
   createOrganization,
   findOrganizationByInviteKey,
@@ -1428,7 +1428,7 @@ export async function getWebhooks(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
   const webhooks = await WebhookModel.find({
     organization: org.id,
-    useSDKMode: { $ne: true },
+    useSdkMode: { $ne: true },
   });
   res.status(200).json({
     status: 200,
@@ -1443,7 +1443,7 @@ export async function getWebhooksSDK(
   const { sdkid } = req.params;
   const webhooks = await WebhookModel.find({
     organization: org.id,
-    useSDKMode: true,
+    useSdkMode: true,
     sdks: { $in: sdkid },
   });
   res.status(200).json({
@@ -1522,7 +1522,7 @@ export async function postWebhookSDK(
         "limit has been reaced for starter account please upgrade to pro",
     });
   }
-  const webhook = await createWebhookSDK({
+  const webhook = await createSdkWebhook({
     organization: org.id,
     name,
     endpoint,
@@ -1566,7 +1566,7 @@ export async function putWebhook(
   webhook.set("endpoint", endpoint);
   webhook.set("project", project || "");
   webhook.set("environment", environment || "");
-  if (webhook.useSDKMode) queueSingleWebhookById(webhook.id);
+  if (webhook.useSdkMode) queueSingleWebhookById(webhook.id);
   await webhook.save();
 
   res.status(200).json({

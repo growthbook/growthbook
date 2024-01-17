@@ -19,7 +19,7 @@ const webhookSchema = new mongoose.Schema({
   lastSuccess: Date,
   error: String,
   created: Date,
-  useSDKMode: Boolean,
+  useSdkMode: Boolean,
   sdks: {
     type: [String],
     index: true,
@@ -42,7 +42,7 @@ export async function findWebhooksBySDks(
   return (
     await WebhookModel.find({
       sdks: { $in: sdkKeys },
-      useSDKMode: true,
+      useSdkMode: true,
     })
   ).map((e) => e.toJSON());
 }

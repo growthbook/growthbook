@@ -9,13 +9,13 @@ type CreateWebhook = {
   endpoint: string;
   project?: string;
   environment?: string;
-  useSDKMode?: boolean;
+  useSdkMode?: boolean;
   sdks?: string[];
   sendPayload?: boolean;
   httpMethod?: WebhookMethod;
   headers?: string;
 };
-type CreateWebhookSDK = {
+type CreateSdkWebhook = {
   organization: string;
   name: string;
   endpoint: string;
@@ -24,7 +24,7 @@ type CreateWebhookSDK = {
   httpMethod: WebhookMethod;
   headers: string;
 };
-export async function createWebhookSDK({
+export async function createSdkWebhook({
   organization,
   name,
   endpoint,
@@ -32,13 +32,13 @@ export async function createWebhookSDK({
   sendPayload,
   headers,
   httpMethod,
-}: CreateWebhookSDK): Promise<string> {
+}: CreateSdkWebhook): Promise<string> {
   const sdks = [sdkid];
   return createWebhook({
     organization,
     name,
     endpoint,
-    useSDKMode: true,
+    useSdkMode: true,
     sdks,
     sendPayload,
     headers,
@@ -52,7 +52,7 @@ export async function createWebhook({
   endpoint,
   project,
   environment,
-  useSDKMode,
+  useSdkMode,
   sdks,
   sendPayload,
   headers,
@@ -72,7 +72,7 @@ export async function createWebhook({
     created: new Date(),
     error: "",
     lastSuccess: null,
-    useSDKMode: useSDKMode || false,
+    useSdkMode: useSdkMode || false,
     sdks: sdks || [],
     sendPayload: sendPayload || false,
     headers: JSON.stringify(headers) || "",

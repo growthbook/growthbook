@@ -40,7 +40,7 @@ const WebhooksModal: FC<{
       project: current.project || (current.id ? "" : project),
       environment:
         current.environment === undefined ? "production" : current.environment,
-      useSDKMode: current?.useSDKMode || showSDKMode,
+      useSdkMode: current?.useSdkMode || showSDKMode,
       sendPayload: current?.sendPayload,
       httpMethod: current?.httpMethod || "POST",
       headers: current?.headers || "{}",
@@ -73,7 +73,7 @@ const WebhooksModal: FC<{
   });
 
   const envOptions = environments.map((e) => ({
-    display: e.id,
+    label: e.id,
     value: e.id,
   }));
 
@@ -81,7 +81,7 @@ const WebhooksModal: FC<{
   // Add the option to select both only when required for backwards compatibility
   if (current && current.environment === "") {
     envOptions.push({
-      display: "Both dev and production",
+      label: "Both dev and production",
       value: "",
     });
   }
@@ -140,20 +140,22 @@ const WebhooksModal: FC<{
   );
   const nonSDKFilterFields = () => (
     <>
-      <Field
+      <SelectField
         label="Environment"
+        value={form.watch("environment")}
+        onChange={(environment) => form.setValue("environment", environment)}
         options={envOptions}
-        {...form.register("environment")}
       />
       {projects.length > 0 && (
-        <Field
-          label="Project"
+        <SelectField
+          label="project"
           options={projects.map((p) => ({
-            display: p.name,
+            label: p.name,
             value: p.id,
           }))}
           initialOption="All Projects"
-          {...form.register("project")}
+          value={form.watch("project")}
+          onChange={(project) => form.setValue("project", project)}
         />
       )}
     </>
