@@ -15,7 +15,7 @@ import {
   SECRET_API_KEY_ROLE,
 } from "../util/secrets";
 import { roleForApiKey } from "../util/api-key.util";
-import { ReqContext } from "../types/AuthRequest";
+import { ReqContext } from "../services/organizations";
 import { findAllOrganizations } from "./OrganizationModel";
 
 const apiKeySchema = new mongoose.Schema({
@@ -283,14 +283,10 @@ export async function getApiKeyByIdOrKey(
 ): Promise<ApiKeyInterface | null> {
   if (!id && !key) return null;
 
-  const { organization, readAccessFilter } = context;
-
-  if (!organization) return null;
-
-  const orgId = organization.id;
+  const { org, readAccessFilter } = context;
 
   const doc = await ApiKeyModel.findOne(
-    id ? { organization: orgId, id } : { organization: orgId, key }
+    id ? { organization: org.id, id } : { organization: org.id, key }
   );
 
   if (!doc) return null;
@@ -340,15 +336,11 @@ export async function lookupOrganizationByApiKey(
 export async function getAllApiKeysByOrganization(
   context: ReqContext
 ): Promise<ApiKeyInterface[]> {
-  const { organization, readAccessFilter } = context;
-
-  if (!organization) return [];
-
-  const orgId = organization.id;
+  const { org, readAccessFilter } = context;
 
   const docs: ApiKeyDocument[] = await ApiKeyModel.find(
     {
-      organization: orgId,
+      organization: org.id,
     },
     { encryptionKey: 0 }
   );

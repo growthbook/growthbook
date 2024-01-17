@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
+import { ReadAccessFilter, getReadAccessFilter } from "shared/permissions";
 import {
   createOrganization,
   findAllOrganizations,
@@ -45,7 +46,7 @@ import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 import { logger } from "../util/logger";
-import { getDefaultRole } from "../util/organization.util";
+import { getDefaultRole, getUserPermissions } from "../util/organization.util";
 import { SegmentInterface } from "../../types/segment";
 import {
   createSegment,
@@ -55,6 +56,7 @@ import {
 import { getAllExperiments } from "../models/ExperimentModel";
 import { LegacyExperimentPhase } from "../../types/experiment";
 import { addTags } from "../models/TagModel";
+import { getTeamsForOrganization } from "../models/TeamModel";
 import { markInstalled } from "./auth";
 import {
   encryptParams,
@@ -95,6 +97,37 @@ export function validateLoginMethod(
   }
 
   return true;
+}
+
+export type ReqContext = {
+  org: OrganizationInterface;
+  userId: string;
+  email: string;
+  environments: string[];
+  userName: string;
+  readAccessFilter: ReadAccessFilter;
+};
+
+export async function getContextFromReq(req: AuthRequest): Promise<ReqContext> {
+  if (!req.organization) {
+    throw new Error("Must be part of an organization to make that request");
+  }
+  if (!req.userId || !req.email) {
+    throw new Error("Must be logged in");
+  }
+
+  const teams = await getTeamsForOrganization(req.organization.id);
+
+  return {
+    org: req.organization,
+    userId: req.userId,
+    email: req.email,
+    environments: getEnvironmentIdsFromOrg(req.organization),
+    userName: req.name || "",
+    readAccessFilter: getReadAccessFilter(
+      getUserPermissions(req.userId, req.organization, teams)
+    ),
+  };
 }
 
 export function getOrgFromReq(req: AuthRequest) {

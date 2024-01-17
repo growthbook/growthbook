@@ -18,6 +18,7 @@ import {
   addPendingMemberToOrg,
   expandOrgMembers,
   findVerifiedOrgForNewUser,
+  getContextFromReq,
   getEnvironments,
   getInviteUrl,
   getOrgFromReq,
@@ -594,8 +595,8 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       organization: null,
     });
   }
-
-  const { org, userId } = getOrgFromReq(req);
+  const context = await getContextFromReq(req);
+  const { org, userId } = context;
   const {
     invites,
     members,
@@ -630,7 +631,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   }
 
   // Some other global org data needed by the front-end
-  const apiKeys = await getAllApiKeysByOrganization(req.context);
+  const apiKeys = await getAllApiKeysByOrganization(context);
   const enterpriseSSO = isEnterpriseSSO(req.loginMethod)
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
@@ -1299,7 +1300,8 @@ export const autoAddGroupsAttribute = async (
 };
 
 export async function getApiKeys(req: AuthRequest, res: Response) {
-  const keys = await getAllApiKeysByOrganization(req.context);
+  const context = await getContextFromReq(req);
+  const keys = await getAllApiKeysByOrganization(context);
   const filteredKeys = keys.filter((k) => !k.userId || k.userId === req.userId);
 
   res.status(200).json({
@@ -1410,7 +1412,8 @@ export async function deleteApiKey(
   req: AuthRequest<{ key?: string; id?: string }>,
   res: Response
 ) {
-  const { org, userId } = getOrgFromReq(req);
+  const context = await getContextFromReq(req);
+  const { userId, org } = context;
   // Old API keys did not have an id, so we need to delete by the key value itself
   const { key, id } = req.body;
   if (!key && !id) {
@@ -1418,7 +1421,7 @@ export async function deleteApiKey(
   }
 
   const keyObj = await getApiKeyByIdOrKey(
-    req.context,
+    context,
     id || undefined,
     key || undefined
   );

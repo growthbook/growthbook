@@ -2,7 +2,7 @@ import fetch from "node-fetch";
 import { Response } from "express";
 import { AuthRequest } from "../types/AuthRequest";
 import { updateOrganization } from "../models/OrganizationModel";
-import { getOrgFromReq } from "../services/organizations";
+import { getContextFromReq, getOrgFromReq } from "../services/organizations";
 import { getAllApiKeysByOrganization } from "../models/ApiKeyModel";
 import {
   GbVercelEnvMap,
@@ -115,8 +115,9 @@ export async function postEnvVars(
 
 export async function getConfig(req: AuthRequest, res: Response) {
   req.checkPermissions("organizationSettings");
-  const { org } = getOrgFromReq(req);
-  const liveGbKeys = await getAllApiKeysByOrganization(req.context);
+  const context = await getContextFromReq(req);
+  const { org } = context;
+  const liveGbKeys = await getAllApiKeysByOrganization(context);
 
   if (!org.connections?.vercel)
     throw new Error("Vercel integration does not exist");

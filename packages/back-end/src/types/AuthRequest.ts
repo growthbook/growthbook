@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import { ReadAccessFilter } from "shared/permissions";
 import {
   EnvScopedPermission,
   GlobalPermission,
@@ -22,11 +21,6 @@ export type PermissionFunctions = {
   ): void;
 };
 
-export type ReqContext = {
-  organization?: OrganizationInterface;
-  readAccessFilter: ReadAccessFilter;
-};
-
 // eslint-disable-next-line
 export type AuthRequest<
   Body = unknown,
@@ -42,7 +36,6 @@ export type AuthRequest<
   superAdmin?: boolean;
   organization?: OrganizationInterface;
   audit: (data: Partial<AuditInterface>) => Promise<void>;
-  context: ReqContext;
 } & PermissionFunctions;
 
 export type ResponseWithStatusAndError<T = unknown> = Response<
