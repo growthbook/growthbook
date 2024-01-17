@@ -753,7 +753,7 @@ export class GrowthBook<
 
         // For experiment rules, run an experiment
         const exp: Experiment<V> = {
-          variations: rule.variations as [V, V, ...V[]],
+          variations: rule.variations as [V, V, ...V[], V],
           key: rule.key || id,
         };
         if ("coverage" in rule) exp.coverage = rule.coverage;
@@ -1297,6 +1297,12 @@ export class GrowthBook<
       changes.domMutations.forEach((mutation) => {
         undo.push(mutate.declarative(mutation as DeclarativeMutation).revert);
       });
+    }
+    if (changes.urlRedirect) {
+      const script = document.createElement("script");
+      script.innerHTML = `window.location.replace("${changes.urlRedirect}");`;
+      document.head.appendChild(script);
+      undo.push(() => script.remove());
     }
     return () => {
       undo.forEach((fn) => fn());

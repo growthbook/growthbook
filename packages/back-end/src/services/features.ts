@@ -123,17 +123,21 @@ function generateVisualExperimentsPayload({
         phase?.savedGroups
       );
 
+      const urlRedirects = v.urlRedirects;
+
       if (!phase) return null;
 
+      // add in URL redirects (not sure if the variation name is needed)
       const exp: AutoExperimentWithProject = {
         key: e.trackingKey,
         status: e.status,
         project: e.project,
-        variations: v.visualChanges.map((vc) => ({
+        variations: v.visualChanges.map((vc, i) => ({
           css: vc.css,
           js: vc.js || "",
           domMutations: vc.domMutations,
-        })) as AutoExperimentWithProject["variations"],
+          urlRedirect: urlRedirects[i]?.url,
+        })) as unknown,
         hashVersion: e.hashVersion,
         hashAttribute: e.hashAttribute,
         fallbackAttribute: e.fallbackAttribute,

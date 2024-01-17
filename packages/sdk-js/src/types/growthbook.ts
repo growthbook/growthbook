@@ -79,7 +79,7 @@ export type UrlTarget = {
 
 export type Experiment<T> = {
   key: string;
-  variations: [T, T, ...T[]];
+  variations: [T, T, ...T[], T];
   ranges?: VariationRange[];
   meta?: VariationMeta[];
   filters?: Filter[];
@@ -229,6 +229,7 @@ export type AutoExperimentVariation = {
   domMutations?: DOMMutation[];
   css?: string;
   js?: string;
+  urlRedirect?: string;
 };
 
 export type FeatureDefinitions = Record<string, FeatureDefinition>;
