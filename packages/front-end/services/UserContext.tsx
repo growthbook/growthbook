@@ -46,6 +46,7 @@ type OrgSettingsResponse = {
   apiKeys: ApiKeyInterface[];
   enterpriseSSO: SSOConnectionInterface | null;
   accountPlan: AccountPlan;
+  effectiveAccountPlan: AccountPlan;
   commercialFeatures: CommercialFeature[];
   licenseKey?: string;
   currentUserPermissions: UserPermissions;
@@ -105,6 +106,7 @@ export interface UserContextValue {
   settings: OrganizationSettings;
   enterpriseSSO?: SSOConnectionInterface;
   accountPlan?: AccountPlan;
+  effectiveAccountPlan?: AccountPlan;
   commercialFeatures: CommercialFeature[];
   apiKeys: ApiKeyInterface[];
   organization: Partial<OrganizationInterface>;
@@ -375,6 +377,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         license: data?.license,
         enterpriseSSO: currentOrg?.enterpriseSSO || undefined,
         accountPlan: currentOrg?.accountPlan,
+        effectiveAccountPlan: currentOrg?.effectiveAccountPlan,
         commercialFeatures: currentOrg?.commercialFeatures || [],
         apiKeys: currentOrg?.apiKeys || [],
         // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'OrganizationInterface | undefined' is not as... Remove this comment to see the full error message

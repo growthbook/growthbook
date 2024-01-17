@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { ReadAccessFilter } from "shared/permissions";
 import {
   EnvScopedPermission,
   GlobalPermission,
@@ -31,6 +32,7 @@ export type AuthRequest<
   verified?: boolean;
   userId?: string;
   loginMethod?: SSOConnectionInterface;
+  readAccessFilter: ReadAccessFilter;
   authSubject?: string;
   name?: string;
   superAdmin?: boolean;

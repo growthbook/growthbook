@@ -352,6 +352,11 @@ export interface components {
               type: string;
               trackingKey?: string;
               hashAttribute?: string;
+              fallbackAttribute?: string;
+              disableStickyBucketing?: any;
+              bucketVersion?: number;
+              minBucketVersion?: number;
+              excludeBlockedBucketUsers?: boolean;
               namespace?: {
                 enabled: boolean;
                 name: string;
@@ -414,6 +419,11 @@ export interface components {
                 type: string;
                 trackingKey?: string;
                 hashAttribute?: string;
+                fallbackAttribute?: string;
+                disableStickyBucketing?: any;
+                bucketVersion?: number;
+                minBucketVersion?: number;
+                excludeBlockedBucketUsers?: boolean;
                 namespace?: {
                   enabled: boolean;
                   name: string;
@@ -487,6 +497,11 @@ export interface components {
           type: string;
           trackingKey?: string;
           hashAttribute?: string;
+          fallbackAttribute?: string;
+          disableStickyBucketing?: any;
+          bucketVersion?: number;
+          minBucketVersion?: number;
+          excludeBlockedBucketUsers?: boolean;
           namespace?: {
             enabled: boolean;
             name: string;
@@ -549,6 +564,11 @@ export interface components {
             type: string;
             trackingKey?: string;
             hashAttribute?: string;
+            fallbackAttribute?: string;
+            disableStickyBucketing?: any;
+            bucketVersion?: number;
+            minBucketVersion?: number;
+            excludeBlockedBucketUsers?: boolean;
             namespace?: {
               enabled: boolean;
               name: string;
@@ -610,6 +630,11 @@ export interface components {
       type: string;
       trackingKey?: string;
       hashAttribute?: string;
+      fallbackAttribute?: string;
+      disableStickyBucketing?: any;
+      bucketVersion?: number;
+      minBucketVersion?: number;
+      excludeBlockedBucketUsers?: boolean;
       namespace?: {
         enabled: boolean;
         name: string;
@@ -684,6 +709,11 @@ export interface components {
       type: string;
       trackingKey?: string;
       hashAttribute?: string;
+      fallbackAttribute?: string;
+      disableStickyBucketing?: any;
+      bucketVersion?: number;
+      minBucketVersion?: number;
+      excludeBlockedBucketUsers?: boolean;
       namespace?: {
         enabled: boolean;
         name: string;
@@ -751,8 +781,13 @@ export interface components {
       status: string;
       autoRefresh: boolean;
       hashAttribute: string;
+      fallbackAttribute?: string;
       /** @enum {number} */
       hashVersion: 1 | 2;
+      disableStickyBucketing?: any;
+      bucketVersion?: number;
+      minBucketVersion?: number;
+      excludeBlockedBucketUsers?: boolean;
       variations: ({
           variationId: string;
           key: string;
@@ -1162,6 +1197,11 @@ export interface operations {
                         type: string;
                         trackingKey?: string;
                         hashAttribute?: string;
+                        fallbackAttribute?: string;
+                        disableStickyBucketing?: any;
+                        bucketVersion?: number;
+                        minBucketVersion?: number;
+                        excludeBlockedBucketUsers?: boolean;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -1224,6 +1264,11 @@ export interface operations {
                           type: string;
                           trackingKey?: string;
                           hashAttribute?: string;
+                          fallbackAttribute?: string;
+                          disableStickyBucketing?: any;
+                          bucketVersion?: number;
+                          minBucketVersion?: number;
+                          excludeBlockedBucketUsers?: boolean;
                           namespace?: {
                             enabled: boolean;
                             name: string;
@@ -1464,6 +1509,11 @@ export interface operations {
                       type: string;
                       trackingKey?: string;
                       hashAttribute?: string;
+                      fallbackAttribute?: string;
+                      disableStickyBucketing?: any;
+                      bucketVersion?: number;
+                      minBucketVersion?: number;
+                      excludeBlockedBucketUsers?: boolean;
                       namespace?: {
                         enabled: boolean;
                         name: string;
@@ -1526,6 +1576,11 @@ export interface operations {
                         type: string;
                         trackingKey?: string;
                         hashAttribute?: string;
+                        fallbackAttribute?: string;
+                        disableStickyBucketing?: any;
+                        bucketVersion?: number;
+                        minBucketVersion?: number;
+                        excludeBlockedBucketUsers?: boolean;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -1631,6 +1686,11 @@ export interface operations {
                       type: string;
                       trackingKey?: string;
                       hashAttribute?: string;
+                      fallbackAttribute?: string;
+                      disableStickyBucketing?: any;
+                      bucketVersion?: number;
+                      minBucketVersion?: number;
+                      excludeBlockedBucketUsers?: boolean;
                       namespace?: {
                         enabled: boolean;
                         name: string;
@@ -1693,6 +1753,11 @@ export interface operations {
                         type: string;
                         trackingKey?: string;
                         hashAttribute?: string;
+                        fallbackAttribute?: string;
+                        disableStickyBucketing?: any;
+                        bucketVersion?: number;
+                        minBucketVersion?: number;
+                        excludeBlockedBucketUsers?: boolean;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -1922,6 +1987,11 @@ export interface operations {
                       type: string;
                       trackingKey?: string;
                       hashAttribute?: string;
+                      fallbackAttribute?: string;
+                      disableStickyBucketing?: any;
+                      bucketVersion?: number;
+                      minBucketVersion?: number;
+                      excludeBlockedBucketUsers?: boolean;
                       namespace?: {
                         enabled: boolean;
                         name: string;
@@ -1984,6 +2054,11 @@ export interface operations {
                         type: string;
                         trackingKey?: string;
                         hashAttribute?: string;
+                        fallbackAttribute?: string;
+                        disableStickyBucketing?: any;
+                        bucketVersion?: number;
+                        minBucketVersion?: number;
+                        excludeBlockedBucketUsers?: boolean;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -2093,6 +2168,11 @@ export interface operations {
                       type: string;
                       trackingKey?: string;
                       hashAttribute?: string;
+                      fallbackAttribute?: string;
+                      disableStickyBucketing?: any;
+                      bucketVersion?: number;
+                      minBucketVersion?: number;
+                      excludeBlockedBucketUsers?: boolean;
                       namespace?: {
                         enabled: boolean;
                         name: string;
@@ -2155,6 +2235,11 @@ export interface operations {
                         type: string;
                         trackingKey?: string;
                         hashAttribute?: string;
+                        fallbackAttribute?: string;
+                        disableStickyBucketing?: any;
+                        bucketVersion?: number;
+                        minBucketVersion?: number;
+                        excludeBlockedBucketUsers?: boolean;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -2615,8 +2700,13 @@ export interface operations {
                 status: string;
                 autoRefresh: boolean;
                 hashAttribute: string;
+                fallbackAttribute?: string;
                 /** @enum {number} */
                 hashVersion: 1 | 2;
+                disableStickyBucketing?: any;
+                bucketVersion?: number;
+                minBucketVersion?: number;
+                excludeBlockedBucketUsers?: boolean;
                 variations: ({
                     variationId: string;
                     key: string;
@@ -2734,8 +2824,13 @@ export interface operations {
           status?: "draft" | "running" | "stopped";
           autoRefresh?: boolean;
           hashAttribute?: string;
+          fallbackAttribute?: string;
           /** @enum {number} */
           hashVersion?: 1 | 2;
+          disableStickyBucketing?: any;
+          bucketVersion?: number;
+          minBucketVersion?: number;
+          excludeBlockedBucketUsers?: boolean;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
           variations: ({
@@ -2801,8 +2896,13 @@ export interface operations {
               status: string;
               autoRefresh: boolean;
               hashAttribute: string;
+              fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
+              disableStickyBucketing?: any;
+              bucketVersion?: number;
+              minBucketVersion?: number;
+              excludeBlockedBucketUsers?: boolean;
               variations: ({
                   variationId: string;
                   key: string;
@@ -2913,8 +3013,13 @@ export interface operations {
               status: string;
               autoRefresh: boolean;
               hashAttribute: string;
+              fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
+              disableStickyBucketing?: any;
+              bucketVersion?: number;
+              minBucketVersion?: number;
+              excludeBlockedBucketUsers?: boolean;
               variations: ({
                   variationId: string;
                   key: string;
@@ -3028,8 +3133,13 @@ export interface operations {
           status?: "draft" | "running" | "stopped";
           autoRefresh?: boolean;
           hashAttribute?: string;
+          fallbackAttribute?: string;
           /** @enum {number} */
           hashVersion?: 1 | 2;
+          disableStickyBucketing?: any;
+          bucketVersion?: number;
+          minBucketVersion?: number;
+          excludeBlockedBucketUsers?: boolean;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
           variations?: ({
@@ -3095,8 +3205,13 @@ export interface operations {
               status: string;
               autoRefresh: boolean;
               hashAttribute: string;
+              fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
+              disableStickyBucketing?: any;
+              bucketVersion?: number;
+              minBucketVersion?: number;
+              excludeBlockedBucketUsers?: boolean;
               variations: ({
                   variationId: string;
                   key: string;
@@ -3817,8 +3932,13 @@ export interface operations {
               status: string;
               autoRefresh: boolean;
               hashAttribute: string;
+              fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
+              disableStickyBucketing?: any;
+              bucketVersion?: number;
+              minBucketVersion?: number;
+              excludeBlockedBucketUsers?: boolean;
               variations: ({
                   variationId: string;
                   key: string;

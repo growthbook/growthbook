@@ -23,6 +23,7 @@ import { generateVariationId, useAttributeSchema } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import useIncrementer from "@/hooks/useIncrementer";
+import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import TagsInput from "../Tags/TagsInput";
 import Page from "../Modal/Page";
@@ -134,7 +135,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   } = useDefinitions();
 
   const settings = useOrgSettings();
-
   const { refreshWatching } = useWatching();
 
   useEffect(() => {
@@ -319,184 +319,205 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       inline={inline}
     >
       <Page display="Basic Info">
-        {msg && <div className="alert alert-info">{msg}</div>}
+        <div className="px-2">
+          {msg && <div className="alert alert-info">{msg}</div>}
 
-        {currentProjectIsDemo && (
-          <div className="alert alert-warning">
-            You are creating an experiment under the demo datasource project.
-            This experiment will be deleted when the demo datasource project is
-            deleted.
-          </div>
-        )}
+          {currentProjectIsDemo && (
+            <div className="alert alert-warning">
+              You are creating an experiment under the demo datasource project.
+              This experiment will be deleted when the demo datasource project
+              is deleted.
+            </div>
+          )}
 
-        <Field label="Name" required minLength={2} {...form.register("name")} />
-        {!isImport && !fromFeature && datasource && !isNewExperiment && (
           <Field
-            label="Experiment Id"
-            {...form.register("trackingKey")}
-            helpText={
-              supportsSQL ? (
-                <>
-                  Must match the <code>experiment_id</code> field in your
-                  database table
-                </>
-              ) : (
-                "Must match the experiment id in your tracking callback"
-              )
-            }
+            label="Name"
+            required
+            minLength={2}
+            {...form.register("name")}
           />
-        )}
+          {!isImport && !fromFeature && datasource && !isNewExperiment && (
+            <Field
+              label="Experiment Id"
+              {...form.register("trackingKey")}
+              helpText={
+                supportsSQL ? (
+                  <>
+                    Unique identifier for this experiment, used to track
+                    impressions and analyze results. Will match against the{" "}
+                    <code>experiment_id</code> column in your data source.
+                  </>
+                ) : (
+                  <>
+                    Unique identifier for this experiment, used to track
+                    impressions and analyze results. Must match the experiment
+                    id in your tracking callback.
+                  </>
+                )
+              }
+            />
+          )}
 
-        <div className="form-group">
-          <label>Tags</label>
-          <TagsInput
-            value={form.watch("tags") ?? []}
-            onChange={(tags) => form.setValue("tags", tags)}
-          />
-        </div>
-        <Field
-          label="Hypothesis"
-          textarea
-          minRows={2}
-          maxRows={6}
-          placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
-          {...form.register("hypothesis")}
-        />
-        {includeDescription && (
           <div className="form-group">
-            <label>Description</label>
-            <MarkdownInput
-              value={form.watch("description") ?? ""}
-              setValue={(val) => form.setValue("description", val)}
+            <label>Tags</label>
+            <TagsInput
+              value={form.watch("tags") ?? []}
+              onChange={(tags) => form.setValue("tags", tags)}
             />
           </div>
-        )}
-        {!isNewExperiment && (
-          <SelectField
-            label="Status"
-            options={[
-              { label: "draft", value: "draft" },
-              { label: "running", value: "running" },
-              { label: "stopped", value: "stopped" },
-            ]}
-            onChange={(v) => {
-              const status = v as ExperimentStatus;
-              form.setValue("status", status);
-            }}
-            value={form.watch("status") ?? ""}
-          />
-        )}
-        {status !== "draft" && (
           <Field
-            label="Start Date (UTC)"
-            type="datetime-local"
-            {...form.register("phases.0.dateStarted")}
+            label="Hypothesis"
+            textarea
+            minRows={2}
+            maxRows={6}
+            placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
+            {...form.register("hypothesis")}
           />
-        )}
-        {status === "stopped" && (
-          <Field
-            label="End Date (UTC)"
-            type="datetime-local"
-            {...form.register("phases.0.dateEnded")}
-          />
-        )}
+          {includeDescription && (
+            <div className="form-group">
+              <label>Description</label>
+              <MarkdownInput
+                value={form.watch("description") ?? ""}
+                setValue={(val) => form.setValue("description", val)}
+              />
+            </div>
+          )}
+          {!isNewExperiment && (
+            <SelectField
+              label="Status"
+              options={[
+                { label: "draft", value: "draft" },
+                { label: "running", value: "running" },
+                { label: "stopped", value: "stopped" },
+              ]}
+              onChange={(v) => {
+                const status = v as ExperimentStatus;
+                form.setValue("status", status);
+              }}
+              value={form.watch("status") ?? ""}
+            />
+          )}
+          {status !== "draft" && (
+            <Field
+              label="Start Date (UTC)"
+              type="datetime-local"
+              {...form.register("phases.0.dateStarted")}
+            />
+          )}
+          {status === "stopped" && (
+            <Field
+              label="End Date (UTC)"
+              type="datetime-local"
+              {...form.register("phases.0.dateEnded")}
+            />
+          )}
+        </div>
       </Page>
+
       <Page display="Variation Assignment">
-        {isNewExperiment && (
-          <div className="alert alert-info">
-            You will have a chance to review and change these settings before
-            starting your experiment.
-          </div>
-        )}
-        {isNewExperiment && (
-          <SavedGroupTargetingField
-            value={form.watch("phases.0.savedGroups") || []}
-            setValue={(savedGroups) =>
-              form.setValue("phases.0.savedGroups", savedGroups)
+        <div className="px-2">
+          {isNewExperiment && (
+            <div className="alert alert-info mb-4">
+              You will have a chance to review and change these settings before
+              starting your experiment.
+            </div>
+          )}
+
+          {isNewExperiment && (
+            <>
+              <div className="d-flex" style={{ gap: "2rem" }}>
+                <SelectField
+                  containerClassName="flex-1"
+                  label="Assign variation based on attribute"
+                  labelClassName="font-weight-bold"
+                  options={attributeSchema
+                    .filter((s) => !hasHashAttributes || s.hashAttribute)
+                    .map((s) => ({ label: s.property, value: s.property }))}
+                  sort={false}
+                  value={form.watch("hashAttribute") || ""}
+                  onChange={(v) => {
+                    form.setValue("hashAttribute", v);
+                  }}
+                  helpText={
+                    "Will be hashed together with the Experiment Id (tracking key) to determine which variation to assign"
+                  }
+                />
+                <FallbackAttributeSelector form={form} />
+              </div>
+
+              <SavedGroupTargetingField
+                value={form.watch("phases.0.savedGroups") || []}
+                setValue={(savedGroups) =>
+                  form.setValue("phases.0.savedGroups", savedGroups)
+                }
+              />
+              <ConditionInput
+                defaultValue={form.watch("phases.0.condition") || ""}
+                onChange={(value) => form.setValue("phases.0.condition", value)}
+                key={conditionKey}
+              />
+
+              <NamespaceSelector
+                formPrefix="phases.0."
+                form={form}
+                featureId={""}
+                trackingKey={""}
+              />
+            </>
+          )}
+
+          <FeatureVariationsInput
+            valueType={"string"}
+            coverage={form.watch("phases.0.coverage")}
+            setCoverage={(coverage) =>
+              form.setValue("phases.0.coverage", coverage)
             }
-          />
-        )}
-        {isNewExperiment && (
-          <ConditionInput
-            defaultValue={form.watch("phases.0.condition") || ""}
-            onChange={(value) => form.setValue("phases.0.condition", value)}
-            key={conditionKey}
-          />
-        )}
-        {isNewExperiment && (
-          <SelectField
-            label="Assign variation based on attribute"
-            options={attributeSchema
-              .filter((s) => !hasHashAttributes || s.hashAttribute)
-              .map((s) => ({ label: s.property, value: s.property }))}
-            value={form.watch("hashAttribute") ?? ""}
-            onChange={(v) => {
-              form.setValue("hashAttribute", v);
+            setWeight={(i, weight) =>
+              form.setValue(`phases.0.variationWeights.${i}`, weight)
+            }
+            valueAsId={true}
+            setVariations={(v) => {
+              form.setValue(
+                "variations",
+                v.map((data, i) => {
+                  return {
+                    // default values
+                    name: "",
+                    screenshots: [],
+                    // overwrite defaults
+                    ...data,
+                    // use value as key if provided to maintain backwards compatibility
+                    key: data.value || `${i}` || "",
+                  };
+                })
+              );
+              form.setValue(
+                "phases.0.variationWeights",
+                v.map((v) => v.weight)
+              );
             }}
-            helpText={
-              "Will be hashed and used to assign a variation to each user that views the experiment"
-            }
-          />
-        )}
-        <FeatureVariationsInput
-          valueType={"string"}
-          coverage={form.watch("phases.0.coverage")}
-          setCoverage={(coverage) =>
-            form.setValue("phases.0.coverage", coverage)
-          }
-          setWeight={(i, weight) =>
-            form.setValue(`phases.0.variationWeights.${i}`, weight)
-          }
-          valueAsId={true}
-          setVariations={(v) => {
-            form.setValue(
-              "variations",
-              v.map((data, i) => {
+            variations={
+              form.watch("variations")?.map((v, i) => {
                 return {
-                  // default values
-                  name: "",
-                  screenshots: [],
-                  // overwrite defaults
-                  ...data,
-                  // use value as key if provided to maintain backwards compatibility
-                  key: data.value || `${i}` || "",
+                  value: v.key || "",
+                  name: v.name,
+                  weight: form.watch(`phases.0.variationWeights.${i}`),
+                  id: v.id,
                 };
-              })
-            );
-            form.setValue(
-              "phases.0.variationWeights",
-              v.map((v) => v.weight)
-            );
-          }}
-          variations={
-            form.watch("variations")?.map((v, i) => {
-              return {
-                value: v.key || "",
-                name: v.name,
-                weight: form.watch(`phases.0.variationWeights.${i}`),
-                id: v.id,
-              };
-            }) ?? []
-          }
-          coverageTooltip={
-            isNewExperiment
-              ? "This can be changed later"
-              : "This is just for documentation purposes and has no effect on the analysis."
-          }
-          showPreview={!!isNewExperiment}
-        />
-        {isNewExperiment && (
-          <NamespaceSelector
-            formPrefix="phases.0."
-            form={form}
-            featureId={""}
-            trackingKey={""}
+              }) ?? []
+            }
+            coverageTooltip={
+              isNewExperiment
+                ? "This can be changed later"
+                : "This is just for documentation purposes and has no effect on the analysis."
+            }
+            showPreview={!!isNewExperiment}
           />
-        )}
+        </div>
       </Page>
       {!isNewExperiment && (
         <Page display={"Analysis Settings"}>
-          <div style={{ minHeight: 350 }}>
+          <div className="px-2" style={{ minHeight: 350 }}>
             {(!isImport || fromFeature) && (
               <SelectField
                 label="Data Source"

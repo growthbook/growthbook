@@ -1,6 +1,5 @@
 import { Router } from "express";
 import authenticateApiRequestMiddleware from "../middleware/authenticateApiRequestMiddleware";
-import verifyLicenseMiddleware from "../services/auth/verifyLicenseMiddleware";
 import usersRouter from "./users/users.router";
 import groupsRouter from "./groups/groups.router";
 import scimMiddleware from "./middleware/scimMiddleware";
@@ -8,7 +7,6 @@ import scimMiddleware from "./middleware/scimMiddleware";
 const router = Router();
 
 router.use(authenticateApiRequestMiddleware);
-router.use(verifyLicenseMiddleware);
 router.use(scimMiddleware);
 
 // API endpoints

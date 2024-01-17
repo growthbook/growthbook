@@ -344,8 +344,9 @@ const AnalysisForm: FC<{
           {...form.register("trackingKey")}
           helpText={
             <>
-              Will match against the <code>experiment_id</code> column in your
-              experiment assignment table
+              Unique identifier for this experiment, used to track impressions
+              and analyze results. Will match against the{" "}
+              <code>experiment_id</code> column in your data source.
             </>
           }
           disabled={!canRunExperiment}

@@ -66,14 +66,24 @@ export default class Mssql extends SqlIntegration {
     return `CONVERT(VARCHAR(25), ${col}, 121)`;
   }
   percentileCapSelectClause(
-    capPercentile: number,
-    metricTable: string
+    values: {
+      valueCol: string;
+      outputCol: string;
+      percentile: number;
+    }[],
+    metricTable: string,
+    where: string = ""
   ): string {
     return `
-      SELECT 
-        APPROX_PERCENTILE_CONT(${capPercentile}) WITHIN GROUP (ORDER BY value) AS cap_value
+    SELECT
+      ${values
+        .map(
+          (v) =>
+            `APPROX_PERCENTILE_CONT(${v.percentile}) WITHIN GROUP (ORDER BY ${v.valueCol}) AS ${v.outputCol}`
+        )
+        .join(",\n")}
       FROM ${metricTable}
-      WHERE value IS NOT NULL
+      ${where}
     `;
   }
   getDefaultDatabase() {

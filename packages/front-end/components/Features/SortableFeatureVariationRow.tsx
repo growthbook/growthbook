@@ -29,7 +29,7 @@ interface SortableProps {
   variations: SortableVariation[];
   valueType: FeatureValueType;
   setVariations?: (value: ExperimentValue[]) => void;
-  setWeight: (i: number, weight: number) => void;
+  setWeight?: (i: number, weight: number) => void;
   customSplit: boolean;
   valueAsId: boolean;
 }
@@ -62,6 +62,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       newValue: number,
       precision: number = 4
     ) => {
+      if (!setWeight) return;
       rebalance(weights, i, newValue, precision).forEach((w, j) => {
         // The weight needs updating
         if (w !== weights[j]) {
@@ -128,7 +129,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             {customSplit ? (
               <div className="col d-flex flex-row">
                 <input
-                  value={decimalToPercent(weights[i])}
+                  value={decimalToPercent(weights[i] ?? 0)}
                   onChange={(e) => {
                     rebalanceAndUpdate(i, percentToDecimal(e.target.value));
                   }}
@@ -137,10 +138,11 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                   step="0.01"
                   type="range"
                   className="w-100 mr-3"
+                  disabled={!setWeight}
                 />
                 <div className={`position-relative ${styles.percentInputWrap}`}>
                   <Field
-                    value={decimalToPercent(weights[i])}
+                    value={decimalToPercent(weights[i] ?? 0)}
                     onChange={(e) => {
                       // the split now should add to 100% if there are two variations.
                       rebalanceAndUpdate(
@@ -162,6 +164,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                     max={100}
                     step="any"
                     className={styles.percentInput}
+                    disabled={!setWeight}
                   />
                   <span>%</span>
                 </div>
