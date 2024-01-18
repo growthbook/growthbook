@@ -16,7 +16,10 @@ import {
   getExperimentMetricById,
   getRegressionAdjustmentInfo,
 } from "../services/experiments";
-import { getConfidenceLevelsForOrg } from "../services/organizations";
+import {
+  ReqContext,
+  getConfidenceLevelsForOrg,
+} from "../services/organizations";
 import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
 import { getMetricMap } from "../models/MetricModel";
@@ -35,7 +38,7 @@ const QUEUE_EXPERIMENT_UPDATES = "queueExperimentUpdates";
 
 const UPDATE_SINGLE_EXP = "updateSingleExperiment";
 type UpdateSingleExpJob = Job<{
-  organization: string;
+  context: ReqContext;
   experimentId: string;
 }>;
 
@@ -109,10 +112,13 @@ export default async function (agenda: Agenda) {
 
 async function updateSingleExperiment(job: UpdateSingleExpJob) {
   const experimentId = job.attrs.data?.experimentId;
-  const orgId = job.attrs.data?.organization;
-  if (!experimentId || !orgId) return;
+  const context = job.attrs.data?.context;
 
-  const experiment = await getExperimentById(orgId, experimentId);
+  if (!experimentId || !context) return;
+
+  const { org } = context;
+
+  const experiment = await getExperimentById(org.id, experimentId);
   if (!experiment) return;
 
   const organization = await findOrganizationById(experiment.organization);
@@ -120,7 +126,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
   let project = null;
   if (experiment.project) {
-    project = await findProjectById(experiment.project, organization.id);
+    project = await findProjectById(context, organization.id);
   }
   const { settings: scopedSettings } = getScopedSettings({
     organization,
@@ -160,7 +166,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
     const queryRunner = await createSnapshot({
       experiment,
-      organization,
+      context,
       phaseIndex: experiment.phases.length - 1,
       defaultAnalysisSettings: analysisSettings,
       additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
@@ -188,7 +194,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     // If we failed to update the experiment, turn off auto-updating for the future
     try {
       await updateExperiment({
-        organization,
+        context,
         experiment,
         user: null,
         changes: {

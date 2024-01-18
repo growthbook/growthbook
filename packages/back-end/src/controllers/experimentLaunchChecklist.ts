@@ -119,7 +119,8 @@ export async function putManualLaunchChecklist(
   >,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
   const { id } = req.params;
   const { checklist } = req.body;
@@ -135,7 +136,7 @@ export async function putManualLaunchChecklist(
   req.checkPermissions("runExperiments", experiment?.project || "", envs);
 
   await updateExperiment({
-    organization: org,
+    context,
     experiment,
     user: res.locals.eventAudit,
     changes: { manualLaunchChecklist: checklist },

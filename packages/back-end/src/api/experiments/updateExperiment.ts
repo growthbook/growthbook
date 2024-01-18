@@ -63,7 +63,7 @@ export const updateExperiment = createApiRequestHandler(
     }
 
     const updatedExperiment = await updateExperimentToDb({
-      organization: req.organization,
+      context: req.context,
       experiment: experiment,
       user: req.eventAudit,
       changes: updateExperimentApiPayloadToInterface(req.body, experiment),
@@ -73,7 +73,7 @@ export const updateExperiment = createApiRequestHandler(
       throw new Error("Error happened during updating experiment.");
     }
     const apiExperiment = await toExperimentApiInterface(
-      req.organization,
+      req.context,
       updatedExperiment
     );
     return {

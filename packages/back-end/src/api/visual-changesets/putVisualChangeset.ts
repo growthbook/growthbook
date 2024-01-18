@@ -29,7 +29,7 @@ export const putVisualChangeset = createApiRequestHandler(
     const res = await updateVisualChangeset({
       visualChangeset,
       experiment,
-      organization: req.organization,
+      context: req.context,
       updates: req.body,
       user: req.eventAudit,
     });

@@ -108,7 +108,7 @@ import {
   analyzeExperimentResults,
   getMetricSettingsForStatsEngine,
 } from "./stats";
-import { getEnvironmentIdsFromOrg } from "./organizations";
+import { ReqContext, getEnvironmentIdsFromOrg } from "./organizations";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -530,7 +530,7 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
 
 export async function createSnapshot({
   experiment,
-  organization,
+  context,
   user = null,
   phaseIndex,
   useCache = false,
@@ -541,7 +541,7 @@ export async function createSnapshot({
   factTableMap,
 }: {
   experiment: ExperimentInterface;
-  organization: OrganizationInterface;
+  context: ReqContext;
   user?: EventAuditUser;
   phaseIndex: number;
   useCache?: boolean;
@@ -551,6 +551,7 @@ export async function createSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
 }): Promise<ExperimentResultsQueryRunner> {
+  const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
 
   const snapshotSettings = getSnapshotSettings({
@@ -601,7 +602,7 @@ export async function createSnapshot({
     undefined;
 
   await updateExperiment({
-    organization,
+    context,
     experiment,
     user,
     changes: {
@@ -719,12 +720,13 @@ function getExperimentMetric(
 }
 
 export async function toExperimentApiInterface(
-  organization: OrganizationInterface,
+  context: ReqContext,
   experiment: ExperimentInterface
 ): Promise<ApiExperiment> {
   let project = null;
+  const organization = context.org;
   if (experiment.project) {
-    project = await findProjectById(experiment.project, organization.id);
+    project = await findProjectById(context, experiment.project);
   }
   const { settings: scopedSettings } = getScopedSettings({
     organization,

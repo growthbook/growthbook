@@ -4,6 +4,7 @@ import {
 } from "@growthbook/growthbook";
 import { EventAuditUser } from "../src/events/event-types";
 import { PermissionFunctions } from "../src/types/AuthRequest";
+import { ReqContext } from "../src/services/organizations";
 import { AuditInterface } from "./audit";
 import { ExperimentStatus } from "./experiment";
 import { OrganizationInterface } from "./organization";
@@ -49,6 +50,7 @@ export type ApiRequestLocals = PermissionFunctions & {
   organization: OrganizationInterface;
   eventAudit: EventAuditUser;
   audit: (data: Partial<AuditInterface>) => Promise<void>;
+  context: ReqContext;
 };
 
 export interface ApiErrorResponse {

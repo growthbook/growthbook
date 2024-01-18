@@ -118,8 +118,8 @@ import { TeamInterface } from "../../../types/team";
 import { initializeLicense } from "../../services/licenseData";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
-  const { org } = getContextFromReq(req);
-  const orgId = org?.id;
+  const context = getContextFromReq(req);
+  const orgId = context.org.id;
   if (!orgId) {
     throw new Error("Must be part of an organization");
   }
@@ -141,7 +141,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     findSegmentsByOrganization(orgId),
     getAllTags(orgId),
     getAllSavedGroups(orgId),
-    findAllProjectsByOrganization(orgId),
+    findAllProjectsByOrganization(context),
     getAllFactTablesForOrganization(orgId),
     getAllFactMetricsForOrganization(orgId),
   ]);

@@ -123,7 +123,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
 
     addIdsToRules(feature.environmentSettings, feature.id);
 
-    await createFeature(req.organization, req.eventAudit, feature);
+    await createFeature(req.context, req.eventAudit, feature);
 
     await req.audit({
       event: "feature.create",

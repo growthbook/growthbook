@@ -17,6 +17,7 @@ import {
   getEnvironments,
   getEnvironmentIdsFromOrg,
   getContextFromReq,
+  ReqContext,
 } from "../services/organizations";
 import {
   addFeatureRule,
@@ -346,8 +347,9 @@ export async function postFeatures(
     EventAuditUserForResponseLocals
   >
 ) {
+  const context = getContextFromReq(req);
   const { id, environmentSettings, ...otherProps } = req.body;
-  const { org, userId, userName, environments } = getContextFromReq(req);
+  const { org, userId, userName, environments } = context;
 
   req.checkPermissions("manageFeatures", otherProps.project);
   req.checkPermissions("createFeatureDrafts", otherProps.project);
@@ -407,7 +409,7 @@ export async function postFeatures(
 
   addIdsToRules(feature.environmentSettings, feature.id);
 
-  await createFeature(org, res.locals.eventAudit, feature);
+  await createFeature(context, res.locals.eventAudit, feature);
   await upsertWatch({
     userId,
     organization: org.id,
@@ -520,7 +522,8 @@ export async function postFeaturePublish(
   >,
   res: Response
 ) {
-  const { org, environments } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, environments } = context;
   const { comment, mergeResultSerialized } = req.body;
   const { id, version } = req.params;
   const feature = await getFeature(org.id, id);
@@ -575,7 +578,7 @@ export async function postFeaturePublish(
   }
 
   const updatedFeature = await publishRevision(
-    org,
+    context,
     feature,
     revision,
     mergeResult.result,
@@ -607,7 +610,8 @@ export async function postFeatureRevert(
     EventAuditUserForResponseLocals
   >
 ) {
-  const { org, environments } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, environments } = context;
   const { id, version } = req.params;
   const { comment } = req.body;
 
@@ -659,7 +663,7 @@ export async function postFeatureRevert(
   }
 
   const updatedFeature = await applyRevisionChanges(
-    org,
+    context,
     feature,
     revision,
     changes,
@@ -692,7 +696,8 @@ export async function postFeatureFork(
     EventAuditUserForResponseLocals
   >
 ) {
-  const { org, environments } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, environments } = context;
   const { id, version } = req.params;
 
   const feature = await getFeature(org.id, id);
@@ -716,7 +721,7 @@ export async function postFeatureFork(
     changes: revision,
     environments,
   });
-  await updateFeature(org, res.locals.eventAudit, feature, {
+  await updateFeature(context, res.locals.eventAudit, feature, {
     hasDrafts: true,
   });
 
@@ -730,7 +735,8 @@ export async function postFeatureDiscard(
   req: AuthRequest<never, { id: string; version: string }>,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id, version } = req.params;
 
   const feature = await getFeature(org.id, id);
@@ -755,7 +761,7 @@ export async function postFeatureDiscard(
 
   const hasDrafts = await hasDraft(org.id, feature, [revision.version]);
   if (!hasDrafts) {
-    await updateFeature(org, res.locals.eventAudit, feature, {
+    await updateFeature(context, res.locals.eventAudit, feature, {
       hasDrafts: false,
     });
   }
@@ -775,7 +781,8 @@ export async function postFeatureRule(
     EventAuditUserForResponseLocals
   >
 ) {
-  const { org, environments } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, environments } = context;
   const { id, version } = req.params;
   const { environment, rule } = req.body;
 
@@ -792,7 +799,7 @@ export async function postFeatureRule(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   const revision = await getDraftRevision(
-    org,
+    context,
     feature,
     parseInt(version),
     res.locals.eventAudit
@@ -806,7 +813,7 @@ export async function postFeatureRule(
     !feature.linkedExperiments?.includes(rule.experimentId)
   ) {
     await addLinkedFeatureToExperiment(
-      org,
+      context,
       res.locals.eventAudit,
       rule.experimentId,
       feature.id
@@ -827,7 +834,8 @@ export async function postFeatureExperimentRefRule(
     EventAuditUserForResponseLocals
   >
 ) {
-  const { org, environments } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, environments } = context;
   const { id } = req.params;
   const { rule } = req.body;
 
@@ -909,14 +917,14 @@ export async function postFeatureExperimentRefRule(
   }
 
   const updatedFeature = await updateFeature(
-    org,
+    context,
     res.locals.eventAudit,
     feature,
     updates
   );
 
   await addLinkedFeatureToExperiment(
-    org,
+    context,
     res.locals.eventAudit,
     rule.experimentId,
     feature.id,
@@ -941,7 +949,7 @@ export async function postFeatureExperimentRefRule(
 }
 
 async function getDraftRevision(
-  org: OrganizationInterface,
+  context: ReqContext,
   feature: FeatureInterface,
   version: number,
   user: EventAuditUser
@@ -951,10 +959,10 @@ async function getDraftRevision(
     const newRevision = await createRevision({
       feature,
       user,
-      environments: getEnvironmentIdsFromOrg(org),
+      environments: getEnvironmentIdsFromOrg(context.org),
     });
 
-    await updateFeature(org, user, feature, {
+    await updateFeature(context, user, feature, {
       hasDrafts: true,
     });
 
@@ -1017,7 +1025,8 @@ export async function postFeatureDefaultValue(
     EventAuditUserForResponseLocals
   >
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id, version } = req.params;
   const { defaultValue } = req.body;
 
@@ -1030,7 +1039,7 @@ export async function postFeatureDefaultValue(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   const revision = await getDraftRevision(
-    org,
+    context,
     feature,
     parseInt(version),
     res.locals.eventAudit
@@ -1048,7 +1057,8 @@ export async function postFeatureSchema(
   req: AuthRequest<{ schema: string; enabled: boolean }, { id: string }>,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.params;
   const { schema, enabled } = req.body;
   const feature = await getFeature(org.id, id);
@@ -1061,7 +1071,7 @@ export async function postFeatureSchema(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   const updatedFeature = await setJsonSchema(
-    org,
+    context,
     res.locals.eventAudit,
     feature,
     schema,
@@ -1092,7 +1102,8 @@ export async function putFeatureRule(
     EventAuditUserForResponseLocals
   >
 ) {
-  const { org, environments } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, environments } = context;
   const { id, version } = req.params;
   const { environment, rule, i } = req.body;
 
@@ -1109,7 +1120,7 @@ export async function putFeatureRule(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   const revision = await getDraftRevision(
-    org,
+    context,
     feature,
     parseInt(version),
     res.locals.eventAudit
@@ -1127,7 +1138,8 @@ export async function postFeatureToggle(
   req: AuthRequest<{ environment: string; state: boolean }, { id: string }>,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
-  const { org, environments } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, environments } = context;
   const { id } = req.params;
   const { environment, state } = req.body;
   const feature = await getFeature(org.id, id);
@@ -1155,7 +1167,7 @@ export async function postFeatureToggle(
   }
 
   await toggleFeatureEnvironment(
-    org,
+    context,
     res.locals.eventAudit,
     feature,
     environment,
@@ -1190,7 +1202,8 @@ export async function postFeatureMoveRule(
     EventAuditUserForResponseLocals
   >
 ) {
-  const { org, environments } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, environments } = context;
   const { id, version } = req.params;
   const { environment, from, to } = req.body;
   const feature = await getFeature(org.id, id);
@@ -1206,7 +1219,7 @@ export async function postFeatureMoveRule(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   const revision = await getDraftRevision(
-    org,
+    context,
     feature,
     parseInt(version),
     res.locals.eventAudit
@@ -1243,7 +1256,8 @@ export async function deleteFeatureRule(
     EventAuditUserForResponseLocals
   >
 ) {
-  const { org, environments } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, environments } = context;
   const { id, version } = req.params;
   const { environment, i } = req.body;
 
@@ -1259,7 +1273,7 @@ export async function deleteFeatureRule(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   const revision = await getDraftRevision(
-    org,
+    context,
     feature,
     parseInt(version),
     res.locals.eventAudit
@@ -1296,7 +1310,8 @@ export async function putFeature(
     EventAuditUserForResponseLocals
   >
 ) {
-  const { org, environments } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, environments } = context;
   const { id } = req.params;
   const feature = await getFeature(org.id, id);
 
@@ -1340,7 +1355,7 @@ export async function putFeature(
   }
 
   const updatedFeature = await updateFeature(
-    org,
+    context,
     res.locals.eventAudit,
     feature,
     updates
@@ -1369,7 +1384,8 @@ export async function deleteFeatureById(
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { id } = req.params;
-  const { org, environments } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, environments } = context;
 
   const feature = await getFeature(org.id, id);
 
@@ -1381,7 +1397,7 @@ export async function deleteFeatureById(
       feature.project,
       getEnabledEnvironments(feature, environments)
     );
-    await deleteFeature(org, res.locals.eventAudit, feature);
+    await deleteFeature(context, res.locals.eventAudit, feature);
     await req.audit({
       event: "feature.delete",
       entity: {
@@ -1444,7 +1460,8 @@ export async function postFeatureArchive(
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { id } = req.params;
-  const { org, environments } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, environments } = context;
   const feature = await getFeature(org.id, id);
 
   if (!feature) {
@@ -1457,7 +1474,7 @@ export async function postFeatureArchive(
     getEnabledEnvironments(feature, environments)
   );
   const updatedFeature = await archiveFeature(
-    org,
+    context,
     res.locals.eventAudit,
     feature,
     !feature.archived
@@ -1721,8 +1738,8 @@ export async function toggleStaleFFDetectionForFeature(
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { id } = req.params;
-  const { org } = getContextFromReq(req);
-  const feature = await getFeature(org.id, id);
+  const context = getContextFromReq(req);
+  const feature = await getFeature(context.org.id, id);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -1730,7 +1747,7 @@ export async function toggleStaleFFDetectionForFeature(
 
   req.checkPermissions("manageFeatures", feature.project);
 
-  await updateFeature(org, res.locals.eventAudit, feature, {
+  await updateFeature(context, res.locals.eventAudit, feature, {
     neverStale: !feature.neverStale,
   });
 

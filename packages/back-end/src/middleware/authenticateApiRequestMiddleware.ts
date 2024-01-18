@@ -1,8 +1,15 @@
 import { Request, Response, NextFunction } from "express";
-import { hasPermission } from "shared/permissions";
+import {
+  FULL_ACCESS_PERMISSIONS,
+  getReadAccessFilter,
+  hasPermission,
+} from "shared/permissions";
 import { ApiRequestLocals } from "../../types/api";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
-import { getOrganizationById } from "../services/organizations";
+import {
+  getEnvironmentIdsFromOrg,
+  getOrganizationById,
+} from "../services/organizations";
 import { getCustomLogProps } from "../util/logger";
 import { EventAuditUserApiKey } from "../events/event-types";
 import { isApiKeyForUserInOrganization } from "../util/api-key.util";
@@ -115,6 +122,19 @@ export default function authenticateApiRequestMiddleware(
       }
 
       const teams = await getTeamsForOrganization(org.id);
+
+      req.context = {
+        org,
+        userId: req.user?.id || "",
+        email: req.user?.email || "",
+        environments: getEnvironmentIdsFromOrg(org),
+        userName: req.user?.name || "",
+        readAccessFilter: userId
+          ? getReadAccessFilter(
+              getUserPermissions(userId, req.organization, teams)
+            )
+          : FULL_ACCESS_PERMISSIONS,
+      };
 
       // Check permissions for user API keys
       req.checkPermissions = (

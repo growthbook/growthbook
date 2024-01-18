@@ -6,6 +6,7 @@ import {
 } from "../models/FeatureModel";
 import { getNextScheduledUpdate } from "../services/features";
 import {
+  ReqContext,
   getEnvironmentIdsFromOrg,
   getOrganizationById,
 } from "../services/organizations";
@@ -13,7 +14,7 @@ import { logger } from "../util/logger";
 
 type UpdateSingleFeatureJob = Job<{
   featureId: string;
-  organization: string;
+  context: ReqContext;
 }>;
 
 const QUEUE_FEATURE_UPDATES = "queueScheduledFeatureUpdates";
@@ -66,13 +67,12 @@ export default async function (agenda: Agenda) {
 
 async function updateSingleFeature(job: UpdateSingleFeatureJob) {
   const featureId = job.attrs.data?.featureId;
-  const organization = job.attrs.data?.organization;
-  if (!featureId) return;
+  const context = job.attrs.data?.context;
+  if (!featureId || !context) return;
 
-  const org = await getOrganizationById(organization);
-  if (!org) return;
+  const org = context.org;
 
-  const feature = await getFeature(organization, featureId);
+  const feature = await getFeature(org.id, featureId);
   if (!feature) return;
 
   try {
@@ -83,7 +83,7 @@ async function updateSingleFeature(job: UpdateSingleFeatureJob) {
     );
 
     // Update the feature in Mongo
-    await updateFeature(org, null, feature, {
+    await updateFeature(context, null, feature, {
       nextScheduledUpdate: nextScheduledUpdate,
     });
   } catch (e) {
