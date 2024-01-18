@@ -1,11 +1,6 @@
 import React, { useState } from "react";
 import { WebhookInterface } from "back-end/types/webhook";
-import {
-  FaCheck,
-  FaInfoCircle,
-  FaPencilAlt,
-  FaPlusCircle,
-} from "react-icons/fa";
+import { FaCheck, FaInfoCircle, FaPlusCircle } from "react-icons/fa";
 import { ago } from "shared/dates";
 import { BsArrowRepeat } from "react-icons/bs";
 import useApi from "@/hooks/useApi";
@@ -16,6 +11,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissions from "@/hooks/usePermissions";
 import { useUser } from "@/services/UserContext";
 import Button from "@/components/Button";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
 
 export default function SDKWebhooks({ sdkid }) {
   const { data, mutate } = useApi<{ webhooks?: WebhookInterface[] }>(
@@ -77,29 +73,36 @@ export default function SDKWebhooks({ sdkid }) {
           </td>
         )}
         <td>
-          <a
-            href="#"
-            className="tr-hover text-primary mr-3"
-            title="Edit this webhook"
-            onClick={(e) => {
-              e.preventDefault();
-              if (!disableWebhookCreate) setCreateWebhookModalOpen(webhook);
-            }}
-          >
-            <FaPencilAlt />
-          </a>
-          <DeleteButton
-            link={true}
-            className={"tr-hover text-primary"}
-            displayName="Webhook"
-            title="Delete this webhook"
-            onClick={async () => {
-              await apiCall(`/webhook/${webhook.id}`, {
-                method: "DELETE",
-              });
-              mutate();
-            }}
-          />
+          {hasWebhookPermitions && (
+            <>
+              <div className="col-auto">
+                <MoreMenu>
+                  <button
+                    className="dropdown-item"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (!disableWebhookCreate)
+                        setCreateWebhookModalOpen(webhook);
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <DeleteButton
+                    className="dropdown-item"
+                    displayName="SDK Connection"
+                    text="Delete"
+                    useIcon={false}
+                    onClick={async () => {
+                      await apiCall(`/webhook/${webhook.id}`, {
+                        method: "DELETE",
+                      });
+                      mutate();
+                    }}
+                  />
+                </MoreMenu>
+              </div>
+            </>
+          )}
         </td>
       </tr>
     ));

@@ -158,9 +158,6 @@ const WebhooksModal: FC<{
   );
   const filterFields = showSDKMode ? SDKFilterFields() : nonSDKFilterFields();
 
-  const updateCtaCopy = showSDKMode ? "Update and Send" : "Update";
-  const createCtaCopy = showSDKMode ? "Create and Send" : "Create";
-
   return (
     <Modal
       close={close}
@@ -168,7 +165,7 @@ const WebhooksModal: FC<{
       open={true}
       submit={onSubmit}
       ctaEnabled={validHeaders}
-      cta={current.id ? updateCtaCopy : createCtaCopy}
+      cta={current.id ? "Update" : "Create"}
     >
       <Field label="Display Name" required {...form.register("name")} />
       <Field

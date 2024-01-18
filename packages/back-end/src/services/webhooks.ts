@@ -75,7 +75,7 @@ export async function createWebhook({
     useSdkMode: useSdkMode || false,
     sdks: sdks || [],
     sendPayload: sendPayload || false,
-    headers: JSON.stringify(headers) || "",
+    headers: headers || "",
     httpMethod: httpMethod || "POST",
   };
   await WebhookModel.create(doc);

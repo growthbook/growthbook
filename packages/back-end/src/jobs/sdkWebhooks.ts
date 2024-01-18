@@ -260,11 +260,11 @@ export async function queueSingleWebhookById(webhookId: string) {
       sendPayload: webhook.sendPayload,
     });
 
-    if (!res.ok) {
-      const e = "returned an invalid status code: " + res.status;
+    if (!res?.ok) {
+      const e = "returned an invalid status code: " + res?.status;
       webhook.set("error", e);
       await webhook.save();
-      throw new Error(e);
+      return;
     }
 
     webhook.set("error", "");
