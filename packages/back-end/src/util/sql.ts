@@ -36,21 +36,34 @@ export function getBaseIdTypeAndJoins(
     .map((ids) => ids.filter(Boolean))
     .filter((ids) => ids.length > 0)
     .sort((a, b) => a.length - b.length);
+  
+  // Count how many objects use each id type
+  const counts: Record<string, number> = {};
+  objects.forEach((types) => {
+    types.forEach((type) => {
+      if (!type) return;
+      counts[type] = counts[type] || 0;
+      counts[type]++;
+    });
+  });
 
-  // Determine which id type to use as the base
-  const baseIdType = getBaseIdType(objects, forcedBaseIdType);
+  const idTypesSortedByFrequency = Object.entries(counts).sort((a, b) => b[1] - a[1]);
 
-  // Determine the required joins
-  // TODO: optimize this to always choose the minimum possible number of joins
+  // use most frequent ID as base type, unless forcedBaseIdType is passed
+  const baseIdType = forcedBaseIdType || idTypesSortedByFrequency[0]?.[0] || "";
+
   const joinsRequired: Set<string> = new Set();
   sorted.forEach((types) => {
     // Object supports the base type already
     if (types.includes(baseIdType)) return;
     // Object supports one of the join types already
     if (types.filter((type) => joinsRequired.has(type)).length > 0) return;
-    // Need to join to a new id type
-    joinsRequired.add(types[0]);
-  });
+    
+    // Add id type that is most frequent to help minimize N joins needed
+    joinsRequired.add(
+      idTypesSortedByFrequency.find((x) => types.includes(x[0]))?.[0] || types[0]
+    );
+  })
 
   return {
     baseIdType,
