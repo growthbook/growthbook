@@ -14,6 +14,7 @@ import { logger } from "../util/logger";
 import { findWebhookById, findWebhooksBySdks } from "../models/WebhookModel";
 import { WebhookInterface, WebhookMethod } from "../../types/webhook";
 import { createSdkWebhookLog } from "../models/SdkWebhookLogModel";
+import { cancellableFetch } from "../util/http.util";
 
 const SDK_WEBHOOKS_JOB_NAME = "fireWebhooks";
 type SDKWebhookJob = Job<{
@@ -131,6 +132,8 @@ export async function fireWebhook({
   headers: string;
   sendPayload: boolean;
 }) {
+  const requestTimeout = 30000;
+  const maxContentSize = 1000;
   const date = new Date();
   const signature = createHmac("sha256", signingKey)
     .update(payload)
@@ -147,18 +150,28 @@ export async function fireWebhook({
       data,
     });
   }
-  const res = await fetch(url, {
-    headers: {
-      "Content-Type": "application/json",
-      "webhook-id": webhookID,
-      "webhook-timestamp": date.getTime(),
-      "webhook-secret": secret,
-      "webhook-sdk-key": key,
-      ...JSON.parse(headers),
-    },
-    method,
-    body,
-  }).catch((e) => {
+  let res;
+  try {
+    res = await cancellableFetch(
+      url,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "webhook-id": webhookID,
+          "webhook-timestamp": date.getTime(),
+          "webhook-secret": secret,
+          "webhook-sdk-key": key,
+          ...JSON.parse(headers),
+        },
+        method,
+        body,
+      },
+      {
+        maxTimeMs: requestTimeout,
+        maxContentSize: maxContentSize,
+      }
+    );
+  } catch (e) {
     createSdkWebhookLog({
       webhookId,
       webhookReduestId: webhookID,
@@ -171,7 +184,7 @@ export async function fireWebhook({
       },
     });
     return e;
-  });
+  }
   createSdkWebhookLog({
     webhookId,
     webhookReduestId: webhookID,
