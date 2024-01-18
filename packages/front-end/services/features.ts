@@ -104,7 +104,7 @@ export function getDefaultPrerequisiteParentCondition(
 ) {
   const valueType = parentFeature?.valueType || "string";
   if (valueType === "boolean") {
-    return `{"@parent": {"$true": true}}`;
+    return `{"@parent": true}`;
   }
   if (valueType === "number") {
     return `{"@parent": {"$gt": 0}}`;

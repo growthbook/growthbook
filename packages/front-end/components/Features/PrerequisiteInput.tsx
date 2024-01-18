@@ -1,21 +1,15 @@
 /* eslint-disable react/no-unescaped-entities */
+/* eslint-disable react-hooks/exhaustive-deps */
 
 import { useState, useEffect, useMemo } from "react";
-import { some } from "lodash";
-import { FaExclamationCircle } from "react-icons/fa";
 import { FeatureInterface } from "back-end/types/feature";
 import {
   condToJson,
   jsonToConds,
-  useAttributeMap,
-  useAttributeSchema,
-  getDefaultOperator,
   getDefaultPrerequisiteParentCondition,
 } from "@/services/features";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "../Forms/Field";
-import { GBAddCircle } from "../Icons";
 import SelectField from "../Forms/SelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
 import StringArrayField from "../Forms/StringArrayField";
@@ -27,22 +21,16 @@ interface Props {
   labelClassName?: string;
   emptyText?: string;
   title?: string;
-  require?: boolean;
   parentFeature?: FeatureInterface;
 }
 
 export default function PrerequisiteInput(props: Props) {
-  const isPrerequisite = true;
   const parentFeature = props.parentFeature;
   const parentFeatureValueType = parentFeature?.valueType;
 
-  const { savedGroups } = useDefinitions();
-
-  const attributeMap = useAttributeMap();
   const parentValueMap = useMemo(() => {
     const map = new Map();
-    // todo: JSON type prereq values?
-    if (isPrerequisite && parentFeatureValueType) {
+    if (parentFeatureValueType) {
       map.set("@parent", {
         attribute: "@parent",
         datatype: parentFeatureValueType,
@@ -53,65 +41,31 @@ export default function PrerequisiteInput(props: Props) {
       });
     }
     return map;
-  }, [isPrerequisite, parentFeatureValueType]);
+  }, [parentFeatureValueType]);
 
-  const attributes = !isPrerequisite ? attributeMap : parentValueMap;
-
-  const title =
-    props.title ||
-    (!isPrerequisite ? "Target by Attribute" : "Target by prerequisite");
-  const emptyText =
-    props.emptyText ||
-    (!isPrerequisite ? "Applied to everyone by default." : "");
+  const title = props.title || "Target by prerequisite";
 
   const [advanced, setAdvanced] = useState(
-    () => jsonToConds(props.defaultValue, attributes) === null
+    () => jsonToConds(props.defaultValue, parentValueMap) === null
   );
   const [simpleAllowed, setSimpleAllowed] = useState(false);
   const [value, setValue] = useState(props.defaultValue);
   const [conds, setConds] = useState(
-    () => jsonToConds(props.defaultValue, attributes) || []
+    () => jsonToConds(props.defaultValue, parentValueMap) || []
   );
   const [rawTextMode, setRawTextMode] = useState(false);
 
-  const attributeSchema = useAttributeSchema();
-
   useEffect(() => {
     if (advanced) return;
-    setValue(condToJson(conds, attributes));
-  }, [advanced, attributes, conds]);
+    setValue(condToJson(conds, parentValueMap));
+  }, [advanced, conds]);
 
   useEffect(() => {
     props.onChange(value);
-    setSimpleAllowed(jsonToConds(value, attributes) !== null);
-  }, [props, value, attributes]);
+    setSimpleAllowed(jsonToConds(value, parentValueMap) !== null);
+  }, [value, parentValueMap]);
 
-  useEffect(() => {
-    if (isPrerequisite && parentFeature) {
-      const condStr = getDefaultPrerequisiteParentCondition(parentFeature);
-      const newConds = jsonToConds(condStr);
-      if (newConds === null) return;
-      setConds(newConds);
-    }
-  }, [isPrerequisite, parentFeature, setConds]);
-
-  const savedGroupOperators = [
-    {
-      label: "is in the saved group",
-      value: "$inGroup",
-    },
-    {
-      label: "is not in the saved group",
-      value: "$notInGroup",
-    },
-  ];
-
-  if (advanced || !attributes.size || !simpleAllowed) {
-    const hasSecureAttributes = some(
-      [...attributes].filter(([_, a]) =>
-        ["secureString", "secureString[]"].includes(a.datatype)
-      )
-    );
+  if (advanced || !parentValueMap.size || !simpleAllowed) {
     return (
       <div className="mb-3">
         <CodeTextArea
@@ -124,13 +78,14 @@ export default function PrerequisiteInput(props: Props) {
             <>
               <div className="d-flex">
                 <div>JSON format using MongoDB query syntax.</div>
-                {simpleAllowed && attributes.size && (
+                {simpleAllowed && (
                   <div className="ml-auto">
                     <a
-                      href="#"
+                      className="a"
+                      role="button"
                       onClick={(e) => {
                         e.preventDefault();
-                        const newConds = jsonToConds(value, attributes);
+                        const newConds = jsonToConds(value, parentValueMap);
                         // TODO: show error
                         if (newConds === null) return;
                         setConds(newConds);
@@ -142,31 +97,23 @@ export default function PrerequisiteInput(props: Props) {
                   </div>
                 )}
               </div>
-              {hasSecureAttributes && (
-                <div className="mt-1 text-warning-orange">
-                  <FaExclamationCircle /> Secure attribute hashing not
-                  guaranteed to work for complicated rules
+              <div className="text-muted mt-2">
+                <div>
+                  <code>"@parent"</code> refers to the prerequisite&apos;s
+                  evaluated value.
+                  <span className="ml-3">
+                    Ex: <code>{`{"@parent": {"$exists": true}}`}</code>
+                  </span>
                 </div>
-              )}
-              {isPrerequisite && (
-                <div className="text-muted mt-2">
+                {parentFeatureValueType === "json" && (
                   <div>
-                    <code>"@parent"</code> refers to the prerequisite&apos;s
-                    evaluated value.
+                    You may also target specific JSON fields.
                     <span className="ml-3">
-                      Ex: <code>{`{"@parent": {"$exists": true}}`}</code>
+                      Ex: <code>{`{"foo.bar": {"$gt": 3}}`}</code>
                     </span>
                   </div>
-                  {parentFeatureValueType === "json" && (
-                    <div>
-                      You may also target specific JSON fields.
-                      <span className="ml-3">
-                        Ex: <code>{`{"foo.bar": {"$gt": 3}}`}</code>
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
+                )}
+              </div>
             </>
           }
         />
@@ -179,33 +126,20 @@ export default function PrerequisiteInput(props: Props) {
       <div className="form-group">
         <label className={props.labelClassName || ""}>{title}</label>
         <div className={`mb-3 bg-light p-3 ${styles.conditionbox}`}>
-          <em className="text-muted mr-3">{emptyText}</em>
           <a
-            href="#"
+            className="a"
+            role="button"
             onClick={(e) => {
               e.preventDefault();
-              if (!isPrerequisite) {
-                const prop = attributeSchema[0];
-                setConds([
-                  {
-                    field: prop?.property || "",
-                    operator: prop?.datatype === "boolean" ? "$true" : "$eq",
-                    value: "",
-                  },
-                ]);
-              } else {
-                const condStr = getDefaultPrerequisiteParentCondition(
-                  parentFeature
-                );
-                const newConds = jsonToConds(condStr);
-                if (newConds === null) return;
-                setConds(newConds);
-              }
+              const condStr = getDefaultPrerequisiteParentCondition(
+                parentFeature
+              );
+              const newConds = jsonToConds(condStr);
+              if (newConds === null) return;
+              setConds(newConds);
             }}
           >
-            {!isPrerequisite
-              ? "Add attribute targeting"
-              : "Add prerequisite value targeting"}
+            Add prerequisite targeting
           </a>
         </div>
       </div>
@@ -216,20 +150,14 @@ export default function PrerequisiteInput(props: Props) {
     <div className="form-group">
       <label className={props.labelClassName || ""}>{title}</label>
       <div className={`mb-3 bg-light px-3 pb-3 ${styles.conditionbox}`}>
-        <ul className={`${isPrerequisite && "mb-0"} ${styles.conditionslist}`}>
+        <ul className={`mb-0 ${styles.conditionslist}`}>
           {conds.map(({ field, operator, value }, i) => {
-            const attribute = attributes.get(field);
+            const attribute = parentValueMap.get(field);
 
             if (!attribute) {
               console.error("Attribute not found in attribute Map.");
               return;
             }
-
-            const savedGroupOptions = savedGroups
-              // First, limit to groups with the correct attribute
-              .filter((g) => g.type === "list" && g.attributeKey === field)
-              // Then, transform into the select option format
-              .map((g) => ({ label: g.groupName, value: g.id }));
 
             const handleCondsChange = (value: string, name: string) => {
               const newConds = [...conds];
@@ -258,24 +186,6 @@ export default function PrerequisiteInput(props: Props) {
                 ? [
                     { label: "is true", value: "$true" },
                     { label: "is false", value: "$false" },
-                    { label: "exists", value: "$exists" },
-                    { label: "does not exist", value: "$notExists" },
-                  ]
-                : attribute.array
-                ? [
-                    { label: "includes", value: "$includes" },
-                    { label: "does not include", value: "$notIncludes" },
-                    { label: "is empty", value: "$empty" },
-                    { label: "is not empty", value: "$notEmpty" },
-                    { label: "exists", value: "$exists" },
-                    { label: "does not exist", value: "$notExists" },
-                  ]
-                : attribute.enum?.length || 0 > 0
-                ? [
-                    { label: "is equal to", value: "$eq" },
-                    { label: "is not equal to", value: "$ne" },
-                    { label: "is in the list", value: "$in" },
-                    { label: "is not in the list", value: "$nin" },
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
                   ]
@@ -311,21 +221,6 @@ export default function PrerequisiteInput(props: Props) {
                     { label: "is not in the list", value: "$nin" },
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
-                    ...(savedGroupOptions.length > 0
-                      ? savedGroupOperators
-                      : []),
-                  ]
-                : attribute.datatype === "secureString"
-                ? [
-                    { label: "is equal to", value: "$eq" },
-                    { label: "is not equal to", value: "$ne" },
-                    { label: "is in the list", value: "$in" },
-                    { label: "is not in the list", value: "$nin" },
-                    { label: "exists", value: "$exists" },
-                    { label: "does not exist", value: "$notExists" },
-                    ...(savedGroupOptions.length > 0
-                      ? savedGroupOperators
-                      : []),
                   ]
                 : attribute.datatype === "number"
                 ? [
@@ -339,13 +234,9 @@ export default function PrerequisiteInput(props: Props) {
                     { label: "is not in the list", value: "$nin" },
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
-                    ...(savedGroupOptions.length > 0
-                      ? savedGroupOperators
-                      : []),
                   ]
                 : attribute.datatype === "json"
-                ? // todo: sub-item matching?
-                  [
+                ? [
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
                   ]
@@ -353,66 +244,22 @@ export default function PrerequisiteInput(props: Props) {
 
             return (
               <li key={i} className={styles.listitem}>
-                <div
-                  className={`row ${isPrerequisite && "ml-3"} ${
-                    styles.listrow
-                  }`}
-                >
-                  {isPrerequisite ? (
-                    <span className={`${styles.and} mr-2`}>PASS IF</span>
-                  ) : i > 0 ? (
+                <div className={`row ml-3 ${styles.listrow}`}>
+                  {i > 0 ? (
                     <span className={`${styles.and} mr-2`}>AND</span>
                   ) : (
-                    <span className={`${styles.and} mr-2`}>IF</span>
+                    <span className={`${styles.and} mr-2`}>PASS IF</span>
                   )}
                   <div className="col-sm-12 col-md mb-2">
-                    {field === "@parent" ? (
-                      <div className="appbox bg-light mb-0 px-3 py-2">
-                        {field.replace("@parent", "value")}
-                        {field === "@parent" && (
-                          <Tooltip
-                            className="ml-1"
-                            body="The evaluated value of the prerequisite feature"
-                          />
-                        )}
-                      </div>
-                    ) : (
-                      <SelectField
-                        value={field}
-                        options={
-                          !isPrerequisite
-                            ? attributeSchema.map((s) => ({
-                                label: s.property,
-                                value: s.property,
-                              }))
-                            : [
-                                // todo: JSON type prereqs?
-                                { label: "@parent", value: "@parent" },
-                              ]
-                        }
-                        name="field"
-                        className={styles.firstselect}
-                        onChange={(value) => {
-                          const newConds = [...conds];
-                          newConds[i] = { ...newConds[i] };
-                          newConds[i]["field"] = value;
-
-                          const newAttribute = attributes.get(value);
-                          const hasAttrChanged =
-                            newAttribute?.datatype !== attribute.datatype ||
-                            newAttribute?.array !== attribute.array;
-                          if (hasAttrChanged && newAttribute) {
-                            newConds[i]["operator"] = getDefaultOperator(
-                              newAttribute
-                            );
-                            newConds[i]["value"] = newConds[i]["value"] || "";
-                          }
-                          setConds(newConds);
-                        }}
-                        isSearchable={!isPrerequisite}
-                        disabled={isPrerequisite}
-                      />
-                    )}
+                    <div className="appbox bg-light mb-0 px-3 py-2">
+                      {field.replace("@parent", "value")}
+                      {field === "@parent" && (
+                        <Tooltip
+                          className="ml-1"
+                          body="The evaluated value of the prerequisite feature"
+                        />
+                      )}
+                    </div>
                   </div>
                   <div className="col-sm-12 col-md mb-2">
                     <SelectField
@@ -434,19 +281,6 @@ export default function PrerequisiteInput(props: Props) {
                     "$notEmpty",
                   ].includes(operator) ? (
                     ""
-                  ) : ["$inGroup", "$notInGroup"].includes(operator) &&
-                    savedGroupOptions.length > 0 ? (
-                    <SelectField
-                      options={savedGroupOptions}
-                      value={value}
-                      onChange={(v) => {
-                        handleCondsChange(v, "value");
-                      }}
-                      name="value"
-                      initialOption="Choose group..."
-                      containerClassName="col-sm-12 col-md mb-2"
-                      required
-                    />
                   ) : ["$in", "$nin"].includes(operator) ? (
                     <div className="d-flex align-items-end flex-column col-sm-12 col-md mb-1">
                       {rawTextMode ? (
@@ -471,7 +305,8 @@ export default function PrerequisiteInput(props: Props) {
                         />
                       )}
                       <a
-                        href="#"
+                        className="a"
+                        role="button"
                         style={{ fontSize: "0.8em" }}
                         onClick={(e) => {
                           e.preventDefault();
@@ -521,53 +356,12 @@ export default function PrerequisiteInput(props: Props) {
                   ) : (
                     ""
                   )}
-                  {!isPrerequisite && (conds.length > 1 || !props.require) && (
-                    <div className="col-md-auto col-sm-12">
-                      <button
-                        className="btn btn-link text-danger float-right"
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          const newConds = [...conds];
-                          newConds.splice(i, 1);
-                          setConds(newConds);
-                        }}
-                      >
-                        remove
-                      </button>
-                    </div>
-                  )}
                 </div>
               </li>
             );
           })}
         </ul>
         <div className="d-flex align-items-center">
-          {!isPrerequisite && attributeSchema.length > 0 && (
-            <a
-              className={`mr-3 btn btn-outline-primary ${styles.addcondition}`}
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                const prop = attributeSchema[0];
-                setConds([
-                  ...conds,
-                  {
-                    field: prop?.property || "",
-                    operator: prop?.datatype === "boolean" ? "$true" : "$eq",
-                    value: "",
-                  },
-                ]);
-              }}
-            >
-              <span
-                className={`h4 pr-2 m-0 d-inline-block align-top ${styles.addicon}`}
-              >
-                <GBAddCircle />
-              </span>
-              Add another condition
-            </a>
-          )}
           <a
             role="button"
             className="ml-auto"

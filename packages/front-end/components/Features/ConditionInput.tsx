@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+
 import React, { useState, useEffect } from "react";
 import { some } from "lodash";
 import { FaExclamationCircle } from "react-icons/fa";
@@ -87,7 +89,8 @@ export default function ConditionInput(props: Props) {
                 {simpleAllowed && attributes.size && (
                   <div className="ml-auto">
                     <a
-                      href="#"
+                      className="a"
+                      role="button"
                       onClick={(e) => {
                         e.preventDefault();
                         const newConds = jsonToConds(value, attributes);
@@ -122,7 +125,8 @@ export default function ConditionInput(props: Props) {
         <div className={`mb-3 bg-light p-3 ${styles.conditionbox}`}>
           <em className="text-muted mr-3">{emptyText}</em>
           <a
-            href="#"
+            className="a"
+            role="button"
             onClick={(e) => {
               e.preventDefault();
               const prop = attributeSchema[0];
@@ -368,7 +372,8 @@ export default function ConditionInput(props: Props) {
                         />
                       )}
                       <a
-                        href="#"
+                        className="a"
+                        role="button"
                         style={{ fontSize: "0.8em" }}
                         onClick={(e) => {
                           e.preventDefault();
@@ -442,8 +447,8 @@ export default function ConditionInput(props: Props) {
         <div className="d-flex align-items-center">
           {attributeSchema.length > 0 && (
             <a
-              className={`mr-3 btn btn-outline-primary ${styles.addcondition}`}
-              href="#"
+              className={`a mr-3 btn btn-outline-primary ${styles.addcondition}`}
+              role="button"
               onClick={(e) => {
                 e.preventDefault();
                 const prop = attributeSchema[0];
@@ -466,8 +471,8 @@ export default function ConditionInput(props: Props) {
             </a>
           )}
           <a
-            href="#"
-            className="ml-auto"
+            role="button"
+            className="a ml-auto"
             style={{ fontSize: "0.9em" }}
             onClick={(e) => {
               e.preventDefault();

@@ -16,10 +16,9 @@ import track from "@/services/track";
 import useIncrementer from "@/hooks/useIncrementer";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { useAuth } from "@/services/auth";
+import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
-import ConditionInput from "./ConditionInput";
-import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 
 export interface Props {
   close: () => void;
@@ -64,6 +63,7 @@ export default function PrerequisiteModal({
 
   const parentFeature = features.find((f) => f.id === form.watch("parentId"));
   const parentFeatureId = parentFeature?.id;
+  const parentCondition = form.watch("parentCondition");
 
   const isCyclic = useMemo(() => {
     if (!parentFeatureId) return false;
@@ -80,8 +80,14 @@ export default function PrerequisiteModal({
     !!form.watch("parentCondition");
 
   useEffect(() => {
-    if (parentFeature) forceConditionRender();
-  }, [parentFeature, forceConditionRender]);
+    if (parentFeature) {
+      if (parentCondition === "") {
+        const condStr = getDefaultPrerequisiteParentCondition(parentFeature);
+        form.setValue("parentCondition", condStr);
+        forceConditionRender();
+      }
+    }
+  }, [parentFeature, parentCondition, form, forceConditionRender]);
 
   return (
     <Modal
@@ -116,7 +122,10 @@ export default function PrerequisiteModal({
         label="Prerequisite feature"
         options={featureOptions}
         value={form.watch("parentId")}
-        onChange={(v) => form.setValue("parentId", v)}
+        onChange={(v) => {
+          form.setValue("parentId", v);
+          form.setValue("parentCondition", "");
+        }}
         sort={false}
       />
 
