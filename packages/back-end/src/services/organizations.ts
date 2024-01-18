@@ -56,7 +56,6 @@ import {
 import { getAllExperiments } from "../models/ExperimentModel";
 import { LegacyExperimentPhase } from "../../types/experiment";
 import { addTags } from "../models/TagModel";
-import { getTeamsForOrganization } from "../models/TeamModel";
 import { markInstalled } from "./auth";
 import {
   encryptParams,
