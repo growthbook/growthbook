@@ -19,6 +19,7 @@ import { useAuth } from "@/services/auth";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 import ConditionInput from "./ConditionInput";
+import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 
 export interface Props {
   close: () => void;
@@ -111,12 +112,6 @@ export default function PrerequisiteModal({
         mutate();
       })}
     >
-      <div className="alert alert-info">
-        {prerequisites[i] ? "Changes here" : "New prerequisites"} will be added
-        to a draft revision. You will have a chance to review them first before
-        making them live.
-      </div>
-
       <SelectField
         label="Prerequisite feature"
         options={featureOptions}
@@ -196,10 +191,9 @@ export default function PrerequisiteModal({
       )}
 
       {parentFeature ? (
-        <ConditionInput
+        <PrerequisiteInput
           defaultValue={form.watch("parentCondition")}
           onChange={(value) => form.setValue("parentCondition", value)}
-          isPrerequisite={true}
           parentFeature={parentFeature}
           key={conditionKey}
         />

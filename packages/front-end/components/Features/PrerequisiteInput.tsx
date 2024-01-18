@@ -1,14 +1,19 @@
-import React, { useState, useEffect } from "react";
+/* eslint-disable react/no-unescaped-entities */
+
+import { useState, useEffect, useMemo } from "react";
 import { some } from "lodash";
 import { FaExclamationCircle } from "react-icons/fa";
+import { FeatureInterface } from "back-end/types/feature";
 import {
   condToJson,
   jsonToConds,
   useAttributeMap,
   useAttributeSchema,
   getDefaultOperator,
+  getDefaultPrerequisiteParentCondition,
 } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "../Forms/Field";
 import { GBAddCircle } from "../Icons";
 import SelectField from "../Forms/SelectField";
@@ -23,15 +28,41 @@ interface Props {
   emptyText?: string;
   title?: string;
   require?: boolean;
+  parentFeature?: FeatureInterface;
 }
 
-export default function ConditionInput(props: Props) {
+export default function PrerequisiteInput(props: Props) {
+  const isPrerequisite = true;
+  const parentFeature = props.parentFeature;
+  const parentFeatureValueType = parentFeature?.valueType;
+
   const { savedGroups } = useDefinitions();
 
-  const attributes = useAttributeMap();
+  const attributeMap = useAttributeMap();
+  const parentValueMap = useMemo(() => {
+    const map = new Map();
+    // todo: JSON type prereq values?
+    if (isPrerequisite && parentFeatureValueType) {
+      map.set("@parent", {
+        attribute: "@parent",
+        datatype: parentFeatureValueType,
+        array: false,
+        identifier: false,
+        enum: [],
+        archived: false,
+      });
+    }
+    return map;
+  }, [isPrerequisite, parentFeatureValueType]);
 
-  const title = props.title || "Target by Attribute";
-  const emptyText = props.emptyText || "Applied to everyone by default.";
+  const attributes = !isPrerequisite ? attributeMap : parentValueMap;
+
+  const title =
+    props.title ||
+    (!isPrerequisite ? "Target by Attribute" : "Target by prerequisite");
+  const emptyText =
+    props.emptyText ||
+    (!isPrerequisite ? "Applied to everyone by default." : "");
 
   const [advanced, setAdvanced] = useState(
     () => jsonToConds(props.defaultValue, attributes) === null
@@ -48,12 +79,21 @@ export default function ConditionInput(props: Props) {
   useEffect(() => {
     if (advanced) return;
     setValue(condToJson(conds, attributes));
-  }, [advanced, conds]);
+  }, [advanced, attributes, conds]);
 
   useEffect(() => {
     props.onChange(value);
     setSimpleAllowed(jsonToConds(value, attributes) !== null);
-  }, [value, attributes]);
+  }, [props, value, attributes]);
+
+  useEffect(() => {
+    if (isPrerequisite && parentFeature) {
+      const condStr = getDefaultPrerequisiteParentCondition(parentFeature);
+      const newConds = jsonToConds(condStr);
+      if (newConds === null) return;
+      setConds(newConds);
+    }
+  }, [isPrerequisite, parentFeature, setConds]);
 
   const savedGroupOperators = [
     {
@@ -108,6 +148,25 @@ export default function ConditionInput(props: Props) {
                   guaranteed to work for complicated rules
                 </div>
               )}
+              {isPrerequisite && (
+                <div className="text-muted mt-2">
+                  <div>
+                    <code>"@parent"</code> refers to the prerequisite&apos;s
+                    evaluated value.
+                    <span className="ml-3">
+                      Ex: <code>{`{"@parent": {"$exists": true}}`}</code>
+                    </span>
+                  </div>
+                  {parentFeatureValueType === "json" && (
+                    <div>
+                      You may also target specific JSON fields.
+                      <span className="ml-3">
+                        Ex: <code>{`{"foo.bar": {"$gt": 3}}`}</code>
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           }
         />
@@ -125,17 +184,28 @@ export default function ConditionInput(props: Props) {
             href="#"
             onClick={(e) => {
               e.preventDefault();
-              const prop = attributeSchema[0];
-              setConds([
-                {
-                  field: prop?.property || "",
-                  operator: prop?.datatype === "boolean" ? "$true" : "$eq",
-                  value: "",
-                },
-              ]);
+              if (!isPrerequisite) {
+                const prop = attributeSchema[0];
+                setConds([
+                  {
+                    field: prop?.property || "",
+                    operator: prop?.datatype === "boolean" ? "$true" : "$eq",
+                    value: "",
+                  },
+                ]);
+              } else {
+                const condStr = getDefaultPrerequisiteParentCondition(
+                  parentFeature
+                );
+                const newConds = jsonToConds(condStr);
+                if (newConds === null) return;
+                setConds(newConds);
+              }
             }}
           >
-            Add attribute targeting
+            {!isPrerequisite
+              ? "Add attribute targeting"
+              : "Add prerequisite value targeting"}
           </a>
         </div>
       </div>
@@ -146,7 +216,7 @@ export default function ConditionInput(props: Props) {
     <div className="form-group">
       <label className={props.labelClassName || ""}>{title}</label>
       <div className={`mb-3 bg-light px-3 pb-3 ${styles.conditionbox}`}>
-        <ul className={styles.conditionslist}>
+        <ul className={`${isPrerequisite && "mb-0"} ${styles.conditionslist}`}>
           {conds.map(({ field, operator, value }, i) => {
             const attribute = attributes.get(field);
 
@@ -273,43 +343,76 @@ export default function ConditionInput(props: Props) {
                       ? savedGroupOperators
                       : []),
                   ]
+                : attribute.datatype === "json"
+                ? // todo: sub-item matching?
+                  [
+                    { label: "exists", value: "$exists" },
+                    { label: "does not exist", value: "$notExists" },
+                  ]
                 : [];
 
             return (
               <li key={i} className={styles.listitem}>
-                <div className={`row ${styles.listrow}`}>
-                  {i > 0 ? (
+                <div
+                  className={`row ${isPrerequisite && "ml-3"} ${
+                    styles.listrow
+                  }`}
+                >
+                  {isPrerequisite ? (
+                    <span className={`${styles.and} mr-2`}>PASS IF</span>
+                  ) : i > 0 ? (
                     <span className={`${styles.and} mr-2`}>AND</span>
                   ) : (
                     <span className={`${styles.and} mr-2`}>IF</span>
                   )}
                   <div className="col-sm-12 col-md mb-2">
-                    <SelectField
-                      value={field}
-                      options={attributeSchema.map((s) => ({
-                        label: s.property,
-                        value: s.property,
-                      }))}
-                      name="field"
-                      className={styles.firstselect}
-                      onChange={(value) => {
-                        const newConds = [...conds];
-                        newConds[i] = { ...newConds[i] };
-                        newConds[i]["field"] = value;
-
-                        const newAttribute = attributes.get(value);
-                        const hasAttrChanged =
-                          newAttribute?.datatype !== attribute.datatype ||
-                          newAttribute?.array !== attribute.array;
-                        if (hasAttrChanged && newAttribute) {
-                          newConds[i]["operator"] = getDefaultOperator(
-                            newAttribute
-                          );
-                          newConds[i]["value"] = newConds[i]["value"] || "";
+                    {field === "@parent" ? (
+                      <div className="appbox bg-light mb-0 px-3 py-2">
+                        {field.replace("@parent", "value")}
+                        {field === "@parent" && (
+                          <Tooltip
+                            className="ml-1"
+                            body="The evaluated value of the prerequisite feature"
+                          />
+                        )}
+                      </div>
+                    ) : (
+                      <SelectField
+                        value={field}
+                        options={
+                          !isPrerequisite
+                            ? attributeSchema.map((s) => ({
+                                label: s.property,
+                                value: s.property,
+                              }))
+                            : [
+                                // todo: JSON type prereqs?
+                                { label: "@parent", value: "@parent" },
+                              ]
                         }
-                        setConds(newConds);
-                      }}
-                    />
+                        name="field"
+                        className={styles.firstselect}
+                        onChange={(value) => {
+                          const newConds = [...conds];
+                          newConds[i] = { ...newConds[i] };
+                          newConds[i]["field"] = value;
+
+                          const newAttribute = attributes.get(value);
+                          const hasAttrChanged =
+                            newAttribute?.datatype !== attribute.datatype ||
+                            newAttribute?.array !== attribute.array;
+                          if (hasAttrChanged && newAttribute) {
+                            newConds[i]["operator"] = getDefaultOperator(
+                              newAttribute
+                            );
+                            newConds[i]["value"] = newConds[i]["value"] || "";
+                          }
+                          setConds(newConds);
+                        }}
+                        isSearchable={!isPrerequisite}
+                        disabled={isPrerequisite}
+                      />
+                    )}
                   </div>
                   <div className="col-sm-12 col-md mb-2">
                     <SelectField
@@ -418,7 +521,7 @@ export default function ConditionInput(props: Props) {
                   ) : (
                     ""
                   )}
-                  {(conds.length > 1 || !props.require) && (
+                  {!isPrerequisite && (conds.length > 1 || !props.require) && (
                     <div className="col-md-auto col-sm-12">
                       <button
                         className="btn btn-link text-danger float-right"
@@ -440,7 +543,7 @@ export default function ConditionInput(props: Props) {
           })}
         </ul>
         <div className="d-flex align-items-center">
-          {attributeSchema.length > 0 && (
+          {!isPrerequisite && attributeSchema.length > 0 && (
             <a
               className={`mr-3 btn btn-outline-primary ${styles.addcondition}`}
               href="#"
@@ -466,7 +569,7 @@ export default function ConditionInput(props: Props) {
             </a>
           )}
           <a
-            href="#"
+            role="button"
             className="ml-auto"
             style={{ fontSize: "0.9em" }}
             onClick={(e) => {
