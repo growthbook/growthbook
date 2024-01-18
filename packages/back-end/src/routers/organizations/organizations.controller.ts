@@ -1583,8 +1583,7 @@ export async function postWebhookSDK(
   ) {
     return res.status(426).json({
       status: 426,
-      message:
-        "SDK webhook limit has been reached",
+      message: "SDK webhook limit has been reached",
     });
   }
   const webhook = await createSdkWebhook({
