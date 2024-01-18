@@ -15,9 +15,6 @@ interface Props {
   parentFeature?: FeatureInterface;
   mutate: () => void;
   setPrerequisiteModal: (prerequisite: { i: number }) => void;
-  version: number;
-  setVersion: (version: number) => void;
-  locked: boolean;
 }
 
 export default function Prerequisite({
@@ -27,24 +24,17 @@ export default function Prerequisite({
   parentFeature, // todo: check for invalid parents
   mutate,
   setPrerequisiteModal,
-  version,
-  setVersion,
-  locked,
 }: Props) {
+  const permissions = usePermissions();
+  const canEdit = permissions.check("manageFeatures", feature.project);
   const { apiCall } = useAuth();
 
   const prerequisites = getPrerequisites(feature);
-  const permissions = usePermissions();
-
-  const canEdit =
-    !locked &&
-    permissions.check("manageFeatures", feature.project) &&
-    permissions.check("createFeatureDrafts", feature.project);
 
   return (
     <div
       className={`mx-3 py-3 ${
-        i < prerequisites.length ? "border-bottom" : ""
+        i < prerequisites.length - 1 ? "border-bottom" : ""
       } bg-white`}
     >
       <div className="d-flex align-items-center">
@@ -89,29 +79,28 @@ export default function Prerequisite({
                   track("Delete Prerequisite", {
                     prerequisiteIndex: i,
                   });
-                  const res = await apiCall<{ version: number }>(
-                    `/feature/${feature.id}/${version}/prerequisite`,
+                  await apiCall<{ version: number }>(
+                    `/feature/${feature.id}/prerequisite`,
                     {
                       method: "DELETE",
                       body: JSON.stringify({ i }),
                     }
                   );
-                  await mutate();
-                  res.version && setVersion(res.version);
+                  mutate();
                 }}
               />
             </MoreMenu>
           )}
         </div>
       </div>
-      <div className="d-flex ml-2">
+      <div className="d-flex">
         <div
           style={{ maxWidth: "100%" }}
           className="pt-1 flex-1 position-relative"
         >
           <div className="row mb-1 align-items-top">
             <div className="col-auto d-flex align-items-center">
-              <strong>ENABLED IF</strong>
+              <strong>PASS IF</strong>
             </div>
             <div className="col">
               <ConditionDisplay

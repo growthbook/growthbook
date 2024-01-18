@@ -452,6 +452,10 @@ export interface components {
           };
         }) | undefined;
       };
+      prerequisites?: ({
+          parentId: string;
+          parentCondition: string;
+        })[];
       revision: {
         version: number;
         comment: string;
@@ -1297,6 +1301,10 @@ export interface operations {
                     };
                   }) | undefined;
                 };
+                prerequisites?: ({
+                    parentId: string;
+                    parentCondition: string;
+                  })[];
                 revision: {
                   version: number;
                   comment: string;
@@ -1609,6 +1617,10 @@ export interface operations {
                   };
                 }) | undefined;
               };
+              prerequisites?: ({
+                  parentId: string;
+                  parentCondition: string;
+                })[];
               revision: {
                 version: number;
                 comment: string;
@@ -1786,6 +1798,10 @@ export interface operations {
                   };
                 }) | undefined;
               };
+              prerequisites?: ({
+                  parentId: string;
+                  parentCondition: string;
+                })[];
               revision: {
                 version: number;
                 comment: string;
@@ -2087,6 +2103,10 @@ export interface operations {
                   };
                 }) | undefined;
               };
+              prerequisites?: ({
+                  parentId: string;
+                  parentCondition: string;
+                })[];
               revision: {
                 version: number;
                 comment: string;
@@ -2268,6 +2288,10 @@ export interface operations {
                   };
                 }) | undefined;
               };
+              prerequisites?: ({
+                  parentId: string;
+                  parentCondition: string;
+                })[];
               revision: {
                 version: number;
                 comment: string;

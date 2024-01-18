@@ -23,8 +23,6 @@ import ConditionInput from "./ConditionInput";
 export interface Props {
   close: () => void;
   feature: FeatureInterface;
-  version: number;
-  setVersion: (version: number) => void;
   mutate: () => void;
   i: number;
 }
@@ -34,8 +32,6 @@ export default function PrerequisiteModal({
   feature,
   i,
   mutate,
-  version,
-  setVersion,
 }: Props) {
   const { features } = useFeaturesList();
   const prerequisites = getPrerequisites(feature);
@@ -56,7 +52,6 @@ export default function PrerequisiteModal({
       parentId: prerequisite.parentId ?? defaultValues.parentId,
       parentCondition:
         prerequisite.parentCondition ?? defaultValues.parentCondition,
-      enabled: prerequisite.enabled ?? defaultValues.enabled,
     },
   });
   const { apiCall } = useAuth();
@@ -103,9 +98,8 @@ export default function PrerequisiteModal({
           prerequisiteIndex: i,
         });
 
-        // todo: don't use version?
-        const res = await apiCall<{ version: number }>(
-          `/feature/${feature.id}/${version}/prerequisite`,
+        await apiCall<{ version: number }>(
+          `/feature/${feature.id}/prerequisite`,
           {
             method: action === "add" ? "POST" : "PUT",
             body: JSON.stringify({
@@ -115,7 +109,6 @@ export default function PrerequisiteModal({
           }
         );
         mutate();
-        res.version && setVersion(res.version);
       })}
     >
       <div className="alert alert-info">

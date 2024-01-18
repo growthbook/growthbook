@@ -1,5 +1,5 @@
 import { EventAuditUser } from "../src/events/event-types";
-import { FeaturePrerequisite, FeatureRule } from "./feature";
+import { FeatureRule } from "./feature";
 
 export interface RevisionLog {
   user: EventAuditUser;
@@ -23,6 +23,5 @@ export interface FeatureRevisionInterface {
   status: "draft" | "published" | "discarded";
   defaultValue: string;
   rules: Record<string, FeatureRule[]>;
-  prerequisites?: FeaturePrerequisite[];
   log?: RevisionLog[];
 }

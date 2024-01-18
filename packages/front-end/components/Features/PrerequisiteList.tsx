@@ -7,20 +7,13 @@ export default function PrerequisiteList({
   features,
   mutate,
   setPrerequisiteModal,
-  version,
-  setVersion,
-  locked,
 }: {
   feature: FeatureInterface;
   features: FeatureInterface[];
   mutate: () => void;
   setPrerequisiteModal: (prerequisite: { i: number }) => void;
-  version: number;
-  setVersion: (version: number) => void;
-  locked: boolean;
 }) {
-  let items = getPrerequisites(feature);
-  items = [...items, ...items];
+  const items = getPrerequisites(feature);
 
   if (!items.length) {
     return (
@@ -43,9 +36,6 @@ export default function PrerequisiteList({
             prerequisite={item}
             mutate={mutate}
             setPrerequisiteModal={setPrerequisiteModal}
-            version={version}
-            setVersion={setVersion}
-            locked={locked}
           />
         );
       })}
