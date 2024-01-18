@@ -1544,6 +1544,16 @@ export async function postWebhook(
     webhook,
   });
 }
+export async function getTestWebhook(
+  req: AuthRequest<Record<string, unknown>, { id: string }>,
+  res: Response
+) {
+  const webhookId = req.params.id;
+  await queueSingleWebhookById(webhookId);
+  res.status(200).json({
+    status: 200,
+  });
+}
 export async function postWebhookSDK(
   req: AuthRequest<{
     name: string;
@@ -1595,7 +1605,6 @@ export async function postWebhookSDK(
     headers: headers || "",
     httpMethod,
   });
-  queueSingleWebhookById(webhook);
   return res.status(200).json({
     status: 200,
     webhook,

@@ -7,6 +7,7 @@ import {
   FaPlusCircle,
 } from "react-icons/fa";
 import { ago } from "shared/dates";
+import { BsArrowRepeat } from "react-icons/bs";
 import useApi from "@/hooks/useApi";
 import WebhooksModal from "@/components/Settings/WebhooksModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -14,6 +15,7 @@ import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissions from "@/hooks/usePermissions";
 import { useUser } from "@/services/UserContext";
+import Button from "@/components/Button";
 
 export default function SDKWebhooks({ sdkid }) {
   const { data, mutate } = useApi<{ webhooks?: WebhookInterface[] }>(
@@ -58,6 +60,22 @@ export default function SDKWebhooks({ sdkid }) {
             <em>never fired</em>
           )}
         </td>
+        {hasWebhookPermitions && (
+          <td>
+            <Button
+              color="link"
+              className="btn-sm"
+              onClick={async () => {
+                await apiCall(`/webhook/test/${webhook.id}`, {
+                  method: "get",
+                });
+                mutate();
+              }}
+            >
+              <BsArrowRepeat /> Test Webhook
+            </Button>
+          </td>
+        )}
         <td>
           <a
             href="#"
@@ -120,19 +138,22 @@ export default function SDKWebhooks({ sdkid }) {
 
   const renderTable = () => {
     return (
-      <table className="table appbox gbtable mb-1">
-        <thead>
-          <tr>
-            <td>WEBHOOK</td>
-            <td>ENDPOINT</td>
-            <td>SEND PAYLOAD</td>
-            <td>SHARED SECRET</td>
-            <td>LAST SUCCESS</td>
-            <td>EDIT</td>
-          </tr>
-        </thead>
-        <tbody>{renderTableRows()}</tbody>
-      </table>
+      <div className="gb-webhook-table-container">
+        <table className="table appbox gbtable mb-1">
+          <thead>
+            <tr>
+              <td>WEBHOOK</td>
+              <td>ENDPOINT</td>
+              <td>SEND PAYLOAD</td>
+              <td>SHARED SECRET</td>
+              <td>LAST SUCCESS</td>
+              {hasWebhookPermitions && <td>TEST WEBHOOK</td>}
+              <td>EDIT</td>
+            </tr>
+          </thead>
+          <tbody>{renderTableRows()}</tbody>
+        </table>
+      </div>
     );
   };
   const renderWebhooks = () => (

@@ -88,7 +88,7 @@ export async function queueWebhookUpdate(
   const connections = await findSDKConnectionsByOrganization(orgId);
 
   if (!connections) return;
-  const sdkKeys = [];
+  const sdkKeys: string[] = [];
   for (let i = 0; i < connections.length; i++) {
     const connection = connections[i];
 
@@ -150,28 +150,43 @@ export async function fireWebhook({
       data,
     });
   }
-  let res;
+  let customHeaders;
   try {
-    res = await cancellableFetch(
-      url,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "webhook-id": webhookID,
-          "webhook-timestamp": date.getTime(),
-          "webhook-secret": secret,
-          "webhook-sdk-key": key,
-          ...JSON.parse(headers),
-        },
-        method,
-        body,
+    customHeaders = JSON.parse(headers);
+  } catch (error) {
+    createSdkWebhookLog({
+      webhookId,
+      webhookReduestId: webhookID,
+      organizationId,
+      payload: JSON.parse(payload),
+      result: {
+        state: "success",
+        responseBody: "failed to parse custom headers",
+        responseCode: 500,
       },
-      {
-        maxTimeMs: requestTimeout,
-        maxContentSize: maxContentSize,
-      }
-    );
-  } catch (e) {
+    });
+    return;
+  }
+
+  const res = await cancellableFetch(
+    url,
+    {
+      headers: {
+        "Content-Type": "application/json",
+        "webhook-id": webhookID,
+        "webhook-timestamp": date.getTime(),
+        "webhook-secret": secret,
+        "webhook-sdk-key": key,
+        ...customHeaders,
+      },
+      method,
+      body,
+    },
+    {
+      maxTimeMs: requestTimeout,
+      maxContentSize: maxContentSize,
+    }
+  ).catch((e) => {
     createSdkWebhookLog({
       webhookId,
       webhookReduestId: webhookID,
@@ -184,7 +199,8 @@ export async function fireWebhook({
       },
     });
     return e;
-  }
+  });
+
   createSdkWebhookLog({
     webhookId,
     webhookReduestId: webhookID,
@@ -196,7 +212,7 @@ export async function fireWebhook({
       responseCode: res.statusCode,
     },
   });
-  return res;
+  return res.responseWithoutBody;
 }
 export async function queueSingleWebhookById(webhookId: string) {
   const webhook = await findWebhookById(webhookId);

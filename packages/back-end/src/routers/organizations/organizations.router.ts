@@ -70,6 +70,7 @@ router.delete("/webhook/:id", organizationsController.deleteWebhook);
 //webhookSDKs
 router.get("/webhooks/sdk/:sdkid", organizationsController.getWebhooksSDK);
 router.post("/webhooks/sdk", organizationsController.postWebhookSDK);
+router.get("/webhook/test/:id", organizationsController.getTestWebhook);
 
 // Orphaned users (users not part of an organization)
 // Only available when self-hosting

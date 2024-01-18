@@ -3099,7 +3099,10 @@ input:disabled {
     }
   }
 }
-
+.gb-webhook-table-container {
+  max-height: 300px;
+  overflow-y: scroll;
+}
 .table-tags {
   min-width: 250px;
   width: 100%;
