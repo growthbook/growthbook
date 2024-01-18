@@ -9,24 +9,6 @@ Object.keys(helpers).forEach((helperName) => {
   Handlebars.registerHelper(helperName, helpers[helperName]);
 });
 
-function getBaseIdType(objects: string[][], forcedBaseIdType?: string) {
-  // If a specific id type is already chosen as the base, return it
-  if (forcedBaseIdType) return forcedBaseIdType;
-
-  // Count how many objects use each id type
-  const counts: Record<string, number> = {};
-  objects.forEach((types) => {
-    types.forEach((type) => {
-      if (!type) return;
-      counts[type] = counts[type] || 0;
-      counts[type]++;
-    });
-  });
-
-  // Sort to find the most used id type and set it as the baseIdType
-  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
-}
-
 export function getBaseIdTypeAndJoins(
   objects: string[][],
   forcedBaseIdType?: string
@@ -36,7 +18,7 @@ export function getBaseIdTypeAndJoins(
     .map((ids) => ids.filter(Boolean))
     .filter((ids) => ids.length > 0)
     .sort((a, b) => a.length - b.length);
-  
+
   // Count how many objects use each id type
   const counts: Record<string, number> = {};
   objects.forEach((types) => {
@@ -47,7 +29,9 @@ export function getBaseIdTypeAndJoins(
     });
   });
 
-  const idTypesSortedByFrequency = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const idTypesSortedByFrequency = Object.entries(counts).sort(
+    (a, b) => b[1] - a[1]
+  );
 
   // use most frequent ID as base type, unless forcedBaseIdType is passed
   const baseIdType = forcedBaseIdType || idTypesSortedByFrequency[0]?.[0] || "";
@@ -58,12 +42,13 @@ export function getBaseIdTypeAndJoins(
     if (types.includes(baseIdType)) return;
     // Object supports one of the join types already
     if (types.filter((type) => joinsRequired.has(type)).length > 0) return;
-    
+
     // Add id type that is most frequent to help minimize N joins needed
     joinsRequired.add(
-      idTypesSortedByFrequency.find((x) => types.includes(x[0]))?.[0] || types[0]
+      idTypesSortedByFrequency.find((x) => types.includes(x[0]))?.[0] ||
+        types[0]
     );
-  })
+  });
 
   return {
     baseIdType,
