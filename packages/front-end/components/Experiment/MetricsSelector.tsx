@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
 import { isProjectListValidForProject } from "shared/util";
-import { IdentityJoinQuery } from "back-end/types/datasource";
+import { DataSourceSettings } from "back-end/types/datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
@@ -47,16 +47,33 @@ export const MetricsSelectorTooltip = ({
 export function isMetricJoinable(
   metricIdTypes: string[],
   userIdType: string,
-  joinQueries: IdentityJoinQuery[]
+  settings: DataSourceSettings
 ): boolean {
-  return (
-    metricIdTypes.includes(userIdType) ||
-    joinQueries.some(
-      (j) =>
-        j.ids.includes(userIdType) &&
-        j.ids.some((jid) => metricIdTypes.includes(jid))
-    )
-  );
+  if (metricIdTypes.includes(userIdType)) return true;
+
+  if (settings?.queries?.identityJoins) {
+    if (
+      settings.queries.identityJoins.some(
+        (j) =>
+          j.ids.includes(userIdType) &&
+          j.ids.some((jid) => metricIdTypes.includes(jid))
+      )
+    ) {
+      return true;
+    }
+  }
+
+  // legacy support for pageviewsQuery
+  if (settings?.queries?.pageviewsQuery) {
+    if (
+      ["user_id", "anonymous_id"].includes(userIdType) &&
+      metricIdTypes.some((m) => ["user_id", "anonymous_id"].includes(m))
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 const MetricsSelector: FC<{
@@ -116,17 +133,18 @@ const MetricsSelector: FC<{
 
   // get data to help filter metrics to those with joinable userIdTypes to
   // the experiment assignment table
-  const datasourceObj = datasource ? getDatasourceById(datasource) : null;
-  const userIdType = datasourceObj?.settings?.queries?.exposure?.find(
+  const datasourceSettings = datasource
+    ? getDatasourceById(datasource)?.settings
+    : undefined;
+  const userIdType = datasourceSettings?.queries?.exposure?.find(
     (e) => e.id === exposureQueryId
   )?.userIdType;
-  const joinQueries = datasourceObj?.settings?.queries?.identityJoins || [];
 
   const filteredOptions = options
     .filter((m) => (datasource ? m.datasource === datasource : true))
     .filter((m) =>
       userIdType && m.userIdTypes.length
-        ? isMetricJoinable(m.userIdTypes, userIdType, joinQueries)
+        ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
         : true
     )
     .filter((m) => isProjectListValidForProject(m.projects, project));

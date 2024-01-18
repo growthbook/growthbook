@@ -77,11 +77,12 @@ const MetricSelector: FC<
 
   // get data to help filter metrics to those with joinable userIdTypes to
   // the experiment assignment table
-  const datasourceObj = datasource ? getDatasourceById(datasource) : null;
-  const userIdType = datasourceObj?.settings?.queries?.exposure?.find(
+  const datasourceSettings = datasource
+    ? getDatasourceById(datasource)?.settings
+    : undefined;
+  const userIdType = datasourceSettings?.queries?.exposure?.find(
     (e) => e.id === exposureQueryId
   )?.userIdType;
-  const joinQueries = datasourceObj?.settings?.queries?.identityJoins || [];
 
   const filteredOptions = options
     .filter((m) => !availableIds || availableIds.includes(m.id))
@@ -89,7 +90,7 @@ const MetricSelector: FC<
     .filter((m) => !onlyBinomial || m.isBinomial)
     .filter((m) =>
       userIdType && m.userIdTypes.length
-        ? isMetricJoinable(m.userIdTypes, userIdType, joinQueries)
+        ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
         : true
     )
     .filter((m) => isProjectListValidForProject(m.projects, project));
