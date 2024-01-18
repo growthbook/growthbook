@@ -3,7 +3,7 @@ import { webcrypto } from "node:crypto";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
-import { ReadAccessFilter, hasReadAccess } from "shared/permissions";
+import { hasReadAccess } from "shared/permissions";
 import {
   ApiKeyInterface,
   PublishableApiKey,
@@ -15,6 +15,7 @@ import {
   SECRET_API_KEY_ROLE,
 } from "../util/secrets";
 import { roleForApiKey } from "../util/api-key.util";
+import { ReqContext } from "../services/organizations";
 import { findAllOrganizations } from "./OrganizationModel";
 
 const apiKeySchema = new mongoose.Schema({
@@ -276,15 +277,16 @@ export async function deleteApiKeyByKey(organization: string, key: string) {
 }
 
 export async function getApiKeyByIdOrKey(
-  organization: string,
-  readAccessFilter: ReadAccessFilter,
+  context: ReqContext,
   id: string | undefined,
   key: string | undefined
 ): Promise<ApiKeyInterface | null> {
   if (!id && !key) return null;
 
+  const { org, readAccessFilter } = context;
+
   const doc = await ApiKeyModel.findOne(
-    id ? { organization, id } : { organization, key }
+    id ? { organization: org.id, id } : { organization: org.id, key }
   );
 
   if (!doc) return null;
@@ -332,12 +334,13 @@ export async function lookupOrganizationByApiKey(
 }
 
 export async function getAllApiKeysByOrganization(
-  organization: string,
-  readAccessFilter: ReadAccessFilter
+  context: ReqContext
 ): Promise<ApiKeyInterface[]> {
+  const { org, readAccessFilter } = context;
+
   const docs: ApiKeyDocument[] = await ApiKeyModel.find(
     {
-      organization,
+      organization: org.id,
     },
     { encryptionKey: 0 }
   );

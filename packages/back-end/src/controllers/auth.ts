@@ -21,7 +21,10 @@ import {
   RefreshTokenCookie,
   SSOConnectionIdCookie,
 } from "../util/cookie";
-import { getEmailFromUserId, getOrgFromReq } from "../services/organizations";
+import {
+  getEmailFromUserId,
+  getContextFromReq,
+} from "../services/organizations";
 import {
   createUser,
   getUserByEmail,
@@ -365,7 +368,7 @@ export async function postChangePassword(
   res: Response
 ) {
   const { currentPassword, newPassword } = req.body;
-  const { userId } = getOrgFromReq(req);
+  const { userId } = getContextFromReq(req);
 
   const user = await getUserById(userId);
   if (!user) {
