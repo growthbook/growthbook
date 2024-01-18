@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { WebhookInterface } from "back-end/types/webhook";
-import { FaCheck, FaInfoCircle, FaPlusCircle } from "react-icons/fa";
+import { FaCheck, FaInfoCircle } from "react-icons/fa";
 import { ago } from "shared/dates";
 import { BsArrowRepeat } from "react-icons/bs";
 import useApi from "@/hooks/useApi";
@@ -12,6 +12,7 @@ import usePermissions from "@/hooks/usePermissions";
 import { useUser } from "@/services/UserContext";
 import Button from "@/components/Button";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
+import { GBAddCircle } from "@/components/Icons";
 
 export default function SDKWebhooks({ sdkid }) {
   const { data, mutate } = useApi<{ webhooks?: WebhookInterface[] }>(
@@ -107,7 +108,7 @@ export default function SDKWebhooks({ sdkid }) {
       </tr>
     ));
   };
-  const renderEmptyState = () => (
+  const renderAddWebhookButton = () => (
     <>
       {hasWebhookPermitions && (
         <button
@@ -118,7 +119,10 @@ export default function SDKWebhooks({ sdkid }) {
             if (!disableWebhookCreate) setCreateWebhookModalOpen({});
           }}
         >
-          Add webhook
+          <span className="h4 pr-2 m-0 d-inline-block align-top">
+            <GBAddCircle />
+          </span>
+          Add Webhook
         </button>
       )}
       <Tooltip
@@ -159,26 +163,6 @@ export default function SDKWebhooks({ sdkid }) {
       </div>
     );
   };
-  const renderWebhooks = () => (
-    <>
-      {renderTable()}
-      {hasWebhookPermitions && (
-        <button
-          className="btn btn-link mb-3 "
-          type="button"
-          disabled={disableWebhookCreate}
-          onClick={(e) => {
-            e.preventDefault();
-            setCreateWebhookModalOpen({});
-          }}
-        >
-          <FaPlusCircle className="mr-1" />
-          Add Webhook
-        </button>
-      )}
-    </>
-  );
-
   const isEmpty = data?.webhooks?.length === 0;
   return (
     <div className="gb-sdk-connections-webhooks mb-5">
@@ -192,7 +176,8 @@ export default function SDKWebhooks({ sdkid }) {
           sdkid={sdkid}
         />
       )}
-      {isEmpty ? renderEmptyState() : renderWebhooks()}
+      {!isEmpty && renderTable()}
+      {renderAddWebhookButton()}
     </div>
   );
 }
