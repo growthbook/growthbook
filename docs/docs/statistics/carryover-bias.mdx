@@ -61,4 +61,4 @@ In this case, rather than utilize a "Phase" to analyze a particular date range i
 
 `timestamp BETWEEN TIMESTAMP_SUB('{{ endDate }}', INTERVAL 7 DAY) AND TIMESTAMP('{{ endDate }}')`
 
-In the Metric filter above, GrowthBook will use the end of the experiment (or the current date if the experiment is still running) in place of `{{ endDate }}`. In the future, we plan to make creating lookback metrics more hands-off in GrowthBook. You can read more about [template variables here.](https://docs.growthbook.io/app/metrics#sql-templates)
+In the Metric filter above, GrowthBook will use the end of the experiment (or the current date if the experiment is still running) in place of `{{ endDate }}`. In the future, we plan to make creating lookback metrics more hands-off in GrowthBook. You can read more about [template variables here.](/app/metrics#sql-templates)

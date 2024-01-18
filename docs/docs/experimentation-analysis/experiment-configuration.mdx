@@ -97,7 +97,7 @@ You can add metrics as goal metrics, guardrail metrics, or both. You also can ad
 
 ### Experiment Phases
 
-Experiment Phases can help you filter the dates used in the experiment analysis. Be very careful using phases. If you move the start date of the phase to past the start date of the experiment (and users were not re-randomized across phases), then your analysis could suffer from [carryover bias](/statistics/articles/carryover-bias). It is best to always look at the full history of an experiment if possible.
+Experiment Phases can help you filter the dates used in the experiment analysis. Be very careful using phases. If you move the start date of the phase to past the start date of the experiment (and users were not re-randomized across phases), then your analysis could suffer from [carryover bias](/statistics/carryover-bias). It is best to always look at the full history of an experiment if possible.
 
 ### Making Changes While Running
 
@@ -144,7 +144,7 @@ This creates a brand new phase of the experiment. All data collected until this 
 
 In most cases, you will also want to re-randomize traffic. This will cause everyone - including existing experiment users - to get assigned a new random variation. This can be a disruptive user experience since many people will switch from Control to Treatment (or vice versa).
 
-Why would you ever want to do this? Some changes you make completely invalidate past results so this lets you cleanly separate the data analysis from before and after you make the change. Re-randomizing traffic can also eliminate carryover bias and make your results more reliable and accurate.
+Why would you ever want to do this? Some changes you make completely invalidate past results so this lets you cleanly separate the data analysis from before and after you make the change. Re-randomizing traffic can also eliminate [carryover bias](/statistics/carryover-bias) and make your results more reliable and accurate.
 
 We recommend this approach for any change that is not considered "safe" (listed above). This can include (but not limited to):
 
