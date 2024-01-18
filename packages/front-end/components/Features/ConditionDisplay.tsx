@@ -167,12 +167,16 @@ export default function ConditionDisplay({
     <div key={i} className="col-auto d-flex flex-wrap">
       {i > 0 && <span className="mr-1">AND</span>}
       <span className="mr-1 border px-2 bg-light rounded">
-        {field.replace("@parent", "value")}
-        {field === "@parent" && (
-          <Tooltip
-            className="ml-1"
-            body="The evaluated value of the prerequisite feature"
-          />
+        {field === "@parent" ? (
+          <>
+            value
+            <Tooltip
+              className="ml-1"
+              body="The evaluated value of the prerequisite feature"
+            />
+          </>
+        ) : (
+          field
         )}
       </span>
       <span className="mr-1">{operatorToText(operator)}</span>
