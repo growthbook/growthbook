@@ -89,8 +89,6 @@ const WebhooksModal: FC<{
         id="sendPayload"
         value={!!form.watch("sendPayload")}
         setValue={(value) => {
-          console.log(value);
-          console.log(!!form.watch("sendPayload"));
           form.setValue("sendPayload", value);
         }}
       />
