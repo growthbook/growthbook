@@ -39,7 +39,7 @@ export default function SDKWebhooks({ sdkid }) {
     (accountPlan?.includes("unknown") &&
       amountOfWebhooks < webhookLimits.starter);
   const renderTableRows = () => {
-    // only rener table is there is data to show
+    // only render table if there is data to show
     return data?.webhooks?.map((webhook) => (
       <tr key={webhook.name}>
         <td>{webhook.name}</td>
