@@ -20,8 +20,8 @@ export default function SDKWebhooks({ sdkid }) {
     `/webhooks/sdk/${sdkid}`
   );
   const [
-    createModalOpen,
-    setCreateModalOpen,
+    createWebhookModalOpen,
+    setCreateWebhookModalOpen,
   ] = useState<null | Partial<WebhookInterface>>(null);
   const { apiCall } = useAuth();
   const permissions = usePermissions();
@@ -65,7 +65,7 @@ export default function SDKWebhooks({ sdkid }) {
             title="Edit this webhook"
             onClick={(e) => {
               e.preventDefault();
-              if (!disableWebhookCreate) setCreateModalOpen(webhook);
+              if (!disableWebhookCreate) setCreateWebhookModalOpen(webhook);
             }}
           >
             <FaPencilAlt />
@@ -94,7 +94,7 @@ export default function SDKWebhooks({ sdkid }) {
           disabled={disableWebhookCreate}
           onClick={(e) => {
             e.preventDefault();
-            if (!disableWebhookCreate) setCreateModalOpen({});
+            if (!disableWebhookCreate) setCreateWebhookModalOpen({});
           }}
         >
           Add webhook
@@ -145,7 +145,7 @@ export default function SDKWebhooks({ sdkid }) {
           disabled={disableWebhookCreate}
           onClick={(e) => {
             e.preventDefault();
-            setCreateModalOpen({});
+            setCreateWebhookModalOpen({});
           }}
         >
           <FaPlusCircle className="mr-1" />
@@ -159,11 +159,11 @@ export default function SDKWebhooks({ sdkid }) {
   return (
     <div className="gb-sdk-connections-webhooks mb-5">
       <h2>SDK Webhooks</h2>
-      {createModalOpen && (
+      {createWebhookModalOpen && (
         <WebhooksModal
-          close={() => setCreateModalOpen(null)}
+          close={() => setCreateWebhookModalOpen(null)}
           onSave={mutate}
-          current={createModalOpen}
+          current={createWebhookModalOpen}
           showSDKMode={true}
           sdkid={sdkid}
         />
