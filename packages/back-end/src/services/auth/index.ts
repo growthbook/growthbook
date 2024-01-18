@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { SSO_CONFIG } from "enterprise";
-import { getReadAccessFilter, hasPermission } from "shared/permissions";
+import { hasPermission } from "shared/permissions";
 import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
 import { markUserAsVerified, UserModel } from "../../models/UserModel";
@@ -85,8 +85,7 @@ export async function processJWT(
   req.email = email || "";
   req.name = name || "";
   req.verified = verified || false;
-
-  let teams: TeamInterface[] = [];
+  req.teams = [];
 
   const userHasPermission = (
     permission: Permission,
@@ -127,7 +126,12 @@ export async function processJWT(
     }
     for (const p of checkProjects) {
       if (
-        !userHasPermission(permission, teams, p, envs ? [...envs] : undefined)
+        !userHasPermission(
+          permission,
+          req.teams,
+          p,
+          envs ? [...envs] : undefined
+        )
       ) {
         throw new Error("You do not have permission to complete that action.");
       }
@@ -175,7 +179,7 @@ export async function processJWT(
           return;
         }
 
-        teams = await getTeamsForOrganization(req.organization.id);
+        req.teams = await getTeamsForOrganization(req.organization.id);
 
         // Make sure this is a valid login method for the organization
         try {
@@ -190,9 +194,6 @@ export async function processJWT(
 
         // init license for org if it exists
         await initializeLicense(req.organization.licenseKey);
-        req.readAccessFilter = getReadAccessFilter(
-          getUserPermissions(user.id, req.organization, teams)
-        );
       } else {
         res.status(404).json({
           status: 404,
