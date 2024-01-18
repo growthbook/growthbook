@@ -108,15 +108,13 @@ export type ReqContext = {
   readAccessFilter: ReadAccessFilter;
 };
 
-export async function getContextFromReq(req: AuthRequest): Promise<ReqContext> {
+export function getContextFromReq(req: AuthRequest): ReqContext {
   if (!req.organization) {
     throw new Error("Must be part of an organization to make that request");
   }
   if (!req.userId || !req.email) {
     throw new Error("Must be logged in");
   }
-
-  const teams = await getTeamsForOrganization(req.organization.id);
 
   return {
     org: req.organization,
@@ -125,7 +123,7 @@ export async function getContextFromReq(req: AuthRequest): Promise<ReqContext> {
     environments: getEnvironmentIdsFromOrg(req.organization),
     userName: req.name || "",
     readAccessFilter: getReadAccessFilter(
-      getUserPermissions(req.userId, req.organization, teams)
+      getUserPermissions(req.userId, req.organization, req.teams)
     ),
   };
 }

@@ -37,7 +37,7 @@ export async function postNewSubscription(
 
   req.checkPermissions("manageBilling");
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const desiredQty = getNumberOfUniqueMembersAndInvites(org);
 
@@ -115,7 +115,7 @@ export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
     });
   }
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const price = await getPrice(org.priceId || STRIPE_PRICE);
   const unitPrice = (price?.unit_amount || 2000) / 100;
@@ -154,7 +154,7 @@ export async function postCreateBillingSession(
 ) {
   req.checkPermissions("manageBilling");
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   if (!org.stripeCustomerId) {
     throw new Error("Missing customer id");

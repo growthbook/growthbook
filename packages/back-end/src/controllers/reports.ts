@@ -30,7 +30,7 @@ export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const snapshot = await findSnapshotById(org.id, req.params.snapshot);
 
@@ -102,7 +102,7 @@ export async function getReports(
   >,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   let project = "";
   if (typeof req.query?.project === "string") {
     project = req.query.project;
@@ -135,7 +135,7 @@ export async function getReportsOnExperiment(
   req: AuthRequest<unknown, { id: string }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
 
   const reports = await getReportsByExperimentId(org.id, id);
@@ -150,7 +150,7 @@ export async function getReport(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const report = await getReportById(org.id, req.params.id);
 
@@ -168,7 +168,7 @@ export async function deleteReport(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const report = await getReportById(org.id, req.params.id);
 
   if (!report) {
@@ -191,7 +191,7 @@ export async function refreshReport(
   req: AuthRequest<null, { id: string }, { force?: string }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const report = await getReportById(org.id, req.params.id);
 
   if (!report) {
@@ -243,7 +243,7 @@ export async function putReport(
 ) {
   req.checkPermissions("createAnalyses", "");
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const report = await getReportById(org.id, req.params.id);
 
@@ -318,7 +318,7 @@ export async function cancelReport(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
   const report = await getReportById(org.id, id);
   if (!report) {
@@ -343,7 +343,7 @@ export async function postNotebook(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
 
   const notebook = await generateReportNotebook(id, org.id);

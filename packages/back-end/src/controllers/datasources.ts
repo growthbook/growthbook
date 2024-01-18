@@ -66,7 +66,7 @@ export async function postSampleData(
   req.checkPermissions("createMetrics", "");
   req.checkPermissions("createAnalyses", "");
 
-  const { org, userId } = await getContextFromReq(req);
+  const { org, userId } = getContextFromReq(req);
   const orgId = org.id;
   const statsEngine = org.settings?.statsEngine || DEFAULT_STATS_ENGINE;
 
@@ -256,7 +256,7 @@ export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
 
   const datasource = await getDataSourceById(id, org.id);
@@ -327,7 +327,7 @@ export async function deleteDataSource(
 }
 
 export async function getDataSources(req: AuthRequest, res: Response) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const datasources = await getDataSourcesByOrganization(org.id);
 
   if (!datasources || !datasources.length) {
@@ -359,7 +359,7 @@ export async function getDataSource(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
 
   const datasource = await getDataSourceById(id, org.id);
@@ -395,7 +395,7 @@ export async function postDataSources(
   }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { name, description, type, params, projects } = req.body;
   const settings = req.body.settings || {};
 
@@ -473,7 +473,7 @@ export async function putDataSource(
     email: user.email,
     name: user.name || "",
   };
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
   const {
     name,
@@ -588,7 +588,7 @@ export async function updateExposureQuery(
   >,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { datasourceId, exposureQueryId } = req.params;
   const { updates } = req.body;
 
@@ -671,7 +671,7 @@ export async function getQueries(
   req: AuthRequest<null, { ids: string }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { ids } = req.params;
   const queries = ids.split(",");
 
@@ -693,7 +693,7 @@ export async function testLimitedQuery(
   }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const { query, datasourceId, templateVariables } = req.body;
 
@@ -728,7 +728,7 @@ export async function getDataSourceMetrics(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
 
   const metrics = await getMetricsByDatasource(id, org.id);
@@ -743,7 +743,7 @@ export async function getDimensionSlices(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
 
   const dimensionSlices = await getDimensionSlicesById(org.id, id);
@@ -758,7 +758,7 @@ export async function getLatestDimensionSlicesForDatasource(
   req: AuthRequest<null, { datasourceId: string; exposureQueryId: string }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { datasourceId, exposureQueryId } = req.params;
 
   const dimensionSlices = await getLatestDimensionSlices(
@@ -781,7 +781,7 @@ export async function postDimensionSlices(
   }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { dataSourceId, queryId, lookbackDays } = req.body;
 
   const datasourceObj = await getDataSourceById(dataSourceId, org.id);
@@ -816,7 +816,7 @@ export async function cancelDimensionSlices(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
   const dimensionSlices = await getDimensionSlicesById(org.id, id);
   if (!dimensionSlices) {

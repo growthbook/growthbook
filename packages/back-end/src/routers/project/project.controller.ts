@@ -58,7 +58,7 @@ export const postProject = async (
   req.checkPermissions("manageProjects", "");
 
   const { name, description } = req.body;
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const doc = await createProject(org.id, {
     name,
@@ -101,7 +101,7 @@ export const putProject = async (
   const { id } = req.params;
   req.checkPermissions("manageProjects", id);
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const project = await findProjectById(id, org.id);
 
@@ -169,7 +169,7 @@ export const deleteProject = async (
 
   req.checkPermissions("manageProjects", id);
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   await deleteProjectById(id, org.id);
 
@@ -304,7 +304,7 @@ export const putProjectSettings = async (
   const { id } = req.params;
   req.checkPermissions("manageProjects", id);
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const project = await findProjectById(id, org.id);
 

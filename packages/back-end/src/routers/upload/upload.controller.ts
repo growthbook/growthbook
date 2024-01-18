@@ -31,7 +31,7 @@ export async function putUpload(req: AuthRequest<Buffer>, res: Response) {
   }
 
   const ext = mimetypes[contentType];
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const now = new Date();
   const pathPrefix = `${org.id}/${now.toISOString().substr(0, 7)}/`;
@@ -46,7 +46,7 @@ export async function putUpload(req: AuthRequest<Buffer>, res: Response) {
 }
 
 export function getImage(req: AuthRequest<{ path: string }>, res: Response) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const path = req.path[0] === "/" ? req.path.substr(1) : req.path;
 

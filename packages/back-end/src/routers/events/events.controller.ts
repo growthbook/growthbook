@@ -17,7 +17,7 @@ export const getEvents = async (
 ) => {
   req.checkPermissions("viewEvents");
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const events = await Event.getLatestEventsForOrganization(org.id, 50);
 
@@ -36,7 +36,7 @@ export const getEventById = async (
 ) => {
   req.checkPermissions("viewEvents");
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const event = await Event.getEventForOrganization(req.params.id, org.id);
   if (!event) {

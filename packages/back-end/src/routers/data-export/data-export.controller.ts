@@ -22,7 +22,7 @@ export const getDataExportForEvents = async (
 ) => {
   req.checkPermissions("viewEvents");
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   if (!orgHasPremiumFeature(org, "audit-logging")) {
     return res.status(403).json({

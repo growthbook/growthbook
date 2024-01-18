@@ -158,7 +158,7 @@ export const postDemoDatasourceProject = async (
   req.checkPermissions("createMetrics", "");
   req.checkPermissions("createAnalyses", "");
 
-  const { org, environments } = await getContextFromReq(req);
+  const { org, environments } = getContextFromReq(req);
 
   const demoProjId = getDemoDatasourceProjectIdForOrganization(org.id);
   const existingDemoProject: ProjectInterface | null = await findProjectById(

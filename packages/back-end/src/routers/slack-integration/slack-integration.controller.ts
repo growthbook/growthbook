@@ -30,7 +30,7 @@ export const getSlackIntegrations = async (
 ) => {
   req.checkPermissions("manageIntegrations");
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const slackIntegrations = await SlackIntegration.getSlackIntegrations(org.id);
 
@@ -65,7 +65,7 @@ export const getSlackIntegration = async (
 ) => {
   req.checkPermissions("manageIntegrations");
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
 
   const slackIntegration = await SlackIntegration.getSlackIntegration({
@@ -113,7 +113,7 @@ export const postSlackIntegration = async (
 ) => {
   req.checkPermissions("manageIntegrations");
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const {
     name,
     events,
@@ -178,7 +178,7 @@ export const putSlackIntegration = async (
 ) => {
   req.checkPermissions("manageIntegrations");
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const {
     name,
     events,
@@ -238,7 +238,7 @@ export const deleteSlackIntegration = async (
 ) => {
   req.checkPermissions("manageIntegrations");
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const successful = await SlackIntegration.deleteSlackIntegration({
     slackIntegrationId: req.params.id,
     organizationId: org.id,

@@ -44,7 +44,7 @@ export const getFactTables = async (
   req: AuthRequest,
   res: Response<{ status: 200; factTables: FactTableInterface[] }>
 ) => {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const factTables = await getAllFactTablesForOrganization(org.id);
 
@@ -157,7 +157,7 @@ export const postFactTable = async (
   res: Response<{ status: 200; factTable: FactTableInterface }>
 ) => {
   const data = req.body;
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   req.checkPermissions("manageFactTables", data.projects || "");
 
@@ -194,7 +194,7 @@ export const putFactTable = async (
   res: Response<{ status: 200 }>
 ) => {
   const data = req.body;
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const factTable = await getFactTable(org.id, req.params.id);
   if (!factTable) {
@@ -236,7 +236,7 @@ export const deleteFactTable = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{ status: 200 }>
 ) => {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const factTable = await getFactTable(org.id, req.params.id);
   if (!factTable) {
@@ -256,7 +256,7 @@ export const putColumn = async (
   res: Response<{ status: 200 }>
 ) => {
   const data = req.body;
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const factTable = await getFactTable(org.id, req.params.id);
   if (!factTable) {
@@ -280,7 +280,7 @@ export const postFactFilterTest = async (
   }>
 ) => {
   const data = req.body;
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const factTable = await getFactTable(org.id, req.params.id);
   if (!factTable) {
@@ -308,7 +308,7 @@ export const postFactFilter = async (
   res: Response<{ status: 200; filterId: string }>
 ) => {
   const data = req.body;
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const factTable = await getFactTable(org.id, req.params.id);
   if (!factTable) {
@@ -336,7 +336,7 @@ export const putFactFilter = async (
   res: Response<{ status: 200 }>
 ) => {
   const data = req.body;
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const factTable = await getFactTable(org.id, req.params.id);
   if (!factTable) {
@@ -368,7 +368,7 @@ export const deleteFactFilter = async (
   req: AuthRequest<null, { id: string; filterId: string }>,
   res: Response<{ status: 200 }>
 ) => {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const factTable = await getFactTable(org.id, req.params.id);
   if (!factTable) {
@@ -387,7 +387,7 @@ export const getFactMetrics = async (
   req: AuthRequest,
   res: Response<{ status: 200; factMetrics: FactMetricInterface[] }>
 ) => {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const factMetrics = await getAllFactMetricsForOrganization(org.id);
 
@@ -402,7 +402,7 @@ export const postFactMetric = async (
   res: Response<{ status: 200; factMetric: FactMetricInterface }>
 ) => {
   const data = req.body;
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   req.checkPermissions("createMetrics", data.projects || "");
 
@@ -423,7 +423,7 @@ export const putFactMetric = async (
   res: Response<{ status: 200 }>
 ) => {
   const data = req.body;
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const factMetric = await getFactMetric(org.id, req.params.id);
   if (!factMetric) {
@@ -449,7 +449,7 @@ export const deleteFactMetric = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{ status: 200 }>
 ) => {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const factMetric = await getFactMetric(org.id, req.params.id);
   if (!factMetric) {

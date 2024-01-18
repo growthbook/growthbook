@@ -38,7 +38,7 @@ export const postEnvironment = async (
 
   req.checkPermissions("manageEnvironments", "", [environment.id]);
 
-  const { org, environments } = await getContextFromReq(req);
+  const { org, environments } = getContextFromReq(req);
 
   if (environments.includes(environment.id)) {
     return res.status(400).json({

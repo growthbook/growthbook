@@ -37,7 +37,7 @@ export const getArchetype = async (
   req: AuthRequest,
   res: Response<GetArchetypeResponse>
 ) => {
-  const { org, userId } = await getContextFromReq(req);
+  const { org, userId } = getContextFromReq(req);
 
   req.checkPermissions("manageArchetype");
 
@@ -61,7 +61,7 @@ export const getArchetypeAndEval = async (
   req: AuthRequest<null, { id: string; version: string }>,
   res: Response<GetArchetypeAndEvalResponse | PrivateApiErrorResponse>
 ) => {
-  const { org, userId } = await getContextFromReq(req);
+  const { org, userId } = getContextFromReq(req);
   const { id, version } = req.params;
   const feature = await getFeature(org.id, id);
 
@@ -137,7 +137,7 @@ export const postArchetype = async (
   req: CreateArchetypeRequest,
   res: Response<CreateArchetypeResponse | PrivateApiErrorResponse>
 ) => {
-  const { org, userId } = await getContextFromReq(req);
+  const { org, userId } = getContextFromReq(req);
   const { name, attributes, description, isPublic } = req.body;
 
   if (!orgHasPremiumFeature(org, "archetypes")) {
@@ -195,7 +195,7 @@ export const putArchetype = async (
     PutArchetypeResponse | ApiErrorResponse | PrivateApiErrorResponse
   >
 ) => {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { name, description, isPublic, owner, attributes } = req.body;
   const { id } = req.params;
 
@@ -265,7 +265,7 @@ export const deleteArchetype = async (
   req.checkPermissions("manageArchetype");
 
   const { id } = req.params;
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const archetype = await getArchetypeById(id, org.id);
 

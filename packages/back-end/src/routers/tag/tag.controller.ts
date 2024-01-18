@@ -30,7 +30,7 @@ export const postTag = async (
 ) => {
   req.checkPermissions("manageTags");
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id, color, description } = req.body;
 
   await addTag(org.id, id, color, description);
@@ -65,7 +65,7 @@ export const deleteTag = async (
 ) => {
   req.checkPermissions("manageTags");
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.body;
 
   // experiments

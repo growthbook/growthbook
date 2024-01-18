@@ -18,7 +18,7 @@ export async function getInformationSchema(
   req: AuthRequest<null, { datasourceId: string }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const datasource = await getDataSourceById(req.params.datasourceId, org.id);
 
@@ -51,7 +51,7 @@ export async function getTableData(
   >,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const { datasourceId, tableId } = req.params;
 
@@ -158,7 +158,7 @@ export async function putTableData(
   >,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { tableId } = req.params;
 
   const table = await getInformationSchemaTableById(org.id, tableId);
@@ -180,7 +180,7 @@ export async function postInformationSchema(
   req: AuthRequest<null, { datasourceId: string }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const datasource = await getDataSourceById(req.params.datasourceId, org.id);
 
@@ -206,7 +206,7 @@ export async function putInformationSchema(
   req: AuthRequest<{ informationSchemaId: string }, { datasourceId: string }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { informationSchemaId } = req.body;
 
   const datasource = await getDataSourceById(req.params.datasourceId, org.id);

@@ -41,7 +41,7 @@ export const postSavedGroup = async (
   req: CreateSavedGroupRequest,
   res: Response<CreateSavedGroupResponse>
 ) => {
-  const { org, userName } = await getContextFromReq(req);
+  const { org, userName } = getContextFromReq(req);
   const { groupName, owner, attributeKey, values, type, condition } = req.body;
 
   req.checkPermissions("manageSavedGroups");
@@ -108,7 +108,7 @@ export const putSavedGroup = async (
   req: PutSavedGroupRequest,
   res: Response<PutSavedGroupResponse | ApiErrorResponse>
 ) => {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { groupName, owner, values, condition } = req.body;
   const { id } = req.params;
 
@@ -219,7 +219,7 @@ export const deleteSavedGroup = async (
   req.checkPermissions("manageSavedGroups");
 
   const { id } = req.params;
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const savedGroup = await getSavedGroupById(id, org.id);
 

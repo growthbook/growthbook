@@ -368,7 +368,7 @@ export async function postChangePassword(
   res: Response
 ) {
   const { currentPassword, newPassword } = req.body;
-  const { userId } = await getContextFromReq(req);
+  const { userId } = getContextFromReq(req);
 
   const user = await getUserById(userId);
   if (!user) {

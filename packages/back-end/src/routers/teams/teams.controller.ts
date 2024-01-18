@@ -44,7 +44,7 @@ export const postTeam = async (
   req: CreateTeamRequest,
   res: Response<CreateTeamResponse>
 ) => {
-  const { org, userName } = await getContextFromReq(req);
+  const { org, userName } = getContextFromReq(req);
   const { name, description, permissions } = req.body;
 
   req.checkPermissions("manageTeam");
@@ -113,7 +113,7 @@ export const updateTeam = async (
   req: PutTeamRequest,
   res: Response<PutTeamResponse>
 ) => {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { name, description, permissions } = req.body;
   const { id } = req.params;
 
@@ -170,7 +170,7 @@ export const deleteTeamById = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<DeleteTeamResponse>
 ) => {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
 
   req.checkPermissions("manageTeam");
@@ -225,7 +225,7 @@ export const addTeamMembers = async (
   req: AuthRequest<{ members: string[] }, { id: string }>,
   res: Response<DeleteTeamResponse>
 ) => {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
   const { members } = req.body;
 
@@ -281,7 +281,7 @@ export const deleteTeamMember = async (
   req: AuthRequest<null, { id: string; memberId: string }>,
   res: Response<DeleteTeamResponse>
 ) => {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id, memberId } = req.params;
 
   req.checkPermissions("manageTeam");

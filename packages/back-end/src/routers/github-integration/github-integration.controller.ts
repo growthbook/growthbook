@@ -28,7 +28,7 @@ const githubAuth = hasGithubEnvVars()
 
 export const getGithubIntegration = async (req: AuthRequest, res: Response) => {
   req.checkPermissions("manageIntegrations");
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   return res.status(200).json({
     status: 200,
     githubIntegration: await getGithubIntegrationByOrg(org.id),
@@ -67,7 +67,7 @@ export const postGithubIntegration = async (
     refreshTokenExpiresAt: string;
   } = await userAuth();
 
-  const { org, userId } = await getContextFromReq(req);
+  const { org, userId } = getContextFromReq(req);
 
   const createdToken = await createGithubUserToken({
     token: authentication.token,
@@ -95,7 +95,7 @@ export const postRepoWatch = async (
 ) => {
   req.checkPermissions("manageIntegrations");
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const watching = await toggleWatchingForRepo({
     orgId: org.id,

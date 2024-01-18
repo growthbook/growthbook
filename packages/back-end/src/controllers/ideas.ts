@@ -24,7 +24,7 @@ export async function getIdeas(
   req: AuthRequest<any, any, { project?: string }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   let project = "";
   if (typeof req.query.project === "string") {
     project = req.query.project;
@@ -50,7 +50,7 @@ export async function getEstimatedImpact(
 
   req.checkPermissions("runQueries", idea?.project || "");
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const estimate = await getImpactEstimate(
     org.id,
     metric,
@@ -73,7 +73,7 @@ export async function postIdeas(
   req: AuthRequest<Partial<IdeaInterface>>,
   res: Response
 ) {
-  const { org, userId } = await getContextFromReq(req);
+  const { org, userId } = getContextFromReq(req);
   const data = req.body;
 
   req.checkPermissions("createIdeas", data.project);
@@ -94,7 +94,7 @@ export async function getIdea(
   res: Response
 ) {
   const { id } = req.params;
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const idea = await getIdeaById(id);
 
@@ -161,7 +161,7 @@ export async function postIdea(
   const { id } = req.params;
   const idea = await getIdeaById(id);
   const data = req.body;
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   if (!idea) {
     res.status(403).json({
@@ -211,7 +211,7 @@ export async function deleteIdea(
 ) {
   const { id } = req.params;
   const idea = await getIdeaById(id);
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   if (!idea) {
     res.status(403).json({
@@ -249,7 +249,7 @@ export async function postVote(
   const data = req.body;
   const idea = await getIdeaById(id);
 
-  const { org, userId } = await getContextFromReq(req);
+  const { org, userId } = getContextFromReq(req);
 
   if (!idea) {
     res.status(403).json({
@@ -312,7 +312,7 @@ export async function getRecentIdeas(
   req: AuthRequest<unknown, { num: string }, { project?: string }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { num } = req.params;
   let intNum = parseInt(num);
   if (intNum > 100) intNum = 100;

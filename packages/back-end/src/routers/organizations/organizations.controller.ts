@@ -118,7 +118,7 @@ import { TeamInterface } from "../../../types/team";
 import { initializeLicense } from "../../services/licenseData";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const orgId = org?.id;
   if (!orgId) {
     throw new Error("Must be part of an organization");
@@ -176,7 +176,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
 }
 
 export async function getActivityFeed(req: AuthRequest, res: Response) {
-  const { org, userId } = await getContextFromReq(req);
+  const { org, userId } = getContextFromReq(req);
   try {
     const docs = await getRecentWatchedAudits(userId, org.id);
 
@@ -212,7 +212,7 @@ export async function getAllHistory(
   req: AuthRequest<null, { type: string }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { type } = req.params;
 
   if (!isValidAuditEntityType(type)) {
@@ -252,7 +252,7 @@ export async function getHistory(
   req: AuthRequest<null, { type: string; id: string }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { type, id } = req.params;
 
   if (!isValidAuditEntityType(type)) {
@@ -294,7 +294,7 @@ export async function putMemberRole(
 ) {
   req.checkPermissions("manageTeam");
 
-  const { org, userId } = await getContextFromReq(req);
+  const { org, userId } = getContextFromReq(req);
   const {
     role,
     limitAccessByEnvironment,
@@ -457,7 +457,7 @@ export async function postMemberApproval(
   res: Response
 ) {
   req.checkPermissions("manageTeam");
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
 
   const pendingMember = org?.pendingMembers?.find((m) => m.id === id);
@@ -507,7 +507,7 @@ export async function postAutoApproveMembers(
   res: Response
 ) {
   req.checkPermissions("manageTeam");
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { state } = req.body;
 
   try {
@@ -532,7 +532,7 @@ export async function putInviteRole(
 ) {
   req.checkPermissions("manageTeam");
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const {
     role,
     limitAccessByEnvironment,
@@ -594,7 +594,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       organization: null,
     });
   }
-  const context = await getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { org, userId } = context;
   const {
     invites,
@@ -692,7 +692,7 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
       organization: null,
     });
   }
-  const { org, environments } = await getContextFromReq(req);
+  const { org, environments } = getContextFromReq(req);
 
   const namespaces: NamespaceUsage = {};
 
@@ -764,7 +764,7 @@ export async function postNamespaces(
   req.checkPermissions("manageNamespaces");
 
   const { name, description, status } = req.body;
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const namespaces = org.settings?.namespaces || [];
 
@@ -816,7 +816,7 @@ export async function putNamespaces(
 
   const { name, description, status } = req.body;
   const originalName = req.params.name;
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const namespaces = org.settings?.namespaces || [];
 
@@ -861,7 +861,7 @@ export async function deleteNamespace(
 ) {
   req.checkPermissions("manageNamespaces");
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { name } = req.params;
 
   const namespaces = org.settings?.namespaces || [];
@@ -966,7 +966,7 @@ export async function postInvite(
 ) {
   req.checkPermissions("manageTeam");
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const {
     email,
     role,
@@ -1002,7 +1002,7 @@ export async function deleteMember(
 ) {
   req.checkPermissions("manageTeam");
 
-  const { org, userId } = await getContextFromReq(req);
+  const { org, userId } = getContextFromReq(req);
   const { id } = req.params;
 
   if (id === userId) {
@@ -1025,7 +1025,7 @@ export async function postInviteResend(
 ) {
   req.checkPermissions("manageTeam");
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { key } = req.body;
 
   let emailSent = false;
@@ -1051,7 +1051,7 @@ export async function deleteInvite(
 ) {
   req.checkPermissions("manageTeam");
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { key } = req.body;
 
   await revokeInvite(org, key);
@@ -1129,7 +1129,7 @@ export async function putOrganization(
   req: AuthRequest<Partial<OrganizationInterface>>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { name, settings, connections, externalId } = req.body;
 
   const deletedEnvIds: string[] = [];
@@ -1246,7 +1246,7 @@ export const autoAddGroupsAttribute = async (
   res: Response<{ status: 200; added: boolean }>
 ) => {
   // Add missing `$groups` attribute automatically if it's being referenced by a Saved Group
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   req.checkPermissions("manageTargetingAttributes");
 
@@ -1299,7 +1299,7 @@ export const autoAddGroupsAttribute = async (
 };
 
 export async function getApiKeys(req: AuthRequest, res: Response) {
-  const context = await getContextFromReq(req);
+  const context = getContextFromReq(req);
   const keys = await getAllApiKeysByOrganization(context);
   const filteredKeys = keys.filter((k) => !k.userId || k.userId === req.userId);
 
@@ -1320,7 +1320,7 @@ export async function postApiKey(
   }>,
   res: Response
 ) {
-  const { org, userId } = await getContextFromReq(req);
+  const { org, userId } = getContextFromReq(req);
   const {
     description = "",
     environment = "",
@@ -1411,7 +1411,7 @@ export async function deleteApiKey(
   req: AuthRequest<{ key?: string; id?: string }>,
   res: Response
 ) {
-  const context = await getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { userId, org } = context;
   // Old API keys did not have an id, so we need to delete by the key value itself
   const { key, id } = req.body;
@@ -1455,7 +1455,7 @@ export async function postApiKeyReveal(
   req: AuthRequest<{ id: string }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.body;
 
   const key = await getUnredactedSecretKey(org.id, id);
@@ -1486,7 +1486,7 @@ export async function postApiKeyReveal(
 }
 
 export async function getWebhooks(req: AuthRequest, res: Response) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const webhooks = await WebhookModel.find({
     organization: org.id,
   });
@@ -1507,7 +1507,7 @@ export async function postWebhook(
 ) {
   req.checkPermissions("manageWebhooks");
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { name, endpoint, project, environment } = req.body;
 
   const webhook = await createWebhook(
@@ -1530,7 +1530,7 @@ export async function putWebhook(
 ) {
   req.checkPermissions("manageWebhooks");
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
 
   const webhook = await WebhookModel.findOne({
@@ -1568,7 +1568,7 @@ export async function deleteWebhook(
 ) {
   req.checkPermissions("manageWebhooks");
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
 
   await WebhookModel.deleteOne({
@@ -1589,7 +1589,7 @@ export async function postImportConfig(
 ) {
   req.checkPermissions("organizationSettings");
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { contents } = req.body;
 
   const config: ConfigFile = JSON.parse(contents);
@@ -1657,7 +1657,7 @@ export async function addOrphanedUser(
     );
   }
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const { id } = req.params;
   const {
@@ -1763,7 +1763,7 @@ export async function putAdminResetUserPassword(
     throw new Error("This functionality is not available when using SSO");
   }
 
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const isUserToUpdateInSameOrg = org.members.find(
     (member) => member.id === userToUpdateId
   );
@@ -1790,7 +1790,7 @@ export async function putLicenseKey(
   req: AuthRequest<{ licenseKey: string }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const orgId = org?.id;
   if (!orgId) {
     throw new Error("Must be part of an organization");
@@ -1856,7 +1856,7 @@ export async function putDefaultRole(
   req: AuthRequest<{ defaultRole: MemberRole }>,
   res: Response
 ) {
-  const { org } = await getContextFromReq(req);
+  const { org } = getContextFromReq(req);
   const { defaultRole } = req.body;
 
   const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
