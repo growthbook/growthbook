@@ -1,6 +1,7 @@
 import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import md5 from "md5";
+import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { getFeatureDefinitions } from "../services/features";
 import { CRON_ENABLED, WEBHOOKS } from "../util/secrets";
 import { SDKPayloadKey } from "../../types/sdk-payload";
@@ -137,11 +138,15 @@ export async function fireWebhook({
   const secret = `whsec_${signature}`;
   const webhookID = `msg_${md5(key + date.getTime()).substr(0, 16)}`;
   const data = sendPayload ? { payload } : {};
-  const body = {
-    type: "payload.changed",
-    timestamp: date.toISOString(),
-    data,
-  };
+
+  let body;
+  if (method !== "GET") {
+    body = JSON.stringify({
+      type: "payload.changed",
+      timestamp: date.toISOString(),
+      data,
+    });
+  }
   const res = await fetch(url, {
     headers: {
       "Content-Type": "application/json",
@@ -152,7 +157,7 @@ export async function fireWebhook({
       ...JSON.parse(headers),
     },
     method,
-    body: JSON.stringify(body),
+    body,
   }).catch((e) => {
     createSdkWebhookLog({
       webhookId,
@@ -161,7 +166,7 @@ export async function fireWebhook({
       payload: JSON.parse(payload),
       result: {
         state: "error",
-        responseBody: e.responseBody,
+        responseBody: e.body,
         responseCode: e.statusCode,
       },
     });
@@ -198,9 +203,9 @@ export async function queueSingleWebhookById(webhookId: string) {
       return;
     }
 
-    // TODO This probably needs to renamed
     const defs = await getFeatureDefinitions({
       organization: connection.organization,
+      capabilities: getConnectionSDKCapabilities(connection),
       environment: connection.environment,
       projects: connection.projects,
       encryptionKey: connection.encryptPayload
@@ -272,6 +277,7 @@ export async function queueGlobalWebhooks(
       ) {
         const defs = await getFeatureDefinitions({
           organization: connection.organization,
+          capabilities: getConnectionSDKCapabilities(connection),
           environment: connection.environment,
           projects: connection.projects,
           encryptionKey: connection.encryptPayload

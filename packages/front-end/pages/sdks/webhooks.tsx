@@ -12,18 +12,33 @@ import WebhooksModal from "@/components/Settings/WebhooksModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import usePermissions from "@/hooks/usePermissions";
+import { useUser } from "@/services/UserContext";
 
 export default function SDKWebhooks({ sdkid }) {
-  const { data, mutate } = useApi(`/webhooks/sdk/${sdkid}`);
+  const { data, mutate } = useApi<{ webhooks?: WebhookInterface[] }>(
+    `/webhooks/sdk/${sdkid}`
+  );
   const [
     createModalOpen,
     setCreateModalOpen,
   ] = useState<null | Partial<WebhookInterface>>(null);
   const { apiCall } = useAuth();
+  const permissions = usePermissions();
+  const { accountPlan } = useUser();
 
+  const hasWebhookPermitions = permissions.check("manageWebhooks");
+  const amountOfWebhooks = data?.webhooks?.length || 0;
+  const webhookLimits = {
+    pro: 99,
+    starter: 2,
+  };
+  const disableWebhookCreate =
+    (accountPlan?.includes("pro") && amountOfWebhooks < webhookLimits.pro) ||
+    accountPlan?.includes("starter") ||
+    (accountPlan?.includes("unknown") &&
+      amountOfWebhooks < webhookLimits.starter);
   const renderTableRows = () => {
-    console.log(data?.webhooks);
-
     // only rener table is there is data to show
     return data?.webhooks?.map((webhook) => (
       <tr key={webhook.name}>
@@ -50,7 +65,7 @@ export default function SDKWebhooks({ sdkid }) {
             title="Edit this webhook"
             onClick={(e) => {
               e.preventDefault();
-              setCreateModalOpen(webhook);
+              if (!disableWebhookCreate) setCreateModalOpen(webhook);
             }}
           >
             <FaPencilAlt />
@@ -73,15 +88,18 @@ export default function SDKWebhooks({ sdkid }) {
   };
   const renderEmptyState = () => (
     <>
-      <button
-        className="btn btn-primary mb-2"
-        onClick={(e) => {
-          e.preventDefault();
-          setCreateModalOpen({});
-        }}
-      >
-        Add webhook
-      </button>
+      {hasWebhookPermitions && (
+        <button
+          className="btn btn-primary mb-2"
+          disabled={disableWebhookCreate}
+          onClick={(e) => {
+            e.preventDefault();
+            if (!disableWebhookCreate) setCreateModalOpen({});
+          }}
+        >
+          Add webhook
+        </button>
+      )}
       <Tooltip
         body={
           <div style={{ lineHeight: 1.5 }}>
@@ -120,20 +138,24 @@ export default function SDKWebhooks({ sdkid }) {
   const renderWebhooks = () => (
     <>
       {renderTable()}
-      <button
-        className="btn btn-link mb-3 "
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          setCreateModalOpen({});
-        }}
-      >
-        <FaPlusCircle className="mr-1" />
-        Add Webhook
-      </button>
+      {hasWebhookPermitions && (
+        <button
+          className="btn btn-link mb-3 "
+          type="button"
+          disabled={disableWebhookCreate}
+          onClick={(e) => {
+            e.preventDefault();
+            setCreateModalOpen({});
+          }}
+        >
+          <FaPlusCircle className="mr-1" />
+          Add Webhook
+        </button>
+      )}
     </>
   );
-  const isEmpty = data?.webhooks.length === 0;
+
+  const isEmpty = data?.webhooks?.length === 0;
   return (
     <div className="gb-sdk-connections-webhooks mb-5">
       <h2>SDK Webhooks</h2>

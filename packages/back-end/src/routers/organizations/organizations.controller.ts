@@ -1558,7 +1558,7 @@ export async function postWebhookSDK(
   req.checkPermissions("manageWebhooks");
 
   // enterprise is unlimited
-  const LiMITS = {
+  const limits = {
     pro: 99,
     starter: 2,
   };
@@ -1566,22 +1566,22 @@ export async function postWebhookSDK(
   const { name, endpoint, sdkid, sendPayload, headers, httpMethod } = req.body;
   const webhookcount = await countWebhooksByOrg(org.id);
   if (
-    // IS_CLOUD &&
+    IS_CLOUD &&
     getAccountPlan(org).includes("pro") &&
-    webhookcount > LiMITS.pro
+    webhookcount > limits.pro
   ) {
-    res.status(426).json({
+    return res.status(426).json({
       status: 426,
       message: "limit has been reaced for pro account",
     });
   }
 
   if (
-    // IS_CLOUD &&
+    IS_CLOUD &&
     getAccountPlan(org).includes("starter") &&
-    webhookcount > LiMITS.starter
+    webhookcount > limits.starter
   ) {
-    res.status(426).json({
+    return res.status(426).json({
       status: 426,
       message:
         "limit has been reaced for starter account please upgrade to pro",
@@ -1597,7 +1597,7 @@ export async function postWebhookSDK(
     httpMethod,
   });
   queueSingleWebhookById(webhook);
-  res.status(200).json({
+  return res.status(200).json({
     status: 200,
     webhook,
   });

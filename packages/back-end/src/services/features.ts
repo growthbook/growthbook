@@ -417,6 +417,7 @@ export type FeatureDefinitionArgs = {
   includeExperimentNames?: boolean;
   hashSecureAttributes?: boolean;
 };
+
 export type FeatureDefinitionSDKPayload = {
   features: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
