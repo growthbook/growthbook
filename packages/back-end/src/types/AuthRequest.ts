@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import { ReadAccessFilter } from "shared/permissions";
 import {
   EnvScopedPermission,
   GlobalPermission,
@@ -8,6 +7,7 @@ import {
 } from "../../types/organization";
 import { AuditInterface } from "../../types/audit";
 import { SSOConnectionInterface } from "../../types/sso-connection";
+import { TeamInterface } from "../../types/team";
 
 export type PermissionFunctions = {
   checkPermissions(permission: GlobalPermission): void;
@@ -32,11 +32,11 @@ export type AuthRequest<
   verified?: boolean;
   userId?: string;
   loginMethod?: SSOConnectionInterface;
-  readAccessFilter: ReadAccessFilter;
   authSubject?: string;
   name?: string;
   superAdmin?: boolean;
   organization?: OrganizationInterface;
+  teams: TeamInterface[];
   audit: (data: Partial<AuditInterface>) => Promise<void>;
 } & PermissionFunctions;
 
