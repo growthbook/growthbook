@@ -4,12 +4,6 @@ import {
   MemberRole,
 } from "back-end/types/organization";
 
-// there are some cases, like in async jobs, where we need to provide the job with full access permission. E.G. updateScheduledFeature
-export const FULL_ACCESS_PERMISSIONS = {
-  globalReadAccess: true,
-  projects: [],
-};
-
 export function hasPermission(
   userPermissions: UserPermissions | undefined,
   permissionToCheck: Permission,
@@ -41,6 +35,12 @@ export function roleSupportsEnvLimit(role: MemberRole): boolean {
 export type ReadAccessFilter = {
   globalReadAccess: boolean;
   projects: { id: string; readAccess: boolean }[];
+};
+
+// there are some cases, like in async jobs, where we need to provide the job with full access permission. E.G. updateScheduledFeature
+export const FULL_ACCESS_PERMISSIONS: ReadAccessFilter = {
+  globalReadAccess: true,
+  projects: [],
 };
 
 export function getReadAccessFilter(userPermissions: UserPermissions) {
