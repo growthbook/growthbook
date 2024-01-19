@@ -17,7 +17,6 @@ import {
   getEnvironments,
   getEnvironmentIdsFromOrg,
   getContextFromReq,
-  ReqContext,
 } from "../services/organizations";
 import {
   addFeatureRule,
@@ -90,7 +89,7 @@ import {
   getExperimentsByTrackingKeys,
   getAllPayloadExperiments,
 } from "../models/ExperimentModel";
-import { OrganizationInterface } from "../../types/organization";
+import { ReqContext } from "../../types/organization";
 import { ExperimentInterface } from "../../types/experiment";
 
 class UnrecoverableApiError extends Error {

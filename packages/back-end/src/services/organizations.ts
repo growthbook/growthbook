@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
-import { ReadAccessFilter, getReadAccessFilter } from "shared/permissions";
+import { getReadAccessFilter } from "shared/permissions";
 import {
   createOrganization,
   findAllOrganizations,
@@ -23,6 +23,7 @@ import {
   OrganizationInterface,
   PendingMember,
   ProjectMemberRole,
+  ReqContext,
 } from "../../types/organization";
 import { ExperimentOverride } from "../../types/api";
 import { ConfigFile } from "../init/config";
@@ -97,15 +98,6 @@ export function validateLoginMethod(
 
   return true;
 }
-
-export type ReqContext = {
-  org: OrganizationInterface;
-  userId: string;
-  email: string;
-  environments: string[];
-  userName: string;
-  readAccessFilter: ReadAccessFilter;
-};
 
 export function getContextFromReq(req: AuthRequest): ReqContext {
   if (!req.organization) {

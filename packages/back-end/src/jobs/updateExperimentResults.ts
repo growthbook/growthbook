@@ -16,10 +16,7 @@ import {
   getExperimentMetricById,
   getRegressionAdjustmentInfo,
 } from "../services/experiments";
-import {
-  ReqContext,
-  getConfidenceLevelsForOrg,
-} from "../services/organizations";
+import { getConfidenceLevelsForOrg } from "../services/organizations";
 import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
 import { getMetricMap } from "../models/MetricModel";
@@ -30,6 +27,7 @@ import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { findProjectById } from "../models/ProjectModel";
 import { getExperimentWatchers } from "../models/WatchModel";
 import { getFactTableMap } from "../models/FactTableModel";
+import { ReqContext } from "../../types/organization";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;

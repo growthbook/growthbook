@@ -9,7 +9,7 @@ import {
   LegacyExperimentInterface,
   Variation,
 } from "../../types/experiment";
-import { OrganizationInterface } from "../../types/organization";
+import { OrganizationInterface, ReqContext } from "../../types/organization";
 import { VisualChange } from "../../types/visual-changeset";
 import {
   determineNextDate,
@@ -29,10 +29,7 @@ import { SDKPayloadKey } from "../../types/sdk-payload";
 import { EventAuditUser } from "../events/event-types";
 import { FeatureInterface } from "../../types/feature";
 import { getAffectedSDKPayloadKeys } from "../util/features";
-import {
-  ReqContext,
-  getEnvironmentIdsFromOrg,
-} from "../services/organizations";
+import { getEnvironmentIdsFromOrg } from "../services/organizations";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";

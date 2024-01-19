@@ -18,7 +18,7 @@ import {
   refreshSDKPayloadCache,
 } from "../services/features";
 import { upgradeFeatureInterface } from "../util/migrations";
-import { OrganizationInterface } from "../../types/organization";
+import { OrganizationInterface, ReqContext } from "../../types/organization";
 import {
   FeatureCreatedNotificationEvent,
   FeatureDeletedNotificationEvent,
@@ -32,10 +32,7 @@ import {
 import { EventAuditUser } from "../events/event-types";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { logger } from "../util/logger";
-import {
-  ReqContext,
-  getEnvironmentIdsFromOrg,
-} from "../services/organizations";
+import { getEnvironmentIdsFromOrg } from "../services/organizations";
 import { createEvent } from "./EventModel";
 import {
   addLinkedFeatureToExperiment,

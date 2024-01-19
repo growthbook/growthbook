@@ -4,10 +4,9 @@ import {
 } from "@growthbook/growthbook";
 import { EventAuditUser } from "../src/events/event-types";
 import { PermissionFunctions } from "../src/types/AuthRequest";
-import { ReqContext } from "../src/services/organizations";
 import { AuditInterface } from "./audit";
 import { ExperimentStatus } from "./experiment";
-import { OrganizationInterface } from "./organization";
+import { OrganizationInterface, ReqContext } from "./organization";
 import { UserInterface } from "./user";
 
 export interface ExperimentOverride {

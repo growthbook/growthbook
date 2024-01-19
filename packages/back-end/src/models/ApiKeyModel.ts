@@ -15,7 +15,7 @@ import {
   SECRET_API_KEY_ROLE,
 } from "../util/secrets";
 import { roleForApiKey } from "../util/api-key.util";
-import { ReqContext } from "../services/organizations";
+import { ReqContext } from "../../types/organization";
 import { findAllOrganizations } from "./OrganizationModel";
 
 const apiKeySchema = new mongoose.Schema({

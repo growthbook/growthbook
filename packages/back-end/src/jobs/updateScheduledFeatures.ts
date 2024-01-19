@@ -5,12 +5,9 @@ import {
   updateFeature,
 } from "../models/FeatureModel";
 import { getNextScheduledUpdate } from "../services/features";
-import {
-  ReqContext,
-  getEnvironmentIdsFromOrg,
-  getOrganizationById,
-} from "../services/organizations";
+import { getEnvironmentIdsFromOrg } from "../services/organizations";
 import { logger } from "../util/logger";
+import { ReqContext } from "../../types/organization";
 
 type UpdateSingleFeatureJob = Job<{
   featureId: string;

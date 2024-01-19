@@ -71,6 +71,7 @@ import {
 import {
   ExperimentUpdateSchedule,
   OrganizationInterface,
+  ReqContext,
 } from "../../types/organization";
 import { logger } from "../util/logger";
 import { DataSourceInterface } from "../../types/datasource";
@@ -108,7 +109,7 @@ import {
   analyzeExperimentResults,
   getMetricSettingsForStatsEngine,
 } from "./stats";
-import { ReqContext, getEnvironmentIdsFromOrg } from "./organizations";
+import { getEnvironmentIdsFromOrg } from "./organizations";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 

@@ -5,7 +5,7 @@ import uniqid from "uniqid";
 import { hasVisualChanges } from "shared/util";
 import { ExperimentInterface, Variation } from "../../types/experiment";
 import { ApiVisualChangeset } from "../../types/openapi";
-import { OrganizationInterface } from "../../types/organization";
+import { OrganizationInterface, ReqContext } from "../../types/organization";
 import {
   VisualChange,
   VisualChangesetInterface,
@@ -14,7 +14,6 @@ import {
 import { EventAuditUser } from "../events/event-types";
 import { refreshSDKPayloadCache } from "../services/features";
 import { visualChangesetsHaveChanges } from "../services/experiments";
-import { ReqContext } from "../services/organizations";
 import {
   getExperimentById,
   getPayloadKeys,

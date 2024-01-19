@@ -5,7 +5,7 @@ import { omit } from "lodash";
 import { hasReadAccess } from "shared/permissions";
 import { ApiProject } from "../../types/openapi";
 import { ProjectInterface, ProjectSettings } from "../../types/project";
-import { ReqContext } from "../services/organizations";
+import { ReqContext } from "../../types/organization";
 
 const projectSchema = new mongoose.Schema({
   id: {

@@ -4,7 +4,7 @@ import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import { getConfigMetrics, usingFileConfig } from "../init/config";
 import { upgradeMetricDoc } from "../util/migrations";
 import { EventAuditUser } from "../events/event-types";
-import { ReqContext } from "../services/organizations";
+import { ReqContext } from "../../types/organization";
 import { queriesSchema } from "./QueryModel";
 import { ImpactEstimateModel } from "./ImpactEstimateModel";
 import { removeMetricFromExperiments } from "./ExperimentModel";
