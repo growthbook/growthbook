@@ -1,6 +1,7 @@
 import Agenda, { Job } from "agenda";
 import { getScopedSettings } from "shared/settings";
 import { getSnapshotAnalysis } from "shared/util";
+import { FULL_ACCESS_PERMISSIONS } from "shared/permissions";
 import {
   getExperimentById,
   getExperimentsToUpdate,
@@ -95,7 +96,14 @@ export default async function (agenda: Agenda) {
     experimentId: string
   ) {
     const job = agenda.create(UPDATE_SINGLE_EXP, {
-      organization,
+      context: {
+        org: organization,
+        userId: "",
+        email: "",
+        environments: [],
+        userName: "",
+        readAccessFilter: FULL_ACCESS_PERMISSIONS,
+      },
       experimentId,
     }) as UpdateSingleExpJob;
 

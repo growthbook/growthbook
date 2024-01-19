@@ -43,6 +43,22 @@ export const FULL_ACCESS_PERMISSIONS: ReadAccessFilter = {
   projects: [],
 };
 
+export function getApiKeyReadAccessFilter(
+  role: string | undefined
+): ReadAccessFilter {
+  let readAccessFilter: ReadAccessFilter = {
+    globalReadAccess: false,
+    projects: [],
+  };
+
+  // Eventually, we may support API keys that don't have readAccess for all projects
+  if (role && (role === "admin" || role === "readonly")) {
+    readAccessFilter = FULL_ACCESS_PERMISSIONS;
+  }
+
+  return readAccessFilter;
+}
+
 export function getReadAccessFilter(userPermissions: UserPermissions) {
   const readAccess: ReadAccessFilter = {
     globalReadAccess: userPermissions.global.permissions.readData || false,

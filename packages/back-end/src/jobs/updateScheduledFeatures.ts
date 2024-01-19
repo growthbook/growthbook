@@ -1,4 +1,5 @@
 import Agenda, { Job } from "agenda";
+import { FULL_ACCESS_PERMISSIONS } from "shared/permissions";
 import {
   getFeature,
   getScheduledFeaturesToUpdate,
@@ -31,7 +32,14 @@ async function queueFeatureUpdate(
 ) {
   const job = agenda.create(UPDATE_SINGLE_FEATURE, {
     featureId: feature.id,
-    organization: feature.organization,
+    context: {
+      org: feature.organization,
+      userId: "",
+      email: "",
+      environments: [],
+      userName: "",
+      readAccessFilter: FULL_ACCESS_PERMISSIONS,
+    },
   }) as UpdateSingleFeatureJob;
 
   job.unique({

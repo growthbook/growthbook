@@ -349,7 +349,7 @@ export async function updateExperiment({
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
-  user: EventAuditUser; //MK TODO: Can I add this to the ReqContext obj?
+  user: EventAuditUser;
   changes: Changeset;
   bypassWebhooks?: boolean;
 }): Promise<ExperimentInterface | null> {

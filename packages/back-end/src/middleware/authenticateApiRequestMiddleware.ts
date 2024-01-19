@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import {
-  FULL_ACCESS_PERMISSIONS,
+  getApiKeyReadAccessFilter,
   getReadAccessFilter,
   hasPermission,
 } from "shared/permissions";
@@ -66,7 +66,7 @@ export default function authenticateApiRequestMiddleware(
   // Lookup organization by secret key and store in req
   lookupOrganizationByApiKey(secretKey)
     .then(async (apiKeyPartial) => {
-      const { organization, secret, id, userId } = apiKeyPartial;
+      const { organization, secret, id, userId, role } = apiKeyPartial;
       if (!organization) {
         throw new Error("Invalid API key");
       }
@@ -133,7 +133,7 @@ export default function authenticateApiRequestMiddleware(
           ? getReadAccessFilter(
               getUserPermissions(userId, req.organization, teams)
             )
-          : FULL_ACCESS_PERMISSIONS,
+          : getApiKeyReadAccessFilter(role),
       };
 
       // Check permissions for user API keys
