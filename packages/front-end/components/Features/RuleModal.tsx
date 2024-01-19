@@ -29,9 +29,10 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useIncrementer from "@/hooks/useIncrementer";
+import { useAuth } from "@/services/auth";
+import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
-import { useAuth } from "../../services/auth";
 import SelectField from "../Forms/SelectField";
 import UpgradeModal from "../Settings/UpgradeModal";
 import StatusIndicator from "../Experiment/StatusIndicator";
@@ -635,6 +636,13 @@ export default function RuleModal({
             defaultValue={form.watch("condition") || ""}
             onChange={(value) => form.setValue("condition", value)}
             key={conditionKey}
+          />
+          <PrerequisiteTargetingField
+            value={form.watch("prerequisites") || []}
+            setValue={(prerequisites) =>
+              form.setValue("prerequisites", prerequisites)
+            }
+            feature={feature}
           />
         </>
       )}

@@ -118,78 +118,86 @@ export default function PrerequisiteModal({
         mutate();
       })}
     >
-      <SelectField
-        label="Prerequisite feature"
-        options={featureOptions}
-        value={form.watch("parentId")}
-        onChange={(v) => {
-          form.setValue("parentId", v);
-          form.setValue("parentCondition", "");
-        }}
-        sort={false}
-      />
+      <div className="row mt-2 mb-3">
+        <div className="col-4">
+          <SelectField
+            label="Prerequisite feature"
+            options={featureOptions}
+            value={form.watch("parentId")}
+            onChange={(v) => {
+              form.setValue("parentId", v);
+              form.setValue("parentCondition", "");
+            }}
+            sort={false}
+          />
+        </div>
 
-      {parentFeature ? (
-        <table className="table table-sm border mb-3 bg-light">
-          <thead className="uppercase-title">
-            <tr>
-              <th>Feature Key</th>
-              <th>Type</th>
-              <th>Default value</th>
-              <th>Environments</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>
-                <a
-                  href={`/features/${form.watch("parentId")}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {form.watch("parentId")}
-                  <FaExternalLinkAlt className="ml-1" />
-                </a>
-              </td>
-              <td>{parentFeature.valueType}</td>
-              <td>
-                <div
-                  className={clsx({
-                    small: parentFeature.valueType === "json",
-                  })}
-                >
-                  <ValueDisplay
-                    value={getFeatureDefaultValue(parentFeature)}
-                    type={parentFeature.valueType}
-                    full={false}
-                  />
-                </div>
-              </td>
-              <td>
-                <div className="d-flex small">
-                  {environments.map((env) => (
-                    <div key={env.id} className="mr-3">
-                      <div className="font-weight-bold">{env.id}</div>
-                      <div>
-                        {parentFeature?.environmentSettings?.[env.id]
-                          ?.enabled ? (
-                          <span className="text-success font-weight-bold uppercase-title">
-                            ON
-                          </span>
-                        ) : (
-                          <span className="text-danger font-weight-bold uppercase-title">
-                            OFF
-                          </span>
-                        )}
+        {parentFeature ? (
+          <div className="col pl-4">
+            <div className="border rounded px-3 pt-1 bg-light">
+              <table className="table table-sm mb-0">
+                <thead className="uppercase-title text-muted">
+                  <tr>
+                    <th className="border-top-0">Feature Key</th>
+                    <th className="border-top-0">Type</th>
+                    <th className="border-top-0">Default value</th>
+                    <th className="border-top-0">Environments</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <a
+                        href={`/features/${form.watch("parentId")}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {form.watch("parentId")}
+                        <FaExternalLinkAlt className="ml-1" />
+                      </a>
+                    </td>
+                    <td>{parentFeature.valueType}</td>
+                    <td>
+                      <div
+                        className={clsx({
+                          small: parentFeature.valueType === "json",
+                        })}
+                      >
+                        <ValueDisplay
+                          value={getFeatureDefaultValue(parentFeature)}
+                          type={parentFeature.valueType}
+                          full={false}
+                        />
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      ) : null}
+                    </td>
+                    <td>
+                      <div className="d-flex small">
+                        {environments.map((env) => (
+                          <div key={env.id} className="mr-3">
+                            <div className="font-weight-bold">{env.id}</div>
+                            <div>
+                              {parentFeature?.environmentSettings?.[env.id]
+                                ?.enabled ? (
+                                <span className="text-success font-weight-bold uppercase-title">
+                                  ON
+                                </span>
+                              ) : (
+                                <span className="text-danger font-weight-bold uppercase-title">
+                                  OFF
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
+      </div>
 
       {isCyclic && (
         <div className="alert alert-danger">

@@ -116,7 +116,7 @@ export default function SavedGroupTargetingField({ value, setValue }: Props) {
               );
             })}
             <a
-              href="#"
+              role="button"
               className="btn btn-outline-primary"
               onClick={(e) => {
                 e.preventDefault();
@@ -141,7 +141,8 @@ export default function SavedGroupTargetingField({ value, setValue }: Props) {
               No saved group targeting applied.
             </em>
             <a
-              href="#"
+              className="a"
+              role="button"
               onClick={(e) => {
                 e.preventDefault();
                 setValue([

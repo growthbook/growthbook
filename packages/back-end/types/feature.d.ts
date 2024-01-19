@@ -80,6 +80,7 @@ export interface BaseRule {
   enabled?: boolean;
   scheduleRules?: ScheduleRule[];
   savedGroups?: SavedGroupTargeting[];
+  prerequisites?: FeaturePrerequisite[];
 }
 
 export interface ForceRule extends BaseRule {
