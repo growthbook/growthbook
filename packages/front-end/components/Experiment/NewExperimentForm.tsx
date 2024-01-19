@@ -36,7 +36,7 @@ import NamespaceSelector from "../Features/NamespaceSelector";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "../Features/SavedGroupTargetingField";
-import MetricsSelector from "./MetricsSelector";
+import MetricsSelector, { MetricsSelectorTooltip } from "./MetricsSelector";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -291,6 +291,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   });
 
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
+  const exposureQueryId = form.getValues("exposureQueryId");
+  const userIdType = exposureQueries.find(
+    (e) => e.id === form.getValues("exposureQueryId")
+  )?.userIdType;
   const status = form.watch("status");
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
@@ -547,31 +551,51 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     value: q.id,
                   };
                 })}
+                helpText={
+                  <>
+                    <div>
+                      Should correspond to the Identifier Type used to randomize
+                      units for this experiment
+                    </div>
+                    {userIdType ? (
+                      <>
+                        Identifier Type: <code>{userIdType}</code>
+                      </>
+                    ) : null}
+                  </>
+                }
               />
             )}
             <div className="form-group">
-              <label className="font-weight-bold mb-1">Goal Metrics</label>
-              <div className="mb-1 font-italic">
-                Metrics you are trying to improve with this experiment.
+              <div className="mb-1">
+                <span className="font-italic">
+                  Metrics you are trying to improve with this experiment.{" "}
+                </span>
+                <MetricsSelectorTooltip />
               </div>
               <MetricsSelector
                 selected={form.watch("metrics") ?? []}
                 onChange={(metrics) => form.setValue("metrics", metrics)}
                 datasource={datasource?.id}
+                exposureQueryId={exposureQueryId}
                 project={project}
                 includeFacts={true}
               />
             </div>
             <div className="form-group">
               <label className="font-weight-bold mb-1">Guardrail Metrics</label>
-              <div className="mb-1 font-italic">
-                Metrics you want to monitor, but are NOT specifically trying to
-                improve.
+              <div className="mb-1">
+                <span className="font-italic">
+                  Metrics you want to monitor, but are NOT specifically trying
+                  to improve.{" "}
+                </span>
+                <MetricsSelectorTooltip />
               </div>
               <MetricsSelector
                 selected={form.watch("guardrails") ?? []}
                 onChange={(metrics) => form.setValue("guardrails", metrics)}
                 datasource={datasource?.id}
+                exposureQueryId={exposureQueryId}
                 project={project}
                 includeFacts={true}
               />
