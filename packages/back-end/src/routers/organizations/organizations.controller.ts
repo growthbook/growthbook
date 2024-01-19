@@ -1502,7 +1502,7 @@ export async function getWebhooksSDK(
   req: AuthRequest<Record<string, unknown>, { sdkid: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { sdkid } = req.params;
   const webhooks = await WebhookModel.find({
     organization: org.id,
@@ -1570,7 +1570,7 @@ export async function postWebhookSDK(
     pro: 99,
     starter: 2,
   };
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { name, endpoint, sdkid, sendPayload, headers, httpMethod } = req.body;
   const webhookcount = await countWebhooksByOrg(org.id);
   if (
@@ -1671,7 +1671,7 @@ export async function deleteWebhookSDK(
 ) {
   req.checkPermissions("manageWebhooks");
 
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
 
   await WebhookModel.deleteOne({
