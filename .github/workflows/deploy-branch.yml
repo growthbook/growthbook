@@ -1,0 +1,51 @@
+name: Deploy Branch to Docker Hub
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "The git branch name to build and deploy to Docker"
+        required: true
+        type: string
+jobs:
+  # Build and publish the commit to docker
+  docker:
+    runs-on: ubuntu-latest
+    if: ${{ github.repository == 'growthbook/growthbook' }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ inputs.branch }}
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Install Depot CLI
+        uses: depot/setup-action@v1
+
+      - name: Prepare build metadata
+        id: metadata
+        run: |
+          # Store current git hash and date in files
+          mkdir -p buildinfo
+          echo $(git rev-parse HEAD) > buildinfo/SHA
+          printf '%(%Y-%m-%dT%H:%M:%SZ)T' > buildinfo/DATE
+          # Clean up branch name (replace slash with underscore) and store in output
+          echo "tag=${{ inputs.branch }}" | sed 's#/#_#g' > $GITHUB_OUTPUT
+
+      - name: Build, tag, and push image to Docker Hub
+        uses: depot/build-push-action@v1
+        with:
+          push: true
+          context: .
+          project: vmp2ssvj9r
+          tags: |
+            growthbook/growthbook:branch-${{ steps.metadata.outputs.tag }}
+          platforms: linux/amd64,linux/arm64
