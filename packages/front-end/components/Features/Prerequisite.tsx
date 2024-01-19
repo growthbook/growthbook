@@ -45,7 +45,6 @@ export default function Prerequisite({
               <a
                 href={`/features/${parentFeature.id}`}
                 target="_blank"
-                rel="noreferrer"
               >
                 {parentFeature.id}
                 <FaExternalLinkAlt className="ml-1" />
@@ -104,7 +103,7 @@ export default function Prerequisite({
             </div>
             <div className="col">
               <ConditionDisplay
-                condition={prerequisite?.parentCondition ?? ""}
+                prerequisites={[prerequisite]}
               />
             </div>
           </div>

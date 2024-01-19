@@ -1,9 +1,12 @@
 import { SavedGroupInterface } from "back-end/types/saved-group";
 import stringify from "json-stringify-pretty-compact";
-import { useMemo } from "react";
-import { SavedGroupTargeting } from "back-end/types/feature";
+import { ReactNode, useMemo } from "react";
+import {
+  FeaturePrerequisite,
+  SavedGroupTargeting,
+} from "back-end/types/feature";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { jsonToConds, useAttributeMap } from "@/services/features";
+import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import InlineCode from "../SyntaxHighlighting/InlineCode";
 import SavedGroupTargetingDisplay from "./SavedGroupTargetingDisplay";
@@ -135,16 +138,88 @@ function MultiValueDisplay({ value }: { value: string }) {
   );
 }
 
+function getConditionParts({
+  conditions,
+  savedGroups,
+  initialAnd = false,
+  renderPrerequisite = false,
+}: {
+  conditions: Condition[];
+  savedGroups?: SavedGroupInterface[];
+  initialAnd?: boolean;
+  renderPrerequisite?: boolean;
+}) {
+  return conditions.map(({ field, operator, value }, i) => {
+    let parentIdEl: ReactNode = null;
+    let fieldEl: ReactNode = (
+      <span className="mr-1 border px-2 bg-light rounded">{field}</span>
+    );
+    if (renderPrerequisite) {
+      const fieldParts = field.split("||");
+      if (fieldParts.length === 2) {
+        const parentId = fieldParts.shift();
+        field = fieldParts[0];
+        parentIdEl = (
+          <a
+            href={`/features/${parentId}`}
+            target="_blank"
+            className={`border px-2 bg-light rounded mr-1`}
+            rel="noreferrer"
+          >
+            {parentId}
+          </a>
+        );
+      }
+      if (field === "@parent") {
+        fieldEl = (
+          <span className="mr-1 border px-2 bg-light rounded">
+            value
+            <Tooltip
+              className="ml-1"
+              body="The evaluated value of the prerequisite feature"
+            />
+          </span>
+        );
+      }
+    }
+    return (
+      <div key={i} className="col-auto d-flex flex-wrap">
+        {(i > 0 || initialAnd) && <span className="mr-1">AND</span>}
+        {parentIdEl}
+        {fieldEl}
+        <span className="mr-1">{operatorToText(operator)}</span>
+        {hasMultiValues(operator) ? (
+          <MultiValueDisplay value={value} />
+        ) : needsValue(operator) ? (
+          <span className="mr-1 border px-2 bg-light rounded">
+            {getValue(operator, value, savedGroups)}
+          </span>
+        ) : (
+          ""
+        )}
+      </div>
+    );
+  });
+}
+
 export default function ConditionDisplay({
   condition,
   savedGroups: savedGroupTargeting,
+  prerequisites,
+  renderParentIds = false,
 }: {
-  condition: string;
+  condition?: string;
   savedGroups?: SavedGroupTargeting[];
+  prerequisites?: FeaturePrerequisite[];
+  renderParentIds?: boolean;
 }) {
   const { savedGroups } = useDefinitions();
+  const attributes = useAttributeMap();
+
+  const parts: ReactNode[] = [];
 
   const jsonFormatted = useMemo(() => {
+    if (!condition) return;
     try {
       const parsed = JSON.parse(condition);
       return stringify(parsed);
@@ -154,43 +229,20 @@ export default function ConditionDisplay({
     }
   }, [condition]);
 
-  const conds = jsonToConds(condition);
+  if (condition && jsonFormatted) {
+    const conds = jsonToConds(condition);
 
-  const attributes = useAttributeMap();
+    // Could not parse into simple conditions
+    if (conds === null || !attributes.size) {
+      return <InlineCode language="json" code={jsonFormatted} />;
+    }
 
-  // Could not parse into simple conditions
-  if (conds === null || !attributes.size) {
-    return <InlineCode language="json" code={jsonFormatted} />;
+    const conditionParts = getConditionParts({
+      conditions: conds,
+      savedGroups,
+    });
+    parts.push(...conditionParts);
   }
-
-  const parts = conds.map(({ field, operator, value }, i) => (
-    <div key={i} className="col-auto d-flex flex-wrap">
-      {i > 0 && <span className="mr-1">AND</span>}
-      <span className="mr-1 border px-2 bg-light rounded">
-        {field === "@parent" ? (
-          <>
-            value
-            <Tooltip
-              className="ml-1"
-              body="The evaluated value of the prerequisite feature"
-            />
-          </>
-        ) : (
-          field
-        )}
-      </span>
-      <span className="mr-1">{operatorToText(operator)}</span>
-      {hasMultiValues(operator) ? (
-        <MultiValueDisplay value={value} />
-      ) : needsValue(operator) ? (
-        <span className="mr-1 border px-2 bg-light rounded">
-          {getValue(operator, value, savedGroups)}
-        </span>
-      ) : (
-        ""
-      )}
-    </div>
-  ));
 
   if (savedGroupTargeting && savedGroupTargeting.length > 0) {
     parts.push(
@@ -201,6 +253,37 @@ export default function ConditionDisplay({
         key="saved-group-targeting"
       />
     );
+  }
+
+  if (prerequisites) {
+    const prereqConditionsGrouped = prerequisites
+      .map((p) => {
+        let cond = jsonToConds(p.parentCondition);
+        if (!cond) return null;
+        // add p.parentId to the condition
+        cond = cond.map(({ field, operator, value }) => {
+          if (renderParentIds) {
+            field = `${p.parentId}||${field}`;
+          }
+          return { field, operator, value };
+        });
+        return cond;
+      })
+      .filter(Boolean) as Condition[][];
+
+    const prereqConds =
+      prereqConditionsGrouped.reduce(
+        (acc, val) => val && acc.concat(val),
+        []
+      ) || [];
+
+    const prereqParts = getConditionParts({
+      conditions: prereqConds,
+      savedGroups,
+      renderPrerequisite: true,
+      initialAnd: parts.length > 0,
+    });
+    parts.push(...prereqParts);
   }
 
   return <div className="row">{parts}</div>;
