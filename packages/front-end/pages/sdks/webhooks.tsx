@@ -145,8 +145,8 @@ export default function SDKWebhooks({ sdkid }) {
 
   const renderTable = () => {
     return (
-      <div className="gb-webhook-table-container">
-        <table className="table appbox gbtable mb-1">
+      <div className="gb-webhook-table-container mb-3">
+        <table className="table appbox gbtable mb-0">
           <thead>
             <tr>
               <td>WEBHOOK</td>
@@ -166,7 +166,7 @@ export default function SDKWebhooks({ sdkid }) {
   const isEmpty = data?.webhooks?.length === 0;
   return (
     <div className="gb-sdk-connections-webhooks mb-5">
-      <h2>SDK Webhooks</h2>
+      <h2 className="mb-3">SDK Webhooks</h2>
       {createWebhookModalOpen && (
         <WebhooksModal
           close={() => setCreateWebhookModalOpen(null)}
