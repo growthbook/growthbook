@@ -239,6 +239,11 @@ export function validateFeatureRule(
       false
     );
   }
+  if (rule.prerequisites) {
+    if (rule.prerequisites.some((p) => !p.parentId)) {
+      throw new Error("Cannot have empty prerequisites");
+    }
+  }
   if (rule.type === "force") {
     const newValue = validateFeatureValue(
       feature,
