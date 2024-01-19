@@ -1500,6 +1500,7 @@ export async function getWebhooks(req: AuthRequest, res: Response) {
     webhooks,
   });
 }
+
 export async function getWebhooksSDK(
   req: AuthRequest<Record<string, unknown>, { sdkid: string }>,
   res: Response
