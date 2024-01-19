@@ -22,7 +22,7 @@ import { getEqualWeights } from "@/services/utils";
 import { generateVariationId, useAttributeSchema } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
-import useIncrementer from "@/hooks/useIncrementer";
+import { useIncrementer } from "@/hooks/useIncrementer";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import TagsInput from "../Tags/TagsInput";

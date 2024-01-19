@@ -15,6 +15,7 @@ interface Props {
   defaultValue: string;
   onChange: (value: string) => void;
   parentFeature?: FeatureInterface;
+  showPassIfLabel?: boolean;
 }
 
 export default function PrerequisiteInput(props: Props) {
@@ -58,12 +59,14 @@ export default function PrerequisiteInput(props: Props) {
 
   if (advanced || !parentValueMap.size || !simpleAllowed) {
     return (
-      <div className="mt-4 mb-3">
+      <div className={`mt-2 mb-3 ${!props.showPassIfLabel && "ml-2"}`}>
         <CodeTextArea
-          label={<span className="text-main">PASS IF</span>}
+          label={props.showPassIfLabel ? (<span className="text-main">PASS IF</span>) : undefined}
           language="json"
           value={value}
           setValue={setValue}
+          minLines={3}
+          maxLines={6}
           helpText={
             <>
               <div className="d-flex">
@@ -87,7 +90,7 @@ export default function PrerequisiteInput(props: Props) {
                   </div>
                 )}
               </div>
-              <div className="text-muted mt-2">
+              <div className="text-muted mt-1">
                 <div>
                   <code>"@parent"</code> refers to the prerequisite&apos;s
                   evaluated value.
@@ -112,7 +115,7 @@ export default function PrerequisiteInput(props: Props) {
   }
 
   return (
-    <div className="mb-3">
+    <div>
       <ul className={`mb-0 ${styles.conditionslist}`}>
         {conds.map(({ field, operator, value }, i) => {
           const attribute = parentValueMap.get(field);
@@ -188,12 +191,12 @@ export default function PrerequisiteInput(props: Props) {
               : [];
 
           return (
-            <li key={i} className={styles.listitem}>
-              <div className={`row ml-3 ${styles.listrow}`}>
-                {i > 0 ? (
-                  <span className={`${styles.and} mr-2`}>AND</span>
+            <li key={i} className={`${styles.listitem} py-0`}>
+              <div className={`row ${props.showPassIfLabel && "ml-3"} ${styles.listrow}`}>
+                {props.showPassIfLabel ? (
+                  <span className={styles.passif}>PASS IF</span>
                 ) : (
-                  <span className={`${styles.and} mr-2`}>PASS IF</span>
+                  <span className={`ml-2 ${styles.passif}`}>IF</span>
                 )}
                 <div className="col-sm-12 col-md mb-2">
                   <div className="appbox bg-light mb-0 px-3 py-2">

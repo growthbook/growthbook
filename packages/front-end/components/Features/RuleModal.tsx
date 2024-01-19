@@ -28,7 +28,7 @@ import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import useIncrementer from "@/hooks/useIncrementer";
+import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 import Field from "../Forms/Field";

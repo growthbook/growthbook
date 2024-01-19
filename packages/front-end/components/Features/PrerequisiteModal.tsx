@@ -13,7 +13,7 @@ import {
   getDefaultPrerequisiteParentCondition,
 } from "@/services/features";
 import track from "@/services/track";
-import useIncrementer from "@/hooks/useIncrementer";
+import { useIncrementer } from "@/hooks/useIncrementer";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { useAuth } from "@/services/auth";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
@@ -156,7 +156,11 @@ export default function PrerequisiteModal({
                         <FaExternalLinkAlt className="ml-1" />
                       </a>
                     </td>
-                    <td>{parentFeature.valueType}</td>
+                    <td>
+                      {parentFeature.valueType === "json"
+                        ? "JSON"
+                        : parentFeature.valueType}
+                    </td>
                     <td>
                       <div
                         className={clsx({
@@ -212,6 +216,7 @@ export default function PrerequisiteModal({
           defaultValue={form.watch("parentCondition")}
           onChange={(value) => form.setValue("parentCondition", value)}
           parentFeature={parentFeature}
+          showPassIfLabel={true}
           key={conditionKey}
         />
       ) : null}

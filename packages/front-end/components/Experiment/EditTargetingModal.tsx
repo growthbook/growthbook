@@ -9,7 +9,7 @@ import isEqual from "lodash/isEqual";
 import React, { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
 import { MdInfoOutline } from "react-icons/md";
-import useIncrementer from "@/hooks/useIncrementer";
+import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import { getEqualWeights } from "@/services/utils";
 import { useAttributeSchema } from "@/services/features";
