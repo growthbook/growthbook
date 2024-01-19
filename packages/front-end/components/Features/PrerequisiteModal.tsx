@@ -133,12 +133,12 @@ export default function PrerequisiteModal({
         </div>
 
         {parentFeature ? (
-          <div className="col pl-4">
+          <div className="col-8">
             <div className="border rounded px-3 pt-1 bg-light">
               <table className="table table-sm mb-0">
                 <thead className="uppercase-title text-muted">
                   <tr>
-                    <th className="border-top-0">Feature Key</th>
+                    <th className="border-top-0">Feature</th>
                     <th className="border-top-0">Type</th>
                     <th className="border-top-0">Default value</th>
                     <th className="border-top-0">Environments</th>

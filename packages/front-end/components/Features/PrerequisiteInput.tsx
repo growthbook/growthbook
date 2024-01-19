@@ -10,6 +10,7 @@ import SelectField from "../Forms/SelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
 import StringArrayField from "../Forms/StringArrayField";
 import styles from "./ConditionInput.module.scss";
+import {RxInfoCircled} from "react-icons/rx";
 
 interface Props {
   defaultValue: string;
@@ -59,7 +60,7 @@ export default function PrerequisiteInput(props: Props) {
 
   if (advanced || !parentValueMap.size || !simpleAllowed) {
     return (
-      <div className={`mt-2 mb-3 ${!props.showPassIfLabel && "ml-2"}`}>
+      <div className={`${!props.showPassIfLabel && "ml-2"}`}>
         <CodeTextArea
           label={props.showPassIfLabel ? (<span className="text-main">PASS IF</span>) : undefined}
           language="json"
@@ -94,16 +95,24 @@ export default function PrerequisiteInput(props: Props) {
                 <div>
                   <code>"@parent"</code> refers to the prerequisite&apos;s
                   evaluated value.
-                  <span className="ml-3">
-                    Ex: <code>{`{"@parent": {"$exists": true}}`}</code>
-                  </span>
+                  <Tooltip
+                    className="ml-3 text-info hover-underline"
+                    body={(
+                    <code>{`{"@parent": {"$exists": true}}`}</code>
+                  )}>
+                    <RxInfoCircled className="mr-1" />Example
+                  </Tooltip>
                 </div>
                 {parentFeatureValueType === "json" && (
                   <div>
                     You may also target specific JSON fields.
-                    <span className="ml-3">
-                      Ex: <code>{`{"foo.bar": {"$gt": 3}}`}</code>
-                    </span>
+                    <Tooltip
+                      className="ml-3 text-info hover-underline"
+                      body={(
+                        <code>{`{"foo.bar": {"$gt": 3}}`}</code>
+                      )}>
+                      <RxInfoCircled className="mr-1" />Example
+                    </Tooltip>
                   </div>
                 )}
               </div>
@@ -192,13 +201,11 @@ export default function PrerequisiteInput(props: Props) {
 
           return (
             <li key={i} className={`${styles.listitem} py-0`}>
-              <div className={`row ${props.showPassIfLabel && "ml-3"} ${styles.listrow}`}>
-                {props.showPassIfLabel ? (
+              <div className={`row ${props.showPassIfLabel ? "ml-3" : "pl-1"} ${styles.listrow}`}>
+                {props.showPassIfLabel && (
                   <span className={styles.passif}>PASS IF</span>
-                ) : (
-                  <span className={`ml-2 ${styles.passif}`}>IF</span>
                 )}
-                <div className="col-sm-12 col-md mb-2">
+                <div className="col-3">
                   <div className="appbox bg-light mb-0 px-3 py-2">
                     {field === "@parent" ? (
                       <>
@@ -213,7 +220,7 @@ export default function PrerequisiteInput(props: Props) {
                     )}
                   </div>
                 </div>
-                <div className="col-sm-12 col-md mb-2">
+                <div className="col-sm-12 col-md">
                   <SelectField
                     value={operator}
                     name="operator"
@@ -280,7 +287,7 @@ export default function PrerequisiteInput(props: Props) {
                     }}
                     name="value"
                     initialOption="Choose One..."
-                    containerClassName="col-sm-12 col-md mb-2"
+                    containerClassName="col-sm-12 col-md"
                     required
                   />
                 ) : attribute.datatype === "number" ? (
@@ -291,7 +298,7 @@ export default function PrerequisiteInput(props: Props) {
                     onChange={handleFieldChange}
                     name="value"
                     className={styles.matchingInput}
-                    containerClassName="col-sm-12 col-md mb-2"
+                    containerClassName="col-sm-12 col-md"
                     required
                   />
                 ) : ["string", "secureString"].includes(attribute.datatype) ? (
@@ -300,7 +307,7 @@ export default function PrerequisiteInput(props: Props) {
                     onChange={handleFieldChange}
                     name="value"
                     className={styles.matchingInput}
-                    containerClassName="col-sm-12 col-md mb-2"
+                    containerClassName="col-sm-12 col-md"
                     required
                   />
                 ) : (

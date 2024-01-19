@@ -4,7 +4,6 @@ import { FeatureInterface, FeaturePrerequisite } from "back-end/types/feature";
 import { FaExternalLinkAlt, FaInfoCircle } from "react-icons/fa";
 import clsx from "clsx";
 import React, { useEffect } from "react";
-import { PiArrowBendDownRight } from "react-icons/pi";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import {
   getDefaultPrerequisiteParentCondition,
@@ -41,12 +40,13 @@ export default function PrerequisiteTargetingField({
   const [conditionKeys, forceConditionRender] = useArrayIncrementer();
 
   useEffect(() => {
+    console.log("trigger", value);
     for (let i = 0; i < value.length; i++) {
       const v = value[i];
       const parentFeature = features.find((f) => f.id === v.parentId);
       const parentCondition = v.parentCondition;
       if (parentFeature) {
-        if (parentCondition === "") {
+        if (parentCondition === "" || parentCondition === "{}") {
           const condStr = getDefaultPrerequisiteParentCondition(parentFeature);
           setValue([
             ...value.slice(0, i),
@@ -72,114 +72,144 @@ export default function PrerequisiteTargetingField({
               {value.map((v, i) => {
                 const parentFeature = features.find((f) => f.id === v.parentId);
                 const parentFeatureId = parentFeature?.id;
+                console.log(i, v, parentFeature);
 
                 return (
                   <li key={i} className={styles.listitem}>
-                    <div className="row mt-2 align-items-center mb-2">
-                      <div className="col-auto">Prerequisite feature</div>
-                      <div className="col">
-                        <SelectField
-                          options={featureOptions}
-                          value={v.parentId}
-                          onChange={(v) => {
-                            setValue([
-                              ...value.slice(0, i),
-                              {
-                                parentId: v,
-                                parentCondition: "",
-                              },
-                              ...value.slice(i + 1),
-                            ]);
-                          }}
-                          key={`parentId-${i}`}
-                          sort={false}
-                        />
-                      </div>
-                      {parentFeature ? (
-                        <div className="col-auto pl-2 d-flex align-items-center">
-                          <div className="mr-3 nowrap text-info cursor-pointer">
-                            <Tooltip
-                              popperStyle={{ minWidth: 450, maxWidth: 650 }}
-                              body={
-                                <table className="table mb-0">
-                                  <thead className="uppercase-title text-muted">
-                                    <tr>
-                                      <th className="border-top-0">Type</th>
-                                      <th className="border-top-0">
-                                        Default value
-                                      </th>
-                                      <th className="border-top-0">
-                                        Environments
-                                      </th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    <tr>
-                                      <td>
-                                        {parentFeature.valueType === "json"
-                                          ? "JSON"
-                                          : parentFeature.valueType}
-                                      </td>
-                                      <td>
-                                        <div
-                                          className={clsx({
-                                            small:
-                                              parentFeature.valueType ===
-                                              "json",
-                                          })}
-                                        >
-                                          <ValueDisplay
-                                            value={getFeatureDefaultValue(
-                                              parentFeature
-                                            )}
-                                            type={parentFeature.valueType}
-                                            full={false}
-                                          />
-                                        </div>
-                                      </td>
-                                      <td>
-                                        <div className="d-flex small">
-                                          {environments.map((env) => (
-                                            <div key={env.id} className="mr-3">
-                                              <div className="font-weight-bold">
-                                                {env.id}
-                                              </div>
-                                              <div>
-                                                {parentFeature
-                                                  ?.environmentSettings?.[
-                                                  env.id
-                                                ]?.enabled ? (
-                                                  <span className="text-success font-weight-bold uppercase-title">
-                                                    ON
-                                                  </span>
-                                                ) : (
-                                                  <span className="text-danger font-weight-bold uppercase-title">
-                                                    OFF
-                                                  </span>
-                                                )}
-                                              </div>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  </tbody>
-                                </table>
-                              }
-                            >
-                              <FaInfoCircle />
-                            </Tooltip>
-                          </div>
-                          <a
-                            className="a nowrap"
-                            href={`/features/${parentFeatureId}`}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            <FaExternalLinkAlt />
-                          </a>
+                    <div className="row">
+                      <div className="col-3">
+                        <div>
+                          <SelectField
+                            placeholder="Select feature"
+                            options={featureOptions}
+                            value={v.parentId}
+                            onChange={(v) => {
+                              setValue([
+                                ...value.slice(0, i),
+                                {
+                                  parentId: v,
+                                  parentCondition: "",
+                                },
+                                ...value.slice(i + 1),
+                              ]);
+                            }}
+                            key={`parentId-${i}`}
+                            sort={false}
+                          />
                         </div>
-                      ) : null}
+                        {parentFeature ? (
+                          <div className="col-auto pl-2 d-flex align-items-center">
+                            <div className="mr-3 nowrap text-info cursor-pointer">
+                              <Tooltip
+                                popperStyle={{ minWidth: 450, maxWidth: 650 }}
+                                body={
+                                  <table className="table mb-0">
+                                    <thead className="uppercase-title text-muted">
+                                      <tr>
+                                        <th className="border-top-0">Type</th>
+                                        <th className="border-top-0">
+                                          Default value
+                                        </th>
+                                        <th className="border-top-0">
+                                          Environments
+                                        </th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      <tr>
+                                        <td>
+                                          {parentFeature.valueType === "json"
+                                            ? "JSON"
+                                            : parentFeature.valueType}
+                                        </td>
+                                        <td>
+                                          <div
+                                            className={clsx({
+                                              small:
+                                                parentFeature.valueType ===
+                                                "json",
+                                            })}
+                                          >
+                                            <ValueDisplay
+                                              value={getFeatureDefaultValue(
+                                                parentFeature
+                                              )}
+                                              type={parentFeature.valueType}
+                                              full={false}
+                                            />
+                                          </div>
+                                        </td>
+                                        <td>
+                                          <div className="d-flex small">
+                                            {environments.map((env) => (
+                                              <div
+                                                key={env.id}
+                                                className="mr-3"
+                                              >
+                                                <div className="font-weight-bold">
+                                                  {env.id}
+                                                </div>
+                                                <div>
+                                                  {parentFeature
+                                                    ?.environmentSettings?.[
+                                                    env.id
+                                                  ]?.enabled ? (
+                                                    <span className="text-success font-weight-bold uppercase-title">
+                                                      ON
+                                                    </span>
+                                                  ) : (
+                                                    <span className="text-danger font-weight-bold uppercase-title">
+                                                      OFF
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    </tbody>
+                                  </table>
+                                }
+                              >
+                                about
+                                <FaInfoCircle className="ml-1" />
+                              </Tooltip>
+                            </div>
+                            <a
+                              className="a nowrap"
+                              href={`/features/${parentFeatureId}`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              link
+                              <FaExternalLinkAlt className="ml-1" />
+                            </a>
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <div className="col">
+                        {parentFeature ? (
+                          <PrerequisiteInput
+                            defaultValue={v.parentCondition}
+                            onChange={(s) => {
+                              setValue([
+                                ...value.slice(0, i),
+                                {
+                                  parentId: v.parentId,
+                                  parentCondition: s,
+                                },
+                                ...value.slice(i + 1),
+                              ]);
+                            }}
+                            parentFeature={parentFeature}
+                            showPassIfLabel={false}
+                            key={conditionKeys[i]}
+                          />
+                        ) : null}
+                      </div>
+
                       <div className="col-md-auto col-sm-12">
                         <button
                           className="btn btn-link text-danger"
@@ -196,32 +226,6 @@ export default function PrerequisiteTargetingField({
                         </button>
                       </div>
                     </div>
-
-                    {parentFeature ? (
-                      <div className="pl-4 position-relative">
-                        <PiArrowBendDownRight
-                          className="position-absolute text-muted"
-                          size={18}
-                          style={{ top: 9, left: 2 }}
-                        />
-                        <PrerequisiteInput
-                          defaultValue={v.parentCondition}
-                          onChange={(s) => {
-                            setValue([
-                              ...value.slice(0, i),
-                              {
-                                parentId: v.parentId,
-                                parentCondition: s,
-                              },
-                              ...value.slice(i + 1),
-                            ]);
-                          }}
-                          parentFeature={parentFeature}
-                          showPassIfLabel={false}
-                          key={conditionKeys[i]}
-                        />
-                      </div>
-                    ) : null}
                   </li>
                 );
               })}
