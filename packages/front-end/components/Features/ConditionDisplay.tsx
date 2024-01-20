@@ -12,6 +12,8 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import InlineCode from "../SyntaxHighlighting/InlineCode";
 import SavedGroupTargetingDisplay from "./SavedGroupTargetingDisplay";
 
+type ConditionWithParentId = Condition & { parentId?: string };
+
 function operatorToText(operator: string): string {
   switch (operator) {
     case "$eq":
@@ -146,36 +148,18 @@ function getConditionParts({
   renderPrerequisite = false,
   keyPrefix = "",
 }: {
-  conditions: Condition[];
+  conditions: ConditionWithParentId[];
   savedGroups?: SavedGroupInterface[];
   initialAnd?: boolean;
   renderPrerequisite?: boolean;
   keyPrefix?: string;
 }) {
-  return conditions.map(({ field, operator, value }, i) => {
-    let parentIdEl: ReactNode = null;
+  return conditions.map(({ field, operator, value, parentId }, i) => {
     let fieldEl: ReactNode = (
       <span className="mr-1 border px-2 bg-light rounded">{field}</span>
     );
+    let parentIdEl: ReactNode = null;
     if (renderPrerequisite) {
-      const fieldParts = field.split("||");
-      if (fieldParts.length >= 2) {
-        const parentId = fieldParts.shift();
-        field = fieldParts.join("||");
-        fieldEl = (
-          <span className="mr-1 border px-2 bg-light rounded">{field}</span>
-        );
-        parentIdEl = (
-          <Link href={`/features/${parentId}`} key={`link-${i}`}>
-            <a
-              className={`border px-2 bg-light rounded mr-1`}
-              title="Manage Feature"
-            >
-              {parentId}
-            </a>
-          </Link>
-        );
-      }
       if (field === "@parent") {
         fieldEl = (
           <span className="mr-1 border px-2 bg-light rounded">
@@ -185,6 +169,21 @@ function getConditionParts({
               body="The evaluated value of the prerequisite feature"
             />
           </span>
+        );
+      }
+      if (parentId) {
+        parentIdEl = (
+          <>
+            <div className="mr-1">prerequisite</div>
+            <Link href={`/features/${parentId}`} key={`link-${i}`}>
+              <a
+                className={`border px-2 bg-light rounded mr-1`}
+                title="Manage Feature"
+              >
+                {parentId}
+              </a>
+            </Link>
+          </>
         );
       }
     }
@@ -267,16 +266,17 @@ export default function ConditionDisplay({
       .map((p) => {
         let cond = jsonToConds(p.parentCondition);
         if (!cond) return null;
-        // add p.parentId to the condition
         cond = cond.map(({ field, operator, value }) => {
-          if (renderParentIds) {
-            field = `${p.parentId}||${field}`;
-          }
-          return { field, operator, value };
+          return {
+            field,
+            operator,
+            value,
+            parentId: renderParentIds ? p.parentId : undefined,
+          };
         });
         return cond;
       })
-      .filter(Boolean) as Condition[][];
+      .filter(Boolean) as ConditionWithParentId[][];
 
     const prereqConds =
       prereqConditionsGrouped.reduce(
