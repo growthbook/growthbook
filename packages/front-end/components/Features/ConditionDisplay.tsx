@@ -5,6 +5,7 @@ import {
   FeaturePrerequisite,
   SavedGroupTargeting,
 } from "back-end/types/feature";
+import Link from "next/link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -143,11 +144,13 @@ function getConditionParts({
   savedGroups,
   initialAnd = false,
   renderPrerequisite = false,
+  keyPrefix = "",
 }: {
   conditions: Condition[];
   savedGroups?: SavedGroupInterface[];
   initialAnd?: boolean;
   renderPrerequisite?: boolean;
+  keyPrefix?: string;
 }) {
   return conditions.map(({ field, operator, value }, i) => {
     let parentIdEl: ReactNode = null;
@@ -156,18 +159,21 @@ function getConditionParts({
     );
     if (renderPrerequisite) {
       const fieldParts = field.split("||");
-      if (fieldParts.length === 2) {
+      if (fieldParts.length >= 2) {
         const parentId = fieldParts.shift();
-        field = fieldParts[0];
+        field = fieldParts.join("||");
+        fieldEl = (
+          <span className="mr-1 border px-2 bg-light rounded">{field}</span>
+        );
         parentIdEl = (
-          <a
-            href={`/features/${parentId}`}
-            target="_blank"
-            className={`border px-2 bg-light rounded mr-1`}
-            rel="noreferrer"
-          >
-            {parentId}
-          </a>
+          <Link href={`/features/${parentId}`} key={`link-${i}`}>
+            <a
+              className={`border px-2 bg-light rounded mr-1`}
+              title="Manage Feature"
+            >
+              {parentId}
+            </a>
+          </Link>
         );
       }
       if (field === "@parent") {
@@ -183,7 +189,7 @@ function getConditionParts({
       }
     }
     return (
-      <div key={i} className="col-auto d-flex flex-wrap">
+      <div key={keyPrefix + i} className="col-auto d-flex flex-wrap">
         {(i > 0 || initialAnd) && <span className="mr-1">AND</span>}
         {parentIdEl}
         {fieldEl}
@@ -240,6 +246,7 @@ export default function ConditionDisplay({
     const conditionParts = getConditionParts({
       conditions: conds,
       savedGroups,
+      keyPrefix: "condition-",
     });
     parts.push(...conditionParts);
   }
@@ -282,6 +289,7 @@ export default function ConditionDisplay({
       savedGroups,
       renderPrerequisite: true,
       initialAnd: parts.length > 0,
+      keyPrefix: "prereq-",
     });
     parts.push(...prereqParts);
   }
