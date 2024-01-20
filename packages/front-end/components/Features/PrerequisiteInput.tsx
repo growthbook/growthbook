@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { FeatureInterface } from "back-end/types/feature";
+import { RxInfoCircled } from "react-icons/rx";
 import { condToJson, jsonToConds } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "../Forms/Field";
@@ -10,7 +11,6 @@ import SelectField from "../Forms/SelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
 import StringArrayField from "../Forms/StringArrayField";
 import styles from "./ConditionInput.module.scss";
-import {RxInfoCircled} from "react-icons/rx";
 
 interface Props {
   defaultValue: string;
@@ -60,9 +60,13 @@ export default function PrerequisiteInput(props: Props) {
 
   if (advanced || !parentValueMap.size || !simpleAllowed) {
     return (
-      <div className={`${!props.showPassIfLabel && "ml-2"}`}>
+      <div className={`${!props.showPassIfLabel && "ml-1"}`}>
         <CodeTextArea
-          label={props.showPassIfLabel ? (<span className="text-main">PASS IF</span>) : undefined}
+          label={
+            props.showPassIfLabel ? (
+              <span className="text-main">PASS IF</span>
+            ) : undefined
+          }
           language="json"
           value={value}
           setValue={setValue}
@@ -97,10 +101,10 @@ export default function PrerequisiteInput(props: Props) {
                   evaluated value.
                   <Tooltip
                     className="ml-3 text-info hover-underline"
-                    body={(
-                    <code>{`{"@parent": {"$exists": true}}`}</code>
-                  )}>
-                    <RxInfoCircled className="mr-1" />Example
+                    body={<code>{`{"@parent": {"$exists": true}}`}</code>}
+                  >
+                    <RxInfoCircled className="mr-1" />
+                    Example
                   </Tooltip>
                 </div>
                 {parentFeatureValueType === "json" && (
@@ -108,10 +112,10 @@ export default function PrerequisiteInput(props: Props) {
                     You may also target specific JSON fields.
                     <Tooltip
                       className="ml-3 text-info hover-underline"
-                      body={(
-                        <code>{`{"foo.bar": {"$gt": 3}}`}</code>
-                      )}>
-                      <RxInfoCircled className="mr-1" />Example
+                      body={<code>{`{"foo.bar": {"$gt": 3}}`}</code>}
+                    >
+                      <RxInfoCircled className="mr-1" />
+                      Example
                     </Tooltip>
                   </div>
                 )}
@@ -201,12 +205,18 @@ export default function PrerequisiteInput(props: Props) {
 
           return (
             <li key={i} className={`${styles.listitem} py-0`}>
-              <div className={`row ${props.showPassIfLabel ? "ml-3" : "pl-1"} ${styles.listrow}`}>
+              <div
+                className={`row ${props.showPassIfLabel ? "ml-3" : "pl-1"} ${
+                  styles.listrow
+                }`}
+              >
                 {props.showPassIfLabel && (
                   <span className={styles.passif}>PASS IF</span>
                 )}
-                <div className="col-3">
-                  <div className="appbox bg-light mb-0 px-3 py-2">
+                <div
+                  className={`${props.showPassIfLabel ? "col" : "col-auto"}`}
+                >
+                  <div className="appbox bg-light mb-0 px-2 py-2">
                     {field === "@parent" ? (
                       <>
                         value

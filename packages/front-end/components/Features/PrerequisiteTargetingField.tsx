@@ -77,8 +77,11 @@ export default function PrerequisiteTargetingField({
                 return (
                   <li key={i} className={styles.listitem}>
                     <div className="row">
-                      <div className="col-3">
-                        <div>
+                      <div className="col-auto">
+                        <div className={`ml-2 ${styles.passif}`}>IF</div>
+                      </div>
+                      <div className="col-3 ml-3 pr-1">
+                        <div className="">
                           <SelectField
                             placeholder="Select feature"
                             options={featureOptions}
@@ -98,7 +101,7 @@ export default function PrerequisiteTargetingField({
                           />
                         </div>
                         {parentFeature ? (
-                          <div className="col-auto pl-2 d-flex align-items-center">
+                          <div className="col-auto d-flex align-items-center">
                             <div className="mr-3 nowrap text-info cursor-pointer">
                               <Tooltip
                                 popperStyle={{ minWidth: 450, maxWidth: 650 }}
