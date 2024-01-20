@@ -11,6 +11,7 @@ import PrestoForm from "./PrestoForm";
 import SnowflakeForm from "./SnowflakeForm";
 import MssqlForm from "./MssqlForm";
 import DatabricksForm from "./DatabricksForm";
+import MicrosoftAppInsightsForm from "./MicrosoftAppInsightsForm";
 
 export interface Props {
   datasource: Partial<DataSourceInterfaceWithParams>;
@@ -165,6 +166,17 @@ export default function ConnectionSettings({
         onManualParamChange={onManualParamChange}
         // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'MixpanelConnectionParams | undefined' is not... Remove this comment to see the full error message
         params={datasource.params}
+      />
+    );
+  } else if (datasource.type === "microsoft_app_insights") {
+    return (
+      <MicrosoftAppInsightsForm
+        existing={existing}
+        onParamChange={onParamChange}
+        setParams={setParams}
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'GoogleAnalyticsParams | undefined' is not as... Remove this comment to see the full error message
+        params={datasource.params}
+        error={hasError}
       />
     );
   }

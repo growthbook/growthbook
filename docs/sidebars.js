@@ -252,6 +252,11 @@ const sidebars = {
             },
             {
               type: "doc",
+              id: "event-trackers/microsoft-application-insights",
+              label: "Microsoft Application Insights",
+            },
+            {
+              type: "doc",
               id: "event-trackers/custom",
               label: "Custom Data Sources",
             },

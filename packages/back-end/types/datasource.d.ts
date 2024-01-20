@@ -10,6 +10,7 @@ import { SnowflakeConnectionParams } from "./integrations/snowflake";
 import { DatabricksConnectionParams } from "./integrations/databricks";
 import { MetricType } from "./metric";
 import { MssqlConnectionParams } from "./integrations/mssql";
+import { MicrosoftAppInsightsParams } from "./integrations/microsoftappinsights";
 
 export type DataSourceType =
   | "redshift"
@@ -23,7 +24,8 @@ export type DataSourceType =
   | "clickhouse"
   | "presto"
   | "databricks"
-  | "mixpanel";
+  | "mixpanel"
+  | "microsoft_app_insights";
 
 export type DataSourceParams =
   | PostgresConnectionParams
@@ -36,9 +38,10 @@ export type DataSourceParams =
   | SnowflakeConnectionParams
   | BigQueryConnectionParams
   | ClickHouseConnectionParams
-  | MixpanelConnectionParams;
+  | MixpanelConnectionParams
+  | MicrosoftAppInsightsParams;
 
-export type QueryLanguage = "sql" | "javascript" | "json" | "none";
+export type QueryLanguage = "sql" | "kusto" | "javascript" | "json" | "none";
 
 export type SchemaFormat =
   | "segment"
@@ -56,7 +59,8 @@ export type SchemaFormat =
   | "firebase"
   | "keen"
   | "clevertap"
-  | "custom";
+  | "custom"
+  | "mappinsights";
 
 export type AutoMetricSchemas = "segment" | "rudderstack" | "amplitude" | "ga4";
 
@@ -271,6 +275,10 @@ interface MixpanelDataSource extends DataSourceBase {
   type: "mixpanel";
 }
 
+interface MicrosoftAppInsightsDataSource extends DataSourceBase {
+  type: "microsoft_app_insights";
+}
+
 export type RedshiftDataSourceWithParams = WithParams<
   RedshiftDataSource,
   PostgresConnectionParams
@@ -320,6 +328,11 @@ export type MixpanelDataSourceWithParams = WithParams<
   MixpanelConnectionParams
 >;
 
+export type MicrosoftAppInsightsDataSourceWithParams = WithParams<
+  MicrosoftAppInsightsDataSource,
+  MicrosoftAppInsightsParams
+>;
+
 export type DataSourceInterface =
   | RedshiftDataSource
   | AthenaDataSource
@@ -332,7 +345,8 @@ export type DataSourceInterface =
   | MssqlDataSource
   | BigQueryDataSource
   | ClickHouseDataSource
-  | MixpanelDataSource;
+  | MixpanelDataSource
+  | MicrosoftAppInsightsDataSource;
 
 export type DataSourceInterfaceWithParams =
   | RedshiftDataSourceWithParams
@@ -346,4 +360,5 @@ export type DataSourceInterfaceWithParams =
   | MssqlDataSourceWithParams
   | BigQueryDataSourceWithParams
   | ClickHouseDataSourceWithParams
-  | MixpanelDataSourceWithParams;
+  | MixpanelDataSourceWithParams
+  | MicrosoftAppInsightsDataSourceWithParams;

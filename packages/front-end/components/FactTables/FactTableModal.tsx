@@ -21,6 +21,7 @@ import MultiSelectField from "../Forms/MultiSelectField";
 import EditSqlModal from "../SchemaBrowser/EditSqlModal";
 import Code from "../SyntaxHighlighting/Code";
 import { usesEventName } from "../Metrics/MetricForm";
+import EditKqlModal from "../SchemaBrowser/EditKqlModal";
 
 export interface Props {
   existing?: FactTableInterface;
@@ -38,6 +39,7 @@ export default function FactTableModal({ existing, close }: Props) {
   const router = useRouter();
 
   const [sqlOpen, setSqlOpen] = useState(false);
+  const [kqlOpen, setKqlOpen] = useState(false);
 
   const [
     showAdditionalColumnMessage,
@@ -48,7 +50,11 @@ export default function FactTableModal({ existing, close }: Props) {
 
   const validDatasources = datasources
     .filter((d) => isProjectListValidForProject(d.projects, project))
-    .filter((d) => d.properties?.queryLanguage === "sql");
+    .filter(
+      (d) =>
+        d.properties?.queryLanguage === "sql" ||
+        d.properties?.queryLanguage === "kusto"
+    );
 
   const form = useForm<CreateFactTableProps>({
     defaultValues: {
@@ -66,6 +72,10 @@ export default function FactTableModal({ existing, close }: Props) {
   });
 
   const selectedDataSource = getDatasourceById(form.watch("datasource"));
+
+  const dsProps = selectedDataSource?.properties;
+  const supportsSQL = dsProps?.queryLanguage === "sql";
+  const supportsKQL = dsProps?.queryLanguage === "kusto";
 
   useEffect(() => {
     if (!selectedDataSource || existing) return;
@@ -106,6 +116,19 @@ export default function FactTableModal({ existing, close }: Props) {
           }}
           setTemplateVariables={({ eventName }) => {
             form.setValue("eventName", eventName || "");
+          }}
+        />
+      )}
+      {kqlOpen && (
+        <EditKqlModal
+          close={() => setKqlOpen(false)}
+          datasourceId={form.watch("datasource")}
+          placeholder={`customEvents\n| project user_id = tostring(customDimensions["user_Id"]), customDimensions, timestamp`}
+          requiredColumns={new Set(["timestamp", ...form.watch("userIdTypes")])}
+          value={form.watch("sql")}
+          save={async (sql) => form.setValue("sql", sql)}
+          templateVariables={{
+            eventName: form.watch("eventName") || "",
           }}
         />
       )}
@@ -240,10 +263,13 @@ export default function FactTableModal({ existing, close }: Props) {
                   track("Edit Fact Table SQL", {
                     type: selectedDataSource.settings.schemaFormat,
                   });
-                  setSqlOpen(true);
+                  supportsKQL && setKqlOpen(true);
+                  supportsSQL && setSqlOpen(true);
                 }}
               >
-                {form.watch("sql") ? "Edit" : "Add"} SQL <FaExternalLinkAlt />
+                {form.watch("sql") ? "Edit" : "Add"}{" "}
+                {supportsKQL ? "KQL" : supportsSQL ? "SQL" : ""}{" "}
+                <FaExternalLinkAlt />
               </button>
             </div>
           </div>

@@ -5,13 +5,14 @@ import { FaExternalLinkAlt } from "react-icons/fa";
 import { isProjectListValidForProject } from "shared/util";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import { validateSQL } from "@/services/datasources";
+import { validateKQL, validateSQL } from "@/services/datasources";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import useMembers from "@/hooks/useMembers";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import EditSqlModal from "../SchemaBrowser/EditSqlModal";
 import Code from "../SyntaxHighlighting/Code";
+import EditKqlModal from "../SchemaBrowser/EditKqlModal";
 
 export type CursorData = {
   row: number;
@@ -50,6 +51,7 @@ const SegmentForm: FC<{
     },
   });
   const [sqlOpen, setSqlOpen] = useState(false);
+  const [kqlOpen, setKqlOpen] = useState(false);
 
   const userIdType = form.watch("userIdType");
 
@@ -57,6 +59,7 @@ const SegmentForm: FC<{
 
   const dsProps = datasource?.properties;
   const supportsSQL = dsProps?.queryLanguage === "sql";
+  const supportsKQL = dsProps?.queryLanguage === "kusto";
 
   const sql = form.watch("sql");
 
@@ -66,6 +69,16 @@ const SegmentForm: FC<{
 
   return (
     <>
+      {kqlOpen && datasource && (
+        <EditKqlModal
+          close={() => setKqlOpen(false)}
+          datasourceId={datasource.id || ""}
+          placeholder={`customEvents\n| project ${userIdType} = tostring(customDimensions["user_Id"]), customDimensions, timestamp`}
+          requiredColumns={requiredColumns}
+          value={sql}
+          save={async (sql) => form.setValue("sql", sql)}
+        />
+      )}
       {sqlOpen && datasource && (
         <EditSqlModal
           close={() => setSqlOpen(false)}
@@ -82,6 +95,9 @@ const SegmentForm: FC<{
         size={"md"}
         header={current.id ? "Edit Segment" : "New Segment"}
         submit={form.handleSubmit(async (value) => {
+          if (supportsKQL) {
+            validateKQL(value.sql, [value.userIdType, "date"]);
+          }
           if (supportsSQL) {
             validateSQL(value.sql, [value.userIdType, "date"]);
           }
@@ -128,24 +144,35 @@ const SegmentForm: FC<{
             })}
           />
         )}
-        {supportsSQL ? (
+        {(supportsKQL || supportsSQL) && (
           <div className="form-group">
             <label>Query</label>
-            {sql && <Code language="sql" code={sql} expandable={true} />}
+            {sql && (
+              <Code
+                language={supportsKQL ? "kusto" : "sql"}
+                code={sql}
+                expandable={true}
+              />
+            )}
             <div>
               <button
                 className="btn btn-outline-primary"
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();
-                  setSqlOpen(true);
+                  supportsKQL && setKqlOpen(true);
+                  supportsSQL && setSqlOpen(true);
                 }}
               >
-                {sql ? "Edit" : "Add"} SQL <FaExternalLinkAlt />
+                {`${sql ? "Edit" : "Add"} ${
+                  supportsKQL ? "KQL" : supportsSQL ? "SQL" : ""
+                } `}
+                <FaExternalLinkAlt />
               </button>
             </div>
           </div>
-        ) : (
+        )}
+        {!supportsSQL && !supportsKQL && (
           <Field
             label="Event Condition"
             required

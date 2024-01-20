@@ -516,6 +516,36 @@ WHERE
   },
 };
 
+const AppInsightsSchema: SchemaInterface = {
+  experimentDimensions: [],
+  getExperimentSQL: (_, userId) => {
+    return `customEvents
+    | where name == "GrowthbookExperimentViewed"
+    | project
+      ${userId} = tostring(customDimensions["user_Id"]),
+      timestamp = timestamp,
+      experiment_id = tostring(customDimensions["experiment_Id"]),
+      variation_id = tostring(customDimensions["variation_Id"])
+    `;
+  },
+  getIdentitySQL: () => {
+    return [];
+  },
+  userIdTypes: ["user_id"],
+  getMetricSQL: (type, tablePrefix) => {
+    return `${tablePrefix}{{snakecase eventName}}
+    | project
+      user_id = user_id,
+      timestamp = timestamp${
+        type === "revenue"
+          ? ",\n  revenue = value"
+          : type === "binomial"
+          ? ""
+          : `,\n  value = {{valueColumn}}`
+      }`;
+  },
+};
+
 function getSchemaObject(type?: SchemaFormat) {
   if (type === "ga4" || type === "firebase") {
     return GA4Schema;
@@ -543,6 +573,10 @@ function getSchemaObject(type?: SchemaFormat) {
   }
   if (type === "fullstory") {
     return FullStorySchema;
+  }
+
+  if (type === "mappinsights") {
+    return AppInsightsSchema;
   }
 
   return CustomSchema;
@@ -662,6 +696,30 @@ export function validateSQL(sql: string, requiredColumns: string[]): void {
 
   const missingCols = requiredColumns.filter(
     (col) => !sql.toLowerCase().includes(col.toLowerCase())
+  );
+
+  if (missingCols.length > 0) {
+    throw new Error(
+      `Missing the following required columns: ${missingCols
+        .map((col) => '"' + col + '"')
+        .join(", ")}`
+    );
+  }
+}
+
+export function validateKQL(kql: string, requiredColumns: string[]): void {
+  if (!kql) throw new Error("KQL cannot be empty");
+
+  // VALIDATE KQL
+
+  if (kql.match(/;(\s|\n)*$/)) {
+    throw new Error(
+      "Don't end your KQL statements with semicolons since it will break our generated queries"
+    );
+  }
+
+  const missingCols = requiredColumns.filter(
+    (col) => !kql.toLowerCase().includes(col.toLowerCase())
   );
 
   if (missingCols.length > 0) {

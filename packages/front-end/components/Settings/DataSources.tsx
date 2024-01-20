@@ -120,8 +120,9 @@ const DataSources: FC = () => {
             <strong>Postgres</strong>, <strong>MySQL</strong>,{" "}
             <strong>MS SQL/SQL Server</strong>, <strong>Athena</strong>,{" "}
             <strong>PrestoDB</strong>, <strong>Databricks</strong>,{" "}
-            <strong>Mixpanel</strong>, and <strong>Google Analytics</strong>{" "}
-            with more coming soon.
+            <strong>Mixpanel</strong>, <strong>Google Analytics</strong> and{" "}
+            <strong>Microsoft Application Insights</strong> with more coming
+            soon.
           </p>
           <p>
             We only ever fetch aggregate data, so none of your user&apos;s

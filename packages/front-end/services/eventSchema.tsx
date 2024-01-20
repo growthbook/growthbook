@@ -473,6 +473,27 @@ export const eventSchemas: eventSchema[] = [
       </>
     ),
   },
+  {
+    value: "mappinsights",
+    label: "Microsoft App Insights",
+    types: ["microsoft_app_insights"],
+    logo: "/images/3rd-party-logos/microsoft-app-insights.png",
+    popular: true,
+    intro: (
+      <>
+        Application Insights is an extension of Azure Monitor and provides
+        application performance monitoring (APM) features. You can{" "}
+        <a
+          target="_blank"
+          href="https://learn.microsoft.com/es-es/azure/azure-monitor/app/app-insights-overview?tabs=net"
+          rel="noreferrer"
+        >
+          read more about it here
+        </a>
+        .
+      </>
+    ),
+  },
 ];
 
 export const dataSourceConnections: {
@@ -608,6 +629,14 @@ export const dataSourceConnections: {
       username: "",
       secret: "",
       projectId: "",
+    },
+  },
+  {
+    type: "microsoft_app_insights",
+    display: "Microsoft App Insights",
+    default: {
+      appId: "",
+      apiKey: "",
     },
   },
 ];

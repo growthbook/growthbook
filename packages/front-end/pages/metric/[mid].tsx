@@ -152,6 +152,7 @@ const MetricPage: FC = () => {
   const segment = getSegmentById(metric.segment);
 
   const supportsSQL = datasource?.properties?.queryLanguage === "sql";
+  const supportsKusto = datasource?.properties?.queryLanguage === "kusto";
   const customzeTimestamp = supportsSQL;
   const customizeUserIds = supportsSQL;
 
@@ -993,7 +994,7 @@ const MetricPage: FC = () => {
                   open={() => setEditModalOpen(1)}
                   canOpen={canEditMetric}
                 >
-                  {supportsSQL &&
+                  {(supportsSQL || supportsKusto) &&
                   metric.queryFormat !== "builder" &&
                   metric.sql ? (
                     <>
@@ -1023,8 +1024,14 @@ const MetricPage: FC = () => {
                             </span>
                           </RightRailSectionGroup>
                         )}
-                      <RightRailSectionGroup title="Metric SQL" type="custom">
-                        <Code language="sql" code={metric.sql} />
+                      <RightRailSectionGroup
+                        title={supportsSQL ? "Metric SQL" : "Metric KQL"}
+                        type="custom"
+                      >
+                        <Code
+                          language={supportsSQL ? "sql" : "kusto"}
+                          code={metric.sql}
+                        />
                       </RightRailSectionGroup>
                       {metric.type !== "binomial" && metric.aggregation && (
                         <RightRailSectionGroup

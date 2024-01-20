@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { DimensionInterface } from "back-end/types/dimension";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { isProjectListValidForProject } from "shared/util";
-import { validateSQL } from "@/services/datasources";
+import { validateSQL, validateKQL } from "@/services/datasources";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
@@ -11,6 +11,7 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import useMembers from "@/hooks/useMembers";
 import EditSqlModal from "../SchemaBrowser/EditSqlModal";
+import EditKqlModal from "../SchemaBrowser/EditKqlModal";
 import Code from "../SyntaxHighlighting/Code";
 
 const DimensionForm: FC<{
@@ -44,6 +45,7 @@ const DimensionForm: FC<{
     },
   });
   const [sqlOpen, setSqlOpen] = useState(false);
+  const [kqlOpen, setKqlOpen] = useState(false);
 
   const datasource = form.watch("datasource");
   const userIdType = form.watch("userIdType");
@@ -52,6 +54,7 @@ const DimensionForm: FC<{
 
   const dsProps = dsObj?.properties;
   const supportsSQL = dsProps?.queryLanguage === "sql";
+  const supportsKQL = dsProps?.queryLanguage === "kusto";
 
   const sql = form.watch("sql");
 
@@ -71,6 +74,16 @@ const DimensionForm: FC<{
           save={async (sql) => form.setValue("sql", sql)}
         />
       )}
+      {kqlOpen && dsObj && (
+        <EditKqlModal
+          close={() => setKqlOpen(false)}
+          datasourceId={dsObj.id || ""}
+          placeholder={`customEvents\n| project ${userIdType} = tostring(customDimensions["user_Id"]), customDimensions, timestamp`}
+          requiredColumns={requiredColumns}
+          value={sql}
+          save={async (sql) => form.setValue("sql", sql)}
+        />
+      )}
       <Modal
         close={close}
         open={true}
@@ -79,6 +92,10 @@ const DimensionForm: FC<{
         submit={form.handleSubmit(async (value) => {
           if (supportsSQL) {
             validateSQL(value.sql, [value.userIdType, "value"]);
+          }
+
+          if (supportsKQL) {
+            validateKQL(value.sql, [value.userIdType, "value"]);
           }
 
           await apiCall(
@@ -125,24 +142,33 @@ const DimensionForm: FC<{
             })}
           />
         )}
-        {supportsSQL ? (
+        {(supportsSQL || supportsKQL) && (
           <div className="form-group">
             <label>Query</label>
-            {sql && <Code language="sql" code={sql} expandable={true} />}
+            {sql && (
+              <Code
+                language={supportsKQL ? "kusto" : "sql"}
+                code={sql}
+                expandable={true}
+              />
+            )}
             <div>
               <button
                 className="btn btn-outline-primary"
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();
-                  setSqlOpen(true);
+                  supportsKQL && setKqlOpen(true);
+                  supportsSQL && setSqlOpen(true);
                 }}
               >
-                {sql ? "Edit" : "Add"} SQL <FaExternalLinkAlt />
+                {`${sql ? "Edit" : "Add"} ${supportsKQL ? "kusto" : "sql"} `}
+                <FaExternalLinkAlt />
               </button>
             </div>
           </div>
-        ) : (
+        )}
+        {!supportsKQL && !supportsSQL && (
           <Field
             label="Event Condition"
             required
