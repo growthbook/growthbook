@@ -61,6 +61,7 @@ export const updateFactTablePropsValidator = z
     eventName: z.string().optional(),
     columns: z.array(createColumnPropsValidator).optional(),
     managedBy: z.enum(["", "api"]).optional(),
+    columnsError: z.string().nullable().optional(),
   })
   .strict();
 
@@ -77,6 +78,7 @@ export const cappingValidator = z.enum(["absolute", "percentile", ""]);
 export const conversionWindowUnitValidator = z.enum(["weeks", "days", "hours"]);
 
 export const createFactMetricPropsValidator = z.object({
+  id: z.string().optional(),
   owner: z.string().optional(),
   datasource: z.string(),
   name: z.string(),

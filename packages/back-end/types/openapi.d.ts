@@ -237,6 +237,10 @@ export interface paths {
     /** Deletes a single fact metric */
     delete: operations["deleteFactMetric"];
   };
+  "/bulk-import": {
+    /** Bulk import fact tables, filters, and metrics */
+    post: operations["postBulkImport"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -5282,6 +5286,105 @@ export interface operations {
       };
     };
   };
+  postBulkImport: {
+    /** Bulk import fact tables, filters, and metrics */
+    requestBody: {
+      content: {
+        "application/json": {
+          factTables?: ({
+              id: string;
+              data: {
+                name: string;
+                /** @description Description of the fact table */
+                description?: string;
+                /**
+                 * @description Leave blank to allow editing this fact table in the UI. Set to "api" to prevent editing in the UI. 
+                 * @enum {string}
+                 */
+                managedBy?: "" | "api";
+                /** @description The person who is responsible for this fact table */
+                owner?: string;
+                /** @description List of associated project ids */
+                projects?: (string)[];
+                /** @description List of associated tags */
+                tags?: (string)[];
+                /** @description The datasource id */
+                datasource: string;
+                /** @description List of identifier columns in this table. For example, "id" or "anonymous_id" */
+                userIdTypes: (string)[];
+                /** @description The SQL query for this fact table */
+                sql: string;
+              };
+            })[];
+          factTableFilters?: ({
+              factTableId: string;
+              id: string;
+              data: {
+                name: string;
+                /** @description Description of the fact table filter */
+                description?: string;
+                /**
+                 * @description Leave blank to allow editing this in the UI. Set to "api" to prevent editing in the UI. 
+                 * @enum {string}
+                 */
+                managedBy?: "" | "api";
+                /**
+                 * @description The SQL expression for this filter. 
+                 * @example country = 'US'
+                 */
+                value: string;
+              };
+            })[];
+          factMetrics?: ({
+              id: string;
+              data: {
+                /** @enum {string} */
+                managedBy?: "" | "api";
+                owner?: string;
+                datasource: string;
+                name: string;
+                description?: string;
+                tags?: (string)[];
+                projects?: (string)[];
+                inverse?: boolean;
+                /** @enum {string} */
+                metricType: "proportion" | "mean" | "ratio";
+                numerator: {
+                  factTableId: string;
+                  column: string;
+                  filters: (string)[];
+                };
+                denominator?: {
+                  factTableId: string;
+                  column: string;
+                  filters: (string)[];
+                };
+                /** @enum {string} */
+                capping?: "none" | "absolute" | "percentile";
+                capValue?: number;
+                regressionAdjustmentOverride?: boolean;
+                regressionAdjustmentEnabled?: boolean;
+                regressionAdjustmentDays?: number;
+                conversionDelayHours?: number;
+                hasConversionWindow?: boolean;
+                conversionWindowValue?: number;
+                /** @enum {string} */
+                conversionWindowUnit?: "hours" | "days" | "weeks";
+              };
+            })[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            success: boolean;
+          };
+        };
+      };
+    };
+  };
 }
 
 // Schemas
@@ -5366,3 +5469,4 @@ export type PostFactMetricResponse = operations["postFactMetric"]["responses"]["
 export type GetFactMetricResponse = operations["getFactMetric"]["responses"]["200"]["content"]["application/json"];
 export type UpdateFactMetricResponse = operations["updateFactMetric"]["responses"]["200"]["content"]["application/json"];
 export type DeleteFactMetricResponse = operations["deleteFactMetric"]["responses"]["200"]["content"]["application/json"];
+export type PostBulkImportResponse = operations["postBulkImport"]["responses"]["200"]["content"]["application/json"];

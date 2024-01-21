@@ -217,6 +217,9 @@ paths:
       $ref: "./paths/updateFactMetric.yaml"
     delete:
       $ref: "./paths/deleteFactMetric.yaml"
+  /bulk-import:
+    post:
+      $ref: "./paths/postBulkImport.yaml"
   # PLOP_INSERT_PATHS_HERE
 components:
   parameters:

@@ -12,6 +12,7 @@ import {
 } from "../../types/fact-table";
 import { EventAuditUser } from "../events/event-types";
 import { ApiFactTable, ApiFactTableFilter } from "../../types/openapi";
+import { queueFactTableColumnsRefresh } from "../jobs/refreshFactTableColumns";
 
 const factTableSchema = new mongoose.Schema({
   id: String,
@@ -41,6 +42,7 @@ const factTableSchema = new mongoose.Schema({
       deleted: Boolean,
     },
   ],
+  columnsError: String,
   filters: [
     {
       _id: false,
@@ -93,9 +95,16 @@ export async function createFactTable(
   organization: string,
   data: CreateFactTableProps
 ) {
+  const id = data.id || uniqid("ftb_");
+  if (!id.match(/^[-a-zA-Z0-9_]+$/)) {
+    throw new Error(
+      "Fact table ids must contain only letters, numbers, underscores, and dashes"
+    );
+  }
+
   const doc = await FactTableModel.create({
-    organization: organization,
-    id: data.id || uniqid("ftb_"),
+    organization,
+    id,
     name: data.name,
     description: data.description,
     dateCreated: new Date(),
@@ -109,9 +118,14 @@ export async function createFactTable(
     userIdTypes: data.userIdTypes,
     eventName: data.eventName,
     columns: data.columns || [],
+    columnsError: null,
     managedBy: data.managedBy || "",
   });
-  return toInterface(doc);
+
+  const factTable = toInterface(doc);
+  await queueFactTableColumnsRefresh(factTable);
+
+  return factTable;
 }
 
 export async function updateFactTable(
@@ -135,6 +149,10 @@ export async function updateFactTable(
       },
     }
   );
+
+  if (changes.sql && changes.sql !== factTable.sql && !changes.columns) {
+    await queueFactTableColumnsRefresh(factTable);
+  }
 }
 
 export async function updateColumn(
@@ -175,8 +193,15 @@ export async function createFactFilter(
     );
   }
 
+  const id = data.id || uniqid("flt_");
+  if (!id.match(/^[-a-zA-Z0-9_]+$/)) {
+    throw new Error(
+      "Fact table filter ids must contain only letters, numbers, underscores, and dashes"
+    );
+  }
+
   const filter: FactFilterInterface = {
-    id: data.id || uniqid("flt_"),
+    id,
     name: data.name,
     dateCreated: new Date(),
     dateUpdated: new Date(),

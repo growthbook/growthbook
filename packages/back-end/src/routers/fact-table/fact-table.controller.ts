@@ -6,13 +6,11 @@ import {
   CreateFactMetricProps,
   CreateFactTableProps,
   FactMetricInterface,
-  ColumnInterface,
   FactTableInterface,
   UpdateFactFilterProps,
   UpdateFactMetricProps,
   UpdateColumnProps,
   UpdateFactTableProps,
-  FactTableColumnType,
   TestFactFilterProps,
   FactFilterTestResults,
 } from "../../../types/fact-table";
@@ -38,7 +36,7 @@ import {
 import { getSourceIntegrationObject } from "../../services/datasource";
 import { getDataSourceById } from "../../models/DataSourceModel";
 import { DataSourceInterface } from "../../../types/datasource";
-import { determineColumnTypes } from "../../util/sql";
+import { queueFactTableColumnsRefresh } from "../../jobs/refreshFactTableColumns";
 
 export const getFactTables = async (
   req: AuthRequest,
@@ -86,72 +84,6 @@ export async function testFilterQuery(
   }
 }
 
-export async function updateColumns(
-  datasource: DataSourceInterface,
-  factTable: Pick<FactTableInterface, "sql" | "eventName" | "columns">
-): Promise<ColumnInterface[]> {
-  const integration = getSourceIntegrationObject(datasource, true);
-
-  if (!integration.getTestQuery || !integration.runTestQuery) {
-    throw new Error("Testing not supported on this data source");
-  }
-
-  const sql = integration.getTestQuery(factTable.sql, {
-    eventName: factTable.eventName,
-  });
-
-  const result = await integration.runTestQuery(sql, ["timestamp"]);
-
-  const typeMap = new Map<string, FactTableColumnType>();
-  determineColumnTypes(result.results).forEach((col) => {
-    typeMap.set(col.column, col.datatype);
-  });
-
-  const columns = factTable.columns || [];
-
-  // Update existing column
-  columns.forEach((col) => {
-    const type = typeMap.get(col.column);
-
-    // Column no longer exists, mark as deleted
-    if (type === undefined) {
-      col.deleted = true;
-      col.dateUpdated = new Date();
-    }
-    // Column exists
-    else {
-      if (col.deleted) {
-        col.deleted = false;
-        col.dateUpdated = new Date();
-      }
-
-      // If we now know the datatype, update it
-      if (col.datatype === "" && type !== "") {
-        col.datatype = type;
-        col.dateUpdated = new Date();
-      }
-    }
-  });
-
-  // Add new columns that don't exist yet
-  typeMap.forEach((datatype, column) => {
-    if (!columns.some((c) => c.column === column)) {
-      columns.push({
-        column,
-        datatype,
-        dateCreated: new Date(),
-        dateUpdated: new Date(),
-        description: "",
-        name: column,
-        numberFormat: "",
-        deleted: false,
-      });
-    }
-  });
-
-  return columns;
-}
-
 export const postFactTable = async (
   req: AuthRequest<CreateFactTableProps>,
   res: Response<{ status: 200; factTable: FactTableInterface }>
@@ -169,15 +101,10 @@ export const postFactTable = async (
     throw new Error("Could not find datasource");
   }
 
-  req.checkPermissions("runQueries", datasource.projects || "");
-
-  data.columns = await updateColumns(datasource, data as FactTableInterface);
-
-  if (!data.columns.length) {
-    throw new Error("SQL did not return any rows");
-  }
+  data.columns = [];
 
   const factTable = await createFactTable(org.id, data);
+  await queueFactTableColumnsRefresh(factTable);
 
   if (data.tags.length > 0) {
     await addTags(org.id, data.tags);
@@ -207,23 +134,9 @@ export const putFactTable = async (
     req.checkPermissions("manageFactTables", data.projects || "");
   }
 
-  const datasource = await getDataSourceById(factTable.datasource, org.id);
-  if (!datasource) {
-    throw new Error("Could not find datasource");
-  }
-  req.checkPermissions("runQueries", datasource.projects || "");
-
-  // Update the columns
-  data.columns = await updateColumns(datasource, {
-    ...factTable,
-    ...data,
-  } as FactTableInterface);
-
-  if (!data.columns.some((col) => !col.deleted)) {
-    throw new Error("SQL did not return any rows");
-  }
-
   await updateFactTable(factTable, data, req.auditUser);
+
+  await queueFactTableColumnsRefresh(factTable);
 
   await addTagsDiff(org.id, factTable.tags, data.tags || []);
 

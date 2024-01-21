@@ -2953,6 +2953,76 @@ paths:
                     type: string
                     description: The ID of the deleted fact metric
                     example: fact__123abc
+  /bulk-import:
+    post:
+      parameters: []
+      tags:
+        - fact-tables
+      summary: 'Bulk import fact tables, filters, and metrics'
+      operationId: postBulkImport
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/bulk-import \
+              -d '{}' # TODO: Example JSON
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                factTables:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - id
+                      - data
+                    properties:
+                      id:
+                        type: string
+                      data:
+                        $ref: '#/paths/~1fact-tables/post/requestBody/content/application~1json/schema'
+                factTableFilters:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - factTableId
+                      - id
+                      - data
+                    properties:
+                      factTableId:
+                        type: string
+                      id:
+                        type: string
+                      data:
+                        $ref: '#/paths/~1fact-tables~1%7BfactTableId%7D~1filters/post/requestBody/content/application~1json/schema'
+                factMetrics:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - id
+                      - data
+                    properties:
+                      id:
+                        type: string
+                      data:
+                        $ref: '#/paths/~1fact-metrics/post/requestBody/content/application~1json/schema'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                properties:
+                  success:
+                    type: boolean
 components:
   parameters:
     id:
