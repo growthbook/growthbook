@@ -85,8 +85,7 @@ export async function processJWT(
   req.email = email || "";
   req.name = name || "";
   req.verified = verified || false;
-
-  let teams: TeamInterface[] = [];
+  req.teams = [];
 
   const userHasPermission = (
     permission: Permission,
@@ -127,7 +126,12 @@ export async function processJWT(
     }
     for (const p of checkProjects) {
       if (
-        !userHasPermission(permission, teams, p, envs ? [...envs] : undefined)
+        !userHasPermission(
+          permission,
+          req.teams,
+          p,
+          envs ? [...envs] : undefined
+        )
       ) {
         throw new Error("You do not have permission to complete that action.");
       }
@@ -175,7 +179,7 @@ export async function processJWT(
           return;
         }
 
-        teams = await getTeamsForOrganization(req.organization.id);
+        req.teams = await getTeamsForOrganization(req.organization.id);
 
         // Make sure this is a valid login method for the organization
         try {

@@ -372,7 +372,18 @@ export function getFeatureDefinition({
             if (exp.hashAttribute) {
               rule.hashAttribute = exp.hashAttribute;
             }
-
+            if (exp.fallbackAttribute) {
+              rule.fallbackAttribute = exp.fallbackAttribute;
+            }
+            if (exp.disableStickyBucketing) {
+              rule.disableStickyBucketing = exp.disableStickyBucketing;
+            }
+            if (exp.bucketVersion) {
+              rule.bucketVersion = exp.bucketVersion;
+            }
+            if (exp.minBucketVersion) {
+              rule.minBucketVersion = exp.minBucketVersion;
+            }
             if (
               phase.namespace &&
               phase.namespace.enabled &&
@@ -458,6 +469,18 @@ export function getFeatureDefinition({
             }
             if (r.hashAttribute) {
               rule.hashAttribute = r.hashAttribute;
+            }
+            if (r.fallbackAttribute) {
+              rule.fallbackAttribute = r.fallbackAttribute;
+            }
+            if (r.disableStickyBucketing) {
+              rule.disableStickyBucketing = r.disableStickyBucketing;
+            }
+            if (r.bucketVersion) {
+              rule.bucketVersion = r.bucketVersion;
+            }
+            if (r.minBucketVersion) {
+              rule.minBucketVersion = r.minBucketVersion;
             }
             if (r?.namespace && r.namespace.enabled && r.namespace.name) {
               rule.namespace = [

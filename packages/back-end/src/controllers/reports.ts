@@ -20,7 +20,7 @@ import {
 import { ReportQueryRunner } from "../queryRunners/ReportQueryRunner";
 import { getIntegrationFromDatasourceId } from "../services/datasource";
 import { generateReportNotebook } from "../services/notebook";
-import { getOrgFromReq } from "../services/organizations";
+import { getContextFromReq } from "../services/organizations";
 import { reportArgsFromSnapshot } from "../services/reports";
 import { AuthRequest } from "../types/AuthRequest";
 import { ExperimentInterface } from "../../types/experiment";
@@ -30,7 +30,7 @@ export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const snapshot = await findSnapshotById(org.id, req.params.snapshot);
 
@@ -102,7 +102,7 @@ export async function getReports(
   >,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   let project = "";
   if (typeof req.query?.project === "string") {
     project = req.query.project;
@@ -135,7 +135,7 @@ export async function getReportsOnExperiment(
   req: AuthRequest<unknown, { id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
 
   const reports = await getReportsByExperimentId(org.id, id);
@@ -150,7 +150,7 @@ export async function getReport(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const report = await getReportById(org.id, req.params.id);
 
@@ -168,7 +168,7 @@ export async function deleteReport(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const report = await getReportById(org.id, req.params.id);
 
   if (!report) {
@@ -191,7 +191,7 @@ export async function refreshReport(
   req: AuthRequest<null, { id: string }, { force?: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const report = await getReportById(org.id, req.params.id);
 
   if (!report) {
@@ -224,7 +224,7 @@ export async function refreshReport(
     report.args.datasource,
     true
   );
-  const queryRunner = new ReportQueryRunner(report, integration, useCache);
+  const queryRunner = new ReportQueryRunner(report, integration, org, useCache);
 
   const updatedReport = await queryRunner.startAnalysis({
     metricMap,
@@ -243,7 +243,7 @@ export async function putReport(
 ) {
   req.checkPermissions("createAnalyses", "");
 
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const report = await getReportById(org.id, req.params.id);
 
@@ -300,7 +300,7 @@ export async function putReport(
       updatedReport.args.datasource,
       true
     );
-    const queryRunner = new ReportQueryRunner(updatedReport, integration);
+    const queryRunner = new ReportQueryRunner(updatedReport, integration, org);
 
     await queryRunner.startAnalysis({
       metricMap,
@@ -318,7 +318,7 @@ export async function cancelReport(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
   const report = await getReportById(org.id, id);
   if (!report) {
@@ -333,7 +333,7 @@ export async function cancelReport(
     org.id,
     report.args.datasource
   );
-  const queryRunner = new ReportQueryRunner(report, integration);
+  const queryRunner = new ReportQueryRunner(report, integration, org);
   await queryRunner.cancelQueries();
 
   res.status(200).json({ status: 200 });
@@ -343,7 +343,7 @@ export async function postNotebook(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
 
   const notebook = await generateReportNotebook(id, org.id);

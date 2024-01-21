@@ -2,20 +2,21 @@ import { Response } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { getImageData, uploadFile } from "../../services/files";
 import { AuthRequest } from "../../types/AuthRequest";
-import { getOrgFromReq } from "../../services/organizations";
+import { getContextFromReq } from "../../services/organizations";
 
-const mimetypes: { [key: string]: string } = {
+const mimetypes: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpeg",
   "image/gif": "gif",
 };
 
 // Inverted object mapping extensions to mimetypes
-const extensionsToMimetype: { [key: string]: string } = {};
-for (const mimetype in mimetypes) {
-  const extension = mimetypes[mimetype];
-  extensionsToMimetype[extension] = mimetype;
-}
+const extensionsToMimetype: Record<string, string> = {
+  png: "image/png",
+  jpeg: "image/jpeg",
+  jpg: "image/jpeg",
+  gif: "image/gif",
+};
 
 export async function putUpload(req: AuthRequest<Buffer>, res: Response) {
   const contentType = req.headers["content-type"] as string;
@@ -30,7 +31,7 @@ export async function putUpload(req: AuthRequest<Buffer>, res: Response) {
   }
 
   const ext = mimetypes[contentType];
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const now = new Date();
   const pathPrefix = `${org.id}/${now.toISOString().substr(0, 7)}/`;
@@ -45,7 +46,7 @@ export async function putUpload(req: AuthRequest<Buffer>, res: Response) {
 }
 
 export function getImage(req: AuthRequest<{ path: string }>, res: Response) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const path = req.path[0] === "/" ? req.path.substr(1) : req.path;
 
@@ -54,8 +55,8 @@ export function getImage(req: AuthRequest<{ path: string }>, res: Response) {
     throw new Error("Invalid organization");
   }
 
-  const ext = path.split(".").pop() || "";
-  const contentType = extensionsToMimetype[ext];
+  const ext = path.split(".")?.pop()?.toLowerCase() ?? "";
+  const contentType = extensionsToMimetype[ext] ?? "";
 
   if (!contentType) {
     throw new Error(`Invalid file extension: ${ext}`);

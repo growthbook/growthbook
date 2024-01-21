@@ -54,13 +54,24 @@ export default class Athena extends SqlIntegration {
     return `CAST(${col} as double)`;
   }
   percentileCapSelectClause(
-    capPercentile: number,
-    metricTable: string
+    values: {
+      valueCol: string;
+      outputCol: string;
+      percentile: number;
+    }[],
+    metricTable: string,
+    where: string = ""
   ): string {
     return `
-      SELECT APPROX_PERCENTILE(value, ${capPercentile}) AS cap_value
+    SELECT
+      ${values
+        .map(
+          (v) =>
+            `APPROX_PERCENTILE(${v.valueCol}, ${v.percentile}) AS ${v.outputCol}`
+        )
+        .join(",\n")}
       FROM ${metricTable}
-      WHERE value IS NOT NULL
+      ${where}
     `;
   }
   getDefaultDatabase() {

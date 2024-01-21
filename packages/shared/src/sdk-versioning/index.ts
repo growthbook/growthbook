@@ -3,7 +3,7 @@ import {
   SDKLanguage,
 } from "back-end/types/sdk-connection";
 import uniq from "lodash/uniq";
-import { SDKCapability } from "./types";
+import { CapabilityStrategy, SDKCapability } from "./types";
 
 import * as javascript_json from "./sdk-versions/javascript.json";
 import * as nodejs_json from "./sdk-versions/nodejs.json";
@@ -101,7 +101,8 @@ export const isSDKOutdated = (
 
 export const getSDKCapabilities = (
   language: SDKLanguage = "other",
-  version?: string
+  version?: string,
+  expandLooseUnmashalling?: boolean
 ): SDKCapability[] => {
   language = language || "other";
   version = version || getDefaultSDKVersion(language);
@@ -114,6 +115,9 @@ export const getSDKCapabilities = (
     (acc, data) => [...acc, ...(data?.capabilities ?? [])],
     []
   );
+  if (expandLooseUnmashalling && capabilities.includes("looseUnmarshalling")) {
+    capabilities.push("bucketingV2");
+  }
   return uniq(capabilities) as SDKCapability[];
 };
 
@@ -121,14 +125,15 @@ export const getSDKCapabilities = (
 // minimal-allowed SDK Version (0.0.0), and return the intersection of capabilities between all languages.
 export const getConnectionSDKCapabilities = (
   connection: Partial<SDKConnectionInterface>,
-  strategy:
-    | "min-ver-intersection"
-    | "max-ver-intersection" = "min-ver-intersection"
+  strategy: CapabilityStrategy = "min-ver-intersection-loose-unmarshalling"
 ) => {
   if ((connection?.languages?.length || 0) <= 1) {
     return getSDKCapabilities(
       connection.languages?.[0],
-      strategy === "min-ver-intersection"
+      [
+        "min-ver-intersection",
+        "min-ver-intersection-loose-unmarshalling",
+      ].includes(strategy)
         ? connection.sdkVersion
         : getLatestSDKVersion(connection.languages?.[0])
     );
@@ -138,9 +143,13 @@ export const getConnectionSDKCapabilities = (
   for (const language of connection.languages || []) {
     const languageCapabilities = getSDKCapabilities(
       language,
-      strategy === "min-ver-intersection"
+      [
+        "min-ver-intersection",
+        "min-ver-intersection-loose-unmarshalling",
+      ].includes(strategy)
         ? undefined
-        : getLatestSDKVersion(language)
+        : getLatestSDKVersion(language),
+      strategy === "min-ver-intersection-loose-unmarshalling"
     );
     if (i === 0) {
       capabilities = languageCapabilities;
@@ -150,6 +159,21 @@ export const getConnectionSDKCapabilities = (
       );
     }
     i++;
+  }
+  return uniq(capabilities);
+};
+
+export const getConnectionsSDKCapabilities = (
+  connections: Partial<SDKConnectionInterface>[],
+  strategy:
+    | "min-ver-intersection"
+    | "max-ver-intersection" = "min-ver-intersection"
+) => {
+  let capabilities: SDKCapability[] = [];
+  for (const connection of connections) {
+    capabilities = capabilities.concat(
+      getConnectionSDKCapabilities(connection, strategy)
+    );
   }
   return uniq(capabilities);
 };

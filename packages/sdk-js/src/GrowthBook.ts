@@ -7,6 +7,7 @@ import type {
   ClientKey,
   Context,
   Experiment,
+  FeatureApiResponse,
   FeatureDefinition,
   FeatureResult,
   FeatureResultSource,
@@ -15,6 +16,10 @@ import type {
   RealtimeUsageData,
   RefreshFeaturesOptions,
   Result,
+  StickyAssignments,
+  StickyAssignmentsDocument,
+  StickyAttributeKey,
+  StickyExperimentKey,
   SubscriptionFunction,
   VariationMeta,
   VariationRange,
@@ -33,6 +38,7 @@ import {
   isIncluded,
   isURLTargeted,
   loadSDKVersion,
+  toString,
 } from "./util";
 import { evalCondition } from "./mongrule";
 import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
@@ -261,30 +267,64 @@ export class GrowthBook<
     this.setExperiments(JSON.parse(experimentsJSON) as AutoExperiment[]);
   }
 
-  public setAttributes(attributes: Attributes) {
+  public async decryptPayload(
+    data: FeatureApiResponse,
+    decryptionKey?: string,
+    subtle?: SubtleCrypto
+  ): Promise<FeatureApiResponse> {
+    if (data.encryptedFeatures) {
+      data.features = JSON.parse(
+        await decrypt(
+          data.encryptedFeatures,
+          decryptionKey || this._ctx.decryptionKey,
+          subtle
+        )
+      );
+      delete data.encryptedFeatures;
+    }
+    if (data.encryptedExperiments) {
+      data.experiments = JSON.parse(
+        await decrypt(
+          data.encryptedExperiments,
+          decryptionKey || this._ctx.decryptionKey,
+          subtle
+        )
+      );
+      delete data.encryptedExperiments;
+    }
+    return data;
+  }
+
+  public async setAttributes(attributes: Attributes) {
     this._ctx.attributes = attributes;
+    if (this._ctx.stickyBucketService) {
+      await this.refreshStickyBuckets();
+    }
     if (this._ctx.remoteEval) {
-      this._refreshForRemoteEval();
+      await this._refreshForRemoteEval();
       return;
     }
     this._render();
     this._updateAllAutoExperiments();
   }
 
-  public setAttributeOverrides(overrides: Attributes) {
+  public async setAttributeOverrides(overrides: Attributes) {
     this._attributeOverrides = overrides;
+    if (this._ctx.stickyBucketService) {
+      await this.refreshStickyBuckets();
+    }
     if (this._ctx.remoteEval) {
-      this._refreshForRemoteEval();
+      await this._refreshForRemoteEval();
       return;
     }
     this._render();
     this._updateAllAutoExperiments();
   }
 
-  public setForcedVariations(vars: Record<string, number>) {
+  public async setForcedVariations(vars: Record<string, number>) {
     this._ctx.forcedVariations = vars || {};
     if (this._ctx.remoteEval) {
-      this._refreshForRemoteEval();
+      await this._refreshForRemoteEval();
       return;
     }
     this._render();
@@ -297,12 +337,11 @@ export class GrowthBook<
     this._render();
   }
 
-  public setURL(url: string) {
+  public async setURL(url: string) {
     this._ctx.url = url;
     if (this._ctx.remoteEval) {
-      this._refreshForRemoteEval().then(() =>
-        this._updateAllAutoExperiments(true)
-      );
+      await this._refreshForRemoteEval();
+      this._updateAllAutoExperiments(true);
       return;
     }
     this._updateAllAutoExperiments(true);
@@ -319,6 +358,10 @@ export class GrowthBook<
   public getForcedFeatures() {
     // eslint-disable-next-line
     return this._forcedFeatureValues || new Map<string, any>();
+  }
+
+  public getStickyBucketAssignmentDocs() {
+    return this._ctx.stickyBucketAssignmentDocs || {};
   }
 
   public getUrl() {
@@ -405,10 +448,12 @@ export class GrowthBook<
     this._triggeredExpKeys.add(key);
     if (!this._ctx.experiments) return null;
     const experiments = this._ctx.experiments.filter((exp) => exp.key === key);
-    experiments.forEach((exp) => {
-      if (!exp.manual) return null;
-      this._runAutoExperiment(exp);
-    });
+    return experiments
+      .map((exp) => {
+        if (!exp.manual) return null;
+        return this._runAutoExperiment(exp);
+      })
+      .filter((res) => res !== null);
   }
 
   private _runAutoExperiment(experiment: AutoExperiment, forceRerun?: boolean) {
@@ -638,15 +683,6 @@ export class GrowthBook<
     // Loop through the rules
     if (feature.rules) {
       for (const rule of feature.rules) {
-        // If it's a conditional rule, skip if the condition doesn't pass
-        if (rule.condition && !this._conditionPasses(rule.condition)) {
-          process.env.NODE_ENV !== "production" &&
-            this.log("Skip rule because of condition", {
-              id,
-              rule,
-            });
-          continue;
-        }
         // If there are filters for who is included (e.g. namespaces)
         if (rule.filters && this._isFilteredOut(rule.filters)) {
           process.env.NODE_ENV !== "production" &&
@@ -659,11 +695,24 @@ export class GrowthBook<
 
         // Feature value is being forced
         if ("force" in rule) {
+          // If it's a conditional rule, skip if the condition doesn't pass
+          if (rule.condition && !this._conditionPasses(rule.condition)) {
+            process.env.NODE_ENV !== "production" &&
+              this.log("Skip rule because of condition ff", {
+                id,
+                rule,
+              });
+            continue;
+          }
+
           // If this is a percentage rollout, skip if not included
           if (
             !this._isIncludedInRollout(
               rule.seed || id,
               rule.hashAttribute,
+              this._ctx.stickyBucketService && !rule.disableStickyBucketing
+                ? rule.fallbackAttribute
+                : undefined,
               rule.range,
               rule.coverage,
               rule.hashVersion
@@ -701,6 +750,7 @@ export class GrowthBook<
 
           continue;
         }
+
         // For experiment rules, run an experiment
         const exp: Experiment<V> = {
           variations: rule.variations as [V, V, ...V[]],
@@ -709,6 +759,14 @@ export class GrowthBook<
         if ("coverage" in rule) exp.coverage = rule.coverage;
         if (rule.weights) exp.weights = rule.weights;
         if (rule.hashAttribute) exp.hashAttribute = rule.hashAttribute;
+        if (rule.fallbackAttribute)
+          exp.fallbackAttribute = rule.fallbackAttribute;
+        if (rule.disableStickyBucketing)
+          exp.disableStickyBucketing = rule.disableStickyBucketing;
+        if (rule.bucketVersion !== undefined)
+          exp.bucketVersion = rule.bucketVersion;
+        if (rule.minBucketVersion !== undefined)
+          exp.minBucketVersion = rule.minBucketVersion;
         if (rule.namespace) exp.namespace = rule.namespace;
         if (rule.meta) exp.meta = rule.meta;
         if (rule.ranges) exp.ranges = rule.ranges;
@@ -717,6 +775,7 @@ export class GrowthBook<
         if (rule.seed) exp.seed = rule.seed;
         if (rule.hashVersion) exp.hashVersion = rule.hashVersion;
         if (rule.filters) exp.filters = rule.filters;
+        if (rule.condition) exp.condition = rule.condition;
 
         // Only return a value if the user is part of the experiment
         const res = this._run(exp, id);
@@ -751,13 +810,17 @@ export class GrowthBook<
   private _isIncludedInRollout(
     seed: string,
     hashAttribute: string | undefined,
+    fallbackAttribute: string | undefined,
     range: VariationRange | undefined,
     coverage: number | undefined,
     hashVersion: number | undefined
   ): boolean {
     if (!range && coverage === undefined) return true;
 
-    const { hashValue } = this._getHashAttribute(hashAttribute);
+    const { hashValue } = this._getHashAttribute(
+      hashAttribute,
+      fallbackAttribute
+    );
     if (!hashValue) {
       return false;
     }
@@ -810,6 +873,18 @@ export class GrowthBook<
     // 2.5. Merge in experiment overrides from the context
     experiment = this._mergeOverrides(experiment);
 
+    // 2.6 New, more powerful URL targeting
+    if (
+      experiment.urlPatterns &&
+      !isURLTargeted(this._getContextUrl(), experiment.urlPatterns)
+    ) {
+      process.env.NODE_ENV !== "production" &&
+        this.log("Skip because of url targeting", {
+          id: key,
+        });
+      return this._getResult(experiment, -1, false, featureId);
+    }
+
     // 3. If a variation is forced from a querystring, return the forced variation
     const qsOverride = getQueryStringOverride(
       key,
@@ -846,7 +921,12 @@ export class GrowthBook<
     }
 
     // 6. Get the hash attribute and return if empty
-    const { hashValue } = this._getHashAttribute(experiment.hashAttribute);
+    const { hashAttribute, hashValue } = this._getHashAttribute(
+      experiment.hashAttribute,
+      this._ctx.stickyBucketService && !experiment.disableStickyBucketing
+        ? experiment.fallbackAttribute
+        : undefined
+    );
     if (!hashValue) {
       process.env.NODE_ENV !== "production" &&
         this.log("Skip because missing hashAttribute", {
@@ -855,54 +935,76 @@ export class GrowthBook<
       return this._getResult(experiment, -1, false, featureId);
     }
 
-    // 7. Exclude if user is filtered out (used to be called "namespace")
-    if (experiment.filters) {
-      if (this._isFilteredOut(experiment.filters)) {
+    let assigned = -1;
+
+    let foundStickyBucket = false;
+    let stickyBucketVersionIsBlocked = false;
+    if (this._ctx.stickyBucketService && !experiment.disableStickyBucketing) {
+      const { variation, versionIsBlocked } = this._getStickyBucketVariation(
+        experiment.key,
+        experiment.bucketVersion,
+        experiment.minBucketVersion,
+        experiment.meta
+      );
+      foundStickyBucket = variation >= 0;
+      assigned = variation;
+      stickyBucketVersionIsBlocked = !!versionIsBlocked;
+    }
+
+    // Some checks are not needed if we already have a sticky bucket
+    if (!foundStickyBucket) {
+      // 7. Exclude if user is filtered out (used to be called "namespace")
+      if (experiment.filters) {
+        if (this._isFilteredOut(experiment.filters)) {
+          process.env.NODE_ENV !== "production" &&
+            this.log("Skip because of filters", {
+              id: key,
+            });
+          return this._getResult(experiment, -1, false, featureId);
+        }
+      } else if (
+        experiment.namespace &&
+        !inNamespace(hashValue, experiment.namespace)
+      ) {
         process.env.NODE_ENV !== "production" &&
-          this.log("Skip because of filters", {
+          this.log("Skip because of namespace", {
             id: key,
           });
         return this._getResult(experiment, -1, false, featureId);
       }
-    } else if (
-      experiment.namespace &&
-      !inNamespace(hashValue, experiment.namespace)
-    ) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Skip because of namespace", {
-          id: key,
-        });
-      return this._getResult(experiment, -1, false, featureId);
-    }
 
-    // 7.5. Exclude if experiment.include returns false or throws
-    if (experiment.include && !isIncluded(experiment.include)) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Skip because of include function", {
-          id: key,
-        });
-      return this._getResult(experiment, -1, false, featureId);
-    }
+      // 7.5. Exclude if experiment.include returns false or throws
+      if (experiment.include && !isIncluded(experiment.include)) {
+        process.env.NODE_ENV !== "production" &&
+          this.log("Skip because of include function", {
+            id: key,
+          });
+        return this._getResult(experiment, -1, false, featureId);
+      }
 
-    // 8. Exclude if condition is false
-    if (experiment.condition && !this._conditionPasses(experiment.condition)) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Skip because of condition", {
-          id: key,
-        });
-      return this._getResult(experiment, -1, false, featureId);
-    }
+      // 8. Exclude if condition is false
+      if (
+        experiment.condition &&
+        !this._conditionPasses(experiment.condition)
+      ) {
+        process.env.NODE_ENV !== "production" &&
+          this.log("Skip because of condition exp", {
+            id: key,
+          });
+        return this._getResult(experiment, -1, false, featureId);
+      }
 
-    // 8.1. Exclude if user is not in a required group
-    if (
-      experiment.groups &&
-      !this._hasGroupOverlap(experiment.groups as string[])
-    ) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Skip because of groups", {
-          id: key,
-        });
-      return this._getResult(experiment, -1, false, featureId);
+      // 8.1. Exclude if user is not in a required group
+      if (
+        experiment.groups &&
+        !this._hasGroupOverlap(experiment.groups as string[])
+      ) {
+        process.env.NODE_ENV !== "production" &&
+          this.log("Skip because of groups", {
+            id: key,
+          });
+        return this._getResult(experiment, -1, false, featureId);
+      }
     }
 
     // 8.2. Old style URL targeting
@@ -914,19 +1016,7 @@ export class GrowthBook<
       return this._getResult(experiment, -1, false, featureId);
     }
 
-    // 8.3. New, more powerful URL targeting
-    if (
-      experiment.urlPatterns &&
-      !isURLTargeted(this._getContextUrl(), experiment.urlPatterns)
-    ) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Skip because of url targeting", {
-          id: key,
-        });
-      return this._getResult(experiment, -1, false, featureId);
-    }
-
-    // 9. Get bucket ranges and choose variation
+    // 9. Get the variation from the sticky bucket or get bucket ranges and choose variation
     const n = hash(
       experiment.seed || key,
       hashValue,
@@ -940,15 +1030,25 @@ export class GrowthBook<
       return this._getResult(experiment, -1, false, featureId);
     }
 
-    const ranges =
-      experiment.ranges ||
-      getBucketRanges(
-        numVariations,
-        experiment.coverage === undefined ? 1 : experiment.coverage,
-        experiment.weights
-      );
+    if (!foundStickyBucket) {
+      const ranges =
+        experiment.ranges ||
+        getBucketRanges(
+          numVariations,
+          experiment.coverage === undefined ? 1 : experiment.coverage,
+          experiment.weights
+        );
+      assigned = chooseVariation(n, ranges);
+    }
 
-    const assigned = chooseVariation(n, ranges);
+    // 9.5 Unenroll if any prior sticky buckets are blocked by version
+    if (stickyBucketVersionIsBlocked) {
+      process.env.NODE_ENV !== "production" &&
+        this.log("Skip because sticky bucket version is blocked", {
+          id: key,
+        });
+      return this._getResult(experiment, -1, false, featureId, undefined, true);
+    }
 
     // 10. Return if not in experiment
     if (assigned < 0) {
@@ -993,7 +1093,40 @@ export class GrowthBook<
     }
 
     // 13. Build the result object
-    const result = this._getResult(experiment, assigned, true, featureId, n);
+    const result = this._getResult(
+      experiment,
+      assigned,
+      true,
+      featureId,
+      n,
+      foundStickyBucket
+    );
+
+    // 13.5. Persist sticky bucket
+    if (this._ctx.stickyBucketService && !experiment.disableStickyBucketing) {
+      const {
+        changed,
+        key: attrKey,
+        doc,
+      } = this._generateStickyBucketAssignmentDoc(
+        hashAttribute,
+        toString(hashValue),
+        {
+          [this._getStickyBucketExperimentKey(
+            experiment.key,
+            experiment.bucketVersion
+          )]: result.key,
+        }
+      );
+      if (changed) {
+        // update local docs
+        this._ctx.stickyBucketAssignmentDocs =
+          this._ctx.stickyBucketAssignmentDocs || {};
+        this._ctx.stickyBucketAssignmentDocs[attrKey] = doc;
+        // save doc
+        this._ctx.stickyBucketService.saveAssignments(doc);
+      }
+    }
 
     // 14. Fire the tracking callback
     this._track(experiment, result);
@@ -1047,16 +1180,31 @@ export class GrowthBook<
     return experiment;
   }
 
-  private _getHashAttribute(attr?: string) {
-    const hashAttribute = attr || "id";
+  private _getHashAttribute(attr?: string, fallback?: string) {
+    let hashAttribute = attr || "id";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let hashValue: any = "";
 
-    let hashValue = "";
     if (this._attributeOverrides[hashAttribute]) {
       hashValue = this._attributeOverrides[hashAttribute];
     } else if (this._ctx.attributes) {
       hashValue = this._ctx.attributes[hashAttribute] || "";
     } else if (this._ctx.user) {
       hashValue = this._ctx.user[hashAttribute] || "";
+    }
+
+    // if no match, try fallback
+    if (!hashValue && fallback) {
+      if (this._attributeOverrides[fallback]) {
+        hashValue = this._attributeOverrides[fallback];
+      } else if (this._ctx.attributes) {
+        hashValue = this._ctx.attributes[fallback] || "";
+      } else if (this._ctx.user) {
+        hashValue = this._ctx.user[fallback] || "";
+      }
+      if (hashValue) {
+        hashAttribute = fallback;
+      }
     }
 
     return { hashAttribute, hashValue };
@@ -1067,7 +1215,8 @@ export class GrowthBook<
     variationIndex: number,
     hashUsed: boolean,
     featureId: string | null,
-    bucket?: number
+    bucket?: number,
+    stickyBucketUsed?: boolean
   ): Result<T> {
     let inExperiment = true;
     // If assigned variation is not valid, use the baseline and mark the user as not in the experiment
@@ -1077,7 +1226,10 @@ export class GrowthBook<
     }
 
     const { hashAttribute, hashValue } = this._getHashAttribute(
-      experiment.hashAttribute
+      experiment.hashAttribute,
+      this._ctx.stickyBucketService && !experiment.disableStickyBucketing
+        ? experiment.fallbackAttribute
+        : undefined
     );
 
     const meta: Partial<VariationMeta> = experiment.meta
@@ -1093,6 +1245,7 @@ export class GrowthBook<
       value: experiment.variations[variationIndex],
       hashAttribute,
       hashValue,
+      stickyBucketUsed: !!stickyBucketUsed,
     };
 
     if (meta.name) res.name = meta.name;
@@ -1147,6 +1300,145 @@ export class GrowthBook<
     }
     return () => {
       undo.forEach((fn) => fn());
+    };
+  }
+
+  private _deriveStickyBucketIdentifierAttributes(data?: FeatureApiResponse) {
+    const attributes = new Set<string>();
+    const features = data && data.features ? data.features : this.getFeatures();
+    const experiments =
+      data && data.experiments ? data.experiments : this.getExperiments();
+    Object.keys(features).forEach((id) => {
+      const feature = features[id];
+      if (feature.rules) {
+        for (const rule of feature.rules) {
+          if (rule.variations) {
+            attributes.add(rule.hashAttribute || "id");
+            if (rule.fallbackAttribute) {
+              attributes.add(rule.fallbackAttribute);
+            }
+          }
+        }
+      }
+    });
+    experiments.map((experiment) => {
+      attributes.add(experiment.hashAttribute || "id");
+      if (experiment.fallbackAttribute) {
+        attributes.add(experiment.fallbackAttribute);
+      }
+    });
+    return Array.from(attributes);
+  }
+
+  public async refreshStickyBuckets(data?: FeatureApiResponse) {
+    if (this._ctx.stickyBucketService) {
+      const attributes = this._getStickyBucketAttributes(data);
+      this._ctx.stickyBucketAssignmentDocs = await this._ctx.stickyBucketService.getAllAssignments(
+        attributes
+      );
+    }
+  }
+
+  private _getStickyBucketAssignments(): StickyAssignments {
+    const mergedAssignments: StickyAssignments = {};
+    Object.values(this._ctx.stickyBucketAssignmentDocs || {}).forEach((doc) => {
+      if (doc.assignments) Object.assign(mergedAssignments, doc.assignments);
+    });
+    return mergedAssignments;
+  }
+
+  private _getStickyBucketVariation(
+    experimentKey: string,
+    experimentBucketVersion?: number,
+    minExperimentBucketVersion?: number,
+    meta?: VariationMeta[]
+  ): {
+    variation: number;
+    versionIsBlocked?: boolean;
+  } {
+    experimentBucketVersion = experimentBucketVersion || 0;
+    minExperimentBucketVersion = minExperimentBucketVersion || 0;
+    meta = meta || [];
+    const id = this._getStickyBucketExperimentKey(
+      experimentKey,
+      experimentBucketVersion
+    );
+    const assignments = this._getStickyBucketAssignments();
+
+    // users with any blocked bucket version (0 to minExperimentBucketVersion) are excluded from the test
+    if (minExperimentBucketVersion > 0) {
+      for (let i = 0; i <= minExperimentBucketVersion; i++) {
+        const blockedKey = this._getStickyBucketExperimentKey(experimentKey, i);
+        if (assignments[blockedKey] !== undefined) {
+          return {
+            variation: -1,
+            versionIsBlocked: true,
+          };
+        }
+      }
+    }
+    const variationKey = assignments[id];
+    if (variationKey === undefined)
+      // no assignment found
+      return { variation: -1 };
+    const variation = meta.findIndex((m) => m.key === variationKey);
+    if (variation < 0)
+      // invalid assignment, treat as "no assignment found"
+      return { variation: -1 };
+
+    return { variation };
+  }
+
+  private _getStickyBucketExperimentKey(
+    experimentKey: string,
+    experimentBucketVersion?: number
+  ): StickyExperimentKey {
+    experimentBucketVersion = experimentBucketVersion || 0;
+    return `${experimentKey}__${experimentBucketVersion}`;
+  }
+
+  private _getStickyBucketAttributes(
+    data?: FeatureApiResponse
+  ): Record<string, string> {
+    const attributes: Record<string, string> = {};
+    this._ctx.stickyBucketIdentifierAttributes = !this._ctx
+      .stickyBucketIdentifierAttributes
+      ? this._deriveStickyBucketIdentifierAttributes(data)
+      : this._ctx.stickyBucketIdentifierAttributes;
+    this._ctx.stickyBucketIdentifierAttributes.forEach((attr) => {
+      const { hashValue } = this._getHashAttribute(attr);
+      attributes[attr] = toString(hashValue);
+    });
+    return attributes;
+  }
+
+  private _generateStickyBucketAssignmentDoc(
+    attributeName: string,
+    attributeValue: string,
+    assignments: StickyAssignments
+  ): {
+    key: StickyAttributeKey;
+    doc: StickyAssignmentsDocument;
+    changed: boolean;
+  } {
+    const key = `${attributeName}||${attributeValue}`;
+    const existingAssignments =
+      this._ctx.stickyBucketAssignmentDocs &&
+      this._ctx.stickyBucketAssignmentDocs[key]
+        ? this._ctx.stickyBucketAssignmentDocs[key].assignments || {}
+        : {};
+    const newAssignments = { ...existingAssignments, ...assignments };
+    const changed =
+      JSON.stringify(existingAssignments) !== JSON.stringify(newAssignments);
+
+    return {
+      key,
+      doc: {
+        attributeName,
+        attributeValue,
+        assignments: newAssignments,
+      },
+      changed,
     };
   }
 }

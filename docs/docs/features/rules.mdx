@@ -42,7 +42,7 @@ Rollouts are most useful when you want to make sure a new feature doesn't break 
 
 For rollout rules, you choose a user attribute to use for the random sample. Users with the same attribute value will be treated the same (either included or not included in the rollout). For example, if you choose a "company" attribute, then multiple employees in the same company will get the same experience.
 
-::: note
+:::note
 
 Percentage Rollouts do not fire any tracking calls so there's no way to precisely correlate the rollout to changes in your application's metrics. If this is a concern, we recommend Experiment rules (below) instead.
 
@@ -82,7 +82,7 @@ as two experiment ranges do not overlap, users will only ever be in at most one 
 
 ![Namespaces](/images/namespaces.png)
 
-Before you can use namespaces, you must configure them under _SDK Configuration > Namespaces_.
+In order to use namespaces, simply create a new namespace or modify an existing one in _SDK Configuration > Namespaces_ in the GrowthBook UI's left navigation bar.
 
 ## Testing Rules
 

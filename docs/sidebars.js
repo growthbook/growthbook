@@ -88,6 +88,11 @@ const sidebars = {
           id: "visual-editor",
           label: "Visual Editor",
         },
+        {
+          type: "doc",
+          id: "sticky-bucketing",
+          label: "Sticky Bucketing",
+        },
       ],
     },
     {
@@ -313,6 +318,11 @@ const sidebars = {
               type: "doc",
               id: "statistics/aggregation",
               label: "Aggregate Data",
+            },
+            {
+              type: "doc",
+              id: "statistics/carryover-bias",
+              label: "Carryover Bias",
             },
           ],
         },

@@ -17,7 +17,7 @@ import PremiumTooltip from "../Marketing/PremiumTooltip";
 import UpgradeMessage from "../Marketing/UpgradeMessage";
 import UpgradeModal from "../Settings/UpgradeModal";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
-import MetricsSelector from "./MetricsSelector";
+import MetricsSelector, { MetricsSelectorTooltip } from "./MetricsSelector";
 import MetricSelector from "./MetricSelector";
 
 export interface EditMetricsFormInterface {
@@ -160,13 +160,17 @@ const EditMetricsForm: FC<{
     >
       <div className="form-group">
         <label className="font-weight-bold mb-1">Goal Metrics</label>
-        <div className="mb-1 font-italic">
-          Metrics you are trying to improve with this experiment.
+        <div className="mb-1">
+          <span className="font-italic">
+            Metrics you are trying to improve with this experiment.{" "}
+          </span>
+          <MetricsSelectorTooltip />
         </div>
         <MetricsSelector
           selected={form.watch("metrics")}
           onChange={(metrics) => form.setValue("metrics", metrics)}
           datasource={experiment.datasource}
+          exposureQueryId={experiment.exposureQueryId}
           project={experiment.project}
           autoFocus={true}
           includeFacts={true}
@@ -175,14 +179,18 @@ const EditMetricsForm: FC<{
 
       <div className="form-group">
         <label className="font-weight-bold mb-1">Guardrail Metrics</label>
-        <div className="mb-1 font-italic">
-          Metrics you want to monitor, but are NOT specifically trying to
-          improve.
+        <div className="mb-1">
+          <span className="font-italic">
+            Metrics you want to monitor, but are NOT specifically trying to
+            improve.{" "}
+          </span>
+          <MetricsSelectorTooltip />
         </div>
         <MetricsSelector
           selected={form.watch("guardrails")}
           onChange={(metrics) => form.setValue("guardrails", metrics)}
           datasource={experiment.datasource}
+          exposureQueryId={experiment.exposureQueryId}
           project={experiment.project}
           includeFacts={true}
         />
@@ -190,13 +198,16 @@ const EditMetricsForm: FC<{
 
       <div className="form-group">
         <label className="font-weight-bold mb-1">Activation Metric</label>
-        <div className="mb-1 font-italic">
-          Users must convert on this metric before being included.
+        <div className="mb-1">
+          <span className="font-italic">
+            Users must convert on this metric before being included.{" "}
+          </span>
+          <MetricsSelectorTooltip onlyBinomial={true} />
         </div>
-
         <MetricSelector
           initialOption="None"
           value={form.watch("activationMetric")}
+          exposureQueryId={experiment.exposureQueryId}
           onChange={(metric) => form.setValue("activationMetric", metric)}
           datasource={experiment.datasource}
           project={experiment.project}

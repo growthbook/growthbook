@@ -724,6 +724,10 @@ main.main.report {
   background-color: var(--form-multivalue-background-color);
   color: var(--form-multivalue-text-color);
 }
+.badge-muted-info {
+  @include badge-variant(#66aaaa);
+  color: var(--text-color-on-bright);
+}
 .badge-ellipsis {
   max-width: 250px;
   overflow: hidden;
@@ -2976,6 +2980,9 @@ tr.disabled,
 td.disabled {
   background: var(--disabled-background);
   font-style: italic;
+}
+.cursor-disabled {
+  cursor: not-allowed;
 }
 .gb-select-wrapper.disabled {
   cursor: not-allowed;

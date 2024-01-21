@@ -130,9 +130,9 @@ export default function FactTablesPage() {
                 body={
                   <>
                     <p>
-                      <strong>Coming Soon!</strong> GrowthBook will be able to
-                      calculate multiple metrics in a single database query when
-                      they share the same Fact Table.
+                      <strong>Enterprise-Only</strong> GrowthBook calculates
+                      multiple metrics in a single database query when they
+                      share the same Fact Table.
                     </p>
                     <p>
                       For warehouses like BigQuery that charge based on data

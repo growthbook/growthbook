@@ -286,6 +286,12 @@ export async function decrypt(
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function toString(input: any): string {
+  if (typeof input === "string") return input;
+  return JSON.stringify(input);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function paddedVersionString(input: any): string {
   if (typeof input === "number") {
     input = input + "";

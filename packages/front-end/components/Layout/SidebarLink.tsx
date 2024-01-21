@@ -3,7 +3,6 @@ import Link from "next/link";
 import { IconType } from "react-icons/lib";
 import { useRouter } from "next/router";
 import clsx from "clsx";
-import { AccountPlan } from "enterprise";
 import { FiChevronRight } from "react-icons/fi";
 import { GlobalPermission, Permission } from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
@@ -30,11 +29,10 @@ export type SidebarLinkProps = {
   subLinks?: SidebarLinkProps[];
   beta?: boolean;
   feature?: keyof AppFeatures;
-  accountPlans?: AccountPlan[];
 };
 
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
-  const { permissions, superAdmin, accountPlan } = useUser();
+  const { permissions, superAdmin } = useUser();
   const router = useRouter();
 
   const path = router.route.substr(1);
@@ -157,10 +155,6 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
                 return null;
               }
               if (l.selfHostedOnly && isCloud()) {
-                return null;
-              }
-              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'AccountPlan | undefined' is not ... Remove this comment to see the full error message
-              if (l.accountPlans && !l.accountPlans.includes(accountPlan)) {
                 return null;
               }
 

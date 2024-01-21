@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
+import { ReadAccessFilter, getReadAccessFilter } from "shared/permissions";
 import {
   createOrganization,
   findAllOrganizations,
@@ -45,7 +46,7 @@ import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 import { logger } from "../util/logger";
-import { getDefaultRole } from "../util/organization.util";
+import { getDefaultRole, getUserPermissions } from "../util/organization.util";
 import { SegmentInterface } from "../../types/segment";
 import {
   createSegment,
@@ -97,7 +98,16 @@ export function validateLoginMethod(
   return true;
 }
 
-export function getOrgFromReq(req: AuthRequest) {
+export type ReqContext = {
+  org: OrganizationInterface;
+  userId: string;
+  email: string;
+  environments: string[];
+  userName: string;
+  readAccessFilter: ReadAccessFilter;
+};
+
+export function getContextFromReq(req: AuthRequest): ReqContext {
   if (!req.organization) {
     throw new Error("Must be part of an organization to make that request");
   }
@@ -111,6 +121,9 @@ export function getOrgFromReq(req: AuthRequest) {
     email: req.email,
     environments: getEnvironmentIdsFromOrg(req.organization),
     userName: req.name || "",
+    readAccessFilter: getReadAccessFilter(
+      getUserPermissions(req.userId, req.organization, req.teams)
+    ),
   };
 }
 
