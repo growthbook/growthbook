@@ -1,10 +1,11 @@
 import { useForm } from "react-hook-form";
 import { FeatureInterface, FeaturePrerequisite } from "back-end/types/feature";
-import React, { useEffect, useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { isFeatureCyclic } from "shared/util";
 import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
 import clsx from "clsx";
 import cloneDeep from "lodash/cloneDeep";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import {
   getFeatureDefaultValue,
   useEnvironments,
@@ -25,6 +26,8 @@ export interface Props {
   feature: FeatureInterface;
   mutate: () => void;
   i: number;
+  revisions: FeatureRevisionInterface[];
+  version: number;
 }
 
 export default function PrerequisiteModal({
@@ -32,6 +35,8 @@ export default function PrerequisiteModal({
   feature,
   i,
   mutate,
+  revisions,
+  version,
 }: Props) {
   const { features } = useFeaturesList();
   const prerequisites = getPrerequisites(feature);
@@ -65,13 +70,23 @@ export default function PrerequisiteModal({
   const parentFeatureId = parentFeature?.id;
   const parentCondition = form.watch("parentCondition");
 
-  const isCyclic = useMemo(() => {
-    if (!parentFeatureId) return false;
+  const [isCyclic, cyclicFeatureId] = useMemo(() => {
+    if (!parentFeatureId) return [false, null];
     const newFeature = cloneDeep(feature);
+    const revision = revisions?.find((r) => r.version === version);
     newFeature.prerequisites = [...prerequisites];
     newFeature.prerequisites[i] = form.getValues();
-    return isFeatureCyclic(newFeature, features);
-  }, [parentFeatureId, features, feature, prerequisites, form, i]);
+    return isFeatureCyclic(newFeature, features, revision);
+  }, [
+    parentFeatureId,
+    features,
+    revisions,
+    version,
+    feature,
+    prerequisites,
+    form,
+    i,
+  ]);
 
   const canSubmit =
     !isCyclic &&
@@ -206,8 +221,8 @@ export default function PrerequisiteModal({
       {isCyclic && (
         <div className="alert alert-danger">
           <FaExclamationTriangle /> This prerequisite (
-          <code>{form.watch("parentId")}</code>) creates a circular dependency.
-          Either remove this prerequisite or change the parent feature(s).
+          <code>{cyclicFeatureId}</code>) creates a circular dependency. Remove
+          this prerequisite to continue.
         </div>
       )}
 

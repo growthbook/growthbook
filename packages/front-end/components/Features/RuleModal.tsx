@@ -5,13 +5,23 @@ import {
   FeatureRule,
   ScheduleRule,
 } from "back-end/types/feature";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { date } from "shared/dates";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { getMatchingRules, includeExperimentInPayload } from "shared/util";
-import { FaBell, FaExternalLinkAlt } from "react-icons/fa";
+import {
+  getMatchingRules,
+  includeExperimentInPayload,
+  isFeatureCyclic,
+} from "shared/util";
+import {
+  FaBell,
+  FaExclamationTriangle,
+  FaExternalLinkAlt,
+} from "react-icons/fa";
 import Link from "next/link";
+import cloneDeep from "lodash/cloneDeep";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import {
   NewExperimentRefRule,
   generateVariationId,
@@ -57,6 +67,7 @@ export interface Props {
   i: number;
   environment: string;
   defaultType?: string;
+  revisions?: FeatureRevisionInterface[];
 }
 
 export default function RuleModal({
@@ -68,6 +79,7 @@ export default function RuleModal({
   defaultType = "force",
   version,
   setVersion,
+  revisions,
 }: Props) {
   const attributeSchema = useAttributeSchema();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -139,6 +151,33 @@ export default function RuleModal({
 
   const experimentId = form.watch("experimentId");
   const selectedExperiment = experimentsMap.get(experimentId) || null;
+
+  const prerequisites = form.watch("prerequisites") || [];
+  const [isCyclic, cyclicFeatureId] = useMemo(() => {
+    if (!prerequisites.length) return [false, null];
+    const newFeature = cloneDeep(feature);
+    const revision = revisions?.find((r) => r.version === version);
+    const newRevision = cloneDeep(revision);
+    if (newRevision) {
+      // merge form values into revision
+      const newRule = form.getValues() as FeatureRule;
+      newRevision.rules[environment][i] = newRule;
+    }
+    return isFeatureCyclic(newFeature, features, newRevision);
+  }, [
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    JSON.stringify(prerequisites),
+    prerequisites.length,
+    features,
+    feature,
+    revisions,
+    version,
+    environment,
+    form,
+    i,
+  ]);
+
+  const canSubmit = !isCyclic;
 
   if (showUpgradeModal) {
     return (
@@ -233,6 +272,7 @@ export default function RuleModal({
       close={close}
       size="lg"
       cta="Save"
+      ctaEnabled={canSubmit}
       header={rule ? "Edit Override Rule" : "New Override Rule"}
       submit={form.handleSubmit(async (values) => {
         const ruleAction = i === rules.length ? "add" : "edit";
@@ -645,6 +685,13 @@ export default function RuleModal({
             feature={feature}
           />
         </>
+      )}
+      {isCyclic && (
+        <div className="alert alert-danger">
+          <FaExclamationTriangle /> A prerequisite (
+          <code>{cyclicFeatureId}</code>) creates a circular dependency. Remove
+          this prerequisite to continue.
+        </div>
       )}
       {type === "force" && (
         <FeatureValueField

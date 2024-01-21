@@ -340,6 +340,7 @@ export default function FeaturePage() {
           environment={ruleModal.environment}
           mutate={mutate}
           defaultType={ruleModal.defaultType || ""}
+          revisions={data.revisions}
           version={currentVersion}
           setVersion={setVersion}
         />
@@ -350,6 +351,8 @@ export default function FeaturePage() {
           close={() => setPrerequisiteModal(null)}
           i={prerequisiteModal.i}
           mutate={mutate}
+          revisions={data.revisions}
+          version={currentVersion}
         />
       )}
       {auditModal && (

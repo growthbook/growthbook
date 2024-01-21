@@ -40,7 +40,6 @@ export default function PrerequisiteTargetingField({
   const [conditionKeys, forceConditionRender] = useArrayIncrementer();
 
   useEffect(() => {
-    console.log("trigger", value);
     for (let i = 0; i < value.length; i++) {
       const v = value[i];
       const parentFeature = features.find((f) => f.id === v.parentId);
@@ -72,7 +71,6 @@ export default function PrerequisiteTargetingField({
               {value.map((v, i) => {
                 const parentFeature = features.find((f) => f.id === v.parentId);
                 const parentFeatureId = parentFeature?.id;
-                console.log(i, v, parentFeature);
 
                 return (
                   <li key={i} className={styles.listitem}>

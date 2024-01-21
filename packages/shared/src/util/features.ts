@@ -471,28 +471,47 @@ export function validateAndFixCondition(
 
 export function isFeatureCyclic(
   feature: FeatureInterface,
-  features: FeatureInterface[]
-) {
+  features: FeatureInterface[],
+  revision?: FeatureRevisionInterface
+): [boolean, string | null] {
   const visited = new Set<string>();
   const stack = new Set<string>();
 
-  const visit = (feature: FeatureInterface) => {
-    if (stack.has(feature.id)) return true;
-    if (visited.has(feature.id)) return false;
+  const newFeature = cloneDeep(feature);
+  if (revision) {
+    for (const env of Object.keys(newFeature.environmentSettings || {})) {
+      newFeature.environmentSettings[env].rules = revision?.rules?.[env] || [];
+    }
+  }
+
+  const visit = (feature: FeatureInterface): [boolean, string | null] => {
+    if (stack.has(feature.id)) return [true, feature.id];
+    if (visited.has(feature.id)) return [false, null];
 
     stack.add(feature.id);
     visited.add(feature.id);
 
-    for (const prerequisite of feature.prerequisites || []) {
-      const parentFeature = features.find(
-        (f) => f.id === prerequisite.parentId
-      );
-      if (parentFeature && visit(parentFeature)) return true;
+    const prerequisiteIds = (feature.prerequisites || []).map(
+      (p) => p.parentId
+    );
+    for (const env of Object.values(feature.environmentSettings || {})) {
+      for (const rule of env.rules || []) {
+        if (rule.prerequisites?.length) {
+          const rulePrerequisiteIds = rule.prerequisites.map((p) => p.parentId);
+          prerequisiteIds.push(...rulePrerequisiteIds);
+        }
+      }
+    }
+
+    for (const prerequisiteId of prerequisiteIds) {
+      const parentFeature = features.find((f) => f.id === prerequisiteId);
+      if (parentFeature && visit(parentFeature)[0])
+        return [true, prerequisiteId];
     }
 
     stack.delete(feature.id);
-    return false;
+    return [false, null];
   };
 
-  return visit(feature);
+  return visit(newFeature);
 }
