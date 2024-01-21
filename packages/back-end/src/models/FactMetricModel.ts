@@ -6,6 +6,7 @@ import {
   FactMetricInterface,
   UpdateFactMetricProps,
 } from "../../types/fact-table";
+import { ApiFactMetric } from "../../types/openapi";
 
 const factTableSchema = new mongoose.Schema({
   id: String,
@@ -76,9 +77,16 @@ export async function createFactMetric(
   organization: string,
   data: CreateFactMetricProps
 ) {
+  const id = data.id || uniqid("fact__");
+  if (!id.match(/^fact__[-a-zA-Z0-9_]+$/)) {
+    throw new Error(
+      "Fact metric ids MUST start with 'fact__' and contain only letters, numbers, underscores, and dashes"
+    );
+  }
+
   const doc = await FactMetricModel.create({
     organization: organization,
-    id: uniqid("fact__"),
+    id,
     dateCreated: new Date(),
     dateUpdated: new Date(),
     ...data,
@@ -109,4 +117,16 @@ export async function deleteFactMetric(factMetric: FactMetricInterface) {
     id: factMetric.id,
     organization: factMetric.organization,
   });
+}
+
+export function toFactMetricApiInterface(
+  factMetric: FactMetricInterface
+): ApiFactMetric {
+  return {
+    ...omit(factMetric, ["organization", "dateCreated", "dateUpdated"]),
+    denominator: factMetric.denominator || undefined,
+    capping: factMetric.capping || "none",
+    dateCreated: factMetric.dateCreated?.toISOString() || "",
+    dateUpdated: factMetric.dateUpdated?.toISOString() || "",
+  };
 }

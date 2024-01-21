@@ -15,6 +15,8 @@ export const updateSavedGroup = createApiRequestHandler(
   updateSavedGroupValidator
 )(
   async (req): Promise<UpdateSavedGroupResponse> => {
+    req.checkPermissions("manageSavedGroups");
+
     const { name, values, condition, owner } = req.body;
 
     const { id } = req.params;

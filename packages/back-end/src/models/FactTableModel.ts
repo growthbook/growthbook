@@ -10,6 +10,7 @@ import {
   UpdateColumnProps,
   UpdateFactTableProps,
 } from "../../types/fact-table";
+import { ApiFactTable, ApiFactTableFilter } from "../../types/openapi";
 
 const factTableSchema = new mongoose.Schema({
   id: String,
@@ -38,6 +39,7 @@ const factTableSchema = new mongoose.Schema({
       deleted: Boolean,
     },
   ],
+  columnsError: String,
   filters: [
     {
       _id: false,
@@ -89,9 +91,16 @@ export async function createFactTable(
   organization: string,
   data: CreateFactTableProps
 ) {
+  const id = data.id || uniqid("ftb_");
+  if (!id.match(/^[-a-zA-Z0-9_]+$/)) {
+    throw new Error(
+      "Fact table ids must contain only letters, numbers, underscores, and dashes"
+    );
+  }
+
   const doc = await FactTableModel.create({
-    organization: organization,
-    id: data.id || uniqid("ftb_"),
+    organization,
+    id,
     name: data.name,
     description: data.description,
     dateCreated: new Date(),
@@ -105,8 +114,11 @@ export async function createFactTable(
     userIdTypes: data.userIdTypes,
     eventName: data.eventName,
     columns: data.columns || [],
+    columnsError: null,
   });
-  return toInterface(doc);
+
+  const factTable = toInterface(doc);
+  return factTable;
 }
 
 export async function updateFactTable(
@@ -159,8 +171,15 @@ export async function createFactFilter(
   factTable: FactTableInterface,
   data: CreateFactFilterProps
 ) {
+  const id = data.id || uniqid("flt_");
+  if (!id.match(/^[-a-zA-Z0-9_]+$/)) {
+    throw new Error(
+      "Fact table filter ids must contain only letters, numbers, underscores, and dashes"
+    );
+  }
+
   const filter: FactFilterInterface = {
-    id: data.id || uniqid("flt_"),
+    id,
     name: data.name,
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -249,4 +268,37 @@ export async function deleteFactFilter(
       },
     }
   );
+}
+
+export function toFactTableApiInterface(
+  factTable: FactTableInterface
+): ApiFactTable {
+  return {
+    ...omit(factTable, [
+      "organization",
+      "columns",
+      "filters",
+      "dateCreated",
+      "dateUpdated",
+    ]),
+    dateCreated: factTable.dateCreated?.toISOString() || "",
+    dateUpdated: factTable.dateUpdated?.toISOString() || "",
+  };
+}
+
+export function toFactTableFilterApiInterface(
+  factTable: FactTableInterface,
+  filterId: string
+): ApiFactTableFilter {
+  const filter = factTable.filters.find((f) => f.id === filterId);
+
+  if (!filter) {
+    throw new Error("Cannot find filter with that id");
+  }
+
+  return {
+    ...omit(filter, ["dateCreated", "dateUpdated"]),
+    dateCreated: filter.dateCreated?.toISOString() || "",
+    dateUpdated: filter.dateUpdated?.toISOString() || "",
+  };
 }

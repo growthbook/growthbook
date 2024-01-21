@@ -233,3 +233,99 @@ export const putOrganizationValidator = {
   querySchema: z.never(),
   paramsSchema: z.object({"id":z.string()}).strict(),
 };
+
+export const listFactTablesValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0),"datasourceId":z.string().optional(),"projectId":z.string().optional()}).strict(),
+  paramsSchema: z.never(),
+};
+
+export const postFactTableValidator = {
+  bodySchema: z.object({"name":z.string(),"description":z.string().describe("Description of the fact table").optional(),"owner":z.string().describe("The person who is responsible for this fact table").optional(),"projects":z.array(z.string()).describe("List of associated project ids").optional(),"tags":z.array(z.string()).describe("List of associated tags").optional(),"datasource":z.string().describe("The datasource id"),"userIdTypes":z.array(z.string()).describe("List of identifier columns in this table. For example, \"id\" or \"anonymous_id\""),"sql":z.string().describe("The SQL query for this fact table")}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
+export const getFactTableValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
+export const updateFactTableValidator = {
+  bodySchema: z.object({"name":z.string().optional(),"description":z.string().describe("Description of the fact table").optional(),"owner":z.string().describe("The person who is responsible for this fact table").optional(),"projects":z.array(z.string()).describe("List of associated project ids").optional(),"tags":z.array(z.string()).describe("List of associated tags").optional(),"userIdTypes":z.array(z.string()).describe("List of identifier columns in this table. For example, \"id\" or \"anonymous_id\"").optional(),"sql":z.string().describe("The SQL query for this fact table").optional()}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
+export const deleteFactTableValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
+export const listFactTableFiltersValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0)}).strict(),
+  paramsSchema: z.object({"factTableId":z.string()}).strict(),
+};
+
+export const postFactTableFilterValidator = {
+  bodySchema: z.object({"name":z.string(),"description":z.string().describe("Description of the fact table filter").optional(),"value":z.string().describe("The SQL expression for this filter.")}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"factTableId":z.string()}).strict(),
+};
+
+export const getFactTableFilterValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"factTableId":z.string(),"id":z.string()}).strict(),
+};
+
+export const updateFactTableFilterValidator = {
+  bodySchema: z.object({"name":z.string().optional(),"description":z.string().describe("Description of the fact table filter").optional(),"value":z.string().describe("The SQL expression for this filter.").optional()}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"factTableId":z.string(),"id":z.string()}).strict(),
+};
+
+export const deleteFactTableFilterValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"factTableId":z.string(),"id":z.string()}).strict(),
+};
+
+export const listFactMetricsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0),"datasourceId":z.string().optional(),"projectId":z.string().optional()}).strict(),
+  paramsSchema: z.never(),
+};
+
+export const postFactMetricValidator = {
+  bodySchema: z.object({"owner":z.string().optional(),"datasource":z.string(),"name":z.string(),"description":z.string().optional(),"tags":z.array(z.string()).optional(),"projects":z.array(z.string()).optional(),"inverse":z.boolean().optional(),"metricType":z.enum(["proportion","mean","ratio"]),"numerator":z.object({"factTableId":z.string(),"column":z.string(),"filters":z.array(z.string())}),"denominator":z.object({"factTableId":z.string(),"column":z.string(),"filters":z.array(z.string())}).optional(),"capping":z.enum(["none","absolute","percentile"]).optional(),"capValue":z.number().optional(),"regressionAdjustmentOverride":z.boolean().optional(),"regressionAdjustmentEnabled":z.boolean().optional(),"regressionAdjustmentDays":z.number().optional(),"conversionDelayHours":z.number().optional(),"hasConversionWindow":z.boolean().optional(),"conversionWindowValue":z.number().optional(),"conversionWindowUnit":z.enum(["hours","days","weeks"]).optional()}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
+export const getFactMetricValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
+export const updateFactMetricValidator = {
+  bodySchema: z.object({"owner":z.string().optional(),"name":z.string().optional(),"description":z.string().optional(),"tags":z.array(z.string()).optional(),"projects":z.array(z.string()).optional(),"inverse":z.boolean().optional(),"metricType":z.enum(["proportion","mean","ratio"]).optional(),"numerator":z.object({"factTableId":z.string(),"column":z.string(),"filters":z.array(z.string())}).optional(),"denominator":z.object({"factTableId":z.string(),"column":z.string(),"filters":z.array(z.string())}).optional(),"capping":z.enum(["none","absolute","percentile"]).optional(),"capValue":z.number().optional(),"regressionAdjustmentOverride":z.boolean().optional(),"regressionAdjustmentEnabled":z.boolean().optional(),"regressionAdjustmentDays":z.number().optional(),"conversionDelayHours":z.number().optional(),"hasConversionWindow":z.boolean().optional(),"conversionWindowValue":z.number().optional(),"conversionWindowUnit":z.enum(["hours","days","weeks"]).optional()}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
+export const deleteFactMetricValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
+export const postBulkImportValidator = {
+  bodySchema: z.object({"factTables":z.array(z.object({"id":z.string(),"data":z.object({"name":z.string(),"description":z.string().describe("Description of the fact table").optional(),"owner":z.string().describe("The person who is responsible for this fact table").optional(),"projects":z.array(z.string()).describe("List of associated project ids").optional(),"tags":z.array(z.string()).describe("List of associated tags").optional(),"datasource":z.string().describe("The datasource id"),"userIdTypes":z.array(z.string()).describe("List of identifier columns in this table. For example, \"id\" or \"anonymous_id\""),"sql":z.string().describe("The SQL query for this fact table")})})).optional(),"factTableFilters":z.array(z.object({"factTableId":z.string(),"id":z.string(),"data":z.object({"name":z.string(),"description":z.string().describe("Description of the fact table filter").optional(),"value":z.string().describe("The SQL expression for this filter.")})})).optional(),"factMetrics":z.array(z.object({"id":z.string(),"data":z.object({"owner":z.string().optional(),"datasource":z.string(),"name":z.string(),"description":z.string().optional(),"tags":z.array(z.string()).optional(),"projects":z.array(z.string()).optional(),"inverse":z.boolean().optional(),"metricType":z.enum(["proportion","mean","ratio"]),"numerator":z.object({"factTableId":z.string(),"column":z.string(),"filters":z.array(z.string())}),"denominator":z.object({"factTableId":z.string(),"column":z.string(),"filters":z.array(z.string())}).optional(),"capping":z.enum(["none","absolute","percentile"]).optional(),"capValue":z.number().optional(),"regressionAdjustmentOverride":z.boolean().optional(),"regressionAdjustmentEnabled":z.boolean().optional(),"regressionAdjustmentDays":z.number().optional(),"conversionDelayHours":z.number().optional(),"hasConversionWindow":z.boolean().optional(),"conversionWindowValue":z.number().optional(),"conversionWindowUnit":z.enum(["hours","days","weeks"]).optional()})})).optional()}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
