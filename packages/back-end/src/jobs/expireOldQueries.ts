@@ -77,7 +77,8 @@ export default async function (agenda: Agenda) {
           analysisError:
             "Queries were interupted. Please try re-running the analysis.",
         },
-        metric.organization
+        metric.organization,
+        null
       );
     }
 

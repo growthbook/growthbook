@@ -20,7 +20,7 @@ import TagsFilter, {
 import SortedTags from "@/components/Tags/SortedTags";
 import ProjectBadges from "@/components/ProjectBadges";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
-import OfficialBadge from "@/components/Metrics/OfficialBadge";
+import { OfficialBadge } from "@/components/Metrics/MetricName";
 
 export default function FactTablesPage() {
   const {
@@ -254,7 +254,7 @@ export default function FactTablesPage() {
                 >
                   <td>
                     <Link href={`/fact-tables/${f.id}`}>{f.name}</Link>
-                    {f.official ? <OfficialBadge type="Fact Table" /> : null}
+                    <OfficialBadge type="fact table" managedBy={f.managedBy} />
                   </td>
                   <td>{f.datasourceName}</td>
                   <td>

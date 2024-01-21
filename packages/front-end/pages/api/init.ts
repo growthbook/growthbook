@@ -23,8 +23,6 @@ export interface EnvironmentInitValue {
   usingSSO: boolean;
   storeSegmentsInMongo: boolean;
   allowCreateMetrics: boolean;
-  allowCreateFactTables: boolean;
-  allowCreateFactMetrics: boolean;
   usingFileProxy: boolean;
 }
 
@@ -47,8 +45,6 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     SSO_CONFIG,
     STORE_SEGMENTS_IN_MONGO,
     ALLOW_CREATE_METRICS,
-    ALLOW_CREATE_FACT_TABLES,
-    ALLOW_CREATE_FACT_METRICS,
     USE_FILE_PROXY: USING_FILE_PROXY,
   } = process.env;
 
@@ -89,10 +85,6 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     allowSelfOrgCreation: stringToBoolean(ALLOW_SELF_ORG_CREATION, true), // Default to true
     config: hasConfigFile ? "file" : "db",
     allowCreateMetrics: !hasConfigFile || stringToBoolean(ALLOW_CREATE_METRICS),
-    allowCreateFactTables:
-      !hasConfigFile || stringToBoolean(ALLOW_CREATE_FACT_TABLES, true),
-    allowCreateFactMetrics:
-      !hasConfigFile || stringToBoolean(ALLOW_CREATE_FACT_METRICS, true),
     build,
     defaultConversionWindowHours: DEFAULT_CONVERSION_WINDOW_HOURS
       ? parseInt(DEFAULT_CONVERSION_WINDOW_HOURS)

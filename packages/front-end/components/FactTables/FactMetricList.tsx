@@ -14,7 +14,7 @@ import Field from "../Forms/Field";
 import Tooltip from "../Tooltip/Tooltip";
 import { GBAddCircle } from "../Icons";
 import SortedTags from "../Tags/SortedTags";
-import OfficialBadge from "../Metrics/OfficialBadge";
+import MetricName from "../Metrics/MetricName";
 import FactMetricModal from "./FactMetricModal";
 
 export interface Props {
@@ -127,12 +127,9 @@ export default function FactMetricList({ factTable }: Props) {
                   <td>
                     <Link href={`/fact-metrics/${metric.id}`}>
                       <a className="font-weight-bold" title="View Metric">
-                        {metric.name} <FaExternalLinkAlt />
+                        <MetricName id={metric.id} /> <FaExternalLinkAlt />
                       </a>
                     </Link>
-                    {metric.official ? (
-                      <OfficialBadge type="Fact Metric" />
-                    ) : null}
                   </td>
                   <td>{metric.metricType}</td>
                   <td>

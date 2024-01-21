@@ -534,7 +534,7 @@ export async function putMetric(
     req.checkPermissions("createMetrics", updates.projects);
   }
 
-  await updateMetric(metric, updates, org.id);
+  await updateMetric(metric, updates, org.id, res.locals.eventAudit);
 
   res.status(200).json({
     status: 200,

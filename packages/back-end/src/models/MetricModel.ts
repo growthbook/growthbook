@@ -25,7 +25,7 @@ const metricSchema = new mongoose.Schema({
     type: String,
     index: true,
   },
-  official: Boolean,
+  managedBy: String,
   owner: String,
   datasource: String,
   name: String,
@@ -146,8 +146,11 @@ export async function deleteMetricById(
   org: OrganizationInterface,
   user: EventAuditUser
 ) {
-  if (metric.official) {
+  if (metric.managedBy === "config") {
     throw new Error("Cannot delete a metric managed by config.yml");
+  }
+  if (metric.managedBy === "api" && user?.type !== "api_key") {
+    throw new Error("Cannot delete a metric managed by the API");
   }
 
   // delete references:
@@ -419,20 +422,25 @@ function addDateUpdatedToUpdates(
 export async function updateMetric(
   metric: MetricInterface,
   updates: Partial<MetricInterface>,
-  organization: string
+  organization: string,
+  user: EventAuditUser
 ) {
   updates = addDateUpdatedToUpdates(updates);
 
-  if (metric.official) {
-    // Trying to update unsupported properties
-    if (
-      Object.keys(updates).filter(
-        (k: keyof MetricInterface) => !FILE_CONFIG_UPDATEABLE_FIELDS.includes(k)
-      ).length > 0
-    ) {
+  const safeUpdates = Object.keys(updates).every((k: keyof MetricInterface) =>
+    FILE_CONFIG_UPDATEABLE_FIELDS.includes(k)
+  );
+  if (!safeUpdates) {
+    if (metric.managedBy === "config") {
       throw new Error("Cannot update. Metric managed by config.yml");
     }
+    if (metric.managedBy === "api" && user?.type !== "api_key") {
+      throw new Error("Cannot update. Metric managed by the API");
+    }
+  }
 
+  // If using config.yml, need to do an `upsert` since it might not exist in mongo yet
+  if (metric.managedBy === "config") {
     await MetricModel.updateOne(
       { id: metric.id, organization },
       {

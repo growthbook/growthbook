@@ -10,13 +10,12 @@ import {
   UpdateColumnProps,
   UpdateFactTableProps,
 } from "../../types/fact-table";
-import { getConfigFactTables, usingFileConfig } from "../init/config";
-import { ALLOW_CREATE_FACT_TABLES } from "../util/secrets";
+import { EventAuditUser } from "../events/event-types";
 
 const factTableSchema = new mongoose.Schema({
   id: String,
+  managedBy: String,
   organization: String,
-  official: Boolean,
   dateCreated: Date,
   dateUpdated: Date,
   name: String,
@@ -50,6 +49,7 @@ const factTableSchema = new mongoose.Schema({
       dateUpdated: Date,
       description: String,
       value: String,
+      managedBy: String,
     },
   ],
 });
@@ -69,17 +69,8 @@ function toInterface(doc: FactTableDocument): FactTableInterface {
 }
 
 export async function getAllFactTablesForOrganization(organization: string) {
-  const factTables: FactTableInterface[] = [];
-
-  if (usingFileConfig()) {
-    const configFactTables = getConfigFactTables(organization);
-    factTables.push(...configFactTables);
-  }
-
   const docs = await FactTableModel.find({ organization });
-  factTables.push(...docs.map((doc) => toInterface(doc)));
-
-  return factTables;
+  return docs.map((doc) => toInterface(doc));
 }
 
 export type FactTableMap = Map<string, FactTableInterface>;
@@ -93,14 +84,6 @@ export async function getFactTableMap(
 }
 
 export async function getFactTable(organization: string, id: string) {
-  // First try looking in the config.yml file
-  if (usingFileConfig()) {
-    const configFactTables = getConfigFactTables(organization);
-    const configFactTable = configFactTables.find((f) => f.id === id);
-    if (configFactTable) return configFactTable;
-  }
-
-  // Fall back to looking in the database
   const doc = await FactTableModel.findOne({ organization, id });
   return doc ? toInterface(doc) : null;
 }
@@ -109,10 +92,6 @@ export async function createFactTable(
   organization: string,
   data: CreateFactTableProps
 ) {
-  if (usingFileConfig() && !ALLOW_CREATE_FACT_TABLES) {
-    throw new Error("Creating fact tables is not allowed");
-  }
-
   const doc = await FactTableModel.create({
     organization: organization,
     id: data.id || uniqid("ftb_"),
@@ -129,16 +108,18 @@ export async function createFactTable(
     userIdTypes: data.userIdTypes,
     eventName: data.eventName,
     columns: data.columns || [],
+    managedBy: data.managedBy || "",
   });
   return toInterface(doc);
 }
 
 export async function updateFactTable(
   factTable: FactTableInterface,
-  changes: UpdateFactTableProps
+  changes: UpdateFactTableProps,
+  user: EventAuditUser
 ) {
-  if (factTable.official) {
-    throw new Error("Cannot update official fact tables");
+  if (factTable.managedBy === "api" && user?.type !== "api_key") {
+    throw new Error("This fact table is managed by the API");
   }
 
   await FactTableModel.updateOne(
@@ -160,10 +141,6 @@ export async function updateColumn(
   column: string,
   changes: UpdateColumnProps
 ) {
-  if (factTable.official) {
-    throw new Error("Cannot update official fact tables");
-  }
-
   const columnIndex = factTable.columns.findIndex((c) => c.column === column);
   if (columnIndex < 0) throw new Error("Could not find that column");
 
@@ -191,8 +168,10 @@ export async function createFactFilter(
   factTable: FactTableInterface,
   data: CreateFactFilterProps
 ) {
-  if (factTable.official) {
-    throw new Error("Cannot update official fact tables");
+  if (!factTable.managedBy && data.managedBy) {
+    throw new Error(
+      "Cannot create a filter managed by API unless the Fact Table is also managed by API"
+    );
   }
 
   const filter: FactFilterInterface = {
@@ -202,6 +181,7 @@ export async function createFactFilter(
     dateUpdated: new Date(),
     value: data.value,
     description: data.description,
+    managedBy: data.managedBy || "",
   };
 
   if (factTable.filters.some((f) => f.id === filter.id)) {
@@ -229,16 +209,21 @@ export async function createFactFilter(
 export async function updateFactFilter(
   factTable: FactTableInterface,
   filterId: string,
-  changes: UpdateFactFilterProps
+  changes: UpdateFactFilterProps,
+  user: EventAuditUser
 ) {
-  if (factTable.official) {
-    throw new Error("Cannot update official fact tables");
-  }
-
   const filters = [...factTable.filters];
 
   const filterIndex = filters.findIndex((f) => f.id === filterId);
   if (filterIndex < 0) throw new Error("Could not find filter with that id");
+
+  if (
+    factTable.managedBy === "api" &&
+    filters[filterIndex]?.managedBy === "api" &&
+    user?.type !== "api_key"
+  ) {
+    throw new Error("This fact filter is managed by the API");
+  }
 
   filters[filterIndex] = {
     ...filters[filterIndex],
@@ -260,9 +245,12 @@ export async function updateFactFilter(
   );
 }
 
-export async function deleteFactTable(factTable: FactTableInterface) {
-  if (factTable.official) {
-    throw new Error("Cannot delete official fact tables");
+export async function deleteFactTable(
+  factTable: FactTableInterface,
+  user: EventAuditUser
+) {
+  if (factTable.managedBy === "api" && user?.type !== "api_key") {
+    throw new Error("This fact table is managed by the API");
   }
 
   await FactTableModel.deleteOne({
@@ -273,10 +261,17 @@ export async function deleteFactTable(factTable: FactTableInterface) {
 
 export async function deleteFactFilter(
   factTable: FactTableInterface,
-  filterId: string
+  filterId: string,
+  user: EventAuditUser
 ) {
-  if (factTable.official) {
-    throw new Error("Cannot update official fact tables");
+  const filter = factTable.filters.find((f) => f.id === filterId);
+
+  if (
+    factTable.managedBy === "api" &&
+    filter?.managedBy === "api" &&
+    user?.type !== "api_key"
+  ) {
+    throw new Error("This filter is managed by the API");
   }
 
   const newFilters = factTable.filters.filter((f) => f.id !== filterId);

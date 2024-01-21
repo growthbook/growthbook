@@ -169,15 +169,6 @@ export const ALLOW_CREATE_METRICS = stringToBoolean(
   process.env.ALLOW_CREATE_METRICS
 );
 
-export const ALLOW_CREATE_FACT_TABLES = stringToBoolean(
-  process.env.ALLOW_CREATE_FACT_TABLES,
-  true
-);
-export const ALLOW_CREATE_FACT_METRICS = stringToBoolean(
-  process.env.ALLOW_CREATE_FACT_METRICS,
-  true
-);
-
 // Add a default secret access key via an environment variable
 // Only allowed while self-hosting and not multi org
 let secretAPIKey = IS_MULTI_ORG ? "" : process.env.SECRET_API_KEY || "";

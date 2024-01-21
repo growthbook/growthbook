@@ -33,9 +33,10 @@ export default function FactFilterList({ factTable }: Props) {
     searchFields: ["name^3", "description", "value^2"],
   });
 
-  const canEdit =
-    !factTable.official &&
-    permissions.check("manageFactTables", factTable.projects || "");
+  const canEdit = permissions.check(
+    "manageFactTables",
+    factTable.projects || ""
+  );
 
   return (
     <>
@@ -103,7 +104,7 @@ export default function FactFilterList({ factTable }: Props) {
                     </div>
                   </td>
                   <td style={{ verticalAlign: "top" }}>
-                    {canEdit && (
+                    {canEdit && !filter.managedBy && (
                       <MoreMenu>
                         <button
                           className="dropdown-item"

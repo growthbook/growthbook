@@ -29,10 +29,13 @@ export interface Condition {
   operator: Operator;
   value: string;
 }
+
+export type ManagedBy = "" | "config" | "api";
+
 export interface MetricInterface {
   id: string;
   organization: string;
-  official?: boolean;
+  managedBy?: ManagedBy;
   owner: string;
   datasource: string;
   name: string;

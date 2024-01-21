@@ -20,7 +20,7 @@ import SortedTags from "@/components/Tags/SortedTags";
 import FactMetricList from "@/components/FactTables/FactMetricList";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import { usesEventName } from "@/components/Metrics/MetricForm";
-import OfficialBadge from "@/components/Metrics/OfficialBadge";
+import { OfficialBadge } from "@/components/Metrics/MetricName";
 
 export default function FactTablePage() {
   const router = useRouter();
@@ -58,7 +58,7 @@ export default function FactTablePage() {
   }
 
   const canEdit =
-    !factTable.official &&
+    !factTable.managedBy &&
     permissions.check("manageFactTables", factTable.projects || "");
 
   const hasColumns = factTable.columns?.some((col) => !col.deleted);
@@ -107,7 +107,7 @@ export default function FactTablePage() {
         <div className="col-auto">
           <h1 className="mb-0">
             {factTable.name}{" "}
-            {factTable.official ? <OfficialBadge type="Fact Table" /> : null}
+            <OfficialBadge type="Fact Table" managedBy={factTable.managedBy} />
           </h1>
         </div>
         {canEdit && (

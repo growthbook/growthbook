@@ -223,7 +223,7 @@ export const putFactTable = async (
     throw new Error("SQL did not return any rows");
   }
 
-  await updateFactTable(factTable, data);
+  await updateFactTable(factTable, data, req.auditUser);
 
   await addTagsDiff(org.id, factTable.tags, data.tags || []);
 
@@ -244,7 +244,7 @@ export const deleteFactTable = async (
   }
   req.checkPermissions("manageFactTables", factTable.projects);
 
-  await deleteFactTableInDb(factTable);
+  await deleteFactTableInDb(factTable, req.auditUser);
 
   res.status(200).json({
     status: 200,
@@ -357,7 +357,7 @@ export const putFactFilter = async (
     req.checkPermissions("runQueries", datasource.projects || "");
   }
 
-  await updateFactFilter(factTable, req.params.filterId, data);
+  await updateFactFilter(factTable, req.params.filterId, data, req.auditUser);
 
   res.status(200).json({
     status: 200,
@@ -376,7 +376,7 @@ export const deleteFactFilter = async (
   }
   req.checkPermissions("manageFactTables", factTable.projects);
 
-  await deleteFactFilterInDb(factTable, req.params.filterId);
+  await deleteFactFilterInDb(factTable, req.params.filterId, req.auditUser);
 
   res.status(200).json({
     status: 200,
@@ -436,7 +436,7 @@ export const putFactMetric = async (
     req.checkPermissions("createMetrics", data.projects || "");
   }
 
-  await updateFactMetric(factMetric, data);
+  await updateFactMetric(factMetric, data, req.auditUser);
 
   await addTagsDiff(org.id, factMetric.tags, data.tags || []);
 
@@ -457,7 +457,7 @@ export const deleteFactMetric = async (
   }
   req.checkPermissions("createMetrics", factMetric.projects);
 
-  await deleteFactMetricInDb(factMetric);
+  await deleteFactMetricInDb(factMetric, req.auditUser);
 
   res.status(200).json({
     status: 200,

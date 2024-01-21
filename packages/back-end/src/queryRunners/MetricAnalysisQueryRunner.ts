@@ -100,7 +100,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
       analysisError: result ? "" : error,
     };
 
-    await updateMetric(this.model, updates, this.model.organization);
+    await updateMetric(this.model, updates, this.model.organization, null);
 
     return {
       ...this.model,

@@ -17,8 +17,6 @@ const env: EnvironmentInitValue = {
   usingSSO: false,
   storeSegmentsInMongo: false,
   allowCreateMetrics: true,
-  allowCreateFactTables: true,
-  allowCreateFactMetrics: true,
   usingFileProxy: false,
 };
 
@@ -70,12 +68,6 @@ export function hasFileConfig() {
 }
 export function canCreateMetrics() {
   return env.allowCreateMetrics;
-}
-export function canCreateFactTables() {
-  return env.allowCreateFactTables;
-}
-export function canCreateFactMetrics() {
-  return env.allowCreateFactMetrics;
 }
 export function getDefaultConversionWindowHours() {
   return env.defaultConversionWindowHours;

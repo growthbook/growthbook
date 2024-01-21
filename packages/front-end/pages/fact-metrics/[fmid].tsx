@@ -27,8 +27,7 @@ import {
 } from "@/services/metrics";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import FactBadge from "@/components/FactTables/FactBadge";
-import OfficialBadge from "@/components/Metrics/OfficialBadge";
+import MetricName from "@/components/Metrics/MetricName";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -197,7 +196,7 @@ export default function FactMetricPage() {
   }
 
   const canEdit =
-    !factMetric.official &&
+    !factMetric.managedBy &&
     permissions.check("createMetrics", factMetric.projects || "");
 
   let regressionAdjustmentAvailableForMetric = true;
@@ -256,9 +255,7 @@ export default function FactMetricPage() {
       <div className="row mb-3">
         <div className="col-auto">
           <h1 className="mb-0">
-            {factMetric.name}
-            <FactBadge metricId={factMetric.id} />
-            {factMetric.official ? <OfficialBadge type="Fact Metric" /> : null}
+            <MetricName id={factMetric.id} />
           </h1>
         </div>
         {canEdit && (

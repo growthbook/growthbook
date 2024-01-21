@@ -1597,7 +1597,7 @@ export async function postImportConfig(
     throw new Error("Failed to parse config.yml file contents.");
   }
 
-  await importConfig(config, org);
+  await importConfig(config, org, res.locals.eventAudit);
 
   res.status(200).json({
     status: 200,

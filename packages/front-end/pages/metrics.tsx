@@ -22,18 +22,17 @@ import usePermissions from "@/hooks/usePermissions";
 import Toggle from "@/components/Forms/Toggle";
 import { DocLink } from "@/components/DocLink";
 import { useUser } from "@/services/UserContext";
-import { canCreateMetrics, hasFileConfig } from "@/services/env";
+import { canCreateMetrics } from "@/services/env";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { checkMetricProjectPermissions } from "@/services/metrics";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
-import FactBadge from "@/components/FactTables/FactBadge";
-import OfficialBadge from "@/components/Metrics/OfficialBadge";
+import MetricName from "@/components/Metrics/MetricName";
 interface MetricTableItem {
   id: string;
-  official: boolean;
+  managedBy: "" | "api" | "config";
   name: string;
   type: string;
   tags: string[];
@@ -83,7 +82,7 @@ const MetricsPage = (): React.ReactElement => {
     ...inlineMetrics.map((m) => {
       const item: MetricTableItem = {
         id: m.id,
-        official: !!m.official,
+        managedBy: m.managedBy || "",
         archived: m.status === "archived",
         datasource: m.datasource || "",
         dateUpdated: m.dateUpdated,
@@ -124,7 +123,7 @@ const MetricsPage = (): React.ReactElement => {
     ...factMetrics.map((m) => {
       const item: MetricTableItem = {
         id: m.id,
-        official: !!m.official,
+        managedBy: m.managedBy || "",
         archived: false,
         datasource: m.datasource,
         dateUpdated: m.dateUpdated,
@@ -241,14 +240,6 @@ const MetricsPage = (): React.ReactElement => {
             transactions, revenue, engagement
           </li>
         </ul>
-        {hasFileConfig() && (
-          <div className="alert alert-info">
-            It looks like you have a <code>config.yml</code> file. Metrics
-            defined there will show up on this page with an{" "}
-            <OfficialBadge type="Metric" /> badge.{" "}
-            <DocLink docSection="config_yml">View Documentation</DocLink>
-          </div>
-        )}
         {permissions.check("createMetrics", project) && canCreateMetrics() && (
           <>
             <AutoGenerateMetricsButton
@@ -397,11 +388,9 @@ const MetricsPage = (): React.ReactElement => {
                       metric.archived ? "text-muted" : "text-dark"
                     } font-weight-bold`}
                   >
-                    {metric.name}
+                    <MetricName id={metric.id} />
                   </a>
                 </Link>
-                <FactBadge metricId={metric.id} />
-                {metric.official && <OfficialBadge type="Metric" />}
               </td>
               <td>{metric.type}</td>
 
@@ -437,7 +426,9 @@ const MetricsPage = (): React.ReactElement => {
                 title={datetime(metric.dateUpdated || "")}
                 className="d-none d-md-table-cell"
               >
-                {metric.official ? "" : ago(metric.dateUpdated || "")}
+                {metric.managedBy === "config"
+                  ? ""
+                  : ago(metric.dateUpdated || "")}
               </td>
               <td className="text-muted">
                 {metric.archived && (
@@ -472,7 +463,7 @@ const MetricsPage = (): React.ReactElement => {
                         <FaRegCopy /> Duplicate
                       </button>
                     )}
-                  {!metric.official &&
+                  {!metric.managedBy &&
                     metric.onArchive &&
                     editMetricsPermissions[metric.id] && (
                       <button

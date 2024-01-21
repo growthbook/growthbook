@@ -210,7 +210,7 @@ export default function DataSourceMetrics({
                                   />
                                 )}
                               </div>
-                              {!metric.official && (
+                              {metric.managedBy !== "config" && (
                                 <div
                                   title={datetime(metric.dateUpdated || "")}
                                   className={clsx(
@@ -240,8 +240,7 @@ export default function DataSourceMetrics({
                               </Tooltip>
                             ) : null}
                           </div>
-                          {!metric.official &&
-                          editMetricsPermissions[metric.id] ? (
+                          {editMetricsPermissions[metric.id] ? (
                             <MoreMenu className="px-2">
                               <button
                                 className="btn dropdown-item py-2"
@@ -251,6 +250,7 @@ export default function DataSourceMetrics({
                                   setModalData({
                                     current: {
                                       ...metric,
+                                      managedBy: "",
                                       name: metric.name + " (copy)",
                                     },
                                     edit: false,
@@ -260,29 +260,31 @@ export default function DataSourceMetrics({
                               >
                                 <FaRegCopy /> Duplicate
                               </button>
-                              <button
-                                className="btn dropdown-item py-2"
-                                color=""
-                                onClick={async () => {
-                                  const newStatus =
-                                    metric.status === "archived"
-                                      ? "active"
-                                      : "archived";
-                                  await apiCall(`/metric/${metric.id}`, {
-                                    method: "PUT",
-                                    body: JSON.stringify({
-                                      status: newStatus,
-                                    }),
-                                  });
-                                  mutateDefinitions({});
-                                  mutate();
-                                }}
-                              >
-                                <FaArchive />{" "}
-                                {metric.status === "archived"
-                                  ? "Unarchive"
-                                  : "Archive"}
-                              </button>
+                              {!metric.managedBy ? (
+                                <button
+                                  className="btn dropdown-item py-2"
+                                  color=""
+                                  onClick={async () => {
+                                    const newStatus =
+                                      metric.status === "archived"
+                                        ? "active"
+                                        : "archived";
+                                    await apiCall(`/metric/${metric.id}`, {
+                                      method: "PUT",
+                                      body: JSON.stringify({
+                                        status: newStatus,
+                                      }),
+                                    });
+                                    mutateDefinitions({});
+                                    mutate();
+                                  }}
+                                >
+                                  <FaArchive />{" "}
+                                  {metric.status === "archived"
+                                    ? "Unarchive"
+                                    : "Archive"}
+                                </button>
+                              ) : null}
                             </MoreMenu>
                           ) : null}
                         </div>

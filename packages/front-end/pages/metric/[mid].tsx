@@ -134,9 +134,9 @@ const MetricPage: FC = () => {
 
   const metric = data.metric;
   const canEditMetric =
-    checkMetricProjectPermissions(metric, permissions) && !metric.official;
+    checkMetricProjectPermissions(metric, permissions) && !metric.managedBy;
   const canEditProjects =
-    permissions.check("createMetrics", "") && !metric.official;
+    permissions.check("createMetrics", "") && !metric.managedBy;
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;

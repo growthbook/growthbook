@@ -2,8 +2,7 @@ import { FC } from "react";
 import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { SelectFieldProps } from "@/components/Forms/SelectField";
-import FactBadge from "../FactTables/FactBadge";
-import OfficialBadge from "../Metrics/OfficialBadge";
+import MetricName from "../Metrics/MetricName";
 import { isMetricJoinable } from "./MetricsSelector";
 
 type MetricOption = {
@@ -41,7 +40,6 @@ const MetricSelector: FC<
     factMetrics,
     factTables,
     getDatasourceById,
-    getExperimentMetricById,
   } = useDefinitions();
 
   const options: MetricOption[] = [
@@ -107,15 +105,8 @@ const MetricSelector: FC<
           label: m.name,
         };
       })}
-      formatOptionLabel={({ label, value }) => {
-        const m = getExperimentMetricById(value);
-        return (
-          <>
-            {label}
-            <FactBadge metricId={value} />
-            {m?.official ? <OfficialBadge type="Metric" /> : null}
-          </>
-        );
+      formatOptionLabel={({ value }) => {
+        return <MetricName id={value} />;
       }}
     />
   );

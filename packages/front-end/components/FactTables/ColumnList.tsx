@@ -48,9 +48,10 @@ export default function ColumnList({ factTable }: Props) {
     searchFields: ["name^3", "description", "column^2"],
   });
 
-  const canEdit =
-    !factTable.official &&
-    permissions.check("manageFactTables", factTable.projects || "");
+  const canEdit = permissions.check(
+    "manageFactTables",
+    factTable.projects || ""
+  );
 
   return (
     <>
@@ -75,22 +76,20 @@ export default function ColumnList({ factTable }: Props) {
             />
           </div>
         )}
-        {!factTable.official && (
-          <div className="col-auto">
-            <Button
-              color="link"
-              onClick={async () => {
-                await apiCall(`/fact-tables/${factTable.id}`, {
-                  method: "PUT",
-                  body: JSON.stringify({}),
-                });
-                mutateDefinitions();
-              }}
-            >
-              <BsArrowRepeat style={{ marginTop: -1 }} /> Refresh
-            </Button>
-          </div>
-        )}
+        <div className="col-auto">
+          <Button
+            color="link"
+            onClick={async () => {
+              await apiCall(`/fact-tables/${factTable.id}`, {
+                method: "PUT",
+                body: JSON.stringify({}),
+              });
+              mutateDefinitions();
+            }}
+          >
+            <BsArrowRepeat style={{ marginTop: -1 }} /> Refresh
+          </Button>
+        </div>
       </div>
       {columns.some((col) => !col.deleted && col.datatype === "") && (
         <div className="alert alert-warning mt-2">

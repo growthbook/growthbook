@@ -24,10 +24,6 @@ import { OrganizationSettings } from "../../types/organization";
 import { upgradeMetricDoc, upgradeDatasourceObject } from "../util/migrations";
 import { logger } from "../util/logger";
 import { SegmentInterface } from "../../types/segment";
-import {
-  FactMetricInterface,
-  FactTableInterface,
-} from "../../types/fact-table";
 
 export type ConfigFile = {
   organization?: {
@@ -49,18 +45,6 @@ export type ConfigFile = {
       | "analysis"
       | "dateCreated"
       | "dateUpdated"
-    >;
-  };
-  factTables?: {
-    [key: string]: Omit<
-      Partial<FactTableInterface>,
-      "id" | "organization" | "dateCreated" | "dateUpdated"
-    >;
-  };
-  factMetrics?: {
-    [key: string]: Omit<
-      Partial<FactMetricInterface>,
-      "id" | "organization" | "dateCreated" | "dateUpdated"
     >;
   };
   dimensions?: {
@@ -190,88 +174,6 @@ export function getConfigDatasources(
   });
 }
 
-export function getConfigFactMetrics(
-  organization: string
-): FactMetricInterface[] {
-  reloadConfigIfNeeded();
-  if (!config || !config.factMetrics) return [];
-  const metrics = config.factMetrics;
-
-  return Object.keys(metrics).map((id) => {
-    const m = metrics[id];
-
-    return {
-      owner: "",
-      datasource: "",
-      projects: [],
-      tags: [],
-      name: id,
-      description: "",
-      inverse: false,
-      metricType: "proportion",
-      numerator: {
-        factTableId: "",
-        column: "",
-        filters: [],
-      },
-      denominator: null,
-      capping: "",
-      capValue: 0,
-      maxPercentChange: 0,
-      minPercentChange: 0,
-      minSampleSize: 0,
-      winRisk: 0,
-      loseRisk: 0,
-      regressionAdjustmentOverride: false,
-      regressionAdjustmentEnabled: false,
-      regressionAdjustmentDays: 0,
-      conversionDelayHours: 0,
-      hasConversionWindow: false,
-      conversionWindowValue: 0,
-      conversionWindowUnit: "hours",
-      ...m,
-      // Fact metric ids must always start with "fact__"
-      id: id.startsWith("fact__") ? id : `fact__${id}`,
-      organization,
-      dateCreated: null,
-      dateUpdated: null,
-      official: true,
-    };
-  });
-}
-
-export function getConfigFactTables(
-  organization: string
-): FactTableInterface[] {
-  reloadConfigIfNeeded();
-  if (!config || !config.factTables) return [];
-  const factTables = config.factTables;
-
-  return Object.keys(factTables).map((id) => {
-    const d = factTables[id];
-
-    return {
-      columns: [],
-      datasource: "",
-      description: "",
-      eventName: "",
-      filters: [],
-      name: id,
-      owner: "",
-      projects: [],
-      sql: "",
-      tags: [],
-      userIdTypes: [],
-      ...d,
-      id,
-      organization,
-      official: true,
-      dateCreated: null,
-      dateUpdated: null,
-    };
-  });
-}
-
 export function getConfigMetrics(organization: string): MetricInterface[] {
   reloadConfigIfNeeded();
   if (!config || !config.metrics) return [];
@@ -290,7 +192,7 @@ export function getConfigMetrics(organization: string): MetricInterface[] {
       dateUpdated: null,
       queries: [],
       runStarted: null,
-      official: true,
+      managedBy: "config",
     });
   });
 }

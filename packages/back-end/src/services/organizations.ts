@@ -56,6 +56,7 @@ import {
 import { getAllExperiments } from "../models/ExperimentModel";
 import { LegacyExperimentPhase } from "../../types/experiment";
 import { addTags } from "../models/TagModel";
+import { EventAuditUser } from "../events/event-types";
 import { markInstalled } from "./auth";
 import {
   encryptParams,
@@ -612,7 +613,8 @@ function validateConfig(config: ConfigFile, organizationId: string) {
 
 export async function importConfig(
   config: ConfigFile,
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
+  user: EventAuditUser
 ) {
   const errors = validateConfig(config, organization.id);
   if (errors.length > 0) {
@@ -704,7 +706,7 @@ export async function importConfig(
             };
             delete updates.organization;
 
-            await updateMetric(existing, updates, organization.id);
+            await updateMetric(existing, updates, organization.id, user);
           } else {
             await createMetric({
               ...m,

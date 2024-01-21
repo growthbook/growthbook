@@ -6,8 +6,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import FactBadge from "../FactTables/FactBadge";
-import OfficialBadge from "../Metrics/OfficialBadge";
+import MetricName from "../Metrics/MetricName";
 
 type MetricOption = {
   id: string;
@@ -99,7 +98,6 @@ const MetricsSelector: FC<{
     factMetrics,
     factTables,
     getDatasourceById,
-    getExperimentMetricById,
   } = useDefinitions();
 
   const options: MetricOption[] = [
@@ -174,15 +172,8 @@ const MetricsSelector: FC<{
         })}
         placeholder="Select metrics..."
         autoFocus={autoFocus}
-        formatOptionLabel={({ label, value }) => {
-          const m = getExperimentMetricById(value);
-          return (
-            <>
-              {label}
-              <FactBadge metricId={value} />
-              {m?.official ? <OfficialBadge type="Metric" /> : null}
-            </>
-          );
+        formatOptionLabel={({ value }) => {
+          return <MetricName id={value} />;
         }}
       />
       {Object.keys(tagCounts).length > 0 && (

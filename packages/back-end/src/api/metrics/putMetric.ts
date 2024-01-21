@@ -25,7 +25,7 @@ export const putMetric = createApiRequestHandler(putMetricValidator)(
 
     const updated = putMetricApiPayloadToMetricInterface(req.body);
 
-    await updateMetric(metric, updated, req.organization.id);
+    await updateMetric(metric, updated, req.organization.id, req.eventAudit);
 
     return {
       updatedId: req.params.id,
