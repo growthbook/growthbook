@@ -44,3 +44,7 @@ SavedGroup:
   $ref: "./SavedGroup.yaml"
 Organization:
   $ref: "./Organization.yaml"
+FactTable:
+  $ref: "./FactTable.yaml"
+FactTableFilter:
+  $ref: "./FactTableFilter.yaml"

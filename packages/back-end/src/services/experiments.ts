@@ -1546,6 +1546,7 @@ export function toMetricApiInterface(
 
   const obj: ApiMetric = {
     id: metric.id,
+    managedBy: metric.managedBy || "",
     name: metric.name,
     description: metric.description || "",
     dateCreated: metric.dateCreated?.toISOString() || "",

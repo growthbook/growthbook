@@ -153,9 +153,9 @@ export const createFactFilterPropsValidator = z
 
 export const updateFactFilterPropsValidator = z
   .object({
-    name: z.string(),
-    description: z.string(),
-    value: z.string(),
+    name: z.string().optional(),
+    description: z.string().optional(),
+    value: z.string().optional(),
     managedBy: z.enum(["", "api"]).optional(),
   })
   .strict();

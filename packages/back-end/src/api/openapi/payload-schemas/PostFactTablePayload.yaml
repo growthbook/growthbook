@@ -1,0 +1,42 @@
+type: object
+required:
+  - name
+  - datasource
+  - userIdTypes
+  - sql
+properties:
+  name:
+    type: string
+  description:
+    type: string
+    description: Description of the fact table
+  managedBy:
+    type: string
+    description: Leave blank to allow editing this fact table in the UI. Set to "api" to prevent editing in the UI.
+    enum:
+      - ""
+      - api
+  owner:
+    type: string
+    description: The person who is responsible for this fact table
+  projects:
+    type: array
+    items:
+      type: string
+    description: List of associated project ids
+  tags:
+    type: array
+    items:
+      type: string
+    description: List of associated tags
+  datasource:
+    type: string
+    description: The datasource id
+  userIdTypes:
+    type: array
+    items:
+      type: string
+    description: List of identifier columns in this table. For example, "id" or "anonymous_id"
+  sql:
+    type: string
+    description: The SQL query for this fact table

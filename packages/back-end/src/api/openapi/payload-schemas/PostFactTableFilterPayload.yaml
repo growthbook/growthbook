@@ -1,0 +1,20 @@
+type: object
+required:
+  - name
+  - value
+properties:
+  name:
+    type: string
+  description:
+    type: string
+    description: Description of the fact table filter
+  managedBy:
+    type: string
+    description: Leave blank to allow editing this in the UI. Set to "api" to prevent editing in the UI.
+    enum:
+      - ""
+      - api
+  value:
+    type: string
+    description: The SQL expression for this filter.
+    example: "country = 'US'"

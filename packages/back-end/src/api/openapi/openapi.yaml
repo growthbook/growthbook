@@ -90,6 +90,9 @@ tags:
   - name: organizations
     x-displayName: Organizations
     description: Organizations are used for multi-org deployments where different teams can run their own isolated feature flags and experiments. These endpoints are only via a super-admin's Personal Access Token.
+  - name: fact-tables
+    x-displayName: Fact Tables
+    description: Fact Tables describe the shape of your data warehouse tables and how to query them
 paths:
   /features:
     get:
@@ -178,7 +181,30 @@ paths:
   /organizations/{id}:
     put:
       $ref: "./paths/putOrganization.yaml"
-
+  /fact-tables:
+    get:
+      $ref: "./paths/listFactTables.yaml"
+    post:
+      $ref: "./paths/postFactTable.yaml"
+  /fact-tables/{id}:
+    get:
+      $ref: "./paths/getFactTable.yaml"
+    post:
+      $ref: "./paths/updateFactTable.yaml"
+    delete:
+      $ref: "./paths/deleteFactTable.yaml"
+  /fact-tables/{factTableId}/filters:
+    get:
+      $ref: "./paths/listFactTableFilters.yaml"
+    post:
+      $ref: "./paths/postFactTableFilter.yaml"
+  /fact-tables/{factTableId}/filters/{id}:
+    get:
+      $ref: "./paths/getFactTableFilter.yaml"
+    post:
+      $ref: "./paths/updateFactTableFilter.yaml"
+    delete:
+      $ref: "./paths/deleteFactTableFilter.yaml"
   # PLOP_INSERT_PATHS_HERE
 components:
   parameters:

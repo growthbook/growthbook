@@ -11,6 +11,7 @@ import {
   UpdateFactTableProps,
 } from "../../types/fact-table";
 import { EventAuditUser } from "../events/event-types";
+import { ApiFactTable, ApiFactTableFilter } from "../../types/openapi";
 
 const factTableSchema = new mongoose.Schema({
   id: String,
@@ -292,4 +293,39 @@ export async function deleteFactFilter(
       },
     }
   );
+}
+
+export function toFactTableApiInterface(
+  factTable: FactTableInterface
+): ApiFactTable {
+  return {
+    managedBy: "",
+    ...omit(factTable, [
+      "organization",
+      "columns",
+      "filters",
+      "dateCreated",
+      "dateUpdated",
+    ]),
+    dateCreated: factTable.dateCreated?.toISOString() || "",
+    dateUpdated: factTable.dateUpdated?.toISOString() || "",
+  };
+}
+
+export function toFactTableFilterApiInterface(
+  factTable: FactTableInterface,
+  filterId: string
+): ApiFactTableFilter {
+  const filter = factTable.filters.find((f) => f.id === filterId);
+
+  if (!filter) {
+    throw new Error("Cannot find filter with that id");
+  }
+
+  return {
+    managedBy: "",
+    ...omit(filter, ["dateCreated", "dateUpdated"]),
+    dateCreated: filter.dateCreated?.toISOString() || "",
+    dateUpdated: filter.dateUpdated?.toISOString() || "",
+  };
 }

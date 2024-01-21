@@ -195,6 +195,34 @@ export interface paths {
     /** Edit a single organization (only for super admins on multi-org Enterprise Plan only) */
     put: operations["putOrganization"];
   };
+  "/fact-tables": {
+    /** Get all fact table */
+    get: operations["listFactTables"];
+    /** Create a single fact table */
+    post: operations["postFactTable"];
+  };
+  "/fact-tables/{id}": {
+    /** Get a single fact table */
+    get: operations["getFactTable"];
+    /** Update a single fact table */
+    post: operations["updateFactTable"];
+    /** Deletes a single fact table */
+    delete: operations["deleteFactTable"];
+  };
+  "/fact-tables/{factTableId}/filters": {
+    /** Get all filters for a fact table */
+    get: operations["listFactTableFilters"];
+    /** Create a single fact table filter */
+    post: operations["postFactTableFilter"];
+  };
+  "/fact-tables/{factTableId}/filters/{id}": {
+    /** Get a single fact filter */
+    get: operations["getFactTableFilter"];
+    /** Update a single fact table filter */
+    post: operations["updateFactTableFilter"];
+    /** Deletes a single fact table filter */
+    delete: operations["deleteFactTableFilter"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -221,6 +249,11 @@ export interface components {
     };
     Metric: {
       id: string;
+      /**
+       * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+       * @enum {string}
+       */
+      managedBy: "" | "api" | "config";
       dateCreated: string;
       dateUpdated: string;
       owner: string;
@@ -1102,6 +1135,35 @@ export interface components {
       /** @description The email address of the organization owner */
       ownerEmail?: string;
     };
+    FactTable: {
+      id: string;
+      /** @enum {string} */
+      managedBy: "" | "api";
+      name: string;
+      description: string;
+      owner: string;
+      projects: (string)[];
+      tags: (string)[];
+      datasource: string;
+      userIdTypes: (string)[];
+      sql: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+    };
+    FactTableFilter: {
+      id: string;
+      name: string;
+      description: string;
+      value: string;
+      /** @enum {string} */
+      managedBy: "" | "api";
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+    };
   };
   responses: {
     Error: never;
@@ -1119,6 +1181,8 @@ export interface components {
     datasourceId: string;
     /** @description Specify a specific visual change */
     visualChangeId: string;
+    /** @description Specify a specific fact table */
+    factTableId: string;
   };
   requestBodies: never;
   headers: never;
@@ -3411,6 +3475,11 @@ export interface operations {
           "application/json": ({
             metrics: ({
                 id: string;
+                /**
+                 * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+                 * @enum {string}
+                 */
+                managedBy: "" | "api" | "config";
                 dateCreated: string;
                 dateUpdated: string;
                 owner: string;
@@ -3487,6 +3556,11 @@ export interface operations {
         "application/json": {
           /** @description ID for the [DataSource](#tag/DataSource_model) */
           datasourceId: string;
+          /**
+           * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
           /** @description Name of the person who owns this metric */
           owner?: string;
           /** @description Name of the metric */
@@ -3576,6 +3650,11 @@ export interface operations {
           "application/json": {
             metric: {
               id: string;
+              /**
+               * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy: "" | "api" | "config";
               dateCreated: string;
               dateUpdated: string;
               owner: string;
@@ -3652,6 +3731,11 @@ export interface operations {
           "application/json": {
             metric: {
               id: string;
+              /**
+               * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy: "" | "api" | "config";
               dateCreated: string;
               dateUpdated: string;
               owner: string;
@@ -3725,6 +3809,11 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
+          /**
+           * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
           /** @description Name of the person who owns this metric */
           owner?: string;
           /** @description Name of the metric */
@@ -4402,6 +4491,412 @@ export interface operations {
       };
     };
   };
+  listFactTables: {
+    /** Get all fact table */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+      query: {
+        limit?: number;
+        offset?: number;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": ({
+            factTables: ({
+                id: string;
+                /** @enum {string} */
+                managedBy: "" | "api";
+                name: string;
+                description: string;
+                owner: string;
+                projects: (string)[];
+                tags: (string)[];
+                datasource: string;
+                userIdTypes: (string)[];
+                sql: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+              })[];
+          }) & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
+  postFactTable: {
+    /** Create a single fact table */
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          /** @description Description of the fact table */
+          description?: string;
+          /**
+           * @description Leave blank to allow editing this fact table in the UI. Set to "api" to prevent editing in the UI. 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
+          /** @description The person who is responsible for this fact table */
+          owner?: string;
+          /** @description List of associated project ids */
+          projects?: (string)[];
+          /** @description List of associated tags */
+          tags?: (string)[];
+          /** @description The datasource id */
+          datasource: string;
+          /** @description List of identifier columns in this table. For example, "id" or "anonymous_id" */
+          userIdTypes: (string)[];
+          /** @description The SQL query for this fact table */
+          sql: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            factTable: {
+              id: string;
+              /** @enum {string} */
+              managedBy: "" | "api";
+              name: string;
+              description: string;
+              owner: string;
+              projects: (string)[];
+              tags: (string)[];
+              datasource: string;
+              userIdTypes: (string)[];
+              sql: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  getFactTable: {
+    /** Get a single fact table */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            factTable: {
+              id: string;
+              /** @enum {string} */
+              managedBy: "" | "api";
+              name: string;
+              description: string;
+              owner: string;
+              projects: (string)[];
+              tags: (string)[];
+              datasource: string;
+              userIdTypes: (string)[];
+              sql: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  updateFactTable: {
+    /** Update a single fact table */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name?: string;
+          /** @description Description of the fact table */
+          description?: string;
+          /**
+           * @description Leave blank to allow editing this fact table in the UI. Set to "api" to prevent editing in the UI. 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
+          /** @description The person who is responsible for this fact table */
+          owner?: string;
+          /** @description List of associated project ids */
+          projects?: (string)[];
+          /** @description List of associated tags */
+          tags?: (string)[];
+          /** @description List of identifier columns in this table. For example, "id" or "anonymous_id" */
+          userIdTypes?: (string)[];
+          /** @description The SQL query for this fact table */
+          sql?: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            factTable: {
+              id: string;
+              /** @enum {string} */
+              managedBy: "" | "api";
+              name: string;
+              description: string;
+              owner: string;
+              projects: (string)[];
+              tags: (string)[];
+              datasource: string;
+              userIdTypes: (string)[];
+              sql: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteFactTable: {
+    /** Deletes a single fact table */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /**
+             * @description The ID of the deleted fact table 
+             * @example ftb_123abc
+             */
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
+  listFactTableFilters: {
+    /** Get all filters for a fact table */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+      query: {
+        limit?: number;
+        offset?: number;
+      };
+        /** @description Specify a specific fact table */
+      path: {
+        factTableId: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": ({
+            factTableFilters: ({
+                id: string;
+                name: string;
+                description: string;
+                value: string;
+                /** @enum {string} */
+                managedBy: "" | "api";
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+              })[];
+          }) & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
+  postFactTableFilter: {
+    /** Create a single fact table filter */
+    parameters: {
+        /** @description Specify a specific fact table */
+      path: {
+        factTableId: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          /** @description Description of the fact table filter */
+          description?: string;
+          /**
+           * @description Leave blank to allow editing this in the UI. Set to "api" to prevent editing in the UI. 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
+          /**
+           * @description The SQL expression for this filter. 
+           * @example country = 'US'
+           */
+          value: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            factTableFilter: {
+              id: string;
+              name: string;
+              description: string;
+              value: string;
+              /** @enum {string} */
+              managedBy: "" | "api";
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  getFactTableFilter: {
+    /** Get a single fact filter */
+    parameters: {
+        /** @description Specify a specific fact table */
+        /** @description The id of the requested resource */
+      path: {
+        factTableId: string;
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            factTableFilter: {
+              id: string;
+              name: string;
+              description: string;
+              value: string;
+              /** @enum {string} */
+              managedBy: "" | "api";
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  updateFactTableFilter: {
+    /** Update a single fact table filter */
+    parameters: {
+        /** @description Specify a specific fact table */
+        /** @description The id of the requested resource */
+      path: {
+        factTableId: string;
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name?: string;
+          /** @description Description of the fact table filter */
+          description?: string;
+          /**
+           * @description Leave blank to allow editing this in the UI. Set to "api" to prevent editing in the UI. 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
+          /**
+           * @description The SQL expression for this filter. 
+           * @example country = 'US'
+           */
+          value?: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            factTable?: {
+              id: string;
+              name: string;
+              description: string;
+              value: string;
+              /** @enum {string} */
+              managedBy: "" | "api";
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteFactTableFilter: {
+    /** Deletes a single fact table filter */
+    parameters: {
+        /** @description Specify a specific fact table */
+        /** @description The id of the requested resource */
+      path: {
+        factTableId: string;
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /**
+             * @description The ID of the deleted fact filter 
+             * @example flt_123abc
+             */
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
 }
 
 // Schemas
@@ -4428,6 +4923,8 @@ export type ApiVisualChangeset = components["schemas"]["VisualChangeset"];
 export type ApiVisualChange = components["schemas"]["VisualChange"];
 export type ApiSavedGroup = components["schemas"]["SavedGroup"];
 export type ApiOrganization = components["schemas"]["Organization"];
+export type ApiFactTable = components["schemas"]["FactTable"];
+export type ApiFactTableFilter = components["schemas"]["FactTableFilter"];
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -4468,3 +4965,13 @@ export type DeleteSavedGroupResponse = operations["deleteSavedGroup"]["responses
 export type ListOrganizationsResponse = operations["listOrganizations"]["responses"]["200"]["content"]["application/json"];
 export type PostOrganizationResponse = operations["postOrganization"]["responses"]["200"]["content"]["application/json"];
 export type PutOrganizationResponse = operations["putOrganization"]["responses"]["200"]["content"]["application/json"];
+export type ListFactTablesResponse = operations["listFactTables"]["responses"]["200"]["content"]["application/json"];
+export type PostFactTableResponse = operations["postFactTable"]["responses"]["200"]["content"]["application/json"];
+export type GetFactTableResponse = operations["getFactTable"]["responses"]["200"]["content"]["application/json"];
+export type UpdateFactTableResponse = operations["updateFactTable"]["responses"]["200"]["content"]["application/json"];
+export type DeleteFactTableResponse = operations["deleteFactTable"]["responses"]["200"]["content"]["application/json"];
+export type ListFactTableFiltersResponse = operations["listFactTableFilters"]["responses"]["200"]["content"]["application/json"];
+export type PostFactTableFilterResponse = operations["postFactTableFilter"]["responses"]["200"]["content"]["application/json"];
+export type GetFactTableFilterResponse = operations["getFactTableFilter"]["responses"]["200"]["content"]["application/json"];
+export type UpdateFactTableFilterResponse = operations["updateFactTableFilter"]["responses"]["200"]["content"]["application/json"];
+export type DeleteFactTableFilterResponse = operations["deleteFactTableFilter"]["responses"]["200"]["content"]["application/json"];
