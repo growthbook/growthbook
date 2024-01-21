@@ -16,6 +16,8 @@ export const deleteFactTableFilter = createApiRequestHandler(
         "Unable to delete - Could not find factTable with that id"
       );
     }
+    req.checkPermissions("manageFactTables", factTable.projects);
+
     await deleteFactFilter(factTable, req.params.id, req.eventAudit);
 
     return {

@@ -15,6 +15,7 @@ export const updateFactTable = createApiRequestHandler(
     if (!factTable) {
       throw new Error("Could not find factTable with that id");
     }
+    req.checkPermissions("manageFactTables", factTable.projects);
 
     await updateFactTableInDb(factTable, req.body, req.eventAudit);
 

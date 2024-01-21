@@ -18,6 +18,7 @@ export const postFactTableFilter = createApiRequestHandler(
     if (!factTable) {
       throw new Error("Could not find factTable with that id");
     }
+    req.checkPermissions("manageFactTables", factTable.projects);
 
     const filter = await createFactFilter(factTable, {
       description: "",
