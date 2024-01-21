@@ -1,16 +1,16 @@
-summary: Get all fact table
+summary: Get all fact metric
 tags:
-  - fact-tables
+  - fact-metrics
 parameters:
   - $ref: "../parameters.yaml#/limit"
   - $ref: "../parameters.yaml#/offset"
   - $ref: "../parameters.yaml#/datasourceId"
   - $ref: "../parameters.yaml#/projectId"
-operationId: listFactTables
+operationId: listFactMetrics
 x-codeSamples:
   - lang: "cURL"
     source: |
-      curl https://api.growthbook.io/api/v1/fact-tables \
+      curl https://api.growthbook.io/api/v1/fact-metrics \
         -u secret_abc123DEF456:
 responses:
   "200":
@@ -20,10 +20,10 @@ responses:
           allOf:
             - type: object
               required:
-                - factTables
+                - factMetrics
               properties:
-                factTables:
+                factMetrics:
                   type: array
                   items:
-                    $ref: "../schemas/FactTable.yaml"
+                    $ref: "../schemas/FactMetric.yaml"
             - $ref: "../schemas/PaginationFields.yaml"

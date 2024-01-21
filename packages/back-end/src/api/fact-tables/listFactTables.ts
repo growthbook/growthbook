@@ -1,3 +1,4 @@
+import { isProjectListValidForProject } from "shared/util";
 import { ListFactTablesResponse } from "../../../types/openapi";
 import {
   getAllFactTablesForOrganization,
@@ -12,9 +13,21 @@ export const listFactTables = createApiRequestHandler(listFactTablesValidator)(
       req.organization.id
     );
 
+    let matches = factTables;
+    if (req.query.projectId) {
+      matches = matches.filter((factTable) =>
+        isProjectListValidForProject(factTable.projects, req.query.projectId)
+      );
+    }
+    if (req.query.datasourceId) {
+      matches = matches.filter(
+        (factTable) => factTable.datasource === req.query.datasourceId
+      );
+    }
+
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(
-      factTables.sort((a, b) => a.id.localeCompare(b.id)),
+      matches.sort((a, b) => a.id.localeCompare(b.id)),
       req.query
     );
 

@@ -111,6 +111,9 @@ tags:
   - name: ExperimentResults_model
     x-displayName: ExperimentResults
     description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentResults" />
+  - name: FactMetric_model
+    x-displayName: FactMetric
+    description: <SchemaDefinition schemaRef="#/components/schemas/FactMetric" />
   - name: FactTable_model
     x-displayName: FactTable
     description: <SchemaDefinition schemaRef="#/components/schemas/FactTable" />
@@ -2254,6 +2257,8 @@ paths:
       parameters:
         - $ref: '#/components/parameters/limit'
         - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/datasourceId'
+        - $ref: '#/components/parameters/projectId'
       operationId: listFactTables
       x-codeSamples:
         - lang: cURL
@@ -2634,6 +2639,320 @@ paths:
                     type: string
                     description: The ID of the deleted fact filter
                     example: flt_123abc
+  /fact-metrics:
+    get:
+      summary: Get all fact metric
+      tags:
+        - fact-metrics
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/datasourceId'
+        - $ref: '#/components/parameters/projectId'
+      operationId: listFactMetrics
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/fact-metrics \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - factMetrics
+                    properties:
+                      factMetrics:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/FactMetric'
+                  - $ref: '#/components/schemas/PaginationFields'
+    post:
+      parameters: []
+      tags:
+        - fact-metrics
+      summary: Create a single fact metric
+      operationId: postFactMetric
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/fact-metrics \
+              -d '{}' # TODO: Example JSON
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - datasource
+                - metricType
+                - numerator
+              properties:
+                managedBy:
+                  type: string
+                  enum:
+                    - ''
+                    - api
+                owner:
+                  type: string
+                datasource:
+                  type: string
+                name:
+                  type: string
+                description:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                projects:
+                  type: array
+                  items:
+                    type: string
+                inverse:
+                  type: boolean
+                metricType:
+                  type: string
+                  enum:
+                    - proportion
+                    - mean
+                    - ratio
+                numerator:
+                  type: object
+                  required:
+                    - factTableId
+                    - column
+                    - filters
+                  properties:
+                    factTableId:
+                      type: string
+                    column:
+                      type: string
+                    filters:
+                      type: array
+                      items:
+                        type: string
+                denominator:
+                  type: object
+                  required:
+                    - factTableId
+                    - column
+                    - filters
+                  properties:
+                    factTableId:
+                      type: string
+                    column:
+                      type: string
+                    filters:
+                      type: array
+                      items:
+                        type: string
+                capping:
+                  type: string
+                  enum:
+                    - none
+                    - absolute
+                    - percentile
+                capValue:
+                  type: number
+                regressionAdjustmentOverride:
+                  type: boolean
+                regressionAdjustmentEnabled:
+                  type: boolean
+                regressionAdjustmentDays:
+                  type: number
+                conversionDelayHours:
+                  type: number
+                hasConversionWindow:
+                  type: boolean
+                conversionWindowValue:
+                  type: number
+                conversionWindowUnit:
+                  type: string
+                  enum:
+                    - hours
+                    - days
+                    - weeks
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - factMetric
+                properties:
+                  factMetric:
+                    $ref: '#/components/schemas/FactMetric'
+  '/fact-metrics/{id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - fact-metrics
+      summary: Get a single fact metric
+      operationId: getFactMetric
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/fact-metrics/fact__123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - factMetric
+                properties:
+                  factMetric:
+                    $ref: '#/components/schemas/FactMetric'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - fact-metrics
+      summary: Update a single fact metric
+      operationId: updateFactMetric
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/fact-metrics/fact__123abc \
+              -d '{}' # TODO: Example JSON
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                managedBy:
+                  type: string
+                  enum:
+                    - ''
+                    - api
+                owner:
+                  type: string
+                name:
+                  type: string
+                description:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                projects:
+                  type: array
+                  items:
+                    type: string
+                inverse:
+                  type: boolean
+                metricType:
+                  type: string
+                  enum:
+                    - proportion
+                    - mean
+                    - ratio
+                numerator:
+                  type: object
+                  required:
+                    - factTableId
+                    - column
+                    - filters
+                  properties:
+                    factTableId:
+                      type: string
+                    column:
+                      type: string
+                    filters:
+                      type: array
+                      items:
+                        type: string
+                denominator:
+                  type: object
+                  required:
+                    - factTableId
+                    - column
+                    - filters
+                  properties:
+                    factTableId:
+                      type: string
+                    column:
+                      type: string
+                    filters:
+                      type: array
+                      items:
+                        type: string
+                capping:
+                  type: string
+                  enum:
+                    - none
+                    - absolute
+                    - percentile
+                capValue:
+                  type: number
+                regressionAdjustmentOverride:
+                  type: boolean
+                regressionAdjustmentEnabled:
+                  type: boolean
+                regressionAdjustmentDays:
+                  type: number
+                conversionDelayHours:
+                  type: number
+                hasConversionWindow:
+                  type: boolean
+                conversionWindowValue:
+                  type: number
+                conversionWindowUnit:
+                  type: string
+                  enum:
+                    - hours
+                    - days
+                    - weeks
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - factMetric
+                properties:
+                  factMetric:
+                    $ref: '#/components/schemas/FactMetric'
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - fact-metrics
+      summary: Deletes a single fact metric
+      operationId: deleteFactMetric
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/fact-metrics/fact__123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - factMetric
+                properties:
+                  deletedId:
+                    type: string
+                    description: The ID of the deleted fact metric
+                    example: fact__123abc
 components:
   parameters:
     id:
@@ -4111,6 +4430,120 @@ components:
         dateUpdated:
           type: string
           format: date-time
+    FactMetric:
+      type: object
+      required:
+        - id
+        - managedBy
+        - owner
+        - datasource
+        - dateCreated
+        - dateUpdated
+        - name
+        - description
+        - tags
+        - projects
+        - inverse
+        - metricType
+        - numerator
+        - capping
+        - regressionAdjustmentOverride
+        - conversionDelayHours
+        - hasConversionWindow
+      properties:
+        id:
+          type: string
+        managedBy:
+          type: string
+          enum:
+            - ''
+            - api
+        owner:
+          type: string
+        datasource:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        name:
+          type: string
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        projects:
+          type: array
+          items:
+            type: string
+        inverse:
+          type: boolean
+        metricType:
+          type: string
+          enum:
+            - proportion
+            - mean
+            - ratio
+        numerator:
+          type: object
+          required:
+            - factTableId
+            - column
+            - filters
+          properties:
+            factTableId:
+              type: string
+            column:
+              type: string
+            filters:
+              type: array
+              items:
+                type: string
+        denominator:
+          type: object
+          required:
+            - factTableId
+            - column
+            - filters
+          properties:
+            factTableId:
+              type: string
+            column:
+              type: string
+            filters:
+              type: array
+              items:
+                type: string
+        capping:
+          type: string
+          enum:
+            - none
+            - absolute
+            - percentile
+        capValue:
+          type: number
+        regressionAdjustmentOverride:
+          type: boolean
+        regressionAdjustmentEnabled:
+          type: boolean
+        regressionAdjustmentDays:
+          type: number
+        conversionDelayHours:
+          type: number
+        hasConversionWindow:
+          type: boolean
+        conversionWindowValue:
+          type: number
+        conversionWindowUnit:
+          type: string
+          enum:
+            - hours
+            - days
+            - weeks
   securitySchemes:
     bearerAuth:
       type: http
@@ -4167,6 +4600,7 @@ x-tagGroups:
       - ExperimentAnalysisSettings_model
       - ExperimentMetric_model
       - ExperimentResults_model
+      - FactMetric_model
       - FactTable_model
       - FactTableFilter_model
       - Feature_model

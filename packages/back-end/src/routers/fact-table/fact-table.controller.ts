@@ -54,7 +54,7 @@ export const getFactTables = async (
   });
 };
 
-async function testFilterQuery(
+export async function testFilterQuery(
   datasource: DataSourceInterface,
   factTable: FactTableInterface,
   filter: string
@@ -86,7 +86,7 @@ async function testFilterQuery(
   }
 }
 
-async function updateColumns(
+export async function updateColumns(
   datasource: DataSourceInterface,
   factTable: Pick<FactTableInterface, "sql" | "eventName" | "columns">
 ): Promise<ColumnInterface[]> {

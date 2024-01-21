@@ -206,6 +206,18 @@ paths:
     delete:
       $ref: "./paths/deleteFactTableFilter.yaml"
   # PLOP_INSERT_PATHS_HERE
+  /fact-metrics:
+    get:
+      $ref: "./paths/listFactMetrics.yaml"
+    post:
+      $ref: "./paths/postFactMetric.yaml"
+  /fact-metrics/{id}:
+    get:
+      $ref: "./paths/getFactMetric.yaml"
+    post:
+      $ref: "./paths/updateFactMetric.yaml"
+    delete:
+      $ref: "./paths/deleteFactMetric.yaml"
 components:
   parameters:
     $ref: "./parameters.yaml"

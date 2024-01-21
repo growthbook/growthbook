@@ -236,7 +236,7 @@ export const putOrganizationValidator = {
 
 export const listFactTablesValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0)}).strict(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0),"datasourceId":z.string().optional(),"projectId":z.string().optional()}).strict(),
   paramsSchema: z.never(),
 };
 
@@ -292,4 +292,34 @@ export const deleteFactTableFilterValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.object({"factTableId":z.string(),"id":z.string()}).strict(),
+};
+
+export const listFactMetricsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0),"datasourceId":z.string().optional(),"projectId":z.string().optional()}).strict(),
+  paramsSchema: z.never(),
+};
+
+export const postFactMetricValidator = {
+  bodySchema: z.object({"managedBy":z.enum(["","api"]).optional(),"owner":z.string().optional(),"datasource":z.string(),"name":z.string(),"description":z.string().optional(),"tags":z.array(z.string()).optional(),"projects":z.array(z.string()).optional(),"inverse":z.boolean().optional(),"metricType":z.enum(["proportion","mean","ratio"]),"numerator":z.object({"factTableId":z.string(),"column":z.string(),"filters":z.array(z.string())}),"denominator":z.object({"factTableId":z.string(),"column":z.string(),"filters":z.array(z.string())}).optional(),"capping":z.enum(["none","absolute","percentile"]).optional(),"capValue":z.number().optional(),"regressionAdjustmentOverride":z.boolean().optional(),"regressionAdjustmentEnabled":z.boolean().optional(),"regressionAdjustmentDays":z.number().optional(),"conversionDelayHours":z.number().optional(),"hasConversionWindow":z.boolean().optional(),"conversionWindowValue":z.number().optional(),"conversionWindowUnit":z.enum(["hours","days","weeks"]).optional()}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
+export const getFactMetricValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
+export const updateFactMetricValidator = {
+  bodySchema: z.object({"managedBy":z.enum(["","api"]).optional(),"owner":z.string().optional(),"name":z.string().optional(),"description":z.string().optional(),"tags":z.array(z.string()).optional(),"projects":z.array(z.string()).optional(),"inverse":z.boolean().optional(),"metricType":z.enum(["proportion","mean","ratio"]).optional(),"numerator":z.object({"factTableId":z.string(),"column":z.string(),"filters":z.array(z.string())}).optional(),"denominator":z.object({"factTableId":z.string(),"column":z.string(),"filters":z.array(z.string())}).optional(),"capping":z.enum(["none","absolute","percentile"]).optional(),"capValue":z.number().optional(),"regressionAdjustmentOverride":z.boolean().optional(),"regressionAdjustmentEnabled":z.boolean().optional(),"regressionAdjustmentDays":z.number().optional(),"conversionDelayHours":z.number().optional(),"hasConversionWindow":z.boolean().optional(),"conversionWindowValue":z.number().optional(),"conversionWindowUnit":z.enum(["hours","days","weeks"]).optional()}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
+export const deleteFactMetricValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
 };

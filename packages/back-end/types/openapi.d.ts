@@ -223,6 +223,20 @@ export interface paths {
     /** Deletes a single fact table filter */
     delete: operations["deleteFactTableFilter"];
   };
+  "/fact-metrics": {
+    /** Get all fact metric */
+    get: operations["listFactMetrics"];
+    /** Create a single fact metric */
+    post: operations["postFactMetric"];
+  };
+  "/fact-metrics/{id}": {
+    /** Get a single fact metric */
+    get: operations["getFactMetric"];
+    /** Update a single fact metric */
+    post: operations["updateFactMetric"];
+    /** Deletes a single fact metric */
+    delete: operations["deleteFactMetric"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -1163,6 +1177,45 @@ export interface components {
       dateCreated: string;
       /** Format: date-time */
       dateUpdated: string;
+    };
+    FactMetric: {
+      id: string;
+      /** @enum {string} */
+      managedBy: "" | "api";
+      owner: string;
+      datasource: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      name: string;
+      description: string;
+      tags: (string)[];
+      projects: (string)[];
+      inverse: boolean;
+      /** @enum {string} */
+      metricType: "proportion" | "mean" | "ratio";
+      numerator: {
+        factTableId: string;
+        column: string;
+        filters: (string)[];
+      };
+      denominator?: {
+        factTableId: string;
+        column: string;
+        filters: (string)[];
+      };
+      /** @enum {string} */
+      capping: "none" | "absolute" | "percentile";
+      capValue?: number;
+      regressionAdjustmentOverride: boolean;
+      regressionAdjustmentEnabled?: boolean;
+      regressionAdjustmentDays?: number;
+      conversionDelayHours: number;
+      hasConversionWindow: boolean;
+      conversionWindowValue?: number;
+      /** @enum {string} */
+      conversionWindowUnit?: "hours" | "days" | "weeks";
     };
   };
   responses: {
@@ -4496,9 +4549,13 @@ export interface operations {
     parameters: {
         /** @description The number of items to return */
         /** @description How many items to skip (use in conjunction with limit for pagination) */
+        /** @description Filter by Data Source */
+        /** @description Filter by project id */
       query: {
         limit?: number;
         offset?: number;
+        datasourceId?: string;
+        projectId?: string;
       };
     };
     responses: {
@@ -4897,6 +4954,334 @@ export interface operations {
       };
     };
   };
+  listFactMetrics: {
+    /** Get all fact metric */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+        /** @description Filter by Data Source */
+        /** @description Filter by project id */
+      query: {
+        limit?: number;
+        offset?: number;
+        datasourceId?: string;
+        projectId?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": ({
+            factMetrics: ({
+                id: string;
+                /** @enum {string} */
+                managedBy: "" | "api";
+                owner: string;
+                datasource: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+                name: string;
+                description: string;
+                tags: (string)[];
+                projects: (string)[];
+                inverse: boolean;
+                /** @enum {string} */
+                metricType: "proportion" | "mean" | "ratio";
+                numerator: {
+                  factTableId: string;
+                  column: string;
+                  filters: (string)[];
+                };
+                denominator?: {
+                  factTableId: string;
+                  column: string;
+                  filters: (string)[];
+                };
+                /** @enum {string} */
+                capping: "none" | "absolute" | "percentile";
+                capValue?: number;
+                regressionAdjustmentOverride: boolean;
+                regressionAdjustmentEnabled?: boolean;
+                regressionAdjustmentDays?: number;
+                conversionDelayHours: number;
+                hasConversionWindow: boolean;
+                conversionWindowValue?: number;
+                /** @enum {string} */
+                conversionWindowUnit?: "hours" | "days" | "weeks";
+              })[];
+          }) & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
+  postFactMetric: {
+    /** Create a single fact metric */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @enum {string} */
+          managedBy?: "" | "api";
+          owner?: string;
+          datasource: string;
+          name: string;
+          description?: string;
+          tags?: (string)[];
+          projects?: (string)[];
+          inverse?: boolean;
+          /** @enum {string} */
+          metricType: "proportion" | "mean" | "ratio";
+          numerator: {
+            factTableId: string;
+            column: string;
+            filters: (string)[];
+          };
+          denominator?: {
+            factTableId: string;
+            column: string;
+            filters: (string)[];
+          };
+          /** @enum {string} */
+          capping?: "none" | "absolute" | "percentile";
+          capValue?: number;
+          regressionAdjustmentOverride?: boolean;
+          regressionAdjustmentEnabled?: boolean;
+          regressionAdjustmentDays?: number;
+          conversionDelayHours?: number;
+          hasConversionWindow?: boolean;
+          conversionWindowValue?: number;
+          /** @enum {string} */
+          conversionWindowUnit?: "hours" | "days" | "weeks";
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            factMetric: {
+              id: string;
+              /** @enum {string} */
+              managedBy: "" | "api";
+              owner: string;
+              datasource: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description: string;
+              tags: (string)[];
+              projects: (string)[];
+              inverse: boolean;
+              /** @enum {string} */
+              metricType: "proportion" | "mean" | "ratio";
+              numerator: {
+                factTableId: string;
+                column: string;
+                filters: (string)[];
+              };
+              denominator?: {
+                factTableId: string;
+                column: string;
+                filters: (string)[];
+              };
+              /** @enum {string} */
+              capping: "none" | "absolute" | "percentile";
+              capValue?: number;
+              regressionAdjustmentOverride: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
+              conversionDelayHours: number;
+              hasConversionWindow: boolean;
+              conversionWindowValue?: number;
+              /** @enum {string} */
+              conversionWindowUnit?: "hours" | "days" | "weeks";
+            };
+          };
+        };
+      };
+    };
+  };
+  getFactMetric: {
+    /** Get a single fact metric */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            factMetric: {
+              id: string;
+              /** @enum {string} */
+              managedBy: "" | "api";
+              owner: string;
+              datasource: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description: string;
+              tags: (string)[];
+              projects: (string)[];
+              inverse: boolean;
+              /** @enum {string} */
+              metricType: "proportion" | "mean" | "ratio";
+              numerator: {
+                factTableId: string;
+                column: string;
+                filters: (string)[];
+              };
+              denominator?: {
+                factTableId: string;
+                column: string;
+                filters: (string)[];
+              };
+              /** @enum {string} */
+              capping: "none" | "absolute" | "percentile";
+              capValue?: number;
+              regressionAdjustmentOverride: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
+              conversionDelayHours: number;
+              hasConversionWindow: boolean;
+              conversionWindowValue?: number;
+              /** @enum {string} */
+              conversionWindowUnit?: "hours" | "days" | "weeks";
+            };
+          };
+        };
+      };
+    };
+  };
+  updateFactMetric: {
+    /** Update a single fact metric */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @enum {string} */
+          managedBy?: "" | "api";
+          owner?: string;
+          name?: string;
+          description?: string;
+          tags?: (string)[];
+          projects?: (string)[];
+          inverse?: boolean;
+          /** @enum {string} */
+          metricType?: "proportion" | "mean" | "ratio";
+          numerator?: {
+            factTableId: string;
+            column: string;
+            filters: (string)[];
+          };
+          denominator?: {
+            factTableId: string;
+            column: string;
+            filters: (string)[];
+          };
+          /** @enum {string} */
+          capping?: "none" | "absolute" | "percentile";
+          capValue?: number;
+          regressionAdjustmentOverride?: boolean;
+          regressionAdjustmentEnabled?: boolean;
+          regressionAdjustmentDays?: number;
+          conversionDelayHours?: number;
+          hasConversionWindow?: boolean;
+          conversionWindowValue?: number;
+          /** @enum {string} */
+          conversionWindowUnit?: "hours" | "days" | "weeks";
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            factMetric: {
+              id: string;
+              /** @enum {string} */
+              managedBy: "" | "api";
+              owner: string;
+              datasource: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description: string;
+              tags: (string)[];
+              projects: (string)[];
+              inverse: boolean;
+              /** @enum {string} */
+              metricType: "proportion" | "mean" | "ratio";
+              numerator: {
+                factTableId: string;
+                column: string;
+                filters: (string)[];
+              };
+              denominator?: {
+                factTableId: string;
+                column: string;
+                filters: (string)[];
+              };
+              /** @enum {string} */
+              capping: "none" | "absolute" | "percentile";
+              capValue?: number;
+              regressionAdjustmentOverride: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
+              conversionDelayHours: number;
+              hasConversionWindow: boolean;
+              conversionWindowValue?: number;
+              /** @enum {string} */
+              conversionWindowUnit?: "hours" | "days" | "weeks";
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteFactMetric: {
+    /** Deletes a single fact metric */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /**
+             * @description The ID of the deleted fact metric 
+             * @example fact__123abc
+             */
+            deletedId?: string;
+          };
+        };
+      };
+    };
+  };
 }
 
 // Schemas
@@ -4925,6 +5310,7 @@ export type ApiSavedGroup = components["schemas"]["SavedGroup"];
 export type ApiOrganization = components["schemas"]["Organization"];
 export type ApiFactTable = components["schemas"]["FactTable"];
 export type ApiFactTableFilter = components["schemas"]["FactTableFilter"];
+export type ApiFactMetric = components["schemas"]["FactMetric"];
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -4975,3 +5361,8 @@ export type PostFactTableFilterResponse = operations["postFactTableFilter"]["res
 export type GetFactTableFilterResponse = operations["getFactTableFilter"]["responses"]["200"]["content"]["application/json"];
 export type UpdateFactTableFilterResponse = operations["updateFactTableFilter"]["responses"]["200"]["content"]["application/json"];
 export type DeleteFactTableFilterResponse = operations["deleteFactTableFilter"]["responses"]["200"]["content"]["application/json"];
+export type ListFactMetricsResponse = operations["listFactMetrics"]["responses"]["200"]["content"]["application/json"];
+export type PostFactMetricResponse = operations["postFactMetric"]["responses"]["200"]["content"]["application/json"];
+export type GetFactMetricResponse = operations["getFactMetric"]["responses"]["200"]["content"]["application/json"];
+export type UpdateFactMetricResponse = operations["updateFactMetric"]["responses"]["200"]["content"]["application/json"];
+export type DeleteFactMetricResponse = operations["deleteFactMetric"]["responses"]["200"]["content"]["application/json"];

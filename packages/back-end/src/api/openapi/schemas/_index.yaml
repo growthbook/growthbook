@@ -48,3 +48,6 @@ FactTable:
   $ref: "./FactTable.yaml"
 FactTableFilter:
   $ref: "./FactTableFilter.yaml"
+
+FactMetric:
+  $ref: './FactMetric.yaml'
