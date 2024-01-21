@@ -505,3 +505,17 @@ export const deleteVisualChangesetById = async ({
     visualChangeset,
   });
 };
+
+export const findExperimentByVisualChangesetId = async (
+  visualChangesetId: string,
+  organization: string
+): Promise<ExperimentInterface | null> => {
+  const visualChangeset = await findVisualChangesetById(
+    visualChangesetId,
+    organization
+  );
+
+  if (!visualChangeset) return null;
+
+  return getExperimentById(organization, visualChangeset.experiment);
+};
