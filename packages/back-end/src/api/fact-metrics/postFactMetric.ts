@@ -36,6 +36,11 @@ export async function validateFactMetric(
       if (!denominatorFactTable) {
         throw new Error("Could not find denominator fact table");
       }
+      if (denominatorFactTable.datasource !== numeratorFactTable.datasource) {
+        throw new Error(
+          "Numerator and denominator must be in the same datasource"
+        );
+      }
     }
   } else if (data.denominator?.factTableId) {
     throw new Error("Denominator not allowed for non-ratio metric");
