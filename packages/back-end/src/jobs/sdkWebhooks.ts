@@ -23,9 +23,8 @@ type SDKWebhookJob = Job<{
 }>;
 
 let agenda: Agenda;
-export default function addWebhooksJob(ag: Agenda) {
+export default function addSdkWebhooksJob(ag: Agenda) {
   agenda = ag;
-
   // Fire webhooks
   agenda.define(SDK_WEBHOOKS_JOB_NAME, async (job: SDKWebhookJob) => {
     const webhookId = job.attrs.data?.webhookId;
@@ -63,7 +62,7 @@ export default function addWebhooksJob(ag: Agenda) {
 }
 async function singleWebhooksJob(webhook: WebhookInterface) {
   const job = agenda.create(SDK_WEBHOOKS_JOB_NAME, {
-    webhook: webhook.id,
+    webhookId: webhook.id,
     retryCount: 0,
   }) as SDKWebhookJob;
   job.unique({
@@ -84,24 +83,23 @@ export async function queueWebhookUpdate(
 ) {
   if (!CRON_ENABLED) return;
   if (!payloadKeys.length) return;
-
   const connections = await findSDKConnectionsByOrganization(orgId);
 
   if (!connections) return;
   const sdkKeys: string[] = [];
   for (let i = 0; i < connections.length; i++) {
     const connection = connections[i];
-
     // Skip if this SDK Connection isn't affected by the changes
     if (
-      payloadKeys.some(
-        (key) =>
+      payloadKeys.some((key) => {
+        return (
           key.environment === connection.environment &&
           (!connection.projects.length ||
             connection.projects.includes(key.project))
-      )
+        );
+      })
     ) {
-      sdkKeys.push(connection.key);
+      sdkKeys.push(connection.id);
     }
   }
   const webhooks = await findWebhooksBySdks(sdkKeys);
@@ -167,7 +165,6 @@ export async function fireWebhook({
     });
     return;
   }
-
   const res = await cancellableFetch(
     url,
     {
