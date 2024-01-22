@@ -175,14 +175,7 @@ function getConditionParts({
         parentIdEl = (
           <>
             <div className="mr-1">prerequisite</div>
-            <Link href={`/features/${parentId}`} key={`link-${i}`}>
-              <a
-                className={`border px-2 bg-light rounded mr-1`}
-                title="Manage Feature"
-              >
-                {parentId}
-              </a>
-            </Link>
+            <ParentIdLink parentId={parentId} />
           </>
         );
       }
@@ -207,6 +200,16 @@ function getConditionParts({
   });
 }
 
+function ParentIdLink({ parentId }: { parentId: string }) {
+  return (
+    <Link href={`/features/${parentId}`} key={`link-${parentId}`}>
+      <a className={`border px-2 bg-light rounded mr-1`} title="Manage Feature">
+        {parentId}
+      </a>
+    </Link>
+  );
+}
+
 export default function ConditionDisplay({
   condition,
   savedGroups: savedGroupTargeting,
@@ -223,7 +226,7 @@ export default function ConditionDisplay({
 
   const parts: ReactNode[] = [];
 
-  const jsonFormatted = useMemo(() => {
+  const jsonFormattedCondition = useMemo(() => {
     if (!condition) return;
     try {
       const parsed = JSON.parse(condition);
@@ -234,20 +237,23 @@ export default function ConditionDisplay({
     }
   }, [condition]);
 
-  if (condition && jsonFormatted) {
+  if (condition && jsonFormattedCondition) {
     const conds = jsonToConds(condition);
-
     // Could not parse into simple conditions
     if (conds === null || !attributes.size) {
-      return <InlineCode language="json" code={jsonFormatted} />;
+      parts.push(
+        <div className="w-100">
+          <InlineCode language="json" code={jsonFormattedCondition} />
+        </div>
+      );
+    } else {
+      const conditionParts = getConditionParts({
+        conditions: conds,
+        savedGroups,
+        keyPrefix: "condition-",
+      });
+      parts.push(...conditionParts);
     }
-
-    const conditionParts = getConditionParts({
-      conditions: conds,
-      savedGroups,
-      keyPrefix: "condition-",
-    });
-    parts.push(...conditionParts);
   }
 
   if (savedGroupTargeting && savedGroupTargeting.length > 0) {
@@ -265,7 +271,24 @@ export default function ConditionDisplay({
     const prereqConditionsGrouped = prerequisites
       .map((p) => {
         let cond = jsonToConds(p.parentCondition);
-        if (!cond) return null;
+        if (!cond) {
+          let jsonFormattedParentCondition = p.parentCondition;
+          try {
+            const parsed = JSON.parse(p.parentCondition);
+            jsonFormattedParentCondition = stringify(parsed);
+          } catch (e) {
+            console.error(e, p.parentCondition);
+          }
+          parts.push(
+            <div className="w-100 d-flex col-auto">
+              {parts.length > 0 && <div className="mr-1">AND</div>}
+              <div className="mr-1">prerequisite</div>
+              <ParentIdLink parentId={p.parentId} />
+              <InlineCode language="json" code={jsonFormattedParentCondition} />
+            </div>
+          );
+          return;
+        }
         cond = cond.map(({ field, operator, value }) => {
           return {
             field,
