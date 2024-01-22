@@ -18,7 +18,7 @@ export const deleteFactMetric = createApiRequestHandler(
     }
     req.checkPermissions("createMetrics", factMetric.projects);
 
-    await deleteFactMetricInDb(factMetric, req.eventAudit);
+    await deleteFactMetricInDb(factMetric);
 
     return {
       deletedId: req.params.id,
