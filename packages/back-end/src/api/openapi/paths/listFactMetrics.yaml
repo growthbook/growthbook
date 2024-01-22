@@ -6,6 +6,11 @@ parameters:
   - $ref: "../parameters.yaml#/offset"
   - $ref: "../parameters.yaml#/datasourceId"
   - $ref: "../parameters.yaml#/projectId"
+  - name: factTableId
+    in: query
+    description: Filter by Fact Table Id (for ratio metrics, we only look at the numerator)
+    schema:
+      type: string
 operationId: listFactMetrics
 x-codeSamples:
   - lang: "cURL"

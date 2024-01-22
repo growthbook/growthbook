@@ -1,10 +1,7 @@
 import { DataSourceInterface } from "../../../types/datasource";
-import {
-  CreateFactMetricProps,
-  FactMetricInterface,
-  UpdateFactMetricProps,
-} from "../../../types/fact-table";
+import { FactMetricInterface } from "../../../types/fact-table";
 import { PostBulkImportResponse } from "../../../types/openapi";
+import { queueFactTableColumnsRefresh } from "../../jobs/refreshFactTableColumns";
 import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
 import {
   createFactMetric,
@@ -21,8 +18,13 @@ import {
 import { addTags } from "../../models/TagModel";
 import { createApiRequestHandler } from "../../util/handler";
 import { postBulkImportValidator } from "../../validators/openapi";
+import {
+  getCreateMetricPropsFromBody,
+  validateFactMetric,
+} from "../fact-metrics/postFactMetric";
+import { getUpdateFactMetricPropsFromBody } from "../fact-metrics/updateFactMetric";
 
-export const postFactMetric = createApiRequestHandler(postBulkImportValidator)(
+export const postBulkImport = createApiRequestHandler(postBulkImportValidator)(
   async (req): Promise<PostBulkImportResponse> => {
     const numCreated = {
       factTables: 0,
@@ -60,34 +62,6 @@ export const postFactMetric = createApiRequestHandler(postBulkImportValidator)(
       req.checkPermissions("createMetrics", factMetric.projects || []);
     }
 
-    function validateFactMetric(
-      data: Pick<
-        FactMetricInterface,
-        "numerator" | "denominator" | "metricType"
-      >
-    ) {
-      const numeratorFactTable = factTableMap.get(data.numerator.factTableId);
-      if (!numeratorFactTable) {
-        throw new Error("Could not find numerator fact table");
-      }
-
-      if (data.metricType === "ratio") {
-        if (!data.denominator) {
-          throw new Error("Denominator required for ratio metric");
-        }
-        if (data.denominator.factTableId !== data.numerator.factTableId) {
-          const denominatorFactTable = factTableMap.get(
-            data.denominator.factTableId
-          );
-          if (!denominatorFactTable) {
-            throw new Error("Could not find denominator fact table");
-          }
-        }
-      } else if (data.denominator) {
-        throw new Error("Denominator not allowed for non-ratio metric");
-      }
-    }
-
     // Import fact tables
     if (req.body.factTables) {
       for (const { data, id } of req.body.factTables) {
@@ -107,6 +81,7 @@ export const postFactMetric = createApiRequestHandler(postBulkImportValidator)(
           }
 
           await updateFactTable(existing, data);
+          await queueFactTableColumnsRefresh(existing);
           numUpdated.factTables++;
         }
         // Create new fact table
@@ -127,6 +102,7 @@ export const postFactMetric = createApiRequestHandler(postBulkImportValidator)(
             tags: [],
             ...data,
           });
+          await queueFactTableColumnsRefresh(newFactTable);
           factTableMap.set(newFactTable.id, newFactTable);
           numCreated.factTables++;
         }
@@ -173,22 +149,12 @@ export const postFactMetric = createApiRequestHandler(postBulkImportValidator)(
           checkFactMetricPermission(existing);
           if (data.projects) checkFactMetricPermission(data);
 
-          // Cannot change datasource
-          if (data.datasource && data.datasource !== existing.datasource) {
-            throw new Error(
-              "Cannot change datasource for existing fact metric"
-            );
-          }
+          const changes = getUpdateFactMetricPropsFromBody(data);
+          await validateFactMetric(
+            { ...existing, ...changes },
+            async (id) => factTableMap.get(id) || null
+          );
 
-          const changes: UpdateFactMetricProps = {
-            ...data,
-            capping: (data.capping === "none" ? "" : data.capping) || undefined,
-          };
-
-          validateFactMetric({
-            ...existing,
-            ...changes,
-          });
           await updateFactMetric(existing, changes);
           numUpdated.factMetrics++;
         }
@@ -196,35 +162,17 @@ export const postFactMetric = createApiRequestHandler(postBulkImportValidator)(
         else {
           checkFactMetricPermission(data);
 
-          if (!dataSourceMap.has(data.datasource)) {
-            throw new Error("Could not find datasource");
-          }
+          const lookupFactTable = async (id: string) =>
+            factTableMap.get(id) || null;
 
-          const createProps: CreateFactMetricProps = {
-            loseRisk: 0,
-            winRisk: 0,
-            maxPercentChange: 0,
-            minPercentChange: 0,
-            minSampleSize: 0,
-            description: "",
-            owner: "",
-            projects: [],
-            tags: [],
-            inverse: false,
-            capValue: 0,
-            regressionAdjustmentOverride: false,
-            regressionAdjustmentDays: 0,
-            regressionAdjustmentEnabled: false,
-            conversionDelayHours: 0,
-            conversionWindowValue: 0,
-            conversionWindowUnit: "hours",
-            hasConversionWindow: false,
-            ...data,
-            id: id,
-            capping: (data.capping === "none" ? "" : data.capping) || "",
-            denominator: data.denominator || null,
-          };
-          validateFactMetric(createProps);
+          const createProps = await getCreateMetricPropsFromBody(
+            data,
+            req.organization,
+            lookupFactTable
+          );
+          createProps.id = id;
+
+          await validateFactMetric(createProps, lookupFactTable);
 
           const newFactMetric = await createFactMetric(
             req.organization.id,

@@ -2613,6 +2613,11 @@ paths:
         - $ref: '#/components/parameters/offset'
         - $ref: '#/components/parameters/datasourceId'
         - $ref: '#/components/parameters/projectId'
+        - name: factTableId
+          in: query
+          description: 'Filter by Fact Table Id (for ratio metrics, we only look at the numerator)'
+          schema:
+            type: string
       operationId: listFactMetrics
       x-codeSamples:
         - lang: cURL
@@ -2654,13 +2659,10 @@ paths:
               type: object
               required:
                 - name
-                - datasource
                 - metricType
                 - numerator
               properties:
                 owner:
-                  type: string
-                datasource:
                   type: string
                 name:
                   type: string
@@ -2686,28 +2688,28 @@ paths:
                   type: object
                   required:
                     - factTableId
-                    - column
-                    - filters
                   properties:
                     factTableId:
                       type: string
                     column:
                       type: string
+                      description: 'Must be empty for proportion metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
                     filters:
                       type: array
                       items:
                         type: string
                 denominator:
+                  description: Only when metricType is 'ratio'
                   type: object
                   required:
                     - factTableId
                     - column
-                    - filters
                   properties:
                     factTableId:
                       type: string
                     column:
                       type: string
+                      description: 'The column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
                     filters:
                       type: array
                       items:
@@ -2819,28 +2821,28 @@ paths:
                   type: object
                   required:
                     - factTableId
-                    - column
-                    - filters
                   properties:
                     factTableId:
                       type: string
                     column:
                       type: string
+                      description: 'Must be empty for proportion metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
                     filters:
                       type: array
                       items:
                         type: string
                 denominator:
+                  description: Only when metricType is 'ratio'
                   type: object
                   required:
                     - factTableId
                     - column
-                    - filters
                   properties:
                     factTableId:
                       type: string
                     column:
                       type: string
+                      description: 'Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
                     filters:
                       type: array
                       items:

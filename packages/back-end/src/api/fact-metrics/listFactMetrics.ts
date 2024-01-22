@@ -26,6 +26,12 @@ export const listFactMetrics = createApiRequestHandler(
         (factMetric) => factMetric.datasource === req.query.datasourceId
       );
     }
+    if (req.query.factTableId) {
+      matches = matches.filter(
+        (factMetric) =>
+          factMetric.numerator?.factTableId === req.query.factTableId
+      );
+    }
 
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(

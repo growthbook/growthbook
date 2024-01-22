@@ -26,28 +26,28 @@ properties:
     type: object
     required:
       - factTableId
-      - column
-      - filters
     properties:
       factTableId:
         type: string
       column:
         type: string
+        description: "Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count'"
       filters:
         type: array
         items:
           type: string
   denominator:
+    description: Only when metricType is 'ratio'
     type: object
     required:
       - factTableId
       - column
-      - filters
     properties:
       factTableId:
         type: string
       column:
         type: string
+        description: "Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count'"
       filters:
         type: array
         items:

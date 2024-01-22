@@ -4893,11 +4893,13 @@ export interface operations {
         /** @description How many items to skip (use in conjunction with limit for pagination) */
         /** @description Filter by Data Source */
         /** @description Filter by project id */
+        /** @description Filter by Fact Table Id (for ratio metrics, we only look at the numerator) */
       query: {
         limit?: number;
         offset?: number;
         datasourceId?: string;
         projectId?: string;
+        factTableId?: string;
       };
     };
     responses: {
@@ -4959,7 +4961,6 @@ export interface operations {
       content: {
         "application/json": {
           owner?: string;
-          datasource: string;
           name: string;
           description?: string;
           tags?: (string)[];
@@ -4969,13 +4970,16 @@ export interface operations {
           metricType: "proportion" | "mean" | "ratio";
           numerator: {
             factTableId: string;
-            column: string;
-            filters: (string)[];
+            /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
+            column?: string;
+            filters?: (string)[];
           };
+          /** @description Only when metricType is 'ratio' */
           denominator?: {
             factTableId: string;
+            /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' */
             column: string;
-            filters: (string)[];
+            filters?: (string)[];
           };
           /** @enum {string} */
           capping?: "none" | "absolute" | "percentile";
@@ -5112,13 +5116,16 @@ export interface operations {
           metricType?: "proportion" | "mean" | "ratio";
           numerator?: {
             factTableId: string;
-            column: string;
-            filters: (string)[];
+            /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
+            column?: string;
+            filters?: (string)[];
           };
+          /** @description Only when metricType is 'ratio' */
           denominator?: {
             factTableId: string;
+            /** @description Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
             column: string;
-            filters: (string)[];
+            filters?: (string)[];
           };
           /** @enum {string} */
           capping?: "none" | "absolute" | "percentile";
@@ -5245,7 +5252,6 @@ export interface operations {
               id: string;
               data: {
                 owner?: string;
-                datasource: string;
                 name: string;
                 description?: string;
                 tags?: (string)[];
@@ -5255,13 +5261,16 @@ export interface operations {
                 metricType: "proportion" | "mean" | "ratio";
                 numerator: {
                   factTableId: string;
-                  column: string;
-                  filters: (string)[];
+                  /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
+                  column?: string;
+                  filters?: (string)[];
                 };
+                /** @description Only when metricType is 'ratio' */
                 denominator?: {
                   factTableId: string;
+                  /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' */
                   column: string;
-                  filters: (string)[];
+                  filters?: (string)[];
                 };
                 /** @enum {string} */
                 capping?: "none" | "absolute" | "percentile";

@@ -1,3 +1,5 @@
+import z from "zod";
+import { UpdateFactMetricProps } from "../../../types/fact-table";
 import { UpdateFactMetricResponse } from "../../../types/openapi";
 import {
   updateFactMetric as updateFactMetricInDb,
@@ -7,6 +9,43 @@ import {
 import { addTagsDiff } from "../../models/TagModel";
 import { createApiRequestHandler } from "../../util/handler";
 import { updateFactMetricValidator } from "../../validators/openapi";
+import { getFactTable } from "../../models/FactTableModel";
+import { validateFactMetric } from "./postFactMetric";
+
+export function getUpdateFactMetricPropsFromBody(
+  body: z.infer<typeof updateFactMetricValidator.bodySchema>
+): UpdateFactMetricProps {
+  const { numerator, denominator, capping, ...otherFields } = body;
+
+  const updates: UpdateFactMetricProps = {
+    ...otherFields,
+  };
+
+  const metricType = updates.metricType;
+
+  if (capping) {
+    updates.capping = capping === "none" ? "" : capping;
+  }
+  if (numerator) {
+    updates.numerator = {
+      filters: [],
+      ...numerator,
+      column:
+        metricType === "proportion"
+          ? "$$distinctUsers"
+          : numerator.column || "$$distinctUsers",
+    };
+  }
+  if (denominator) {
+    updates.denominator = {
+      filters: [],
+      ...denominator,
+      column: denominator.column || "$$distinctUsers",
+    };
+  }
+
+  return updates;
+}
 
 export const updateFactMetric = createApiRequestHandler(
   updateFactMetricValidator
@@ -19,14 +58,16 @@ export const updateFactMetric = createApiRequestHandler(
     }
     req.checkPermissions("createMetrics", factMetric.projects);
 
-    await updateFactMetricInDb(factMetric, {
-      ...req.body,
-      capping:
-        (req.body.capping === "none" ? "" : req.body.capping) || undefined,
+    const updates = getUpdateFactMetricPropsFromBody(req.body);
+
+    await validateFactMetric({ ...factMetric, ...updates }, async (id) => {
+      return getFactTable(req.organization.id, id);
     });
 
-    if (req.body.tags) {
-      await addTagsDiff(req.organization.id, factMetric.tags, req.body.tags);
+    await updateFactMetricInDb(factMetric, updates);
+
+    if (updates.tags) {
+      await addTagsDiff(req.organization.id, factMetric.tags, updates.tags);
     }
 
     return {
