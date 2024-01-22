@@ -21,7 +21,7 @@ export default function Prerequisite({
   i,
   prerequisite,
   feature,
-  parentFeature, // todo: check for invalid parents
+  parentFeature,
   mutate,
   setPrerequisiteModal,
 }: Props) {
@@ -45,6 +45,7 @@ export default function Prerequisite({
               <a
                 href={`/features/${parentFeature.id}`}
                 target="_blank"
+                rel="noreferrer"
               >
                 {parentFeature.id}
                 <FaExternalLinkAlt className="ml-1" />
@@ -52,7 +53,7 @@ export default function Prerequisite({
             </>
           ) : (
             <>
-              Invalid parent feature (<code>{prerequisite.parentId}</code>)
+              Invalid parent feature (<code>{prerequisite.id}</code>)
             </>
           )}
         </div>
@@ -102,9 +103,7 @@ export default function Prerequisite({
               <strong>PASS IF</strong>
             </div>
             <div className="col">
-              <ConditionDisplay
-                prerequisites={[prerequisite]}
-              />
+              <ConditionDisplay prerequisites={[prerequisite]} />
             </div>
           </div>
         </div>

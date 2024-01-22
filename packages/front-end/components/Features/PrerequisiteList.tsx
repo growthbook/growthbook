@@ -26,7 +26,7 @@ export default function PrerequisiteList({
   return (
     <>
       {items.map(({ ...item }, i) => {
-        const parentFeature = features.find((f) => f.id === item.parentId);
+        const parentFeature = features.find((f) => f.id === item.id);
         return (
           <Prerequisite
             key={i}

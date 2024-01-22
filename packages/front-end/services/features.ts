@@ -99,7 +99,7 @@ export function getFeatureDefaultValue(feature: FeatureInterface) {
 export function getPrerequisites(feature: FeatureInterface) {
   return feature.prerequisites ?? [];
 }
-export function getDefaultPrerequisiteParentCondition(
+export function getDefaultPrerequisiteCondition(
   parentFeature?: FeatureInterface
 ) {
   const valueType = parentFeature?.valueType || "string";
@@ -240,7 +240,7 @@ export function validateFeatureRule(
     );
   }
   if (rule.prerequisites) {
-    if (rule.prerequisites.some((p) => !p.parentId)) {
+    if (rule.prerequisites.some((p) => !p.id)) {
       throw new Error("Cannot have empty prerequisites");
     }
   }

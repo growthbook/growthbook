@@ -15,10 +15,16 @@ export type VariationMeta = {
   name?: string;
 };
 
+export type ParentConditionsInterface = {
+  id: string;
+  condition: ConditionInterface;
+};
+
 export type FeatureRule<T = any> = {
   id?: string;
   condition?: ConditionInterface;
   force?: T;
+  parentConditions?: ParentConditionsInterface[];
   variations?: T[];
   weights?: number[];
   key?: string;

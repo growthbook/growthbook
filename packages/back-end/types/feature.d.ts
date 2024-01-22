@@ -150,6 +150,6 @@ export interface FeatureTestResult {
 }
 
 export interface FeaturePrerequisite {
-  parentId: string;
-  parentCondition: string;
+  id: string;
+  condition: string;
 }

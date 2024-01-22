@@ -6,7 +6,7 @@ import clsx from "clsx";
 import React, { useEffect } from "react";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import {
-  getDefaultPrerequisiteParentCondition,
+  getDefaultPrerequisiteCondition,
   getFeatureDefaultValue,
   useEnvironments,
   useFeaturesList,
@@ -42,16 +42,16 @@ export default function PrerequisiteTargetingField({
   useEffect(() => {
     for (let i = 0; i < value.length; i++) {
       const v = value[i];
-      const parentFeature = features.find((f) => f.id === v.parentId);
-      const parentCondition = v.parentCondition;
+      const parentFeature = features.find((f) => f.id === v.id);
+      const parentCondition = v.condition;
       if (parentFeature) {
         if (parentCondition === "" || parentCondition === "{}") {
-          const condStr = getDefaultPrerequisiteParentCondition(parentFeature);
+          const condStr = getDefaultPrerequisiteCondition(parentFeature);
           setValue([
             ...value.slice(0, i),
             {
-              parentId: v.parentId,
-              parentCondition: condStr,
+              id: v.id,
+              condition: condStr,
             },
             ...value.slice(i + 1),
           ]);
@@ -69,7 +69,7 @@ export default function PrerequisiteTargetingField({
           <>
             <ul className={styles.conditionslist}>
               {value.map((v, i) => {
-                const parentFeature = features.find((f) => f.id === v.parentId);
+                const parentFeature = features.find((f) => f.id === v.id);
                 const parentFeatureId = parentFeature?.id;
 
                 return (
@@ -83,13 +83,13 @@ export default function PrerequisiteTargetingField({
                           <SelectField
                             placeholder="Select feature"
                             options={featureOptions}
-                            value={v.parentId}
+                            value={v.id}
                             onChange={(v) => {
                               setValue([
                                 ...value.slice(0, i),
                                 {
-                                  parentId: v,
-                                  parentCondition: "",
+                                  id: v,
+                                  condition: "",
                                 },
                                 ...value.slice(i + 1),
                               ]);
@@ -193,13 +193,13 @@ export default function PrerequisiteTargetingField({
                       <div className="col">
                         {parentFeature ? (
                           <PrerequisiteInput
-                            defaultValue={v.parentCondition}
+                            defaultValue={v.condition}
                             onChange={(s) => {
                               setValue([
                                 ...value.slice(0, i),
                                 {
-                                  parentId: v.parentId,
-                                  parentCondition: s,
+                                  id: v.id,
+                                  condition: s,
                                 },
                                 ...value.slice(i + 1),
                               ]);
@@ -239,8 +239,8 @@ export default function PrerequisiteTargetingField({
                 setValue([
                   ...value,
                   {
-                    parentId: "",
-                    parentCondition: "",
+                    id: "",
+                    condition: "",
                   },
                 ]);
               }}
@@ -264,8 +264,8 @@ export default function PrerequisiteTargetingField({
                 setValue([
                   ...value,
                   {
-                    parentId: "",
-                    parentCondition: "{}",
+                    id: "",
+                    condition: "{}",
                   },
                 ]);
               }}

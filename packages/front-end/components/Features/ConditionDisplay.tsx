@@ -270,21 +270,21 @@ export default function ConditionDisplay({
   if (prerequisites) {
     const prereqConditionsGrouped = prerequisites
       .map((p) => {
-        let cond = jsonToConds(p.parentCondition);
+        let cond = jsonToConds(p.condition);
         if (!cond) {
-          let jsonFormattedParentCondition = p.parentCondition;
+          let jsonFormattedCondition = p.condition;
           try {
-            const parsed = JSON.parse(p.parentCondition);
-            jsonFormattedParentCondition = stringify(parsed);
+            const parsed = JSON.parse(p.condition);
+            jsonFormattedCondition = stringify(parsed);
           } catch (e) {
-            console.error(e, p.parentCondition);
+            console.error(e, p.condition);
           }
           parts.push(
             <div className="w-100 d-flex col-auto">
               {parts.length > 0 && <div className="mr-1">AND</div>}
               <div className="mr-1">prerequisite</div>
-              <ParentIdLink parentId={p.parentId} />
-              <InlineCode language="json" code={jsonFormattedParentCondition} />
+              <ParentIdLink parentId={p.id} />
+              <InlineCode language="json" code={jsonFormattedCondition} />
             </div>
           );
           return;
@@ -294,7 +294,7 @@ export default function ConditionDisplay({
             field,
             operator,
             value,
-            parentId: renderParentIds ? p.parentId : undefined,
+            parentId: renderParentIds ? p.id : undefined,
           };
         });
         return cond;

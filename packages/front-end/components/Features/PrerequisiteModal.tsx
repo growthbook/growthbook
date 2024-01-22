@@ -11,7 +11,7 @@ import {
   useEnvironments,
   useFeaturesList,
   getPrerequisites,
-  getDefaultPrerequisiteParentCondition,
+  getDefaultPrerequisiteCondition,
 } from "@/services/features";
 import track from "@/services/track";
 import { useIncrementer } from "@/hooks/useIncrementer";
@@ -46,17 +46,14 @@ export default function PrerequisiteModal({
   const [conditionKey, forceConditionRender] = useIncrementer();
 
   const defaultValues = {
-    parentId: "",
-    description: "",
-    parentCondition: getDefaultPrerequisiteParentCondition(),
-    enabled: true,
+    id: "",
+    condition: getDefaultPrerequisiteCondition(),
   };
 
   const form = useForm<FeaturePrerequisite>({
     defaultValues: {
-      parentId: prerequisite.parentId ?? defaultValues.parentId,
-      parentCondition:
-        prerequisite.parentCondition ?? defaultValues.parentCondition,
+      id: prerequisite.id ?? defaultValues.id,
+      condition: prerequisite.condition ?? defaultValues.condition,
     },
   });
   const { apiCall } = useAuth();
@@ -66,9 +63,9 @@ export default function PrerequisiteModal({
     .filter((f) => (f.project || "") === (feature.project || ""))
     .map((f) => ({ label: f.id, value: f.id }));
 
-  const parentFeature = features.find((f) => f.id === form.watch("parentId"));
+  const parentFeature = features.find((f) => f.id === form.watch("id"));
   const parentFeatureId = parentFeature?.id;
-  const parentCondition = form.watch("parentCondition");
+  const parentCondition = form.watch("condition");
 
   const [isCyclic, cyclicFeatureId] = useMemo(() => {
     if (!parentFeatureId) return [false, null];
@@ -91,14 +88,14 @@ export default function PrerequisiteModal({
   const canSubmit =
     !isCyclic &&
     !!parentFeature &&
-    !!form.watch("parentId") &&
-    !!form.watch("parentCondition");
+    !!form.watch("id") &&
+    !!form.watch("condition");
 
   useEffect(() => {
     if (parentFeature) {
       if (parentCondition === "") {
-        const condStr = getDefaultPrerequisiteParentCondition(parentFeature);
-        form.setValue("parentCondition", condStr);
+        const condStr = getDefaultPrerequisiteCondition(parentFeature);
+        form.setValue("condition", condStr);
         forceConditionRender();
       }
     }
@@ -138,10 +135,10 @@ export default function PrerequisiteModal({
           <SelectField
             label="Prerequisite feature"
             options={featureOptions}
-            value={form.watch("parentId")}
+            value={form.watch("id")}
             onChange={(v) => {
-              form.setValue("parentId", v);
-              form.setValue("parentCondition", "");
+              form.setValue("id", v);
+              form.setValue("condition", "");
             }}
             sort={false}
           />
@@ -163,11 +160,11 @@ export default function PrerequisiteModal({
                   <tr>
                     <td>
                       <a
-                        href={`/features/${form.watch("parentId")}`}
+                        href={`/features/${form.watch("id")}`}
                         target="_blank"
                         rel="noreferrer"
                       >
-                        {form.watch("parentId")}
+                        {form.watch("id")}
                         <FaExternalLinkAlt className="ml-1" />
                       </a>
                     </td>
@@ -228,8 +225,8 @@ export default function PrerequisiteModal({
 
       {parentFeature ? (
         <PrerequisiteInput
-          defaultValue={form.watch("parentCondition")}
-          onChange={(value) => form.setValue("parentCondition", value)}
+          defaultValue={form.watch("condition")}
+          onChange={(value) => form.setValue("condition", value)}
           parentFeature={parentFeature}
           showPassIfLabel={true}
           key={conditionKey}
