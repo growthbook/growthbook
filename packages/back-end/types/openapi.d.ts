@@ -196,7 +196,7 @@ export interface paths {
     put: operations["putOrganization"];
   };
   "/fact-tables": {
-    /** Get all fact table */
+    /** Get all fact tables */
     get: operations["listFactTables"];
     /** Create a single fact table */
     post: operations["postFactTable"];
@@ -4513,7 +4513,7 @@ export interface operations {
     };
   };
   listFactTables: {
-    /** Get all fact table */
+    /** Get all fact tables */
     parameters: {
         /** @description The number of items to return */
         /** @description How many items to skip (use in conjunction with limit for pagination) */

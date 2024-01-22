@@ -2239,7 +2239,7 @@ paths:
                     $ref: '#/components/schemas/Organization'
   /fact-tables:
     get:
-      summary: Get all fact table
+      summary: Get all fact tables
       tags:
         - fact-tables
       parameters:
