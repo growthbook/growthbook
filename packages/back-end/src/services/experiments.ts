@@ -20,6 +20,7 @@ import {
 } from "shared/util";
 import {
   ExperimentMetricInterface,
+  getConversionWindowHours,
   getRegressionAdjustmentsForMetric,
   isFactMetric,
   isFactMetricId,
@@ -697,16 +698,18 @@ function getExperimentMetric(
 ): ApiExperimentMetric {
   const overrides = experiment.metricOverrides?.find((o) => o.id === id);
   const ret: ApiExperimentMetric = {
+    // TODO
     metricId: id,
     overrides: {},
   };
 
-  if (overrides?.conversionDelayHours) {
-    ret.overrides.conversionWindowStart = overrides.conversionDelayHours;
+  if (overrides?.windowSettings?.delayHours) {
+    ret.overrides.conversionWindowStart = overrides?.windowSettings?.delayHours;
   }
-  if (overrides?.conversionWindowHours) {
+  if (overrides?.windowSettings?.windowValue) {
     ret.overrides.conversionWindowEnd =
-      overrides.conversionWindowHours + (overrides?.conversionDelayHours || 0);
+      getConversionWindowHours(overrides.windowSettings) +
+      (overrides?.windowSettings?.delayHours || 0);
   }
   if (overrides?.winRisk) {
     ret.overrides.winRiskThreshold = overrides.winRisk;
@@ -1025,18 +1028,22 @@ export function postMetricApiPayloadIsValid(
     }
 
     // Check capping args + capping values
-    const { capping, capValue } = behavior;
+    const { cappingSettings } = behavior;
 
-    const cappingExists = typeof capping !== "undefined" && capping !== null;
-    const capValueExists = typeof capValue !== "undefined";
+    const cappingExists =
+      typeof cappingSettings !== "undefined" && !!cappingSettings.capping;
+    const capValueExists = typeof cappingSettings?.value !== "undefined";
     if (cappingExists !== capValueExists) {
       return {
         valid: false,
         error:
-          "Must specify both `behavior.capping` (as non-null) and `behavior.capValue` or neither.",
+          "Must specify both `behavior.cappingSettings.capping` (as non-null) and `behavior.cappingSettings.value` or neither.",
       };
     }
-    if (capping === "percentile" && (capValue || 0) > 1) {
+    if (
+      cappingSettings?.capping === "percentile" &&
+      (cappingSettings?.value || 0) > 1
+    ) {
       return {
         valid: false,
         error:
@@ -1278,6 +1285,18 @@ export function postMetricApiPayloadToMetricInterface(
     ignoreNulls: false,
     queries: [],
     runStarted: null,
+    // TODO DEFAULTS
+    cappingSettings: {
+      capping: "",
+      value: 0,
+    },
+    // TODO DEFAULTS
+    windowSettings: {
+      window: "conversion",
+      delayHours: 0,
+      windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
+      windowUnit: "hours",
+    },
     type,
     userIdColumns: (sqlBuilder?.identifierTypeColumns || []).reduce<
       Record<string, string>
@@ -1289,31 +1308,34 @@ export function postMetricApiPayloadToMetricInterface(
 
   // Assign all undefined behavior fields to the metric
   if (behavior) {
-    if (typeof behavior.capping !== "undefined") {
-      metric.capping = behavior.capping;
-      metric.capValue = behavior.capValue;
-    }
     // handle old post requests
-    else if (typeof behavior.cap !== "undefined" && behavior.cap) {
-      metric.capping = "absolute";
-      metric.capValue = behavior.cap;
+    if (typeof behavior.cappingSettings !== "undefined") {
+      metric.cappingSettings = {
+        capping: behavior.cappingSettings.capping ?? "",
+        value: behavior.cappingSettings.value,
+        ignoreZeros: behavior.cappingSettings.ignoreZeros,
+      };
+    } else if (typeof behavior.capping !== "undefined") {
+      metric.cappingSettings.capping = behavior.capping ?? "";
+      metric.cappingSettings.value = behavior.capValue ?? 0;
+    } else if (typeof behavior.cap !== "undefined" && behavior.cap) {
+      metric.cappingSettings.capping = "absolute";
+      metric.cappingSettings.value = behavior.cap;
     }
 
+    // TODO lookback in API
     if (typeof behavior.conversionWindowStart !== "undefined") {
       // The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the Conversion Delay
-      metric.conversionDelayHours = behavior.conversionWindowStart;
-    }
+      metric.windowSettings.delayHours = behavior.conversionWindowStart;
 
-    if (
-      typeof behavior.conversionWindowEnd !== "undefined" &&
-      typeof behavior.conversionWindowStart !== "undefined"
-    ) {
       // The end of a Conversion Window relative to the exposure date, in hours.
       // This is equivalent to the Conversion Delay + Conversion Window Hours settings in the UI. In other words,
       // if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and
       // conversionWindowEnd to 72 (24+48).
-      metric.conversionWindowHours =
-        behavior.conversionWindowEnd - behavior.conversionWindowStart;
+      if (typeof behavior.conversionWindowEnd !== "undefined") {
+        metric.windowSettings.windowValue =
+          behavior.conversionWindowEnd - behavior.conversionWindowStart;
+      }
     }
 
     if (typeof behavior.maxPercentChange !== "undefined") {
@@ -1415,28 +1437,36 @@ export function putMetricApiPayloadToMetricInterface(
       metric.inverse = behavior.goal === "decrease";
     }
 
-    if (typeof behavior.capping !== "undefined") {
-      metric.capping = behavior.capping;
-      if (behavior.capping !== null) {
-        metric.capValue = behavior.capValue;
-      }
+    if (typeof behavior.cappingSettings !== "undefined") {
+      metric.cappingSettings = {
+        capping: behavior.cappingSettings.capping ?? "",
+        value: behavior.cappingSettings.value,
+        ignoreZeros: behavior.cappingSettings.ignoreZeros,
+      };
+    } else if (typeof behavior.capping !== "undefined") {
+      metric.cappingSettings = {
+        capping: behavior.capping ?? "",
+        value: behavior.capValue ?? 0,
+      };
     }
 
     if (typeof behavior.conversionWindowStart !== "undefined") {
       // The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the Conversion Delay
-      metric.conversionDelayHours = behavior.conversionWindowStart;
-    }
+      metric.windowSettings = {
+        window: "conversion",
+        delayHours: behavior.conversionWindowStart,
+        windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
+        windowUnit: "hours",
+      };
 
-    if (
-      typeof behavior.conversionWindowEnd !== "undefined" &&
-      typeof behavior.conversionWindowStart !== "undefined"
-    ) {
       // The end of a Conversion Window relative to the exposure date, in hours.
       // This is equivalent to the Conversion Delay + Conversion Window Hours settings in the UI. In other words,
       // if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and
       // conversionWindowEnd to 72 (24+48).
-      metric.conversionWindowHours =
-        behavior.conversionWindowEnd - behavior.conversionWindowStart;
+      if (typeof behavior.conversionWindowEnd !== "undefined") {
+        metric.windowSettings.windowValue =
+          behavior.conversionWindowEnd - behavior.conversionWindowStart;
+      }
     }
 
     if (typeof behavior.maxPercentChange !== "undefined") {
@@ -1536,10 +1566,12 @@ export function toMetricApiInterface(
 ): ApiMetric {
   const metricDefaults = organization.settings?.metricDefaults;
 
-  let conversionStart = metric.conversionDelayHours || 0;
+  // TODO lookback metrics
+  let conversionStart = metric.windowSettings.delayHours || 0;
   const conversionEnd =
     conversionStart +
-    (metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS);
+    (getConversionWindowHours(metric.windowSettings) ||
+      DEFAULT_CONVERSION_WINDOW_HOURS);
   if (!conversionStart && metric.earlyStart) {
     conversionStart = -0.5;
   }
@@ -1558,8 +1590,7 @@ export function toMetricApiInterface(
     type: metric.type,
     behavior: {
       goal: metric.inverse ? "decrease" : "increase",
-      capping: metric.capping,
-      capValue: metric.capValue || 0,
+      cappingSettings: metric.cappingSettings,
       minPercentChange:
         metric.minPercentChange ?? metricDefaults?.minPercentageChange ?? 0.005,
       maxPercentChange:

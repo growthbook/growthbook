@@ -38,16 +38,39 @@ properties:
         enum:
           - increase
           - decrease
+      cappingSettings:
+        type: object
+        required:
+          - capping
+          - value
+        properties:
+          capping:
+            type: string
+            nullable: true
+            description: 'Used in conjunction with `value` to set the capping (winsorization). Set to null or an empty string for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `value` for the percentile, if greater than 0. <br/>  If `capping` is non-null, you must specify `value`.'
+            enum:
+              - absolute
+              - percentile
+              - ''
+          value:
+            type: number
+            description: 'This should be non-negative. <br/> Must specify `capping` when setting `value`.'
+            minimum: 0
+          ignoreZeros:
+            type: boolean
+            description: 'If true and capping is `percentile`, zeros will be ignored when calculating the percentile for capping.'
       capping:
         type: string
         nullable: true
-        description: 'Used in conjunction with `capValue` to set the capping (winsorization). Set to null to turn capping off. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/> If `behavior.capping` is non-null, you must specify `behavior.capValue`.'
+        deprecated: true
+        description: '(deprecated, use cappingSettings instead) Used in conjunction with `capValue` to set the capping (winsorization). Do not specify or set to null for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/>  If `behavior.capping` is non-null, you must specify `behavior.capValue`.'
         enum:
           - absolute
           - percentile
       capValue:
         type: number
-        description: This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`.
+        deprecated: true
+        description: (deprecated, use cappingSettings instead) This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`.
         minimum: 0
       conversionWindowStart:
         type: number

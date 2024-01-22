@@ -824,8 +824,10 @@ export default abstract class SqlIntegration
     metric: ExperimentMetricInterface,
     ignoreConversionEnd: boolean
   ): string {
-    const conversionDelayHours = metric.conversionDelayHours ?? 0;
-    const conversionWindowHours = getConversionWindowHours(metric);
+    const conversionDelayHours = metric.windowSettings.delayHours ?? 0;
+    const conversionWindowHours = getConversionWindowHours(
+      metric.windowSettings
+    );
     return `
       ${metricCol} >= ${this.addHours(baseCol, conversionDelayHours)}
       ${
@@ -842,8 +844,8 @@ export default abstract class SqlIntegration
     let runningDelay = 0;
     let minDelay = 0;
     metrics.forEach((m) => {
-      if (m.conversionDelayHours) {
-        const delay = runningDelay + m.conversionDelayHours;
+      if (m.windowSettings.delayHours) {
+        const delay = runningDelay + m.windowSettings.delayHours;
         if (delay < minDelay) minDelay = delay;
         runningDelay = delay;
       }
@@ -880,8 +882,8 @@ export default abstract class SqlIntegration
     metrics.forEach((m) => {
       const hours =
         runningHours +
-        getConversionWindowHours(m) +
-        (m.conversionDelayHours || 0);
+        getConversionWindowHours(m.windowSettings) +
+        (m.windowSettings.delayHours || 0);
       if (hours > maxHours) maxHours = hours;
       runningHours = hours;
     });
@@ -901,9 +903,10 @@ export default abstract class SqlIntegration
     let neededHoursForConversion = 0;
     metricAndDenominatorMetrics.forEach((m) => {
       const metricHours =
-        (m.conversionDelayHours || 0) + getConversionWindowHours(m);
+        (m.windowSettings.delayHours || 0) +
+        getConversionWindowHours(m.windowSettings);
       if (funnelMetric) {
-        // funnel metric windows cab cascade, so sum each metric hours to get max
+        // funnel metric windows can cascade, so sum each metric hours to get max
         neededHoursForConversion += metricHours;
       } else if (metricHours > neededHoursForConversion) {
         neededHoursForConversion = metricHours;
@@ -912,8 +915,8 @@ export default abstract class SqlIntegration
     // activation metrics windows always cascade
     if (activationMetric) {
       neededHoursForConversion +=
-        (activationMetric.conversionDelayHours || 0) +
-        getConversionWindowHours(activationMetric);
+        (activationMetric.windowSettings.delayHours || 0) +
+        getConversionWindowHours(activationMetric.windowSettings);
     }
     return neededHoursForConversion;
   }
@@ -1039,11 +1042,7 @@ export default abstract class SqlIntegration
       settings.attributionModel === "experimentDuration";
 
     // If the fact metric doesn't have a conversion window, always treat like Experiment Duration
-    if (
-      activationMetric &&
-      isFactMetric(activationMetric) &&
-      !activationMetric.hasConversionWindow
-    ) {
+    if (activationMetric && !activationMetric.windowSettings.window) {
       ignoreConversionEnd = true;
     }
     return `
@@ -1092,7 +1091,7 @@ export default abstract class SqlIntegration
             idJoinMap,
             startDate: this.getMetricStart(
               settings.startDate,
-              activationMetric.conversionDelayHours || 0,
+              activationMetric.windowSettings.delayHours || 0,
               0
             ),
             endDate: this.getMetricEnd(
@@ -1432,14 +1431,16 @@ export default abstract class SqlIntegration
     let ignoreConversionEnd =
       settings.attributionModel === "experimentDuration";
 
-    // If a fact metric has disabled conversion windows, always use "Experiment Duration"
-    if (isFactMetric(metric) && !metric.hasConversionWindow) {
+    // If metric has disabled conversion windows, always use "Experiment Duration"
+    if (!metric.windowSettings.window) {
       ignoreConversionEnd = true;
     }
 
     // Get capping settings and final coalesce statement
     const isPercentileCapped =
-      metric.capping === "percentile" && metric.capValue && metric.capValue < 1;
+      metric.cappingSettings.capping === "percentile" &&
+      metric.cappingSettings.value &&
+      metric.cappingSettings.value < 1;
     const capCoalesceMetric = this.capCoalesceValue(
       `m.${alias}_value`,
       metric,
@@ -1632,6 +1633,7 @@ export default abstract class SqlIntegration
       valueCol: string;
       outputCol: string;
       percentile: number;
+      ignoreZeros: boolean;
     }[] = [];
     metricData
       .filter((m) => m.isPercentileCapped)
@@ -1639,13 +1641,15 @@ export default abstract class SqlIntegration
         percentileData.push({
           valueCol: `${m.alias}_value`,
           outputCol: `${m.alias}_value_cap`,
-          percentile: m.metric.capValue ?? 1,
+          percentile: m.metric.cappingSettings.value ?? 1,
+          ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
         });
         if (m.ratioMetric) {
           percentileData.push({
             valueCol: `${m.alias}_denominator`,
             outputCol: `${m.alias}_denominator_cap`,
-            percentile: m.metric.capValue ?? 1,
+            percentile: m.metric.cappingSettings.value ?? 1,
+            ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
           });
         }
       });
@@ -1742,6 +1746,7 @@ export default abstract class SqlIntegration
                   `m.${data.alias}_value`,
                   data.metric,
                   data.ignoreConversionEnd,
+                  settings.endDate,
                   cumulativeDate
                 )} as ${data.alias}_value
                 ${
@@ -1750,6 +1755,7 @@ export default abstract class SqlIntegration
                         `m.${data.alias}_denominator`,
                         data.metric,
                         data.ignoreConversionEnd,
+                        settings.endDate,
                         cumulativeDate
                       )} as ${data.alias}_denominator`
                     : ""
@@ -1987,18 +1993,20 @@ export default abstract class SqlIntegration
       settings.attributionModel === "experimentDuration";
 
     // If a fact metric has disabled conversion windows, always use "Experiment Duration"
-    if (isFactMetric(metric) && !metric.hasConversionWindow) {
+    if (!metric.windowSettings.window) {
       ignoreConversionEnd = true;
     }
 
     // Get capping settings and final coalesce statement
     const isPercentileCapped =
-      metric.capping === "percentile" && metric.capValue && metric.capValue < 1;
+      metric.cappingSettings.capping === "percentile" &&
+      metric.cappingSettings.value &&
+      metric.cappingSettings.value < 1;
     const denominatorIsPercentileCapped =
       denominator &&
-      denominator.capping === "percentile" &&
-      denominator.capValue &&
-      denominator.capValue < 1;
+      denominator.cappingSettings.capping === "percentile" &&
+      denominator.cappingSettings.value &&
+      denominator.cappingSettings.value < 1;
     const capCoalesceMetric = this.capCoalesceValue("m.value", metric, "cap");
     const capCoalesceDenominator = this.capCoalesceValue(
       "d.value",
@@ -2197,6 +2205,7 @@ export default abstract class SqlIntegration
             "m.value",
             metric,
             ignoreConversionEnd,
+            settings.endDate,
             cumulativeDate
           )} as value
         FROM
@@ -2238,11 +2247,14 @@ export default abstract class SqlIntegration
                 {
                   valueCol: "value",
                   outputCol: "cap_value",
-                  percentile: metric.capValue ?? 1,
+                  percentile: metric.cappingSettings.value ?? 1,
+                  ignoreZeros: metric.cappingSettings.ignoreZeros ?? false,
                 },
               ],
               "__userMetricAgg",
-              "WHERE value IS NOT NULL"
+              `WHERE value IS NOT NULL${
+                metric.cappingSettings.ignoreZeros ? " AND value != 0" : ""
+              }`
             )}
         )
         `
@@ -2292,11 +2304,17 @@ export default abstract class SqlIntegration
                     {
                       valueCol: "value",
                       outputCol: "cap_value",
-                      percentile: denominator.capValue ?? 1,
+                      percentile: denominator.cappingSettings.value ?? 1,
+                      ignoreZeros:
+                        denominator.cappingSettings.ignoreZeros ?? false,
                     },
                   ],
                   "__userDenominatorAgg",
-                  "WHERE value IS NOT NULL"
+                  `WHERE value IS NOT NULL${
+                    denominator.cappingSettings.ignoreZeros
+                      ? " AND value != 0"
+                      : ""
+                  }`
                 )}
               )
               `
@@ -2408,6 +2426,7 @@ export default abstract class SqlIntegration
       valueCol: string;
       outputCol: string;
       percentile: number;
+      ignoreZeros: boolean;
     }[],
     metricTable: string,
     where: string = ""
@@ -2415,8 +2434,11 @@ export default abstract class SqlIntegration
     return `
       SELECT
         ${values
-          .map(({ valueCol, outputCol, percentile }) => {
-            return `PERCENTILE_CONT(${percentile}) WITHIN GROUP (ORDER BY ${valueCol}) AS ${outputCol}`;
+          .map(({ valueCol, outputCol, percentile, ignoreZeros }) => {
+            const value = ignoreZeros
+              ? this.ifElse(`${valueCol} = 0`, "NULL", valueCol)
+              : valueCol;
+            return `PERCENTILE_CONT(${percentile}) WITHIN GROUP (ORDER BY ${value}) AS ${outputCol}`;
           })
           .join(",\n")}
       FROM ${metricTable}
@@ -2430,16 +2452,19 @@ export default abstract class SqlIntegration
     capTablePrefix: string = "c",
     capValueCol: string = "cap_value"
   ): string {
-    if (metric?.capping === "absolute" && metric.capValue) {
+    if (
+      metric?.cappingSettings.capping === "absolute" &&
+      metric.cappingSettings.value
+    ) {
       return `LEAST(
         ${this.ensureFloat(`COALESCE(${valueCol}, 0)`)},
-        ${metric.capValue}
+        ${metric.cappingSettings.value}
       )`;
     }
     if (
-      metric?.capping === "percentile" &&
-      metric.capValue &&
-      metric.capValue < 1
+      metric?.cappingSettings.capping === "percentile" &&
+      metric.cappingSettings.value &&
+      metric.cappingSettings.value < 1
     ) {
       return `LEAST(
         ${this.ensureFloat(`COALESCE(${valueCol}, 0)`)},
@@ -3225,16 +3250,28 @@ AND event_name = '${eventName}'`,
     col: string,
     metric: ExperimentMetricInterface,
     ignoreConversionEnd: boolean,
+    endDate: Date,
     cumulativeDate: boolean
   ): string {
+    let ifExpression = "";
+    if (metric.windowSettings.window === "lookback") {
+      let hours = getConversionWindowHours(metric.windowSettings);
+      // ensure negative
+      if (hours > 0) hours = hours * -1;
+      ifExpression = `m.timestamp >= ${this.addHours(
+        cumulativeDate ? "dr.day" : this.toTimestamp(endDate),
+        hours
+      )}`;
+    } else {
+      ifExpression = this.getConversionWindowClause(
+        "d.timestamp",
+        "m.timestamp",
+        metric,
+        ignoreConversionEnd
+      );
+    }
     return `${this.ifElse(
-      `
-        ${this.getConversionWindowClause(
-          "d.timestamp",
-          "m.timestamp",
-          metric,
-          ignoreConversionEnd
-        )}
+      `${ifExpression}
         ${
           cumulativeDate ? `AND ${this.dateTrunc("m.timestamp")} <= dr.day` : ""
         }

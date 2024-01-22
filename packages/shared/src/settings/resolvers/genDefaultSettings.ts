@@ -26,8 +26,8 @@ export const DEFAULT_PAST_EXPERIMENT_MIN_LENGTH = 6;
 export const DEFAULT_SDK_INSTRUCTIONS_VIEWED = false;
 export const DEFAULT_UPDATE_SCHEDULE = null;
 export const DEFAULT_VIDEO_INSTRUCTIONS_VIEIWED = false;
-export const DEFAULT_CONVERSION_DELAY_HOURS = null;
-export const DEFAULT_CONVERSION_WINDOW_HOURS = null;
+// TODO?
+export const DEFAULT_CONVERSION_WINDOW_SETTINGS = null;
 export const DEFAULT_LOSE_RISK = null;
 export const DEFAULT_WIN_RISK = null;
 export const DEFAULT_SECURE_ATTRIBUTE_SALT = "";
@@ -50,8 +50,7 @@ export default function genDefaultSettings(): Settings {
     statsEngine: DEFAULT_STATS_ENGINE,
     updateSchedule: DEFAULT_UPDATE_SCHEDULE,
     videoInstructionsViewed: DEFAULT_VIDEO_INSTRUCTIONS_VIEIWED,
-    conversionDelayHours: DEFAULT_CONVERSION_DELAY_HOURS,
-    conversionWindowHours: DEFAULT_CONVERSION_WINDOW_HOURS,
+    windowSettings: DEFAULT_CONVERSION_WINDOW_SETTINGS,
     loseRisk: DEFAULT_LOSE_RISK,
     winRisk: DEFAULT_WIN_RISK,
     secureAttributeSalt: DEFAULT_SECURE_ATTRIBUTE_SALT,

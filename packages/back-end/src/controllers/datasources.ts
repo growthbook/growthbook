@@ -84,6 +84,16 @@ export async function postSampleData(
       dateCreated: new Date(),
       dateUpdated: new Date(),
       runStarted: null,
+      cappingSettings: {
+        capping: "",
+        value: 0,
+      },
+      windowSettings: {
+        window: "",
+        delayHours: 0,
+        windowValue: 0,
+        windowUnit: "hours",
+      },
       name: "Sample Conversions",
       description: `Part of the GrowthBook sample data set. Feel free to delete when finished exploring.`,
       type: "binomial",
@@ -105,6 +115,16 @@ export async function postSampleData(
       dateCreated: new Date(),
       dateUpdated: new Date(),
       runStarted: null,
+      cappingSettings: {
+        capping: "",
+        value: 0,
+      },
+      windowSettings: {
+        window: "",
+        delayHours: 0,
+        windowValue: 0,
+        windowUnit: "hours",
+      },
       name: "Sample Revenue per User",
       description: `Part of the GrowthBook sample data set. Feel free to delete when finished exploring.`,
       type: "revenue",

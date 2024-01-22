@@ -116,7 +116,7 @@ export function getFactMetricGroups(
 
     // Skip grouping metrics with percentile caps if there's not an efficient implementation
     if (
-      m.capping === "percentile" &&
+      m.cappingSettings.capping === "percentile" &&
       !integration.getSourceProperties().hasEfficientPercentiles
     ) {
       return;

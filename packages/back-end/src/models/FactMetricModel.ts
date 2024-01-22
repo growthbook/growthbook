@@ -30,8 +30,19 @@ const factTableSchema = new mongoose.Schema({
     column: String,
     filters: [String],
   },
-  capping: String,
-  capValue: Number,
+
+  cappingSettings: {
+    capping: String,
+    value: Number,
+    ignoreZeros: Boolean,
+  },
+  windowSettings: {
+    window: String,
+    delayHours: Number,
+    windowValue: Number,
+    windowUnit: String,
+  },
+
   maxPercentChange: Number,
   minPercentChange: Number,
   minSampleSize: Number,
@@ -41,11 +52,6 @@ const factTableSchema = new mongoose.Schema({
   regressionAdjustmentOverride: Boolean,
   regressionAdjustmentEnabled: Boolean,
   regressionAdjustmentDays: Number,
-
-  conversionDelayHours: Number,
-  hasConversionWindow: Boolean,
-  conversionWindowValue: Number,
-  conversionWindowUnit: String,
 });
 
 factTableSchema.index({ id: 1, organization: 1 }, { unique: true });

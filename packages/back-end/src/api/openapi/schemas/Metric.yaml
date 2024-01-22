@@ -61,6 +61,24 @@ properties:
         enum:
           - increase
           - decrease
+      cappingSettings:
+        type: object
+        required:
+          - capping
+          - capValue
+        properties:
+          capping:
+            type: string
+            nullable: true
+            enum:
+              - absolute
+              - percentile
+              - ''
+          value:
+            type: number
+            minimum: 0
+          ignoreZeros:
+            type: boolean
       cap:
         type: number
       capping:

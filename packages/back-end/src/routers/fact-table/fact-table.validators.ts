@@ -70,9 +70,25 @@ export const columnRefValidator = z
   })
   .strict();
 
-export const metricTypeValidator = z.enum(["ratio", "mean", "proportion"]);
 export const cappingValidator = z.enum(["absolute", "percentile", ""]);
 export const conversionWindowUnitValidator = z.enum(["weeks", "days", "hours"]);
+export const windowTypeValidator = z.enum(["conversion", "lookback", ""]);
+export const cappingSettingsValidator = z
+  .object({
+    capping: cappingValidator,
+    value: z.number(),
+    ignoreZeros: z.boolean().optional(),
+  })
+  .strict();
+
+export const windowSettingsValidator = z.object({
+  window: windowTypeValidator,
+  delayHours: z.number(),
+  windowValue: z.number(),
+  windowUnit: conversionWindowUnitValidator,
+});
+
+export const metricTypeValidator = z.enum(["ratio", "mean", "proportion"]);
 
 export const createFactMetricPropsValidator = z.object({
   owner: z.string().optional(),
@@ -86,9 +102,10 @@ export const createFactMetricPropsValidator = z.object({
   numerator: columnRefValidator,
   denominator: columnRefValidator.nullable(),
 
-  capping: cappingValidator,
-  capValue: z.number(),
   inverse: z.boolean(),
+
+  cappingSettings: cappingSettingsValidator,
+  windowSettings: windowSettingsValidator,
 
   maxPercentChange: z.number(),
   minPercentChange: z.number(),
@@ -99,11 +116,6 @@ export const createFactMetricPropsValidator = z.object({
   regressionAdjustmentOverride: z.boolean(),
   regressionAdjustmentEnabled: z.boolean(),
   regressionAdjustmentDays: z.number(),
-
-  conversionDelayHours: z.number(),
-  hasConversionWindow: z.boolean(),
-  conversionWindowValue: z.number(),
-  conversionWindowUnit: conversionWindowUnitValidator,
 });
 
 export const updateFactMetricPropsValidator = z.object({
@@ -117,9 +129,10 @@ export const updateFactMetricPropsValidator = z.object({
   numerator: columnRefValidator.optional(),
   denominator: columnRefValidator.nullable().optional(),
 
-  capping: cappingValidator.optional(),
-  capValue: z.number().optional(),
   inverse: z.boolean().optional(),
+
+  cappingSettings: cappingSettingsValidator.optional(),
+  windowSettings: windowSettingsValidator.optional(),
 
   maxPercentChange: z.number().optional(),
   minPercentChange: z.number().optional(),
@@ -130,11 +143,6 @@ export const updateFactMetricPropsValidator = z.object({
   regressionAdjustmentOverride: z.boolean().optional(),
   regressionAdjustmentEnabled: z.boolean().optional(),
   regressionAdjustmentDays: z.number().optional(),
-
-  conversionDelayHours: z.number().optional(),
-  hasConversionWindow: z.boolean().optional(),
-  conversionWindowValue: z.number().optional(),
-  conversionWindowUnit: conversionWindowUnitValidator.optional(),
 });
 
 export const createFactFilterPropsValidator = z

@@ -16,6 +16,7 @@ import {
 import { StatsEngine } from "back-end/types/stats";
 import { ProjectInterface } from "back-end/types/project";
 import { ReportInterface } from "back-end/types/report";
+import { MetricWindowSettings } from "back-end/types/fact-table";
 
 interface SettingMetadata {
   scopeApplied?: keyof ScopeDefinition | "organization";
@@ -53,8 +54,8 @@ export type ScopeSettingsFn = (
 };
 
 interface MetricSettings {
-  conversionWindowHours: number | null;
-  conversionDelayHours: number | null;
+  windowSettings: MetricWindowSettings | null;
+
   winRisk: number | null;
   loseRisk: number | null;
 }

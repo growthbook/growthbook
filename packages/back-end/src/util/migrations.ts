@@ -34,6 +34,10 @@ import {
   LegacySavedGroupInterface,
   SavedGroupInterface,
 } from "../../types/saved-group";
+import {
+  FactMetricInterface,
+  LegacyFactMetricInterface,
+} from "../../types/fact-table";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -56,13 +60,51 @@ function adjustWeights(weights: number[]): number[] {
   });
 }
 
-export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
-  const newDoc = { ...doc };
+export function upgradeFactMetricDoc(
+  doc: LegacyFactMetricInterface
+): FactMetricInterface {
+  const newDoc: FactMetricInterface = { ...doc };
 
-  if (doc.conversionDelayHours == null && doc.earlyStart) {
-    newDoc.conversionDelayHours = -0.5;
-    newDoc.conversionWindowHours =
-      (doc.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) + 0.5;
+  if (doc.windowSettings === undefined) {
+    newDoc.windowSettings = {
+      window: doc.hasConversionWindow ? "conversion" : "",
+      windowValue: doc.conversionWindowValue || DEFAULT_CONVERSION_WINDOW_HOURS,
+      windowUnit: doc.conversionWindowUnit || "hours",
+      delayHours: doc.conversionDelayHours || 0,
+    };
+  }
+
+  if (doc.cappingSettings === undefined) {
+    newDoc.cappingSettings = {
+      capping: doc.capping || "",
+      value: doc.capValue || 0,
+    };
+  }
+
+  return newDoc;
+}
+
+export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
+  const newDoc: MetricInterface = { ...doc };
+
+  if (doc.windowSettings === undefined) {
+    if (doc.conversionDelayHours == null && doc.earlyStart) {
+      newDoc.windowSettings = {
+        window: "conversion",
+        windowValue:
+          (doc.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) + 0.5,
+        windowUnit: "hours",
+        delayHours: -0.5,
+      };
+    } else {
+      newDoc.windowSettings = {
+        window: "conversion",
+        windowValue:
+          doc.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS,
+        windowUnit: "hours",
+        delayHours: doc.conversionDelayHours || 0,
+      };
+    }
   }
 
   if (!doc.userIdTypes?.length) {
@@ -88,11 +130,19 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
     });
   }
 
-  if (doc.capping === undefined && doc.cap) {
-    newDoc.capValue = doc.cap;
-    newDoc.capping = "absolute";
+  if (doc.cappingSettings === undefined) {
+    if (doc.capping === undefined && doc.cap) {
+      newDoc.cappingSettings = {
+        capping: "absolute",
+        value: doc.cap,
+      };
+    } else {
+      newDoc.cappingSettings = {
+        capping: doc.capping || "",
+        value: doc.capValue || 0,
+      };
+    }
   }
-  if (newDoc.cap !== undefined) delete newDoc.cap;
 
   return newDoc;
 }
@@ -584,8 +634,12 @@ export function migrateSnapshot(
       return {
         id,
         computedSettings: {
-          conversionDelayHours: 0,
-          conversionWindowHours: DEFAULT_CONVERSION_WINDOW_HOURS,
+          windowSettings: {
+            window: "conversion",
+            delayHours: 0,
+            windowUnit: "hours",
+            windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
+          },
           regressionAdjustmentDays:
             regressionSettings?.regressionAdjustmentDays || 0,
           regressionAdjustmentEnabled: !!(

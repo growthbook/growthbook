@@ -235,6 +235,12 @@ export interface components {
       behavior: {
         /** @enum {string} */
         goal: "increase" | "decrease";
+        cappingSettings?: {
+          /** @enum {string|null} */
+          capping: "absolute" | "percentile" | "" | null;
+          value?: number;
+          ignoreZeros?: boolean;
+        };
         cap?: number;
         /** @enum {string|null} */
         capping?: "absolute" | "percentile" | null;
@@ -3425,6 +3431,12 @@ export interface operations {
                 behavior: {
                   /** @enum {string} */
                   goal: "increase" | "decrease";
+                  cappingSettings?: {
+                    /** @enum {string|null} */
+                    capping: "absolute" | "percentile" | "" | null;
+                    value?: number;
+                    ignoreZeros?: boolean;
+                  };
                   cap?: number;
                   /** @enum {string|null} */
                   capping?: "absolute" | "percentile" | null;
@@ -3506,17 +3518,32 @@ export interface operations {
           behavior?: {
             /** @enum {string} */
             goal?: "increase" | "decrease";
+            cappingSettings?: {
+              /**
+               * @description Used in conjunction with `value` to set the capping (winsorization). Set to null or an empty string for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `value` for the percentile, if greater than 0. <br/>  If `capping` is non-null, you must specify `value`. 
+               * @enum {string|null}
+               */
+              capping: "absolute" | "percentile" | "" | null;
+              /** @description This should be non-negative. <br/> Must specify `capping` when setting `value`. */
+              value: number;
+              /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile for capping. */
+              ignoreZeros?: boolean;
+            };
             /**
              * @deprecated 
              * @description (deprecated, use capping and capValue fields instead) This should be non-negative
              */
             cap?: number;
             /**
-             * @description Used in conjunction with `capValue` to set the capping (winsorization). Do not specify or set to null for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/>  If `behavior.capping` is non-null, you must specify `behavior.capValue`. 
+             * @deprecated 
+             * @description (deprecated, use cappingSettings instead) Used in conjunction with `capValue` to set the capping (winsorization). Do not specify or set to null for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/>  If `behavior.capping` is non-null, you must specify `behavior.capValue`. 
              * @enum {string|null}
              */
             capping?: "absolute" | "percentile" | null;
-            /** @description This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`. */
+            /**
+             * @deprecated 
+             * @description (deprecated, use cappingSettings instead) This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`.
+             */
             capValue?: number;
             /** @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither. */
             conversionWindowStart?: number;
@@ -3590,6 +3617,12 @@ export interface operations {
               behavior: {
                 /** @enum {string} */
                 goal: "increase" | "decrease";
+                cappingSettings?: {
+                  /** @enum {string|null} */
+                  capping: "absolute" | "percentile" | "" | null;
+                  value?: number;
+                  ignoreZeros?: boolean;
+                };
                 cap?: number;
                 /** @enum {string|null} */
                 capping?: "absolute" | "percentile" | null;
@@ -3666,6 +3699,12 @@ export interface operations {
               behavior: {
                 /** @enum {string} */
                 goal: "increase" | "decrease";
+                cappingSettings?: {
+                  /** @enum {string|null} */
+                  capping: "absolute" | "percentile" | "" | null;
+                  value?: number;
+                  ignoreZeros?: boolean;
+                };
                 cap?: number;
                 /** @enum {string|null} */
                 capping?: "absolute" | "percentile" | null;
@@ -3744,12 +3783,27 @@ export interface operations {
           behavior?: {
             /** @enum {string} */
             goal?: "increase" | "decrease";
+            cappingSettings?: {
+              /**
+               * @description Used in conjunction with `value` to set the capping (winsorization). Set to null or an empty string for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `value` for the percentile, if greater than 0. <br/>  If `capping` is non-null, you must specify `value`. 
+               * @enum {string|null}
+               */
+              capping: "absolute" | "percentile" | "" | null;
+              /** @description This should be non-negative. <br/> Must specify `capping` when setting `value`. */
+              value: number;
+              /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile for capping. */
+              ignoreZeros?: boolean;
+            };
             /**
-             * @description Used in conjunction with `capValue` to set the capping (winsorization). Set to null to turn capping off. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/> If `behavior.capping` is non-null, you must specify `behavior.capValue`. 
+             * @deprecated 
+             * @description (deprecated, use cappingSettings instead) Used in conjunction with `capValue` to set the capping (winsorization). Do not specify or set to null for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/>  If `behavior.capping` is non-null, you must specify `behavior.capValue`. 
              * @enum {string|null}
              */
             capping?: "absolute" | "percentile" | null;
-            /** @description This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`. */
+            /**
+             * @deprecated 
+             * @description (deprecated, use cappingSettings instead) This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`.
+             */
             capValue?: number;
             /** @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither. */
             conversionWindowStart?: number;

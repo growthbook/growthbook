@@ -1,3 +1,4 @@
+import { MetricWindowSettings } from "./fact-table";
 import {
   ExperimentRefVariation,
   FeatureInterface,
@@ -78,8 +79,9 @@ export type ExperimentResultsType = "dnf" | "won" | "lost" | "inconclusive";
 
 export type MetricOverride = {
   id: string;
-  conversionWindowHours?: number;
-  conversionDelayHours?: number;
+
+  windowSettings?: MetricWindowSettings;
+
   winRisk?: number;
   loseRisk?: number;
   regressionAdjustmentOverride?: boolean;
