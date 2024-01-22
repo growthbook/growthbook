@@ -451,9 +451,7 @@ export async function postFeatureRebase(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  const revisions = await getRevisions(org.id, feature.id);
-
-  const revision = revisions.find((r) => r.version === parseInt(version));
+  const revision = await getRevision(org.id, feature.id, parseInt(version));
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
@@ -461,10 +459,16 @@ export async function postFeatureRebase(
     throw new Error("Can only fix conflicts for Draft revisions");
   }
 
-  const live = revisions.find((r) => r.version === feature.version);
-  const base = revisions.find((r) => r.version === revision.baseVersion);
+  const live = await getRevision(org.id, feature.id, feature.version);
+  if (!live) {
+    throw new Error("Could not lookup feature history");
+  }
 
-  if (!live || !base) {
+  const base =
+    revision.baseVersion === live.version
+      ? live
+      : await getRevision(org.id, feature.id, revision.baseVersion);
+  if (!base) {
     throw new Error("Could not lookup feature history");
   }
 
@@ -530,9 +534,7 @@ export async function postFeaturePublish(
   }
   req.checkPermissions("manageFeatures", feature.project);
 
-  const revisions = await getRevisions(org.id, feature.id);
-
-  const revision = revisions.find((r) => r.version === parseInt(version));
+  const revision = await getRevision(org.id, feature.id, parseInt(version));
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
@@ -540,10 +542,16 @@ export async function postFeaturePublish(
     throw new Error("Can only publish Draft revisions");
   }
 
-  const live = revisions.find((r) => r.version === feature.version);
-  const base = revisions.find((r) => r.version === revision.baseVersion);
+  const live = await getRevision(org.id, feature.id, feature.version);
+  if (!live) {
+    throw new Error("Could not lookup feature history");
+  }
 
-  if (!live || !base) {
+  const base =
+    revision.baseVersion === live.version
+      ? live
+      : await getRevision(org.id, feature.id, revision.baseVersion);
+  if (!base) {
     throw new Error("Could not lookup feature history");
   }
 
