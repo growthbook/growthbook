@@ -30,7 +30,7 @@ export const putVisualChangeset = createApiRequestHandler(
       throw new Error("Experiment not found");
     }
 
-    req.checkPermissions("createAnalyses", experiment.project);
+    req.checkPermissions("manageVisualChanges", experiment.project);
 
     const res = await updateVisualChangeset({
       visualChangeset,

@@ -24,7 +24,7 @@ export const putVisualChange = createApiRequestHandler(
       throw new Error("Experiment not found");
     }
 
-    req.checkPermissions("createAnalyses", experiment.project);
+    req.checkPermissions("manageVisualChanges", experiment.project);
 
     const res = await updateVisualChange({
       changesetId,

@@ -32,6 +32,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "createDatasources",
   "editDatasourceSettings",
   "runQueries",
+  "manageVisualChanges",
 ] as const;
 
 export const GLOBAL_PERMISSIONS = [
@@ -331,6 +332,11 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
       id: "readonly",
       description: "View all features and experiment results",
       permissions: ["readData"],
+    },
+    {
+      id: "visual-editor",
+      description: "Make visual changes for an experiment",
+      permissions: ["readData", "manageVisualChanges"],
     },
     {
       id: "collaborator",
