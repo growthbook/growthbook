@@ -2278,7 +2278,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/fact-tables \
-              -d '{}' # TODO: Example JSON
+              -d '{"name":"Orders", "datasource":"ds_abc123", "userIdTypes":["id"], "sql":"SELECT * FROM orders"}' \
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -2367,7 +2367,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/fact-tables/ftb_abc123 \
-              -d '{}' # TODO: Example JSON
+              -d '{"name": "New Fact Table Name"}' \
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -2479,7 +2479,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/fact-tables/ftb_123abc/filters \
-              -d '{}' # TODO: Example JSON
+              -d '{"name":"High Value Order", "value":"amount>100"}' \
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -2548,7 +2548,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/fact-tables/ftb_abc123/filters/flt_123abc \
-              -d '{}' # TODO: Example JSON
+              -d '{"value": "amount > 50"}' \
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -2644,7 +2644,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/fact-metrics \
-              -d '{}' # TODO: Example JSON
+              -d '{"name":"Purchased", "datasource":"ds_abc123", "metricType":"proportion", "numerator":{"factTableId":"ftb_abc123","column":"$$distinctUsers","filters":[]}}' \
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -2784,7 +2784,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/fact-metrics/fact__123abc \
-              -d '{}' # TODO: Example JSON
+              -d '{"hasConversionWindow": false}' \
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -2918,7 +2918,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/bulk-import \
-              -d '{}' # TODO: Example JSON
+              -d '{"factTables":[], "factTableFilters":[], "factMetrics":[]}' \
               -u secret_abc123DEF456:
       requestBody:
         required: true
