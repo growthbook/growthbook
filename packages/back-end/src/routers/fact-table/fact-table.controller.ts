@@ -151,6 +151,7 @@ export const putFactTable = async (
     ...factTable,
     ...data,
   } as FactTableInterface);
+  data.columnsError = null;
 
   if (!data.columns.some((col) => !col.deleted)) {
     throw new Error("SQL did not return any rows");
