@@ -8,11 +8,12 @@ import {
 import { getNextScheduledUpdate } from "../services/features";
 import { getEnvironmentIdsFromOrg } from "../services/organizations";
 import { logger } from "../util/logger";
-import { ReqContext } from "../../types/organization";
+import { findOrganizationById } from "../models/OrganizationModel";
+import { ApiReqContext } from "../../types/api";
 
 type UpdateSingleFeatureJob = Job<{
   featureId: string;
-  context: ReqContext;
+  context: ApiReqContext;
 }>;
 
 const QUEUE_FEATURE_UPDATES = "queueScheduledFeatureUpdates";
@@ -30,16 +31,19 @@ async function queueFeatureUpdate(
   agenda: Agenda,
   feature: { id: string; organization: string }
 ) {
+  const org = await findOrganizationById(feature.organization);
+
+  if (!org) return;
+
+  const context: ApiReqContext = {
+    org,
+    environments: getEnvironmentIdsFromOrg(org),
+    readAccessFilter: FULL_ACCESS_PERMISSIONS,
+  };
+
   const job = agenda.create(UPDATE_SINGLE_FEATURE, {
     featureId: feature.id,
-    context: {
-      org: feature.organization,
-      userId: "",
-      email: "",
-      environments: [],
-      userName: "",
-      readAccessFilter: FULL_ACCESS_PERMISSIONS,
-    },
+    context,
   }) as UpdateSingleFeatureJob;
 
   job.unique({

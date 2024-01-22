@@ -17,7 +17,10 @@ import {
   getExperimentMetricById,
   getRegressionAdjustmentInfo,
 } from "../services/experiments";
-import { getConfidenceLevelsForOrg } from "../services/organizations";
+import {
+  getConfidenceLevelsForOrg,
+  getEnvironmentIdsFromOrg,
+} from "../services/organizations";
 import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
 import { getMetricMap } from "../models/MetricModel";
@@ -28,7 +31,7 @@ import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { findProjectById } from "../models/ProjectModel";
 import { getExperimentWatchers } from "../models/WatchModel";
 import { getFactTableMap } from "../models/FactTableModel";
-import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "../../types/api";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -37,7 +40,7 @@ const QUEUE_EXPERIMENT_UPDATES = "queueExperimentUpdates";
 
 const UPDATE_SINGLE_EXP = "updateSingleExperiment";
 type UpdateSingleExpJob = Job<{
-  context: ReqContext;
+  context: ApiReqContext;
   experimentId: string;
 }>;
 
@@ -95,15 +98,18 @@ export default async function (agenda: Agenda) {
     organization: string,
     experimentId: string
   ) {
+    const org = await findOrganizationById(organization);
+
+    if (!org) return;
+
+    const context: ApiReqContext = {
+      org,
+      environments: getEnvironmentIdsFromOrg(org),
+      readAccessFilter: FULL_ACCESS_PERMISSIONS,
+    };
+
     const job = agenda.create(UPDATE_SINGLE_EXP, {
-      context: {
-        org: organization,
-        userId: "",
-        email: "",
-        environments: [],
-        userName: "",
-        readAccessFilter: FULL_ACCESS_PERMISSIONS,
-      },
+      context,
       experimentId,
     }) as UpdateSingleExpJob;
 

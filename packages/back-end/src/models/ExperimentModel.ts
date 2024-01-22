@@ -30,6 +30,7 @@ import { EventAuditUser } from "../events/event-types";
 import { FeatureInterface } from "../../types/feature";
 import { getAffectedSDKPayloadKeys } from "../util/features";
 import { getEnvironmentIdsFromOrg } from "../services/organizations";
+import { ApiReqContext } from "../../types/api";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -291,7 +292,7 @@ export async function createExperiment({
   user,
 }: {
   data: Partial<ExperimentInterface>;
-  context: ReqContext;
+  context: ReqContext | ApiReqContext;
   user: EventAuditUser;
 }): Promise<ExperimentInterface> {
   data.organization = context.org.id;
@@ -347,7 +348,7 @@ export async function updateExperiment({
   changes,
   bypassWebhooks = false,
 }: {
-  context: ReqContext;
+  context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
   user: EventAuditUser;
   changes: Changeset;
@@ -578,7 +579,7 @@ export async function getRecentExperimentsUsingMetric(
 }
 
 export async function deleteExperimentSegment(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   segment: string
 ): Promise<void> {
@@ -656,7 +657,7 @@ export const findExperiment = async ({
  * @return event.id
  */
 const logExperimentCreated = async (
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   experiment: ExperimentInterface
 ): Promise<string | undefined> => {
@@ -690,7 +691,7 @@ const logExperimentUpdated = async ({
   current,
   previous,
 }: {
-  context: ReqContext;
+  context: ReqContext | ApiReqContext;
   user: EventAuditUser;
   current: ExperimentInterface;
   previous: ExperimentInterface;
@@ -733,7 +734,7 @@ const logExperimentUpdated = async ({
  */
 export async function deleteExperimentByIdForOrganization(
   experiment: ExperimentInterface,
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser
 ) {
   try {
@@ -762,7 +763,7 @@ export async function deleteAllExperimentsForAProject({
   user,
 }: {
   projectId: string;
-  context: ReqContext;
+  context: ReqContext | ApiReqContext;
   user: EventAuditUser;
 }) {
   const experimentsToDelete = await ExperimentModel.find({
@@ -789,7 +790,7 @@ export const removeTagFromExperiments = async ({
   user,
   tag,
 }: {
-  context: ReqContext;
+  context: ReqContext | ApiReqContext;
   user: EventAuditUser;
   tag: string;
 }): Promise<void> => {
@@ -808,7 +809,7 @@ export const removeTagFromExperiments = async ({
 
 export async function removeMetricFromExperiments(
   metricId: string,
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser
 ) {
   const oldExperiments: Record<
@@ -889,7 +890,7 @@ export async function removeMetricFromExperiments(
 
 export async function removeProjectFromExperiments(
   project: string,
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser
 ) {
   const query = { organization: context.org.id, project };
@@ -904,7 +905,7 @@ export async function removeProjectFromExperiments(
 }
 
 export async function addLinkedFeatureToExperiment(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   experimentId: string,
   featureId: string,
@@ -945,7 +946,7 @@ export async function addLinkedFeatureToExperiment(
 }
 
 export async function removeLinkedFeatureFromExperiment(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   experimentId: string,
   featureId: string
@@ -985,7 +986,7 @@ export async function removeLinkedFeatureFromExperiment(
 }
 
 function logAllChanges(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   previousExperiments: ExperimentInterface[],
   applyChanges: (exp: ExperimentInterface) => ExperimentInterface | null
@@ -1016,7 +1017,7 @@ export async function getExperimentsUsingSegment(id: string, orgId: string) {
  * @return experiment
  */
 export const logExperimentDeleted = async (
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   experiment: ExperimentInterface
 ): Promise<string | undefined> => {
@@ -1249,7 +1250,7 @@ const onExperimentCreate = async ({
   experiment,
   user,
 }: {
-  context: ReqContext;
+  context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
   user: EventAuditUser;
 }) => {
@@ -1263,7 +1264,7 @@ const onExperimentUpdate = async ({
   bypassWebhooks = false,
   user,
 }: {
-  context: ReqContext;
+  context: ReqContext | ApiReqContext;
   oldExperiment: ExperimentInterface;
   newExperiment: ExperimentInterface;
   bypassWebhooks?: boolean;
@@ -1310,7 +1311,7 @@ const onExperimentUpdate = async ({
 };
 
 const onExperimentDelete = async (
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   experiment: ExperimentInterface
 ) => {

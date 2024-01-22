@@ -125,10 +125,10 @@ export default function authenticateApiRequestMiddleware(
 
       req.context = {
         org,
-        userId: req.user?.id || "",
-        email: req.user?.email || "",
+        userId: req.user?.id,
+        email: req.user?.email,
         environments: getEnvironmentIdsFromOrg(org),
-        userName: req.user?.name || "",
+        userName: req.user?.name,
         readAccessFilter: userId
           ? getReadAccessFilter(
               getUserPermissions(userId, req.organization, teams)
