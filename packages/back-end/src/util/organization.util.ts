@@ -334,7 +334,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
       permissions: ["readData"],
     },
     {
-      id: "visual-editor",
+      id: "visualEditor",
       description: "Make visual changes for an experiment",
       permissions: ["readData", "manageVisualChanges"],
     },

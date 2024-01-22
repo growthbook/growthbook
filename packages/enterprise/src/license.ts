@@ -27,7 +27,7 @@ export type CommercialFeature =
   | "sequential-testing"
   | "pipeline-mode"
   | "audit-logging"
-  | "visual-editor"
+  | "visualEditor"
   | "archetypes"
   | "cloud-proxy"
   | "hash-secure-attributes"
@@ -102,7 +102,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "override-metrics",
     "regression-adjustment",
     "sequential-testing",
-    "visual-editor",
+    "visualEditor",
     "archetypes",
     "cloud-proxy",
     "hash-secure-attributes",
@@ -118,7 +118,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "override-metrics",
     "regression-adjustment",
     "sequential-testing",
-    "visual-editor",
+    "visualEditor",
     "archetypes",
     "cloud-proxy",
     "hash-secure-attributes",
@@ -138,7 +138,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "sequential-testing",
     "pipeline-mode",
     "multi-metric-queries",
-    "visual-editor",
+    "visualEditor",
     "archetypes",
     "cloud-proxy",
     "hash-secure-attributes",
