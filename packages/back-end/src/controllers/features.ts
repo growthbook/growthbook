@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
-import { get, isEqual } from "lodash";
+import { isEqual } from "lodash";
 import { MergeResultChanges, MergeStrategy, autoMerge } from "shared/util";
 import {
   getConnectionSDKCapabilities,

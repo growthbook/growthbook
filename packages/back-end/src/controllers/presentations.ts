@@ -27,7 +27,6 @@ export async function getPresentation(
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
-  const { org } = context;
 
   const pres = await getPresentationById(id);
 
@@ -67,7 +66,6 @@ export async function getPresentation(
 export async function getPresentationPreview(req: AuthRequest, res: Response) {
   const { expIds } = req.query as { expIds: string };
   const context = getContextFromReq(req);
-  const { org } = context;
 
   if (!expIds) {
     res.status(403).json({

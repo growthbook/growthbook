@@ -5,7 +5,7 @@ import uniqid from "uniqid";
 import { hasVisualChanges } from "shared/util";
 import { ExperimentInterface, Variation } from "../../types/experiment";
 import { ApiVisualChangeset } from "../../types/openapi";
-import { OrganizationInterface, ReqContext } from "../../types/organization";
+import { ReqContext } from "../../types/organization";
 import {
   VisualChange,
   VisualChangesetInterface,

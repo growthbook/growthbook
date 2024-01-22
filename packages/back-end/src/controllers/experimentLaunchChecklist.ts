@@ -120,7 +120,6 @@ export async function putManualLaunchChecklist(
   res: Response
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
 
   const { id } = req.params;
   const { checklist } = req.body;

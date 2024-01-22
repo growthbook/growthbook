@@ -18,7 +18,7 @@ import {
   refreshSDKPayloadCache,
 } from "../services/features";
 import { upgradeFeatureInterface } from "../util/migrations";
-import { OrganizationInterface, ReqContext } from "../../types/organization";
+import { ReqContext } from "../../types/organization";
 import {
   FeatureCreatedNotificationEvent,
   FeatureDeletedNotificationEvent,

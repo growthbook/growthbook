@@ -42,7 +42,7 @@ import { getFeaturesByIds } from "./FeatureModel";
 
 type FindOrganizationOptions = {
   experimentId: string;
-  organizationId: string;
+  context: ReqContext;
 };
 
 type FilterKeys = ExperimentInterface & { _id: string };
@@ -660,27 +660,33 @@ export async function getExperimentsForActivityFeed(
   }));
 }
 
-//TODO: Pick back up here
 /**
  * Finds an experiment for an organization
  * @param experimentId
- * @param organizationId
+ * @param context
  */
-export const findExperiment = async ({
+const findExperiment = async ({
   experimentId,
-  organizationId,
+  context,
 }: FindOrganizationOptions): Promise<ExperimentInterface | null> => {
   const doc = await ExperimentModel.findOne({
     id: experimentId,
-    organization: organizationId,
+    organization: context.org.id,
   });
-  return doc ? toInterface(doc) : null;
+
+  if (!doc) return null;
+
+  const experiment = toInterface(doc);
+
+  return hasReadAccess(context.readAccessFilter, experiment.project)
+    ? experiment
+    : null;
 };
 
 // region Events
 
 /**
- * @param organization
+ * @param context
  * @param user
  * @param experiment
  * @return event.id
@@ -943,7 +949,7 @@ export async function addLinkedFeatureToExperiment(
   if (!experiment) {
     experiment = await findExperiment({
       experimentId,
-      organizationId: context.org.id,
+      context,
     });
   }
 
@@ -982,7 +988,7 @@ export async function removeLinkedFeatureFromExperiment(
 ) {
   const experiment = await findExperiment({
     experimentId,
-    organizationId: context.org.id,
+    context,
   });
 
   if (!experiment) return;
@@ -1117,6 +1123,7 @@ export async function getAllPayloadExperiments(
   );
 }
 
+//MK TODO: Does this need to be filtered?
 export const getAllVisualExperiments = async (
   organization: string,
   experimentMap: Map<string, ExperimentInterface>

@@ -95,7 +95,6 @@ export async function getIdea(
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
-  const { org } = context;
 
   const idea = await getIdeaById(id);
 
