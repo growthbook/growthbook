@@ -1535,7 +1535,7 @@ export async function getRevisionLog(
 }
 
 export async function getFeatureById(
-  req: AuthRequest<null, { id: string }>,
+  req: AuthRequest<null, { id: string }, { v?: string }>,
   res: Response
 ) {
   const { org, environments } = getContextFromReq(req);
@@ -1547,6 +1547,26 @@ export async function getFeatureById(
   }
 
   let revisions = await getRevisions(org.id, id);
+
+  // The above only fetches the most recent revisions
+  // If we're requesting a specific version that's older than that, fetch it directly
+  if (req.query.v) {
+    const version = parseInt(req.query.v);
+    if (!revisions.some((r) => r.version === version)) {
+      const revision = await getRevision(org.id, id, version);
+      if (revision) {
+        revisions.push(revision);
+      }
+    }
+  }
+
+  // Make sure we always select the live version, even if it's not one of the most recent revisions
+  if (!revisions.some((r) => r.version === feature.version)) {
+    const revision = await getRevision(org.id, id, feature.version);
+    if (revision) {
+      revisions.push(revision);
+    }
+  }
 
   // Historically, we haven't properly cleared revision history when deleting a feature
   // So if you create a feature with the same name as a previously deleted one, it would inherit the revision history
