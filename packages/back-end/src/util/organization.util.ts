@@ -366,6 +366,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageSavedGroups",
         "manageArchetype",
         "runExperiments",
+        "manageVisualChanges",
       ],
     },
     {
@@ -384,6 +385,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageTags",
         "runQueries",
         "editDatasourceSettings",
+        "manageVisualChanges",
       ],
     },
     {
@@ -411,6 +413,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageFactTables",
         "runQueries",
         "editDatasourceSettings",
+        "manageVisualChanges",
       ],
     },
     {
