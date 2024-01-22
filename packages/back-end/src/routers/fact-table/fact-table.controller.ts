@@ -36,7 +36,7 @@ import {
 import { getSourceIntegrationObject } from "../../services/datasource";
 import { getDataSourceById } from "../../models/DataSourceModel";
 import { DataSourceInterface } from "../../../types/datasource";
-import { queueFactTableColumnsRefresh } from "../../jobs/refreshFactTableColumns";
+import { runRefreshColumnsQuery } from "../../jobs/refreshFactTableColumns";
 
 export const getFactTables = async (
   req: AuthRequest,
@@ -52,7 +52,7 @@ export const getFactTables = async (
   });
 };
 
-export async function testFilterQuery(
+async function testFilterQuery(
   datasource: DataSourceInterface,
   factTable: FactTableInterface,
   filter: string
@@ -100,11 +100,17 @@ export const postFactTable = async (
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
+  req.checkPermissions("runQueries", datasource.projects || "");
 
-  data.columns = [];
+  data.columns = await runRefreshColumnsQuery(
+    datasource,
+    data as FactTableInterface
+  );
+  if (!data.columns.length) {
+    throw new Error("SQL did not return any rows");
+  }
 
   const factTable = await createFactTable(org.id, data);
-  await queueFactTableColumnsRefresh(factTable);
 
   if (data.tags.length > 0) {
     await addTags(org.id, data.tags);
@@ -134,9 +140,23 @@ export const putFactTable = async (
     req.checkPermissions("manageFactTables", data.projects || "");
   }
 
-  await updateFactTable(factTable, data);
+  const datasource = await getDataSourceById(factTable.datasource, org.id);
+  if (!datasource) {
+    throw new Error("Could not find datasource");
+  }
+  req.checkPermissions("runQueries", datasource.projects || "");
 
-  await queueFactTableColumnsRefresh(factTable);
+  // Update the columns
+  data.columns = await runRefreshColumnsQuery(datasource, {
+    ...factTable,
+    ...data,
+  } as FactTableInterface);
+
+  if (!data.columns.some((col) => !col.deleted)) {
+    throw new Error("SQL did not return any rows");
+  }
+
+  await updateFactTable(factTable, data);
 
   await addTagsDiff(org.id, factTable.tags, data.tags || []);
 
