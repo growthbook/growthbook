@@ -21,7 +21,8 @@ export const updateFactMetric = createApiRequestHandler(
 
     await updateFactMetricInDb(factMetric, {
       ...req.body,
-      capping: req.body.capping === "none" ? "" : undefined,
+      capping:
+        (req.body.capping === "none" ? "" : req.body.capping) || undefined,
     });
 
     if (req.body.tags) {

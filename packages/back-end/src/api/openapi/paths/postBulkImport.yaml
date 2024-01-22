@@ -7,7 +7,7 @@ x-codeSamples:
   - lang: "cURL"
     source: |
       curl -X POST https://api.growthbook.io/api/v1/bulk-import \
-        -d '{}' # TODO: Example JSON
+        -d '{"factTables":[], "factTableFilters":[], "factMetrics":[]}' \
         -u secret_abc123DEF456:
 requestBody:
   required: true

@@ -7,7 +7,7 @@ x-codeSamples:
   - lang: "cURL"
     source: |
       curl -X POST https://api.growthbook.io/api/v1/fact-tables \
-        -d '{}' # TODO: Example JSON
+        -d '{"name":"Orders", "datasource":"ds_abc123", "userIdTypes":["id"], "sql":"SELECT * FROM orders"}' \
         -u secret_abc123DEF456:
 requestBody:
   required: true

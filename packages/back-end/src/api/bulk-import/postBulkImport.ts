@@ -182,7 +182,7 @@ export const postFactMetric = createApiRequestHandler(postBulkImportValidator)(
 
           const changes: UpdateFactMetricProps = {
             ...data,
-            capping: data.capping === "none" ? "" : undefined,
+            capping: (data.capping === "none" ? "" : data.capping) || undefined,
           };
 
           validateFactMetric({

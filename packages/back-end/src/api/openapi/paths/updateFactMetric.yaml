@@ -8,7 +8,7 @@ x-codeSamples:
   - lang: "cURL"
     source: |
       curl -X POST https://api.growthbook.io/api/v1/fact-metrics/fact__123abc \
-        -d '{}' # TODO: Example JSON
+        -d '{"hasConversionWindow": false}' \
         -u secret_abc123DEF456:
 requestBody:
   required: true
