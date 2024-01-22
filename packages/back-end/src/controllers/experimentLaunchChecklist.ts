@@ -125,7 +125,7 @@ export async function putManualLaunchChecklist(
   const { id } = req.params;
   const { checklist } = req.body;
 
-  const experiment = await getExperimentById(org.id, id);
+  const experiment = await getExperimentById(context, id);
 
   if (!experiment) {
     throw new Error("Could not find experiment");

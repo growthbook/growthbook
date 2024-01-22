@@ -1,11 +1,12 @@
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
-import { isEqual } from "lodash";
+import { get, isEqual } from "lodash";
 import { MergeResultChanges, MergeStrategy, autoMerge } from "shared/util";
 import {
   getConnectionSDKCapabilities,
   SDKCapability,
 } from "shared/sdk-versioning";
+import { FULL_ACCESS_PERMISSIONS } from "shared/permissions";
 import {
   ExperimentRefRule,
   FeatureInterface,
@@ -91,6 +92,7 @@ import {
 } from "../models/ExperimentModel";
 import { ReqContext } from "../../types/organization";
 import { ExperimentInterface } from "../../types/experiment";
+import { findOrganizationById } from "../models/OrganizationModel";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -192,6 +194,21 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       throw new UnrecoverableApiError("Missing API key in request");
     }
 
+    const org = await findOrganizationById(key);
+
+    if (!org) {
+      throw new UnrecoverableApiError("Invalid API key");
+    }
+
+    const context: ReqContext = {
+      org,
+      userId: "",
+      email: "",
+      environments: [],
+      userName: "",
+      readAccessFilter: FULL_ACCESS_PERMISSIONS,
+    };
+
     const {
       organization,
       capabilities,
@@ -213,7 +230,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     }
 
     const defs = await getFeatureDefinitions({
-      organization,
+      context, //TODO: Is this logic correct - this isn't an endpoint that requires auth
       capabilities,
       environment,
       projects,
@@ -272,8 +289,22 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
       throw new UnrecoverableApiError("Missing API key in request");
     }
 
+    const org = await findOrganizationById(key);
+
+    if (!org) {
+      throw new UnrecoverableApiError("Invalid API key");
+    }
+
+    const context: ReqContext = {
+      org,
+      userId: "",
+      email: "",
+      environments: [],
+      userName: "",
+      readAccessFilter: FULL_ACCESS_PERMISSIONS,
+    };
+
     const {
-      organization,
       capabilities,
       environment,
       encrypted,
@@ -304,7 +335,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
     const url = req.body?.url;
 
     const defs = await getFeatureDefinitions({
-      organization,
+      context,
       capabilities,
       environment,
       projects,
@@ -866,7 +897,7 @@ export async function postFeatureExperimentRefRule(
     getEnabledEnvironments(feature, environments)
   );
 
-  const experiment = await getExperimentById(org.id, rule.experimentId);
+  const experiment = await getExperimentById(context, rule.experimentId);
   if (!experiment) {
     throw new Error("Invalid experiment selected");
   }
@@ -1423,7 +1454,8 @@ export async function postFeatureEvaluate(
   >
 ) {
   const { id, version } = req.params;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { attributes } = req.body;
 
   const feature = await getFeature(org.id, id);
@@ -1437,7 +1469,7 @@ export async function postFeatureEvaluate(
   }
 
   const groupMap = await getSavedGroupMap(org);
-  const experimentMap = await getAllPayloadExperiments(org.id);
+  const experimentMap = await getAllPayloadExperiments(context);
   const environments = getEnvironments(org);
   const results = evaluateFeature({
     feature,
@@ -1500,7 +1532,7 @@ export async function getFeatures(
   req: AuthRequest<unknown, unknown, { project?: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
   let project = "";
   if (typeof req.query?.project === "string") {
@@ -1508,7 +1540,7 @@ export async function getFeatures(
   }
 
   const { features, experiments } = await getAllFeaturesWithLinkedExperiments(
-    org.id,
+    context,
     project
   );
 
@@ -1546,7 +1578,8 @@ export async function getFeatureById(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org, environments } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, environments } = context;
   const { id } = req.params;
 
   const feature = await getFeature(org.id, id);
@@ -1612,14 +1645,14 @@ export async function getFeatureById(
   });
   const experimentsMap: Map<string, ExperimentInterface> = new Map();
   if (trackingKeys.size) {
-    const exps = await getExperimentsByTrackingKeys(org.id, [...trackingKeys]);
+    const exps = await getExperimentsByTrackingKeys(context, [...trackingKeys]);
     exps.forEach((exp) => {
       experimentsMap.set(exp.id, exp);
       experimentIds.delete(exp.id);
     });
   }
   if (experimentIds.size) {
-    const exps = await getExperimentsByIds(org.id, [...experimentIds]);
+    const exps = await getExperimentsByIds(context, [...experimentIds]);
     exps.forEach((exp) => {
       experimentsMap.set(exp.id, exp);
     });

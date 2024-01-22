@@ -168,7 +168,7 @@ export const postDemoDatasourceProject = async (
 
   if (existingDemoProject) {
     const existingExperiments = await getAllExperiments(
-      org.id,
+      context,
       existingDemoProject.id
     );
 

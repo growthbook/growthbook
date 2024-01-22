@@ -94,7 +94,8 @@ export async function getIdea(
   res: Response
 ) {
   const { id } = req.params;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
   const idea = await getIdeaById(id);
 
@@ -132,7 +133,7 @@ export async function getIdea(
     }
   }
 
-  const experiment = await getExperimentByIdea(org.id, idea);
+  const experiment = await getExperimentByIdea(context, idea);
 
   res.status(200).json({
     status: 200,

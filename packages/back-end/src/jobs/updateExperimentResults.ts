@@ -122,9 +122,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
   if (!experimentId || !context) return;
 
-  const { org } = context;
-
-  const experiment = await getExperimentById(org.id, experimentId);
+  const experiment = await getExperimentById(context, experimentId);
   if (!experiment) return;
 
   const organization = await findOrganizationById(experiment.organization);

@@ -289,7 +289,7 @@ export const createVisualChangeset = async ({
   }
 
   await onVisualChangesetCreate({
-    organization: context.org,
+    context,
     visualChangeset,
     experiment,
   });
@@ -361,7 +361,7 @@ export const updateVisualChangeset = async ({
       ...updates,
       ...(isUpdatingVisualChanges ? { visualChanges } : {}),
     },
-    organization: context.org,
+    context,
     bypassWebhooks,
   });
 
@@ -369,28 +369,28 @@ export const updateVisualChangeset = async ({
 };
 
 const onVisualChangesetCreate = async ({
-  organization,
+  context,
   visualChangeset,
   experiment,
 }: {
-  organization: OrganizationInterface;
+  context: ReqContext;
   visualChangeset: VisualChangesetInterface;
   experiment: ExperimentInterface;
 }) => {
   if (!hasVisualChanges(visualChangeset.visualChanges)) return;
 
-  const payloadKeys = getPayloadKeys(organization, experiment);
+  const payloadKeys = getPayloadKeys(context.org, experiment);
 
-  await refreshSDKPayloadCache(organization, payloadKeys);
+  await refreshSDKPayloadCache(context, payloadKeys);
 };
 
 const onVisualChangesetUpdate = async ({
-  organization,
+  context,
   oldVisualChangeset,
   newVisualChangeset,
   bypassWebhooks = false,
 }: {
-  organization: OrganizationInterface;
+  context: ReqContext;
   oldVisualChangeset: VisualChangesetInterface;
   newVisualChangeset: VisualChangesetInterface;
   bypassWebhooks?: boolean;
@@ -401,22 +401,22 @@ const onVisualChangesetUpdate = async ({
     return;
 
   const experiment = await getExperimentById(
-    organization.id,
+    context,
     newVisualChangeset.experiment
   );
 
   if (!experiment) return;
 
-  const payloadKeys = getPayloadKeys(organization, experiment);
+  const payloadKeys = getPayloadKeys(context.org, experiment);
 
-  await refreshSDKPayloadCache(organization, payloadKeys);
+  await refreshSDKPayloadCache(context, payloadKeys);
 };
 
 const onVisualChangesetDelete = async ({
-  organization,
+  context,
   visualChangeset,
 }: {
-  organization: OrganizationInterface;
+  context: ReqContext;
   visualChangeset: VisualChangesetInterface;
 }) => {
   // if there were no visual changes before deleting, return early
@@ -424,15 +424,15 @@ const onVisualChangesetDelete = async ({
 
   // get payload keys
   const experiment = await getExperimentById(
-    organization.id,
+    context,
     visualChangeset.experiment
   );
 
   if (!experiment) return;
 
-  const payloadKeys = getPayloadKeys(organization, experiment);
+  const payloadKeys = getPayloadKeys(context.org, experiment);
 
-  await refreshSDKPayloadCache(organization, payloadKeys);
+  await refreshSDKPayloadCache(context, payloadKeys);
 };
 
 // when an experiment adds/removes variations, we need to update the analogous
@@ -501,7 +501,7 @@ export const deleteVisualChangesetById = async ({
   }
 
   await onVisualChangesetDelete({
-    organization: context.org,
+    context,
     visualChangeset,
   });
 };

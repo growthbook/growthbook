@@ -1,6 +1,7 @@
 import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
+import { FULL_ACCESS_PERMISSIONS } from "shared/permissions";
 import { getFeatureDefinitions } from "../services/features";
 import { CRON_ENABLED, IS_CLOUD } from "../util/secrets";
 import { SDKPayloadKey } from "../../types/sdk-payload";
@@ -12,6 +13,9 @@ import {
 import { SDKConnectionInterface } from "../../types/sdk-connection";
 import { cancellableFetch } from "../util/http.util";
 import { logger } from "../util/logger";
+import { ReqContext } from "../../types/organization";
+import { findOrganizationById } from "../models/OrganizationModel";
+import { getEnvironmentIdsFromOrg } from "../services/organizations";
 
 const PROXY_UPDATE_JOB_NAME = "proxyUpdate";
 type ProxyUpdateJob = Job<{
@@ -45,8 +49,27 @@ export default function addProxyUpdateJob(ag: Agenda) {
       return;
     }
 
+    const org = await findOrganizationById(connection.organization);
+
+    if (!org) {
+      logger.error("proxyUpdate: Could not find organization", {
+        connectionId,
+        useCloudProxy,
+      });
+      return;
+    }
+
+    const context: ReqContext = {
+      org,
+      userId: "",
+      email: "",
+      environments: getEnvironmentIdsFromOrg(org),
+      userName: "",
+      readAccessFilter: FULL_ACCESS_PERMISSIONS,
+    };
+
     const defs = await getFeatureDefinitions({
-      organization: connection.organization,
+      context,
       capabilities: getConnectionSDKCapabilities(connection),
       environment: connection.environment,
       projects: connection.projects,

@@ -793,10 +793,10 @@ export async function getEmailFromUserId(userId: string) {
 }
 
 export async function getExperimentOverrides(
-  organization: string,
+  context: ReqContext,
   project?: string
 ) {
-  const experiments = await getAllExperiments(organization, project);
+  const experiments = await getAllExperiments(context, project);
   const overrides: Record<string, ExperimentOverride> = {};
   const expIdMapping: Record<string, { trackingKey: string }> = {};
 

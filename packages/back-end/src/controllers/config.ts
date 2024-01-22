@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { Request, Response } from "express";
+import { FULL_ACCESS_PERMISSIONS } from "shared/permissions";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import { APP_ORIGIN } from "../util/secrets";
 import {
@@ -11,6 +12,7 @@ import {
 import { ErrorResponse, ExperimentOverridesResponse } from "../../types/api";
 import { getExperimentOverrides } from "../services/organizations";
 import { getAllExperiments } from "../models/ExperimentModel";
+import { findOrganizationById } from "../models/OrganizationModel";
 
 export function canAutoAssignExperiment(
   experiment: ExperimentInterface
@@ -46,9 +48,24 @@ export async function getExperimentConfig(
       });
     }
 
-    const { overrides, expIdMapping } = await getExperimentOverrides(
-      organization
-    );
+    const org = await findOrganizationById(organization);
+
+    if (!org) {
+      return res.status(400).json({
+        status: 400,
+        error: "Invalid API key",
+      });
+    }
+
+    //TODO: Double check this logic
+    const { overrides, expIdMapping } = await getExperimentOverrides({
+      org,
+      userId: "",
+      email: "",
+      environments: [],
+      userName: "",
+      readAccessFilter: FULL_ACCESS_PERMISSIONS,
+    });
 
     // TODO: add cache headers?
     res.status(200).json({
@@ -113,7 +130,23 @@ export async function getExperimentsScript(
           "Must use a Publishable API key to load the visual editor script",
       });
     }
-    const experiments = await getAllExperiments(organization);
+    const org = await findOrganizationById(organization);
+
+    if (!org) {
+      return res
+        .status(400)
+        .send(`console.error("Invalid GrowthBook API key");`);
+    }
+
+    //TODO: Double check this logic
+    const experiments = await getAllExperiments({
+      org,
+      userId: "",
+      email: "",
+      environments: [],
+      userName: "",
+      readAccessFilter: FULL_ACCESS_PERMISSIONS,
+    });
 
     const experimentData: ExperimentData[] = [];
 

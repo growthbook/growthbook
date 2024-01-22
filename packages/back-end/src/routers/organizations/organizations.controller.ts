@@ -176,7 +176,8 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
 }
 
 export async function getActivityFeed(req: AuthRequest, res: Response) {
-  const { org, userId } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
   try {
     const docs = await getRecentWatchedAudits(userId, org.id);
 
@@ -191,7 +192,7 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
 
     const experimentIds = Array.from(new Set(docs.map((d) => d.entity.id)));
     const experiments = await getExperimentsForActivityFeed(
-      org.id,
+      context,
       experimentIds
     );
 
@@ -692,7 +693,8 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
       organization: null,
     });
   }
-  const { org, environments } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, environments } = context;
 
   const namespaces: NamespaceUsage = {};
 
@@ -726,7 +728,7 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
     });
   });
 
-  const allExperiments = await getAllExperiments(org.id);
+  const allExperiments = await getAllExperiments(context);
   allExperiments.forEach((e) => {
     if (!e.phases) return;
     const phase = e.phases[e.phases.length - 1];

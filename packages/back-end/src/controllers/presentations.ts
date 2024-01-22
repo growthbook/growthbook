@@ -26,7 +26,8 @@ export async function getPresentation(
   res: Response
 ) {
   const { id } = req.params;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
   const pres = await getPresentationById(id);
 
@@ -54,7 +55,7 @@ export async function getPresentation(
       .map((o) => o.id);
   }
 
-  const withSnapshots = await getPresentationSnapshots(org.id, expIds, req);
+  const withSnapshots = await getPresentationSnapshots(context, expIds, req);
 
   res.status(200).json({
     status: 200,
@@ -65,7 +66,8 @@ export async function getPresentation(
 
 export async function getPresentationPreview(req: AuthRequest, res: Response) {
   const { expIds } = req.query as { expIds: string };
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
   if (!expIds) {
     res.status(403).json({
@@ -76,7 +78,7 @@ export async function getPresentationPreview(req: AuthRequest, res: Response) {
   }
   const expIdsArr = expIds.split(",");
 
-  const withSnapshots = await getPresentationSnapshots(org.id, expIdsArr, req);
+  const withSnapshots = await getPresentationSnapshots(context, expIdsArr, req);
 
   res.status(200).json({
     status: 200,
