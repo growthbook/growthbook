@@ -19,6 +19,7 @@ import {
 } from "../services/experiments";
 import {
   getConfidenceLevelsForOrg,
+  getContextForAgendaJobByOrgId,
   getEnvironmentIdsFromOrg,
 } from "../services/organizations";
 import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
@@ -40,7 +41,7 @@ const QUEUE_EXPERIMENT_UPDATES = "queueExperimentUpdates";
 
 const UPDATE_SINGLE_EXP = "updateSingleExperiment";
 type UpdateSingleExpJob = Job<{
-  context: ApiReqContext;
+  organization: string;
   experimentId: string;
 }>;
 
@@ -124,17 +125,17 @@ export default async function (agenda: Agenda) {
 
 async function updateSingleExperiment(job: UpdateSingleExpJob) {
   const experimentId = job.attrs.data?.experimentId;
-  const context = job.attrs.data?.context;
+  const orgId = job.attrs.data?.organization;
 
-  if (!experimentId || !context) return;
+  if (!experimentId || !orgId) return;
 
-  const { org } = context;
-
-  const experiment = await getExperimentById(org.id, experimentId);
+  const experiment = await getExperimentById(orgId, experimentId);
   if (!experiment) return;
 
   const organization = await findOrganizationById(experiment.organization);
   if (!organization) return;
+
+  const context = await getContextForAgendaJobByOrgId(orgId);
 
   let project = null;
   if (experiment.project) {
