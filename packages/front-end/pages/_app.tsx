@@ -98,7 +98,7 @@ function App({
               <AppearanceUIThemeProvider>
                 <GrowthBookProvider growthbook={growthbook}>
                   <ProtectedPage organizationRequired={organizationRequired}>
-                    <Theme>
+                    <Theme accentColor="violet">
                       {organizationRequired ? (
                         <DefinitionsProvider>
                           {!liteLayout && <Layout />}
