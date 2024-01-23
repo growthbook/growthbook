@@ -1,7 +1,6 @@
 import Agenda, { Job } from "agenda";
 import { getScopedSettings } from "shared/settings";
 import { getSnapshotAnalysis } from "shared/util";
-import { FULL_ACCESS_PERMISSIONS } from "shared/permissions";
 import {
   getExperimentById,
   getExperimentsToUpdate,
@@ -20,7 +19,6 @@ import {
 import {
   getConfidenceLevelsForOrg,
   getContextForAgendaJobByOrgId,
-  getEnvironmentIdsFromOrg,
 } from "../services/organizations";
 import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
@@ -32,7 +30,6 @@ import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { findProjectById } from "../models/ProjectModel";
 import { getExperimentWatchers } from "../models/WatchModel";
 import { getFactTableMap } from "../models/FactTableModel";
-import { ApiReqContext } from "../../types/api";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -99,18 +96,8 @@ export default async function (agenda: Agenda) {
     organization: string,
     experimentId: string
   ) {
-    const org = await findOrganizationById(organization);
-
-    if (!org) return;
-
-    const context: ApiReqContext = {
-      org,
-      environments: getEnvironmentIdsFromOrg(org),
-      readAccessFilter: FULL_ACCESS_PERMISSIONS,
-    };
-
     const job = agenda.create(UPDATE_SINGLE_EXP, {
-      context,
+      organization,
       experimentId,
     }) as UpdateSingleExpJob;
 
