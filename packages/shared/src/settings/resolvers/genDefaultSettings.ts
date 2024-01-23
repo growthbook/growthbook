@@ -14,24 +14,34 @@ export const DEFAULT_ROLE: MemberRoleInfo = {
   limitAccessByEnvironment: false,
   role: "collaborator",
 };
-export const DEFAULT_METRIC_DEFAULTS: MetricDefaults = {
-  maxPercentageChange: 0.5,
-  minPercentageChange: 0.005,
-  minimumSampleSize: 150,
-};
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 export const DEFAULT_MULTIPLE_EXPOSURE_MIN_PERCENT = 0.01;
 export const DEFAULT_NORTH_STAR = null;
 export const DEFAULT_PAST_EXPERIMENT_MIN_LENGTH = 6;
 export const DEFAULT_SDK_INSTRUCTIONS_VIEWED = false;
 export const DEFAULT_UPDATE_SCHEDULE = null;
-export const DEFAULT_VIDEO_INSTRUCTIONS_VIEIWED = false;
+export const DEFAULT_VIDEO_INSTRUCTIONS_VIEWED = false;
 // TODO?
-export const DEFAULT_CONVERSION_WINDOW_SETTINGS = null;
+export const DEFAULT_METRIC_WINDOW = "conversion";
+export const DEFAULT_METRIC_WINDOW_HOURS = 72;
+export const DEFAULT_METRIC_WINDOW_DELAY_HOURS = 0;
 export const DEFAULT_LOSE_RISK = null;
 export const DEFAULT_WIN_RISK = null;
 export const DEFAULT_SECURE_ATTRIBUTE_SALT = "";
 export const DEFAULT_KILLSWITCH_CONFIRMATION = false;
+
+export const DEFAULT_METRIC_DEFAULTS: MetricDefaults = {
+  maxPercentageChange: 0.5,
+  minPercentageChange: 0.005,
+  minimumSampleSize: 150,
+  // TODO
+  windowSettings: {
+    window: DEFAULT_METRIC_WINDOW,
+    delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+    windowValue: DEFAULT_METRIC_WINDOW_HOURS,
+    windowUnit: "hours",
+  },
+};
 
 export default function genDefaultSettings(): Settings {
   return {
@@ -49,8 +59,10 @@ export default function genDefaultSettings(): Settings {
     sdkInstructionsViewed: DEFAULT_SDK_INSTRUCTIONS_VIEWED,
     statsEngine: DEFAULT_STATS_ENGINE,
     updateSchedule: DEFAULT_UPDATE_SCHEDULE,
-    videoInstructionsViewed: DEFAULT_VIDEO_INSTRUCTIONS_VIEIWED,
-    windowSettings: DEFAULT_CONVERSION_WINDOW_SETTINGS,
+    videoInstructionsViewed: DEFAULT_VIDEO_INSTRUCTIONS_VIEWED,
+    window: DEFAULT_METRIC_WINDOW,
+    windowHours: DEFAULT_METRIC_WINDOW_HOURS,
+    delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
     loseRisk: DEFAULT_LOSE_RISK,
     winRisk: DEFAULT_WIN_RISK,
     secureAttributeSalt: DEFAULT_SECURE_ATTRIBUTE_SALT,

@@ -20,7 +20,6 @@ import {
 } from "shared/util";
 import {
   ExperimentMetricInterface,
-  getConversionWindowHours,
   getRegressionAdjustmentsForMetric,
   isFactMetric,
   isFactMetricId,
@@ -703,13 +702,11 @@ function getExperimentMetric(
     overrides: {},
   };
 
-  if (overrides?.windowSettings?.delayHours) {
-    ret.overrides.conversionWindowStart = overrides?.windowSettings?.delayHours;
+  if (overrides?.delayHours) {
+    ret.overrides.delayHours = overrides.delayHours;
   }
-  if (overrides?.windowSettings?.windowValue) {
-    ret.overrides.conversionWindowEnd =
-      getConversionWindowHours(overrides.windowSettings) +
-      (overrides?.windowSettings?.delayHours || 0);
+  if (overrides?.windowHours) {
+    ret.overrides.windowHours = overrides.windowHours;
   }
   if (overrides?.winRisk) {
     ret.overrides.winRiskThreshold = overrides.winRisk;
@@ -1566,16 +1563,6 @@ export function toMetricApiInterface(
 ): ApiMetric {
   const metricDefaults = organization.settings?.metricDefaults;
 
-  // TODO lookback metrics
-  let conversionStart = metric.windowSettings.delayHours || 0;
-  const conversionEnd =
-    conversionStart +
-    (getConversionWindowHours(metric.windowSettings) ||
-      DEFAULT_CONVERSION_WINDOW_HOURS);
-  if (!conversionStart && metric.earlyStart) {
-    conversionStart = -0.5;
-  }
-
   const obj: ApiMetric = {
     id: metric.id,
     name: metric.name,
@@ -1599,8 +1586,13 @@ export function toMetricApiInterface(
         metric.minSampleSize ?? metricDefaults?.minimumSampleSize ?? 150,
       riskThresholdDanger: metric.loseRisk ?? 0.0125,
       riskThresholdSuccess: metric.winRisk ?? 0.0025,
-      conversionWindowStart: conversionStart,
-      conversionWindowEnd: conversionEnd,
+      windowSettings: metric.windowSettings ??
+        metricDefaults?.windowSettings ?? {
+          window: "conversion",
+          delayHours: metric.earlyStart ? -0.5 : 0,
+          windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
+          windowUnit: "hours",
+        },
     },
   };
 

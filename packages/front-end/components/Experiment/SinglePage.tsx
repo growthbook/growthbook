@@ -113,7 +113,9 @@ function drawMetricRow(
     (newMetric.windowSettings.delayHours || 0) +
     getConversionWindowHours(newMetric.windowSettings);
 
+  // TODO
   const hasOverrides =
+    overrideFields.includes("window") ||
     overrideFields.includes("conversionDelayHours") ||
     (!ignoreConversionEnd && overrideFields.includes("conversionWindowHours"));
 

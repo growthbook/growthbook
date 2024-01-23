@@ -84,11 +84,40 @@ properties:
         deprecated: true
         description: (deprecated, use cappingSettings instead) This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`.
         minimum: 0
+      windowSettings:
+        type: object
+        required:
+          - window
+          - windowValue
+          - windowUnit
+        properties:
+          window:
+            type: string
+            description: The kind of date window to use; either 'conversion', 'lookback', or '' for none.
+            enum:
+              - conversion
+              - lookback
+              - ''
+          windowValue:
+            type: number
+            description: The length of the date window to use.
+            minimum: 0
+          windowUnit:
+            type: string
+            enum:
+              - hours
+              - days
+              - weeks
+          delayHours: 
+            type: number
+            description: "The number of hours to ignore after a user is exposed to an experiment. Does nothing if `window` is ''"
       conversionWindowStart:
         type: number
+        deprecated: true
         description: "The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither."
       conversionWindowEnd:
         type: number
+        deprecated: true
         description: "The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither."
       riskThresholdSuccess:
         type: number

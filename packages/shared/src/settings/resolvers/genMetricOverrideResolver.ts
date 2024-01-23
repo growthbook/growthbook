@@ -1,5 +1,6 @@
 import { MetricOverride } from "back-end/types/experiment";
 import { SettingsResolver, Settings, ScopeDefinition } from "../types";
+import { getConversionWindowHours } from "../../experiments";
 
 export default function genMetricOverrideResolver(
   fieldName: keyof Omit<MetricOverride, "id">
@@ -9,9 +10,29 @@ export default function genMetricOverrideResolver(
       (mo) => mo.id === ctx.scopes?.metric?.id
     );
 
+    let metricValue:
+      | number
+      | boolean
+      | ""
+      | "conversion"
+      | "lookback"
+      | null
+      | undefined = null;
+    if (fieldName == "delayHours") {
+      metricValue = ctx.scopes?.metric?.windowSettings?.delayHours;
+    } else if (fieldName == "windowHours") {
+      metricValue = ctx.scopes?.metric?.windowSettings
+        ? getConversionWindowHours(ctx.scopes?.metric?.windowSettings)
+        : null;
+    } else if (fieldName == "window") {
+      metricValue = ctx.scopes?.metric?.windowSettings?.window;
+    } else {
+      metricValue = ctx.scopes?.metric?.[fieldName];
+    }
+
     const value =
       metricOverride?.[fieldName] ??
-      ctx.scopes?.metric?.[fieldName] ??
+      metricValue ??
       (fieldName === "regressionAdjustmentEnabled"
         ? ctx.scopes?.experiment?.[fieldName]
         : null) ??
@@ -23,7 +44,7 @@ export default function genMetricOverrideResolver(
     if (typeof metricOverride?.[fieldName] !== "undefined") {
       scopeApplied = "experiment";
       reason = "experiment-level metric override applied";
-    } else if (typeof ctx.scopes?.metric?.[fieldName] !== "undefined") {
+    } else if (typeof metricValue !== "undefined") {
       scopeApplied = "metric";
       reason = "metric-level setting applied";
     } else if (

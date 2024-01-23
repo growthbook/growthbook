@@ -86,7 +86,9 @@ type MetricWindowSettings = {
 export type MetricOverride = {
   id: string;
 
-  windowSettings?: MetricWindowSettings;
+  window?: MetricWindowSettings["window"];
+  windowHours?: number;
+  delayHours?: number;
 
   winRisk?: number;
   loseRisk?: number;

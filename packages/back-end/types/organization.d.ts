@@ -6,6 +6,7 @@ import {
 } from "../src/util/organization.util";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
+import { MetricWindowSettings } from "./fact-table";
 
 export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
 export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
@@ -101,6 +102,7 @@ export interface MetricDefaults {
   minimumSampleSize?: number;
   maxPercentageChange?: number;
   minPercentageChange?: number;
+  windowSettings?: MetricWindowSettings;
 }
 
 export interface Namespaces {

@@ -37,6 +37,7 @@ const MetricTooltipBody = ({
     const regExp = new RegExp(/[A-Za-z0-9]/);
     return regExp.test(description);
   }
+  // TODO
   const metricOverrideFields = row?.metricOverrideFields ?? [];
 
   const conversionWindowHours = getConversionWindowHours(metric.windowSettings);

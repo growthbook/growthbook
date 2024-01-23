@@ -185,18 +185,15 @@ export function getMetricForSnapshot(
     computedSettings: {
       windowSettings: {
         delayHours:
-          overrides?.windowSettings?.delayHours ??
-          metric.windowSettings.delayHours ??
-          0,
-        window: metric.windowSettings.window,
+          overrides?.delayHours ?? metric.windowSettings.delayHours ?? 0,
+        window:
+          overrides?.window ?? metric.windowSettings.window ?? "conversion",
         windowUnit:
-          overrides?.windowSettings?.windowUnit ??
-          metric.windowSettings.windowUnit ??
-          "hours",
+          overrides?.windowHours || overrides?.window
+            ? "hours"
+            : metric.windowSettings.windowUnit ?? "hours",
         windowValue:
-          overrides?.windowSettings?.windowValue ??
-          metric.windowSettings.windowValue ??
-          0,
+          overrides?.windowHours ?? metric.windowSettings.windowValue ?? 72,
       },
       regressionAdjustmentDays:
         regressionAdjustmentStatus?.regressionAdjustmentDays ??

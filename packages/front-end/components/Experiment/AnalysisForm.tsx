@@ -209,13 +209,7 @@ const AnalysisForm: FC<{
       size="lg"
       ctaEnabled={!editMetrics || !hasMetricOverrideRiskError}
       submit={form.handleSubmit(async (value) => {
-        const {
-          dateStarted,
-          dateEnded,
-          skipPartialData,
-          metricOverrides,
-          ...values
-        } = value;
+        const { dateStarted, dateEnded, skipPartialData, ...values } = value;
 
         const body: Partial<ExperimentInterfaceStringDates> & {
           phaseStartDate: string;
@@ -223,13 +217,12 @@ const AnalysisForm: FC<{
           currentPhase?: number;
         } = {
           ...values,
-          metricOverrides: fixMetricOverridesBeforeSaving(
-            metricOverrides || []
-          ),
           currentPhase: phase,
           phaseStartDate: dateStarted,
           skipPartialData: skipPartialData === "strict",
         };
+
+        fixMetricOverridesBeforeSaving(body.metricOverrides || []);
 
         if (experiment.status === "stopped") {
           body.phaseEndDate = dateEnded;

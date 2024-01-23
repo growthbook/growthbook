@@ -48,8 +48,7 @@ properties:
     type: object
     required:
       - goal
-      - conversionWindowStart
-      - conversionWindowEnd
+      - windowSettings
       - riskThresholdSuccess
       - riskThresholdDanger
       - minPercentChange
@@ -81,18 +80,47 @@ properties:
             type: boolean
       cap:
         type: number
+        deprecated: true
       capping:
         type: string
         nullable: true
+        deprecated: true
         enum:
           - absolute
           - percentile
       capValue:
         type: number
+        deprecated: true
+      windowSettings:
+        type: object
+        required:
+          - window
+          - windowValue
+          - windowUnit
+        properties:
+          window:
+            type: string
+            enum:
+              - conversion
+              - lookback
+              - ''
+          windowValue:
+            type: number
+            minimum: 0
+          windowUnit:
+            type: string
+            enum:
+              - hours
+              - days
+              - weeks
+          delayHours: 
+            type: number
       conversionWindowStart:
         type: number
+        deprecated: true
       conversionWindowEnd:
         type: number
+        deprecated: true
       riskThresholdSuccess:
         type: number
       riskThresholdDanger:
