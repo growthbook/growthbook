@@ -24,7 +24,6 @@ import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
 import { getMetricMap } from "../models/MetricModel";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
-import { findOrganizationById } from "../models/OrganizationModel";
 import { logger } from "../util/logger";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { findProjectById } from "../models/ProjectModel";
