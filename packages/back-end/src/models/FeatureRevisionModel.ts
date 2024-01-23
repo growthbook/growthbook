@@ -25,6 +25,7 @@ const featureRevisionSchema = new mongoose.Schema({
     {
       _id: false,
       user: {},
+      approvedBy: {},
       timestamp: Date,
       action: String,
       subject: String,

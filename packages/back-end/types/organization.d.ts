@@ -181,6 +181,7 @@ export interface OrganizationSettings {
   displayCurrency?: string;
   secureAttributeSalt?: string;
   killswitchConfirmation?: boolean;
+  requireReviews?: boolean;
   defaultDataSource?: string;
   disableMultiMetricQueries?: boolean;
   useStickyBucketing?: boolean;

@@ -3,6 +3,7 @@ import { FeatureRule } from "./feature";
 
 export interface RevisionLog {
   user: EventAuditUser;
+  approvedBy?: EventAuditUser;
   timestamp: Date;
   action: string;
   subject: string;
@@ -20,7 +21,7 @@ export interface FeatureRevisionInterface {
   publishedBy: null | EventAuditUser;
   createdBy: EventAuditUser;
   comment: string;
-  status: "draft" | "published" | "discarded";
+  status: "draft" | "published" | "discarded" | "reviewed" | "pending-review";
   defaultValue: string;
   rules: Record<string, FeatureRule[]>;
   log?: RevisionLog[];
