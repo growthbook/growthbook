@@ -6,6 +6,7 @@ import { hasReadAccess } from "shared/permissions";
 import { ApiProject } from "../../types/openapi";
 import { ProjectInterface, ProjectSettings } from "../../types/project";
 import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "../../types/api";
 
 const projectSchema = new mongoose.Schema({
   id: {
@@ -53,7 +54,9 @@ export async function createProject(
   });
   return toInterface(doc);
 }
-export async function findAllProjectsByOrganization(context: ReqContext) {
+export async function findAllProjectsByOrganization(
+  context: ReqContext | ApiReqContext
+) {
   const { org, readAccessFilter } = context;
   const docs = await ProjectModel.find({
     organization: org.id,
@@ -62,7 +65,10 @@ export async function findAllProjectsByOrganization(context: ReqContext) {
   const projects = docs.map(toInterface);
   return projects.filter((p) => hasReadAccess(readAccessFilter, p.id));
 }
-export async function findProjectById(context: ReqContext, projectId: string) {
+export async function findProjectById(
+  context: ReqContext | ApiReqContext,
+  projectId: string
+) {
   const { org, readAccessFilter } = context;
   const doc = await ProjectModel.findOne({
     id: projectId,

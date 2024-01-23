@@ -483,9 +483,7 @@ export async function postFeatureRebase(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  const revisions = await getRevisions(org.id, feature.id);
-
-  const revision = revisions.find((r) => r.version === parseInt(version));
+  const revision = await getRevision(org.id, feature.id, parseInt(version));
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
@@ -493,10 +491,16 @@ export async function postFeatureRebase(
     throw new Error("Can only fix conflicts for Draft revisions");
   }
 
-  const live = revisions.find((r) => r.version === feature.version);
-  const base = revisions.find((r) => r.version === revision.baseVersion);
+  const live = await getRevision(org.id, feature.id, feature.version);
+  if (!live) {
+    throw new Error("Could not lookup feature history");
+  }
 
-  if (!live || !base) {
+  const base =
+    revision.baseVersion === live.version
+      ? live
+      : await getRevision(org.id, feature.id, revision.baseVersion);
+  if (!base) {
     throw new Error("Could not lookup feature history");
   }
 
@@ -563,9 +567,7 @@ export async function postFeaturePublish(
   }
   req.checkPermissions("manageFeatures", feature.project);
 
-  const revisions = await getRevisions(org.id, feature.id);
-
-  const revision = revisions.find((r) => r.version === parseInt(version));
+  const revision = await getRevision(org.id, feature.id, parseInt(version));
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
@@ -573,10 +575,16 @@ export async function postFeaturePublish(
     throw new Error("Can only publish Draft revisions");
   }
 
-  const live = revisions.find((r) => r.version === feature.version);
-  const base = revisions.find((r) => r.version === revision.baseVersion);
+  const live = await getRevision(org.id, feature.id, feature.version);
+  if (!live) {
+    throw new Error("Could not lookup feature history");
+  }
 
-  if (!live || !base) {
+  const base =
+    revision.baseVersion === live.version
+      ? live
+      : await getRevision(org.id, feature.id, revision.baseVersion);
+  if (!base) {
     throw new Error("Could not lookup feature history");
   }
 
@@ -1575,7 +1583,7 @@ export async function getRevisionLog(
 }
 
 export async function getFeatureById(
-  req: AuthRequest<null, { id: string }>,
+  req: AuthRequest<null, { id: string }, { v?: string }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
@@ -1588,6 +1596,26 @@ export async function getFeatureById(
   }
 
   let revisions = await getRevisions(org.id, id);
+
+  // The above only fetches the most recent revisions
+  // If we're requesting a specific version that's older than that, fetch it directly
+  if (req.query.v) {
+    const version = parseInt(req.query.v);
+    if (!revisions.some((r) => r.version === version)) {
+      const revision = await getRevision(org.id, id, version);
+      if (revision) {
+        revisions.push(revision);
+      }
+    }
+  }
+
+  // Make sure we always select the live version, even if it's not one of the most recent revisions
+  if (!revisions.some((r) => r.version === feature.version)) {
+    const revision = await getRevision(org.id, id, feature.version);
+    if (revision) {
+      revisions.push(revision);
+    }
+  }
 
   // Historically, we haven't properly cleared revision history when deleting a feature
   // So if you create a feature with the same name as a previously deleted one, it would inherit the revision history

@@ -100,6 +100,7 @@ import { StatsEngine } from "../../types/stats";
 import { getFeaturesByIds } from "../models/FeatureModel";
 import { getFeatureRevisionsByFeatureIds } from "../models/FeatureRevisionModel";
 import { ExperimentRefRule, FeatureRule } from "../../types/feature";
+import { ApiReqContext } from "../../types/api";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import {
@@ -542,7 +543,7 @@ export async function createSnapshot({
   factTableMap,
 }: {
   experiment: ExperimentInterface;
-  context: ReqContext;
+  context: ReqContext | ApiReqContext;
   user?: EventAuditUser;
   phaseIndex: number;
   useCache?: boolean;
@@ -721,7 +722,7 @@ function getExperimentMetric(
 }
 
 export async function toExperimentApiInterface(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface
 ): Promise<ApiExperiment> {
   let project = null;

@@ -33,6 +33,7 @@ import { EventAuditUser } from "../events/event-types";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { logger } from "../util/logger";
 import { getEnvironmentIdsFromOrg } from "../services/organizations";
+import { ApiReqContext } from "../../types/api";
 import { createEvent } from "./EventModel";
 import {
   addLinkedFeatureToExperiment,
@@ -225,7 +226,7 @@ export async function getFeaturesByIds(
 }
 
 export async function createFeature(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   data: FeatureInterface
 ) {
@@ -261,7 +262,7 @@ export async function createFeature(
 }
 
 export async function deleteFeature(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   feature: FeatureInterface
 ) {
@@ -294,7 +295,7 @@ export async function deleteAllFeaturesForAProject({
   user,
 }: {
   projectId: string;
-  context: ReqContext;
+  context: ReqContext | ApiReqContext;
   user: EventAuditUser;
 }) {
   const featuresToDelete = await FeatureModel.find({
@@ -473,7 +474,7 @@ export async function onFeatureUpdate(
 }
 
 export async function updateFeature(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   feature: FeatureInterface,
   updates: Partial<FeatureInterface>
@@ -551,7 +552,7 @@ export async function getScheduledFeaturesToUpdate() {
 }
 
 export async function archiveFeature(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   feature: FeatureInterface,
   isArchived: boolean
@@ -579,7 +580,7 @@ function setEnvironmentSettings(
 }
 
 export async function toggleMultipleEnvironments(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   feature: FeatureInterface,
   toggles: Record<string, boolean>
@@ -614,7 +615,7 @@ export async function toggleMultipleEnvironments(
 }
 
 export async function toggleFeatureEnvironment(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   feature: FeatureInterface,
   environment: string,
@@ -740,7 +741,7 @@ export async function setDefaultValue(
 }
 
 export async function setJsonSchema(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   feature: FeatureInterface,
   schema: string,
@@ -752,7 +753,7 @@ export async function setJsonSchema(
 }
 
 export async function applyRevisionChanges(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   result: MergeResultChanges,
@@ -803,7 +804,7 @@ export async function applyRevisionChanges(
 }
 
 export async function publishRevision(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   result: MergeResultChanges,
@@ -852,7 +853,7 @@ function getLinkedExperiments(
 }
 
 export async function toggleNeverStale(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   user: EventAuditUser,
   neverStale: boolean

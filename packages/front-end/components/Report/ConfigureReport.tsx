@@ -29,7 +29,9 @@ import { GBCuped, GBSequential } from "@/components/Icons";
 import useApi from "@/hooks/useApi";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { trackReport } from "@/services/track";
-import MetricsSelector from "../Experiment/MetricsSelector";
+import MetricsSelector, {
+  MetricsSelectorTooltip,
+} from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
@@ -172,6 +174,9 @@ export default function ConfigureReport({
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQueryId = form.watch("exposureQueryId");
   const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
+  const userIdType = exposureQueries.find(
+    (e) => e.id === form.getValues("exposureQueryId")
+  )?.userIdType;
 
   return (
     <Modal
@@ -210,10 +215,10 @@ export default function ConfigureReport({
       cta="Save and Run"
     >
       <Field
-        label="Experiment Id"
+        label="Experiment Key"
         labelClassName="font-weight-bold"
         {...form.register("trackingKey")}
-        helpText="Will match against the experiment_id column in your data source"
+        helpText="Will match against the experiment_id column in your experiment assignment table"
       />
       <div className="form-group">
         <label className="font-weight-bold">Variation Ids</label>
@@ -272,11 +277,23 @@ export default function ConfigureReport({
           label="Experiment Assignment Table"
           labelClassName="font-weight-bold"
           {...form.register("exposureQueryId")}
-          options={(datasource?.settings?.queries?.exposure || []).map((e) => ({
+          options={exposureQueries.map((e) => ({
             display: e.name,
             value: e.id,
           }))}
-          helpText="Determines where we pull experiment assignment data from"
+          helpText={
+            <>
+              <div>
+                Should correspond to the Identifier Type used to randomize units
+                for this experiment
+              </div>
+              {userIdType ? (
+                <>
+                  Identifier Type: <code>{userIdType}</code>
+                </>
+              ) : null}
+            </>
+          }
         />
       )}
 
@@ -305,28 +322,35 @@ export default function ConfigureReport({
 
       <div className="form-group">
         <label className="font-weight-bold mb-1">Goal Metrics</label>
-        <div className="mb-1 font-italic">
-          Metrics you are trying to improve with this experiment.
+        <div className="mb-1">
+          <span className="font-italic">
+            Metrics you are trying to improve with this experiment.{" "}
+          </span>
+          <MetricsSelectorTooltip />
         </div>
         <MetricsSelector
           selected={form.watch("metrics")}
           onChange={(metrics) => form.setValue("metrics", metrics)}
           datasource={report.args.datasource}
+          exposureQueryId={exposureQueryId}
           project={project?.id}
           includeFacts={true}
         />
       </div>
       <div className="form-group">
         <label className="font-weight-bold mb-1">Guardrail Metrics</label>
-        <div className="mb-1 font-italic">
-          Metrics you want to monitor, but are NOT specifically trying to
-          improve.
+        <div className="mb-1">
+          <span className="font-italic">
+            Metrics you want to monitor, but are NOT specifically trying to
+            improve.{" "}
+          </span>
+          <MetricsSelectorTooltip />
         </div>
         <MetricsSelector
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string[] | undefined' is not assignable to t... Remove this comment to see the full error message
-          selected={form.watch("guardrails")}
+          selected={form.watch("guardrails") ?? []}
           onChange={(metrics) => form.setValue("guardrails", metrics)}
           datasource={report.args.datasource}
+          exposureQueryId={exposureQueryId}
           project={project?.id}
           includeFacts={true}
         />
@@ -344,8 +368,13 @@ export default function ConfigureReport({
       />
       <MetricSelector
         datasource={form.watch("datasource")}
+        exposureQueryId={exposureQueryId}
         includeFacts={true}
-        label="Activation Metric"
+        label={
+          <>
+            Activation Metric <MetricsSelectorTooltip onlyBinomial={true} />
+          </>
+        }
         labelClassName="font-weight-bold"
         initialOption="None"
         onlyBinomial

@@ -5,6 +5,7 @@ import { getConfigMetrics, usingFileConfig } from "../init/config";
 import { upgradeMetricDoc } from "../util/migrations";
 import { EventAuditUser } from "../events/event-types";
 import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "../../types/api";
 import { queriesSchema } from "./QueryModel";
 import { ImpactEstimateModel } from "./ImpactEstimateModel";
 import { removeMetricFromExperiments } from "./ExperimentModel";
@@ -141,7 +142,7 @@ export async function insertMetrics(
 
 export async function deleteMetricById(
   id: string,
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser
 ) {
   if (usingFileConfig()) {
@@ -179,7 +180,7 @@ export async function deleteAllMetricsForAProject({
   user,
 }: {
   projectId: string;
-  context: ReqContext;
+  context: ReqContext | ApiReqContext;
   user: EventAuditUser;
 }) {
   const metricsToDelete = await MetricModel.find({

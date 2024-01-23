@@ -43,13 +43,23 @@ export interface ErrorResponse {
   error: string;
 }
 
+// req.user is not always guaranteed within API requests
+export type ApiReqContext = Omit<
+  ReqContext,
+  "userName" | "userId" | "email"
+> & {
+  userId?: string;
+  email?: string;
+  userName?: string;
+};
+
 export type ApiRequestLocals = PermissionFunctions & {
   apiKey: string;
   user?: UserInterface;
   organization: OrganizationInterface;
   eventAudit: EventAuditUser;
   audit: (data: Partial<AuditInterface>) => Promise<void>;
-  context: ReqContext;
+  context: ApiReqContext;
 };
 
 export interface ApiErrorResponse {

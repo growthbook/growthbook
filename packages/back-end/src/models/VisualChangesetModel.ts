@@ -14,6 +14,7 @@ import {
 import { EventAuditUser } from "../events/event-types";
 import { refreshSDKPayloadCache } from "../services/features";
 import { visualChangesetsHaveChanges } from "../services/experiments";
+import { ApiReqContext } from "../../types/api";
 import {
   getExperimentById,
   getPayloadKeys,
@@ -259,7 +260,7 @@ export const createVisualChangeset = async ({
   user,
 }: {
   experiment: ExperimentInterface;
-  context: ReqContext;
+  context: ReqContext | ApiReqContext;
   urlPatterns: VisualChangesetURLPattern[];
   editorUrl: VisualChangesetInterface["editorUrl"];
   visualChanges?: VisualChange[];
@@ -315,7 +316,7 @@ export const updateVisualChangeset = async ({
 }: {
   visualChangeset: VisualChangesetInterface;
   experiment: ExperimentInterface | null;
-  context: ReqContext;
+  context: ReqContext | ApiReqContext;
   updates: Partial<VisualChangesetInterface>;
   bypassWebhooks?: boolean;
   user: EventAuditUser;
@@ -444,7 +445,7 @@ export const syncVisualChangesWithVariations = async ({
   user,
 }: {
   experiment: ExperimentInterface;
-  context: ReqContext;
+  context: ReqContext | ApiReqContext;
   visualChangeset: VisualChangesetInterface;
   user: EventAuditUser;
 }) => {
@@ -475,7 +476,7 @@ export const deleteVisualChangesetById = async ({
 }: {
   visualChangeset: VisualChangesetInterface;
   experiment: ExperimentInterface | null;
-  context: ReqContext;
+  context: ReqContext | ApiReqContext;
   user: EventAuditUser;
 }) => {
   await VisualChangesetModel.deleteOne({
