@@ -49,7 +49,6 @@ export function getParsedCondition(
   condition?: string,
   savedGroups?: SavedGroupTargeting[]
 ) {
-  // todo: handle prerequisites, allow empty conditions if prereq
   const conditions: ConditionInterface[] = [];
   if (condition && condition !== "{}") {
     try {

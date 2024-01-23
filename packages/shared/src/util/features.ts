@@ -491,13 +491,11 @@ export function isFeatureCyclic(
     stack.add(feature.id);
     visited.add(feature.id);
 
-    const prerequisiteIds = (feature.prerequisites || []).map(
-      (p) => p.parentId
-    );
+    const prerequisiteIds = (feature.prerequisites || []).map((p) => p.id);
     for (const env of Object.values(feature.environmentSettings || {})) {
       for (const rule of env.rules || []) {
         if (rule.prerequisites?.length) {
-          const rulePrerequisiteIds = rule.prerequisites.map((p) => p.parentId);
+          const rulePrerequisiteIds = rule.prerequisites.map((p) => p.id);
           prerequisiteIds.push(...rulePrerequisiteIds);
         }
       }
