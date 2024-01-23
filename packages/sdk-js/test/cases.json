@@ -3301,8 +3301,13 @@
             "defaultValue": "default",
             "rules": [
               {
-                "parent": "parentFlag",
-                "parentCondition": { "@parent": "green" }
+                "parentConditions": [
+                  {
+                    "id": "parentFlag",
+                    "condition": { "@parent": "green" },
+                    "gate": true
+                  }
+                ]
               },
               {
                 "condition": { "memberType": "basic" },
@@ -3314,9 +3319,9 @@
       },
       "childFlag",
       {
-        "value": "default",
-        "on": true,
-        "off": false,
+        "value": null,
+        "on": false,
+        "off": true,
         "source": "prerequisite"
       }
     ],
@@ -3333,8 +3338,13 @@
             "defaultValue": "default",
             "rules": [
               {
-                "parent": "parentFlag",
-                "parentCondition": { "@parent": "green" }
+                "parentConditions": [
+                  {
+                    "id": "parentFlag",
+                    "condition": { "@parent": "green" },
+                    "gate": true
+                  }
+                ]
               },
               {
                 "condition": { "memberType": "basic" },
@@ -3378,8 +3388,13 @@
             "defaultValue": "default",
             "rules": [
               {
-                "parent": "parentFlag",
-                "parentCondition": { "@parent": "green" }
+                "parentConditions": [
+                  {
+                    "id": "parentFlag",
+                    "condition": { "@parent": "green" },
+                    "gate": true
+                  }
+                ]
               },
               {
                 "condition": { "memberType": "basic" },
@@ -3432,12 +3447,22 @@
             "defaultValue": "default",
             "rules": [
               {
-                "parent": "parentFlag1",
-                "parentCondition": { "@parent": "green" }
+                "parentConditions": [
+                  {
+                    "id": "parentFlag1",
+                    "condition": { "@parent": "green" },
+                    "gate": true
+                  }
+                ]
               },
               {
-                "parent": "parentFlag2",
-                "parentCondition": { "@parent": { "$gt": 1 } }
+                "parentConditions": [
+                  {
+                    "id": "parentFlag2",
+                    "condition": { "@parent": { "$gt": 1 } },
+                    "gate": true
+                  }
+                ]
               },
               {
                 "condition": { "memberType": "basic" },
@@ -3468,8 +3493,13 @@
             "defaultValue": "silver",
             "rules": [
               {
-                "parent": "parentFlag2",
-                "parentCondition": { "@parent": { "$gt": 1 } }
+                "parentConditions": [
+                  {
+                    "id": "parentFlag2",
+                    "condition": { "@parent": { "$gt": 1 } },
+                    "gate": true
+                  }
+                ]
               },
               {
                 "condition": { "country": "Canada" },
@@ -3494,8 +3524,13 @@
             "defaultValue": "default",
             "rules": [
               {
-                "parent": "parentFlag1",
-                "parentCondition": { "@parent": "green" }
+                "parentConditions": [
+                  {
+                    "id": "parentFlag1",
+                    "condition": { "@parent": "green" },
+                    "gate": true
+                  }
+                ]
               },
               {
                 "condition": { "memberType": "basic" },
@@ -3541,8 +3576,13 @@
             "defaultValue": "default",
             "rules": [
               {
-                "parent": "parentExperimentFlag",
-                "parentCondition": { "@parent": 1 }
+                "parentConditions": [
+                  {
+                    "id": "parentExperimentFlag",
+                    "condition": { "@parent": 1 },
+                    "gate": true
+                  }
+                ]
               },
               {
                 "condition": { "memberType": "basic" },

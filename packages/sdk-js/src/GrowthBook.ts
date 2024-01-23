@@ -651,28 +651,39 @@ export class GrowthBook<
 
     // Loop through the rules
     if (feature.rules) {
+      console.log("rules", feature.rules);
       rules: for (const rule of feature.rules) {
         // There are prerequisite flag(s), evaluate them
         if (rule.parentConditions) {
           for (const parentCondition of rule.parentConditions) {
-            const parentResult = this.evalFeature(
-              parentCondition.parent,
-              evalCtx
-            );
-            if (parentResult.off) {
-              process.env.NODE_ENV !== "production" &&
-                this.log("Skip rule because prerequisite is off", {
-                  id,
-                  rule,
-                });
-              continue rules;
-            }
+            const parentResult = this.evalFeature(parentCondition.id, evalCtx);
+            console.log("eval", parentCondition, parentResult);
+
             const parentValue = parentResult.value;
             const evalObj =
               ["object"].includes(typeof parentValue) && parentValue !== null
                 ? parentValue
                 : { "@parent": parentResult.value };
-            if (!evalCondition(evalObj, parentCondition.condition || {})) {
+            const evaled = evalCondition(
+              evalObj,
+              parentCondition.condition || {}
+            );
+            console.log({
+              evalObj,
+              cond: parentCondition.condition || {},
+              evaled,
+            });
+            if (parentCondition.gate && !evaled) {
+              console.log("failed gate");
+              process.env.NODE_ENV !== "production" &&
+                this.log("Feature blocked by prerequisite", {
+                  id,
+                  rule,
+                });
+              return this._getFeatureResult(id, null, "prerequisite");
+            }
+            if (!evaled) {
+              console.log("fail");
               process.env.NODE_ENV !== "production" &&
                 this.log("Skip rule because prerequisite evaluation fails", {
                   id,

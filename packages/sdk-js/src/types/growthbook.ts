@@ -16,8 +16,9 @@ export type VariationMeta = {
 };
 
 export type ParentConditionsInterface = {
-  parent: string;
+  id: string;
   condition: ConditionInterface;
+  gate?: boolean;
 };
 
 export type FeatureRule<T = any> = {

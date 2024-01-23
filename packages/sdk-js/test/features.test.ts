@@ -561,11 +561,11 @@ describe("features", () => {
               // Bailout (fail) if the parent flag value is not "green"
               parentConditions: [
                 {
-                  parent: "parentFlag",
-                  condition: { "@parent": { $ne: "green" } },
+                  id: "parentFlag",
+                  condition: { "@parent": "green" },
+                  gate: true,
                 },
               ],
-              force: null,
             },
             {
               condition: { memberType: "basic" },
@@ -573,8 +573,26 @@ describe("features", () => {
             },
           ],
         },
+        childFlagWithMissingPrereq: {
+          defaultValue: "default",
+          rules: [
+            {
+              // Bailout (fail) if the parent flag value is not "green"
+              parentConditions: [
+                {
+                  id: "missingParentFlag",
+                  condition: { "@parent": "green" },
+                  gate: true,
+                },
+              ],
+            },
+          ],
+        },
       },
     });
+
+    const missingResult = growthbook.evalFeature("childFlagWithMissingPrereq");
+    expect(missingResult.value).toEqual(null);
 
     const result1 = growthbook.evalFeature("childFlag");
     expect(result1.value).toEqual("success");
@@ -589,6 +607,70 @@ describe("features", () => {
     expect(result2.value).toEqual(null);
 
     growthbook.destroy();
+  });
+
+  it("prereq flag off", async () => {
+    const growthbook = new GrowthBook({
+      attributes: {
+        id: "123",
+        memberType: "basic",
+        country: "USA",
+      },
+      features: {
+        parentFlag1: {
+          defaultValue: "silver",
+          rules: [
+            {
+              condition: { country: "Canada" },
+              force: "red",
+            },
+            {
+              condition: { country: { $in: ["USA", "Mexico"] } },
+              force: "green",
+            },
+          ],
+        },
+        parentFlag2: {
+          defaultValue: 0,
+          rules: [
+            {
+              condition: { id: "123" },
+              force: 2,
+            },
+          ],
+        },
+        childFlag: {
+          defaultValue: "default",
+          rules: [
+            {
+              parentConditions: [
+                {
+                  id: "parentFlag1",
+                  condition: { "@parent": "green" },
+                  gate: true,
+                },
+              ],
+            },
+            {
+              parentConditions: [
+                {
+                  id: "parentFlag2",
+                  condition: { "@parent": { $gt: 1 } },
+                  gate: true,
+                },
+              ],
+            },
+            {
+              condition: { memberType: "basic" },
+              force: "success",
+            },
+          ],
+        },
+      },
+    });
+
+    const result1 = growthbook.evalFeature("childFlag");
+    expect(result1.value).toEqual("success");
   });
 
   it("gates flag rule evaluation on prerequisite experiment flag", async () => {
@@ -621,11 +703,11 @@ describe("features", () => {
               // Bailout (fail) if the parent flag value is not 1
               parentConditions: [
                 {
-                  parent: "parentExperimentFlag",
-                  condition: { "@parent": { $ne: 1 } },
+                  id: "parentExperimentFlag",
+                  condition: { "@parent": 1 },
+                  gate: true,
                 },
               ],
-              force: "null",
             },
             {
               condition: { memberType: "basic" },
@@ -671,7 +753,7 @@ describe("features", () => {
               // Only apply force rule if parentConditions pass
               parentConditions: [
                 {
-                  parent: "parentFlag",
+                  id: "parentFlag",
                   condition: { "@parent": "green" },
                 },
               ],
@@ -741,7 +823,7 @@ describe("features", () => {
               // Only apply force rule if parentConditions pass
               parentConditions: [
                 {
-                  parent: "parentFlag",
+                  id: "parentFlag",
                   condition: { "bar.color": "green" },
                 },
               ],
@@ -760,8 +842,8 @@ describe("features", () => {
               // Only apply force rule if parentConditions pass
               parentConditions: [
                 {
-                  parent: "parentFlag",
-                  condition: { "@parent": { $exists: true } },
+                  id: "parentFlag",
+                  condition: { $not: { "@parent": { $exists: true } } },
                 },
               ],
               force: "dark mode",
@@ -808,8 +890,8 @@ describe("features", () => {
             {
               parentConditions: [
                 {
-                  parent: "childFlag",
-                  condition: { "@parent": { $ne: "success" } },
+                  id: "childFlag",
+                  condition: { $not: { "@parent": "success" } },
                 },
               ],
               force: null,
@@ -830,8 +912,8 @@ describe("features", () => {
             {
               parentConditions: [
                 {
-                  parent: "parentFlag",
-                  condition: { "@parent": { $ne: "green" } },
+                  id: "parentFlag",
+                  condition: { $not: { "@parent": "green" } },
                 },
               ],
               force: null,
