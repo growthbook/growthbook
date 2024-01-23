@@ -124,20 +124,15 @@ const normalizeInputSettings = (
 
   for (const key in baseSettings) {
     scopedSettings[key as keyof Settings] = {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error - todo: we need to figure out how to resolve the type
       value:
         inputSettings[key as keyof Settings] ??
         baseSettings[key as keyof Settings],
       meta: {
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-expect-error
         reason: "org-level setting applied",
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-expect-error
         scopeApplied: "organization",
       },
-    };
+      // eslint-disable-next-line
+    } as any;
   }
 
   return scopedSettings;

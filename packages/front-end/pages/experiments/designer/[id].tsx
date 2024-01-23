@@ -918,6 +918,8 @@ const EditorPage: FC = () => {
                       .getVideoTracks()[0]
                       .getSettings();
 
+                    // eslint-disable-next-line
+                    // @ts-expect-error
                     setStream({
                       ...stream,
                       stream: captureStream,

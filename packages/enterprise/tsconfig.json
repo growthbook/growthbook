@@ -12,6 +12,7 @@
     "strictNullChecks": true,
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,
+    "incremental": true,
     "rootDir": "src"
   },
   "include": ["src/**/*"]

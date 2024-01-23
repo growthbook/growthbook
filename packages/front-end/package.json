@@ -91,7 +91,7 @@
     "@types/diff": "^5.0.1",
     "@types/lodash": "^4.14.155",
     "@types/md5": "^2.2.0",
-    "@types/node": "^16.11.65",
+    "@types/node": "^16.18.74",
     "@types/prismjs": "^1.26.0",
     "@types/react": "^18.0.15",
     "@types/react-dom": "^18.0.6",
@@ -104,7 +104,7 @@
     "identity-obj-proxy": "^3.0.0",
     "jest": "^27.1.1",
     "sass": "^1.55.0",
-    "typescript": "4.7.4"
+    "typescript": "5.3.3"
   },
   "optionalDependencies": {
     "@babel/core": "^7.19.6",
