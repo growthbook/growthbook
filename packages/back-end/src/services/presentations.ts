@@ -10,6 +10,7 @@ import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
 import { AuthRequest } from "../types/AuthRequest";
 import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "../../types/api";
 import { userHasAccess } from "./organizations";
 
 //import {query} from "../config/postgres";
@@ -27,7 +28,7 @@ export function getPresentationById(id: string) {
 }
 
 export async function getPresentationSnapshots(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   expIds: string[],
   req: AuthRequest
 ) {

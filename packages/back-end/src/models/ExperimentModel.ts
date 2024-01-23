@@ -43,7 +43,7 @@ import { getFeaturesByIds } from "./FeatureModel";
 
 type FindOrganizationOptions = {
   experimentId: string;
-  context: ReqContext;
+  context: ReqContext | ApiReqContext;
 };
 
 type FilterKeys = ExperimentInterface & { _id: string };
@@ -204,7 +204,7 @@ const toInterface = (doc: ExperimentDocument): ExperimentInterface => {
 };
 
 async function findExperiments(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   query: FilterQuery<ExperimentDocument>,
   limit?: number,
   sortBy?: SortFilter
@@ -226,7 +226,7 @@ async function findExperiments(
 }
 
 export async function getExperimentById(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   id: string
 ): Promise<ExperimentInterface | null> {
   const doc = await ExperimentModel.findOne({
@@ -244,7 +244,7 @@ export async function getExperimentById(
 }
 
 export async function getAllExperiments(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   project?: string
 ): Promise<ExperimentInterface[]> {
   const query: FilterQuery<ExperimentDocument> = {
@@ -259,7 +259,7 @@ export async function getAllExperiments(
 }
 
 export async function getExperimentByTrackingKey(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   trackingKey: string
 ): Promise<ExperimentInterface | null> {
   const doc = await ExperimentModel.findOne({
@@ -277,7 +277,7 @@ export async function getExperimentByTrackingKey(
 }
 
 export async function getExperimentsByIds(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   ids: string[]
 ): Promise<ExperimentInterface[]> {
   if (!ids.length) return [];
@@ -288,7 +288,7 @@ export async function getExperimentsByIds(
 }
 
 export async function getExperimentsByTrackingKeys(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   trackingKeys: string[]
 ): Promise<ExperimentInterface[]> {
   return await findExperiments(context, {
@@ -400,7 +400,7 @@ export async function updateExperiment({
 }
 
 export async function getExperimentsByMetric(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   metricId: string
 ): Promise<{ id: string; name: string }[]> {
   const experiments: {
@@ -452,7 +452,7 @@ export async function getExperimentsByMetric(
 }
 
 export async function getExperimentByIdea(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   idea: IdeaDocument
 ): Promise<ExperimentInterface | null> {
   const doc = await ExperimentModel.findOne({
@@ -539,7 +539,7 @@ export async function getExperimentsToUpdateLegacy(
 }
 
 export async function getPastExperimentsByDatasource(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   datasource: string
 ): Promise<Pick<ExperimentInterface, "id" | "trackingKey">[]> {
   const experiments = await ExperimentModel.find(
@@ -565,7 +565,7 @@ export async function getPastExperimentsByDatasource(
 }
 
 export async function getRecentExperimentsUsingMetric(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   metricId: string
 ): Promise<
   Pick<
@@ -634,7 +634,7 @@ export async function deleteExperimentSegment(
 }
 
 export async function getExperimentsForActivityFeed(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   ids: string[]
 ): Promise<Pick<ExperimentInterface, "id" | "name">[]> {
   const experiments = await ExperimentModel.find(
@@ -1041,7 +1041,7 @@ function logAllChanges(
 
 export async function getExperimentsUsingSegment(
   id: string,
-  context: ReqContext
+  context: ReqContext | ApiReqContext
 ) {
   return await findExperiments(context, {
     organization: context.org.id,
@@ -1083,7 +1083,7 @@ const _isValidVisualExperiment = (
 ): e is VisualExperiment => !!e.experiment && !!e.visualChangeset;
 
 export async function getExperimentMapForFeature(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   featureId: string
 ): Promise<Map<string, ExperimentInterface>> {
   const experiments = await findExperiments(context, {
@@ -1100,7 +1100,7 @@ export async function getExperimentMapForFeature(
 }
 
 export async function getAllPayloadExperiments(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   project?: string
 ): Promise<Map<string, ExperimentInterface>> {
   const experiments = await findExperiments(context, {

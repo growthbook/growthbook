@@ -93,6 +93,7 @@ import {
 import { ReqContext } from "../../types/organization";
 import { ExperimentInterface } from "../../types/experiment";
 import { findOrganizationById } from "../models/OrganizationModel";
+import { ApiReqContext } from "../../types/api";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -987,7 +988,7 @@ export async function postFeatureExperimentRefRule(
 }
 
 async function getDraftRevision(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   version: number,
   user: EventAuditUser

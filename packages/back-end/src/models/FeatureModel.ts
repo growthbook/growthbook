@@ -158,7 +158,7 @@ const _undefinedTypeGuard = (x: string[] | undefined): x is string[] =>
   typeof x !== "undefined";
 
 export async function getAllFeaturesWithLinkedExperiments(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   project?: string
 ): Promise<{
   features: FeatureInterface[];
@@ -317,7 +317,7 @@ export async function deleteAllFeaturesForAProject({
  * @param current
  */
 async function logFeatureUpdatedEvent(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   previous: FeatureInterface,
   current: FeatureInterface
@@ -359,7 +359,7 @@ async function logFeatureUpdatedEvent(
  * @returns event.id
  */
 async function logFeatureCreatedEvent(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   feature: FeatureInterface
 ): Promise<string | undefined> {
@@ -393,7 +393,7 @@ async function logFeatureCreatedEvent(
  * @param previousFeature
  */
 async function logFeatureDeletedEvent(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   previousFeature: FeatureInterface
 ): Promise<string | undefined> {
@@ -425,7 +425,7 @@ async function logFeatureDeletedEvent(
 }
 
 async function onFeatureCreate(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   feature: FeatureInterface
 ) {
@@ -438,7 +438,7 @@ async function onFeatureCreate(
 }
 
 async function onFeatureDelete(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   feature: FeatureInterface
 ) {
@@ -451,7 +451,7 @@ async function onFeatureDelete(
 }
 
 export async function onFeatureUpdate(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   feature: FeatureInterface,
   updatedFeature: FeatureInterface,
@@ -678,7 +678,7 @@ export async function editFeatureRule(
 }
 
 export async function removeTagInFeature(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   tag: string
 ) {
@@ -703,7 +703,7 @@ export async function removeTagInFeature(
 
 export async function removeProjectFromFeatures(
   project: string,
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser
 ) {
   const query = { organization: context.org.id, project };

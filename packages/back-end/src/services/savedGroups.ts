@@ -7,10 +7,14 @@ import {
 import { getAllFeatures } from "../models/FeatureModel";
 import { getAffectedSDKPayloadKeys } from "../util/features";
 import { SDKPayloadKey } from "../../types/sdk-payload";
+import { ApiReqContext } from "../../types/api";
 import { refreshSDKPayloadCache } from "./features";
 import { getEnvironmentIdsFromOrg } from "./organizations";
 
-export async function savedGroupUpdated(context: ReqContext, id: string) {
+export async function savedGroupUpdated(
+  context: ReqContext | ApiReqContext,
+  id: string
+) {
   // Use a map to build a list of unique SDK payload keys
   const payloadKeys: Map<string, SDKPayloadKey> = new Map();
   const addKeys = (keys: SDKPayloadKey[]) =>

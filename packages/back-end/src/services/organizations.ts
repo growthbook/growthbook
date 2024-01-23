@@ -25,7 +25,7 @@ import {
   ProjectMemberRole,
   ReqContext,
 } from "../../types/organization";
-import { ExperimentOverride } from "../../types/api";
+import { ApiReqContext, ExperimentOverride } from "../../types/api";
 import { ConfigFile } from "../init/config";
 import {
   createDataSource,
@@ -793,7 +793,7 @@ export async function getEmailFromUserId(userId: string) {
 }
 
 export async function getExperimentOverrides(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   project?: string
 ) {
   const experiments = await getAllExperiments(context, project);

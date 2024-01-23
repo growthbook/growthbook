@@ -3,6 +3,7 @@ import uniqid from "uniqid";
 import omit from "lodash/omit";
 import { ReportInterface } from "../../types/report";
 import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "../../types/api";
 import { getAllExperiments } from "./ExperimentModel";
 import { queriesSchema } from "./QueryModel";
 
@@ -65,7 +66,7 @@ export async function getReportById(
 }
 
 export async function getReportsByOrg(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   project: string
 ): Promise<ReportInterface[]> {
   let reports = (

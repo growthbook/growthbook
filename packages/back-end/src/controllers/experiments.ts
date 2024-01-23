@@ -82,7 +82,7 @@ import {
   ExperimentSnapshotInterface,
 } from "../../types/experiment-snapshot";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
-import { PrivateApiErrorResponse } from "../../types/api";
+import { ApiReqContext, PrivateApiErrorResponse } from "../../types/api";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
 import {
   findAllProjectsByOrganization,
@@ -292,7 +292,7 @@ export async function getExperiment(
 }
 
 async function _getSnapshot(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   id: string,
   phase?: string,
   dimension?: string,

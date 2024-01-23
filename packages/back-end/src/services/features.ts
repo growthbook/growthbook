@@ -12,6 +12,7 @@ import {
 import { validateCondition, validateFeatureValue } from "shared/util";
 import { scrubFeatures, SDKCapability } from "shared/sdk-versioning";
 import {
+  ApiReqContext,
   AutoExperimentWithProject,
   FeatureDefinition,
   FeatureDefinitionWithProject,
@@ -214,7 +215,7 @@ export async function getSavedGroupMap(
 }
 
 export async function refreshSDKPayloadCache(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[],
   allFeatures: FeatureInterface[] | null = null,
   experimentMap?: Map<string, ExperimentInterface>,
@@ -425,7 +426,7 @@ async function getFeatureDefinitionsResponse({
 }
 
 export type FeatureDefinitionArgs = {
-  context: ReqContext;
+  context: ReqContext | ApiReqContext;
   capabilities: SDKCapability[];
   environment?: string;
   projects?: string[];

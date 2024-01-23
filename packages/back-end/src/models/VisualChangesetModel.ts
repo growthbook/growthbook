@@ -374,7 +374,7 @@ const onVisualChangesetCreate = async ({
   visualChangeset,
   experiment,
 }: {
-  context: ReqContext;
+  context: ReqContext | ApiReqContext;
   visualChangeset: VisualChangesetInterface;
   experiment: ExperimentInterface;
 }) => {
@@ -391,7 +391,7 @@ const onVisualChangesetUpdate = async ({
   newVisualChangeset,
   bypassWebhooks = false,
 }: {
-  context: ReqContext;
+  context: ReqContext | ApiReqContext;
   oldVisualChangeset: VisualChangesetInterface;
   newVisualChangeset: VisualChangesetInterface;
   bypassWebhooks?: boolean;
@@ -417,7 +417,7 @@ const onVisualChangesetDelete = async ({
   context,
   visualChangeset,
 }: {
-  context: ReqContext;
+  context: ReqContext | ApiReqContext;
   visualChangeset: VisualChangesetInterface;
 }) => {
   // if there were no visual changes before deleting, return early
