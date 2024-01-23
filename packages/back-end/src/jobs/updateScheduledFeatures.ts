@@ -88,7 +88,7 @@ async function updateSingleFeature(job: UpdateSingleFeatureJob) {
     // Recalculate the feature's new nextScheduledUpdate
     const nextScheduledUpdate = getNextScheduledUpdate(
       feature.environmentSettings || {},
-      getEnvironmentIdsFromOrg(org)
+      context.environments
     );
 
     // Update the feature in Mongo
