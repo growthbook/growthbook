@@ -108,7 +108,7 @@ export default function SDKConnectionsList() {
                     </Tooltip>
                   </td>
                   <td className="text-break">
-                    <Link href={`/sdks/${connection.id}`}>
+                    <Link href={`/sdks/${connection.id}`} legacyBehavior>
                       {connection.name}
                     </Link>
                   </td>

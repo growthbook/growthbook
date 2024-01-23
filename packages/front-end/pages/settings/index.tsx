@@ -669,10 +669,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 Import your data from another feature flag and/or
                 experimentation service.
               </p>
-              <Link href="/importing">
-                <a className="btn btn-primary">
-                  <FaUpload /> Import from another service
-                </a>
+              <Link href="/importing" className="btn btn-primary">
+                <FaUpload />
+                Import from another service
               </Link>
             </div>
           )}
@@ -719,7 +718,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 <div className="form-inline flex-column align-items-start mb-3">
                   <Field
                     label="Minimum experiment length (in days) when importing past
-                  experiments"
+                experiments"
                     type="number"
                     className="ml-2"
                     containerClassName="mb-3"

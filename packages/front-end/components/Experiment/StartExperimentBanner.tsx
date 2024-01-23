@@ -196,12 +196,10 @@ export function StartExperimentBanner({
     display: "Integrate the GrowthBook SDK into your app.",
     action: (
       <Link href="/sdks">
-        <a>
-          {connections.length > 0
-            ? "Manage SDK Connections"
-            : "Create an SDK Connection"}{" "}
-          <FaExternalLinkAlt />
-        </a>
+        {connections.length > 0
+          ? "Manage SDK Connections"
+          : "Create an SDK Connection"}{" "}
+        <FaExternalLinkAlt />
       </Link>
     ),
     status: verifiedConnections.length > 0 ? "success" : "error",

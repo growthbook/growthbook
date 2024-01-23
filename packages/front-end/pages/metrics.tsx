@@ -388,14 +388,13 @@ const MetricsPage = (): React.ReactElement => {
               className={metric.archived ? "text-muted" : ""}
             >
               <td>
-                <Link href={getMetricLink(metric.id)}>
-                  <a
-                    className={`${
-                      metric.archived ? "text-muted" : "text-dark"
-                    } font-weight-bold`}
-                  >
-                    {metric.name}
-                  </a>
+                <Link
+                  href={getMetricLink(metric.id)}
+                  className={`${
+                    metric.archived ? "text-muted" : "text-dark"
+                  } font-weight-bold`}
+                >
+                  {metric.name}
                 </Link>
                 <FactBadge metricId={metric.id} />
               </td>

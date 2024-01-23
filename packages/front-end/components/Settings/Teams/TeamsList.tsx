@@ -56,8 +56,11 @@ const TeamsList: FC = () => {
                   >
                     <td>
                       {
-                        <Link href={`/settings/team/${t.id}`}>
-                          <a className="font-weight-bold">{t.name}</a>
+                        <Link
+                          href={`/settings/team/${t.id}`}
+                          className="font-weight-bold"
+                        >
+                          {t.name}
                         </Link>
                       }
                     </td>

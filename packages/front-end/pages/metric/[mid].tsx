@@ -209,9 +209,7 @@ const MetricPage: FC = () => {
             res.experiments.forEach((e) => {
               experimentLinks.push(
                 // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
-                <Link href={`/experiment/${e.id}`}>
-                  <a>{e.name}</a>
-                </Link>
+                <Link href={`/experiment/${e.id}`}>{e.name}</Link>
               );
             });
           }
@@ -225,9 +223,7 @@ const MetricPage: FC = () => {
             res.ideas.forEach((i) => {
               ideaLinks.push(
                 // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
-                <Link href={`/idea/${i.id}`}>
-                  <a>{i.text}</a>
-                </Link>
+                <Link href={`/idea/${i.id}`}>{i.text}</Link>
               );
             });
           }
@@ -883,19 +879,21 @@ const MetricPage: FC = () => {
               <p>The most recent 10 experiments using this metric.</p>
               <div className="list-group">
                 {experiments.map((e) => (
-                  <Link href={`/experiment/${e.id}`} key={e.id}>
-                    <a className="list-group-item list-group-item-action">
-                      <div className="d-flex">
-                        <strong className="mr-3">{e.name}</strong>
-                        <div style={{ flex: 1 }} />
-                        {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ExperimentStatus | undefined' is not assigna... Remove this comment to see the full error message */}
-                        <StatusIndicator archived={false} status={e.status} />
-                        <FaChevronRight
-                          className="ml-3"
-                          style={{ fontSize: "1.5em" }}
-                        />
-                      </div>
-                    </a>
+                  <Link
+                    href={`/experiment/${e.id}`}
+                    key={e.id}
+                    className="list-group-item list-group-item-action"
+                  >
+                    <div className="d-flex">
+                      <strong className="mr-3">{e.name}</strong>
+                      <div style={{ flex: 1 }} />
+                      {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ExperimentStatus | undefined' is not assigna... Remove this comment to see the full error message */}
+                      <StatusIndicator archived={false} status={e.status} />
+                      <FaChevronRight
+                        className="ml-3"
+                        style={{ fontSize: "1.5em" }}
+                      />
+                    </div>
                   </Link>
                 ))}
               </div>
@@ -938,7 +936,10 @@ const MetricPage: FC = () => {
                 >
                   <div className="d-inline-block" style={{ maxWidth: 280 }}>
                     <div>
-                      <Link href={`/datasources/${datasource?.id}`}>
+                      <Link
+                        href={`/datasources/${datasource?.id}`}
+                        legacyBehavior
+                      >
                         {datasource.name}
                       </Link>
                     </div>
@@ -1037,7 +1038,10 @@ const MetricPage: FC = () => {
                       <RightRailSectionGroup title="Denominator" type="custom">
                         <strong>
                           {metric.denominator ? (
-                            <Link href={`/metric/${metric.denominator}`}>
+                            <Link
+                              href={`/metric/${metric.denominator}`}
+                              legacyBehavior
+                            >
                               {getMetricById(metric.denominator)?.name ||
                                 "Unknown"}
                             </Link>

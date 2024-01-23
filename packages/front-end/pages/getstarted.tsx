@@ -106,10 +106,13 @@ const GetStartedPage = (): React.ReactElement => {
               }
               popperClassName="mt-3"
             >
-              <Link href="/features?getstarted">
-                <a className="btn btn-primary btn-lg mx-3">
-                  <BsFlag /> Feature Flags <FiArrowRight />
-                </a>
+              <Link
+                href="/features?getstarted"
+                className="btn btn-primary btn-lg mx-3"
+              >
+                <BsFlag />
+                Feature Flags
+                <FiArrowRight />
               </Link>
             </Tooltip>
             <Tooltip
@@ -122,10 +125,13 @@ const GetStartedPage = (): React.ReactElement => {
               }
               popperClassName="mt-3"
             >
-              <Link href="/experiments?getstarted">
-                <a className="btn btn-primary btn-lg mx-3">
-                  <GBExperiment /> Experimentation <FiArrowRight />
-                </a>
+              <Link
+                href="/experiments?getstarted"
+                className="btn btn-primary btn-lg mx-3"
+              >
+                <GBExperiment />
+                Experimentation
+                <FiArrowRight />
               </Link>
             </Tooltip>
           </div>

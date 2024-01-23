@@ -451,7 +451,7 @@ const NewDataSourceForm: FC<{
               </div>
             </div>
             {showImportSampleData && (
-              <Link href="/demo-datasource-project">
+              <Link href="/demo-datasource-project" legacyBehavior>
                 <div className={styles.ctaContainer}>
                   <div className={styles.ctaButton}>
                     <a>

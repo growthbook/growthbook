@@ -124,10 +124,12 @@ export default function FactMetricList({ factTable }: Props) {
                   }}
                 >
                   <td>
-                    <Link href={`/fact-metrics/${metric.id}`}>
-                      <a className="font-weight-bold" title="View Metric">
-                        {metric.name} <FaExternalLinkAlt />
-                      </a>
+                    <Link
+                      href={`/fact-metrics/${metric.id}`}
+                      className="font-weight-bold"
+                      title="View Metric"
+                    >
+                      {metric.name} <FaExternalLinkAlt />
                     </Link>
                   </td>
                   <td>{metric.metricType}</td>

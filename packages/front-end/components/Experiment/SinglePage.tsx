@@ -129,13 +129,11 @@ function drawMetricRow(
         <div className="row">
           <div className="col-auto pr-0">-</div>
           <div className="col">
-            <Link href={getMetricLink(m)}>
-              <a className="font-weight-bold">
-                {newMetric?.name}
-                {isArchived ? (
-                  <span className="text-muted small"> (archived)</span>
-                ) : null}
-              </a>
+            <Link href={getMetricLink(m)} className="font-weight-bold">
+              {newMetric?.name}
+              {isArchived ? (
+                <span className="text-muted small"> (archived)</span>
+              ) : null}
             </Link>
           </div>
         </div>
@@ -436,9 +434,8 @@ export default function SinglePage({
                   : ""
               }`}
             >
-              <a>
-                <GBCircleArrowLeft /> Back to all experiments
-              </a>
+              <GBCircleArrowLeft />
+              Back to all experiments
             </Link>
           </div>
         </div>
@@ -710,9 +707,7 @@ export default function SinglePage({
               <div>Linked features</div>
               <div>
                 <Link href={`/features/${linkedFeatures[0].feature.id}`}>
-                  <a>
-                    <BsFlag /> {linkedFeatures[0].feature.id}
-                  </a>
+                  <BsFlag /> {linkedFeatures[0].feature.id}
                 </Link>
                 {linkedFeatures.length > 1
                   ? ` + ${linkedFeatures.length - 1} more`
@@ -909,20 +904,19 @@ export default function SinglePage({
                   </div>
                 </div>
                 <div>
-                  <Link href={`/idea/${idea.id}`}>
-                    <a
-                      style={{
-                        maxWidth: 200,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        display: "inline-block",
-                        whiteSpace: "nowrap",
-                        verticalAlign: "middle",
-                      }}
-                      title={idea.text}
-                    >
-                      <FaExternalLinkAlt /> {idea.text}
-                    </a>
+                  <Link
+                    href={`/idea/${idea.id}`}
+                    style={{
+                      maxWidth: 200,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      display: "inline-block",
+                      whiteSpace: "nowrap",
+                      verticalAlign: "middle",
+                    }}
+                    title={idea.text}
+                  >
+                    <FaExternalLinkAlt /> {idea.text}
                   </Link>
                 </div>
               </div>
@@ -1139,8 +1133,8 @@ export default function SinglePage({
                   and stats engine to automatically analyze your experiment
                   results.
                 </p>
-                <Link href="/datasources">
-                  <a className="btn btn-primary">Connect to your Data</a>
+                <Link href="/datasources" className="btn btn-primary">
+                  Connect to your Data
                 </Link>
               </>
             )}
@@ -1218,7 +1212,10 @@ export default function SinglePage({
                 >
                   {datasource && (
                     <Tooltip body={datasource?.description || ""}>
-                      <Link href={`/datasources/${datasource?.id}`}>
+                      <Link
+                        href={`/datasources/${datasource?.id}`}
+                        legacyBehavior
+                      >
                         {datasource?.name}
                       </Link>
                     </Tooltip>
@@ -1365,9 +1362,8 @@ export default function SinglePage({
                   <div>
                     You don&apos;t have any metrics defined yet.{" "}
                     <Link href="/metrics">
-                      <a>
-                        Manage Metrics <FaExternalLinkAlt />
-                      </a>
+                      Manage Metrics
+                      <FaExternalLinkAlt />
                     </Link>
                   </div>
                 )}

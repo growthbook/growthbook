@@ -13,8 +13,7 @@
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,
     "rootDir": "src",
-    "incremental": true,
     "resolveJsonModule": true
   },
-  "include": ["src/**/*", "./util.d.ts"]
+  "include": ["src/**/*", "typings.d.ts"]
 }

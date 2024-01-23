@@ -86,8 +86,8 @@ const SegmentPage: FC = () => {
             res.metrics.forEach((m) => {
               metricLinks.push(
                 // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
-                <Link href={`/metric/${m.id}`}>
-                  <a className="">{m.name}</a>
+                <Link href={`/metric/${m.id}`} className="">
+                  {m.name}
                 </Link>
               );
             });
@@ -102,9 +102,7 @@ const SegmentPage: FC = () => {
             res.ideas.forEach((i) => {
               ideaLinks.push(
                 // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
-                <Link href={`/idea/${i.id}`}>
-                  <a>{i.text}</a>
-                </Link>
+                <Link href={`/idea/${i.id}`}>{i.text}</Link>
               );
             });
           }
@@ -121,9 +119,7 @@ const SegmentPage: FC = () => {
             res.experiments.forEach((e) => {
               expLinks.push(
                 // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
-                <Link href={`/experiment/${e.id}`}>
-                  <a>{e.name}</a>
-                </Link>
+                <Link href={`/experiment/${e.id}`}>{e.name}</Link>
               );
             });
           }
@@ -297,7 +293,10 @@ const SegmentPage: FC = () => {
                       <td className="d-none d-sm-table-cell">
                         {datasource && (
                           <>
-                            <Link href={`/datasources/${datasource.id}`}>
+                            <Link
+                              href={`/datasources/${datasource.id}`}
+                              legacyBehavior
+                            >
                               {datasource.name}
                             </Link>{" "}
                             {datasource.description ? (

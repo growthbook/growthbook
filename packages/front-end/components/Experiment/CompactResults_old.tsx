@@ -171,8 +171,11 @@ const CompactResults_old: FC<{
                 }
                 tipPosition="right"
               >
-                <Link href={getMetricLink(metric.id)}>
-                  <a className="metriclabel text-dark">{label}</a>
+                <Link
+                  href={getMetricLink(metric.id)}
+                  className="metriclabel text-dark"
+                >
+                  {label}
                 </Link>
               </Tooltip>
             );

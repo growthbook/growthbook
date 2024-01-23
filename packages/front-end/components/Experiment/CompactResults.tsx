@@ -343,11 +343,12 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled) {
                 }
           }
         >
-          <Link href={getMetricLink(metric.id)}>
-            <a className="metriclabel text-dark">
-              {label}
-              <FactBadge metricId={metric.id} />
-            </a>
+          <Link
+            href={getMetricLink(metric.id)}
+            className="metriclabel text-dark"
+          >
+            {label}
+            <FactBadge metricId={metric.id} />
           </Link>
         </span>
       </Tooltip>

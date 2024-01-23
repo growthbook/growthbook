@@ -362,38 +362,37 @@ const Layout = (): React.ReactElement => {
         <div className="">
           <div className="app-sidebar-header">
             <div className="app-sidebar-logo">
-              <Link href="/">
-                <a
-                  aria-current="page"
-                  className="app-sidebar-logo active"
-                  title="GrowthBook Home"
-                  onClick={() => setOpen(false)}
-                >
-                  <div className={styles.sidebarlogo}>
-                    {settings?.customized && settings?.logoPath ? (
-                      <>
-                        <img
-                          className={styles.userlogo}
-                          alt="GrowthBook"
-                          src={settings.logoPath}
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <img
-                          className={styles.logo}
-                          alt="GrowthBook"
-                          src="/logo/growth-book-logomark-white.svg"
-                        />
-                        <img
-                          className={styles.logotext}
-                          alt="GrowthBook"
-                          src="/logo/growth-book-name-white.svg"
-                        />
-                      </>
-                    )}
-                  </div>
-                </a>
+              <Link
+                href="/"
+                aria-current="page"
+                className="app-sidebar-logo active"
+                title="GrowthBook Home"
+                onClick={() => setOpen(false)}
+              >
+                <div className={styles.sidebarlogo}>
+                  {settings?.customized && settings?.logoPath ? (
+                    <>
+                      <img
+                        className={styles.userlogo}
+                        alt="GrowthBook"
+                        src={settings.logoPath}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <img
+                        className={styles.logo}
+                        alt="GrowthBook"
+                        src="/logo/growth-book-logomark-white.svg"
+                      />
+                      <img
+                        className={styles.logotext}
+                        alt="GrowthBook"
+                        src="/logo/growth-book-name-white.svg"
+                      />
+                    </>
+                  )}
+                </div>
               </Link>
             </div>
             <div className={styles.mainmenu}>
