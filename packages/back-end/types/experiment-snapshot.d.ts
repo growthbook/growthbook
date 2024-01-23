@@ -13,7 +13,6 @@ import {
 } from "./report";
 import { DimensionInterface } from "./dimension";
 import { AttributionModel } from "./experiment";
-import { MetricWindowSettings } from "./fact-table";
 
 export interface SnapshotMetric {
   value: number;
@@ -64,6 +63,8 @@ export type LegacyExperimentSnapshotInterface = ExperimentSnapshotInterface & {
   query?: string;
   queryLanguage?: QueryLanguage;
 };
+
+type MetricWindowSettings = MetricInterface["windowSettings"];
 
 export interface MetricForSnapshot {
   id: string;
