@@ -14,6 +14,7 @@ import { BsGear } from "react-icons/bs";
 import { IdeaInterface } from "back-end/types/idea";
 import { date } from "shared/dates";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { getConversionWindowHours } from "shared/experiments";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DiscussionThread from "@/components/DiscussionThread";
@@ -44,7 +45,7 @@ import InlineForm from "@/components/Forms/InlineForm";
 import EditableH1 from "@/components/Forms/EditableH1";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Code from "@/components/SyntaxHighlighting/Code";
-import { getDefaultConversionWindowHours, hasFileConfig } from "@/services/env";
+import { hasFileConfig } from "@/services/env";
 import PickSegmentModal from "@/components/Segments/PickSegmentModal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/components/Button";
@@ -1137,19 +1138,20 @@ const MetricPage: FC = () => {
                       <span className="font-weight-bold">Inverse</span>
                     </li>
                   )}
-                  {metric.capping && metric.capValue && (
-                    <li className="mb-2">
-                      <span className="text-gray">
-                        Cap value ({metric.capping}):{" "}
-                      </span>
-                      <span className="font-weight-bold">
-                        {metric.capValue}{" "}
-                        {metric.capping === "percentile"
-                          ? `(${100 * metric.capValue} pctile)`
-                          : ""}{" "}
-                      </span>
-                    </li>
-                  )}
+                  {metric.cappingSettings.capping &&
+                    metric.cappingSettings.value && (
+                      <li className="mb-2">
+                        <span className="text-gray">
+                          Cap value ({metric.cappingSettings.capping}):{" "}
+                        </span>
+                        <span className="font-weight-bold">
+                          {metric.cappingSettings.value}{" "}
+                          {metric.cappingSettings.capping === "percentile"
+                            ? `(${100 * metric.cappingSettings.value} pctile)`
+                            : ""}{" "}
+                        </span>
+                      </li>
+                    )}
                   {metric.ignoreNulls && (
                     <li className="mb-2">
                       <span className="text-gray">Converted users only:</span>{" "}
@@ -1162,22 +1164,34 @@ const MetricPage: FC = () => {
               {datasource?.properties?.metricCaps && (
                 <RightRailSectionGroup type="custom" empty="">
                   <ul className="right-rail-subsection list-unstyled mb-4">
-                    <li className="mt-3 mb-1">
-                      <span className="uppercase-title lg">
-                        Conversion Window
-                      </span>
-                    </li>
-                    <li>
-                      <span className="font-weight-bold">
-                        {metric.conversionDelayHours
-                          ? metric.conversionDelayHours + " to "
-                          : ""}
-                        {(metric.conversionDelayHours || 0) +
-                          (metric.conversionWindowHours ||
-                            getDefaultConversionWindowHours())}{" "}
-                        hours
-                      </span>
-                    </li>
+                    {metric.windowSettings.window ? (
+                      <>
+                        <li className="mt-3 mb-1">
+                          <span className="uppercase-title lg">
+                            {metric.windowSettings.window === "lookback"
+                              ? "Lookback"
+                              : "Conversion"}{" "}
+                            Window
+                          </span>
+                        </li>
+                        <li>
+                          <span className="font-weight-bold">
+                            {metric.windowSettings.delayHours &&
+                            metric.windowSettings.window === "conversion"
+                              ? metric.windowSettings.delayHours + " to "
+                              : ""}
+                            {getConversionWindowHours(metric.windowSettings)}{" "}
+                            hours
+                          </span>
+                        </li>
+                      </>
+                    ) : (
+                      <li className="mt-3 mb-1">
+                        <span className="uppercase-title lg">
+                          No Conversion/Lookback Window
+                        </span>
+                      </li>
+                    )}
                   </ul>
                 </RightRailSectionGroup>
               )}

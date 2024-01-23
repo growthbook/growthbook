@@ -108,16 +108,17 @@ function drawMetricRow(
   );
   if (!newMetric) return null;
 
-  const conversionStart = newMetric.conversionDelayHours || 0;
+  const conversionStart = newMetric.windowSettings.delayHours || 0;
   const conversionEnd =
-    (newMetric.conversionDelayHours || 0) + getConversionWindowHours(newMetric);
+    (newMetric.windowSettings.delayHours || 0) +
+    getConversionWindowHours(newMetric.windowSettings);
 
   const hasOverrides =
     overrideFields.includes("conversionDelayHours") ||
     (!ignoreConversionEnd && overrideFields.includes("conversionWindowHours"));
 
   const metricHasNoConversionWindow =
-    isFactMetric(newMetric) && !newMetric.hasConversionWindow;
+    newMetric.windowSettings.window !== "conversion";
 
   const isArchived = isFactMetric(metric)
     ? false

@@ -6,6 +6,7 @@ import {
   FactMetricInterface,
   UpdateFactMetricProps,
 } from "../../types/fact-table";
+import { upgradeFactMetricDoc } from "../util/migrations";
 
 const factTableSchema = new mongoose.Schema({
   id: String,
@@ -65,7 +66,7 @@ const FactMetricModel = mongoose.model<FactMetricInterface>(
 
 function toInterface(doc: FactMetricDocument): FactMetricInterface {
   const ret = doc.toJSON<FactMetricDocument>();
-  return omit(ret, ["__v", "_id"]);
+  return upgradeFactMetricDoc(omit(ret, ["__v", "_id"]));
 }
 
 export async function getAllFactMetricsForOrganization(organization: string) {

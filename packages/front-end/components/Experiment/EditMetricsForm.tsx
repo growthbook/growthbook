@@ -7,7 +7,11 @@ import {
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
 import { OrganizationSettings } from "back-end/types/organization";
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  getConversionWindowHours,
+} from "shared/experiments";
+import { MetricWindowSettings } from "back-end/types/fact-table";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -20,28 +24,24 @@ import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import MetricsSelector from "./MetricsSelector";
 import MetricSelector from "./MetricSelector";
 
+type FlatMetricOverride = Omit<MetricOverride, "windowSettings"> & {
+  window?: MetricWindowSettings["window"];
+  delayHours?: number;
+  windowHours?: number;
+};
 export interface EditMetricsFormInterface {
   metrics: string[];
   guardrails: string[];
   activationMetric: string;
-  metricOverrides: {
-    id: string;
-    conversionWindowHours?: number;
-    conversionDelayHours?: number;
-    winRisk?: number;
-    loseRisk?: number;
-    regressionAdjustmentOverride?: boolean;
-    regressionAdjustmentEnabled?: boolean;
-    regressionAdjustmentDays?: number;
-  }[];
+  metricOverrides: FlatMetricOverride[];
 }
 
 export function getDefaultMetricOverridesFormValue(
   overrides: MetricOverride[],
   getExperimentMetricById: (id: string) => ExperimentMetricInterface | null,
   settings: OrganizationSettings
-) {
-  const defaultMetricOverrides = cloneDeep(overrides);
+): FlatMetricOverride[] {
+  const defaultMetricOverrides: FlatMetricOverride[] = cloneDeep(overrides);
   for (let i = 0; i < defaultMetricOverrides.length; i++) {
     for (const key in defaultMetricOverrides[i]) {
       // fix fields with percentage values
@@ -54,6 +54,14 @@ export function getDefaultMetricOverridesFormValue(
         ].includes(key)
       ) {
         defaultMetricOverrides[i][key] *= 100;
+      }
+      if (key === "windowSettings") {
+        const windowSettings = defaultMetricOverrides[i][key];
+        defaultMetricOverrides[i].window = windowSettings?.window;
+        defaultMetricOverrides[i].windowHours = windowSettings
+          ? getConversionWindowHours(windowSettings)
+          : 0;
+        defaultMetricOverrides[i].delayHours = windowSettings?.delayHours;
       }
     }
     if (defaultMetricOverrides[i].regressionAdjustmentDays === undefined) {
@@ -73,7 +81,10 @@ export function getDefaultMetricOverridesFormValue(
   return defaultMetricOverrides;
 }
 
-export function fixMetricOverridesBeforeSaving(overrides: MetricOverride[]) {
+export function fixMetricOverridesBeforeSaving(
+  overrides: FlatMetricOverride[]
+): MetricOverride[] {
+  const fixedOverrides: MetricOverride[] = cloneDeep(overrides);
   for (let i = 0; i < overrides.length; i++) {
     for (const key in overrides[i]) {
       if (key === "id") continue;
@@ -81,6 +92,21 @@ export function fixMetricOverridesBeforeSaving(overrides: MetricOverride[]) {
       // remove nullish values from payload
       if (v === undefined || v === null || isNaN(v)) {
         delete overrides[i][key];
+        continue;
+      }
+      // unflatten windowSettings
+      if (["window", "windowUnits", "delayHours"].includes["key"]) {
+        // TODO check fallback values
+        const newWindowSettings: MetricWindowSettings = {
+          window: overrides[i]["window"] ?? "",
+          delayHours: overrides[i]["delayHours"] ?? 0,
+          windowValue: overrides[i]["windowHours"] ?? 0,
+          windowUnit: "hours",
+        };
+        fixedOverrides[i]["windowSettings"] = newWindowSettings;
+        delete fixedOverrides[i]["window"];
+        delete fixedOverrides[i]["delayHours"];
+        delete fixedOverrides[i]["windowHours"];
         continue;
       }
       // fix fields with percentage values
@@ -96,6 +122,7 @@ export function fixMetricOverridesBeforeSaving(overrides: MetricOverride[]) {
       }
     }
   }
+  return fixedOverrides;
 }
 
 const EditMetricsForm: FC<{
@@ -148,8 +175,12 @@ const EditMetricsForm: FC<{
       close={cancel}
       ctaEnabled={!hasMetricOverrideRiskError}
       submit={form.handleSubmit(async (value) => {
-        const payload = cloneDeep<EditMetricsFormInterface>(value);
-        fixMetricOverridesBeforeSaving(payload.metricOverrides);
+        const payload = {
+          ...cloneDeep<EditMetricsFormInterface>(value),
+          metricOverrides: fixMetricOverridesBeforeSaving(
+            value.metricOverrides || []
+          ),
+        };
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify(payload),

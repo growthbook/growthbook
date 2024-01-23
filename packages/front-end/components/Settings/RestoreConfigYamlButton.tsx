@@ -7,6 +7,10 @@ import { createPatch } from "diff";
 import { html } from "diff2html";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
+import {
+  MetricCappingSettings,
+  MetricWindowSettings,
+} from "back-end/types/fact-table";
 import { useAuth } from "@/services/auth";
 import { useConfigJson } from "@/services/config";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -116,7 +120,32 @@ export default function RestoreConfigYamlButton({
             if (n.cap) {
               throw new Error(`
                 \`cap\` is a deprecated field in metric definitions.
-                Instead use \`capping: 'absolute'\` and \`capValue: ${n.cap}\``);
+                Instead use \`cappingSettings\` with sub properties 
+                \`capping: 'absolute'\` and \`value: ${n.cap}\``);
+            }
+            // backwards compatibility for settings
+            if ((n.capping || n.capValue) && n.cappingSettings === undefined) {
+              const cappingSetting: MetricCappingSettings = {
+                capping: n.capping ?? "absolute",
+                value: n.capValue ?? 0,
+              };
+              n.cappingSettings = cappingSetting;
+              delete n.capping;
+              delete n.capValue;
+            }
+            if (
+              (n.conversionWindowDelay || n.conversionWindowHours) &&
+              n.windowSettings === undefined
+            ) {
+              const windowSetting: MetricWindowSettings = {
+                window: "conversion",
+                delayHours: n.conversionWindowDelay ?? 0,
+                windowValue: n.conversionWindowHours ?? 72, // TODO
+                windowUnit: "hours",
+              };
+              n.windowSettings = windowSetting;
+              delete n.conversionWindowDelay;
+              delete n.conversionWindowHours;
             }
             if (n.userIdType || n.anonymousIdType) {
               throw new Error(`

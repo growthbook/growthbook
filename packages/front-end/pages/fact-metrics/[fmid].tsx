@@ -195,6 +195,7 @@ export default function FactMetricPage() {
     );
   }
 
+  console.dir(factMetric, { depth: null });
   const canEdit = permissions.check("createMetrics", factMetric.projects || "");
 
   let regressionAdjustmentAvailableForMetric = true;
@@ -403,17 +404,27 @@ export default function FactMetricPage() {
           </div>
 
           <div className="mb-4">
-            <h3>Conversion Window</h3>
+            <h3>Conversion/Lookback Window</h3>
             <div className="appbox p-3 mb-3">
-              {factMetric.hasConversionWindow ? (
+              {factMetric.windowSettings.window === "conversion" ? (
                 <>
-                  <em className="font-weight-bold">Enabled</em> - Require
+                  <em className="font-weight-bold">Conversion</em> - Require
                   conversions to happen within{" "}
                   <strong>
-                    {factMetric.conversionWindowValue}{" "}
-                    {factMetric.conversionWindowUnit}
+                    {factMetric.windowSettings.windowValue}{" "}
+                    {factMetric.windowSettings.windowUnit}
                   </strong>{" "}
                   of first experiment exposure.
+                </>
+              ) : factMetric.windowSettings.window === "lookback" ? (
+                <>
+                  <em className="font-weight-bold">Lookback</em> - Require
+                  conversions to happen in latest{" "}
+                  <strong>
+                    {factMetric.windowSettings.windowValue}{" "}
+                    {factMetric.windowSettings.windowUnit}
+                  </strong>{" "}
+                  of the experiment.
                 </>
               ) : (
                 <>
@@ -436,7 +447,7 @@ export default function FactMetricPage() {
               open={() => setEditOpen(true)}
               canOpen={canEdit}
             >
-              {factMetric.conversionDelayHours > 0 && (
+              {factMetric.windowSettings.delayHours > 0 && (
                 <RightRailSectionGroup type="custom" empty="" className="mt-3">
                   <ul className="right-rail-subsection list-unstyled mb-4">
                     <li className="mt-3 mb-1">
@@ -447,7 +458,7 @@ export default function FactMetricPage() {
                     <li className="mb-2">
                       <span className="text-gray">Conversion Delay: </span>
                       <span className="font-weight-bold">
-                        {factMetric.conversionDelayHours} hours
+                        {factMetric.windowSettings.delayHours} hours
                       </span>
                     </li>
                   </ul>
@@ -462,19 +473,22 @@ export default function FactMetricPage() {
                       <span className="font-weight-bold">Inverse</span>
                     </li>
                   )}
-                  {factMetric.capping && factMetric.capValue && (
-                    <li className="mb-2">
-                      <span className="text-gray">
-                        Cap value ({factMetric.capping}):{" "}
-                      </span>
-                      <span className="font-weight-bold">
-                        {factMetric.capValue}{" "}
-                        {factMetric.capping === "percentile"
-                          ? `(${100 * factMetric.capValue} pctile)`
-                          : ""}{" "}
-                      </span>
-                    </li>
-                  )}
+                  {factMetric.cappingSettings.capping &&
+                    factMetric.cappingSettings.value && (
+                      <li className="mb-2">
+                        <span className="text-gray">
+                          Cap value ({factMetric.cappingSettings.capping}):{" "}
+                        </span>
+                        <span className="font-weight-bold">
+                          {factMetric.cappingSettings.value}{" "}
+                          {factMetric.cappingSettings.capping === "percentile"
+                            ? `(${
+                                100 * factMetric.cappingSettings.value
+                              } pctile)`
+                            : ""}{" "}
+                        </span>
+                      </li>
+                    )}
                 </ul>
               </RightRailSectionGroup>
 
