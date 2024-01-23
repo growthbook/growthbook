@@ -129,14 +129,24 @@ export default function FeaturePage() {
 
   const [version, setVersion] = useState<number | null>(null);
 
+  let extraQueryString = "";
+  // Version being forced via querystring
+  if ("v" in router.query) {
+    const v = parseInt(router.query.v as string);
+    if (v) {
+      extraQueryString = `?v=${v}`;
+    }
+  }
+
   const { data, error, mutate } = useApi<{
     feature: FeatureInterface;
     revisions: FeatureRevisionInterface[];
     experiments: ExperimentInterfaceStringDates[];
-  }>(`/feature/${fid}`);
-  const { features } = useFeaturesList();
+  }>(`/feature/${fid}${extraQueryString}`);
   const firstFeature = router?.query && "first" in router.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
+
+  const { features } = useFeaturesList();
   const environments = useEnvironments();
 
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({

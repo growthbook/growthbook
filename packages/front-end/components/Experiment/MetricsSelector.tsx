@@ -1,6 +1,7 @@
 import { FC } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
 import { isProjectListValidForProject } from "shared/util";
+import { DataSourceSettings } from "back-end/types/datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
@@ -14,17 +15,90 @@ type MetricOption = {
   tags: string[];
   projects: string[];
   factTables: string[];
+  userIdTypes: string[];
 };
+
+type MetricsSelectorTooltipProps = {
+  onlyBinomial?: boolean;
+};
+
+export const MetricsSelectorTooltip = ({
+  onlyBinomial = false,
+}: MetricsSelectorTooltipProps) => {
+  return (
+    <Tooltip
+      body={
+        <>
+          You can only select metrics that fit all criteria below:
+          <ul>
+            <li>are from the same Data Source as the experiment</li>
+            <li>
+              either share an Identifier Type with the Experiment Assignment
+              Table or can be joined to it by a Join Table
+            </li>
+            {onlyBinomial ? <li>are a binomial metric</li> : null}
+          </ul>
+        </>
+      }
+    />
+  );
+};
+
+export function isMetricJoinable(
+  metricIdTypes: string[],
+  userIdType: string,
+  settings: DataSourceSettings
+): boolean {
+  if (metricIdTypes.includes(userIdType)) return true;
+
+  if (settings?.queries?.identityJoins) {
+    if (
+      settings.queries.identityJoins.some(
+        (j) =>
+          j.ids.includes(userIdType) &&
+          j.ids.some((jid) => metricIdTypes.includes(jid))
+      )
+    ) {
+      return true;
+    }
+  }
+
+  // legacy support for pageviewsQuery
+  if (settings?.queries?.pageviewsQuery) {
+    if (
+      ["user_id", "anonymous_id"].includes(userIdType) &&
+      metricIdTypes.some((m) => ["user_id", "anonymous_id"].includes(m))
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 const MetricsSelector: FC<{
   datasource?: string;
   project?: string;
+  exposureQueryId?: string;
   selected: string[];
   onChange: (metrics: string[]) => void;
   autoFocus?: boolean;
   includeFacts?: boolean;
-}> = ({ datasource, project, selected, onChange, autoFocus, includeFacts }) => {
-  const { metrics, factMetrics } = useDefinitions();
+}> = ({
+  datasource,
+  project,
+  exposureQueryId,
+  selected,
+  onChange,
+  autoFocus,
+  includeFacts,
+}) => {
+  const {
+    metrics,
+    factMetrics,
+    factTables,
+    getDatasourceById,
+  } = useDefinitions();
 
   const options: MetricOption[] = [
     ...metrics.map((m) => ({
@@ -34,6 +108,7 @@ const MetricsSelector: FC<{
       tags: m.tags || [],
       projects: m.projects || [],
       factTables: [],
+      userIdTypes: m.userIdTypes || [],
     })),
     ...(includeFacts
       ? factMetrics.map((m) => ({
@@ -48,12 +123,30 @@ const MetricsSelector: FC<{
               ? m.denominator.factTableId
               : "") || "",
           ],
+          // only focus on numerator user id types
+          userIdTypes:
+            factTables.find((f) => f.id === m.numerator.factTableId)
+              ?.userIdTypes || [],
         }))
       : []),
   ];
 
+  // get data to help filter metrics to those with joinable userIdTypes to
+  // the experiment assignment table
+  const datasourceSettings = datasource
+    ? getDatasourceById(datasource)?.settings
+    : undefined;
+  const userIdType = datasourceSettings?.queries?.exposure?.find(
+    (e) => e.id === exposureQueryId
+  )?.userIdType;
+
   const filteredOptions = options
     .filter((m) => (datasource ? m.datasource === datasource : true))
+    .filter((m) =>
+      userIdType && m.userIdTypes.length
+        ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
+        : true
+    )
     .filter((m) => isProjectListValidForProject(m.projects, project));
 
   const tagCounts: Record<string, number> = {};

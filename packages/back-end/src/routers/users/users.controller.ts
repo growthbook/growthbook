@@ -7,7 +7,7 @@ import { findOrganizationsByMemberId } from "../../models/OrganizationModel";
 import {
   addMemberFromSSOConnection,
   findVerifiedOrgForNewUser,
-  getOrgFromReq,
+  getContextFromReq,
   validateLoginMethod,
 } from "../../services/organizations";
 import { IS_CLOUD } from "../../util/secrets";
@@ -91,7 +91,7 @@ export async function putUserName(
   res: Response
 ) {
   const { name } = req.body;
-  const { userId } = getOrgFromReq(req);
+  const { userId } = getContextFromReq(req);
 
   try {
     await UserModel.updateOne(
@@ -116,7 +116,7 @@ export async function putUserName(
 }
 
 export async function getWatchedItems(req: AuthRequest, res: Response) {
-  const { org, userId } = getOrgFromReq(req);
+  const { org, userId } = getContextFromReq(req);
   try {
     const watch = await getWatchedByUser(org.id, userId);
     res.status(200).json({
@@ -136,7 +136,7 @@ export async function postWatchItem(
   req: AuthRequest<null, { type: string; id: string }>,
   res: Response
 ) {
-  const { org, userId } = getOrgFromReq(req);
+  const { org, userId } = getContextFromReq(req);
   const { type, id } = req.params;
   let item;
 
@@ -180,7 +180,7 @@ export async function postUnwatchItem(
   req: AuthRequest<null, { type: string; id: string }>,
   res: Response
 ) {
-  const { org, userId } = getOrgFromReq(req);
+  const { org, userId } = getContextFromReq(req);
   const { type, id } = req.params;
 
   if (!isValidWatchEntityType(type)) {

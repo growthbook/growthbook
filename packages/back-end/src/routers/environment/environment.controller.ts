@@ -1,7 +1,10 @@
 import type { Response } from "express";
 import { AuthRequest } from "../../types/AuthRequest";
 import { PrivateApiErrorResponse } from "../../../types/api";
-import { getEnvironments, getOrgFromReq } from "../../services/organizations";
+import {
+  getEnvironments,
+  getContextFromReq,
+} from "../../services/organizations";
 import { EventAuditUserForResponseLocals } from "../../events/event-types";
 import { Environment } from "../../../types/organization";
 import { addEnvironmentToOrganizationEnvironments } from "../../util/environments";
@@ -35,7 +38,7 @@ export const postEnvironment = async (
 
   req.checkPermissions("manageEnvironments", "", [environment.id]);
 
-  const { org, environments } = getOrgFromReq(req);
+  const { org, environments } = getContextFromReq(req);
 
   if (environments.includes(environment.id)) {
     return res.status(400).json({
