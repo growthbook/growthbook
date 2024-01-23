@@ -130,6 +130,7 @@ export async function queueWebhook(
 
   const webhooks = await WebhookModel.find({
     organization: orgId,
+    useSdkMode: { $ne: true },
   });
 
   if (!webhooks) return;
