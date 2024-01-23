@@ -1,12 +1,12 @@
 import isEqual from "lodash/isEqual";
 import {
   ConditionInterface,
+  ParentConditionsInterface,
   FeatureRule as FeatureDefinitionRule,
 } from "@growthbook/growthbook";
 import { includeExperimentInPayload } from "shared/util";
 import {
   FeatureInterface,
-  FeaturePrerequisite,
   FeatureRule,
   FeatureValueType,
   SavedGroupTargeting,
@@ -333,23 +333,20 @@ export function getFeatureDefinition({
     ? revision.rules?.[environment] ?? settings.rules
     : settings.rules;
 
-  const prerequisites = feature.prerequisites ?? [];
   // convert prerequisites to force rules:
-  const prerequisiteRules = prerequisites
+  const prerequisiteRules = (feature.prerequisites ?? [])
     ?.map((p) => {
       const condition = getParsedCondition(groupMap, p.condition);
       if (!condition) return null;
-      const invertedCondition = { $not: condition };
-      const rule: FeatureDefinitionRule = {
+      return {
         parentConditions: [
           {
             id: p.id,
-            condition: invertedCondition,
+            condition,
+            gate: true,
           },
         ],
-        force: null,
       };
-      return rule;
     })
     .filter(Boolean) as FeatureDefinitionRule[];
 
@@ -465,19 +462,18 @@ export function getFeatureDefinition({
           rule.condition = condition;
         }
 
-        const prerequisites = r?.prerequisites
+        const prerequisites = (r?.prerequisites ?? [])
           ?.map((p) => {
             const condition = getParsedCondition(groupMap, p.condition);
             if (!condition) return null;
-            const prerequisite: FeaturePrerequisite = {
+            return {
               id: p.id,
               condition,
             };
-            return prerequisite;
           })
-          .filter(Boolean) as FeaturePrerequisite[];
+          .filter(Boolean) as ParentConditionsInterface[];
         if (prerequisites?.length) {
-          rule.prerequisites = prerequisites;
+          rule.parentConditions = prerequisites;
         }
 
         if (r.type === "force") {

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import type { GrowthBook, StickyBucketService } from "..";
-import { ConditionInterface } from "./mongrule";
+import { ConditionInterface, ParentConditionsInterface } from "./mongrule";
 
 declare global {
   interface Window {
@@ -13,11 +13,6 @@ export type VariationMeta = {
   passthrough?: boolean;
   key?: string;
   name?: string;
-};
-
-export type ParentConditionsInterface = {
-  id: string;
-  condition: ConditionInterface;
 };
 
 export type FeatureRule<T = any> = {
