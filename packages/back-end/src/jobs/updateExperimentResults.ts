@@ -119,17 +119,16 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
   const experiment = await getExperimentById(orgId, experimentId);
   if (!experiment) return;
 
-  const organization = await findOrganizationById(experiment.organization);
-  if (!organization) return;
-
   const context = await getContextForAgendaJobByOrgId(orgId);
+
+  const { org: organization } = context;
 
   let project = null;
   if (experiment.project) {
     project = await findProjectById(context, experiment.project);
   }
   const { settings: scopedSettings } = getScopedSettings({
-    organization,
+    organization: context.org,
     project: project ?? undefined,
   });
 
