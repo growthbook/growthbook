@@ -28,7 +28,10 @@ export type {
   UrlTargetType,
 } from "./types/growthbook";
 
-export type { ConditionInterface } from "./types/mongrule";
+export type {
+  ConditionInterface,
+  ParentConditionsInterface,
+} from "./types/mongrule";
 
 export {
   setPolyfills,

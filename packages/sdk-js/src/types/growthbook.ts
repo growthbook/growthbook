@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { GrowthBook } from "..";
+import type { GrowthBook, ParentConditionsInterface } from "..";
 import { ConditionInterface } from "./mongrule";
 
 declare global {
@@ -13,12 +13,6 @@ export type VariationMeta = {
   passthrough?: boolean;
   key?: string;
   name?: string;
-};
-
-export type ParentConditionsInterface = {
-  id: string;
-  condition: ConditionInterface;
-  gate?: boolean;
 };
 
 export type FeatureRule<T = any> = {
