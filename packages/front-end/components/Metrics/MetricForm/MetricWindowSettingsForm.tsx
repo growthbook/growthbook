@@ -62,7 +62,7 @@ export function MetricWindowSettingsForm({ form }) {
           sort={false}
           options={[
             {
-              label: "No (use all metric data)",
+              label: "None",
               value: "",
             },
             {

@@ -41,6 +41,8 @@ import { GBAddCircle, GBArrowLeft, GBCuped } from "../Icons";
 import { getNewExperimentDatasourceDefaults } from "../Experiment/NewExperimentForm";
 import ButtonSelectField from "../Forms/ButtonSelectField";
 import { MetricWindowSettingsForm } from "../Metrics/MetricForm/MetricWindowSettingsForm";
+import { MetricCappingSettingsForm } from "../Metrics/MetricForm/MetricCappingSettingsForm";
+import { ConversionDelayHours } from "../Metrics/MetricForm/ConversionDelayHours";
 
 export interface Props {
   close?: () => void;
@@ -631,51 +633,8 @@ export default function FactMetricModal({
               }
             >
               <Tab id="query" display="Query Settings">
-                <SelectField
-                  label="Cap User Values?"
-                  value={form.watch("cappingSettings.capping")}
-                  onChange={(v: "" | "absolute" | "percentile") => {
-                    form.setValue("cappingSettings.capping", v);
-                  }}
-                  sort={false}
-                  options={[
-                    {
-                      value: "",
-                      label: "No",
-                    },
-                    ...(type === "ratio"
-                      ? []
-                      : [
-                          {
-                            value: "absolute",
-                            label: "Absolute capping",
-                          },
-                        ]),
-                    {
-                      value: "percentile",
-                      label: "Percentile capping",
-                    },
-                  ]}
-                  helpText="Capping (winsorization) can reduce variance by capping aggregated
-              user values."
-                />
-
-                <div className="form-group">
-                  <label>Conversion Delay (hours)</label>
-                  <input
-                    type="number"
-                    step="any"
-                    className="form-control"
-                    placeholder={"0"}
-                    {...form.register("windowSettings.delayHours", {
-                      valueAsNumber: true,
-                    })}
-                  />
-                  <small className="text-muted">
-                    Ignore all conversions within the first X hours of being put
-                    into an experiment.
-                  </small>
-                </div>
+                <ConversionDelayHours form={form} />
+                <MetricCappingSettingsForm form={form} datasourceType={selectedDataSource.type} metricType={type} />
                 <PremiumTooltip commercialFeature="regression-adjustment">
                   <label className="mb-1">
                     <GBCuped /> Regression Adjustment (CUPED)

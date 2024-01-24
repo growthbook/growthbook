@@ -1995,6 +1995,9 @@ export default abstract class SqlIntegration
     // If a fact metric has disabled conversion windows, always use "Experiment Duration"
     if (!metric.windowSettings.window) {
       ignoreConversionEnd = true;
+      if(metric.name === "Purchases (pctile cap, ignore zeros)") {
+        console.dir(metric.windowSettings);
+      }
     }
 
     // Get capping settings and final coalesce statement

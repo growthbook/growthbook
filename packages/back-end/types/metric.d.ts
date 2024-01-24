@@ -1,22 +1,10 @@
+import { CappingType, MetricCappingSettings, MetricWindowSettings } from "./fact-table";
 import { Queries } from "./query";
 import { TemplateVariables } from "./sql";
 
 export type Operator = "=" | "!=" | "~" | "!~" | ">" | "<" | "<=" | ">=" | "=>";
 export type MetricType = "binomial" | "count" | "duration" | "revenue";
 export type MetricStatus = "active" | "archived";
-
-type MetricWindowSettings = {
-  window: "conversion" | "lookback" | "";
-  delayHours: number;
-  windowValue: number;
-  windowUnit: "weeks" | "days" | "hours";
-};
-type CappingType = "absolute" | "percentile" | "";
-type MetricCappingSettings = {
-  capping: CappingType;
-  value: number;
-  ignoreZeros?: boolean;
-};
 
 // Keep MetricStats in sync with gbstats
 export interface MetricStats {

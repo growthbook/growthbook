@@ -1,3 +1,4 @@
+import { MetricWindowSettings } from "./fact-table";
 import {
   ExperimentRefVariation,
   FeatureInterface,
@@ -75,13 +76,6 @@ export type ExperimentStatus = "draft" | "running" | "stopped";
 export type AttributionModel = "firstExposure" | "experimentDuration";
 
 export type ExperimentResultsType = "dnf" | "won" | "lost" | "inconclusive";
-
-type MetricWindowSettings = {
-  window: "conversion" | "lookback" | "";
-  delayHours: number;
-  windowValue: number;
-  windowUnit: "weeks" | "days" | "hours";
-};
 
 export type MetricOverride = {
   id: string;

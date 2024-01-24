@@ -34,7 +34,7 @@ const metricSchema = new mongoose.Schema({
   earlyStart: Boolean,
   inverse: Boolean,
   ignoreNulls: Boolean,
-  cappingSeettings: {
+  cappingSettings: {
     capping: String,
     value: Number,
     ignoreZeros: Boolean,

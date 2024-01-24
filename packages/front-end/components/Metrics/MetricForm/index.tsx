@@ -48,6 +48,7 @@ import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import { MetricWindowSettingsForm } from "./MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "./MetricCappingSettingsForm";
+import { ConversionDelayHours } from "./ConversionDelayHours";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -1220,22 +1221,7 @@ const MetricForm: FC<MetricFormProps> = ({
             </a>
           ) : (
             <>
-              <div className="form-group">
-                <label>Conversion Delay (hours)</label>
-                <input
-                  type="number"
-                  step="any"
-                  className="form-control"
-                  placeholder={"0"}
-                  {...form.register("windowSettings.delayHours", {
-                    valueAsNumber: true,
-                  })}
-                />
-                <small className="text-muted">
-                  Ignore all conversions within the first X hours of being put
-                  into an experiment.
-                </small>
-              </div>
+              <ConversionDelayHours form={form} />
               {ignoreNullsSupported && value.type !== "binomial" && (
                 <div className="form-group">
                   <SelectField
