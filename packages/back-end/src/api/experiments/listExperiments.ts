@@ -28,7 +28,7 @@ export const listExperiments = createApiRequestHandler(
     );
 
     const promises = filtered.map((experiment) =>
-      toExperimentApiInterface(req.organization, experiment)
+      toExperimentApiInterface(req.context, experiment)
     );
     const apiExperiments = await Promise.all(promises);
 

@@ -15,7 +15,7 @@ export const getExperiment = createApiRequestHandler(getExperimentValidator)(
     }
 
     const apiExperiment = await toExperimentApiInterface(
-      req.organization,
+      req.context,
       experiment
     );
     return {

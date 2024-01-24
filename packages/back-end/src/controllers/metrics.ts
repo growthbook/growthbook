@@ -82,7 +82,8 @@ export async function deleteMetric(
 ) {
   req.checkPermissions("createAnalyses", "");
 
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.params;
 
   const metric = await getMetricById(id, org.id);
@@ -101,7 +102,7 @@ export async function deleteMetric(
   );
 
   // now remove the metric itself:
-  await deleteMetricById(id, org, res.locals.eventAudit);
+  await deleteMetricById(id, context, res.locals.eventAudit);
 
   await req.audit({
     event: "metric.delete",
