@@ -1,19 +1,16 @@
 import Agenda, { Job } from "agenda";
-import { FULL_ACCESS_PERMISSIONS } from "shared/permissions";
 import {
   getFeature,
   getScheduledFeaturesToUpdate,
   updateFeature,
 } from "../models/FeatureModel";
 import { getNextScheduledUpdate } from "../services/features";
-import { getEnvironmentIdsFromOrg } from "../services/organizations";
+import { getContextForAgendaJobByOrgId } from "../services/organizations";
 import { logger } from "../util/logger";
-import { findOrganizationById } from "../models/OrganizationModel";
-import { ApiReqContext } from "../../types/api";
 
 type UpdateSingleFeatureJob = Job<{
   featureId: string;
-  context: ApiReqContext;
+  organization: string;
 }>;
 
 const QUEUE_FEATURE_UPDATES = "queueScheduledFeatureUpdates";
@@ -31,19 +28,9 @@ async function queueFeatureUpdate(
   agenda: Agenda,
   feature: { id: string; organization: string }
 ) {
-  const org = await findOrganizationById(feature.organization);
-
-  if (!org) return;
-
-  const context: ApiReqContext = {
-    org,
-    environments: getEnvironmentIdsFromOrg(org),
-    readAccessFilter: FULL_ACCESS_PERMISSIONS,
-  };
-
   const job = agenda.create(UPDATE_SINGLE_FEATURE, {
     featureId: feature.id,
-    context,
+    organization: feature.organization,
   }) as UpdateSingleFeatureJob;
 
   job.unique({
@@ -76,12 +63,12 @@ export default async function (agenda: Agenda) {
 
 async function updateSingleFeature(job: UpdateSingleFeatureJob) {
   const featureId = job.attrs.data?.featureId;
-  const context = job.attrs.data?.context;
-  if (!featureId || !context) return;
+  const organization = job.attrs.data?.organization;
+  if (!featureId || !organization) return;
 
-  const org = context.org;
+  const context = await getContextForAgendaJobByOrgId(organization);
 
-  const feature = await getFeature(org.id, featureId);
+  const feature = await getFeature(context.org.id, featureId);
   if (!feature) return;
 
   try {

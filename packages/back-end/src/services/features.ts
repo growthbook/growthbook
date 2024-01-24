@@ -44,23 +44,18 @@ import {
 import { getSDKPayload, updateSDKPayload } from "../models/SdkPayloadModel";
 import { logger } from "../util/logger";
 import { promiseAllChunks } from "../util/promise";
-import { queueWebhook } from "../jobs/webhooks";
 import { GroupMap } from "../../types/saved-group";
 import { SDKPayloadKey } from "../../types/sdk-payload";
-import { queueProxyUpdate } from "../jobs/proxyUpdate";
 import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
-import {
-  getSurrogateKeysFromEnvironments,
-  purgeCDNCache,
-} from "../util/cdn.util";
 import {
   ApiFeatureEnvSettings,
   ApiFeatureEnvSettingsRules,
 } from "../api/features/postFeature";
 import { ArchetypeAttributeValues } from "../../types/archetype";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
+import { triggerWebhookJobs } from "../jobs/updateAllJobs";
 import { getEnvironmentIdsFromOrg, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
@@ -291,20 +286,7 @@ export async function refreshSDKPayloadCache(
   // Batch the promises in chunks of 4 at a time to avoid overloading Mongo
   await promiseAllChunks(promises, 4);
 
-  // Purge CDN if used
-  // Do this before firing webhooks in case a webhook tries fetching the latest payload from the CDN
-  // Only purge the specific payloads that are affected
-  const surrogateKeys = getSurrogateKeysFromEnvironments(context.org.id, [
-    ...environments,
-  ]);
-
-  await purgeCDNCache(context.org.id, surrogateKeys);
-
-  // After the SDK payloads are updated, fire any webhooks on the organization
-  await queueWebhook(context.org.id, payloadKeys, true);
-
-  // Update any Proxy servers that are affected by this change
-  await queueProxyUpdate(context.org.id, payloadKeys);
+  triggerWebhookJobs(context.org.id, payloadKeys, environments, true);
 }
 
 export type FeatureDefinitionsResponseArgs = {
@@ -436,6 +418,7 @@ export type FeatureDefinitionArgs = {
   includeExperimentNames?: boolean;
   hashSecureAttributes?: boolean;
 };
+
 export type FeatureDefinitionSDKPayload = {
   features: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];

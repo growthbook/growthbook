@@ -1,7 +1,10 @@
 import { randomBytes } from "crypto";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
-import { getReadAccessFilter } from "shared/permissions";
+import {
+  FULL_ACCESS_PERMISSIONS,
+  getReadAccessFilter,
+} from "shared/permissions";
 import {
   createOrganization,
   findAllOrganizations,
@@ -964,4 +967,18 @@ export async function expandOrgMembers(
     });
   });
   return expandedMembers;
+}
+
+export async function getContextForAgendaJobByOrgId(
+  orgId: string
+): Promise<ApiReqContext> {
+  const organization = await findOrganizationById(orgId);
+
+  if (!organization) throw new Error("Organization not found");
+
+  return {
+    org: organization,
+    environments: getEnvironmentIdsFromOrg(organization),
+    readAccessFilter: FULL_ACCESS_PERMISSIONS,
+  };
 }

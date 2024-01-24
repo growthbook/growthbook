@@ -1,7 +1,6 @@
 import Agenda, { Job } from "agenda";
 import { getScopedSettings } from "shared/settings";
 import { getSnapshotAnalysis } from "shared/util";
-import { FULL_ACCESS_PERMISSIONS } from "shared/permissions";
 import {
   getExperimentById,
   getExperimentsToUpdate,
@@ -19,19 +18,17 @@ import {
 } from "../services/experiments";
 import {
   getConfidenceLevelsForOrg,
-  getEnvironmentIdsFromOrg,
+  getContextForAgendaJobByOrgId,
 } from "../services/organizations";
 import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
 import { getMetricMap } from "../models/MetricModel";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
-import { findOrganizationById } from "../models/OrganizationModel";
 import { logger } from "../util/logger";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { findProjectById } from "../models/ProjectModel";
 import { getExperimentWatchers } from "../models/WatchModel";
 import { getFactTableMap } from "../models/FactTableModel";
-import { ApiReqContext } from "../../types/api";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -40,7 +37,7 @@ const QUEUE_EXPERIMENT_UPDATES = "queueExperimentUpdates";
 
 const UPDATE_SINGLE_EXP = "updateSingleExperiment";
 type UpdateSingleExpJob = Job<{
-  context: ApiReqContext;
+  organization: string;
   experimentId: string;
 }>;
 
@@ -98,18 +95,8 @@ export default async function (agenda: Agenda) {
     organization: string,
     experimentId: string
   ) {
-    const org = await findOrganizationById(organization);
-
-    if (!org) return;
-
-    const context: ApiReqContext = {
-      org,
-      environments: getEnvironmentIdsFromOrg(org),
-      readAccessFilter: FULL_ACCESS_PERMISSIONS,
-    };
-
     const job = agenda.create(UPDATE_SINGLE_EXP, {
-      context,
+      organization,
       experimentId,
     }) as UpdateSingleExpJob;
 
@@ -124,22 +111,23 @@ export default async function (agenda: Agenda) {
 
 async function updateSingleExperiment(job: UpdateSingleExpJob) {
   const experimentId = job.attrs.data?.experimentId;
-  const context = job.attrs.data?.context;
+  const orgId = job.attrs.data?.organization;
 
-  if (!experimentId || !context) return;
+  if (!experimentId || !orgId) return;
+
+  const context = await getContextForAgendaJobByOrgId(orgId);
+
+  const { org: organization } = context;
 
   const experiment = await getExperimentById(context, experimentId);
   if (!experiment) return;
 
-  const organization = await findOrganizationById(experiment.organization);
-  if (!organization) return;
-
   let project = null;
   if (experiment.project) {
-    project = await findProjectById(context, organization.id);
+    project = await findProjectById(context, experiment.project);
   }
   const { settings: scopedSettings } = getScopedSettings({
-    organization,
+    organization: context.org,
     project: project ?? undefined,
   });
 
