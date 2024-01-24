@@ -6,7 +6,6 @@ import {
   getConnectionSDKCapabilities,
   SDKCapability,
 } from "shared/sdk-versioning";
-import { FULL_ACCESS_PERMISSIONS } from "shared/permissions";
 import {
   ExperimentRefRule,
   FeatureInterface,
@@ -18,6 +17,7 @@ import {
   getEnvironments,
   getEnvironmentIdsFromOrg,
   getContextFromReq,
+  getContextForAgendaJobByOrgId,
 } from "../services/organizations";
 import {
   addFeatureRule,
@@ -195,21 +195,6 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       throw new UnrecoverableApiError("Missing API key in request");
     }
 
-    const org = await findOrganizationById(key);
-
-    if (!org) {
-      throw new UnrecoverableApiError("Invalid API key");
-    }
-
-    const context: ReqContext = {
-      org,
-      userId: "",
-      email: "",
-      environments: [],
-      userName: "",
-      readAccessFilter: FULL_ACCESS_PERMISSIONS,
-    };
-
     const {
       organization,
       capabilities,
@@ -224,6 +209,8 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       remoteEvalEnabled,
     } = await getPayloadParamsFromApiKey(key, req);
 
+    const context = await getContextForAgendaJobByOrgId(organization);
+
     if (remoteEvalEnabled) {
       throw new UnrecoverableApiError(
         "Remote evaluation required for this connection"
@@ -231,7 +218,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     }
 
     const defs = await getFeatureDefinitions({
-      context, //TODO: Is this logic correct - this isn't an endpoint that requires auth
+      context,
       capabilities,
       environment,
       projects,
@@ -290,22 +277,8 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
       throw new UnrecoverableApiError("Missing API key in request");
     }
 
-    const org = await findOrganizationById(key);
-
-    if (!org) {
-      throw new UnrecoverableApiError("Invalid API key");
-    }
-
-    const context: ReqContext = {
-      org,
-      userId: "",
-      email: "",
-      environments: [],
-      userName: "",
-      readAccessFilter: FULL_ACCESS_PERMISSIONS,
-    };
-
     const {
+      organization,
       capabilities,
       environment,
       encrypted,
@@ -317,6 +290,8 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
       hashSecureAttributes,
       remoteEvalEnabled,
     } = await getPayloadParamsFromApiKey(key, req);
+
+    const context = await getContextForAgendaJobByOrgId(organization);
 
     if (!remoteEvalEnabled) {
       throw new UnrecoverableApiError(

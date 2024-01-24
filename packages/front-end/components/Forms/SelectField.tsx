@@ -37,17 +37,17 @@ export function useSelectOptions(
     const m = new Map<string, SingleValue>();
     const clone = cloneDeep(options);
     if (sort) {
-      // clone.sort((a, b) => {
-      //   return a.label.localeCompare(b.label);
-      // });
+      clone.sort((a, b) => {
+        return a.label.localeCompare(b.label);
+      });
     }
     clone.forEach((o) => {
       if ("options" in o) {
         const suboptions = o.options;
         if (sort) {
-          // suboptions.sort((a, b) => {
-          //   return a.label.localeCompare(b.label);
-          // });
+          suboptions.sort((a, b) => {
+            return a.label.localeCompare(b.label);
+          });
         }
         suboptions.forEach((option) => {
           m.set(option.value, option);

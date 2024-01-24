@@ -1,7 +1,6 @@
 import fs from "fs";
 import path from "path";
 import { Request, Response } from "express";
-import { FULL_ACCESS_PERMISSIONS } from "shared/permissions";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import { APP_ORIGIN } from "../util/secrets";
 import {
@@ -10,7 +9,10 @@ import {
   LegacyVariation,
 } from "../../types/experiment";
 import { ErrorResponse, ExperimentOverridesResponse } from "../../types/api";
-import { getExperimentOverrides } from "../services/organizations";
+import {
+  getContextForAgendaJobByOrgId,
+  getExperimentOverrides,
+} from "../services/organizations";
 import { getAllExperiments } from "../models/ExperimentModel";
 import { findOrganizationById } from "../models/OrganizationModel";
 
@@ -48,24 +50,9 @@ export async function getExperimentConfig(
       });
     }
 
-    const org = await findOrganizationById(organization);
+    const context = await getContextForAgendaJobByOrgId(organization);
 
-    if (!org) {
-      return res.status(400).json({
-        status: 400,
-        error: "Invalid API key",
-      });
-    }
-
-    //TODO: Double check this logic
-    const { overrides, expIdMapping } = await getExperimentOverrides({
-      org,
-      userId: "",
-      email: "",
-      environments: [],
-      userName: "",
-      readAccessFilter: FULL_ACCESS_PERMISSIONS,
-    });
+    const { overrides, expIdMapping } = await getExperimentOverrides(context);
 
     // TODO: add cache headers?
     res.status(200).json({
@@ -138,15 +125,8 @@ export async function getExperimentsScript(
         .send(`console.error("Invalid GrowthBook API key");`);
     }
 
-    //TODO: Double check this logic
-    const experiments = await getAllExperiments({
-      org,
-      userId: "",
-      email: "",
-      environments: [],
-      userName: "",
-      readAccessFilter: FULL_ACCESS_PERMISSIONS,
-    });
+    const context = await getContextForAgendaJobByOrgId(organization);
+    const experiments = await getAllExperiments(context);
 
     const experimentData: ExperimentData[] = [];
 
