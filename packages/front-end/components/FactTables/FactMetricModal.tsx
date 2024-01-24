@@ -2,6 +2,8 @@ import { useForm } from "react-hook-form";
 import { FaTimes } from "react-icons/fa";
 import { useEffect, useState } from "react";
 import {
+  DEFAULT_FACT_METRIC_WINDOW,
+  DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
 } from "shared/constants";
@@ -246,8 +248,8 @@ export default function FactMetricModal({
         value: 0,
       },
       windowSettings: existing?.windowSettings || {
-        window: "",
-        delayHours: 0,
+        window: DEFAULT_FACT_METRIC_WINDOW,
+        delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
         windowUnit: "days",
         windowValue: 3,
       },

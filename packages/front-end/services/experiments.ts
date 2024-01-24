@@ -287,11 +287,11 @@ export function applyMetricOverrides<T extends ExperimentMetricInterface>(
     if (!isNil(metricOverride?.windowHours)) {
       newMetric.windowSettings.windowUnit = "hours";
       newMetric.windowSettings.windowValue = metricOverride.windowHours;
-      overrideFields.push("conversionWindowHours");
+      overrideFields.push("windowHours");
     }
     if (!isNil(metricOverride?.delayHours)) {
       newMetric.windowSettings.delayHours = metricOverride.delayHours;
-      overrideFields.push("conversionDelayHours");
+      overrideFields.push("windowDelayHours");
     }
     if (!isNil(metricOverride?.winRisk)) {
       newMetric.winRisk = metricOverride.winRisk;

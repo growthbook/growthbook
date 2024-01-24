@@ -97,15 +97,22 @@ export type MetricOverride = {
   regressionAdjustmentDays?: number;
 };
 
+
+export type LegacyMetricOverride = MetricOverride & {
+  conversionWindowHours?: number;
+  conversionDelayHours?: number;
+};
+
 export interface LegacyExperimentInterface
   extends Omit<
     ExperimentInterface,
-    "phases" | "variations" | "attributionModel" | "releasedVariationId"
+    "phases" | "variations" | "attributionModel" | "releasedVariationId" | "metricOverrides"
   > {
   /**
    * @deprecated
    */
   observations?: string;
+  metricOverrides?: LegacyMetricOverride[];
   attributionModel: ExperimentInterface["attributionModel"] | "allExposures";
   variations: LegacyVariation[];
   phases: LegacyExperimentPhase[];

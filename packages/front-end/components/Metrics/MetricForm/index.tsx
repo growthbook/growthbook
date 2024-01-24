@@ -13,15 +13,10 @@ import {
 } from "shared/constants";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { isProjectListValidForProject } from "shared/util";
-import {
-  MetricCappingSettings,
-  MetricWindowSettings,
-} from "back-end/types/fact-table";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
-import { getDefaultConversionWindowHours } from "@/services/env";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
@@ -309,16 +304,12 @@ const MetricForm: FC<MetricFormProps> = ({
     validDatasources[0];
 
   // TODO move
-  const defaultCapping: MetricCappingSettings = {
-    capping: "",
-    value: 0,
-  };
-  const defaultWindowSettings: MetricWindowSettings = {
-    window: "conversion",
-    delayHours: 0,
-    windowValue: getDefaultConversionWindowHours(),
-    windowUnit: "hours",
-  };
+  // const defaultWindowSettings: MetricWindowSettings = {
+  //   window: "conversion",
+  //   delayHours: 0,
+  //   windowValue: getDefaultConversionWindowHours(),
+  //   windowUnit: "hours",
+  // };
   const form = useForm({
     defaultValues: {
       datasource: initialDatasource?.id || "",
@@ -331,8 +322,9 @@ const MetricForm: FC<MetricFormProps> = ({
       inverse: !!current.inverse,
       ignoreNulls: !!current.ignoreNulls,
       queryFormat: current.queryFormat || (current.sql ? "sql" : "builder"),
-      cappingSettings: current.cappingSettings || defaultCapping,
-      windowSettings: current.windowSettings || defaultWindowSettings,
+      cappingSettings:
+        current.cappingSettings || metricDefaults.cappingSettings,
+      windowSettings: current.windowSettings || metricDefaults.windowSettings,
       sql: current.sql || "",
       eventName: current.templateVariables?.eventName || "",
       valueColumn: current.templateVariables?.valueColumn || "",

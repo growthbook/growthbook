@@ -514,6 +514,14 @@ export function upgradeExperimentDoc(
     experiment.description = experiment.observations;
   }
 
+  // metric overrides
+  if (experiment.metricOverrides) {
+    experiment.metricOverrides.forEach((mo) => {
+      mo.delayHours = mo.delayHours || mo.conversionDelayHours;
+      mo.windowHours = mo.windowHours || mo.conversionWindowHours;
+    });
+  }
+
   // releasedVariationId
   if (!("releasedVariationId" in experiment)) {
     if (experiment.status === "stopped") {

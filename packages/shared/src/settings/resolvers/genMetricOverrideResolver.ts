@@ -1,4 +1,5 @@
 import { MetricOverride } from "back-end/types/experiment";
+import { MetricWindowSettings } from "back-end/types/fact-table";
 import { SettingsResolver, Settings, ScopeDefinition } from "../types";
 import { getConversionWindowHours } from "../../experiments";
 
@@ -13,9 +14,7 @@ export default function genMetricOverrideResolver(
     let metricValue:
       | number
       | boolean
-      | ""
-      | "conversion"
-      | "lookback"
+      | MetricWindowSettings["window"]
       | null
       | undefined = null;
     if (fieldName == "delayHours") {

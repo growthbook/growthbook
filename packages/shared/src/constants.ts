@@ -2,6 +2,14 @@ export const DEFAULT_STATS_ENGINE = "bayesian";
 
 export const DEFAULT_P_VALUE_THRESHOLD = 0.05;
 
+// Metric defaults
+export const DEFAULT_METRIC_WINDOW = "conversion";
+export const DEFAULT_FACT_METRIC_WINDOW = "";
+export const DEFAULT_METRIC_WINDOW_DELAY_HOURS = 0;
+export const DEFAULT_METRIC_WINDOW_HOURS = 72;
+export const DEFAULT_METRIC_CAPPING = "";
+export const DEFAULT_METRIC_CAPPING_VALUE = 0;
+
 // Regression Adjustment (CUPED):
 export const DEFAULT_REGRESSION_ADJUSTMENT_ENABLED = false;
 export const DEFAULT_REGRESSION_ADJUSTMENT_DAYS = 14;

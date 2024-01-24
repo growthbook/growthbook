@@ -1,4 +1,7 @@
 import {
+  DEFAULT_METRIC_WINDOW,
+  DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+  DEFAULT_METRIC_WINDOW_HOURS,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
@@ -185,15 +188,15 @@ export function getMetricForSnapshot(
     computedSettings: {
       windowSettings: {
         delayHours:
-          overrides?.delayHours ?? metric.windowSettings.delayHours ?? 0,
+          overrides?.delayHours ?? metric.windowSettings.delayHours ?? DEFAULT_METRIC_WINDOW_DELAY_HOURS,
         window:
-          overrides?.window ?? metric.windowSettings.window ?? "conversion",
+          overrides?.window ?? metric.windowSettings.window ?? DEFAULT_METRIC_WINDOW,
         windowUnit:
           overrides?.windowHours || overrides?.window
             ? "hours"
             : metric.windowSettings.windowUnit ?? "hours",
         windowValue:
-          overrides?.windowHours ?? metric.windowSettings.windowValue ?? 72,
+          overrides?.windowHours ?? metric.windowSettings.windowValue ?? DEFAULT_METRIC_WINDOW_HOURS,
       },
       regressionAdjustmentDays:
         regressionAdjustmentStatus?.regressionAdjustmentDays ??

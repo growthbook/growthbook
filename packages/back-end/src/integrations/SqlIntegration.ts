@@ -3256,12 +3256,10 @@ AND event_name = '${eventName}'`,
     let ifExpression = "";
     if (metric.windowSettings.window === "lookback") {
       let hours = getConversionWindowHours(metric.windowSettings);
-      // ensure negative
-      if (hours > 0) hours = hours * -1;
-      ifExpression = `m.timestamp >= ${this.addHours(
-        cumulativeDate ? "dr.day" : this.toTimestamp(endDate),
-        hours
-      )}`;
+      // ensure positive
+      if (hours < 0) hours = hours * -1;
+      ifExpression = `${this.addHours("m.timestamp", hours)} >= 
+        ${cumulativeDate ? "dr.day" : this.toTimestamp(endDate)}`;
     } else {
       ifExpression = this.getConversionWindowClause(
         "d.timestamp",

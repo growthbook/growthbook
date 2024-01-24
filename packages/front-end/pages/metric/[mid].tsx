@@ -14,7 +14,6 @@ import { BsGear } from "react-icons/bs";
 import { IdeaInterface } from "back-end/types/idea";
 import { date } from "shared/dates";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { getConversionWindowHours } from "shared/experiments";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DiscussionThread from "@/components/DiscussionThread";
@@ -1178,10 +1177,9 @@ const MetricPage: FC = () => {
                           <span className="font-weight-bold">
                             {metric.windowSettings.delayHours &&
                             metric.windowSettings.window === "conversion"
-                              ? metric.windowSettings.delayHours + " to "
+                              ? metric.windowSettings.delayHours + " hours to "
                               : ""}
-                            {getConversionWindowHours(metric.windowSettings)}{" "}
-                            hours
+                            {`${metric.windowSettings.windowValue} ${metric.windowSettings.windowUnit}`}
                           </span>
                         </li>
                       </>

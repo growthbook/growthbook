@@ -81,8 +81,9 @@ const experimentSchema = new mongoose.Schema({
     {
       _id: false,
       id: String,
-      conversionWindowHours: Number,
-      conversionDelayHours: Number,
+      window: String,
+      windowHours: Number,
+      delayHours: Number,
       winRisk: Number,
       loseRisk: Number,
       regressionAdjustmentOverride: Boolean,

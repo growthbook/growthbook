@@ -13,7 +13,6 @@ export function applyMetricOverrides(
   if (!computed) return;
 
   metric.windowSettings = computed.windowSettings;
-
   metric.regressionAdjustmentEnabled = computed.regressionAdjustmentEnabled;
   metric.regressionAdjustmentDays = computed.regressionAdjustmentDays;
 

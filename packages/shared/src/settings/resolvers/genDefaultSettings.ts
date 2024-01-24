@@ -1,5 +1,10 @@
 import { MemberRoleInfo, MetricDefaults } from "back-end/types/organization";
 import {
+  DEFAULT_METRIC_CAPPING,
+  DEFAULT_METRIC_CAPPING_VALUE,
+  DEFAULT_METRIC_WINDOW,
+  DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+  DEFAULT_METRIC_WINDOW_HOURS,
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
@@ -21,10 +26,6 @@ export const DEFAULT_PAST_EXPERIMENT_MIN_LENGTH = 6;
 export const DEFAULT_SDK_INSTRUCTIONS_VIEWED = false;
 export const DEFAULT_UPDATE_SCHEDULE = null;
 export const DEFAULT_VIDEO_INSTRUCTIONS_VIEWED = false;
-// TODO?
-export const DEFAULT_METRIC_WINDOW = "conversion";
-export const DEFAULT_METRIC_WINDOW_HOURS = 72;
-export const DEFAULT_METRIC_WINDOW_DELAY_HOURS = 0;
 export const DEFAULT_LOSE_RISK = null;
 export const DEFAULT_WIN_RISK = null;
 export const DEFAULT_SECURE_ATTRIBUTE_SALT = "";
@@ -34,12 +35,15 @@ export const DEFAULT_METRIC_DEFAULTS: MetricDefaults = {
   maxPercentageChange: 0.5,
   minPercentageChange: 0.005,
   minimumSampleSize: 150,
-  // TODO
   windowSettings: {
     window: DEFAULT_METRIC_WINDOW,
-    delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
     windowValue: DEFAULT_METRIC_WINDOW_HOURS,
+    delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
     windowUnit: "hours",
+  },
+  cappingSettings: {
+    capping: DEFAULT_METRIC_CAPPING,
+    value: DEFAULT_METRIC_CAPPING_VALUE
   },
 };
 

@@ -18,6 +18,7 @@ import Field from "../Forms/Field";
 import Page from "../Modal/Page";
 import PagedModal from "../Modal/PagedModal";
 import UploadConfigYml from "./UploadConfigYml";
+import { DEFAULT_METRIC_WINDOW, DEFAULT_METRIC_WINDOW_DELAY_HOURS, DEFAULT_METRIC_WINDOW_HOURS } from "shared/constants";
 
 function sanitizeSecrets(d: DataSourceInterfaceWithParams) {
   if (!d || !d.params) return;
@@ -138,9 +139,9 @@ export default function RestoreConfigYamlButton({
               n.windowSettings === undefined
             ) {
               const windowSetting: MetricWindowSettings = {
-                window: "conversion",
-                delayHours: n.conversionWindowDelay ?? 0,
-                windowValue: n.conversionWindowHours ?? 72, // TODO
+                window: DEFAULT_METRIC_WINDOW,
+                delayHours: n.conversionWindowDelay ?? DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+                windowValue: n.conversionWindowHours ?? DEFAULT_METRIC_WINDOW_HOURS,
                 windowUnit: "hours",
               };
               n.windowSettings = windowSetting;
