@@ -1,7 +1,5 @@
 import { FeatureInterface } from "back-end/types/feature";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { useState, useMemo } from "react";
-import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { autoMerge, mergeResultHasChanges } from "shared/util";
 import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
@@ -10,6 +8,7 @@ import usePermissions from "@/hooks/usePermissions";
 import Modal from "../Modal";
 import Button from "../Button";
 import Field from "../Forms/Field";
+import { ExpandableDiff } from "./DraftModal";
 
 export interface Props {
   feature: FeatureInterface;
@@ -21,54 +20,12 @@ export interface Props {
   onDiscard?: () => void;
 }
 
-export function ExpandableDiff({
-  title,
-  a,
-  b,
-}: {
-  title: string;
-  a: string;
-  b: string;
-}) {
-  const [open, setOpen] = useState(false);
-
-  if (a === b) return null;
-
-  return (
-    <div className="diff-wrapper">
-      <div
-        className="list-group-item list-group-item-action d-flex"
-        onClick={(e) => {
-          e.preventDefault();
-          setOpen(!open);
-        }}
-      >
-        <div className="text-muted mr-2">Changed:</div>
-        <strong>{title}</strong>
-        <div className="ml-auto">
-          {open ? <FaAngleDown /> : <FaAngleRight />}
-        </div>
-      </div>
-      {open && (
-        <div className="list-group-item list-group-item-light">
-          <ReactDiffViewer
-            oldValue={a}
-            newValue={b}
-            compareMethod={DiffMethod.LINES}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default function DraftModal({
+export default function RequestReviewModal({
   feature,
   version,
   revisions,
   close,
   mutate,
-  onPublish,
   onDiscard,
 }: Props) {
   const environments = useEnvironments();
@@ -91,7 +48,7 @@ export default function DraftModal({
       environments.map((e) => e.id),
       {}
     );
-  }, [revision, baseRevision, liveRevision]);
+  }, [revision, baseRevision, liveRevision, environments]);
 
   const [comment, setComment] = useState(revision?.comment || "");
 
@@ -124,7 +81,12 @@ export default function DraftModal({
     }
 
     return diffs;
-  }, [mergeResult]);
+  }, [
+    environments,
+    feature.defaultValue,
+    feature.environmentSettings,
+    mergeResult,
+  ]);
 
   if (!revision || !mergeResult) return null;
 
@@ -140,30 +102,9 @@ export default function DraftModal({
     <Modal
       open={true}
       header={"Review Draft Changes"}
-      submit={
-        hasPermission
-          ? async () => {
-              try {
-                await apiCall(
-                  `/feature/${feature.id}/${revision.version}/request`,
-                  {
-                    method: "POST",
-                    body: JSON.stringify({
-                      mergeResultSerialized: JSON.stringify(mergeResult),
-                      comment,
-                    }),
-                  }
-                );
-              } catch (e) {
-                await mutate();
-                throw e;
-              }
-              await mutate();
-              onPublish && onPublish();
-            }
-          : undefined
-      }
-      cta="Publish"
+      submit={() => false}
+      autoCloseOnSubmit={false}
+      cta="Next"
       ctaEnabled={!!mergeResult.success && hasChanges}
       close={close}
       closeCta="Cancel"
@@ -210,7 +151,7 @@ export default function DraftModal({
 
       {mergeResult.success && hasChanges && (
         <div>
-          <h3>Review Final Changes</h3>
+          <h4>Publishing to the prod environment requires approval.</h4>
           <p>
             The changes below will go live when this draft revision is
             published. You will be able to revert later if needed.

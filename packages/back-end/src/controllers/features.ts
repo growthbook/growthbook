@@ -60,6 +60,7 @@ import {
   getRevisions,
   hasDraft,
   markRevisionAsPublished,
+  markRevisionAsReviewRequested,
   updateRevision,
 } from "../models/FeatureRevisionModel";
 import { getEnabledEnvironments } from "../util/features";
@@ -513,6 +514,35 @@ export async function postFeatureRebase(
     status: 200,
   });
 }
+export async function postFeatureRequestReview(
+  req: AuthRequest<
+    {
+      comment: string;
+      mergeResultSerialized: string;
+    },
+    { id: string; version: string }
+  >,
+  res: Response
+) {
+  const { org } = getContextFromReq(req);
+  const { id, version } = req.params;
+  const feature = await getFeature(org.id, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  const revision = await getRevision(org.id, feature.id, parseInt(version));
+  if (!revision) {
+    throw new Error("Could not find feature revision");
+  }
+  if (revision.status !== "draft") {
+    throw new Error("Can only request review if is a draft");
+  }
+  await markRevisionAsReviewRequested(revision, res.locals.eventAudit);
+  res.status(200).json({
+    status: 200,
+  });
+}
 
 export async function postFeaturePublish(
   req: AuthRequest<
@@ -528,6 +558,9 @@ export async function postFeaturePublish(
   const { comment, mergeResultSerialized } = req.body;
   const { id, version } = req.params;
   const feature = await getFeature(org.id, id);
+  if (org.settings?.requireReviews && !req.superAdmin) {
+    throw new Error("review Required before publishing");
+  }
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -723,6 +756,7 @@ export async function postFeatureFork(
     baseVersion: revision.version,
     changes: revision,
     environments,
+    requiresReview: !!org.settings?.requireReviews && !!req.superAdmin,
   });
   await updateFeature(org, res.locals.eventAudit, feature, {
     hasDrafts: true,
@@ -974,7 +1008,13 @@ async function getDraftRevision(
   if (!revision) {
     throw new Error("Cannot find revision");
   }
-  if (revision.status !== "draft") {
+  if (
+    !(
+      revision.status === "draft" ||
+      revision.status === "pending-review" ||
+      revision.status === "reviewed"
+    )
+  ) {
     throw new Error("Can only make changes to draft revisions");
   }
 

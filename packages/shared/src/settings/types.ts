@@ -77,6 +77,7 @@ interface BaseSettings {
   attributionModel: AttributionModel;
   secureAttributeSalt: string;
   killswitchConfirmation: boolean;
+  requireReviews: boolean;
 }
 
 // todo: encapsulate all settings, including experiment

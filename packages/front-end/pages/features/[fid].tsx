@@ -80,6 +80,8 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import RequestReviewModal from "@/components/Features/requestReviewModal";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -89,6 +91,7 @@ export default function FeaturePage() {
   const [editValidator, setEditValidator] = useState(false);
   const [showSchema, setShowSchema] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
+  const [reviewModal, setReviewModal] = useState(false);
   const [draftModal, setDraftModal] = useState(false);
   const [conflictModal, setConflictModal] = useState(false);
   const [duplicateModal, setDuplicateModal] = useState(false);
@@ -118,9 +121,11 @@ export default function FeaturePage() {
   } = useDefinitions();
 
   const { apiCall } = useAuth();
-  const { hasCommercialFeature, organization } = useUser();
+  const { hasCommercialFeature, organization, superAdmin } = useUser();
 
   const [version, setVersion] = useState<number | null>(null);
+  const settings = useOrgSettings();
+  const requireReviews = !!settings?.requireReviews && !superAdmin;
 
   let extraQueryString = "";
   // Version being forced via querystring
@@ -283,7 +288,8 @@ export default function FeaturePage() {
       "publishFeatures",
       projectId,
       getAffectedRevisionEnvs(data.feature, revision, environments)
-    );
+    ) &&
+    !requireReviews;
 
   const drafts = data.revisions.filter((r) => r.status === "draft");
 
@@ -414,6 +420,19 @@ export default function FeaturePage() {
           first={firstFeature}
           close={() => {
             setShowImplementation(false);
+          }}
+        />
+      )}
+      {reviewModal && revision && (
+        <RequestReviewModal
+          feature={data.feature}
+          revisions={data.revisions}
+          version={revision.version}
+          close={() => setReviewModal(false)}
+          mutate={mutate}
+          onDiscard={() => {
+            // When discarding a draft, switch back to the live version
+            setVersion(feature.version);
           }}
         />
       )}
@@ -1031,10 +1050,37 @@ export default function FeaturePage() {
                   <FaDraftingCompass /> Draft Revision
                 </strong>
                 <div className="mr-3">
-                  Make changes below and publish when you are ready
+                  {requireReviews
+                    ? "Make changes below and request review when you are ready"
+                    : "Make changes below and publish when you are ready"}
                 </div>
                 <div className="ml-auto"></div>
-                {mergeResult?.success && (
+                {mergeResult?.success && requireReviews && (
+                  <div>
+                    <Tooltip
+                      body={
+                        !revisionHasChanges
+                          ? "Draft is identical to the live version. Make changes first before requesting review"
+                          : ""
+                      }
+                    >
+                      <a
+                        href="#"
+                        className={clsx(
+                          "font-weight-bold",
+                          !revisionHasChanges ? "text-muted" : "text-purple"
+                        )}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setReviewModal(true);
+                        }}
+                      >
+                        <MdRocketLaunch /> Request Approval to Publish
+                      </a>
+                    </Tooltip>
+                  </div>
+                )}
+                {mergeResult?.success && !requireReviews && (
                   <div>
                     <Tooltip
                       body={

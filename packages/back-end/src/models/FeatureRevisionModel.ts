@@ -165,6 +165,7 @@ export async function createRevision({
   changes,
   publish,
   comment,
+  requiresReview,
 }: {
   feature: FeatureInterface;
   user: EventAuditUser;
@@ -173,6 +174,7 @@ export async function createRevision({
   changes?: Partial<FeatureRevisionInterface>;
   publish?: boolean;
   comment?: string;
+  requiresReview?: boolean;
 }) {
   // Get max version number
   const lastRevision = (
@@ -211,18 +213,23 @@ export async function createRevision({
       rules,
     }),
   };
-
+  let status = "draft";
+  if (publish && !requiresReview) {
+    status = "published";
+  } else if (publish && requiresReview) {
+    status = "pending-review";
+  }
   const doc = await FeatureRevisionModel.create({
     organization: feature.organization,
     featureId: feature.id,
     version: newVersion,
     dateCreated: new Date(),
     dateUpdated: new Date(),
-    datePublished: publish ? new Date() : null,
+    datePublished: publish && requiresReview ? new Date() : null,
     createdBy: user,
     baseVersion: baseVersion || feature.version,
-    status: publish ? "published" : "draft",
-    publishedBy: publish ? user : null,
+    status,
+    publishedBy: publish && requiresReview ? user : null,
     comment: comment || "",
     defaultValue,
     rules,
@@ -244,7 +251,13 @@ export async function updateRevision(
 ) {
   // If editing defaultValue or rules, require the revision to be a draft
   if ("defaultValue" in changes || changes.rules) {
-    if (revision.status !== "draft") {
+    if (
+      !(
+        revision.status === "draft" ||
+        revision.status === "pending-review" ||
+        revision.status === "reviewed"
+      )
+    ) {
       throw new Error("Can only update draft revisions");
     }
   }
@@ -291,6 +304,42 @@ export async function markRevisionAsPublished(
     {
       $set: {
         status: "published",
+        publishedBy: user,
+        datePublished: new Date(),
+        dateUpdated: new Date(),
+        comment: comment ?? revision.comment,
+      },
+      $push: {
+        log,
+      },
+    }
+  );
+}
+
+export async function markRevisionAsReviewRequested(
+  revision: FeatureRevisionInterface,
+  user: EventAuditUser,
+  comment?: string
+) {
+  const action = "pending-review";
+
+  const log: RevisionLog = {
+    action,
+    subject: "",
+    timestamp: new Date(),
+    user,
+    value: JSON.stringify(comment ? { comment } : {}),
+  };
+
+  await FeatureRevisionModel.updateOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    {
+      $set: {
+        status: "pending-review",
         publishedBy: user,
         datePublished: new Date(),
         dateUpdated: new Date(),

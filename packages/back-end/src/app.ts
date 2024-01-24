@@ -544,6 +544,10 @@ app.post(
   "/feature/:id/:version/publish",
   featuresController.postFeaturePublish
 );
+app.post(
+  "/feature/:id/:version/request",
+  featuresController.postFeatureRequestReview
+);
 app.get("/feature/:id/:version/log", featuresController.getRevisionLog);
 app.post("/feature/:id/archive", featuresController.postFeatureArchive);
 app.post("/feature/:id/toggle", featuresController.postFeatureToggle);
