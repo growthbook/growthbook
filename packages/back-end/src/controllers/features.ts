@@ -1772,7 +1772,7 @@ export async function postPrerequisite(
   req: AuthRequest<{ prerequisite: FeaturePrerequisite }, { id: string }>,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
   const { prerequisite } = req.body;
 
@@ -1802,7 +1802,7 @@ export async function putPrerequisite(
   >,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
   const { prerequisite, i } = req.body;
 
@@ -1833,7 +1833,7 @@ export async function deletePrerequisite(
   req: AuthRequest<{ i: number }, { id: string }>,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
   const { i } = req.body;
 

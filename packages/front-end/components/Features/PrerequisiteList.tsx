@@ -32,6 +32,7 @@ export default function PrerequisiteList({
             key={i}
             i={i}
             feature={feature}
+            features={features}
             parentFeature={parentFeature}
             prerequisite={item}
             mutate={mutate}

@@ -1,11 +1,24 @@
 import { useForm } from "react-hook-form";
 import { FeatureInterface, FeaturePrerequisite } from "back-end/types/feature";
-import { useEffect, useMemo } from "react";
-import { isFeatureCyclic } from "shared/util";
-import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
+import { useMemo } from "react";
+import {
+  evaluatePrerequisiteState,
+  isFeatureCyclic,
+  PrerequisiteState,
+} from "shared/util";
+import {
+  FaExclamationCircle,
+  FaExclamationTriangle,
+  FaExternalLinkAlt,
+} from "react-icons/fa";
 import clsx from "clsx";
 import cloneDeep from "lodash/cloneDeep";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import {
+  FaRegCircleCheck,
+  FaRegCircleQuestion,
+  FaRegCircleXmark,
+} from "react-icons/fa6";
 import {
   getFeatureDefaultValue,
   useEnvironments,
@@ -14,10 +27,9 @@ import {
   getDefaultPrerequisiteCondition,
 } from "@/services/features";
 import track from "@/services/track";
-import { useIncrementer } from "@/hooks/useIncrementer";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { useAuth } from "@/services/auth";
-import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 
@@ -40,10 +52,9 @@ export default function PrerequisiteModal({
 }: Props) {
   const { features } = useFeaturesList();
   const prerequisites = getPrerequisites(feature);
-  const prerequisite = prerequisites[i] ?? {};
+  const prerequisite = prerequisites[i] ?? null;
   const environments = useEnvironments();
-
-  const [conditionKey, forceConditionRender] = useIncrementer();
+  const envs = environments.map((e) => e.id);
 
   const defaultValues = {
     id: "",
@@ -52,8 +63,8 @@ export default function PrerequisiteModal({
 
   const form = useForm<FeaturePrerequisite>({
     defaultValues: {
-      id: prerequisite.id ?? defaultValues.id,
-      condition: prerequisite.condition ?? defaultValues.condition,
+      id: prerequisite?.id ?? defaultValues.id,
+      condition: prerequisite?.condition ?? defaultValues.condition,
     },
   });
   const { apiCall } = useAuth();
@@ -61,11 +72,11 @@ export default function PrerequisiteModal({
   const featureOptions = features
     .filter((f) => f.id !== feature.id)
     .filter((f) => (f.project || "") === (feature.project || ""))
+    .filter((f) => f.valueType === "boolean")
     .map((f) => ({ label: f.id, value: f.id }));
 
   const parentFeature = features.find((f) => f.id === form.watch("id"));
   const parentFeatureId = parentFeature?.id;
-  const parentCondition = form.watch("condition");
 
   const [isCyclic, cyclicFeatureId] = useMemo(() => {
     if (!parentFeatureId) return [false, null];
@@ -85,21 +96,16 @@ export default function PrerequisiteModal({
     i,
   ]);
 
-  const canSubmit =
-    !isCyclic &&
-    !!parentFeature &&
-    !!form.watch("id") &&
-    !!form.watch("condition");
+  const canSubmit = !isCyclic && !!parentFeature && !!form.watch("id");
 
-  useEffect(() => {
-    if (parentFeature) {
-      if (parentCondition === "") {
-        const condStr = getDefaultPrerequisiteCondition(parentFeature);
-        form.setValue("condition", condStr);
-        forceConditionRender();
-      }
-    }
-  }, [parentFeature, parentCondition, form, forceConditionRender]);
+  const prereqStates = useMemo(() => {
+    if (!parentFeature) return null;
+    const states: Record<string, PrerequisiteState> = {};
+    envs.forEach((env) => {
+      states[env] = evaluatePrerequisiteState(parentFeature, features, env);
+    });
+    return states;
+  }, [parentFeature, features, envs]);
 
   return (
     <Modal
@@ -110,6 +116,9 @@ export default function PrerequisiteModal({
       ctaEnabled={canSubmit}
       header={prerequisite ? "Edit Prerequisite" : "New Prerequisite"}
       submit={form.handleSubmit(async (values) => {
+        if (!values.condition) {
+          values.condition = getDefaultPrerequisiteCondition();
+        }
         const action = i === prerequisites.length ? "add" : "edit";
 
         track("Save Prerequisite", {
@@ -130,108 +139,112 @@ export default function PrerequisiteModal({
         mutate();
       })}
     >
-      <div className="row mt-2 mb-3">
-        <div className="col-4">
-          <SelectField
-            label="Prerequisite feature"
-            options={featureOptions}
-            value={form.watch("id")}
-            onChange={(v) => {
-              form.setValue("id", v);
-              form.setValue("condition", "");
-            }}
-            sort={false}
-          />
-        </div>
+      <SelectField
+        label="Select from boolean features"
+        placeholder="Select feature"
+        options={featureOptions}
+        value={form.watch("id")}
+        onChange={(v) => {
+          form.setValue("id", v);
+          form.setValue("condition", "");
+        }}
+        sort={false}
+      />
 
-        {parentFeature ? (
-          <div className="col-8">
-            <div className="border rounded px-3 pt-1 bg-light">
-              <table className="table table-sm mb-0">
-                <thead className="uppercase-title text-muted">
-                  <tr>
-                    <th className="border-top-0">Feature</th>
-                    <th className="border-top-0">Type</th>
-                    <th className="border-top-0">Default value</th>
-                    <th className="border-top-0">Environments</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>
-                      <a
-                        href={`/features/${form.watch("id")}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {form.watch("id")}
-                        <FaExternalLinkAlt className="ml-1" />
-                      </a>
-                    </td>
-                    <td>
-                      {parentFeature.valueType === "json"
-                        ? "JSON"
-                        : parentFeature.valueType}
-                    </td>
-                    <td>
-                      <div
-                        className={clsx({
-                          small: parentFeature.valueType === "json",
-                        })}
-                      >
-                        <ValueDisplay
-                          value={getFeatureDefaultValue(parentFeature)}
-                          type={parentFeature.valueType}
-                          full={false}
-                        />
-                      </div>
-                    </td>
-                    <td>
-                      <div className="d-flex small">
-                        {environments.map((env) => (
-                          <div key={env.id} className="mr-3">
-                            <div className="font-weight-bold">{env.id}</div>
-                            <div>
-                              {parentFeature?.environmentSettings?.[env.id]
-                                ?.enabled ? (
-                                <span className="text-success font-weight-bold uppercase-title">
-                                  ON
-                                </span>
-                              ) : (
-                                <span className="text-danger font-weight-bold uppercase-title">
-                                  OFF
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+      {parentFeature ? (
+        <div>
+          <div className="mb-2">
+            <a
+              href={`/features/${form.watch("id")}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {form.watch("id")}
+              <FaExternalLinkAlt className="ml-1" />
+            </a>
           </div>
-        ) : null}
-      </div>
+
+          <table className="table mb-4 border">
+            <thead className="bg-light text-dark">
+              <tr>
+                <th className="pl-4">Type</th>
+                <th className="border-right">Default value</th>
+                {envs.map((env) => (
+                  <th key={env} className="text-center">
+                    {env}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="pl-4">
+                  {parentFeature.valueType === "json"
+                    ? "JSON"
+                    : parentFeature.valueType}
+                </td>
+                <td className="border-right">
+                  <div
+                    className={clsx({
+                      small: parentFeature.valueType === "json",
+                    })}
+                  >
+                    <ValueDisplay
+                      value={getFeatureDefaultValue(parentFeature)}
+                      type={parentFeature.valueType}
+                      full={false}
+                    />
+                  </div>
+                </td>
+                {envs.map((env) => (
+                  <td key={env} className="mr-3 text-center">
+                    {prereqStates?.[env] === "on" && (
+                      <Tooltip body="The parent feature is currently enabled in this environment">
+                        <FaRegCircleCheck
+                          className="text-success cursor-pointer"
+                          size={24}
+                        />
+                      </Tooltip>
+                    )}
+                    {prereqStates?.[env] === "off" && (
+                      <Tooltip body="The parent feature is currently diabled in this environment">
+                        <FaRegCircleXmark
+                          className="text-danger cursor-pointer"
+                          size={24}
+                        />
+                      </Tooltip>
+                    )}
+                    {prereqStates?.[env] === "conditional" && (
+                      <Tooltip body="The parent feature is currently enabled but has rules which make the result conditional in this environment">
+                        <FaRegCircleQuestion
+                          className="text-black-50 cursor-pointer"
+                          size={24}
+                        />
+                      </Tooltip>
+                    )}
+                    {prereqStates?.[env] === "cyclic" && (
+                      <Tooltip body="Circular dependency detected. Please fix.">
+                        <FaExclamationCircle
+                          className="text-warning-orange cursor-pointer"
+                          size={24}
+                        />
+                      </Tooltip>
+                    )}
+                  </td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      ) : null}
 
       {isCyclic && (
         <div className="alert alert-danger">
-          <FaExclamationTriangle /> This prerequisite (
-          <code>{cyclicFeatureId}</code>) creates a circular dependency. Remove
-          this prerequisite to continue.
+          <FaExclamationTriangle />
+          <code>{cyclicFeatureId}</code> creates a circular dependency. Select a
+          different feature.
         </div>
       )}
-
-      {parentFeature ? (
-        <PrerequisiteInput
-          defaultValue={form.watch("condition")}
-          onChange={(value) => form.setValue("condition", value)}
-          parentFeature={parentFeature}
-          showPassIfLabel={true}
-          key={conditionKey}
-        />
-      ) : null}
     </Modal>
   );
 }

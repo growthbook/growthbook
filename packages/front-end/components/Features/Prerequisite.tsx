@@ -1,5 +1,6 @@
 import { FeatureInterface, FeaturePrerequisite } from "back-end/types/feature";
 import { FaExternalLinkAlt } from "react-icons/fa";
+import { evaluatePrerequisiteState } from "shared/util";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getPrerequisites } from "@/services/features";
@@ -12,6 +13,7 @@ interface Props {
   i: number;
   prerequisite: FeaturePrerequisite;
   feature: FeatureInterface;
+  features: FeatureInterface[];
   parentFeature?: FeatureInterface;
   mutate: () => void;
   setPrerequisiteModal: (prerequisite: { i: number }) => void;
@@ -21,6 +23,7 @@ export default function Prerequisite({
   i,
   prerequisite,
   feature,
+  features,
   parentFeature,
   mutate,
   setPrerequisiteModal,
@@ -31,12 +34,26 @@ export default function Prerequisite({
 
   const prerequisites = getPrerequisites(feature);
 
+  const stateP = evaluatePrerequisiteState(
+    feature,
+    features,
+    "production",
+    prerequisite.id
+  );
+  const stateD = evaluatePrerequisiteState(
+    feature,
+    features,
+    "dev",
+    prerequisite.id
+  );
+
   return (
     <div
       className={`mx-3 py-3 ${
         i < prerequisites.length - 1 ? "border-bottom" : ""
       } bg-white`}
     >
+      prod: {stateP}, dev: {stateD}
       <div className="d-flex align-items-center">
         <div className="flex-1 mr-2">
           {parentFeature?.id ? (

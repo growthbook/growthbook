@@ -102,7 +102,7 @@ export function getPrerequisites(feature: FeatureInterface) {
 export function getDefaultPrerequisiteCondition(
   parentFeature?: FeatureInterface
 ) {
-  const valueType = parentFeature?.valueType || "string";
+  const valueType = parentFeature?.valueType || "boolean";
   if (valueType === "boolean") {
     return `{"@parent": true}`;
   }

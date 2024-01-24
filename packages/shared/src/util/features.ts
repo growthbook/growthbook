@@ -513,3 +513,81 @@ export function isFeatureCyclic(
 
   return visit(newFeature);
 }
+
+export type PrerequisiteState = "on" | "off" | "conditional" | "cyclic";
+export function evaluatePrerequisiteState(
+  feature: FeatureInterface,
+  features: FeatureInterface[],
+  env: string,
+  prerequisiteId?: string
+): PrerequisiteState {
+  if (isFeatureCyclic(feature, features)[0]) return "cyclic";
+
+  const visit = (
+    feature: FeatureInterface,
+    prerequisiteId?: string
+  ): PrerequisiteState => {
+    if (!feature.environmentSettings[env]) {
+      return "off";
+    }
+    let state: PrerequisiteState = feature.environmentSettings[env].enabled
+      ? "on"
+      : "off";
+    if (!prerequisiteId) {
+      if (state === "on" && feature.environmentSettings[env].rules?.length) {
+        state = "conditional";
+      }
+    }
+
+    // traverse a specific node
+    if (prerequisiteId) {
+      const prerequisiteFeature = features.find((f) => f.id === prerequisiteId);
+      if (!prerequisiteFeature) {
+        // todo: consider returning info about missing feature
+        return "off";
+      }
+      // const condition = feature.prerequisites?.find((p) => p.id === prerequisiteId)?.condition;
+      // if (condition !== simpleTargetingCondition) {
+      //   state = state !== "off" ? "conditional" : state;
+      // }
+      const result = visit(prerequisiteFeature);
+      if (result === "off") {
+        return "off";
+      }
+      if (result === "conditional") {
+        return state !== "off" ? "conditional" : state;
+      }
+      return state !== "conditional" ? "on" : state;
+    }
+
+    // traverse all nodes
+    const prerequisites = feature.prerequisites || [];
+    for (const prerequisite of prerequisites) {
+      const prerequisiteFeature = features.find(
+        (f) => f.id === prerequisite.id
+      );
+      if (!prerequisiteFeature) {
+        // todo: consider returning info about missing feature
+        state = "off";
+        break;
+      }
+      // if (prerequisite.condition !== simpleTargetingCondition) {
+      //   state = state !== "off" ? "conditional" : state;
+      //   if (state === "off") break;
+      // }
+      const result = visit(prerequisiteFeature);
+      if (result === "off") {
+        state = "off";
+      } else if (result === "conditional") {
+        state = state !== "off" ? "conditional" : state;
+      } else {
+        state = state !== "conditional" ? "on" : state;
+      }
+      // todo: if we want to continue traversal to collect more info, don't break
+      if (state === "off") break;
+    }
+
+    return state;
+  };
+  return visit(feature, prerequisiteId);
+}
