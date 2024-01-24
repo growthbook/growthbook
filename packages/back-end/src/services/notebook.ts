@@ -12,12 +12,12 @@ import { getReportById } from "../models/ReportModel";
 import { Queries } from "../../types/query";
 import { QueryMap } from "../queryRunners/QueryRunner";
 import { getQueriesByIds } from "../models/QueryModel";
+import { DataForStatsEngine } from "../../types/experiment-snapshot";
 import {
   getAnalysisSettingsFromReportArgs,
   reportArgsFromSnapshot,
 } from "./reports";
 import {
-  DataForStatsEngine,
   getAnalysisSettingsForStatsEngine,
   getMetricsAndQueryDataForStatsEngine,
 } from "./stats";

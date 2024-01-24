@@ -35,7 +35,6 @@ import {
   TestQueryResult,
   InformationSchema,
   RawInformationSchema,
-  MissingDatasourceParamsError,
   ExperimentUnitsQueryParams,
   QueryResponse,
   TrackedEventData,
@@ -51,6 +50,7 @@ import {
   DimensionSlicesQueryParams,
   ExperimentFactMetricsQueryParams,
   ExperimentFactMetricsQueryResponse,
+  FormatDialect,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
@@ -59,19 +59,32 @@ import {
   getBaseIdTypeAndJoins,
   compileSqlTemplate,
   format,
-  FormatDialect,
   replaceCountStar,
 } from "../util/sql";
 import { formatInformationSchema } from "../util/informationSchemas";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 import { SQLVars, TemplateVariables } from "../../types/sql";
-import { FactTableMap } from "../models/FactTableModel";
 import { logger } from "../util/logger";
 import {
   FactFilterInterface,
   FactMetricInterface,
+  FactTableMap,
 } from "../../types/fact-table";
 import { applyMetricOverrides } from "../util/integration";
+
+export class MissingDatasourceParamsError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "MissingDatasourceParamsError";
+  }
+}
+
+export class DataSourceNotSupportedError extends Error {
+  constructor() {
+    super("This data source is not supported yet.");
+    this.name = "DataSourceNotSupportedError";
+  }
+}
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 

@@ -37,9 +37,8 @@ import {
 } from "../types/Integration";
 import { expandDenominatorMetrics } from "../util/sql";
 import { getOrganizationById } from "../services/organizations";
-import { FactTableMap } from "../models/FactTableModel";
 import { OrganizationInterface } from "../../types/organization";
-import { FactMetricInterface } from "../../types/fact-table";
+import { FactMetricInterface, FactTableMap } from "../../types/fact-table";
 import SqlIntegration from "../integrations/SqlIntegration";
 import {
   QueryRunner,

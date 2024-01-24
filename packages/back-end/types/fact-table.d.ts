@@ -1,5 +1,5 @@
 import { z } from "zod";
-import {
+import type {
   createFactFilterPropsValidator,
   createColumnPropsValidator,
   createFactTablePropsValidator,
@@ -16,7 +16,7 @@ import {
   factTableColumnTypeValidator,
   testFactFilterPropsValidator,
 } from "../src/routers/fact-table/fact-table.validators";
-import { TestQueryRow } from "../src/types/Integration";
+import type { TestQueryRow } from "../src/types/Integration";
 
 export type FactTableColumnType = z.infer<typeof factTableColumnTypeValidator>;
 export type NumberFormat = z.infer<typeof numberFormatValidator>;

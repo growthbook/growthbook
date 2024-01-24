@@ -3,7 +3,7 @@ import {
   ENV_SCOPED_PERMISSIONS,
   GLOBAL_PERMISSIONS,
   PROJECT_SCOPED_PERMISSIONS,
-} from "../src/util/organization.util";
+} from "../src/util/permission-constants";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
 

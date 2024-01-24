@@ -1,7 +1,8 @@
-import { format as sqlFormat, FormatOptions } from "sql-formatter";
+import { format as sqlFormat } from "sql-formatter";
 import Handlebars from "handlebars";
 import { SQLVars } from "../../types/sql";
 import { FactTableColumnType } from "../../types/fact-table";
+import { FormatDialect } from "../types/Integration";
 import { helpers } from "./handlebarsHelpers";
 
 // Register all the helpers from handlebarsHelpers
@@ -162,7 +163,6 @@ export function compileSqlTemplate(
   }
 }
 
-export type FormatDialect = FormatOptions["language"] | "";
 export function format(sql: string, dialect?: FormatDialect) {
   if (!dialect) return sql;
 

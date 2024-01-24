@@ -5,11 +5,11 @@ import {
   updateInformationSchemaById,
 } from "../models/InformationSchemaModel";
 import { initializeDatasourceInformationSchema } from "../services/informationSchema";
+import { InformationSchemaError } from "../types/Integration";
 import {
   DataSourceNotSupportedError,
-  InformationSchemaError,
   MissingDatasourceParamsError,
-} from "../types/Integration";
+} from "../integrations/SqlIntegration";
 
 const CREATE_INFORMATION_SCHEMA_JOB_NAME = "createInformationSchema";
 type CreateInformationSchemaJob = Job<{

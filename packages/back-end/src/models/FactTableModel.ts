@@ -9,6 +9,7 @@ import {
   UpdateFactFilterProps,
   UpdateColumnProps,
   UpdateFactTableProps,
+  FactTableMap,
 } from "../../types/fact-table";
 
 const factTableSchema = new mongoose.Schema({
@@ -69,8 +70,6 @@ export async function getAllFactTablesForOrganization(organization: string) {
   const docs = await FactTableModel.find({ organization });
   return docs.map((doc) => toInterface(doc));
 }
-
-export type FactTableMap = Map<string, FactTableInterface>;
 
 export async function getFactTableMap(
   organization: string
