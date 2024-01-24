@@ -137,7 +137,7 @@ function generateVisualExperimentsPayload({
           js: vc.js || "",
           domMutations: vc.domMutations,
           urlRedirect: urlRedirects[i]?.url,
-        })) as unknown,
+        })) as AutoExperimentWithProject["variations"],
         hashVersion: e.hashVersion,
         hashAttribute: e.hashAttribute,
         fallbackAttribute: e.fallbackAttribute,
