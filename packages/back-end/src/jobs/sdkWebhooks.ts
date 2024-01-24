@@ -15,6 +15,7 @@ import { findWebhookById, findWebhooksBySdks } from "../models/WebhookModel";
 import { WebhookInterface, WebhookMethod } from "../../types/webhook";
 import { createSdkWebhookLog } from "../models/SdkWebhookLogModel";
 import { cancellableFetch } from "../util/http.util";
+import { getContextForAgendaJobByOrgId } from "../services/organizations";
 
 const SDK_WEBHOOKS_JOB_NAME = "fireWebhooks";
 type SDKWebhookJob = Job<{
@@ -229,8 +230,12 @@ export async function queueSingleWebhookById(webhookId: string) {
       return;
     }
 
+    const context = await getContextForAgendaJobByOrgId(
+      connection.organization
+    );
+
     const defs = await getFeatureDefinitions({
-      organization: connection.organization,
+      context,
       capabilities: getConnectionSDKCapabilities(connection),
       environment: connection.environment,
       projects: connection.projects,
@@ -292,6 +297,10 @@ export async function queueGlobalWebhooks(
     for (let i = 0; i < connections.length; i++) {
       const connection = connections[i];
 
+      const context = await getContextForAgendaJobByOrgId(
+        connection.organization
+      );
+
       // Skip if this SDK Connection isn't affected by the changes
       if (
         payloadKeys.some(
@@ -302,7 +311,7 @@ export async function queueGlobalWebhooks(
         )
       ) {
         const defs = await getFeatureDefinitions({
-          organization: connection.organization,
+          context,
           capabilities: getConnectionSDKCapabilities(connection),
           environment: connection.environment,
           projects: connection.projects,
