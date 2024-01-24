@@ -152,7 +152,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     const updatedFeature = await updateFeatureToDb(
-      req.organization,
+      req.context,
       req.eventAudit,
       feature,
       updates

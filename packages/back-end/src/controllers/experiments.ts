@@ -126,15 +126,15 @@ export async function getExperimentsFrequencyMonth(
   req: AuthRequest<null, { num: string }, { project?: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   let project = "";
   if (typeof req.query?.project === "string") {
     project = req.query.project;
   }
 
-  const allProjects = await findAllProjectsByOrganization(org.id);
+  const allProjects = await findAllProjectsByOrganization(context);
   const { num } = req.params;
-  const experiments = await getAllExperiments(org.id, project);
+  const experiments = await getAllExperiments(context.org.id, project);
 
   const allData: { date: string; numExp: number }[] = [];
 
@@ -431,7 +431,8 @@ export async function postExperiments(
     EventAuditUserForResponseLocals
   >
 ) {
-  const { org, userId } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
 
   const data = req.body;
   data.organization = org.id;
@@ -556,7 +557,7 @@ export async function postExperiments(
 
     const experiment = await createExperiment({
       data: obj,
-      organization: org,
+      context,
       user: res.locals.eventAudit,
     });
 
@@ -570,7 +571,7 @@ export async function postExperiments(
           experiment,
           urlPatterns: visualChangeset.urlPatterns,
           editorUrl: visualChangeset.editorUrl,
-          organization: org,
+          context,
           visualChanges: visualChangeset.visualChanges,
           user: res.locals.eventAudit,
         });
@@ -625,7 +626,8 @@ export async function postExperiment(
     EventAuditUserForResponseLocals
   >
 ) {
-  const { org, userId } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
   const { id } = req.params;
   const { phaseStartDate, phaseEndDate, currentPhase, ...data } = req.body;
 
@@ -802,7 +804,7 @@ export async function postExperiment(
   }
 
   const updated = await updateExperiment({
-    organization: org,
+    context,
     experiment,
     user: res.locals.eventAudit,
     changes,
@@ -821,7 +823,7 @@ export async function postExperiment(
           syncVisualChangesWithVariations({
             visualChangeset: vc,
             experiment: updated,
-            organization: org,
+            context,
             user: res.locals.eventAudit,
           })
         )
@@ -858,7 +860,8 @@ export async function postExperimentArchive(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.params;
 
   const experiment = await getExperimentById(org.id, id);
@@ -893,7 +896,7 @@ export async function postExperimentArchive(
 
   try {
     await updateExperiment({
-      organization: org,
+      context,
       experiment,
       user: res.locals.eventAudit,
       changes,
@@ -923,7 +926,8 @@ export async function postExperimentUnarchive(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.params;
 
   const experiment = await getExperimentById(org.id, id);
@@ -951,7 +955,7 @@ export async function postExperimentUnarchive(
 
   try {
     await updateExperiment({
-      organization: org,
+      context,
       experiment,
       user: res.locals.eventAudit,
       changes,
@@ -988,7 +992,8 @@ export async function postExperimentStatus(
   >,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.params;
   const { status, reason, dateEnded } = req.body;
 
@@ -1051,7 +1056,7 @@ export async function postExperimentStatus(
   changes.status = status;
 
   const updated = await updateExperiment({
-    organization: org,
+    context,
     experiment,
     user: res.locals.eventAudit,
     changes,
@@ -1078,7 +1083,8 @@ export async function postExperimentStop(
   >,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.params;
   const {
     reason,
@@ -1143,7 +1149,7 @@ export async function postExperimentStop(
 
   try {
     const updated = await updateExperiment({
-      organization: org,
+      context,
       experiment,
       user: res.locals.eventAudit,
       changes,
@@ -1173,7 +1179,8 @@ export async function deleteExperimentPhase(
   req: AuthRequest<null, { id: string; phase: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id, phase } = req.params;
   const phaseIndex = parseInt(phase);
 
@@ -1215,7 +1222,7 @@ export async function deleteExperimentPhase(
     changes.status = "draft";
   }
   const updated = await updateExperiment({
-    organization: org,
+    context,
     experiment,
     user: res.locals.eventAudit,
     changes,
@@ -1242,7 +1249,8 @@ export async function putExperimentPhase(
   req: AuthRequest<ExperimentPhase, { id: string; phase: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.params;
   const i = parseInt(req.params.phase);
   const phase = req.body;
@@ -1285,7 +1293,7 @@ export async function putExperimentPhase(
   };
   changes.phases = phases;
   const updated = await updateExperiment({
-    organization: org,
+    context,
     experiment,
     user: res.locals.eventAudit,
     changes,
@@ -1309,7 +1317,8 @@ export async function postExperimentTargeting(
   req: AuthRequest<ExperimentTargetingData, { id: string }>,
   res: Response
 ) {
-  const { org, userId } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
   const { id } = req.params;
 
   const {
@@ -1394,7 +1403,7 @@ export async function postExperimentTargeting(
   // TODO: validation
   try {
     const updated = await updateExperiment({
-      organization: org,
+      context,
       experiment,
       user: res.locals.eventAudit,
       changes,
@@ -1431,7 +1440,8 @@ export async function postExperimentPhase(
   req: AuthRequest<ExperimentPhase, { id: string }>,
   res: Response
 ) {
-  const { org, userId } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
   const { id } = req.params;
   const { reason, dateStarted, ...data } = req.body;
 
@@ -1492,7 +1502,7 @@ export async function postExperimentPhase(
   try {
     changes.phases = phases;
     const updated = await updateExperiment({
-      organization: org,
+      context,
       experiment,
       user: res.locals.eventAudit,
       changes,
@@ -1546,7 +1556,8 @@ export async function deleteExperiment(
     EventAuditUserForResponseLocals
   >
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.params;
 
   const experiment = await getExperimentById(org.id, id);
@@ -1578,7 +1589,11 @@ export async function deleteExperiment(
   await Promise.all([
     // note: we might want to change this to change the status to
     // 'deleted' instead of actually deleting the document.
-    deleteExperimentByIdForOrganization(experiment, org, res.locals.eventAudit),
+    deleteExperimentByIdForOrganization(
+      experiment,
+      context,
+      res.locals.eventAudit
+    ),
     removeExperimentFromPresentations(experiment.id),
   ]);
 
@@ -1648,7 +1663,8 @@ export async function postSnapshot(
   >,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.params;
   const experiment = await getExperimentById(org.id, id);
 
@@ -1664,7 +1680,7 @@ export async function postSnapshot(
 
   let project = null;
   if (experiment.project) {
-    project = await findProjectById(experiment.project, org.id);
+    project = await findProjectById(context, experiment.project);
   }
   const orgSettings: OrganizationSettings = org.settings as OrganizationSettings;
   const { settings } = getScopedSettings({
@@ -1788,7 +1804,7 @@ export async function postSnapshot(
   try {
     const queryRunner = await createSnapshot({
       experiment,
-      organization: org,
+      context,
       user: res.locals.eventAudit,
       phaseIndex: phase,
       useCache,
@@ -1896,7 +1912,8 @@ export async function deleteScreenshot(
   req: AuthRequest<{ url: string }, { id: string; variation: number }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id, variation } = req.params;
   const { url } = req.body;
   const changes: Changeset = {};
@@ -1936,7 +1953,7 @@ export async function deleteScreenshot(
     variation
   ].screenshots.filter((s) => s.path !== url);
   const updated = await updateExperiment({
-    organization: org,
+    context,
     experiment,
     user: res.locals.eventAudit,
     changes,
@@ -1968,7 +1985,8 @@ export async function addScreenshot(
   req: AuthRequest<AddScreenshotRequestBody, { id: string; variation: number }>,
   res: Response
 ) {
-  const { org, userId } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
   const { id, variation } = req.params;
   const { url, description } = req.body;
   const changes: Changeset = {};
@@ -2011,7 +2029,7 @@ export async function addScreenshot(
   });
 
   await updateExperiment({
-    organization: org,
+    context,
     experiment,
     user: res.locals.eventAudit,
     changes,
@@ -2191,7 +2209,8 @@ export async function postVisualChangeset(
   req: AuthRequest<Partial<VisualChangesetInterface>, { id: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
   if (!req.body.urlPatterns) {
     throw new Error("urlPatterns needs to be defined");
@@ -2217,7 +2236,7 @@ export async function postVisualChangeset(
     experiment,
     urlPatterns: req.body.urlPatterns,
     editorUrl: req.body.editorUrl,
-    organization: org,
+    context,
     user: res.locals.eventAudit,
   });
 
@@ -2231,7 +2250,8 @@ export async function putVisualChangeset(
   req: AuthRequest<Partial<VisualChangesetInterface>, { id: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
   const visualChangeset = await findVisualChangesetById(req.params.id, org.id);
   if (!visualChangeset) {
@@ -2249,7 +2269,7 @@ export async function putVisualChangeset(
   const ret = await updateVisualChangeset({
     visualChangeset,
     experiment,
-    organization: org,
+    context,
     updates: req.body,
     user: res.locals.eventAudit,
   });
@@ -2268,7 +2288,8 @@ export async function deleteVisualChangeset(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
   const visualChangeset = await findVisualChangesetById(req.params.id, org.id);
   if (!visualChangeset) {
@@ -2286,7 +2307,7 @@ export async function deleteVisualChangeset(
   await deleteVisualChangesetById({
     visualChangeset,
     experiment,
-    organization: org,
+    context,
     user: res.locals.eventAudit,
   });
 

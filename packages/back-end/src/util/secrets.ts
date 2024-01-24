@@ -151,6 +151,11 @@ export const CACHE_CONTROL_STALE_WHILE_REVALIDATE =
 export const CACHE_CONTROL_STALE_IF_ERROR =
   parseInt(process.env?.CACHE_CONTROL_STALE_IF_ERROR || "") || 36000;
 
+// remote Eval Edge
+export const REMOTE_EVAL_EDGE_HOST = process.env.REMOTE_EVAL_EDGE_HOST;
+export const REMOTE_EVAL_EDGE_API_TOKEN =
+  process.env.REMOTE_EVAL_EDGE_API_TOKEN;
+
 // update Feature every
 
 export const CRON_ENABLED = !stringToBoolean(process.env.CRON_DISABLED);
@@ -181,6 +186,16 @@ export const SECRET_API_KEY_ROLE =
 export const PROXY_ENABLED = stringToBoolean(process.env.PROXY_ENABLED);
 export const PROXY_HOST_INTERNAL = process.env.PROXY_HOST_INTERNAL || "";
 export const PROXY_HOST_PUBLIC = process.env.PROXY_HOST_PUBLIC || "";
+
+// global webhooks
+const webhooksString = process.env.WEBHOOKS;
+let webhooks = [];
+try {
+  webhooks = webhooksString ? JSON.parse(webhooksString) : [];
+} catch (error) {
+  throw Error(`webhooks in env file is malformed: ${webhooksString}`);
+}
+export const WEBHOOKS = webhooks;
 
 /**
  * Allows custom configuration of the trust proxy settings as

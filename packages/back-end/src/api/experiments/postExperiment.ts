@@ -70,7 +70,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
 
     const experiment = await createExperiment({
       data: newExperiment,
-      organization: req.organization,
+      context: req.context,
       user: req.eventAudit,
     });
 
@@ -83,7 +83,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     });
 
     const apiExperiment = await toExperimentApiInterface(
-      req.organization,
+      req.context,
       experiment
     );
     return {
