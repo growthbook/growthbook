@@ -1,18 +1,15 @@
 import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import fetch from "node-fetch";
-import { FULL_ACCESS_PERMISSIONS } from "shared/permissions";
 import { WebhookModel } from "../models/WebhookModel";
 import {
-  getEnvironmentIdsFromOrg,
+  getContextForAgendaJobByOrgId,
   getExperimentOverrides,
 } from "../services/organizations";
 import { getFeatureDefinitions } from "../services/features";
 import { WebhookInterface } from "../../types/webhook";
 import { CRON_ENABLED } from "../util/secrets";
 import { SDKPayloadKey } from "../../types/sdk-payload";
-import { ReqContext } from "../../types/organization";
-import { findOrganizationById } from "../models/OrganizationModel";
 
 const WEBHOOK_JOB_NAME = "fireWebhook";
 type WebhookJob = Job<{
@@ -35,20 +32,7 @@ export default function (ag: Agenda) {
 
     if (!webhook) return;
 
-    const org = await findOrganizationById(webhook.organization);
-
-    if (!org) {
-      return;
-    }
-
-    const context: ReqContext = {
-      org,
-      userId: "",
-      email: "",
-      environments: getEnvironmentIdsFromOrg(org),
-      userName: "",
-      readAccessFilter: FULL_ACCESS_PERMISSIONS,
-    };
+    const context = await getContextForAgendaJobByOrgId(webhook.organization);
 
     const { features, dateUpdated } = await getFeatureDefinitions({
       context,
