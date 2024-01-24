@@ -65,12 +65,13 @@ export const deleteTag = async (
 ) => {
   req.checkPermissions("manageTags");
 
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.body;
 
   // experiments
   await removeTagFromExperiments({
-    organization: org,
+    context,
     user: res.locals.eventAudit,
     tag: id,
   });

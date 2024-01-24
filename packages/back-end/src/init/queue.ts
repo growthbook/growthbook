@@ -11,10 +11,10 @@ import { CRON_ENABLED } from "../util/secrets";
 import { getAgendaInstance } from "../services/queueing";
 import updateStaleInformationSchemaTable from "../jobs/updateStaleInformationSchemaTable";
 import expireOldQueries from "../jobs/expireOldQueries";
+import addSdkWebhooksJob from "../jobs/sdkWebhooks";
 
 export async function queueInit() {
   if (!CRON_ENABLED) return;
-
   const agenda = getAgendaInstance();
 
   addExperimentResultsJob(agenda);
@@ -28,6 +28,7 @@ export async function queueInit() {
   updateStaleInformationSchemaTable(agenda);
   expireOldQueries(agenda);
   refreshFactTableColumns(agenda);
+  addSdkWebhooksJob(agenda);
 
   await agenda.start();
 }
