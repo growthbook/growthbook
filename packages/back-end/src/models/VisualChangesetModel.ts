@@ -380,7 +380,7 @@ const onVisualChangesetCreate = async ({
 }) => {
   if (!hasVisualChanges(visualChangeset.visualChanges)) return;
 
-  const payloadKeys = getPayloadKeys(context.org, experiment);
+  const payloadKeys = getPayloadKeys(context, experiment);
 
   await refreshSDKPayloadCache(context, payloadKeys);
 };
@@ -408,7 +408,7 @@ const onVisualChangesetUpdate = async ({
 
   if (!experiment) return;
 
-  const payloadKeys = getPayloadKeys(context.org, experiment);
+  const payloadKeys = getPayloadKeys(context, experiment);
 
   await refreshSDKPayloadCache(context, payloadKeys);
 };
@@ -431,7 +431,7 @@ const onVisualChangesetDelete = async ({
 
   if (!experiment) return;
 
-  const payloadKeys = getPayloadKeys(context.org, experiment);
+  const payloadKeys = getPayloadKeys(context, experiment);
 
   await refreshSDKPayloadCache(context, payloadKeys);
 };

@@ -40,7 +40,7 @@ export async function savedGroupUpdated(
   // Experiments using the visual editor affect all environments, so add those first
   addKeys(
     getPayloadKeysForAllEnvs(
-      context.org,
+      context,
       savedGroupExperiments
         .filter(
           (exp) => includeExperimentInPayload(exp) && exp.hasVisualChangesets

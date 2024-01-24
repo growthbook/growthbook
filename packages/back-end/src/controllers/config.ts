@@ -117,13 +117,6 @@ export async function getExperimentsScript(
           "Must use a Publishable API key to load the visual editor script",
       });
     }
-    const org = await findOrganizationById(organization);
-
-    if (!org) {
-      return res
-        .status(400)
-        .send(`console.error("Invalid GrowthBook API key");`);
-    }
 
     const context = await getContextForAgendaJobByOrgId(organization);
     const experiments = await getAllExperiments(context);

@@ -243,7 +243,7 @@ export async function refreshSDKPayloadCache(
   const groupMap = await getSavedGroupMap(context.org);
   allFeatures = allFeatures || (await getAllFeatures(context.org.id));
   const allVisualExperiments = await getAllVisualExperiments(
-    context.org.id,
+    context,
     experimentMap
   );
 
@@ -511,7 +511,7 @@ export async function getFeatureDefinitions({
   });
 
   const allVisualExperiments = await getAllVisualExperiments(
-    context.org.id,
+    context,
     experimentMap
   );
 

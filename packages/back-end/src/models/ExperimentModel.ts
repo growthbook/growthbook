@@ -216,9 +216,7 @@ async function findExperiments(
   if (sortBy) {
     cursor = cursor.sort(sortBy);
   }
-  const docs = await cursor;
-
-  const experiments = docs.map(toInterface);
+  const experiments = (await cursor).map(toInterface);
 
   return experiments.filter((exp) =>
     hasReadAccess(context.readAccessFilter, exp.project)
@@ -406,7 +404,6 @@ export async function getExperimentsByMetric(
   const experiments: {
     id: string;
     name: string;
-    project: string | undefined;
   }[] = [];
 
   // Using as a goal metric
@@ -418,7 +415,6 @@ export async function getExperimentsByMetric(
     experiments.push({
       id: exp.id,
       name: exp.name,
-      project: exp.project,
     });
   });
 
@@ -431,7 +427,6 @@ export async function getExperimentsByMetric(
     experiments.push({
       id: exp.id,
       name: exp.name,
-      project: exp.project,
     });
   });
 
@@ -444,7 +439,6 @@ export async function getExperimentsByMetric(
     experiments.push({
       id: exp.id,
       name: exp.name,
-      project: exp.project,
     });
   });
 
@@ -1124,12 +1118,11 @@ export async function getAllPayloadExperiments(
   );
 }
 
-//MK TODO: Does this need to be filtered?
 export const getAllVisualExperiments = async (
-  organization: string,
+  context: ReqContext | ApiReqContext,
   experimentMap: Map<string, ExperimentInterface>
 ): Promise<Array<VisualExperiment>> => {
-  const visualChangesets = await findVisualChangesets(organization);
+  const visualChangesets = await findVisualChangesets(context.org.id);
 
   if (!visualChangesets.length) return [];
 
@@ -1177,12 +1170,12 @@ export const getAllVisualExperiments = async (
 };
 
 export function getPayloadKeysForAllEnvs(
-  organization: OrganizationInterface,
+  context: ReqContext | ApiReqContext,
   projects: string[]
 ) {
   const uniqueProjects = new Set(projects);
 
-  const environments = getEnvironmentIdsFromOrg(organization);
+  const environments = getEnvironmentIdsFromOrg(context.org);
 
   const keys: SDKPayloadKey[] = [];
   uniqueProjects.forEach((p) => {
@@ -1197,7 +1190,7 @@ export function getPayloadKeysForAllEnvs(
 }
 
 export const getPayloadKeys = (
-  organization: OrganizationInterface,
+  context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
   linkedFeatures?: FeatureInterface[]
 ): SDKPayloadKey[] => {
@@ -1206,7 +1199,7 @@ export const getPayloadKeys = (
     return [];
   }
 
-  const environments: string[] = getEnvironmentIdsFromOrg(organization);
+  const environments: string[] = getEnvironmentIdsFromOrg(context.org);
   const project = experiment.project ?? "";
 
   // Visual editor experiments always affect all environments
@@ -1317,8 +1310,6 @@ const onExperimentUpdate = async ({
     user,
   });
 
-  const organization = context.org;
-
   if (
     !bypassWebhooks &&
     hasChangesForSDKPayloadRefresh(oldExperiment, newExperiment)
@@ -1330,14 +1321,14 @@ const onExperimentUpdate = async ({
     ]);
     let linkedFeatures: FeatureInterface[] = [];
     if (featureIds.size > 0) {
-      linkedFeatures = await getFeaturesByIds(organization.id, [...featureIds]);
+      linkedFeatures = await getFeaturesByIds(context.org.id, [...featureIds]);
     }
 
     const oldPayloadKeys = oldExperiment
-      ? getPayloadKeys(organization, oldExperiment, linkedFeatures)
+      ? getPayloadKeys(context, oldExperiment, linkedFeatures)
       : [];
     const newPayloadKeys = getPayloadKeys(
-      organization,
+      context,
       newExperiment,
       linkedFeatures
     );
@@ -1365,6 +1356,6 @@ const onExperimentDelete = async (
     linkedFeatures = await getFeaturesByIds(organization.id, featureIds);
   }
 
-  const payloadKeys = getPayloadKeys(organization, experiment, linkedFeatures);
+  const payloadKeys = getPayloadKeys(context, experiment, linkedFeatures);
   refreshSDKPayloadCache(context, payloadKeys);
 };
