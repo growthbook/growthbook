@@ -14,7 +14,6 @@ import {
   getExperimentOverrides,
 } from "../services/organizations";
 import { getAllExperiments } from "../models/ExperimentModel";
-import { findOrganizationById } from "../models/OrganizationModel";
 
 export function canAutoAssignExperiment(
   experiment: ExperimentInterface

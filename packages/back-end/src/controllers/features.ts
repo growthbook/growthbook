@@ -92,7 +92,6 @@ import {
 } from "../models/ExperimentModel";
 import { ReqContext } from "../../types/organization";
 import { ExperimentInterface } from "../../types/experiment";
-import { findOrganizationById } from "../models/OrganizationModel";
 import { ApiReqContext } from "../../types/api";
 
 class UnrecoverableApiError extends Error {

@@ -10,7 +10,7 @@ import {
   LegacyExperimentInterface,
   Variation,
 } from "../../types/experiment";
-import { OrganizationInterface, ReqContext } from "../../types/organization";
+import { ReqContext } from "../../types/organization";
 import { VisualChange } from "../../types/visual-changeset";
 import {
   determineNextDate,
