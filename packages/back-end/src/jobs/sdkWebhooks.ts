@@ -115,8 +115,7 @@ export async function fireWebhook({
   organizationId,
   url,
   signingKey,
-  key,
-  payload,
+  connection,
   method,
   headers,
   sendPayload,
@@ -125,12 +124,29 @@ export async function fireWebhook({
   organizationId: string;
   url: string;
   signingKey: string;
-  key: string;
-  payload: string;
+  connection: SDKConnectionInterface;
   method: WebhookMethod;
   headers: string;
   sendPayload: boolean;
 }) {
+  const context = await getContextForAgendaJobByOrgId(organizationId);
+
+  const defs = await getFeatureDefinitions({
+    context,
+    capabilities: getConnectionSDKCapabilities(connection),
+    environment: connection.environment,
+    projects: connection.projects,
+    encryptionKey: connection.encryptPayload
+      ? connection.encryptionKey
+      : undefined,
+
+    includeVisualExperiments: connection.includeVisualExperiments,
+    includeDraftExperiments: connection.includeDraftExperiments,
+    includeExperimentNames: connection.includeExperimentNames,
+    hashSecureAttributes: connection.hashSecureAttributes,
+  });
+
+  const payload = JSON.stringify(defs);
   const requestTimeout = 30000;
   const maxContentSize = 1000;
   const date = new Date();
@@ -138,7 +154,7 @@ export async function fireWebhook({
     .update(payload)
     .digest("hex");
   const secret = `whsec_${signature}`;
-  const webhookID = `msg_${md5(key + date.getTime()).substr(0, 16)}`;
+  const webhookID = `msg_${md5(connection.key + date.getTime()).substr(0, 16)}`;
   const data = sendPayload ? { payload } : {};
 
   let body;
@@ -174,7 +190,7 @@ export async function fireWebhook({
         "webhook-id": webhookID,
         "webhook-timestamp": date.getTime(),
         "webhook-secret": secret,
-        "webhook-sdk-key": key,
+        "webhook-sdk-key": connection.key,
         ...customHeaders,
       },
       method,
@@ -229,34 +245,12 @@ export async function queueSingleWebhookById(webhookId: string) {
       });
       return;
     }
-
-    const context = await getContextForAgendaJobByOrgId(
-      connection.organization
-    );
-
-    const defs = await getFeatureDefinitions({
-      context,
-      capabilities: getConnectionSDKCapabilities(connection),
-      environment: connection.environment,
-      projects: connection.projects,
-      encryptionKey: connection.encryptPayload
-        ? connection.encryptionKey
-        : undefined,
-
-      includeVisualExperiments: connection.includeVisualExperiments,
-      includeDraftExperiments: connection.includeDraftExperiments,
-      includeExperimentNames: connection.includeExperimentNames,
-      hashSecureAttributes: connection.hashSecureAttributes,
-    });
-
-    const payload = JSON.stringify(defs);
     const res = await fireWebhook({
       organizationId: connection.organization,
       webhookId: webhook.id,
       url: webhook.endpoint,
       signingKey: webhook.signingKey,
-      key: connection.key,
-      payload,
+      connection,
       headers: webhook.headers || "",
       method: webhook.httpMethod || "POST",
       sendPayload: webhook.sendPayload,
@@ -283,7 +277,6 @@ export async function queueGlobalWebhooks(
     const {
       url,
       signingKey,
-      key,
       method,
       headers,
       sendPayload,
@@ -297,10 +290,6 @@ export async function queueGlobalWebhooks(
     for (let i = 0; i < connections.length; i++) {
       const connection = connections[i];
 
-      const context = await getContextForAgendaJobByOrgId(
-        connection.organization
-      );
-
       // Skip if this SDK Connection isn't affected by the changes
       if (
         payloadKeys.some(
@@ -310,29 +299,12 @@ export async function queueGlobalWebhooks(
               connection.projects.includes(key.project))
         )
       ) {
-        const defs = await getFeatureDefinitions({
-          context,
-          capabilities: getConnectionSDKCapabilities(connection),
-          environment: connection.environment,
-          projects: connection.projects,
-          encryptionKey: connection.encryptPayload
-            ? connection.encryptionKey
-            : undefined,
-
-          includeVisualExperiments: connection.includeVisualExperiments,
-          includeDraftExperiments: connection.includeDraftExperiments,
-          includeExperimentNames: connection.includeExperimentNames,
-          hashSecureAttributes: connection.hashSecureAttributes,
-        });
-
-        const payload = JSON.stringify(defs);
         fireWebhook({
           webhookId,
           organizationId,
           url,
           signingKey,
-          key,
-          payload,
+          connection,
           method,
           sendPayload,
           headers: JSON.stringify(headers),
