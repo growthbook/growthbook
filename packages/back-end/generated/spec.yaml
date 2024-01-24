@@ -2678,6 +2678,7 @@ paths:
                     type: string
                 inverse:
                   type: boolean
+                  description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
                 metricType:
                   type: string
                   enum:
@@ -2714,32 +2715,59 @@ paths:
                       type: array
                       items:
                         type: string
-                capping:
-                  type: string
-                  enum:
-                    - none
-                    - absolute
-                    - percentile
-                capValue:
-                  type: number
-                regressionAdjustmentOverride:
-                  type: boolean
-                regressionAdjustmentEnabled:
-                  type: boolean
-                regressionAdjustmentDays:
-                  type: number
-                conversionDelayHours:
-                  type: number
-                hasConversionWindow:
-                  type: boolean
-                conversionWindowValue:
-                  type: number
-                conversionWindowUnit:
-                  type: string
-                  enum:
-                    - hours
-                    - days
-                    - weeks
+                cappingSettings:
+                  description: Controls how outliers are handled
+                  type: object
+                  required:
+                    - type
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - none
+                        - absolute
+                        - percentile
+                    value:
+                      type: number
+                      description: 'When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).'
+                windowSettings:
+                  type: object
+                  description: Controls the conversion window for the metric
+                  required:
+                    - type
+                    - delayHours
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - none
+                        - conversion
+                    delayHours:
+                      type: number
+                      description: Wait this many hours after experiment exposure before counting conversions
+                    windowValue:
+                      type: number
+                    windowUnit:
+                      type: string
+                      enum:
+                        - hours
+                        - days
+                        - weeks
+                regressionAdjustmentSettings:
+                  type: object
+                  description: Controls the regression adjustment (CUPED) settings for the metric
+                  required:
+                    - override
+                  properties:
+                    override:
+                      type: boolean
+                      description: 'If false, the organization default settings will be used'
+                    enabled:
+                      type: boolean
+                      description: Controls whether or not regresion adjustment is applied to the metric
+                    days:
+                      type: number
+                      description: Number of pre-exposure days to use for the regression adjustment
       responses:
         '200':
           content:
@@ -2811,6 +2839,7 @@ paths:
                     type: string
                 inverse:
                   type: boolean
+                  description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
                 metricType:
                   type: string
                   enum:
@@ -2847,32 +2876,59 @@ paths:
                       type: array
                       items:
                         type: string
-                capping:
-                  type: string
-                  enum:
-                    - none
-                    - absolute
-                    - percentile
-                capValue:
-                  type: number
-                regressionAdjustmentOverride:
-                  type: boolean
-                regressionAdjustmentEnabled:
-                  type: boolean
-                regressionAdjustmentDays:
-                  type: number
-                conversionDelayHours:
-                  type: number
-                hasConversionWindow:
-                  type: boolean
-                conversionWindowValue:
-                  type: number
-                conversionWindowUnit:
-                  type: string
-                  enum:
-                    - hours
-                    - days
-                    - weeks
+                cappingSettings:
+                  description: Controls how outliers are handled
+                  type: object
+                  required:
+                    - type
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - none
+                        - absolute
+                        - percentile
+                    value:
+                      type: number
+                      description: 'When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).'
+                windowSettings:
+                  type: object
+                  description: Controls the conversion window for the metric
+                  required:
+                    - type
+                    - delayHours
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - none
+                        - conversion
+                    delayHours:
+                      type: number
+                      description: Wait this many hours after experiment exposure before counting conversions
+                    windowValue:
+                      type: number
+                    windowUnit:
+                      type: string
+                      enum:
+                        - hours
+                        - days
+                        - weeks
+                regressionAdjustmentSettings:
+                  type: object
+                  description: Controls the regression adjustment (CUPED) settings for the metric
+                  required:
+                    - override
+                  properties:
+                    override:
+                      type: boolean
+                      description: 'If false, the organization default settings will be used'
+                    enabled:
+                      type: boolean
+                      description: Controls whether or not regresion adjustment is applied to the metric
+                    days:
+                      type: number
+                      description: Number of pre-exposure days to use for the regression adjustment
       responses:
         '200':
           content:
@@ -4451,10 +4507,9 @@ components:
         - inverse
         - metricType
         - numerator
-        - capping
-        - regressionAdjustmentOverride
-        - conversionDelayHours
-        - hasConversionWindow
+        - cappingSettings
+        - windowSettings
+        - regressionAdjustmentSettings
       properties:
         id:
           type: string
@@ -4482,6 +4537,7 @@ components:
             type: string
         inverse:
           type: boolean
+          description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
         metricType:
           type: string
           enum:
@@ -4518,32 +4574,59 @@ components:
               type: array
               items:
                 type: string
-        capping:
-          type: string
-          enum:
-            - none
-            - absolute
-            - percentile
-        capValue:
-          type: number
-        regressionAdjustmentOverride:
-          type: boolean
-        regressionAdjustmentEnabled:
-          type: boolean
-        regressionAdjustmentDays:
-          type: number
-        conversionDelayHours:
-          type: number
-        hasConversionWindow:
-          type: boolean
-        conversionWindowValue:
-          type: number
-        conversionWindowUnit:
-          type: string
-          enum:
-            - hours
-            - days
-            - weeks
+        cappingSettings:
+          description: Controls how outliers are handled
+          type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum:
+                - none
+                - absolute
+                - percentile
+            value:
+              type: number
+              description: 'When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).'
+        windowSettings:
+          type: object
+          description: Controls the conversion window for the metric
+          required:
+            - type
+            - delayHours
+          properties:
+            type:
+              type: string
+              enum:
+                - none
+                - conversion
+            delayHours:
+              type: number
+              description: Wait this many hours after experiment exposure before counting conversions
+            windowValue:
+              type: number
+            windowUnit:
+              type: string
+              enum:
+                - hours
+                - days
+                - weeks
+        regressionAdjustmentSettings:
+          type: object
+          description: Controls the regression adjustment (CUPED) settings for the metric
+          required:
+            - override
+          properties:
+            override:
+              type: boolean
+              description: 'If false, the organization default settings will be used'
+            enabled:
+              type: boolean
+              description: Controls whether or not regresion adjustment is applied to the metric
+            days:
+              type: number
+              description: Number of pre-exposure days to use for the regression adjustment
   securitySchemes:
     bearerAuth:
       type: http

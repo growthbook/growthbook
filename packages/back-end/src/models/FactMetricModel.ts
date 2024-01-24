@@ -122,11 +122,53 @@ export async function deleteFactMetric(factMetric: FactMetricInterface) {
 export function toFactMetricApiInterface(
   factMetric: FactMetricInterface
 ): ApiFactMetric {
+  const {
+    capValue,
+    capping,
+    conversionDelayHours,
+    conversionWindowUnit,
+    conversionWindowValue,
+    hasConversionWindow,
+    regressionAdjustmentDays,
+    regressionAdjustmentEnabled,
+    regressionAdjustmentOverride,
+    dateCreated,
+    dateUpdated,
+    denominator,
+    ...otherFields
+  } = omit(factMetric, ["organization"]);
+
   return {
-    ...omit(factMetric, ["organization", "dateCreated", "dateUpdated"]),
-    denominator: factMetric.denominator || undefined,
-    capping: factMetric.capping || "none",
-    dateCreated: factMetric.dateCreated?.toISOString() || "",
-    dateUpdated: factMetric.dateUpdated?.toISOString() || "",
+    ...otherFields,
+    denominator: denominator || undefined,
+    cappingSettings: {
+      type: capping || "none",
+      value: capValue || 0,
+    },
+    windowSettings: {
+      type: hasConversionWindow ? "conversion" : "none",
+      delayHours: conversionDelayHours || 0,
+      ...(hasConversionWindow
+        ? {
+            windowValue: conversionWindowValue || 0,
+            windowUnit: conversionWindowUnit || "hours",
+          }
+        : null),
+    },
+    regressionAdjustmentSettings: {
+      override: regressionAdjustmentOverride || false,
+      ...(regressionAdjustmentOverride
+        ? {
+            enabled: regressionAdjustmentEnabled || false,
+          }
+        : null),
+      ...(regressionAdjustmentOverride && regressionAdjustmentEnabled
+        ? {
+            days: regressionAdjustmentDays || 0,
+          }
+        : null),
+    },
+    dateCreated: dateCreated?.toISOString() || "",
+    dateUpdated: dateUpdated?.toISOString() || "",
   };
 }

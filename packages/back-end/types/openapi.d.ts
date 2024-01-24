@@ -1185,6 +1185,7 @@ export interface components {
       description: string;
       tags: (string)[];
       projects: (string)[];
+      /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
       inverse: boolean;
       /** @enum {string} */
       metricType: "proportion" | "mean" | "ratio";
@@ -1198,17 +1199,32 @@ export interface components {
         column: string;
         filters: (string)[];
       };
-      /** @enum {string} */
-      capping: "none" | "absolute" | "percentile";
-      capValue?: number;
-      regressionAdjustmentOverride: boolean;
-      regressionAdjustmentEnabled?: boolean;
-      regressionAdjustmentDays?: number;
-      conversionDelayHours: number;
-      hasConversionWindow: boolean;
-      conversionWindowValue?: number;
-      /** @enum {string} */
-      conversionWindowUnit?: "hours" | "days" | "weeks";
+      /** @description Controls how outliers are handled */
+      cappingSettings: {
+        /** @enum {string} */
+        type: "none" | "absolute" | "percentile";
+        /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+        value?: number;
+      };
+      /** @description Controls the conversion window for the metric */
+      windowSettings: {
+        /** @enum {string} */
+        type: "none" | "conversion";
+        /** @description Wait this many hours after experiment exposure before counting conversions */
+        delayHours: number;
+        windowValue?: number;
+        /** @enum {string} */
+        windowUnit?: "hours" | "days" | "weeks";
+      };
+      /** @description Controls the regression adjustment (CUPED) settings for the metric */
+      regressionAdjustmentSettings: {
+        /** @description If false, the organization default settings will be used */
+        override: boolean;
+        /** @description Controls whether or not regresion adjustment is applied to the metric */
+        enabled?: boolean;
+        /** @description Number of pre-exposure days to use for the regression adjustment */
+        days?: number;
+      };
     };
   };
   responses: {
@@ -4918,6 +4934,7 @@ export interface operations {
                 description: string;
                 tags: (string)[];
                 projects: (string)[];
+                /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
                 inverse: boolean;
                 /** @enum {string} */
                 metricType: "proportion" | "mean" | "ratio";
@@ -4931,17 +4948,32 @@ export interface operations {
                   column: string;
                   filters: (string)[];
                 };
-                /** @enum {string} */
-                capping: "none" | "absolute" | "percentile";
-                capValue?: number;
-                regressionAdjustmentOverride: boolean;
-                regressionAdjustmentEnabled?: boolean;
-                regressionAdjustmentDays?: number;
-                conversionDelayHours: number;
-                hasConversionWindow: boolean;
-                conversionWindowValue?: number;
-                /** @enum {string} */
-                conversionWindowUnit?: "hours" | "days" | "weeks";
+                /** @description Controls how outliers are handled */
+                cappingSettings: {
+                  /** @enum {string} */
+                  type: "none" | "absolute" | "percentile";
+                  /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+                  value?: number;
+                };
+                /** @description Controls the conversion window for the metric */
+                windowSettings: {
+                  /** @enum {string} */
+                  type: "none" | "conversion";
+                  /** @description Wait this many hours after experiment exposure before counting conversions */
+                  delayHours: number;
+                  windowValue?: number;
+                  /** @enum {string} */
+                  windowUnit?: "hours" | "days" | "weeks";
+                };
+                /** @description Controls the regression adjustment (CUPED) settings for the metric */
+                regressionAdjustmentSettings: {
+                  /** @description If false, the organization default settings will be used */
+                  override: boolean;
+                  /** @description Controls whether or not regresion adjustment is applied to the metric */
+                  enabled?: boolean;
+                  /** @description Number of pre-exposure days to use for the regression adjustment */
+                  days?: number;
+                };
               })[];
           }) & {
             limit: number;
@@ -4965,6 +4997,7 @@ export interface operations {
           description?: string;
           tags?: (string)[];
           projects?: (string)[];
+          /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
           inverse?: boolean;
           /** @enum {string} */
           metricType: "proportion" | "mean" | "ratio";
@@ -4981,17 +5014,32 @@ export interface operations {
             column: string;
             filters?: (string)[];
           };
-          /** @enum {string} */
-          capping?: "none" | "absolute" | "percentile";
-          capValue?: number;
-          regressionAdjustmentOverride?: boolean;
-          regressionAdjustmentEnabled?: boolean;
-          regressionAdjustmentDays?: number;
-          conversionDelayHours?: number;
-          hasConversionWindow?: boolean;
-          conversionWindowValue?: number;
-          /** @enum {string} */
-          conversionWindowUnit?: "hours" | "days" | "weeks";
+          /** @description Controls how outliers are handled */
+          cappingSettings?: {
+            /** @enum {string} */
+            type: "none" | "absolute" | "percentile";
+            /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+            value?: number;
+          };
+          /** @description Controls the conversion window for the metric */
+          windowSettings?: {
+            /** @enum {string} */
+            type: "none" | "conversion";
+            /** @description Wait this many hours after experiment exposure before counting conversions */
+            delayHours: number;
+            windowValue?: number;
+            /** @enum {string} */
+            windowUnit?: "hours" | "days" | "weeks";
+          };
+          /** @description Controls the regression adjustment (CUPED) settings for the metric */
+          regressionAdjustmentSettings?: {
+            /** @description If false, the organization default settings will be used */
+            override: boolean;
+            /** @description Controls whether or not regresion adjustment is applied to the metric */
+            enabled?: boolean;
+            /** @description Number of pre-exposure days to use for the regression adjustment */
+            days?: number;
+          };
         };
       };
     };
@@ -5011,6 +5059,7 @@ export interface operations {
               description: string;
               tags: (string)[];
               projects: (string)[];
+              /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
               inverse: boolean;
               /** @enum {string} */
               metricType: "proportion" | "mean" | "ratio";
@@ -5024,17 +5073,32 @@ export interface operations {
                 column: string;
                 filters: (string)[];
               };
-              /** @enum {string} */
-              capping: "none" | "absolute" | "percentile";
-              capValue?: number;
-              regressionAdjustmentOverride: boolean;
-              regressionAdjustmentEnabled?: boolean;
-              regressionAdjustmentDays?: number;
-              conversionDelayHours: number;
-              hasConversionWindow: boolean;
-              conversionWindowValue?: number;
-              /** @enum {string} */
-              conversionWindowUnit?: "hours" | "days" | "weeks";
+              /** @description Controls how outliers are handled */
+              cappingSettings: {
+                /** @enum {string} */
+                type: "none" | "absolute" | "percentile";
+                /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+                value?: number;
+              };
+              /** @description Controls the conversion window for the metric */
+              windowSettings: {
+                /** @enum {string} */
+                type: "none" | "conversion";
+                /** @description Wait this many hours after experiment exposure before counting conversions */
+                delayHours: number;
+                windowValue?: number;
+                /** @enum {string} */
+                windowUnit?: "hours" | "days" | "weeks";
+              };
+              /** @description Controls the regression adjustment (CUPED) settings for the metric */
+              regressionAdjustmentSettings: {
+                /** @description If false, the organization default settings will be used */
+                override: boolean;
+                /** @description Controls whether or not regresion adjustment is applied to the metric */
+                enabled?: boolean;
+                /** @description Number of pre-exposure days to use for the regression adjustment */
+                days?: number;
+              };
             };
           };
         };
@@ -5065,6 +5129,7 @@ export interface operations {
               description: string;
               tags: (string)[];
               projects: (string)[];
+              /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
               inverse: boolean;
               /** @enum {string} */
               metricType: "proportion" | "mean" | "ratio";
@@ -5078,17 +5143,32 @@ export interface operations {
                 column: string;
                 filters: (string)[];
               };
-              /** @enum {string} */
-              capping: "none" | "absolute" | "percentile";
-              capValue?: number;
-              regressionAdjustmentOverride: boolean;
-              regressionAdjustmentEnabled?: boolean;
-              regressionAdjustmentDays?: number;
-              conversionDelayHours: number;
-              hasConversionWindow: boolean;
-              conversionWindowValue?: number;
-              /** @enum {string} */
-              conversionWindowUnit?: "hours" | "days" | "weeks";
+              /** @description Controls how outliers are handled */
+              cappingSettings: {
+                /** @enum {string} */
+                type: "none" | "absolute" | "percentile";
+                /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+                value?: number;
+              };
+              /** @description Controls the conversion window for the metric */
+              windowSettings: {
+                /** @enum {string} */
+                type: "none" | "conversion";
+                /** @description Wait this many hours after experiment exposure before counting conversions */
+                delayHours: number;
+                windowValue?: number;
+                /** @enum {string} */
+                windowUnit?: "hours" | "days" | "weeks";
+              };
+              /** @description Controls the regression adjustment (CUPED) settings for the metric */
+              regressionAdjustmentSettings: {
+                /** @description If false, the organization default settings will be used */
+                override: boolean;
+                /** @description Controls whether or not regresion adjustment is applied to the metric */
+                enabled?: boolean;
+                /** @description Number of pre-exposure days to use for the regression adjustment */
+                days?: number;
+              };
             };
           };
         };
@@ -5111,6 +5191,7 @@ export interface operations {
           description?: string;
           tags?: (string)[];
           projects?: (string)[];
+          /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
           inverse?: boolean;
           /** @enum {string} */
           metricType?: "proportion" | "mean" | "ratio";
@@ -5127,17 +5208,32 @@ export interface operations {
             column: string;
             filters?: (string)[];
           };
-          /** @enum {string} */
-          capping?: "none" | "absolute" | "percentile";
-          capValue?: number;
-          regressionAdjustmentOverride?: boolean;
-          regressionAdjustmentEnabled?: boolean;
-          regressionAdjustmentDays?: number;
-          conversionDelayHours?: number;
-          hasConversionWindow?: boolean;
-          conversionWindowValue?: number;
-          /** @enum {string} */
-          conversionWindowUnit?: "hours" | "days" | "weeks";
+          /** @description Controls how outliers are handled */
+          cappingSettings?: {
+            /** @enum {string} */
+            type: "none" | "absolute" | "percentile";
+            /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+            value?: number;
+          };
+          /** @description Controls the conversion window for the metric */
+          windowSettings?: {
+            /** @enum {string} */
+            type: "none" | "conversion";
+            /** @description Wait this many hours after experiment exposure before counting conversions */
+            delayHours: number;
+            windowValue?: number;
+            /** @enum {string} */
+            windowUnit?: "hours" | "days" | "weeks";
+          };
+          /** @description Controls the regression adjustment (CUPED) settings for the metric */
+          regressionAdjustmentSettings?: {
+            /** @description If false, the organization default settings will be used */
+            override: boolean;
+            /** @description Controls whether or not regresion adjustment is applied to the metric */
+            enabled?: boolean;
+            /** @description Number of pre-exposure days to use for the regression adjustment */
+            days?: number;
+          };
         };
       };
     };
@@ -5157,6 +5253,7 @@ export interface operations {
               description: string;
               tags: (string)[];
               projects: (string)[];
+              /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
               inverse: boolean;
               /** @enum {string} */
               metricType: "proportion" | "mean" | "ratio";
@@ -5170,17 +5267,32 @@ export interface operations {
                 column: string;
                 filters: (string)[];
               };
-              /** @enum {string} */
-              capping: "none" | "absolute" | "percentile";
-              capValue?: number;
-              regressionAdjustmentOverride: boolean;
-              regressionAdjustmentEnabled?: boolean;
-              regressionAdjustmentDays?: number;
-              conversionDelayHours: number;
-              hasConversionWindow: boolean;
-              conversionWindowValue?: number;
-              /** @enum {string} */
-              conversionWindowUnit?: "hours" | "days" | "weeks";
+              /** @description Controls how outliers are handled */
+              cappingSettings: {
+                /** @enum {string} */
+                type: "none" | "absolute" | "percentile";
+                /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+                value?: number;
+              };
+              /** @description Controls the conversion window for the metric */
+              windowSettings: {
+                /** @enum {string} */
+                type: "none" | "conversion";
+                /** @description Wait this many hours after experiment exposure before counting conversions */
+                delayHours: number;
+                windowValue?: number;
+                /** @enum {string} */
+                windowUnit?: "hours" | "days" | "weeks";
+              };
+              /** @description Controls the regression adjustment (CUPED) settings for the metric */
+              regressionAdjustmentSettings: {
+                /** @description If false, the organization default settings will be used */
+                override: boolean;
+                /** @description Controls whether or not regresion adjustment is applied to the metric */
+                enabled?: boolean;
+                /** @description Number of pre-exposure days to use for the regression adjustment */
+                days?: number;
+              };
             };
           };
         };
@@ -5256,6 +5368,7 @@ export interface operations {
                 description?: string;
                 tags?: (string)[];
                 projects?: (string)[];
+                /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
                 inverse?: boolean;
                 /** @enum {string} */
                 metricType: "proportion" | "mean" | "ratio";
@@ -5272,17 +5385,32 @@ export interface operations {
                   column: string;
                   filters?: (string)[];
                 };
-                /** @enum {string} */
-                capping?: "none" | "absolute" | "percentile";
-                capValue?: number;
-                regressionAdjustmentOverride?: boolean;
-                regressionAdjustmentEnabled?: boolean;
-                regressionAdjustmentDays?: number;
-                conversionDelayHours?: number;
-                hasConversionWindow?: boolean;
-                conversionWindowValue?: number;
-                /** @enum {string} */
-                conversionWindowUnit?: "hours" | "days" | "weeks";
+                /** @description Controls how outliers are handled */
+                cappingSettings?: {
+                  /** @enum {string} */
+                  type: "none" | "absolute" | "percentile";
+                  /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+                  value?: number;
+                };
+                /** @description Controls the conversion window for the metric */
+                windowSettings?: {
+                  /** @enum {string} */
+                  type: "none" | "conversion";
+                  /** @description Wait this many hours after experiment exposure before counting conversions */
+                  delayHours: number;
+                  windowValue?: number;
+                  /** @enum {string} */
+                  windowUnit?: "hours" | "days" | "weeks";
+                };
+                /** @description Controls the regression adjustment (CUPED) settings for the metric */
+                regressionAdjustmentSettings?: {
+                  /** @description If false, the organization default settings will be used */
+                  override: boolean;
+                  /** @description Controls whether or not regresion adjustment is applied to the metric */
+                  enabled?: boolean;
+                  /** @description Number of pre-exposure days to use for the regression adjustment */
+                  days?: number;
+                };
               };
             })[];
         };

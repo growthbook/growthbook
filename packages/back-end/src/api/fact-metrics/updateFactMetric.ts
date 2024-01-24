@@ -15,7 +15,14 @@ import { validateFactMetric } from "./postFactMetric";
 export function getUpdateFactMetricPropsFromBody(
   body: z.infer<typeof updateFactMetricValidator.bodySchema>
 ): UpdateFactMetricProps {
-  const { numerator, denominator, capping, ...otherFields } = body;
+  const {
+    numerator,
+    denominator,
+    cappingSettings,
+    windowSettings,
+    regressionAdjustmentSettings,
+    ...otherFields
+  } = body;
 
   const updates: UpdateFactMetricProps = {
     ...otherFields,
@@ -23,9 +30,6 @@ export function getUpdateFactMetricPropsFromBody(
 
   const metricType = updates.metricType;
 
-  if (capping) {
-    updates.capping = capping === "none" ? "" : capping;
-  }
   if (numerator) {
     updates.numerator = {
       filters: [],
@@ -42,6 +46,36 @@ export function getUpdateFactMetricPropsFromBody(
       ...denominator,
       column: denominator.column || "$$distinctUsers",
     };
+  }
+  if (cappingSettings) {
+    updates.capping =
+      cappingSettings.type === "none" ? "" : cappingSettings.type;
+    if (cappingSettings.value) {
+      updates.capValue = cappingSettings.value;
+    }
+  }
+  if (windowSettings) {
+    updates.hasConversionWindow = windowSettings.type !== "none";
+    if (windowSettings.delayHours) {
+      updates.conversionDelayHours = windowSettings.delayHours;
+    }
+    if (windowSettings.windowValue) {
+      updates.conversionWindowValue = windowSettings.windowValue;
+    }
+    if (windowSettings.windowUnit) {
+      updates.conversionWindowUnit = windowSettings.windowUnit;
+    }
+  }
+  if (regressionAdjustmentSettings) {
+    updates.regressionAdjustmentOverride =
+      regressionAdjustmentSettings.override;
+
+    if (regressionAdjustmentSettings.override) {
+      updates.regressionAdjustmentEnabled = !!regressionAdjustmentSettings.enabled;
+      if (regressionAdjustmentSettings.days) {
+        updates.regressionAdjustmentDays = regressionAdjustmentSettings.days;
+      }
+    }
   }
 
   return updates;
