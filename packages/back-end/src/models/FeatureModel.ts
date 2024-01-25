@@ -252,9 +252,6 @@ export async function createFeature(
 ) {
   const { org } = context;
 
-  if (!hasReadAccess(context.readAccessFilter, data.project)) {
-    throw new Error("Invalid project");
-  }
   const linkedExperiments = getLinkedExperiments(
     data,
     getEnvironmentIdsFromOrg(org)
