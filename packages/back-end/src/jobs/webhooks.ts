@@ -2,7 +2,10 @@ import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import fetch from "node-fetch";
 import { WebhookModel } from "../models/WebhookModel";
-import { getExperimentOverrides } from "../services/organizations";
+import {
+  getContextForAgendaJobByOrgId,
+  getExperimentOverrides,
+} from "../services/organizations";
 import { getFeatureDefinitions } from "../services/features";
 import { WebhookInterface } from "../../types/webhook";
 import { CRON_ENABLED } from "../util/secrets";
@@ -29,8 +32,10 @@ export default function (ag: Agenda) {
 
     if (!webhook) return;
 
+    const context = await getContextForAgendaJobByOrgId(webhook.organization);
+
     const { features, dateUpdated } = await getFeatureDefinitions({
-      organization: webhook.organization,
+      context,
       capabilities: ["bucketingV2"],
       environment:
         webhook.environment === undefined ? "production" : webhook.environment,
@@ -46,7 +51,7 @@ export default function (ag: Agenda) {
 
     if (!webhook.featuresOnly) {
       const { overrides, expIdMapping } = await getExperimentOverrides(
-        webhook.organization,
+        context,
         webhook.project
       );
       body.overrides = overrides;
