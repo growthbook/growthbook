@@ -15,6 +15,7 @@ import {
   updateFactFilter,
   getFactTableMap,
 } from "../../models/FactTableModel";
+import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { addTags } from "../../models/TagModel";
 import { createApiRequestHandler } from "../../util/handler";
 import { postBulkImportValidator } from "../../validators/openapi";
@@ -62,16 +63,45 @@ export const postBulkImport = createApiRequestHandler(postBulkImportValidator)(
       req.checkPermissions("createMetrics", factMetric.projects || []);
     }
 
+    const projects = await findAllProjectsByOrganization(req.context);
+    const projectIds = new Set(projects.map((p) => p.id));
+    function validateProjectIds(ids: string[]) {
+      for (const id of ids) {
+        if (!projectIds.has(id)) {
+          throw new Error(`Project ${id} not found`);
+        }
+      }
+    }
+
+    function validateUserIdTypes(datasourceId: string, ids: string[]) {
+      const datasource = dataSourceMap.get(datasourceId);
+      if (!datasource) return;
+
+      for (const id of ids) {
+        if (
+          !datasource.settings?.userIdTypes?.some((t) => t.userIdType === id)
+        ) {
+          throw new Error(
+            `User ID type ${id} not found in datasource ${datasourceId}`
+          );
+        }
+      }
+    }
+
     // Import fact tables
     if (req.body.factTables) {
       for (const { data, id } of req.body.factTables) {
         data.tags?.forEach((t) => tagsToAdd.add(t));
+        if (data.projects) validateProjectIds(data.projects);
 
         const existing = factTableMap.get(id);
         // Update existing fact table
         if (existing) {
           checkFactTablePermission(existing);
           if (data.projects) checkFactTablePermission(data);
+          if (data.userIdTypes) {
+            validateUserIdTypes(existing.datasource, data.userIdTypes);
+          }
 
           // Cannot change data source
           if (data.datasource && existing.datasource !== data.datasource) {
@@ -90,6 +120,10 @@ export const postBulkImport = createApiRequestHandler(postBulkImportValidator)(
 
           if (!dataSourceMap.has(data.datasource)) {
             throw new Error("Could not find datasource");
+          }
+
+          if (data.userIdTypes) {
+            validateUserIdTypes(data.datasource, data.userIdTypes);
           }
 
           const newFactTable = await createFactTable(req.organization.id, {
@@ -140,6 +174,7 @@ export const postBulkImport = createApiRequestHandler(postBulkImportValidator)(
     if (req.body.factMetrics) {
       for (const { id: origId, data } of req.body.factMetrics) {
         data.tags?.forEach((t) => tagsToAdd.add(t));
+        if (data.projects) validateProjectIds(data.projects);
 
         const id = origId.match(/^fact__/) ? origId : `fact__${origId}`;
 

@@ -10,6 +10,7 @@ import { addTagsDiff } from "../../models/TagModel";
 import { createApiRequestHandler } from "../../util/handler";
 import { updateFactMetricValidator } from "../../validators/openapi";
 import { getFactTable } from "../../models/FactTableModel";
+import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { validateFactMetric } from "./postFactMetric";
 
 export function getUpdateFactMetricPropsFromBody(
@@ -93,6 +94,16 @@ export const updateFactMetric = createApiRequestHandler(
     req.checkPermissions("createMetrics", factMetric.projects);
 
     const updates = getUpdateFactMetricPropsFromBody(req.body);
+
+    if (updates.projects?.length) {
+      const projects = await findAllProjectsByOrganization(req.context);
+      const projectIds = new Set(projects.map((p) => p.id));
+      for (const projectId of updates.projects) {
+        if (!projectIds.has(projectId)) {
+          throw new Error(`Project ${projectId} not found`);
+        }
+      }
+    }
 
     await validateFactMetric({ ...factMetric, ...updates }, async (id) => {
       return getFactTable(req.organization.id, id);

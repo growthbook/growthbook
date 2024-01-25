@@ -15,6 +15,7 @@ import { addTags } from "../../models/TagModel";
 import { createApiRequestHandler } from "../../util/handler";
 import { postFactMetricValidator } from "../../validators/openapi";
 import { OrganizationInterface } from "../../../types/organization";
+import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 
 export async function validateFactMetric(
   data: Pick<FactMetricInterface, "numerator" | "denominator" | "metricType">,
@@ -23,6 +24,14 @@ export async function validateFactMetric(
   const numeratorFactTable = await getFactTable(data.numerator.factTableId);
   if (!numeratorFactTable) {
     throw new Error("Could not find numerator fact table");
+  }
+
+  if (data.numerator.filters?.length) {
+    for (const filter of data.numerator.filters) {
+      if (!numeratorFactTable.filters.some((f) => f.id === filter)) {
+        throw new Error(`Invalid numerator filter id: ${filter}`);
+      }
+    }
   }
 
   if (data.metricType === "ratio") {
@@ -40,6 +49,14 @@ export async function validateFactMetric(
         throw new Error(
           "Numerator and denominator must be in the same datasource"
         );
+      }
+
+      if (data.denominator.filters?.length) {
+        for (const filter of data.denominator.filters) {
+          if (!denominatorFactTable.filters.some((f) => f.id === filter)) {
+            throw new Error(`Invalid denominator filter id: ${filter}`);
+          }
+        }
       }
     }
   } else if (data.denominator?.factTableId) {
@@ -152,6 +169,16 @@ export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
 
     const lookupFactTable = async (id: string) =>
       getFactTable(req.organization.id, id);
+
+    if (req.body.projects?.length) {
+      const projects = await findAllProjectsByOrganization(req.context);
+      const projectIds = new Set(projects.map((p) => p.id));
+      for (const projectId of req.body.projects) {
+        if (!projectIds.has(projectId)) {
+          throw new Error(`Project ${projectId} not found`);
+        }
+      }
+    }
 
     const data = await getCreateMetricPropsFromBody(
       req.body,

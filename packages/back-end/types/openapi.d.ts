@@ -1186,11 +1186,13 @@ export interface components {
       numerator: {
         factTableId: string;
         column: string;
+        /** @description Array of Fact Table Filter Ids */
         filters: (string)[];
       };
       denominator?: {
         factTableId: string;
         column: string;
+        /** @description Array of Fact Table Filter Ids */
         filters: (string)[];
       };
       /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
@@ -4935,11 +4937,13 @@ export interface operations {
                 numerator: {
                   factTableId: string;
                   column: string;
+                  /** @description Array of Fact Table Filter Ids */
                   filters: (string)[];
                 };
                 denominator?: {
                   factTableId: string;
                   column: string;
+                  /** @description Array of Fact Table Filter Ids */
                   filters: (string)[];
                 };
                 /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
@@ -5003,6 +5007,7 @@ export interface operations {
             factTableId: string;
             /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
             column?: string;
+            /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
           };
           /** @description Only when metricType is 'ratio' */
@@ -5010,6 +5015,7 @@ export interface operations {
             factTableId: string;
             /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' */
             column: string;
+            /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
           };
           /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
@@ -5060,11 +5066,13 @@ export interface operations {
               numerator: {
                 factTableId: string;
                 column: string;
+                /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
               };
               denominator?: {
                 factTableId: string;
                 column: string;
+                /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
               };
               /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
@@ -5130,11 +5138,13 @@ export interface operations {
               numerator: {
                 factTableId: string;
                 column: string;
+                /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
               };
               denominator?: {
                 factTableId: string;
                 column: string;
+                /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
               };
               /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
@@ -5197,6 +5207,7 @@ export interface operations {
             factTableId: string;
             /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
             column?: string;
+            /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
           };
           /** @description Only when metricType is 'ratio' */
@@ -5204,6 +5215,7 @@ export interface operations {
             factTableId: string;
             /** @description Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
             column: string;
+            /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
           };
           /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
@@ -5254,11 +5266,13 @@ export interface operations {
               numerator: {
                 factTableId: string;
                 column: string;
+                /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
               };
               denominator?: {
                 factTableId: string;
                 column: string;
+                /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
               };
               /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
@@ -5374,6 +5388,7 @@ export interface operations {
                   factTableId: string;
                   /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
                   column?: string;
+                  /** @description Array of Fact Table Filter Ids */
                   filters?: (string)[];
                 };
                 /** @description Only when metricType is 'ratio' */
@@ -5381,6 +5396,7 @@ export interface operations {
                   factTableId: string;
                   /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' */
                   column: string;
+                  /** @description Array of Fact Table Filter Ids */
                   filters?: (string)[];
                 };
                 /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */

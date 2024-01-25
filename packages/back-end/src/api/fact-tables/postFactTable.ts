@@ -6,6 +6,7 @@ import {
   createFactTable,
   toFactTableApiInterface,
 } from "../../models/FactTableModel";
+import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { addTags } from "../../models/TagModel";
 import { createApiRequestHandler } from "../../util/handler";
 import { postFactTableValidator } from "../../validators/openapi";
@@ -20,6 +21,30 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
     );
     if (!datasource) {
       throw new Error("Could not find datasource");
+    }
+
+    // Validate projects
+    if (req.body.projects?.length) {
+      const projects = await findAllProjectsByOrganization(req.context);
+      const projectIds = new Set(projects.map((p) => p.id));
+      for (const projectId of req.body.projects) {
+        if (!projectIds.has(projectId)) {
+          throw new Error(`Project ${projectId} not found`);
+        }
+      }
+    }
+
+    // Validate userIdTypes
+    if (req.body.userIdTypes) {
+      for (const userIdType of req.body.userIdTypes) {
+        if (
+          !datasource.settings?.userIdTypes?.some(
+            (t) => t.userIdType === userIdType
+          )
+        ) {
+          throw new Error(`Invalid userIdType: ${userIdType}`);
+        }
+      }
     }
 
     const data: CreateFactTableProps = {

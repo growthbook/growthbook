@@ -32,6 +32,7 @@ properties:
         description: "Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count'"
       filters:
         type: array
+        description: Array of Fact Table Filter Ids
         items:
           type: string
   denominator:
@@ -48,6 +49,7 @@ properties:
         description: "Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count'"
       filters:
         type: array
+        description: Array of Fact Table Filter Ids
         items:
           type: string
   inverse:

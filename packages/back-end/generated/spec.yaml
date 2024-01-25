@@ -2697,6 +2697,7 @@ paths:
                       description: 'Must be empty for proportion metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
                     filters:
                       type: array
+                      description: Array of Fact Table Filter Ids
                       items:
                         type: string
                 denominator:
@@ -2713,6 +2714,7 @@ paths:
                       description: 'The column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
                     filters:
                       type: array
+                      description: Array of Fact Table Filter Ids
                       items:
                         type: string
                 inverse:
@@ -2858,6 +2860,7 @@ paths:
                       description: 'Must be empty for proportion metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
                     filters:
                       type: array
+                      description: Array of Fact Table Filter Ids
                       items:
                         type: string
                 denominator:
@@ -2874,6 +2877,7 @@ paths:
                       description: 'Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
                     filters:
                       type: array
+                      description: Array of Fact Table Filter Ids
                       items:
                         type: string
                 inverse:
@@ -4551,6 +4555,7 @@ components:
               type: string
             filters:
               type: array
+              description: Array of Fact Table Filter Ids
               items:
                 type: string
         denominator:
@@ -4566,6 +4571,7 @@ components:
               type: string
             filters:
               type: array
+              description: Array of Fact Table Filter Ids
               items:
                 type: string
         inverse:

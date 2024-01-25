@@ -53,6 +53,7 @@ properties:
         type: string
       filters:
         type: array
+        description: Array of Fact Table Filter Ids
         items:
           type: string
   denominator:
@@ -68,6 +69,7 @@ properties:
         type: string
       filters:
         type: array
+        description: Array of Fact Table Filter Ids
         items:
           type: string
   inverse:
