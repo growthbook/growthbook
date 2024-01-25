@@ -12,6 +12,7 @@ import {
 import { SDKConnectionInterface } from "../../types/sdk-connection";
 import { cancellableFetch } from "../util/http.util";
 import { logger } from "../util/logger";
+import { getContextForAgendaJobByOrgId } from "../services/organizations";
 
 const PROXY_UPDATE_JOB_NAME = "proxyUpdate";
 type ProxyUpdateJob = Job<{
@@ -45,8 +46,12 @@ export default function addProxyUpdateJob(ag: Agenda) {
       return;
     }
 
+    const context = await getContextForAgendaJobByOrgId(
+      connection.organization
+    );
+
     const defs = await getFeatureDefinitions({
-      organization: connection.organization,
+      context,
       capabilities: getConnectionSDKCapabilities(connection),
       environment: connection.environment,
       projects: connection.projects,

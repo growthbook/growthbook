@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
 import { ReportInterface } from "../../types/report";
+import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "../../types/api";
 import { getAllExperiments } from "./ExperimentModel";
 import { queriesSchema } from "./QueryModel";
 
@@ -64,15 +66,15 @@ export async function getReportById(
 }
 
 export async function getReportsByOrg(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   project: string
 ): Promise<ReportInterface[]> {
-  let reports = (await ReportModel.find({ organization })).map((r) =>
-    toInterface(r)
-  );
+  let reports = (
+    await ReportModel.find({ organization: context.org.id })
+  ).map((r) => toInterface(r));
   // filter by project assigned to the experiment:
   if (reports.length > 0 && project) {
-    const allExperiments = await getAllExperiments(organization, project);
+    const allExperiments = await getAllExperiments(context, project);
     const expIds = new Set(allExperiments.map((e) => e.id));
     reports = reports.filter(
       (r) => r.experimentId && expIds.has(r.experimentId)

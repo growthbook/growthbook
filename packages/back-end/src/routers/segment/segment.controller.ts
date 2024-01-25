@@ -83,7 +83,8 @@ export const getSegmentUsage = async (
   res: Response<GetSegmentUsageResponse, EventAuditUserForResponseLocals>
 ) => {
   const { id } = req.params;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
   const segment = await findSegmentById(id, org.id);
 
@@ -103,7 +104,7 @@ export const getSegmentUsage = async (
   const metrics = await getMetricsUsingSegment(id, org.id);
 
   // experiments:
-  const experiments = await getExperimentsUsingSegment(id, org.id);
+  const experiments = await getExperimentsUsingSegment(id, context);
 
   res.status(200).json({
     ideas,
