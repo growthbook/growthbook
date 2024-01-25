@@ -18,6 +18,7 @@ export const deleteSavedGroup = createApiRequestHandler(
     if (!savedGroup) {
       throw new Error("Unable to delete saved group. No group found.");
     }
+    req.checkPermissions("manageSavedGroups");
 
     await deleteSavedGroupById(req.params.id, req.organization.id);
 

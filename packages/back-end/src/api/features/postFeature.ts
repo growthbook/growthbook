@@ -137,7 +137,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
     const groupMap = await getSavedGroupMap(req.organization);
 
     const experimentMap = await getExperimentMapForFeature(
-      req.organization.id,
+      req.context,
       feature.id
     );
 

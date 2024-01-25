@@ -22,7 +22,7 @@ export const putVisualChangeset = createApiRequestHandler(
     }
 
     const experiment = await getExperimentById(
-      req.organization.id,
+      req.context,
       visualChangeset.experiment
     );
 

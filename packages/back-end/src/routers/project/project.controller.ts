@@ -231,7 +231,7 @@ export const deleteProject = async (
       });
     }
   } else {
-    await removeProjectFromFeatures(id, org, res.locals.eventAudit);
+    await removeProjectFromFeatures(id, context, res.locals.eventAudit);
   }
 
   // Clean up experiments

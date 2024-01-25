@@ -1,5 +1,5 @@
 import { includeExperimentInPayload } from "shared/util";
-import { OrganizationInterface } from "../../types/organization";
+import { ReqContext } from "../../types/organization";
 import {
   getAllPayloadExperiments,
   getPayloadKeysForAllEnvs,
@@ -7,11 +7,12 @@ import {
 import { getAllFeatures } from "../models/FeatureModel";
 import { getAffectedSDKPayloadKeys } from "../util/features";
 import { SDKPayloadKey } from "../../types/sdk-payload";
+import { ApiReqContext } from "../../types/api";
 import { refreshSDKPayloadCache } from "./features";
 import { getEnvironmentIdsFromOrg } from "./organizations";
 
 export async function savedGroupUpdated(
-  org: OrganizationInterface,
+  context: ReqContext | ApiReqContext,
   id: string
 ) {
   // Use a map to build a list of unique SDK payload keys
@@ -22,7 +23,7 @@ export async function savedGroupUpdated(
     );
 
   // Get all experiments using this saved group
-  const experiments = await getAllPayloadExperiments(org.id);
+  const experiments = await getAllPayloadExperiments(context);
   const savedGroupExperiments = Array.from(experiments.values()).filter(
     (exp) => {
       const phase = exp.phases[exp.phases.length - 1];
@@ -39,7 +40,7 @@ export async function savedGroupUpdated(
   // Experiments using the visual editor affect all environments, so add those first
   addKeys(
     getPayloadKeysForAllEnvs(
-      org,
+      context,
       savedGroupExperiments
         .filter(
           (exp) => includeExperimentInPayload(exp) && exp.hasVisualChangesets
@@ -49,11 +50,11 @@ export async function savedGroupUpdated(
   );
 
   // Then, add in any feature flags using this saved group
-  const allFeatures = await getAllFeatures(org.id);
+  const allFeatures = await getAllFeatures(context.org.id);
   addKeys(
     getAffectedSDKPayloadKeys(
       allFeatures,
-      getEnvironmentIdsFromOrg(org),
+      getEnvironmentIdsFromOrg(context.org),
       (rule) =>
         (rule.type === "experiment-ref" && expIds.has(rule.experimentId)) ||
         (rule.condition && rule.condition.includes(id)) ||
@@ -62,7 +63,7 @@ export async function savedGroupUpdated(
   );
 
   await refreshSDKPayloadCache(
-    org,
+    context,
     Array.from(payloadKeys.values()),
     allFeatures,
     experiments

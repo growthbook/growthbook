@@ -12,6 +12,7 @@ import { getReportById } from "../models/ReportModel";
 import { Queries } from "../../types/query";
 import { QueryMap } from "../queryRunners/QueryRunner";
 import { getQueriesByIds } from "../models/QueryModel";
+import { ReqContext } from "../../types/organization";
 import {
   getAnalysisSettingsFromReportArgs,
   reportArgsFromSnapshot,
@@ -63,10 +64,10 @@ export async function generateReportNotebook(
 
 export async function generateExperimentNotebook(
   snapshotId: string,
-  organization: string
+  context: ReqContext
 ): Promise<string> {
   // Get snapshot
-  const snapshot = await findSnapshotById(organization, snapshotId);
+  const snapshot = await findSnapshotById(context.org.id, snapshotId);
   if (!snapshot) {
     throw new Error("Cannot find snapshot");
   }
@@ -80,7 +81,7 @@ export async function generateExperimentNotebook(
   }
 
   // Get experiment
-  const experiment = await getExperimentById(organization, snapshot.experiment);
+  const experiment = await getExperimentById(context, snapshot.experiment);
   if (!experiment) {
     throw new Error("Cannot find snapshot");
   }
@@ -89,7 +90,7 @@ export async function generateExperimentNotebook(
   }
 
   return generateNotebook(
-    organization,
+    context.org.id,
     snapshot.queries,
     reportArgsFromSnapshot(experiment, snapshot, analysis.settings),
     `/experiment/${experiment.id}`,
