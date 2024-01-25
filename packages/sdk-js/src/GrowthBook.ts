@@ -1300,7 +1300,9 @@ export class GrowthBook<
     }
     if (changes.urlRedirect) {
       if (this._ctx.navigate) {
-        this._ctx.navigate(changes.urlRedirect);
+        setTimeout(() => {
+          this._ctx.navigate?.(changes.urlRedirect || "");
+        }, this._ctx.navigateDelay ?? 100);
       } else {
         const script = document.createElement("script");
         script.innerHTML = `setTimeout(() => { window.location.replace("${
