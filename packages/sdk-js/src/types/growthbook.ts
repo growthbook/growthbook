@@ -79,7 +79,7 @@ export type UrlTarget = {
 
 export type Experiment<T> = {
   key: string;
-  variations: [T, T, ...T[], T];
+  variations: [T, T, ...T[]];
   ranges?: VariationRange[];
   meta?: VariationMeta[];
   filters?: Filter[];
