@@ -297,27 +297,6 @@ export async function queueGlobalWebhooks(
     for (let i = 0; i < connections.length; i++) {
       const connection = connections[i];
 
-      const context = await getContextForAgendaJobByOrgId(
-        connection.organization
-      );
-
-      const defs = await getFeatureDefinitions({
-        context,
-        capabilities: getConnectionSDKCapabilities(connection),
-        environment: connection.environment,
-        projects: connection.projects,
-        encryptionKey: connection.encryptPayload
-          ? connection.encryptionKey
-          : undefined,
-
-        includeVisualExperiments: connection.includeVisualExperiments,
-        includeDraftExperiments: connection.includeDraftExperiments,
-        includeExperimentNames: connection.includeExperimentNames,
-        hashSecureAttributes: connection.hashSecureAttributes,
-      });
-
-      const payload = JSON.stringify(defs);
-
       // Skip if this SDK Connection isn't affected by the changes
       if (
         payloadKeys.some(
@@ -327,6 +306,26 @@ export async function queueGlobalWebhooks(
               connection.projects.includes(key.project))
         )
       ) {
+        const context = await getContextForAgendaJobByOrgId(
+          connection.organization
+        );
+
+        const defs = await getFeatureDefinitions({
+          context,
+          capabilities: getConnectionSDKCapabilities(connection),
+          environment: connection.environment,
+          projects: connection.projects,
+          encryptionKey: connection.encryptPayload
+            ? connection.encryptionKey
+            : undefined,
+
+          includeVisualExperiments: connection.includeVisualExperiments,
+          includeDraftExperiments: connection.includeDraftExperiments,
+          includeExperimentNames: connection.includeExperimentNames,
+          hashSecureAttributes: connection.hashSecureAttributes,
+        });
+
+        const payload = JSON.stringify(defs);
         fireWebhook({
           webhookId,
           organizationId,
