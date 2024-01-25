@@ -7,7 +7,6 @@ import {
   UpdateFactMetricProps,
 } from "../../types/fact-table";
 import { EventAuditUser } from "../events/event-types";
-import { ApiFactMetric } from "../../types/openapi";
 
 const factTableSchema = new mongoose.Schema({
   id: String,
@@ -131,17 +130,4 @@ export async function deleteFactMetric(
     id: factMetric.id,
     organization: factMetric.organization,
   });
-}
-
-export function toFactMetricApiInterface(
-  factMetric: FactMetricInterface
-): ApiFactMetric {
-  return {
-    managedBy: "",
-    ...omit(factMetric, ["organization", "dateCreated", "dateUpdated"]),
-    denominator: factMetric.denominator || undefined,
-    capping: factMetric.capping || "none",
-    dateCreated: factMetric.dateCreated?.toISOString() || "",
-    dateUpdated: factMetric.dateUpdated?.toISOString() || "",
-  };
 }
