@@ -332,6 +332,21 @@ export async function setProxyError(
   );
 }
 
+export async function clearProxyError(connection: SDKConnectionInterface) {
+  await SDKConnectionModel.updateOne(
+    {
+      organization: connection.organization,
+      id: connection.id,
+    },
+    {
+      $set: {
+        "proxy.error": "",
+        "proxy.connected": true,
+      },
+    }
+  );
+}
+
 export async function testProxyConnection(
   connection: SDKConnectionInterface,
   updateDB: boolean = true
