@@ -66,7 +66,8 @@ export async function postSampleData(
   req.checkPermissions("createMetrics", "");
   req.checkPermissions("createAnalyses", "");
 
-  const { org, userId } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
   const orgId = org.id;
   const statsEngine = org.settings?.statsEngine || DEFAULT_STATS_ENGINE;
 
@@ -213,7 +214,7 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
 
     await createExperiment({
       data: experiment,
-      organization: org,
+      context,
       user: res.locals.eventAudit,
     });
 

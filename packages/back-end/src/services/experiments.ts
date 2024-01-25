@@ -75,6 +75,7 @@ import {
 import {
   ExperimentUpdateSchedule,
   OrganizationInterface,
+  ReqContext,
 } from "../../types/organization";
 import { logger } from "../util/logger";
 import { DataSourceInterface } from "../../types/datasource";
@@ -103,6 +104,7 @@ import { StatsEngine } from "../../types/stats";
 import { getFeaturesByIds } from "../models/FeatureModel";
 import { getFeatureRevisionsByFeatureIds } from "../models/FeatureRevisionModel";
 import { ExperimentRefRule, FeatureRule } from "../../types/feature";
+import { ApiReqContext } from "../../types/api";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import {
@@ -534,7 +536,7 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
 
 export async function createSnapshot({
   experiment,
-  organization,
+  context,
   user = null,
   phaseIndex,
   useCache = false,
@@ -545,7 +547,7 @@ export async function createSnapshot({
   factTableMap,
 }: {
   experiment: ExperimentInterface;
-  organization: OrganizationInterface;
+  context: ReqContext | ApiReqContext;
   user?: EventAuditUser;
   phaseIndex: number;
   useCache?: boolean;
@@ -555,6 +557,7 @@ export async function createSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
 }): Promise<ExperimentResultsQueryRunner> {
+  const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
 
   const snapshotSettings = getSnapshotSettings({
@@ -605,7 +608,7 @@ export async function createSnapshot({
     undefined;
 
   await updateExperiment({
-    organization,
+    context,
     experiment,
     user,
     changes: {
@@ -722,12 +725,13 @@ function getExperimentMetric(
 }
 
 export async function toExperimentApiInterface(
-  organization: OrganizationInterface,
+  context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface
 ): Promise<ApiExperiment> {
   let project = null;
+  const organization = context.org;
   if (experiment.project) {
-    project = await findProjectById(experiment.project, organization.id);
+    project = await findProjectById(context, experiment.project);
   }
   const { settings: scopedSettings } = getScopedSettings({
     organization,

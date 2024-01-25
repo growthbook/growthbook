@@ -170,13 +170,13 @@ export const postDemoDatasourceProject = async (
   req.checkPermissions("createDatasources", "");
   req.checkPermissions("createMetrics", "");
   req.checkPermissions("createAnalyses", "");
-
-  const { org, environments } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, environments } = context;
 
   const demoProjId = getDemoDatasourceProjectIdForOrganization(org.id);
   const existingDemoProject: ProjectInterface | null = await findProjectById(
-    demoProjId,
-    org.id
+    context,
+    demoProjId
   );
 
   if (existingDemoProject) {
@@ -325,7 +325,7 @@ spacing and headings.`,
 
     const createdExperiment = await createExperiment({
       data: experimentToCreate,
-      organization: org,
+      context,
       user: res.locals.eventAudit,
     });
 
@@ -389,7 +389,7 @@ spacing and headings.`,
       });
     });
 
-    await createFeature(org, res.locals.eventAudit, featureToCreate);
+    await createFeature(context, res.locals.eventAudit, featureToCreate);
 
     const analysisSettings: ExperimentSnapshotAnalysisSettings = {
       statsEngine: org.settings?.statsEngine || DEFAULT_STATS_ENGINE,
@@ -404,7 +404,7 @@ spacing and headings.`,
 
     await createSnapshot({
       experiment: createdExperiment,
-      organization: org,
+      context,
       phaseIndex: 0,
       defaultAnalysisSettings: analysisSettings,
       additionalAnalysisSettings: [],

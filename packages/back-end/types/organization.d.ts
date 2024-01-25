@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { ReadAccessFilter } from "shared/permissions";
 import {
   ENV_SCOPED_PERMISSIONS,
   GLOBAL_PERMISSIONS,
@@ -277,3 +278,12 @@ export type NamespaceUsage = Record<
     end: number;
   }[]
 >;
+
+export type ReqContext = {
+  org: OrganizationInterface;
+  userId: string;
+  email: string;
+  environments: string[];
+  userName: string;
+  readAccessFilter: ReadAccessFilter;
+};

@@ -319,6 +319,11 @@ const sidebars = {
               id: "statistics/aggregation",
               label: "Aggregate Data",
             },
+            {
+              type: "doc",
+              id: "statistics/carryover-bias",
+              label: "Carryover Bias",
+            },
           ],
         },
       ],

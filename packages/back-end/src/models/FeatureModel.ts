@@ -18,7 +18,7 @@ import {
   refreshSDKPayloadCache,
 } from "../services/features";
 import { upgradeFeatureInterface } from "../util/migrations";
-import { OrganizationInterface } from "../../types/organization";
+import { OrganizationInterface, ReqContext } from "../../types/organization";
 import {
   FeatureCreatedNotificationEvent,
   FeatureDeletedNotificationEvent,
@@ -33,6 +33,7 @@ import { EventAuditUser } from "../events/event-types";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { logger } from "../util/logger";
 import { getEnvironmentIdsFromOrg } from "../services/organizations";
+import { ApiReqContext } from "../../types/api";
 import { createEvent } from "./EventModel";
 import {
   addLinkedFeatureToExperiment,
@@ -225,10 +226,11 @@ export async function getFeaturesByIds(
 }
 
 export async function createFeature(
-  org: OrganizationInterface,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   data: FeatureInterface
 ) {
+  const { org } = context;
   const linkedExperiments = getLinkedExperiments(
     data,
     getEnvironmentIdsFromOrg(org)
@@ -251,7 +253,7 @@ export async function createFeature(
   if (linkedExperiments.length > 0) {
     await Promise.all(
       linkedExperiments.map(async (exp) => {
-        await addLinkedFeatureToExperiment(org, user, exp, data.id);
+        await addLinkedFeatureToExperiment(context, user, exp, data.id);
       })
     );
   }
@@ -260,22 +262,25 @@ export async function createFeature(
 }
 
 export async function deleteFeature(
-  org: OrganizationInterface,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   feature: FeatureInterface
 ) {
-  await FeatureModel.deleteOne({ organization: org.id, id: feature.id });
-  await deleteAllRevisionsForFeature(org.id, feature.id);
+  await FeatureModel.deleteOne({
+    organization: context.org.id,
+    id: feature.id,
+  });
+  await deleteAllRevisionsForFeature(context.org.id, feature.id);
 
   if (feature.linkedExperiments) {
     await Promise.all(
       feature.linkedExperiments.map(async (exp) => {
-        await removeLinkedFeatureFromExperiment(org, user, exp, feature.id);
+        await removeLinkedFeatureFromExperiment(context, user, exp, feature.id);
       })
     );
   }
 
-  onFeatureDelete(org, user, feature);
+  onFeatureDelete(context.org, user, feature);
 }
 
 /**
@@ -286,20 +291,20 @@ export async function deleteFeature(
  */
 export async function deleteAllFeaturesForAProject({
   projectId,
-  organization,
+  context,
   user,
 }: {
   projectId: string;
-  organization: OrganizationInterface;
+  context: ReqContext | ApiReqContext;
   user: EventAuditUser;
 }) {
   const featuresToDelete = await FeatureModel.find({
-    organization: organization.id,
+    organization: context.org.id,
     project: projectId,
   });
 
   for (const feature of featuresToDelete) {
-    await deleteFeature(organization, user, feature);
+    await deleteFeature(context, user, feature);
   }
 }
 
@@ -475,7 +480,7 @@ export async function onFeatureUpdate(
 }
 
 export async function updateFeature(
-  org: OrganizationInterface,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   feature: FeatureInterface,
   updates: Partial<FeatureInterface>
@@ -492,7 +497,7 @@ export async function updateFeature(
   // Refresh linkedExperiments if needed
   const linkedExperiments = getLinkedExperiments(
     updatedFeature,
-    getEnvironmentIdsFromOrg(org)
+    getEnvironmentIdsFromOrg(context.org)
   );
   const experimentsAdded = new Set<string>();
   if (!isEqual(linkedExperiments, feature.linkedExperiments)) {
@@ -517,12 +522,12 @@ export async function updateFeature(
   if (experimentsAdded.size > 0) {
     await Promise.all(
       [...experimentsAdded].map(async (exp) => {
-        await addLinkedFeatureToExperiment(org, user, exp, feature.id);
+        await addLinkedFeatureToExperiment(context, user, exp, feature.id);
       })
     );
   }
 
-  onFeatureUpdate(org, user, feature, updatedFeature);
+  onFeatureUpdate(context.org, user, feature, updatedFeature);
   return updatedFeature;
 }
 
@@ -553,12 +558,12 @@ export async function getScheduledFeaturesToUpdate() {
 }
 
 export async function archiveFeature(
-  org: OrganizationInterface,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   feature: FeatureInterface,
   isArchived: boolean
 ) {
-  return await updateFeature(org, user, feature, { archived: isArchived });
+  return await updateFeature(context, user, feature, { archived: isArchived });
 }
 
 function setEnvironmentSettings(
@@ -581,12 +586,12 @@ function setEnvironmentSettings(
 }
 
 export async function toggleMultipleEnvironments(
-  organization: OrganizationInterface,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   feature: FeatureInterface,
   toggles: Record<string, boolean>
 ) {
-  const validEnvs = new Set(getEnvironmentIdsFromOrg(organization));
+  const validEnvs = new Set(getEnvironmentIdsFromOrg(context.org));
 
   let featureCopy = cloneDeep(feature);
   let hasChanges = false;
@@ -606,7 +611,7 @@ export async function toggleMultipleEnvironments(
 
   // If there are changes we need to apply
   if (hasChanges) {
-    const updatedFeature = await updateFeature(organization, user, feature, {
+    const updatedFeature = await updateFeature(context, user, feature, {
       environmentSettings: featureCopy.environmentSettings,
     });
     return updatedFeature;
@@ -616,13 +621,13 @@ export async function toggleMultipleEnvironments(
 }
 
 export async function toggleFeatureEnvironment(
-  organization: OrganizationInterface,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   feature: FeatureInterface,
   environment: string,
   state: boolean
 ) {
-  return await toggleMultipleEnvironments(organization, user, feature, {
+  return await toggleMultipleEnvironments(context, user, feature, {
     [environment]: state,
   });
 }
@@ -742,19 +747,19 @@ export async function setDefaultValue(
 }
 
 export async function setJsonSchema(
-  org: OrganizationInterface,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser,
   feature: FeatureInterface,
   schema: string,
   enabled?: boolean
 ) {
-  return await updateFeature(org, user, feature, {
+  return await updateFeature(context, user, feature, {
     jsonSchema: { schema, enabled: enabled ?? true, date: new Date() },
   });
 }
 
 export async function applyRevisionChanges(
-  organization: OrganizationInterface,
+  context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   result: MergeResultChanges,
@@ -767,7 +772,7 @@ export async function applyRevisionChanges(
     hasChanges = true;
   }
 
-  const environments = getEnvironmentIdsFromOrg(organization);
+  const environments = getEnvironmentIdsFromOrg(context.org);
 
   environments.forEach((env) => {
     const rules = result.rules?.[env];
@@ -797,15 +802,15 @@ export async function applyRevisionChanges(
   changes.version = revision.version;
 
   // Update the `hasDrafts` field
-  changes.hasDrafts = await hasDraft(organization.id, feature, [
+  changes.hasDrafts = await hasDraft(context.org.id, feature, [
     revision.version,
   ]);
 
-  return await updateFeature(organization, user, feature, changes);
+  return await updateFeature(context, user, feature, changes);
 }
 
 export async function publishRevision(
-  organization: OrganizationInterface,
+  context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   result: MergeResultChanges,
@@ -818,7 +823,7 @@ export async function publishRevision(
 
   // TODO: wrap these 2 calls in a transaction
   const updatedFeature = await applyRevisionChanges(
-    organization,
+    context,
     feature,
     revision,
     result,
@@ -854,10 +859,10 @@ function getLinkedExperiments(
 }
 
 export async function toggleNeverStale(
-  organization: OrganizationInterface,
+  context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   user: EventAuditUser,
   neverStale: boolean
 ) {
-  return await updateFeature(organization, user, feature, { neverStale });
+  return await updateFeature(context, user, feature, { neverStale });
 }
