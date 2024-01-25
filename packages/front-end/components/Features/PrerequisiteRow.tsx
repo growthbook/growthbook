@@ -110,13 +110,47 @@ export default function PrerequisiteRow({
           </div>
         </div>
       </td>
+      <PrerequisiteStatesCols
+        prereqStates={prereqStates ?? undefined}
+        envs={envs}
+      />
+    </tr>
+  );
+}
+
+export function PrerequisiteStatesCols({
+  prereqStates,
+  envs,
+  isSummaryRow,
+}: {
+  prereqStates?: Record<string, PrerequisiteState>;
+  envs: string[];
+  isSummaryRow?: boolean;
+}) {
+  return (
+    <>
       {envs.map((env) => (
         <td key={env} className="text-center">
           {prereqStates?.[env] === "on" && (
             <Tooltip
               className="cursor-pointer"
               popperClassName="text-left"
-              body="The parent feature is currently enabled in this environment"
+              body={
+                <>
+                  <div>
+                    {isSummaryRow
+                      ? "This feature"
+                      : "This prerequisite feature"}{" "}
+                    is currently enabled in this environment.
+                  </div>
+                  {isSummaryRow && (
+                    <div className="mt-2">
+                      This feature will be sent to the SDK where its rules will
+                      be evaluated.
+                    </div>
+                  )}
+                </>
+              }
             >
               <FaRegCircleCheck className="text-success" size={24} />
             </Tooltip>
@@ -125,20 +159,60 @@ export default function PrerequisiteRow({
             <Tooltip
               className="cursor-pointer"
               popperClassName="text-left"
-              body="The parent feature is currently disabled in this environment"
+              body={
+                <>
+                  <div>
+                    {isSummaryRow
+                      ? "This feature"
+                      : "This prerequisite feature"}{" "}
+                    is currently disabled in this environment.
+                  </div>
+                  {isSummaryRow && (
+                    <div className="mt-2">
+                      This feature will not be sent to the SDK and will evaluate
+                      to <code>null</code>.
+                    </div>
+                  )}
+                </>
+              }
             >
-              <FaRegCircleXmark className="text-black-50" size={24} />
+              <FaRegCircleXmark className="text-muted" size={24} />
             </Tooltip>
           )}
           {prereqStates?.[env] === "conditional" && (
             <Tooltip
               className="position-relative cursor-pointer"
               popperClassName="text-left"
-              body="The parent feature is currently enabled but has rules which make the result conditional in this environment"
+              body={
+                isSummaryRow ? (
+                  <>
+                    <div>
+                      This feature is conditionally enabled in this environment.
+                      This feature&apos;s prerequisites have rules which may
+                      make the result conditional.
+                    </div>
+                    {isSummaryRow && (
+                      <div className="mt-2">
+                        This feature will be sent to the SDK and its
+                        prerequisites will be evaluated at runtime. If any
+                        prerequisites do not pass, this feature will evaluate to{" "}
+                        <code>null</code>; otherwise this feature&apos;s rules
+                        will be evaluated.
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div>
+                    This prerequisite feature is conditionally enabled in this
+                    environment. The parent feature&apos;s prerequisites have
+                    rules which may make the result conditional.
+                  </div>
+                )
+              }
             >
               <FaRegCircleCheck className="text-success" size={24} />
               <FaInfoCircle
-                className="text-purple position-absolute"
+                className="text-indigo position-absolute"
                 style={{ top: -10, right: -8 }}
                 size={16}
               />
@@ -148,13 +222,13 @@ export default function PrerequisiteRow({
             <Tooltip
               className="cursor-pointer"
               popperClassName="text-left"
-              body="Circular dependency detected. Please fix."
+              body={<div>Circular dependency detected. Please fix.</div>}
             >
               <FaExclamationCircle className="text-warning-orange" size={24} />
             </Tooltip>
           )}
         </td>
       ))}
-    </tr>
+    </>
   );
 }

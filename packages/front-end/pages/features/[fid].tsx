@@ -1,14 +1,12 @@
 import { useRouter } from "next/router";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FaChevronRight,
   FaDraftingCompass,
   FaExchangeAlt,
-  FaExclamationCircle,
   FaExclamationTriangle,
-  FaInfoCircle,
   FaLink,
   FaList,
   FaLock,
@@ -26,11 +24,7 @@ import {
 } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { MdHistory, MdRocketLaunch } from "react-icons/md";
-import {
-  FaPlusMinus,
-  FaRegCircleCheck,
-  FaRegCircleXmark,
-} from "react-icons/fa6";
+import { FaPlusMinus } from "react-icons/fa6";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import clsx from "clsx";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -91,7 +85,9 @@ import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 import PrerequisiteModal from "@/components/Features/PrerequisiteModal";
-import PrerequisiteRow from "@/components/Features/PrerequisiteRow";
+import PrerequisiteRow, {
+  PrerequisiteStatesCols,
+} from "@/components/Features/PrerequisiteRow";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -785,7 +781,7 @@ export default function FeaturePage() {
       </div>
 
       <h3>Top-level Requirements</h3>
-      <div className="mb-1">
+      <div className="mb-2">
         When disabled, feature will evaluate to <code>null</code>. The default
         value and override rules will be ignored.
       </div>
@@ -794,10 +790,24 @@ export default function FeaturePage() {
           <tbody>
             <tr>
               <td className="pl-3 align-middle font-weight-bold border-right">
-                Kill Switch
+                Kill Switch{" "}
+                <Tooltip
+                  body={
+                    <>
+                      Toggle <strong>OFF</strong> to immediately disable this
+                      feature in an environment. Disabled features will not be
+                      sent to the SDK and will evaluate to <code>null</code>.
+                    </>
+                  }
+                />
               </td>
               {envs.map((env) => (
                 <td key={env} className="text-center">
+                  {!prerequisites.length && (
+                    <div className="font-weight-bolder text-dark mb-2">
+                      {env}
+                    </div>
+                  )}
                   <EnvironmentToggle
                     feature={feature}
                     environment={env}
@@ -805,6 +815,7 @@ export default function FeaturePage() {
                       mutate();
                     }}
                     id={`${env}_toggle`}
+                    className="mr-0"
                   />
                 </td>
               ))}
@@ -813,96 +824,75 @@ export default function FeaturePage() {
           <tbody>
             <tr className="bg-light">
               <td className="pl-3 py-2 border-right font-weight-bold">
-                Prerequisite Features
+                Prerequisite Features{" "}
+                <Tooltip
+                  body={
+                    <>
+                      <p>
+                        Prerequisite features must evaluate to <code>true</code>{" "}
+                        in order for this feature to be enabled. Disabled
+                        features will evaluate to <code>null</code>.
+                      </p>
+                      <p className="mb-0">
+                        Note that only <strong>boolean</strong> features may be
+                        used as top-level prerequisites. To implement
+                        prerequisite logic using non-boolean features and/or
+                        non-standard targeting rules, you may use prerequisite
+                        targeting within this feature&apos;s rules.
+                      </p>
+                    </>
+                  }
+                />
               </td>
-              {envs.map((env) => (
-                <th key={env} className="text-center text-dark py-2">
-                  {env}
-                </th>
-              ))}
+              {prerequisites.length > 0 ? (
+                envs.map((env) => (
+                  <td
+                    key={env}
+                    className="text-center font-weight-bolder tet-dark py-2"
+                  >
+                    {env}
+                  </td>
+                ))
+              ) : (
+                <td colSpan={envs.length} className="text-center py-2">
+                  <em className="text-muted">No prerequisites</em>
+                </td>
+              )}
             </tr>
           </tbody>
-          <tbody>
-            {prerequisites.length > 0 ? (
-              prerequisites.map(({ ...item }, i) => {
-                const parentFeature = features.find((f) => f.id === item.id);
-                return (
-                  <PrerequisiteRow
-                    key={i}
-                    i={i}
-                    feature={feature}
-                    features={features}
-                    parentFeature={parentFeature}
-                    prerequisite={item}
-                    environments={environments}
-                    mutate={mutate}
-                    setPrerequisiteModal={setPrerequisiteModal}
-                  />
-                );
-              })
-            ) : (
-              <tr>
-                <td className="py-2 border-right"></td>
-                <td colSpan={envs.length} className="py-2 text-center">
-                  <em>No prerequisites</em>
-                </td>
-              </tr>
-            )}
-          </tbody>
-          {prerequisites.length > -1 && (
-            <tbody>
-              <tr>
-                <td className="pl-3 font-weight-bold border-right">Summary</td>
-                {envs.map((env) => (
-                  <td key={env} className="text-center">
-                    {prereqStates?.[env] === "on" && (
-                      <Tooltip
-                        className="cursor-pointer"
-                        popperClassName="text-left"
-                        body="This feature is currently enabled in this environment"
-                      >
-                        <FaRegCircleCheck className="text-success" size={24} />
-                      </Tooltip>
-                    )}
-                    {prereqStates?.[env] === "off" && (
-                      <Tooltip
-                        className="cursor-pointer"
-                        popperClassName="text-left"
-                        body="This feature is currently disabled in this environment"
-                      >
-                        <FaRegCircleXmark className="text-black-50" size={24} />
-                      </Tooltip>
-                    )}
-                    {prereqStates?.[env] === "conditional" && (
-                      <Tooltip
-                        className="position-relative cursor-pointer"
-                        popperClassName="text-left"
-                        body="This feature is currently enabled but prerequisites have rules which make the result conditional in this environment"
-                      >
-                        <FaRegCircleCheck className="text-success" size={24} />
-                        <FaInfoCircle
-                          className="text-purple position-absolute"
-                          style={{ top: -10, right: -8 }}
-                          size={16}
-                        />
-                      </Tooltip>
-                    )}
-                    {prereqStates?.[env] === "cyclic" && (
-                      <Tooltip
-                        className="cursor-pointer"
-                        popperClassName="text-left"
-                        body="Circular dependency detected. Please fix."
-                      >
-                        <FaExclamationCircle
-                          className="text-warning-orange"
-                          size={24}
-                        />
-                      </Tooltip>
-                    )}
+          {prerequisites.length > 0 && (
+            <>
+              <tbody>
+                {prerequisites.map(({ ...item }, i) => {
+                  const parentFeature = features.find((f) => f.id === item.id);
+                  return (
+                    <PrerequisiteRow
+                      key={i}
+                      i={i}
+                      feature={feature}
+                      features={features}
+                      parentFeature={parentFeature}
+                      prerequisite={item}
+                      environments={environments}
+                      mutate={mutate}
+                      setPrerequisiteModal={setPrerequisiteModal}
+                    />
+                  );
+                })}
+              </tbody>
+              <tbody>
+                <tr>
+                  <td className="pl-3 font-weight-bold border-right">
+                    Summary
                   </td>
-                ))}
-              </tr>
-            </tbody>
+                  <PrerequisiteStatesCols
+                    prereqStates={prereqStates ?? undefined}
+                    envs={envs}
+                    isSummaryRow={true}
+                  />
+                </tr>
+              </tbody>
+            </>
           )}
         </table>
 

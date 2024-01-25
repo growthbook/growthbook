@@ -1,21 +1,15 @@
 import { useForm } from "react-hook-form";
 import { FeatureInterface, FeaturePrerequisite } from "back-end/types/feature";
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import {
   evaluatePrerequisiteState,
   isFeatureCyclic,
   PrerequisiteState,
 } from "shared/util";
-import {
-  FaExclamationCircle,
-  FaExclamationTriangle,
-  FaExternalLinkAlt,
-  FaInfoCircle,
-} from "react-icons/fa";
+import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
 import clsx from "clsx";
 import cloneDeep from "lodash/cloneDeep";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
 import {
   getFeatureDefaultValue,
   useEnvironments,
@@ -26,7 +20,7 @@ import {
 import track from "@/services/track";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { useAuth } from "@/services/auth";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteRow";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 
@@ -193,54 +187,10 @@ export default function PrerequisiteModal({
                     />
                   </div>
                 </td>
-                {envs.map((env) => (
-                  <td key={env} className="text-center">
-                    {prereqStates?.[env] === "on" && (
-                      <Tooltip
-                        className="cursor-pointer"
-                        popperClassName="text-left"
-                        body="The parent feature is currently enabled in this environment"
-                      >
-                        <FaRegCircleCheck className="text-success" size={24} />
-                      </Tooltip>
-                    )}
-                    {prereqStates?.[env] === "off" && (
-                      <Tooltip
-                        className="cursor-pointer"
-                        popperClassName="text-left"
-                        body="The parent feature is currently disabled in this environment"
-                      >
-                        <FaRegCircleXmark className="text-black-50" size={24} />
-                      </Tooltip>
-                    )}
-                    {prereqStates?.[env] === "conditional" && (
-                      <Tooltip
-                        className="position-relative cursor-pointer"
-                        popperClassName="text-left"
-                        body="The parent feature is currently enabled but has rules which make the result conditional in this environment"
-                      >
-                        <FaRegCircleCheck className="text-success" size={24} />
-                        <FaInfoCircle
-                          className="text-purple position-absolute"
-                          style={{ top: -10, right: -8 }}
-                          size={16}
-                        />
-                      </Tooltip>
-                    )}
-                    {prereqStates?.[env] === "cyclic" && (
-                      <Tooltip
-                        className="cursor-pointer"
-                        popperClassName="text-left"
-                        body="Circular dependency detected. Please fix."
-                      >
-                        <FaExclamationCircle
-                          className="text-warning-orange"
-                          size={24}
-                        />
-                      </Tooltip>
-                    )}
-                  </td>
-                ))}
+                <PrerequisiteStatesCols
+                  prereqStates={prereqStates ?? undefined}
+                  envs={envs}
+                />
               </tr>
             </tbody>
           </table>
