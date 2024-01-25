@@ -28,6 +28,7 @@ import {
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import FactBadge from "@/components/FactTables/FactBadge";
+import { capitalizeFirstLetter } from "@/services/utils";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -414,7 +415,11 @@ export default function FactMetricPage() {
                     {factMetric.windowSettings.windowValue}{" "}
                     {factMetric.windowSettings.windowUnit}
                   </strong>{" "}
-                  of first experiment exposure.
+                  of first experiment exposure
+                  {factMetric.windowSettings.delayHours
+                    ? " plus the conversion delay"
+                    : ""}
+                  .
                 </>
               ) : factMetric.windowSettings.window === "lookback" ? (
                 <>
@@ -475,19 +480,30 @@ export default function FactMetricPage() {
                   )}
                   {factMetric.cappingSettings.capping &&
                     factMetric.cappingSettings.value && (
-                      <li className="mb-2">
-                        <span className="text-gray">
-                          Cap value ({factMetric.cappingSettings.capping}):{" "}
-                        </span>
-                        <span className="font-weight-bold">
-                          {factMetric.cappingSettings.value}{" "}
+                      <>
+                        <li className="mb-2">
+                          <span className="uppercase-title lg">
+                            {capitalizeFirstLetter(
+                              factMetric.cappingSettings.capping
+                            )}
+                            {" capping"}
+                          </span>
+                        </li>
+                        <li>
+                          <span className="font-weight-bold">
+                            {factMetric.cappingSettings.value}
+                          </span>{" "}
                           {factMetric.cappingSettings.capping === "percentile"
                             ? `(${
                                 100 * factMetric.cappingSettings.value
-                              } pctile)`
+                              } pctile${
+                                factMetric.cappingSettings.ignoreZeros
+                                  ? ", ignoring zeros"
+                                  : ""
+                              })`
                             : ""}{" "}
-                        </span>
-                      </li>
+                        </li>
+                      </>
                     )}
                 </ul>
               </RightRailSectionGroup>

@@ -1139,21 +1139,30 @@ const MetricPage: FC = () => {
                     </li>
                   )}
                   {metric.cappingSettings.capping &&
-                    metric.cappingSettings.value && (<>
-                      <li className="mb-2">
-                        <span className="uppercase-title lg">
-                          {capitalizeFirstLetter(metric.cappingSettings.capping)}{" capping"}
-                        </span>
-                      </li>
-                      <li>
-                        <span className="font-weight-bold">
-                          {metric.cappingSettings.value}{" "}
+                    metric.cappingSettings.value && (
+                      <>
+                        <li className="mb-2">
+                          <span className="uppercase-title lg">
+                            {capitalizeFirstLetter(
+                              metric.cappingSettings.capping
+                            )}
+                            {" capping"}
+                          </span>
+                        </li>
+                        <li>
+                          <span className="font-weight-bold">
+                            {metric.cappingSettings.value}
+                          </span>{" "}
                           {metric.cappingSettings.capping === "percentile"
-                            ? `(${100 * metric.cappingSettings.value} pctile${metric.cappingSettings.ignoreZeros ? ", ignoring zeros": ""})`
+                            ? `(${100 * metric.cappingSettings.value} pctile${
+                                metric.cappingSettings.ignoreZeros
+                                  ? ", ignoring zeros"
+                                  : ""
+                              })`
                             : ""}{" "}
-                        </span>
-                      </li>
-                    </>)}
+                        </li>
+                      </>
+                    )}
                   {metric.ignoreNulls && (
                     <li className="mb-2">
                       <span className="text-gray">Converted users only:</span>{" "}
@@ -1163,50 +1172,56 @@ const MetricPage: FC = () => {
                 </ul>
               </RightRailSectionGroup>
 
-              {datasource?.properties?.metricCaps && (
-                <RightRailSectionGroup type="custom" empty="">
-                  <ul className="right-rail-subsection list-unstyled mb-4">
-                    {metric.windowSettings.window ? (
-                      <>
-                        <li className="mt-3 mb-1">
-                          <span className="uppercase-title lg">
-                            {metric.windowSettings.window === "lookback"
-                              ? "Lookback"
-                              : "Conversion"}{" "}
-                            Window
-                          </span>
-                        </li>
-                        {metric.windowSettings.window === "conversion" ? (
-                        <li>
-                          <span className="font-weight-bold">
-                          {metric.windowSettings.delayHours
-                            ? metric.windowSettings.delayHours + " hours to "
-                            : ""}
-                          {`${metric.windowSettings.windowValue} ${metric.windowSettings.windowUnit}`}
-                        </span>
-                        </li>
-                        ):  <><li>
-                        <span className="font-weight-bold">
-                        {`${metric.windowSettings.windowValue} ${metric.windowSettings.windowUnit}`}
-                        </span>
-                        </li>
-                        {metric.windowSettings.delayHours ? (
-                        <li className="mt-1">
-                        <span className="text-gray">Ignoring first</span>{" "}
-                    <span className="font-weight-bold">
-                      {`${metric.windowSettings.delayHours} hours`}
-                    </span><span className="text-gray">{" "}after exposure (conversion delay)</span>
-                          </li>) : null}</>}
-                    </>) : (
-                      <li className="mt-3 mb-1">
-                        <span className="uppercase-title lg">
-                          No Conversion/Lookback Window
-                        </span>
+              <RightRailSectionGroup type="custom" empty="">
+                <ul className="right-rail-subsection list-unstyled mb-4">
+                  <li className="mt-3 mb-1">
+                    <span className="uppercase-title lg">
+                      Conversion/Lookback Window
+                    </span>
+                  </li>
+                  {metric.windowSettings.window === "conversion" ? (
+                    <>
+                      <li>
+                        <span className="font-weight-bold">Conversion</span> -
+                        Require conversions to happen within{" "}
+                        <strong>
+                          {metric.windowSettings.windowValue}{" "}
+                          {metric.windowSettings.windowUnit}
+                        </strong>{" "}
+                        of first experiment exposure
+                        {metric.windowSettings.delayHours
+                          ? " plus the conversion delay"
+                          : ""}
+                        .
                       </li>
-                    )}
-                  </ul>
-                </RightRailSectionGroup>
-              )}
+                    </>
+                  ) : metric.windowSettings.window === "lookback" ? (
+                    <li>
+                      <span className="font-weight-bold">Lookback</span> -
+                      Require conversions to happen in latest{" "}
+                      <strong>
+                        {metric.windowSettings.windowValue}{" "}
+                        {metric.windowSettings.windowUnit}
+                      </strong>{" "}
+                      of the experiment.
+                    </li>
+                  ) : (
+                    <li>
+                      <span className="font-weight-bold">Disabled</span> -
+                      Include all conversions that happen while an experiment is
+                      running.
+                    </li>
+                  )}
+                  {metric.windowSettings.delayHours ? (
+                    <li className="mt-1">
+                      <span className="text-gray">Conversion Delay: </span>
+                      <span className="font-weight-bold">
+                        {metric.windowSettings.delayHours} hours
+                      </span>
+                    </li>
+                  ) : null}
+                </ul>
+              </RightRailSectionGroup>
 
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-4">

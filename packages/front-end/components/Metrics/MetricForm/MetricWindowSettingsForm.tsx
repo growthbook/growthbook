@@ -1,3 +1,4 @@
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "../../Forms/Field";
 import SelectField from "../../Forms/SelectField";
 
@@ -84,7 +85,14 @@ export function MetricWindowSettingsForm({ form }) {
               <>
                 <div className="col-auto">Use only data within</div>
                 {windowSettingsFields}
-                <div className="col-auto">of first experiment exposure</div>
+                <div className="col-auto">
+                  of first experiment exposure{" "}
+                  <Tooltip
+                    body={
+                      "If you specify a conversion delay, then the conversion window will be a length of time starting from the first experiment exposure plus the conversion delay."
+                    }
+                  />
+                </div>
               </>
             )}
             {form.watch("windowSettings.window") === "lookback" && (

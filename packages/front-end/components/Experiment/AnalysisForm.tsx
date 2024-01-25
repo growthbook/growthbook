@@ -210,10 +210,10 @@ const AnalysisForm: FC<{
       ctaEnabled={!editMetrics || !hasMetricOverrideRiskError}
       submit={form.handleSubmit(async (value) => {
         console.log(form.getValues(`metricOverrides.0.window`));
-        console.dir(value, {depth: null});
+        console.dir(value, { depth: null });
         const { dateStarted, dateEnded, skipPartialData, ...values } = value;
 
-        console.dir(values, {depth: null});
+        console.dir(values, { depth: null });
         const body: Partial<ExperimentInterfaceStringDates> & {
           phaseStartDate: string;
           phaseEndDate?: string;
@@ -224,7 +224,7 @@ const AnalysisForm: FC<{
           phaseStartDate: dateStarted,
           skipPartialData: skipPartialData === "strict",
         };
-        console.dir(body.metricOverrides, {depth:null});
+        console.dir(body.metricOverrides, { depth: null });
         fixMetricOverridesBeforeSaving(body.metricOverrides || []);
 
         if (experiment.status === "stopped") {
@@ -442,7 +442,7 @@ const AnalysisForm: FC<{
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
         <SelectField
-          label="Metric Conversion Windows"
+          label="Metric Conversion/Lookback Windows"
           labelClassName="font-weight-bold"
           value={form.watch("skipPartialData")}
           onChange={(value) => form.setValue("skipPartialData", value)}
@@ -456,7 +456,7 @@ const AnalysisForm: FC<{
               value: "strict",
             },
           ]}
-          helpText="How to treat users who have not had the full time to convert yet"
+          helpText="How to treat users not enrolled in the experiment long enough to complete conversion or lookback windows."
         />
       )}
       {datasourceProperties?.separateExperimentResultQueries && (

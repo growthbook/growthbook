@@ -1289,7 +1289,6 @@ export function postMetricApiPayloadToMetricInterface(
     ignoreNulls: false,
     queries: [],
     runStarted: null,
-    // TODO DEFAULTS
     cappingSettings: {
       capping: DEFAULT_METRIC_CAPPING,
       value: DEFAULT_METRIC_CAPPING_VALUE,
@@ -1315,11 +1314,12 @@ export function postMetricApiPayloadToMetricInterface(
     if (typeof behavior.cappingSettings !== "undefined") {
       metric.cappingSettings = {
         ...behavior.cappingSettings,
-        capping: behavior.cappingSettings.capping ?? ""
+        capping: behavior.cappingSettings.capping ?? "",
       };
     } else if (typeof behavior.capping !== "undefined") {
       metric.cappingSettings.capping = behavior.capping ?? "";
-      metric.cappingSettings.value = behavior.capValue ?? DEFAULT_METRIC_CAPPING_VALUE;
+      metric.cappingSettings.value =
+        behavior.capValue ?? DEFAULT_METRIC_CAPPING_VALUE;
     } else if (typeof behavior.cap !== "undefined" && behavior.cap) {
       metric.cappingSettings.capping = "absolute";
       metric.cappingSettings.value = behavior.cap;
@@ -1328,8 +1328,10 @@ export function postMetricApiPayloadToMetricInterface(
     if (typeof behavior.windowSettings !== "undefined") {
       metric.windowSettings = {
         ...behavior.windowSettings,
-        delayHours: behavior.windowSettings.delayHours ?? DEFAULT_METRIC_WINDOW_DELAY_HOURS
-      }; 
+        delayHours:
+          behavior.windowSettings.delayHours ??
+          DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+      };
     } else if (typeof behavior.conversionWindowStart !== "undefined") {
       // The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the Conversion Delay
       metric.windowSettings.delayHours = behavior.conversionWindowStart;
@@ -1598,7 +1600,9 @@ export function toMetricApiInterface(
       windowSettings: metric.windowSettings ??
         metricDefaults?.windowSettings ?? {
           window: DEFAULT_METRIC_WINDOW,
-          delayHours: metric.earlyStart ? -0.5 : DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+          delayHours: metric.earlyStart
+            ? -0.5
+            : DEFAULT_METRIC_WINDOW_DELAY_HOURS,
           windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
           windowUnit: "hours",
         },

@@ -3154,7 +3154,6 @@ AND event_name = '${eventName}'`,
   }
 
   // Only include users who entered the experiment before this timestamp
-  // TODO fix here
   private getExperimentEndDate(
     settings: ExperimentSnapshotSettings,
     conversionWindowHours: number

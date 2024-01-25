@@ -291,7 +291,7 @@ export function applyMetricOverrides<T extends ExperimentMetricInterface>(
     }
     if (!isNil(metricOverride?.delayHours)) {
       newMetric.windowSettings.delayHours = metricOverride.delayHours;
-      overrideFields.push("windowDelayHours");
+      overrideFields.push("delayHours");
     }
     if (!isNil(metricOverride?.winRisk)) {
       newMetric.winRisk = metricOverride.winRisk;
