@@ -199,7 +199,10 @@ export default function PrerequisiteModal({
                 {envs.map((env) => (
                   <td key={env} className="text-center">
                     {prereqStates?.[env] === "on" && (
-                      <Tooltip popperClassName="text-left mt-2" body="The parent feature is currently enabled in this environment">
+                      <Tooltip
+                        popperClassName="text-left"
+                        body="The parent feature is currently enabled in this environment"
+                      >
                         <FaRegCircleCheck
                           className="text-success cursor-pointer"
                           size={24}
@@ -207,7 +210,10 @@ export default function PrerequisiteModal({
                       </Tooltip>
                     )}
                     {prereqStates?.[env] === "off" && (
-                      <Tooltip popperClassName="text-left mt-2" body="The parent feature is currently diabled in this environment">
+                      <Tooltip
+                        popperClassName="text-left"
+                        body="The parent feature is currently diabled in this environment"
+                      >
                         <FaRegCircleXmark
                           className="text-danger cursor-pointer"
                           size={24}
@@ -215,7 +221,10 @@ export default function PrerequisiteModal({
                       </Tooltip>
                     )}
                     {prereqStates?.[env] === "conditional" && (
-                      <Tooltip popperClassName="text-left mt-2" body="The parent feature is currently enabled but has rules which make the result conditional in this environment">
+                      <Tooltip
+                        popperClassName="text-left"
+                        body="The parent feature is currently enabled but has rules which make the result conditional in this environment"
+                      >
                         <FaRegCircleQuestion
                           className="text-black-50 cursor-pointer"
                           size={24}
@@ -223,7 +232,10 @@ export default function PrerequisiteModal({
                       </Tooltip>
                     )}
                     {prereqStates?.[env] === "cyclic" && (
-                      <Tooltip popperClassName="text-left mt-2" body="Circular dependency detected. Please fix.">
+                      <Tooltip
+                        popperClassName="text-left"
+                        body="Circular dependency detected. Please fix."
+                      >
                         <FaExclamationCircle
                           className="text-warning-orange cursor-pointer"
                           size={24}

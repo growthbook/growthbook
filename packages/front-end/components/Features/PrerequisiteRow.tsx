@@ -114,7 +114,7 @@ export default function PrerequisiteRow({
         <td key={env} className="text-center">
           {prereqStates?.[env] === "on" && (
             <Tooltip
-              popperClassName="text-left mt-2"
+              popperClassName="text-left"
               body="The parent feature is currently enabled in this environment"
             >
               <FaRegCircleCheck
@@ -125,7 +125,7 @@ export default function PrerequisiteRow({
           )}
           {prereqStates?.[env] === "off" && (
             <Tooltip
-              popperClassName="text-left mt-2"
+              popperClassName="text-left"
               body="The parent feature is currently diabled in this environment"
             >
               <FaRegCircleXmark
@@ -136,7 +136,7 @@ export default function PrerequisiteRow({
           )}
           {prereqStates?.[env] === "conditional" && (
             <Tooltip
-              popperClassName="text-left mt-2"
+              popperClassName="text-left"
               body="The parent feature is currently enabled but has rules which make the result conditional in this environment"
             >
               <FaRegCircleQuestion
@@ -147,7 +147,7 @@ export default function PrerequisiteRow({
           )}
           {prereqStates?.[env] === "cyclic" && (
             <Tooltip
-              popperClassName="text-left mt-2"
+              popperClassName="text-left"
               body="Circular dependency detected. Please fix."
             >
               <FaExclamationCircle

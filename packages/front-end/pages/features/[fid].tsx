@@ -857,8 +857,8 @@ export default function FeaturePage() {
                   <td key={env} className="text-center">
                     {prereqStates?.[env] === "on" && (
                       <Tooltip
-                        popperClassName="text-left mt-2"
-                        body="The parent feature is currently enabled in this environment"
+                        popperClassName="text-left"
+                        body="This feature is currently enabled in this environment"
                       >
                         <FaRegCircleCheck
                           className="text-success cursor-pointer"
@@ -868,8 +868,8 @@ export default function FeaturePage() {
                     )}
                     {prereqStates?.[env] === "off" && (
                       <Tooltip
-                        popperClassName="text-left mt-2"
-                        body="The parent feature is currently diabled in this environment"
+                        popperClassName="text-left"
+                        body="This feature is currently diabled in this environment"
                       >
                         <FaRegCircleXmark
                           className="text-danger cursor-pointer"
@@ -879,8 +879,8 @@ export default function FeaturePage() {
                     )}
                     {prereqStates?.[env] === "conditional" && (
                       <Tooltip
-                        popperClassName="text-left mt-2"
-                        body="The parent feature is currently enabled but has rules which make the result conditional in this environment"
+                        popperClassName="text-left"
+                        body="This feature is currently enabled but prerequisites have rules which make the result conditional in this environment"
                       >
                         <FaRegCircleQuestion
                           className="text-black-50 cursor-pointer"
@@ -890,7 +890,7 @@ export default function FeaturePage() {
                     )}
                     {prereqStates?.[env] === "cyclic" && (
                       <Tooltip
-                        popperClassName="text-left mt-2"
+                        popperClassName="text-left"
                         body="Circular dependency detected. Please fix."
                       >
                         <FaExclamationCircle
