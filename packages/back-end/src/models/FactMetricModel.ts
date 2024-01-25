@@ -7,6 +7,7 @@ import {
   UpdateFactMetricProps,
 } from "../../types/fact-table";
 import { upgradeFactMetricDoc } from "../util/migrations";
+import { ApiFactMetric } from "../../types/openapi";
 
 const factTableSchema = new mongoose.Schema({
   id: String,
@@ -33,12 +34,12 @@ const factTableSchema = new mongoose.Schema({
   },
 
   cappingSettings: {
-    capping: String,
+    type: String,
     value: Number,
     ignoreZeros: Boolean,
   },
   windowSettings: {
-    window: String,
+    type: String,
     delayHours: Number,
     windowValue: Number,
     windowUnit: String,
@@ -83,9 +84,16 @@ export async function createFactMetric(
   organization: string,
   data: CreateFactMetricProps
 ) {
+  const id = data.id || uniqid("fact__");
+  if (!id.match(/^fact__[-a-zA-Z0-9_]+$/)) {
+    throw new Error(
+      "Fact metric ids MUST start with 'fact__' and contain only letters, numbers, underscores, and dashes"
+    );
+  }
+
   const doc = await FactMetricModel.create({
     organization: organization,
-    id: uniqid("fact__"),
+    id,
     dateCreated: new Date(),
     dateUpdated: new Date(),
     ...data,
@@ -116,4 +124,54 @@ export async function deleteFactMetric(factMetric: FactMetricInterface) {
     id: factMetric.id,
     organization: factMetric.organization,
   });
+}
+
+export function toFactMetricApiInterface(
+  factMetric: FactMetricInterface
+): ApiFactMetric {
+  const {
+    cappingSettings,
+    windowSettings,
+    regressionAdjustmentDays,
+    regressionAdjustmentEnabled,
+    regressionAdjustmentOverride,
+    dateCreated,
+    dateUpdated,
+    denominator,
+    ...otherFields
+  } = omit(factMetric, ["organization"]);
+
+  return {
+    ...otherFields,
+    denominator: denominator || undefined,
+    cappingSettings: {
+      type: cappingSettings.type || "none",
+      value: cappingSettings.value || 0,
+    },
+    windowSettings: {
+      type: windowSettings.type || "none",
+      delayHours: windowSettings.delayHours || 0,
+      ...(windowSettings.type
+        ? {
+            windowValue: windowSettings.windowValue || 0,
+            windowUnit: windowSettings.windowUnit || "hours",
+          }
+        : null),
+    },
+    regressionAdjustmentSettings: {
+      override: regressionAdjustmentOverride || false,
+      ...(regressionAdjustmentOverride
+        ? {
+            enabled: regressionAdjustmentEnabled || false,
+          }
+        : null),
+      ...(regressionAdjustmentOverride && regressionAdjustmentEnabled
+        ? {
+            days: regressionAdjustmentDays || 0,
+          }
+        : null),
+    },
+    dateCreated: dateCreated?.toISOString() || "",
+    dateUpdated: dateUpdated?.toISOString() || "",
+  };
 }

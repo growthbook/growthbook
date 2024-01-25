@@ -23,13 +23,13 @@ describe("bigquery integration", () => {
         anonymous_id: "anonymous_id",
       },
       windowSettings: {
-        window: "conversion",
+        type: "conversion",
         windowUnit: "hours",
         windowValue: 72,
-        delayHours: 0
+        delayHours: 0,
       },
       cappingSettings: {
-        capping: "",
+        type: "",
         value: 0,
       },
       userIdTypes: ["anonymous_id", "user_id"],
@@ -125,13 +125,13 @@ describe("bigquery integration", () => {
         anonymous_id: "anonymous_id",
       },
       windowSettings: {
-        window: "conversion",
+        type: "conversion",
         windowUnit: "hours",
         windowValue: 72,
-        delayHours: 0
+        delayHours: 0,
       },
       cappingSettings: {
-        capping: "",
+        type: "",
         value: 0,
       },
       userIdTypes: ["anonymous_id", "user_id"],
@@ -140,7 +140,7 @@ describe("bigquery integration", () => {
     const numeratorMetric: MetricInterface = {
       ...baseMetric,
       windowSettings: {
-        window: "conversion",
+        type: "conversion",
         windowUnit: "hours",
         windowValue: 24,
         delayHours: -4,
@@ -149,30 +149,30 @@ describe("bigquery integration", () => {
     const denominatorCountMetric: MetricInterface = {
       ...baseMetric,
       type: "count",
-      
+
       windowSettings: {
-        window: "conversion",
+        type: "conversion",
         windowUnit: "hours",
         windowValue: 1,
-        delayHours: 0
+        delayHours: 0,
       },
     };
     const denominatorBinomialMetric: MetricInterface = {
       ...baseMetric,
       windowSettings: {
-        window: "conversion",
+        type: "conversion",
         windowUnit: "hours",
         windowValue: 1,
-        delayHours: 0
+        delayHours: 0,
       },
     };
     const activationMetric: MetricInterface = {
       ...baseMetric,
       windowSettings: {
-        window: "conversion",
+        type: "conversion",
         windowUnit: "hours",
         windowValue: 72,
-        delayHours: 0
+        delayHours: 0,
       },
     };
 

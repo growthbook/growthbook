@@ -65,7 +65,7 @@ const DEMO_TAGS = ["growthbook-demo"];
 
 // Metric constants
 const CONVERSION_WINDOW_SETTINGS: MetricWindowSettings = {
-  window: "conversion",
+  type: "conversion",
   windowUnit: "hours",
   windowValue: 72,
   delayHours: 0,
@@ -104,7 +104,7 @@ const DEMO_METRICS: Pick<
       "Whether the user logged in 1-14 days after experiment exposure",
     type: "binomial",
     windowSettings: {
-      window: "conversion",
+      type: "conversion",
       delayHours: 24,
       windowUnit: "days",
       windowValue: 13,
@@ -118,7 +118,7 @@ const DEMO_METRICS: Pick<
       "Count of times the user was active in the next 7 days after exposure",
     type: "count",
     windowSettings: {
-      window: "conversion",
+      type: "conversion",
       delayHours: 0,
       windowUnit: "days",
       windowValue: 7,
@@ -181,7 +181,7 @@ export const postDemoDatasourceProject = async (
 
   if (existingDemoProject) {
     const existingExperiments = await getAllExperiments(
-      org.id,
+      context,
       existingDemoProject.id
     );
 

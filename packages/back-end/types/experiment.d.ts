@@ -80,7 +80,7 @@ export type ExperimentResultsType = "dnf" | "won" | "lost" | "inconclusive";
 export type MetricOverride = {
   id: string;
 
-  window?: MetricWindowSettings["window"];
+  windowType?: MetricWindowSettings["type"];
   windowHours?: number;
   delayHours?: number;
 
@@ -91,7 +91,6 @@ export type MetricOverride = {
   regressionAdjustmentDays?: number;
 };
 
-
 export type LegacyMetricOverride = MetricOverride & {
   conversionWindowHours?: number;
   conversionDelayHours?: number;
@@ -100,7 +99,11 @@ export type LegacyMetricOverride = MetricOverride & {
 export interface LegacyExperimentInterface
   extends Omit<
     ExperimentInterface,
-    "phases" | "variations" | "attributionModel" | "releasedVariationId" | "metricOverrides"
+    | "phases"
+    | "variations"
+    | "attributionModel"
+    | "releasedVariationId"
+    | "metricOverrides"
   > {
   /**
    * @deprecated

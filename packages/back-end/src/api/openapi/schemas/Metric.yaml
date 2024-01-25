@@ -61,23 +61,23 @@ properties:
           - increase
           - decrease
       cappingSettings:
+        description: Controls how outliers are handled
         type: object
         required:
-          - capping
-          - capValue
+          - type
         properties:
-          capping:
+          type:
             type: string
-            nullable: true
             enum:
-              - absolute
-              - percentile
-              - ''
+              - "none"
+              - "absolute"
+              - "percentile"
           value:
             type: number
-            minimum: 0
+            description: When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).
           ignoreZeros:
             type: boolean
+            description: If true and capping is `percentile`, zeros will be ignored when calculating the percentile.
       cap:
         type: number
         deprecated: true
@@ -92,29 +92,29 @@ properties:
         type: number
         deprecated: true
       windowSettings:
-        type: object
-        required:
-          - window
-          - windowValue
-          - windowUnit
-        properties:
-          window:
-            type: string
-            enum:
-              - conversion
-              - lookback
-              - ''
-          windowValue:
-            type: number
-            minimum: 0
-          windowUnit:
-            type: string
-            enum:
-              - hours
-              - days
-              - weeks
-          delayHours: 
-            type: number
+          type: object
+          description: Controls the conversion window for the metric
+          required:
+            - type
+            - delayHours
+          properties:
+            type:
+              type: string
+              enum:
+                - "none"
+                - "conversion"
+                - "lookback"
+            delayHours:
+              type: number
+              description: Wait this many hours after experiment exposure before counting conversions
+            windowValue:
+              type: number
+            windowUnit:
+              type: string
+              enum:
+                - "hours"
+                - "days"
+                - "weeks"
       conversionWindowStart:
         type: number
         deprecated: true

@@ -67,7 +67,7 @@ export function upgradeFactMetricDoc(
 
   if (doc.windowSettings === undefined) {
     newDoc.windowSettings = {
-      window: doc.hasConversionWindow ? "conversion" : "",
+      type: doc.hasConversionWindow ? "conversion" : "",
       windowValue: doc.conversionWindowValue || DEFAULT_CONVERSION_WINDOW_HOURS,
       windowUnit: doc.conversionWindowUnit || "hours",
       delayHours: doc.conversionDelayHours || 0,
@@ -76,7 +76,7 @@ export function upgradeFactMetricDoc(
 
   if (doc.cappingSettings === undefined) {
     newDoc.cappingSettings = {
-      capping: doc.capping || "",
+      type: doc.capping || "",
       value: doc.capValue || 0,
     };
   }
@@ -90,7 +90,7 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
   if (doc.windowSettings === undefined) {
     if (doc.conversionDelayHours == null && doc.earlyStart) {
       newDoc.windowSettings = {
-        window: "conversion",
+        type: "conversion",
         windowValue:
           (doc.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) + 0.5,
         windowUnit: "hours",
@@ -98,7 +98,7 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
       };
     } else {
       newDoc.windowSettings = {
-        window: "conversion",
+        type: "conversion",
         windowValue:
           doc.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS,
         windowUnit: "hours",
@@ -133,12 +133,12 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
   if (doc.cappingSettings === undefined) {
     if (doc.capping === undefined && doc.cap) {
       newDoc.cappingSettings = {
-        capping: "absolute",
+        type: "absolute",
         value: doc.cap,
       };
     } else {
       newDoc.cappingSettings = {
-        capping: doc.capping || "",
+        type: doc.capping || "",
         value: doc.capValue || 0,
       };
     }
@@ -650,7 +650,7 @@ export function migrateSnapshot(
         id,
         computedSettings: {
           windowSettings: {
-            window: "conversion",
+            type: "conversion",
             delayHours: 0,
             windowUnit: "hours",
             windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,

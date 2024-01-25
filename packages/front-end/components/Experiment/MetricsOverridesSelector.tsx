@@ -221,22 +221,20 @@ export default function MetricsOverridesSelector({
                       <div className="col">
                         <SelectField
                           placeholder={`${
-                            metricDefinition?.windowSettings?.window !==
-                            undefined
+                            metricDefinition?.windowSettings?.type !== undefined
                               ? capitalizeFirstLetter(
-                                  metricDefinition.windowSettings.window ||
-                                    "none"
+                                  metricDefinition.windowSettings.type || "none"
                                 )
                               : ""
                           } (default)`}
                           value={
-                            form.watch(`metricOverrides.${i}.window`) ??
-                            metricDefinition?.windowSettings?.window ??
+                            form.watch(`metricOverrides.${i}.windowType`) ??
+                            metricDefinition?.windowSettings?.type ??
                             ""
                           }
                           onChange={(value) => {
                             form.setValue(
-                              `metricOverrides.${i}.window`,
+                              `metricOverrides.${i}.windowType`,
                               value as "conversion" | "lookback" | ""
                             );
                           }}
@@ -256,8 +254,7 @@ export default function MetricsOverridesSelector({
                             },
                           ].map((v) => {
                             if (
-                              v.value ===
-                              metricDefinition?.windowSettings?.window
+                              v.value === metricDefinition?.windowSettings?.type
                             ) {
                               return {
                                 ...v,
@@ -268,8 +265,8 @@ export default function MetricsOverridesSelector({
                           })}
                         />
                       </div>
-                      {(form.watch(`metricOverrides.${i}.window`) ??
-                        metricDefinition?.windowSettings?.window) ===
+                      {(form.watch(`metricOverrides.${i}.windowType`) ??
+                        metricDefinition?.windowSettings?.type) ===
                       "conversion" ? (
                         <div className="row m-1 mr-1 px-1">
                           <div className="col">
@@ -280,8 +277,7 @@ export default function MetricsOverridesSelector({
                                 <div className="text-right">
                                   default:{" "}
                                   {["conversion", "lookback"].includes(
-                                    metricDefinition?.windowSettings?.window ??
-                                      ""
+                                    metricDefinition?.windowSettings?.type ?? ""
                                   )
                                     ? "No delay"
                                     : metricDefinition?.windowSettings
@@ -305,7 +301,7 @@ export default function MetricsOverridesSelector({
                               helpText={
                                 <div className="text-right">
                                   default:{" "}
-                                  {metricDefinition?.windowSettings?.window !==
+                                  {metricDefinition?.windowSettings?.type !==
                                   "conversion"
                                     ? "No conversion window "
                                     : metricDefinition?.windowSettings
@@ -319,7 +315,7 @@ export default function MetricsOverridesSelector({
                               type="number"
                               containerClassName="mb-0 metric-override"
                               required={
-                                metricDefinition?.windowSettings?.window !==
+                                metricDefinition?.windowSettings?.type !==
                                 "conversion"
                               }
                               min={
@@ -337,8 +333,8 @@ export default function MetricsOverridesSelector({
                           </div>
                         </div>
                       ) : null}
-                      {(form.watch(`metricOverrides.${i}.window`) ??
-                        metricDefinition?.windowSettings?.window) ===
+                      {(form.watch(`metricOverrides.${i}.windowType`) ??
+                        metricDefinition?.windowSettings?.type) ===
                       "lookback" ? (
                         <div className="row m-1 mr-1 px-1">
                           <div className="col">
@@ -349,8 +345,7 @@ export default function MetricsOverridesSelector({
                                 <div className="text-right">
                                   default:{" "}
                                   {["conversion", "lookback"].includes(
-                                    metricDefinition?.windowSettings?.window ??
-                                      ""
+                                    metricDefinition?.windowSettings?.type ?? ""
                                   )
                                     ? "No delay"
                                     : metricDefinition?.windowSettings
@@ -374,7 +369,7 @@ export default function MetricsOverridesSelector({
                               helpText={
                                 <div className="text-right">
                                   default:{" "}
-                                  {metricDefinition?.windowSettings?.window !==
+                                  {metricDefinition?.windowSettings?.type !==
                                   "lookback"
                                     ? "No lookback window "
                                     : metricDefinition?.windowSettings
@@ -394,7 +389,7 @@ export default function MetricsOverridesSelector({
                                   : 0.125
                               }
                               required={
-                                metricDefinition?.windowSettings?.window !==
+                                metricDefinition?.windowSettings?.type !==
                                 "lookback"
                               }
                               step="any"

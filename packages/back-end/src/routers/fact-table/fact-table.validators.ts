@@ -59,6 +59,7 @@ export const updateFactTablePropsValidator = z
     sql: z.string().optional(),
     eventName: z.string().optional(),
     columns: z.array(createColumnPropsValidator).optional(),
+    columnsError: z.string().nullable().optional(),
   })
   .strict();
 
@@ -70,19 +71,19 @@ export const columnRefValidator = z
   })
   .strict();
 
-export const cappingValidator = z.enum(["absolute", "percentile", ""]);
+export const cappingTypeValidator = z.enum(["absolute", "percentile", ""]);
 export const conversionWindowUnitValidator = z.enum(["weeks", "days", "hours"]);
 export const windowTypeValidator = z.enum(["conversion", "lookback", ""]);
 export const cappingSettingsValidator = z
   .object({
-    capping: cappingValidator,
+    type: cappingTypeValidator,
     value: z.number(),
     ignoreZeros: z.boolean().optional(),
   })
   .strict();
 
 export const windowSettingsValidator = z.object({
-  window: windowTypeValidator,
+  type: windowTypeValidator,
   delayHours: z.number(),
   windowValue: z.number(),
   windowUnit: conversionWindowUnitValidator,
@@ -91,6 +92,7 @@ export const windowSettingsValidator = z.object({
 export const metricTypeValidator = z.enum(["ratio", "mean", "proportion"]);
 
 export const createFactMetricPropsValidator = z.object({
+  id: z.string().optional(),
   owner: z.string().optional(),
   datasource: z.string(),
   name: z.string(),
@@ -156,9 +158,9 @@ export const createFactFilterPropsValidator = z
 
 export const updateFactFilterPropsValidator = z
   .object({
-    name: z.string(),
-    description: z.string(),
-    value: z.string(),
+    name: z.string().optional(),
+    description: z.string().optional(),
+    value: z.string().optional(),
   })
   .strict();
 

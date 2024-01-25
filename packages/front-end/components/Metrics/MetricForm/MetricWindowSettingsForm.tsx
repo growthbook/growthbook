@@ -53,10 +53,10 @@ export function MetricWindowSettingsForm({ form }) {
       <div className="form-group mb-1">
         <SelectField
           label={"Conversion/Lookback Window?"}
-          value={form.watch("windowSettings.window")}
+          value={form.watch("windowSettings.type")}
           onChange={(value) => {
             form.setValue(
-              "windowSettings.window",
+              "windowSettings.type",
               value as "conversion" | "lookback" | ""
             );
           }}
@@ -78,10 +78,10 @@ export function MetricWindowSettingsForm({ form }) {
         />
       </div>
 
-      {form.watch("windowSettings.window") && (
+      {form.watch("windowSettings.type") && (
         <div className="appbox p-3 bg-light">
           <div className="row align-items-center">
-            {form.watch("windowSettings.window") === "conversion" && (
+            {form.watch("windowSettings.type") === "conversion" && (
               <>
                 <div className="col-auto">Use only data within</div>
                 {windowSettingsFields}
@@ -95,7 +95,7 @@ export function MetricWindowSettingsForm({ form }) {
                 </div>
               </>
             )}
-            {form.watch("windowSettings.window") === "lookback" && (
+            {form.watch("windowSettings.type") === "lookback" && (
               <>
                 <div className="col-auto">Only use the latest</div>
                 {windowSettingsFields}

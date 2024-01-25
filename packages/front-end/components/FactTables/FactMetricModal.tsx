@@ -246,11 +246,11 @@ export default function FactMetricModal({
         ).datasource,
       inverse: existing?.inverse || false,
       cappingSettings: existing?.cappingSettings || {
-        capping: "",
+        type: "",
         value: 0,
       },
       windowSettings: existing?.windowSettings || {
-        window: DEFAULT_FACT_METRIC_WINDOW,
+        type: DEFAULT_FACT_METRIC_WINDOW,
         delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
         windowUnit: "days",
         windowValue: 3,
@@ -357,8 +357,8 @@ export default function FactMetricModal({
         const trackProps = {
           type: values.metricType,
           source,
-          capping: values.cappingSettings.capping,
-          conversion_window: values.windowSettings.window
+          capping: values.cappingSettings.type,
+          conversion_window: values.windowSettings.type
             ? `${values.windowSettings.windowValue} ${values.windowSettings.windowUnit}`
             : "none",
           numerator_agg:
@@ -509,9 +509,9 @@ export default function FactMetricModal({
               // When switching to ratio and using `absolute` capping, turn it off (only percentile supported)
               if (
                 type === "ratio" &&
-                form.watch("cappingSettings.capping") === "absolute"
+                form.watch("cappingSettings.type") === "absolute"
               ) {
-                form.setValue("cappingSettings.capping", "");
+                form.setValue("cappingSettings.type", "");
               }
             }}
             options={[
@@ -634,7 +634,11 @@ export default function FactMetricModal({
             >
               <Tab id="query" display="Query Settings">
                 <ConversionDelayHours form={form} />
-                <MetricCappingSettingsForm form={form} datasourceType={selectedDataSource.type} metricType={type} />
+                <MetricCappingSettingsForm
+                  form={form}
+                  datasourceType={selectedDataSource.type}
+                  metricType={type}
+                />
                 <PremiumTooltip commercialFeature="regression-adjustment">
                   <label className="mb-1">
                     <GBCuped /> Regression Adjustment (CUPED)

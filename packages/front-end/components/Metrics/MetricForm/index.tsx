@@ -306,7 +306,7 @@ const MetricForm: FC<MetricFormProps> = ({
 
   // TODO move
   // const defaultWindowSettings: MetricWindowSettings = {
-  //   window: "conversion",
+  //   type: "conversion",
   //   delayHours: 0,
   //   windowValue: getDefaultConversionWindowHours(),
   //   windowUnit: "hours",

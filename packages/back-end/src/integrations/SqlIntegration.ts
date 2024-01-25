@@ -1042,7 +1042,7 @@ export default abstract class SqlIntegration
       settings.attributionModel === "experimentDuration";
 
     // If the fact metric doesn't have a conversion window, always treat like Experiment Duration
-    if (activationMetric && !activationMetric.windowSettings.window) {
+    if (activationMetric && !activationMetric.windowSettings.type) {
       ignoreConversionEnd = true;
     }
     return `
@@ -1432,13 +1432,13 @@ export default abstract class SqlIntegration
       settings.attributionModel === "experimentDuration";
 
     // If metric has disabled conversion windows, always use "Experiment Duration"
-    if (!metric.windowSettings.window) {
+    if (!metric.windowSettings.type) {
       ignoreConversionEnd = true;
     }
 
     // Get capping settings and final coalesce statement
     const isPercentileCapped =
-      metric.cappingSettings.capping === "percentile" &&
+      metric.cappingSettings.type === "percentile" &&
       metric.cappingSettings.value &&
       metric.cappingSettings.value < 1;
     const capCoalesceMetric = this.capCoalesceValue(
@@ -1993,18 +1993,18 @@ export default abstract class SqlIntegration
       settings.attributionModel === "experimentDuration";
 
     // If a fact metric has disabled conversion windows, always use "Experiment Duration"
-    if (!metric.windowSettings.window) {
+    if (!metric.windowSettings.type) {
       ignoreConversionEnd = true;
     }
 
     // Get capping settings and final coalesce statement
     const isPercentileCapped =
-      metric.cappingSettings.capping === "percentile" &&
+      metric.cappingSettings.type === "percentile" &&
       metric.cappingSettings.value &&
       metric.cappingSettings.value < 1;
     const denominatorIsPercentileCapped =
       denominator &&
-      denominator.cappingSettings.capping === "percentile" &&
+      denominator.cappingSettings.type === "percentile" &&
       denominator.cappingSettings.value &&
       denominator.cappingSettings.value < 1;
     const capCoalesceMetric = this.capCoalesceValue("m.value", metric, "cap");
@@ -2453,7 +2453,7 @@ export default abstract class SqlIntegration
     capValueCol: string = "cap_value"
   ): string {
     if (
-      metric?.cappingSettings.capping === "absolute" &&
+      metric?.cappingSettings.type === "absolute" &&
       metric.cappingSettings.value
     ) {
       return `LEAST(
@@ -2462,7 +2462,7 @@ export default abstract class SqlIntegration
       )`;
     }
     if (
-      metric?.cappingSettings.capping === "percentile" &&
+      metric?.cappingSettings.type === "percentile" &&
       metric.cappingSettings.value &&
       metric.cappingSettings.value < 1
     ) {
@@ -3254,7 +3254,7 @@ AND event_name = '${eventName}'`,
     cumulativeDate: boolean
   ): string {
     let ifExpression = "";
-    if (metric.windowSettings.window === "lookback") {
+    if (metric.windowSettings.type === "lookback") {
       let hours = getConversionWindowHours(metric.windowSettings);
       // ensure positive
       if (hours < 0) hours = hours * -1;

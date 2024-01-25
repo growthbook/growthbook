@@ -1,0 +1,118 @@
+type: object
+required:
+  - name
+  - metricType
+  - numerator
+properties:
+  name:
+    type: string
+  description:
+    type: string
+  owner:
+    type: string
+  projects:
+    type: array
+    items:
+      type: string
+  tags:
+    type: array
+    items:
+      type: string
+  metricType:
+    type: string
+    enum:
+      - proportion
+      - mean
+      - ratio
+  numerator:
+    type: object
+    required:
+      - factTableId
+    properties:
+      factTableId:
+        type: string
+      column:
+        type: string
+        description: "Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count'"
+      filters:
+        type: array
+        description: Array of Fact Table Filter Ids
+        items:
+          type: string
+  denominator:
+    description: Only when metricType is 'ratio'
+    type: object
+    required:
+      - factTableId
+      - column
+    properties:
+      factTableId:
+        type: string
+      column:
+        type: string
+        description: "The column name or one of the special values: '$$distinctUsers' or '$$count'"
+      filters:
+        type: array
+        description: Array of Fact Table Filter Ids
+        items:
+          type: string
+  inverse:
+    type: boolean
+    description: Set to true for things like Bounce Rate, where you want the metric to decrease
+  cappingSettings:
+    description: Controls how outliers are handled
+    type: object
+    required:
+      - type
+    properties:
+      type:
+        type: string
+        enum:
+          - "none"
+          - "absolute"
+          - "percentile"
+      value:
+        type: number
+        description: When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).
+      ignoreZeros:
+        type: boolean
+        description: If true and capping is `percentile`, zeros will be ignored when calculating the percentile.
+  windowSettings:
+    type: object
+    description: Controls the conversion window for the metric
+    required:
+      - type
+      - delayHours
+    properties:
+      type:
+        type: string
+        enum:
+          - "none"
+          - "conversion"
+          - "lookback"
+      delayHours:
+        type: number
+        description: Wait this many hours after experiment exposure before counting conversions
+      windowValue:
+        type: number
+      windowUnit:
+        type: string
+        enum:
+          - "hours"
+          - "days"
+          - "weeks"
+  regressionAdjustmentSettings:
+    type: object
+    description: Controls the regression adjustment (CUPED) settings for the metric
+    required:
+      - override
+    properties:
+      override:
+        type: boolean
+        description: If false, the organization default settings will be used
+      enabled:
+        type: boolean
+        description: Controls whether or not regression adjustment is applied to the metric
+      days:
+        type: number
+        description: Number of pre-exposure days to use for the regression adjustment

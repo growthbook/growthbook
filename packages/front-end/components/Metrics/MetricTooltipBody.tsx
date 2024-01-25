@@ -58,24 +58,24 @@ const MetricTooltipBody = ({
     },
     {
       show:
-        !isNullUndefinedOrEmpty(metric.cappingSettings.capping) &&
+        !isNullUndefinedOrEmpty(metric.cappingSettings.type) &&
         (metric.cappingSettings.value ?? 0) !== 0,
-      label: `Capping (${metric.cappingSettings.capping})`,
+      label: `Capping (${metric.cappingSettings.type})`,
       body: metric.cappingSettings.value ?? 0,
     },
     {
       show:
-        (!isNullUndefinedOrEmpty(metric.windowSettings.window) ||
-          metricOverrideFields.includes("window")) &&
+        (!isNullUndefinedOrEmpty(metric.windowSettings.type) ||
+          metricOverrideFields.includes("windowType")) &&
         (metric.windowSettings.windowValue !== 0 ||
           metricOverrideFields.includes("windowHours")),
       label: `${capitalizeFirstLetter(
-        metric.windowSettings.window || "no"
+        metric.windowSettings.type || "no"
       )} Window`,
       body: (
         <>
           {`${metric.windowSettings.windowValue} ${metric.windowSettings.windowUnit}`}
-          {metricOverrideFields.includes("window") ||
+          {metricOverrideFields.includes("windowType") ||
           metricOverrideFields.includes("windowHours") ? (
             <small className="text-purple ml-1">(override)</small>
           ) : null}
@@ -84,7 +84,7 @@ const MetricTooltipBody = ({
     },
     {
       show:
-        !isNullUndefinedOrEmpty(metric.windowSettings.window) &&
+        !isNullUndefinedOrEmpty(metric.windowSettings.type) &&
         (metric.windowSettings.delayHours !== 0 ||
           metricOverrideFields.includes("delayHours")),
       label: "Conversion Delay Hours",

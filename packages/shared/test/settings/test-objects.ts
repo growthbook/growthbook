@@ -14,14 +14,14 @@ metrics["signups"] = {
   queries: [],
   runStarted: new Date("2023-01-01"),
   cappingSettings: {
-    capping: "",
-    value: 0
+    type: "",
+    value: 0,
   },
   windowSettings: {
-    window: "conversion",
+    type: "conversion",
     delayHours: 0,
     windowValue: 72,
-    windowUnit: "hours"
+    windowUnit: "hours",
   },
   column: "",
   conditions: [],
@@ -55,14 +55,14 @@ metrics["revenue"] = {
   inverse: false,
   ignoreNulls: false,
   cappingSettings: {
-    capping: "",
-    value: 0
+    type: "",
+    value: 0,
   },
   windowSettings: {
-    window: "conversion",
+    type: "conversion",
     delayHours: 2.5,
     windowValue: 72,
-    windowUnit: "hours"
+    windowUnit: "hours",
   },
   denominator: "",
   sql:
@@ -112,14 +112,14 @@ metrics["conversions"] = {
   ignoreNulls: false,
   denominator: "met_r1",
   cappingSettings: {
-    capping: "",
-    value: 0
+    type: "",
+    value: 0,
   },
   windowSettings: {
-    window: "conversion",
+    type: "conversion",
     delayHours: 0,
     windowValue: 72,
-    windowUnit: "hours"
+    windowUnit: "hours",
   },
   sql:
     "SELECT\n  userid user_id,\n  anonymousid anonymous_id,\n  timestamp\nFROM\n  orders",
@@ -168,14 +168,14 @@ metrics["testvar"] = {
   ignoreNulls: false,
   denominator: "met_c1",
   cappingSettings: {
-    capping: "",
-    value: 0
+    type: "",
+    value: 0,
   },
   windowSettings: {
-    window: "conversion",
+    type: "conversion",
     delayHours: 0,
     windowValue: 72,
-    windowUnit: "hours"
+    windowUnit: "hours",
   },
   sql:
     "SELECT\n  userid user_id,\n  anonymousid anonymous_id,\n  1 value,\n  timestamp\nFROM\n  orders",

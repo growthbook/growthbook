@@ -90,6 +90,12 @@ tags:
   - name: organizations
     x-displayName: Organizations
     description: Organizations are used for multi-org deployments where different teams can run their own isolated feature flags and experiments. These endpoints are only via a super-admin's Personal Access Token.
+  - name: fact-tables
+    x-displayName: Fact Tables
+    description: Fact Tables describe the shape of your data warehouse tables
+  - name: fact-metrics
+    x-displayName: Fact Metrics
+    description: Fact Metrics are metrics built on top of Fact Table definitions
   - name: DataSource_model
     x-displayName: DataSource
     description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
@@ -108,6 +114,15 @@ tags:
   - name: ExperimentResults_model
     x-displayName: ExperimentResults
     description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentResults" />
+  - name: FactMetric_model
+    x-displayName: FactMetric
+    description: <SchemaDefinition schemaRef="#/components/schemas/FactMetric" />
+  - name: FactTable_model
+    x-displayName: FactTable
+    description: <SchemaDefinition schemaRef="#/components/schemas/FactTable" />
+  - name: FactTableFilter_model
+    x-displayName: FactTableFilter
+    description: <SchemaDefinition schemaRef="#/components/schemas/FactTableFilter" />
   - name: Feature_model
     x-displayName: Feature
     description: <SchemaDefinition schemaRef="#/components/schemas/Feature" />
@@ -1420,30 +1435,28 @@ paths:
                         - increase
                         - decrease
                     cappingSettings:
+                      description: Controls how outliers are handled
                       type: object
                       required:
-                        - capping
-                        - value
+                        - type
                       properties:
-                        capping:
+                        type:
                           type: string
                           nullable: true
-                          description: 'Used in conjunction with `value` to set the capping (winsorization). Set to null or an empty string for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `value` for the percentile, if greater than 0. <br/>  If `capping` is non-null, you must specify `value`.'
                           enum:
+                            - none
                             - absolute
                             - percentile
-                            - ''
                         value:
                           type: number
-                          description: This should be non-negative. <br/> Must specify `capping` when setting `value`.
-                          minimum: 0
+                          description: 'When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).'
                         ignoreZeros:
                           type: boolean
-                          description: 'If true and capping is `percentile`, zeros will be ignored when calculating the percentile for capping.'
+                          description: 'If true and capping is `percentile`, zeros will be ignored when calculating the percentile.'
                     cap:
                       type: number
                       deprecated: true
-                      description: '(deprecated, use capping and capValue fields instead) This should be non-negative'
+                      description: '(deprecated, use cappingSettings instead) This should be non-negative'
                       minimum: 0
                     capping:
                       type: string
@@ -1460,31 +1473,27 @@ paths:
                       minimum: 0
                     windowSettings:
                       type: object
+                      description: Controls the conversion window for the metric
                       required:
-                        - window
-                        - windowValue
-                        - windowUnit
+                        - type
+                        - delayHours
                       properties:
-                        window:
+                        type:
                           type: string
-                          description: 'The kind of date window to use; either ''conversion'', ''lookback'', or '''' for none.'
                           enum:
+                            - none
                             - conversion
-                            - lookback
-                            - ''
+                        delayHours:
+                          type: number
+                          description: Wait this many hours after experiment exposure before counting conversions
                         windowValue:
                           type: number
-                          description: The length of the date window to use.
-                          minimum: 0
                         windowUnit:
                           type: string
                           enum:
                             - hours
                             - days
                             - weeks
-                        delayHours:
-                          type: number
-                          description: The number of hours to ignore after a user is exposed to an experiment. Does nothing if `window` is ''
                     conversionWindowStart:
                       type: number
                       deprecated: true
@@ -1695,26 +1704,29 @@ paths:
                         - increase
                         - decrease
                     cappingSettings:
+                      description: Controls how outliers are handled
                       type: object
                       required:
-                        - capping
-                        - value
+                        - type
                       properties:
-                        capping:
+                        type:
                           type: string
                           nullable: true
-                          description: 'Used in conjunction with `value` to set the capping (winsorization). Set to null or an empty string for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `value` for the percentile, if greater than 0. <br/>  If `capping` is non-null, you must specify `value`.'
                           enum:
+                            - none
                             - absolute
                             - percentile
-                            - ''
                         value:
                           type: number
-                          description: This should be non-negative. <br/> Must specify `capping` when setting `value`.
-                          minimum: 0
+                          description: 'When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).'
                         ignoreZeros:
                           type: boolean
-                          description: 'If true and capping is `percentile`, zeros will be ignored when calculating the percentile for capping.'
+                          description: 'If true and capping is `percentile`, zeros will be ignored when calculating the percentile.'
+                    cap:
+                      type: number
+                      deprecated: true
+                      description: '(deprecated, use cappingSettings instead) This should be non-negative'
+                      minimum: 0
                     capping:
                       type: string
                       nullable: true
@@ -1730,31 +1742,27 @@ paths:
                       minimum: 0
                     windowSettings:
                       type: object
+                      description: Controls the conversion window for the metric
                       required:
-                        - window
-                        - windowValue
-                        - windowUnit
+                        - type
+                        - delayHours
                       properties:
-                        window:
+                        type:
                           type: string
-                          description: 'The kind of date window to use; either ''conversion'', ''lookback'', or '''' for none.'
                           enum:
+                            - none
                             - conversion
-                            - lookback
-                            - ''
+                        delayHours:
+                          type: number
+                          description: Wait this many hours after experiment exposure before counting conversions
                         windowValue:
                           type: number
-                          description: The length of the date window to use.
-                          minimum: 0
                         windowUnit:
                           type: string
                           enum:
                             - hours
                             - days
                             - weeks
-                        delayHours:
-                          type: number
-                          description: The number of hours to ignore after a user is exposed to an experiment. Does nothing if `window` is ''
                     conversionWindowStart:
                       type: number
                       deprecated: true
@@ -2329,6 +2337,816 @@ paths:
                 properties:
                   organization:
                     $ref: '#/components/schemas/Organization'
+  /fact-tables:
+    get:
+      summary: Get all fact tables
+      tags:
+        - fact-tables
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/datasourceId'
+        - $ref: '#/components/parameters/projectId'
+      operationId: listFactTables
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/fact-tables \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - factTables
+                    properties:
+                      factTables:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/FactTable'
+                  - $ref: '#/components/schemas/PaginationFields'
+    post:
+      parameters: []
+      tags:
+        - fact-tables
+      summary: Create a single fact table
+      operationId: postFactTable
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/fact-tables \
+              -d '{"name":"Orders", "datasource":"ds_abc123", "userIdTypes":["id"], "sql":"SELECT * FROM orders"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - datasource
+                - userIdTypes
+                - sql
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                  description: Description of the fact table
+                owner:
+                  type: string
+                  description: The person who is responsible for this fact table
+                projects:
+                  type: array
+                  items:
+                    type: string
+                  description: List of associated project ids
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  description: List of associated tags
+                datasource:
+                  type: string
+                  description: The datasource id
+                userIdTypes:
+                  type: array
+                  items:
+                    type: string
+                  description: 'List of identifier columns in this table. For example, "id" or "anonymous_id"'
+                sql:
+                  type: string
+                  description: The SQL query for this fact table
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - factTable
+                properties:
+                  factTable:
+                    $ref: '#/components/schemas/FactTable'
+  '/fact-tables/{id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - fact-tables
+      summary: Get a single fact table
+      operationId: getFactTable
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/fact-tables/ftb_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - factTable
+                properties:
+                  factTable:
+                    $ref: '#/components/schemas/FactTable'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - fact-tables
+      summary: Update a single fact table
+      operationId: updateFactTable
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/fact-tables/ftb_abc123 \
+              -d '{"name": "New Fact Table Name"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                  description: Description of the fact table
+                owner:
+                  type: string
+                  description: The person who is responsible for this fact table
+                projects:
+                  type: array
+                  items:
+                    type: string
+                  description: List of associated project ids
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  description: List of associated tags
+                userIdTypes:
+                  type: array
+                  items:
+                    type: string
+                  description: 'List of identifier columns in this table. For example, "id" or "anonymous_id"'
+                sql:
+                  type: string
+                  description: The SQL query for this fact table
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - factTable
+                properties:
+                  factTable:
+                    $ref: '#/components/schemas/FactTable'
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - fact-tables
+      summary: Deletes a single fact table
+      operationId: deleteFactTable
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/fact-tables/ftb_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
+                    description: The ID of the deleted fact table
+                    example: ftb_123abc
+  '/fact-tables/{factTableId}/filters':
+    get:
+      summary: Get all filters for a fact table
+      tags:
+        - fact-tables
+      parameters:
+        - $ref: '#/components/parameters/factTableId'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      operationId: listFactTableFilters
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/fact-tables/ftb_123abc/filters \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - factTableFilters
+                    properties:
+                      factTableFilters:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/FactTableFilter'
+                  - $ref: '#/components/schemas/PaginationFields'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/factTableId'
+      tags:
+        - fact-tables
+      summary: Create a single fact table filter
+      operationId: postFactTableFilter
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/fact-tables/ftb_123abc/filters \
+              -d '{"name":"High Value Order", "value":"amount>100"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - value
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                  description: Description of the fact table filter
+                value:
+                  type: string
+                  description: The SQL expression for this filter.
+                  example: country = 'US'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - factTableFilter
+                properties:
+                  factTableFilter:
+                    $ref: '#/components/schemas/FactTableFilter'
+  '/fact-tables/{factTableId}/filters/{id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/factTableId'
+        - $ref: '#/components/parameters/id'
+      tags:
+        - fact-tables
+      summary: Get a single fact filter
+      operationId: getFactTableFilter
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/fact-tables/ftb_123abc/filters/flt_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - factTableFilter
+                properties:
+                  factTableFilter:
+                    $ref: '#/components/schemas/FactTableFilter'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/factTableId'
+        - $ref: '#/components/parameters/id'
+      tags:
+        - fact-tables
+      summary: Update a single fact table filter
+      operationId: updateFactTableFilter
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/fact-tables/ftb_abc123/filters/flt_123abc \
+              -d '{"value": "amount > 50"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                  description: Description of the fact table filter
+                value:
+                  type: string
+                  description: The SQL expression for this filter.
+                  example: country = 'US'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - factTableFilter
+                properties:
+                  factTableFilter:
+                    $ref: '#/components/schemas/FactTableFilter'
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/factTableId'
+        - $ref: '#/components/parameters/id'
+      tags:
+        - fact-tables
+      summary: Deletes a single fact table filter
+      operationId: deleteFactTableFilter
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/fact-tables/ftb_123abc/filter/flt_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
+                    description: The ID of the deleted fact filter
+                    example: flt_123abc
+  /fact-metrics:
+    get:
+      summary: Get all fact metrics
+      tags:
+        - fact-metrics
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/datasourceId'
+        - $ref: '#/components/parameters/projectId'
+        - name: factTableId
+          in: query
+          description: 'Filter by Fact Table Id (for ratio metrics, we only look at the numerator)'
+          schema:
+            type: string
+      operationId: listFactMetrics
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/fact-metrics \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - factMetrics
+                    properties:
+                      factMetrics:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/FactMetric'
+                  - $ref: '#/components/schemas/PaginationFields'
+    post:
+      parameters: []
+      tags:
+        - fact-metrics
+      summary: Create a single fact metric
+      operationId: postFactMetric
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/fact-metrics \
+              -d '{"name":"Purchased", "datasource":"ds_abc123", "metricType":"proportion", "numerator":{"factTableId":"ftb_abc123","column":"$$distinctUsers","filters":[]}}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - metricType
+                - numerator
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                owner:
+                  type: string
+                projects:
+                  type: array
+                  items:
+                    type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                metricType:
+                  type: string
+                  enum:
+                    - proportion
+                    - mean
+                    - ratio
+                numerator:
+                  type: object
+                  required:
+                    - factTableId
+                  properties:
+                    factTableId:
+                      type: string
+                    column:
+                      type: string
+                      description: 'Must be empty for proportion metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
+                    filters:
+                      type: array
+                      description: Array of Fact Table Filter Ids
+                      items:
+                        type: string
+                denominator:
+                  description: Only when metricType is 'ratio'
+                  type: object
+                  required:
+                    - factTableId
+                    - column
+                  properties:
+                    factTableId:
+                      type: string
+                    column:
+                      type: string
+                      description: 'The column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
+                    filters:
+                      type: array
+                      description: Array of Fact Table Filter Ids
+                      items:
+                        type: string
+                inverse:
+                  type: boolean
+                  description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
+                cappingSettings:
+                  description: Controls how outliers are handled
+                  type: object
+                  required:
+                    - type
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - none
+                        - absolute
+                        - percentile
+                    value:
+                      type: number
+                      description: 'When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).'
+                    ignoreZeros:
+                      type: boolean
+                      description: 'If true and capping is `percentile`, zeros will be ignored when calculating the percentile.'
+                windowSettings:
+                  type: object
+                  description: Controls the conversion window for the metric
+                  required:
+                    - type
+                    - delayHours
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - none
+                        - conversion
+                        - lookback
+                    delayHours:
+                      type: number
+                      description: Wait this many hours after experiment exposure before counting conversions
+                    windowValue:
+                      type: number
+                    windowUnit:
+                      type: string
+                      enum:
+                        - hours
+                        - days
+                        - weeks
+                regressionAdjustmentSettings:
+                  type: object
+                  description: Controls the regression adjustment (CUPED) settings for the metric
+                  required:
+                    - override
+                  properties:
+                    override:
+                      type: boolean
+                      description: 'If false, the organization default settings will be used'
+                    enabled:
+                      type: boolean
+                      description: Controls whether or not regression adjustment is applied to the metric
+                    days:
+                      type: number
+                      description: Number of pre-exposure days to use for the regression adjustment
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - factMetric
+                properties:
+                  factMetric:
+                    $ref: '#/components/schemas/FactMetric'
+  '/fact-metrics/{id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - fact-metrics
+      summary: Get a single fact metric
+      operationId: getFactMetric
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/fact-metrics/fact__123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - factMetric
+                properties:
+                  factMetric:
+                    $ref: '#/components/schemas/FactMetric'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - fact-metrics
+      summary: Update a single fact metric
+      operationId: updateFactMetric
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/fact-metrics/fact__123abc \
+              -d '{"hasConversionWindow": false}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                owner:
+                  type: string
+                projects:
+                  type: array
+                  items:
+                    type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                metricType:
+                  type: string
+                  enum:
+                    - proportion
+                    - mean
+                    - ratio
+                numerator:
+                  type: object
+                  required:
+                    - factTableId
+                  properties:
+                    factTableId:
+                      type: string
+                    column:
+                      type: string
+                      description: 'Must be empty for proportion metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
+                    filters:
+                      type: array
+                      description: Array of Fact Table Filter Ids
+                      items:
+                        type: string
+                denominator:
+                  description: Only when metricType is 'ratio'
+                  type: object
+                  required:
+                    - factTableId
+                    - column
+                  properties:
+                    factTableId:
+                      type: string
+                    column:
+                      type: string
+                      description: 'Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
+                    filters:
+                      type: array
+                      description: Array of Fact Table Filter Ids
+                      items:
+                        type: string
+                inverse:
+                  type: boolean
+                  description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
+                cappingSettings:
+                  description: Controls how outliers are handled
+                  type: object
+                  required:
+                    - type
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - none
+                        - absolute
+                        - percentile
+                    value:
+                      type: number
+                      description: 'When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).'
+                    ignoreZeros:
+                      type: boolean
+                      description: 'If true and capping is `percentile`, zeros will be ignored when calculating the percentile.'
+                windowSettings:
+                  type: object
+                  description: Controls the conversion window for the metric
+                  required:
+                    - type
+                    - delayHours
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - none
+                        - conversion
+                        - lookback
+                    delayHours:
+                      type: number
+                      description: Wait this many hours after experiment exposure before counting conversions
+                    windowValue:
+                      type: number
+                    windowUnit:
+                      type: string
+                      enum:
+                        - hours
+                        - days
+                        - weeks
+                regressionAdjustmentSettings:
+                  type: object
+                  description: Controls the regression adjustment (CUPED) settings for the metric
+                  required:
+                    - override
+                  properties:
+                    override:
+                      type: boolean
+                      description: 'If false, the organization default settings will be used'
+                    enabled:
+                      type: boolean
+                      description: Controls whether or not regresion adjustment is applied to the metric
+                    days:
+                      type: number
+                      description: Number of pre-exposure days to use for the regression adjustment
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - factMetric
+                properties:
+                  factMetric:
+                    $ref: '#/components/schemas/FactMetric'
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - fact-metrics
+      summary: Deletes a single fact metric
+      operationId: deleteFactMetric
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/fact-metrics/fact__123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - factMetric
+                properties:
+                  deletedId:
+                    type: string
+                    description: The ID of the deleted fact metric
+                    example: fact__123abc
+  /bulk-import/facts:
+    post:
+      parameters: []
+      tags:
+        - fact-tables
+      summary: 'Bulk import fact tables, filters, and metrics'
+      operationId: postBulkImportFacts
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/bulk-import/facts \
+              -d '{"factTables":[], "factTableFilters":[], "factMetrics":[]}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                factTables:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - id
+                      - data
+                    properties:
+                      id:
+                        type: string
+                      data:
+                        $ref: '#/paths/~1fact-tables/post/requestBody/content/application~1json/schema'
+                factTableFilters:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - factTableId
+                      - id
+                      - data
+                    properties:
+                      factTableId:
+                        type: string
+                      id:
+                        type: string
+                      data:
+                        $ref: '#/paths/~1fact-tables~1%7BfactTableId%7D~1filters/post/requestBody/content/application~1json/schema'
+                factMetrics:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - id
+                      - data
+                    properties:
+                      id:
+                        type: string
+                      data:
+                        $ref: '#/paths/~1fact-metrics/post/requestBody/content/application~1json/schema'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                properties:
+                  success:
+                    type: boolean
 components:
   parameters:
     id:
@@ -2372,6 +3190,13 @@ components:
       in: path
       required: true
       description: Specify a specific visual change
+      schema:
+        type: string
+    factTableId:
+      name: factTableId
+      in: path
+      required: true
+      description: Specify a specific fact table
       schema:
         type: string
   schemas:
@@ -2491,23 +3316,23 @@ components:
                 - increase
                 - decrease
             cappingSettings:
+              description: Controls how outliers are handled
               type: object
               required:
-                - capping
-                - capValue
+                - type
               properties:
-                capping:
+                type:
                   type: string
-                  nullable: true
                   enum:
+                    - none
                     - absolute
                     - percentile
-                    - ''
                 value:
                   type: number
-                  minimum: 0
+                  description: 'When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).'
                 ignoreZeros:
                   type: boolean
+                  description: 'If true and capping is `percentile`, zeros will be ignored when calculating the percentile.'
             cap:
               type: number
               deprecated: true
@@ -2523,28 +3348,28 @@ components:
               deprecated: true
             windowSettings:
               type: object
+              description: Controls the conversion window for the metric
               required:
-                - window
-                - windowValue
-                - windowUnit
+                - type
+                - delayHours
               properties:
-                window:
+                type:
                   type: string
                   enum:
+                    - none
                     - conversion
                     - lookback
-                    - ''
+                delayHours:
+                  type: number
+                  description: Wait this many hours after experiment exposure before counting conversions
                 windowValue:
                   type: number
-                  minimum: 0
                 windowUnit:
                   type: string
                   enum:
                     - hours
                     - days
                     - weeks
-                delayHours:
-                  type: number
             conversionWindowStart:
               type: number
               deprecated: true
@@ -3762,6 +4587,216 @@ components:
         ownerEmail:
           type: string
           description: The email address of the organization owner
+    FactTable:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - owner
+        - projects
+        - tags
+        - datasource
+        - userIdTypes
+        - sql
+        - dateCreated
+        - dateUpdated
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        owner:
+          type: string
+        projects:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        datasource:
+          type: string
+        userIdTypes:
+          type: array
+          items:
+            type: string
+        sql:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+    FactTableFilter:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - value
+        - dateCreated
+        - dateUpdated
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        value:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+    FactMetric:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - owner
+        - projects
+        - tags
+        - datasource
+        - metricType
+        - numerator
+        - inverse
+        - cappingSettings
+        - windowSettings
+        - regressionAdjustmentSettings
+        - dateCreated
+        - dateUpdated
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        owner:
+          type: string
+        projects:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        datasource:
+          type: string
+        metricType:
+          type: string
+          enum:
+            - proportion
+            - mean
+            - ratio
+        numerator:
+          type: object
+          required:
+            - factTableId
+            - column
+            - filters
+          properties:
+            factTableId:
+              type: string
+            column:
+              type: string
+            filters:
+              type: array
+              description: Array of Fact Table Filter Ids
+              items:
+                type: string
+        denominator:
+          type: object
+          required:
+            - factTableId
+            - column
+            - filters
+          properties:
+            factTableId:
+              type: string
+            column:
+              type: string
+            filters:
+              type: array
+              description: Array of Fact Table Filter Ids
+              items:
+                type: string
+        inverse:
+          type: boolean
+          description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
+        cappingSettings:
+          description: Controls how outliers are handled
+          type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum:
+                - none
+                - absolute
+                - percentile
+            value:
+              type: number
+              description: 'When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).'
+            ignoreZeros:
+              type: boolean
+              description: 'If true and capping is `percentile`, zeros will be ignored when calculating the percentile.'
+        windowSettings:
+          type: object
+          description: Controls the conversion window for the metric
+          required:
+            - type
+            - delayHours
+          properties:
+            type:
+              type: string
+              enum:
+                - none
+                - conversion
+                - lookback
+            delayHours:
+              type: number
+              description: Wait this many hours after experiment exposure before counting conversions
+            windowValue:
+              type: number
+            windowUnit:
+              type: string
+              enum:
+                - hours
+                - days
+                - weeks
+        regressionAdjustmentSettings:
+          type: object
+          description: Controls the regression adjustment (CUPED) settings for the metric
+          required:
+            - override
+          properties:
+            override:
+              type: boolean
+              description: 'If false, the organization default settings will be used'
+            enabled:
+              type: boolean
+              description: Controls whether or not regresion adjustment is applied to the metric
+            days:
+              type: number
+              description: Number of pre-exposure days to use for the regression adjustment
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
   securitySchemes:
     bearerAuth:
       type: http
@@ -3809,6 +4844,8 @@ x-tagGroups:
       - visual-changesets
       - saved-groups
       - organizations
+      - fact-tables
+      - fact-metrics
   - name: Models
     tags:
       - DataSource_model
@@ -3817,6 +4854,9 @@ x-tagGroups:
       - ExperimentAnalysisSettings_model
       - ExperimentMetric_model
       - ExperimentResults_model
+      - FactMetric_model
+      - FactTable_model
+      - FactTableFilter_model
       - Feature_model
       - FeatureDefinition_model
       - FeatureEnvironment_model

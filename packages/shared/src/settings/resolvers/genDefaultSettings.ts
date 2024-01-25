@@ -36,14 +36,14 @@ export const DEFAULT_METRIC_DEFAULTS: MetricDefaults = {
   minPercentageChange: 0.005,
   minimumSampleSize: 150,
   windowSettings: {
-    window: DEFAULT_METRIC_WINDOW,
+    type: DEFAULT_METRIC_WINDOW,
     windowValue: DEFAULT_METRIC_WINDOW_HOURS,
     delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
     windowUnit: "hours",
   },
   cappingSettings: {
-    capping: DEFAULT_METRIC_CAPPING,
-    value: DEFAULT_METRIC_CAPPING_VALUE
+    type: DEFAULT_METRIC_CAPPING,
+    value: DEFAULT_METRIC_CAPPING_VALUE,
   },
 };
 
@@ -64,7 +64,7 @@ export default function genDefaultSettings(): Settings {
     statsEngine: DEFAULT_STATS_ENGINE,
     updateSchedule: DEFAULT_UPDATE_SCHEDULE,
     videoInstructionsViewed: DEFAULT_VIDEO_INSTRUCTIONS_VIEWED,
-    window: DEFAULT_METRIC_WINDOW,
+    windowType: DEFAULT_METRIC_WINDOW,
     windowHours: DEFAULT_METRIC_WINDOW_HOURS,
     delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
     loseRisk: DEFAULT_LOSE_RISK,

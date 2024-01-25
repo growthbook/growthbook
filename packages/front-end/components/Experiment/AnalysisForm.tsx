@@ -209,8 +209,6 @@ const AnalysisForm: FC<{
       size="lg"
       ctaEnabled={!editMetrics || !hasMetricOverrideRiskError}
       submit={form.handleSubmit(async (value) => {
-        console.log(form.getValues(`metricOverrides.0.window`));
-        console.dir(value, { depth: null });
         const { dateStarted, dateEnded, skipPartialData, ...values } = value;
 
         console.dir(values, { depth: null });

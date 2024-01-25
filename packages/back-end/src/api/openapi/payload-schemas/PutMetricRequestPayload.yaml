@@ -39,26 +39,29 @@ properties:
           - increase
           - decrease
       cappingSettings:
+        description: Controls how outliers are handled
         type: object
         required:
-          - capping
-          - value
+          - type
         properties:
-          capping:
+          type:
             type: string
             nullable: true
-            description: 'Used in conjunction with `value` to set the capping (winsorization). Set to null or an empty string for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `value` for the percentile, if greater than 0. <br/>  If `capping` is non-null, you must specify `value`.'
             enum:
-              - absolute
-              - percentile
-              - ''
+              - "none"
+              - "absolute"
+              - "percentile"
           value:
             type: number
-            description: 'This should be non-negative. <br/> Must specify `capping` when setting `value`.'
-            minimum: 0
+            description: When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).
           ignoreZeros:
             type: boolean
-            description: 'If true and capping is `percentile`, zeros will be ignored when calculating the percentile for capping.'
+            description: If true and capping is `percentile`, zeros will be ignored when calculating the percentile.
+      cap:
+        type: number
+        deprecated: true
+        description: (deprecated, use cappingSettings instead) This should be non-negative
+        minimum: 0
       capping:
         type: string
         nullable: true
@@ -74,31 +77,27 @@ properties:
         minimum: 0
       windowSettings:
         type: object
+        description: Controls the conversion window for the metric
         required:
-          - window
-          - windowValue
-          - windowUnit
+          - type
+          - delayHours
         properties:
-          window:
+          type:
             type: string
-            description: The kind of date window to use; either 'conversion', 'lookback', or '' for none.
             enum:
-              - conversion
-              - lookback
-              - ''
+              - "none"
+              - "conversion"
+          delayHours:
+            type: number
+            description: Wait this many hours after experiment exposure before counting conversions
           windowValue:
             type: number
-            description: The length of the date window to use.
-            minimum: 0
           windowUnit:
             type: string
             enum:
-              - hours
-              - days
-              - weeks
-          delayHours: 
-            type: number
-            description: "The number of hours to ignore after a user is exposed to an experiment. Does nothing if `window` is ''"
+              - "hours"
+              - "days"
+              - "weeks"
       conversionWindowStart:
         type: number
         deprecated: true

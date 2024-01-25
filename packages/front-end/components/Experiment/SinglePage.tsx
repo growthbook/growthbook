@@ -113,14 +113,10 @@ function drawMetricRow(
     (newMetric.windowSettings.delayHours || 0) +
     getConversionWindowHours(newMetric.windowSettings);
 
-  // TODO
   const hasOverrides =
-    overrideFields.includes("window") ||
+    overrideFields.includes("windowType") ||
     overrideFields.includes("conversionDelayHours") ||
     (!ignoreConversionEnd && overrideFields.includes("conversionWindowHours"));
-
-  const metricHasNoConversionWindow =
-    newMetric.windowSettings.window !== "conversion";
 
   const isArchived = isFactMetric(metric)
     ? false
@@ -148,7 +144,7 @@ function drawMetricRow(
           <div className="small">
             <>
               {conversionStart}{" "}
-              {ignoreConversionEnd || metricHasNoConversionWindow
+              {ignoreConversionEnd || !newMetric.windowSettings.type
                 ? " hours to experiment end "
                 : "to " + conversionEnd + " hours "}
             </>

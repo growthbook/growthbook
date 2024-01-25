@@ -18,13 +18,13 @@ const defaultMinPercentChange = 0.005;
 const defaultMinSampleSize = 150;
 
 const defaultMetricWindowSettings: MetricWindowSettings = {
-  window: DEFAULT_METRIC_WINDOW,
+  type: DEFAULT_METRIC_WINDOW,
   windowValue: DEFAULT_METRIC_WINDOW_HOURS,
   delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   windowUnit: "hours",
 };
 const defaultMetricCappingSettings: MetricCappingSettings = {
-  capping: DEFAULT_METRIC_CAPPING,
+  type: DEFAULT_METRIC_CAPPING,
   value: DEFAULT_METRIC_CAPPING_VALUE,
 };
 

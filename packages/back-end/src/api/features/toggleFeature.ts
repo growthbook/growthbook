@@ -57,7 +57,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
 
     const groupMap = await getSavedGroupMap(req.organization);
     const experimentMap = await getExperimentMapForFeature(
-      req.organization.id,
+      req.context,
       updatedFeature.id
     );
     return {

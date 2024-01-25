@@ -1138,31 +1138,28 @@ const MetricPage: FC = () => {
                       <span className="font-weight-bold">Inverse</span>
                     </li>
                   )}
-                  {metric.cappingSettings.capping &&
-                    metric.cappingSettings.value && (
-                      <>
-                        <li className="mb-2">
-                          <span className="uppercase-title lg">
-                            {capitalizeFirstLetter(
-                              metric.cappingSettings.capping
-                            )}
-                            {" capping"}
-                          </span>
-                        </li>
-                        <li>
-                          <span className="font-weight-bold">
-                            {metric.cappingSettings.value}
-                          </span>{" "}
-                          {metric.cappingSettings.capping === "percentile"
-                            ? `(${100 * metric.cappingSettings.value} pctile${
-                                metric.cappingSettings.ignoreZeros
-                                  ? ", ignoring zeros"
-                                  : ""
-                              })`
-                            : ""}{" "}
-                        </li>
-                      </>
-                    )}
+                  {metric.cappingSettings.type && metric.cappingSettings.value && (
+                    <>
+                      <li className="mb-2">
+                        <span className="uppercase-title lg">
+                          {capitalizeFirstLetter(metric.cappingSettings.type)}
+                          {" capping"}
+                        </span>
+                      </li>
+                      <li>
+                        <span className="font-weight-bold">
+                          {metric.cappingSettings.value}
+                        </span>{" "}
+                        {metric.cappingSettings.type === "percentile"
+                          ? `(${100 * metric.cappingSettings.value} pctile${
+                              metric.cappingSettings.ignoreZeros
+                                ? ", ignoring zeros"
+                                : ""
+                            })`
+                          : ""}{" "}
+                      </li>
+                    </>
+                  )}
                   {metric.ignoreNulls && (
                     <li className="mb-2">
                       <span className="text-gray">Converted users only:</span>{" "}
@@ -1179,7 +1176,7 @@ const MetricPage: FC = () => {
                       Conversion/Lookback Window
                     </span>
                   </li>
-                  {metric.windowSettings.window === "conversion" ? (
+                  {metric.windowSettings.type === "conversion" ? (
                     <>
                       <li>
                         <span className="font-weight-bold">Conversion</span> -
@@ -1195,7 +1192,7 @@ const MetricPage: FC = () => {
                         .
                       </li>
                     </>
-                  ) : metric.windowSettings.window === "lookback" ? (
+                  ) : metric.windowSettings.type === "lookback" ? (
                     <li>
                       <span className="font-weight-bold">Lookback</span> -
                       Require conversions to happen in latest{" "}

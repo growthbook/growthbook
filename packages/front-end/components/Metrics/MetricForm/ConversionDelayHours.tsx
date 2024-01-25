@@ -14,7 +14,7 @@ export function ConversionDelayHours({ form }) {
       <small className="text-muted">
         Ignore all conversions within the first X hours of being put into an
         experiment.
-        {form.watch("windowSettings.window") === "conversion"
+        {form.watch("windowSettings.type") === "conversion"
           ? " Will shift the start of the conversion window."
           : null}
       </small>

@@ -86,11 +86,11 @@ export async function postSampleData(
       dateUpdated: new Date(),
       runStarted: null,
       cappingSettings: {
-        capping: "",
+        type: "",
         value: 0,
       },
       windowSettings: {
-        window: "",
+        type: "",
         delayHours: 0,
         windowValue: 0,
         windowUnit: "hours",
@@ -117,11 +117,11 @@ export async function postSampleData(
       dateUpdated: new Date(),
       runStarted: null,
       cappingSettings: {
-        capping: "",
+        type: "",
         value: 0,
       },
       windowSettings: {
-        window: "",
+        type: "",
         delayHours: 0,
         windowValue: 0,
         windowUnit: "hours",

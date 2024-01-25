@@ -105,6 +105,7 @@ import { getFeaturesByIds } from "../models/FeatureModel";
 import { getFeatureRevisionsByFeatureIds } from "../models/FeatureRevisionModel";
 import { ExperimentRefRule, FeatureRule } from "../../types/feature";
 import { ApiReqContext } from "../../types/api";
+import { MetricWindowSettings } from "../../types/fact-table";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import {
@@ -1035,17 +1036,17 @@ export function postMetricApiPayloadIsValid(
     const { cappingSettings } = behavior;
 
     const cappingExists =
-      typeof cappingSettings !== "undefined" && !!cappingSettings.capping;
+      typeof cappingSettings !== "undefined" && !!cappingSettings.type;
     const capValueExists = typeof cappingSettings?.value !== "undefined";
     if (cappingExists !== capValueExists) {
       return {
         valid: false,
         error:
-          "Must specify both `behavior.cappingSettings.capping` (as non-null) and `behavior.cappingSettings.value` or neither.",
+          "Must specify both `behavior.cappingSettings.type` (as non-null) and `behavior.cappingSettings.value` or neither.",
       };
     }
     if (
-      cappingSettings?.capping === "percentile" &&
+      cappingSettings?.type === "percentile" &&
       (cappingSettings?.value || 0) > 1
     ) {
       return {
@@ -1290,11 +1291,11 @@ export function postMetricApiPayloadToMetricInterface(
     queries: [],
     runStarted: null,
     cappingSettings: {
-      capping: DEFAULT_METRIC_CAPPING,
+      type: DEFAULT_METRIC_CAPPING,
       value: DEFAULT_METRIC_CAPPING_VALUE,
     },
     windowSettings: {
-      window: DEFAULT_METRIC_WINDOW,
+      type: DEFAULT_METRIC_WINDOW,
       delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
       windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
       windowUnit: "hours",
@@ -1310,27 +1311,37 @@ export function postMetricApiPayloadToMetricInterface(
 
   // Assign all undefined behavior fields to the metric
   if (behavior) {
-    // handle old post requests
     if (typeof behavior.cappingSettings !== "undefined") {
       metric.cappingSettings = {
-        ...behavior.cappingSettings,
-        capping: behavior.cappingSettings.capping ?? "",
+        type:
+          behavior.cappingSettings.type === "none"
+            ? ""
+            : behavior.cappingSettings.type ?? "",
+        value: behavior.cappingSettings.value ?? DEFAULT_METRIC_CAPPING_VALUE,
+        ignoreZeros: behavior.cappingSettings.ignoreZeros,
       };
+      // handle old post requests
     } else if (typeof behavior.capping !== "undefined") {
-      metric.cappingSettings.capping = behavior.capping ?? "";
+      metric.cappingSettings.type = behavior.capping ?? "";
       metric.cappingSettings.value =
         behavior.capValue ?? DEFAULT_METRIC_CAPPING_VALUE;
     } else if (typeof behavior.cap !== "undefined" && behavior.cap) {
-      metric.cappingSettings.capping = "absolute";
+      metric.cappingSettings.type = "absolute";
       metric.cappingSettings.value = behavior.cap;
     }
 
     if (typeof behavior.windowSettings !== "undefined") {
+      let type: MetricWindowSettings["type"] = DEFAULT_METRIC_WINDOW;
+      if (behavior.windowSettings.type === "none") {
+        type = "";
+      }
       metric.windowSettings = {
         ...behavior.windowSettings,
-        delayHours:
-          behavior.windowSettings.delayHours ??
-          DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+        type: type,
+        windowUnit: behavior.windowSettings.windowUnit ?? "hours",
+        windowValue:
+          behavior.windowSettings.windowValue ??
+          DEFAULT_CONVERSION_WINDOW_HOURS,
       };
     } else if (typeof behavior.conversionWindowStart !== "undefined") {
       // The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the Conversion Delay
@@ -1447,13 +1458,17 @@ export function putMetricApiPayloadToMetricInterface(
 
     if (typeof behavior.cappingSettings !== "undefined") {
       metric.cappingSettings = {
-        capping: behavior.cappingSettings.capping ?? "",
-        value: behavior.cappingSettings.value,
+        ...behavior.cappingSettings,
+        type:
+          behavior.cappingSettings.type === "none"
+            ? ""
+            : behavior.cappingSettings.type ?? "",
+        value: behavior.cappingSettings.value ?? DEFAULT_METRIC_CAPPING_VALUE,
         ignoreZeros: behavior.cappingSettings.ignoreZeros,
       };
     } else if (typeof behavior.capping !== "undefined") {
       metric.cappingSettings = {
-        capping: behavior.capping ?? DEFAULT_METRIC_CAPPING,
+        type: behavior.capping ?? DEFAULT_METRIC_CAPPING,
         value: behavior.capValue ?? DEFAULT_METRIC_CAPPING_VALUE,
       };
     }
@@ -1461,7 +1476,7 @@ export function putMetricApiPayloadToMetricInterface(
     if (typeof behavior.conversionWindowStart !== "undefined") {
       // The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the Conversion Delay
       metric.windowSettings = {
-        window: DEFAULT_METRIC_WINDOW,
+        type: DEFAULT_METRIC_WINDOW,
         delayHours: behavior.conversionWindowStart,
         windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
         windowUnit: "hours",
@@ -1588,7 +1603,15 @@ export function toMetricApiInterface(
     type: metric.type,
     behavior: {
       goal: metric.inverse ? "decrease" : "increase",
-      cappingSettings: metric.cappingSettings,
+      cappingSettings: metric.cappingSettings
+        ? {
+            ...metric.cappingSettings,
+            type: metric.cappingSettings.type || "none",
+          }
+        : {
+            type: DEFAULT_METRIC_CAPPING || "none",
+            value: DEFAULT_METRIC_CAPPING_VALUE,
+          },
       minPercentChange:
         metric.minPercentChange ?? metricDefaults?.minPercentageChange ?? 0.005,
       maxPercentChange:
@@ -1597,15 +1620,24 @@ export function toMetricApiInterface(
         metric.minSampleSize ?? metricDefaults?.minimumSampleSize ?? 150,
       riskThresholdDanger: metric.loseRisk ?? 0.0125,
       riskThresholdSuccess: metric.winRisk ?? 0.0025,
-      windowSettings: metric.windowSettings ??
-        metricDefaults?.windowSettings ?? {
-          window: DEFAULT_METRIC_WINDOW,
-          delayHours: metric.earlyStart
-            ? -0.5
-            : DEFAULT_METRIC_WINDOW_DELAY_HOURS,
-          windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
-          windowUnit: "hours",
-        },
+      windowSettings: metric.windowSettings
+        ? {
+            ...metric.windowSettings,
+            type: metric.windowSettings.type || "none",
+          }
+        : metricDefaults?.windowSettings
+        ? {
+            ...metricDefaults.windowSettings,
+            type: metricDefaults.windowSettings.type || "none",
+          }
+        : {
+            type: DEFAULT_METRIC_WINDOW || "none",
+            delayHours: metric.earlyStart
+              ? -0.5
+              : DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+            windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
+            windowUnit: "hours",
+          },
     },
   };
 

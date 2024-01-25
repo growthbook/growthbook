@@ -78,7 +78,7 @@ export const resolvers: Record<
     report: true,
   }),
   delayHours: genMetricOverrideResolver("delayHours"),
-  window: genMetricOverrideResolver("window"),
+  windowType: genMetricOverrideResolver("windowType"),
   windowHours: genMetricOverrideResolver("windowHours"),
   winRisk: genMetricOverrideResolver("winRisk"),
   loseRisk: genMetricOverrideResolver("loseRisk"),

@@ -14,9 +14,9 @@ import {
   factTableColumnTypeValidator,
   testFactFilterPropsValidator,
   conversionWindowUnitValidator,
-  cappingValidator,
   cappingSettingsValidator,
   windowSettingsValidator,
+  cappingTypeValidator,
 } from "../src/routers/fact-table/fact-table.validators";
 import { TestQueryRow } from "../src/types/Integration";
 
@@ -58,6 +58,7 @@ export interface FactTableInterface {
   sql: string;
   eventName: string;
   columns: ColumnInterface[];
+  columnsError?: string | null;
   filters: FactFilterInterface[];
 }
 
@@ -65,7 +66,7 @@ export type ColumnRef = z.infer<typeof columnRefValidator>;
 
 export type FactMetricType = z.infer<typeof metricTypeValidator>;
 
-export type CappingType = z.infer<typeof cappingValidator>;
+export type CappingType = z.infer<typeof cappingTypeValidator>;
 export type MetricCappingSettings = z.infer<typeof cappingSettingsValidator>;
 
 export type ConversionWindowUnit = z.infer<

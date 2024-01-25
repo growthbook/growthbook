@@ -14,7 +14,7 @@ export default function genMetricOverrideResolver(
     let metricValue:
       | number
       | boolean
-      | MetricWindowSettings["window"]
+      | MetricWindowSettings["type"]
       | null
       | undefined = null;
     if (fieldName == "delayHours") {
@@ -23,8 +23,8 @@ export default function genMetricOverrideResolver(
       metricValue = ctx.scopes?.metric?.windowSettings
         ? getConversionWindowHours(ctx.scopes?.metric?.windowSettings)
         : null;
-    } else if (fieldName == "window") {
-      metricValue = ctx.scopes?.metric?.windowSettings?.window;
+    } else if (fieldName == "windowType") {
+      metricValue = ctx.scopes?.metric?.windowSettings?.type;
     } else {
       metricValue = ctx.scopes?.metric?.[fieldName];
     }

@@ -80,7 +80,7 @@ export const deleteTag = async (
   await removeTagInMetrics(org.id, id);
 
   // features
-  await removeTagInFeature(org, res.locals.eventAudit, id);
+  await removeTagInFeature(context, res.locals.eventAudit, id);
 
   // Slack integrations
   await removeTagFromSlackIntegration({ organizationId: org.id, tag: id });

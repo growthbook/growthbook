@@ -36,12 +36,12 @@ const metricSchema = new mongoose.Schema({
   inverse: Boolean,
   ignoreNulls: Boolean,
   cappingSettings: {
-    capping: String,
+    type: String,
     value: Number,
     ignoreZeros: Boolean,
   },
   windowSettings: {
-    window: String,
+    type: String,
     delayHours: Number,
     windowValue: Number,
     windowUnit: String,

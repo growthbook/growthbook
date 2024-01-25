@@ -58,7 +58,7 @@ describe("Metric Migration", () => {
         anonymous_id: "anonymous_id",
       },
       cappingSettings: {
-        capping: "",
+        type: "",
         value: 0,
       },
       userIdTypes: ["anonymous_id", "user_id"],
@@ -71,7 +71,7 @@ describe("Metric Migration", () => {
     expect(upgradeMetricDoc(earlyStartNoConversionWindow)).toEqual({
       ...earlyStartNoConversionWindow,
       windowSettings: {
-        window: "conversion",
+        type: "conversion",
         windowUnit: "hours",
         windowValue: 72.5,
         delayHours: -0.5,
@@ -87,7 +87,7 @@ describe("Metric Migration", () => {
       ...baseMetric,
       earlyStart: true,
       windowSettings: {
-        window: "conversion",
+        type: "conversion",
         windowUnit: "hours",
         windowValue: 50.5,
         delayHours: -0.5,
@@ -104,7 +104,7 @@ describe("Metric Migration", () => {
       ...baseMetric,
       earlyStart: true,
       windowSettings: {
-        window: "conversion",
+        type: "conversion",
         windowUnit: "hours",
         windowValue: 50,
         delayHours: 5,
@@ -119,7 +119,7 @@ describe("Metric Migration", () => {
     expect(upgradeMetricDoc(conversionWindow)).toEqual({
       ...baseMetric,
       windowSettings: {
-        window: "conversion",
+        type: "conversion",
         windowUnit: "hours",
         windowValue: 50,
         delayHours: 5,
@@ -130,7 +130,7 @@ describe("Metric Migration", () => {
       conversionDelayHours: 5,
       conversionWindowHours: 50,
       windowSettings: {
-        window: "lookback",
+        type: "lookback",
         windowUnit: "days",
         windowValue: 33,
         delayHours: 3,
@@ -139,7 +139,7 @@ describe("Metric Migration", () => {
     expect(upgradeMetricDoc(conversionWindowAndSettings)).toEqual({
       ...baseMetric,
       windowSettings: {
-        window: "lookback",
+        type: "lookback",
         windowUnit: "days",
         windowValue: 33,
         delayHours: 3,
@@ -167,7 +167,7 @@ describe("Metric Migration", () => {
         anonymous_id: "anonymous_id",
       },
       windowSettings: {
-        window: "conversion",
+        type: "conversion",
         windowUnit: "hours",
         windowValue: 72,
         delayHours: 0,
@@ -183,7 +183,7 @@ describe("Metric Migration", () => {
     expect(upgradeMetricDoc(capMetric)).toEqual({
       ...baseMetric,
       cappingSettings: {
-        capping: "absolute",
+        type: "absolute",
         value: 35,
       },
     });
@@ -196,7 +196,7 @@ describe("Metric Migration", () => {
     expect(upgradeMetricDoc(capZeroMetric)).toEqual({
       ...baseMetric,
       cappingSettings: {
-        capping: "",
+        type: "",
         value: 0,
       },
     });
@@ -211,7 +211,7 @@ describe("Metric Migration", () => {
     expect(upgradeMetricDoc(cappingMetric)).toEqual({
       ...baseMetric,
       cappingSettings: {
-        capping: "percentile",
+        type: "percentile",
         value: 0.99,
       },
     });
@@ -237,7 +237,7 @@ describe("Metric Migration", () => {
         anonymous_id: "anonymous_id",
       },
       windowSettings: {
-        window: "conversion",
+        type: "conversion",
         windowUnit: "hours",
         windowValue: 72,
         delayHours: 0,
@@ -248,7 +248,6 @@ describe("Metric Migration", () => {
     expect(
       upgradeMetricDoc({
         ...baseMetric,
-
         capping: "percentile",
         capValue: 0.99,
         cap: 35,
@@ -256,7 +255,7 @@ describe("Metric Migration", () => {
     ).toEqual({
       ...baseMetric,
       cappingSettings: {
-        capping: "percentile",
+        type: "percentile",
         value: 0.99,
       },
     });
@@ -266,7 +265,7 @@ describe("Metric Migration", () => {
     ).toEqual({
       ...baseMetric,
       cappingSettings: {
-        capping: "",
+        type: "",
         value: 0.99,
       },
     });
@@ -274,7 +273,7 @@ describe("Metric Migration", () => {
     expect(
       upgradeMetricDoc({
         ...baseMetric,
-        cappingSettings: { capping: "percentile", value: 0.95 },
+        cappingSettings: { type: "percentile", value: 0.95 },
         capValue: 0.99,
         capping: "absolute",
         cap: 35,
@@ -282,7 +281,7 @@ describe("Metric Migration", () => {
     ).toEqual({
       ...baseMetric,
       cappingSettings: {
-        capping: "percentile",
+        type: "percentile",
         value: 0.95,
       },
     });
@@ -304,13 +303,13 @@ describe("Metric Migration", () => {
       runStarted: null,
       type: "binomial",
       windowSettings: {
-        window: "conversion",
+        type: "conversion",
         windowUnit: "hours",
         windowValue: 72,
         delayHours: 0,
       },
       cappingSettings: {
-        capping: "",
+        type: "",
         value: 0,
       },
     };
@@ -382,13 +381,13 @@ describe("Metric Migration", () => {
       type: "binomial",
       userIdTypes: ["anonymous_id", "user_id"],
       windowSettings: {
-        window: "conversion",
+        type: "conversion",
         windowUnit: "hours",
         windowValue: 72,
         delayHours: 0,
       },
       cappingSettings: {
-        capping: "",
+        type: "",
         value: 0,
       },
     };
@@ -1284,7 +1283,7 @@ describe("Snapshot Migration", () => {
             id: "met_abc",
             computedSettings: {
               windowSettings: {
-                window: "conversion",
+                type: "conversion",
                 windowUnit: "hours",
                 windowValue: 72,
                 delayHours: 0,
@@ -1299,7 +1298,7 @@ describe("Snapshot Migration", () => {
             id: "met_123",
             computedSettings: {
               windowSettings: {
-                window: "conversion",
+                type: "conversion",
                 windowUnit: "hours",
                 windowValue: 72,
                 delayHours: 0,
@@ -1477,7 +1476,7 @@ describe("Snapshot Migration", () => {
             id: "met_abc",
             computedSettings: {
               windowSettings: {
-                window: "conversion",
+                type: "conversion",
                 windowUnit: "hours",
                 windowValue: 72,
                 delayHours: 0,

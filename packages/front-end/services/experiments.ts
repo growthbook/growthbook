@@ -280,9 +280,9 @@ export function applyMetricOverrides<T extends ExperimentMetricInterface>(
   const overrideFields: string[] = [];
   const metricOverride = metricOverrides.find((mo) => mo.id === newMetric.id);
   if (metricOverride) {
-    if (!isNil(metricOverride?.window)) {
-      newMetric.windowSettings.window = metricOverride.window;
-      overrideFields.push("window");
+    if (!isNil(metricOverride?.windowType)) {
+      newMetric.windowSettings.type = metricOverride.windowType;
+      overrideFields.push("windowType");
     }
     if (!isNil(metricOverride?.windowHours)) {
       newMetric.windowSettings.windowUnit = "hours";

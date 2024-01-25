@@ -66,6 +66,15 @@ export default function ColumnList({ factTable }: Props) {
         />
       )}
 
+      {factTable.columnsError && (
+        <div className="alert alert-danger">
+          <strong>
+            Error {columns.length > 0 ? "Refreshing" : "Detecting"} Columns
+          </strong>
+          : {factTable.columnsError}
+        </div>
+      )}
+
       <div className="row align-items-center">
         {columns.length > 0 && (
           <div className="col-auto mr-auto">

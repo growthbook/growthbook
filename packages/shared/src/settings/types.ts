@@ -54,9 +54,9 @@ export type ScopeSettingsFn = (
 };
 
 interface MetricSettings {
-  window: MetricWindowSettings["window"] | null;
-  delayHours: number | null;
+  windowType: MetricWindowSettings["type"] | null;
   windowHours: number | null;
+  delayHours: number | null;
 
   winRisk: number | null;
   loseRisk: number | null;

@@ -131,7 +131,8 @@ export const EXPERIMENT_REFRESH_FREQUENCY =
   parseInt(process.env.EXPERIMENT_REFRESH_FREQUENCY || "") || 6;
 
 export const DEFAULT_CONVERSION_WINDOW_HOURS =
-  parseInt(process.env.DEFAULT_CONVERSION_WINDOW_HOURS || "") || DEFAULT_METRIC_WINDOW_HOURS;
+  parseInt(process.env.DEFAULT_CONVERSION_WINDOW_HOURS || "") ||
+  DEFAULT_METRIC_WINDOW_HOURS;
 
 // Update metrics every X hours
 export const METRIC_REFRESH_FREQUENCY =

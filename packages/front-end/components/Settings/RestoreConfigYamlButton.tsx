@@ -11,6 +11,11 @@ import {
   MetricCappingSettings,
   MetricWindowSettings,
 } from "back-end/types/fact-table";
+import {
+  DEFAULT_METRIC_WINDOW,
+  DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+  DEFAULT_METRIC_WINDOW_HOURS,
+} from "shared/constants";
 import { useAuth } from "@/services/auth";
 import { useConfigJson } from "@/services/config";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -18,7 +23,6 @@ import Field from "../Forms/Field";
 import Page from "../Modal/Page";
 import PagedModal from "../Modal/PagedModal";
 import UploadConfigYml from "./UploadConfigYml";
-import { DEFAULT_METRIC_WINDOW, DEFAULT_METRIC_WINDOW_DELAY_HOURS, DEFAULT_METRIC_WINDOW_HOURS } from "shared/constants";
 
 function sanitizeSecrets(d: DataSourceInterfaceWithParams) {
   if (!d || !d.params) return;
@@ -127,7 +131,7 @@ export default function RestoreConfigYamlButton({
             // backwards compatibility for settings
             if ((n.capping || n.capValue) && n.cappingSettings === undefined) {
               const cappingSetting: MetricCappingSettings = {
-                capping: n.capping ?? "absolute",
+                type: n.capping ?? "absolute",
                 value: n.capValue ?? 0,
               };
               n.cappingSettings = cappingSetting;
@@ -139,9 +143,11 @@ export default function RestoreConfigYamlButton({
               n.windowSettings === undefined
             ) {
               const windowSetting: MetricWindowSettings = {
-                window: DEFAULT_METRIC_WINDOW,
-                delayHours: n.conversionWindowDelay ?? DEFAULT_METRIC_WINDOW_DELAY_HOURS,
-                windowValue: n.conversionWindowHours ?? DEFAULT_METRIC_WINDOW_HOURS,
+                type: DEFAULT_METRIC_WINDOW,
+                delayHours:
+                  n.conversionWindowDelay ?? DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+                windowValue:
+                  n.conversionWindowHours ?? DEFAULT_METRIC_WINDOW_HOURS,
                 windowUnit: "hours",
               };
               n.windowSettings = windowSetting;

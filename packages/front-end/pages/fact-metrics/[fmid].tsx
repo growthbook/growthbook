@@ -407,7 +407,7 @@ export default function FactMetricPage() {
           <div className="mb-4">
             <h3>Conversion/Lookback Window</h3>
             <div className="appbox p-3 mb-3">
-              {factMetric.windowSettings.window === "conversion" ? (
+              {factMetric.windowSettings.type === "conversion" ? (
                 <>
                   <em className="font-weight-bold">Conversion</em> - Require
                   conversions to happen within{" "}
@@ -421,7 +421,7 @@ export default function FactMetricPage() {
                     : ""}
                   .
                 </>
-              ) : factMetric.windowSettings.window === "lookback" ? (
+              ) : factMetric.windowSettings.type === "lookback" ? (
                 <>
                   <em className="font-weight-bold">Lookback</em> - Require
                   conversions to happen in latest{" "}
@@ -478,13 +478,13 @@ export default function FactMetricPage() {
                       <span className="font-weight-bold">Inverse</span>
                     </li>
                   )}
-                  {factMetric.cappingSettings.capping &&
+                  {factMetric.cappingSettings.type &&
                     factMetric.cappingSettings.value && (
                       <>
                         <li className="mb-2">
                           <span className="uppercase-title lg">
                             {capitalizeFirstLetter(
-                              factMetric.cappingSettings.capping
+                              factMetric.cappingSettings.type
                             )}
                             {" capping"}
                           </span>
@@ -493,7 +493,7 @@ export default function FactMetricPage() {
                           <span className="font-weight-bold">
                             {factMetric.cappingSettings.value}
                           </span>{" "}
-                          {factMetric.cappingSettings.capping === "percentile"
+                          {factMetric.cappingSettings.type === "percentile"
                             ? `(${
                                 100 * factMetric.cappingSettings.value
                               } pctile${
