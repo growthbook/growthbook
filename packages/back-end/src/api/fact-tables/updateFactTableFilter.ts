@@ -20,7 +20,13 @@ export const updateFactTableFilter = createApiRequestHandler(
     }
     req.checkPermissions("manageFactTables", factTable.projects);
 
-    await updateFactFilter(factTable, req.params.id, req.body);
+    if (req.body.managedBy === "api" && !factTable.managedBy) {
+      throw new Error(
+        "Cannot set filter to be managed by api unless Fact Table is also managed by api"
+      );
+    }
+
+    await updateFactFilter(factTable, req.params.id, req.body, req.eventAudit);
 
     const newFilters = [...factTable.filters];
     const filterIndex = newFilters.findIndex((f) => f.id === req.params.id);

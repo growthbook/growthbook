@@ -154,6 +154,7 @@ export function toFactMetricApiInterface(
 
   return {
     ...otherFields,
+    managedBy: factMetric.managedBy || "",
     denominator: denominator || undefined,
     cappingSettings: {
       type: capping || "none",

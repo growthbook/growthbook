@@ -109,7 +109,7 @@ export const updateFactMetric = createApiRequestHandler(
       return getFactTable(req.organization.id, id);
     });
 
-    await updateFactMetricInDb(factMetric, updates);
+    await updateFactMetricInDb(factMetric, updates, req.eventAudit);
 
     if (updates.tags) {
       await addTagsDiff(req.organization.id, factMetric.tags, updates.tags);

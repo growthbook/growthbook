@@ -58,7 +58,7 @@ export const updateFactTable = createApiRequestHandler(
 
     const data: UpdateFactTableProps = { ...req.body };
 
-    await updateFactTableInDb(factTable, data);
+    await updateFactTableInDb(factTable, data, req.eventAudit);
     await queueFactTableColumnsRefresh(factTable);
 
     if (data.tags) {

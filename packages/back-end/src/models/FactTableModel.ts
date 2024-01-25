@@ -324,6 +324,7 @@ export function toFactTableApiInterface(
       "dateCreated",
       "dateUpdated",
     ]),
+    managedBy: factTable.managedBy || "",
     dateCreated: factTable.dateCreated?.toISOString() || "",
     dateUpdated: factTable.dateUpdated?.toISOString() || "",
   };
@@ -341,6 +342,7 @@ export function toFactTableFilterApiInterface(
 
   return {
     ...omit(filter, ["dateCreated", "dateUpdated"]),
+    managedBy: filter.managedBy || "",
     dateCreated: filter.dateCreated?.toISOString() || "",
     dateUpdated: filter.dateUpdated?.toISOString() || "",
   };

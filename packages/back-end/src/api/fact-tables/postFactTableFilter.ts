@@ -20,6 +20,12 @@ export const postFactTableFilter = createApiRequestHandler(
     }
     req.checkPermissions("manageFactTables", factTable.projects);
 
+    if (req.body.managedBy === "api" && !factTable.managedBy) {
+      throw new Error(
+        "Cannot set filter to be managed by api unless Fact Table is also managed by api"
+      );
+    }
+
     const filter = await createFactFilter(factTable, {
       description: "",
       ...req.body,

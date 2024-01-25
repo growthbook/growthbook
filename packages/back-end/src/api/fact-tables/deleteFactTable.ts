@@ -19,7 +19,7 @@ export const deleteFactTable = createApiRequestHandler(
 
     req.checkPermissions("manageFactTables", factTable.projects);
 
-    await deleteFactTableFromDb(factTable);
+    await deleteFactTableFromDb(factTable, req.eventAudit);
 
     return {
       deletedId: req.params.id,

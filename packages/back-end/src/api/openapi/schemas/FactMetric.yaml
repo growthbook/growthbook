@@ -13,6 +13,7 @@ required:
   - cappingSettings
   - windowSettings
   - regressionAdjustmentSettings
+  - managedBy
   - dateCreated
   - dateUpdated
 properties:
@@ -128,6 +129,13 @@ properties:
       days:
         type: number
         description: Number of pre-exposure days to use for the regression adjustment
+  managedBy:
+    type: string
+    description: Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere.
+    enum:
+      - ""
+      - api
+      - config
   dateCreated:
     type: string
     format: date-time

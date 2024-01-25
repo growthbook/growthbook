@@ -18,7 +18,7 @@ export const deleteFactTableFilter = createApiRequestHandler(
     }
     req.checkPermissions("manageFactTables", factTable.projects);
 
-    await deleteFactFilter(factTable, req.params.id);
+    await deleteFactFilter(factTable, req.params.id, req.eventAudit);
 
     return {
       deletedId: req.params.id,
