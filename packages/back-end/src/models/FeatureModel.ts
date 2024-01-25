@@ -3,6 +3,7 @@ import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import { MergeResultChanges } from "shared/util";
+import { hasReadAccess } from "shared/permissions";
 import {
   FeatureEnvironment,
   FeatureInterface,
@@ -141,16 +142,20 @@ const toInterface = (doc: FeatureDocument): FeatureInterface =>
   omit(doc.toJSON<FeatureDocument>(), ["__v", "_id"]);
 
 export async function getAllFeatures(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   project?: string
 ): Promise<FeatureInterface[]> {
-  const q: FilterQuery<FeatureDocument> = { organization };
+  const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
   if (project) {
     q.project = project;
   }
 
-  return (await FeatureModel.find(q)).map((m) =>
+  const features = (await FeatureModel.find(q)).map((m) =>
     upgradeFeatureInterface(toInterface(m))
+  );
+
+  return features.filter((feature) =>
+    hasReadAccess(context.readAccessFilter, feature.project)
   );
 }
 
@@ -169,7 +174,11 @@ export async function getAllFeaturesWithLinkedExperiments(
     q.project = project;
   }
 
-  const features = await FeatureModel.find(q);
+  const allFeatures = await FeatureModel.find(q);
+
+  const features = allFeatures.filter((feature) =>
+    hasReadAccess(context.readAccessFilter, feature.project)
+  );
   const expIds = new Set<string>(
     features
       .map((f) => f.linkedExperiments)
@@ -185,11 +194,18 @@ export async function getAllFeaturesWithLinkedExperiments(
 }
 
 export async function getFeature(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   id: string
 ): Promise<FeatureInterface | null> {
-  const feature = await FeatureModel.findOne({ organization, id });
-  return feature ? upgradeFeatureInterface(toInterface(feature)) : null;
+  const feature = await FeatureModel.findOne({
+    organization: context.org.id,
+    id,
+  });
+  if (!feature) return null;
+
+  return hasReadAccess(context.readAccessFilter, feature.project)
+    ? upgradeFeatureInterface(toInterface(feature))
+    : null;
 }
 
 export async function migrateDraft(feature: FeatureInterface) {
@@ -217,12 +233,16 @@ export async function migrateDraft(feature: FeatureInterface) {
 }
 
 export async function getFeaturesByIds(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   ids: string[]
 ): Promise<FeatureInterface[]> {
-  return (
-    await FeatureModel.find({ organization, id: { $in: ids } })
+  const features = (
+    await FeatureModel.find({ organization: context.org.id, id: { $in: ids } })
   ).map((m) => upgradeFeatureInterface(toInterface(m)));
+
+  return features.filter((feature) =>
+    hasReadAccess(context.readAccessFilter, feature.project)
+  );
 }
 
 export async function createFeature(
@@ -231,6 +251,10 @@ export async function createFeature(
   data: FeatureInterface
 ) {
   const { org } = context;
+
+  if (!hasReadAccess(context.readAccessFilter, data.project)) {
+    throw new Error("Invalid project");
+  }
   const linkedExperiments = getLinkedExperiments(
     data,
     getEnvironmentIdsFromOrg(org)
@@ -852,6 +876,7 @@ function getLinkedExperiments(
   return [...expIds];
 }
 
+//TODO: I don't see this being called anywhere - can we remove?
 export async function toggleNeverStale(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,

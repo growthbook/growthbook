@@ -241,7 +241,7 @@ export async function refreshSDKPayloadCache(
 
   experimentMap = experimentMap || (await getAllPayloadExperiments(context));
   const groupMap = await getSavedGroupMap(context.org);
-  allFeatures = allFeatures || (await getAllFeatures(context.org.id));
+  allFeatures = allFeatures || (await getAllFeatures(context));
   const allVisualExperiments = await getAllVisualExperiments(
     context,
     experimentMap
@@ -499,7 +499,7 @@ export async function getFeatureDefinitions({
   }
 
   // Generate the feature definitions
-  const features = await getAllFeatures(context.org.id);
+  const features = await getAllFeatures(context);
   const groupMap = await getSavedGroupMap(org);
   const experimentMap = await getAllPayloadExperiments(context);
 
