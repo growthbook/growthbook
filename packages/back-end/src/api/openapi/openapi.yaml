@@ -103,6 +103,9 @@ paths:
       $ref: "./paths/updateFeature.yaml"
   /features/{id}/toggle:
     $ref: "./paths/toggleFeature.yaml"
+  /feature-keys:
+    get:
+      $ref: "./paths/getFeatureKeys.yaml"
   /projects:
     $ref: "./paths/listProjects.yaml"
   /projects/{id}:

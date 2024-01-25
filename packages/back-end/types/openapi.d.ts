@@ -33,6 +33,10 @@ export interface paths {
       };
     };
   };
+  "/feature-keys": {
+    /** Get list of feature keys */
+    get: operations["getFeatureKeys"];
+  };
   "/projects": {
     /** Get all projects */
     get: operations["listProjects"];
@@ -2281,6 +2285,22 @@ export interface operations {
       };
     };
   };
+  getFeatureKeys: {
+    /** Get list of feature keys */
+    parameters: {
+        /** @description Filter by project id */
+      query: {
+        projectId?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": (string)[];
+        };
+      };
+    };
+  };
   listProjects: {
     /** Get all projects */
     parameters: {
@@ -4435,6 +4455,7 @@ export type PostFeatureResponse = operations["postFeature"]["responses"]["200"][
 export type GetFeatureResponse = operations["getFeature"]["responses"]["200"]["content"]["application/json"];
 export type UpdateFeatureResponse = operations["updateFeature"]["responses"]["200"]["content"]["application/json"];
 export type ToggleFeatureResponse = operations["toggleFeature"]["responses"]["200"]["content"]["application/json"];
+export type GetFeatureKeysResponse = operations["getFeatureKeys"]["responses"]["200"]["content"]["application/json"];
 export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];
 export type GetProjectResponse = operations["getProject"]["responses"]["200"]["content"]["application/json"];
 export type ListDimensionsResponse = operations["listDimensions"]["responses"]["200"]["content"]["application/json"];

@@ -36,6 +36,12 @@ export const toggleFeatureValidator = {
   paramsSchema: z.object({"id":z.string()}).strict(),
 };
 
+export const getFeatureKeysValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({"projectId":z.string().optional()}).strict(),
+  paramsSchema: z.never(),
+};
+
 export const listProjectsValidator = {
   bodySchema: z.never(),
   querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0)}).strict(),

@@ -18,7 +18,9 @@ import dataSourcesRouter from "./data-sources/data-sources.router";
 import dimensionsRouter from "./dimensions/dimensions.router";
 import visualChangesetsRouter from "./visual-changesets/visual-changesets.router";
 import organizationsRouter from "./organizations/organizations.router";
+import codeRefsRouter from "./code-refs/code-refs.router";
 import { postCopyTransform } from "./openai/postCopyTransform";
+import { getFeatureKeys } from "./features/getFeatureKeys";
 
 const router = Router();
 
@@ -72,6 +74,7 @@ router.get("/", (req, res) => {
 
 // API endpoints
 router.use("/features", featuresRouter);
+router.get("/feature-keys", getFeatureKeys);
 router.use("/experiments", experimentsRouter);
 router.use("/metrics", metricsRouter);
 router.use("/segments", segmentsRouter);
@@ -83,6 +86,7 @@ router.use("/visual-changesets", visualChangesetsRouter);
 router.use("/saved-groups", savedGroupsRouter);
 router.use("/organizations", organizationsRouter);
 router.use("/sdk-payload", sdkPayloadRouter);
+router.use("/code-refs", codeRefsRouter);
 
 router.post("/transform-copy", postCopyTransform);
 
