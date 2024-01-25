@@ -22,6 +22,16 @@ describe("bigquery integration", () => {
         user_id: "user_id",
         anonymous_id: "anonymous_id",
       },
+      windowSettings: {
+        window: "conversion",
+        windowUnit: "hours",
+        windowValue: 72,
+        delayHours: 0
+      },
+      cappingSettings: {
+        capping: "",
+        value: 0,
+      },
       userIdTypes: ["anonymous_id", "user_id"],
     };
 
@@ -55,6 +65,7 @@ describe("bigquery integration", () => {
         "val",
         normalSqlMetric,
         false,
+        new Date(),
         false
       ).replace(/\s+/g, " ")
     ).toEqual(
@@ -66,6 +77,7 @@ describe("bigquery integration", () => {
         "val",
         normalSqlMetric,
         true,
+        new Date(),
         false
       ).replace(/\s+/g, " ")
     ).toEqual("(CASE WHEN m.timestamp >= d.timestamp THEN val ELSE NULL END)");
@@ -75,6 +87,7 @@ describe("bigquery integration", () => {
         "val",
         normalSqlMetric,
         true,
+        new Date(),
         true
       ).replace(/\s+/g, " ")
     ).toEqual(
@@ -111,36 +124,55 @@ describe("bigquery integration", () => {
         user_id: "user_id",
         anonymous_id: "anonymous_id",
       },
+      windowSettings: {
+        window: "conversion",
+        windowUnit: "hours",
+        windowValue: 72,
+        delayHours: 0
+      },
+      cappingSettings: {
+        capping: "",
+        value: 0,
+      },
       userIdTypes: ["anonymous_id", "user_id"],
     };
 
     const numeratorMetric: MetricInterface = {
       ...baseMetric,
-      ...{
-        conversionDelayHours: -4,
-        conversionWindowHours: 24,
+      windowSettings: {
+        window: "conversion",
+        windowUnit: "hours",
+        windowValue: 24,
+        delayHours: -4,
       },
     };
     const denominatorCountMetric: MetricInterface = {
       ...baseMetric,
-      ...{
-        type: "count",
-        conversionDelayHours: 0,
-        conversionWindowHours: 1,
+      type: "count",
+      
+      windowSettings: {
+        window: "conversion",
+        windowUnit: "hours",
+        windowValue: 1,
+        delayHours: 0
       },
     };
     const denominatorBinomialMetric: MetricInterface = {
       ...baseMetric,
-      ...{
-        conversionDelayHours: 0,
-        conversionWindowHours: 1,
+      windowSettings: {
+        window: "conversion",
+        windowUnit: "hours",
+        windowValue: 1,
+        delayHours: 0
       },
     };
     const activationMetric: MetricInterface = {
       ...baseMetric,
-      ...{
-        conversionDelayHours: 0,
-        conversionWindowHours: 72,
+      windowSettings: {
+        window: "conversion",
+        windowUnit: "hours",
+        windowValue: 72,
+        delayHours: 0
       },
     };
 

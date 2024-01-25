@@ -13,11 +13,18 @@ metrics["signups"] = {
   dateUpdated: new Date("2023-04-14"),
   queries: [],
   runStarted: new Date("2023-01-01"),
-  cap: 0,
+  cappingSettings: {
+    capping: "",
+    value: 0
+  },
+  windowSettings: {
+    window: "conversion",
+    delayHours: 0,
+    windowValue: 72,
+    windowUnit: "hours"
+  },
   column: "",
   conditions: [],
-  conversionWindowHours: 72,
-  earlyStart: false,
   ignoreNulls: false,
   inverse: false,
   loseRisk: 0.0125,
@@ -47,10 +54,17 @@ metrics["revenue"] = {
   column: "",
   inverse: false,
   ignoreNulls: false,
-  cap: 0,
+  cappingSettings: {
+    capping: "",
+    value: 0
+  },
+  windowSettings: {
+    window: "conversion",
+    delayHours: 2.5,
+    windowValue: 72,
+    windowUnit: "hours"
+  },
   denominator: "",
-  conversionWindowHours: 72,
-  conversionDelayHours: 2.5,
   sql:
     "SELECT\n  userid user_id,\n  anonymousid anonymous_id,\n  timestamp,\n  amount as value\nFROM\n  orders",
   aggregation: "",
@@ -96,10 +110,17 @@ metrics["conversions"] = {
   column: "",
   inverse: false,
   ignoreNulls: false,
-  cap: 0,
   denominator: "met_r1",
-  conversionWindowHours: 72,
-  conversionDelayHours: 0,
+  cappingSettings: {
+    capping: "",
+    value: 0
+  },
+  windowSettings: {
+    window: "conversion",
+    delayHours: 0,
+    windowValue: 72,
+    windowUnit: "hours"
+  },
   sql:
     "SELECT\n  userid user_id,\n  anonymousid anonymous_id,\n  timestamp\nFROM\n  orders",
   aggregation: "",
@@ -145,10 +166,17 @@ metrics["testvar"] = {
   column: "",
   inverse: false,
   ignoreNulls: false,
-  cap: 0,
   denominator: "met_c1",
-  conversionWindowHours: 72,
-  conversionDelayHours: 0,
+  cappingSettings: {
+    capping: "",
+    value: 0
+  },
+  windowSettings: {
+    window: "conversion",
+    delayHours: 0,
+    windowValue: 72,
+    windowUnit: "hours"
+  },
   sql:
     "SELECT\n  userid user_id,\n  anonymousid anonymous_id,\n  1 value,\n  timestamp\nFROM\n  orders",
   aggregation: "COUNT(value) + 1",
@@ -184,7 +212,7 @@ experiments["exp1"] = {
   metricOverrides: [
     {
       id: "met_c1",
-      conversionDelayHours: 2,
+      delayHours: 2,
       regressionAdjustmentDays: 12,
       regressionAdjustmentOverride: true,
       regressionAdjustmentEnabled: true,

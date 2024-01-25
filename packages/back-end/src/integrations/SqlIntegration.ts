@@ -1995,9 +1995,6 @@ export default abstract class SqlIntegration
     // If a fact metric has disabled conversion windows, always use "Experiment Duration"
     if (!metric.windowSettings.window) {
       ignoreConversionEnd = true;
-      if(metric.name === "Purchases (pctile cap, ignore zeros)") {
-        console.dir(metric.windowSettings);
-      }
     }
 
     // Get capping settings and final coalesce statement
@@ -3157,6 +3154,7 @@ AND event_name = '${eventName}'`,
   }
 
   // Only include users who entered the experiment before this timestamp
+  // TODO fix here
   private getExperimentEndDate(
     settings: ExperimentSnapshotSettings,
     conversionWindowHours: number

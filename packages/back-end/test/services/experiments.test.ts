@@ -763,9 +763,12 @@ describe("experiments utils", () => {
           },
           behavior: {
             goal: "decrease",
-            conversionWindowStart: 10,
-            conversionWindowEnd: 50,
-            cap: 1337,
+            windowSettings: {
+              window: "lookback",
+              windowUnit: "days",
+              windowValue: 33,
+              delayHours: 5
+            },
             riskThresholdSuccess: 5,
             riskThresholdDanger: 0.5,
             minPercentChange: 1,
@@ -815,13 +818,70 @@ describe("experiments utils", () => {
         expect(result.minPercentChange).toEqual(1);
         expect(result.maxPercentChange).toEqual(50);
         expect(result.minSampleSize).toEqual(200);
-        expect(result.capping).toEqual("absolute");
-        expect(result.capValue).toEqual(1337);
-        expect(result.conversionWindowHours).toEqual(40);
-        expect(result.conversionDelayHours).toEqual(10);
+        expect(result.cappingSettings.capping).toEqual("");
+        expect(result.cappingSettings.value).toEqual(0);
+        expect(result.windowSettings.window).toEqual("lookback");
+        expect(result.windowSettings.windowValue).toEqual(33);
+        expect(result.windowSettings.windowUnit).toEqual("days");
+        expect(result.windowSettings.delayHours).toEqual(5);
         expect(result.column).toEqual("signed_up");
       });
+
+      it("should handle deprecated fields when building a MetricInterface from a postMetric payload", () => {
+        const input: z.infer<typeof postMetricValidator.bodySchema> = {
+          datasourceId: "ds_abc123",
+          tags: ["checkout"],
+          projects: ["proj_abc987"],
+          sqlBuilder: {
+            tableName: "users",
+            timestampColumnName: "created_at",
+            valueColumnName: "signed_up",
+            conditions: [
+              {
+                value: "true",
+                operator: "=",
+                column: "signed_up",
+              },
+            ],
+            identifierTypeColumns: [
+              {
+                columnName: "id",
+                identifierType: "string",
+              },
+            ],
+          },
+          behavior: {
+            goal: "decrease",
+            conversionWindowStart: 10,
+            conversionWindowEnd: 50,
+            cap: 1337,
+            riskThresholdSuccess: 5,
+            riskThresholdDanger: 0.5,
+            minPercentChange: 1,
+            maxPercentChange: 50,
+            minSampleSize: 200,
+          },
+          name: "My Cool Metric",
+          description: "This is a metric with lots of fields",
+          type: "count",
+        };
+  
+        const result = postMetricApiPayloadToMetricInterface(
+          input,
+          organization,
+          datasource
+        );
+  
+        expect(result.cappingSettings.capping).toEqual("absolute");
+        expect(result.cappingSettings.value).toEqual(1337);
+        expect(result.windowSettings.window).toEqual("conversion");
+        expect(result.windowSettings.windowValue).toEqual(40);
+        expect(result.windowSettings.windowUnit).toEqual("hours");
+        expect(result.windowSettings.delayHours).toEqual(10);
+      });
     });
+
+  });
 
     describe("mixpanel datasource", () => {
       const datasource: Pick<DataSourceInterface, "type"> = {
@@ -986,10 +1046,11 @@ describe("experiments utils", () => {
         expect(result.minPercentChange).toEqual(1);
         expect(result.maxPercentChange).toEqual(50);
         expect(result.minSampleSize).toEqual(200);
-        expect(result.capping).toEqual("absolute");
-        expect(result.capValue).toEqual(1337);
-        expect(result.conversionWindowHours).toEqual(40);
-        expect(result.conversionDelayHours).toEqual(10);
+        expect(result.cappingSettings?.capping).toEqual("absolute");
+        expect(result.cappingSettings?.value).toEqual(1337);
+        expect(result.windowSettings?.windowValue).toEqual(40);
+        expect(result.windowSettings?.windowUnit).toEqual("hours");
+        expect(result.windowSettings?.delayHours).toEqual(10);
         expect(result.column).toEqual("signed_up");
       });
     });
@@ -1060,4 +1121,3 @@ describe("experiments utils", () => {
       });
     });
   });
-});

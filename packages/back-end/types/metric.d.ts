@@ -83,7 +83,12 @@ export interface MetricInterface {
   queryFormat?: "sql" | "builder";
 }
 
-export type LegacyMetricInterface = MetricInterface & {
+export type LegacyMetricInterface = Omit<MetricInterface, "cappingSettings" | "windowSettings"> & {
+  // make new mandatory fields optional
+  cappingSettings?: MetricCappingSettings;
+  windowSettings?: MetricWindowSettings;
+
+  // keep old fields around for migration
   cap?: number;
   capping?: CappingType;
   capValue?: number;

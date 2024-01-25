@@ -85,7 +85,7 @@ export function upgradeFactMetricDoc(
 }
 
 export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
-  const newDoc: MetricInterface = { ...doc };
+  const newDoc = cloneDeep(doc);
 
   if (doc.windowSettings === undefined) {
     if (doc.conversionDelayHours == null && doc.earlyStart) {
@@ -144,7 +144,14 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
     }
   }
 
-  return newDoc;
+  // delete old fields
+  delete newDoc.cap;
+  delete newDoc.capping;
+  delete newDoc.capValue;
+  delete newDoc.conversionDelayHours;
+  delete newDoc.conversionWindowHours;
+
+  return newDoc as MetricInterface;
 }
 
 export function getDefaultExperimentQuery(
