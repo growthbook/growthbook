@@ -304,13 +304,6 @@ const MetricForm: FC<MetricFormProps> = ({
     validDatasources.find((d) => d.id === initialDatasourceId) ||
     validDatasources[0];
 
-  // TODO move
-  // const defaultWindowSettings: MetricWindowSettings = {
-  //   type: "conversion",
-  //   delayHours: 0,
-  //   windowValue: getDefaultConversionWindowHours(),
-  //   windowUnit: "hours",
-  // };
   const form = useForm({
     defaultValues: {
       datasource: initialDatasource?.id || "",
@@ -524,7 +517,6 @@ const MetricForm: FC<MetricFormProps> = ({
     if (value.loseRisk < value.winRisk) return;
 
     const body = JSON.stringify(sendValue);
-
     if (edit) {
       await apiCall(`/metric/${current.id}`, {
         method: "PUT",

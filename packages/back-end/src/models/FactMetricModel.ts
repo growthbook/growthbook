@@ -34,12 +34,12 @@ const factTableSchema = new mongoose.Schema({
   },
 
   cappingSettings: {
-    type: String,
+    type: { type: String },
     value: Number,
     ignoreZeros: Boolean,
   },
   windowSettings: {
-    type: String,
+    type: { type: String },
     delayHours: Number,
     windowValue: Number,
     windowUnit: String,
