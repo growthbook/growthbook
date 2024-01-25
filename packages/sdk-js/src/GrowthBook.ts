@@ -753,7 +753,7 @@ export class GrowthBook<
 
         // For experiment rules, run an experiment
         const exp: Experiment<V> = {
-          variations: rule.variations as [V, V, ...V[], V],
+          variations: rule.variations as [V, V, ...V[]],
           key: rule.key || id,
         };
         if ("coverage" in rule) exp.coverage = rule.coverage;
