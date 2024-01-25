@@ -1,0 +1,17 @@
+type: object
+required:
+  - codeRefs
+properties:
+  codeRefs:
+    type: array
+    items:
+      type: object
+      properties:
+        startingLineNumber:
+          type: integer
+        lines:
+          type: string
+        flagKey:
+          type: string
+        contentHash:
+          type: string

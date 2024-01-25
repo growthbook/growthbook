@@ -239,3 +239,9 @@ export const putOrganizationValidator = {
   querySchema: z.never(),
   paramsSchema: z.object({"id":z.string()}).strict(),
 };
+
+export const postCodeRefsValidator = {
+  bodySchema: z.object({"codeRefs":z.array(z.object({"startingLineNumber":z.number().int().optional(),"lines":z.string().optional(),"flagKey":z.string().optional(),"contentHash":z.string().optional()}))}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};

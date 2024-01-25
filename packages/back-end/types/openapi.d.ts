@@ -199,6 +199,10 @@ export interface paths {
     /** Edit a single organization (only for super admins on multi-org Enterprise Plan only) */
     put: operations["putOrganization"];
   };
+  "/code-refs": {
+    /** Submit list of code references */
+    post: operations["postCodeRefs"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -4422,6 +4426,30 @@ export interface operations {
       };
     };
   };
+  postCodeRefs: {
+    /** Submit list of code references */
+    requestBody: {
+      content: {
+        "application/json": {
+          codeRefs: ({
+              startingLineNumber?: number;
+              lines?: string;
+              flagKey?: string;
+              contentHash?: string;
+            })[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            featuresUpdated?: (string)[];
+          };
+        };
+      };
+    };
+  };
 }
 
 // Schemas
@@ -4489,3 +4517,4 @@ export type DeleteSavedGroupResponse = operations["deleteSavedGroup"]["responses
 export type ListOrganizationsResponse = operations["listOrganizations"]["responses"]["200"]["content"]["application/json"];
 export type PostOrganizationResponse = operations["postOrganization"]["responses"]["200"]["content"]["application/json"];
 export type PutOrganizationResponse = operations["putOrganization"]["responses"]["200"]["content"]["application/json"];
+export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"]["content"]["application/json"];

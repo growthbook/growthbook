@@ -181,6 +181,9 @@ paths:
   /organizations/{id}:
     put:
       $ref: "./paths/putOrganization.yaml"
+  /code-refs:
+    post:
+      $ref: "./paths/postCodeRefs.yaml"
 
   # PLOP_INSERT_PATHS_HERE
 components:

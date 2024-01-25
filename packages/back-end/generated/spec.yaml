@@ -2246,6 +2246,52 @@ paths:
                 properties:
                   organization:
                     $ref: '#/components/schemas/Organization'
+  /code-refs:
+    post:
+      parameters: []
+      tags:
+        - code-refs
+      summary: Submit list of code references
+      operationId: postCodeRefs
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/code-refs \
+              -d '{ "startingLineNumber": 16, "lines": "...", "flagKey": "..." }' \
+              -u secret_abc123DEF456
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - codeRefs
+              properties:
+                codeRefs:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      startingLineNumber:
+                        type: integer
+                      lines:
+                        type: string
+                      flagKey:
+                        type: string
+                      contentHash:
+                        type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  featuresUpdated:
+                    type: array
+                    items:
+                      type: string
 components:
   parameters:
     id:
