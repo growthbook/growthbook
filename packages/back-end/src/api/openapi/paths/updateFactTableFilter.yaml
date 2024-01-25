@@ -26,5 +26,5 @@ responses:
           required:
             - factTableFilter
           properties:
-            factTable:
+            factTableFilter:
               $ref: "../schemas/FactTableFilter.yaml"

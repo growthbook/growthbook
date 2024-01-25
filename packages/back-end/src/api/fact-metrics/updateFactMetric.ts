@@ -116,7 +116,10 @@ export const updateFactMetric = createApiRequestHandler(
     }
 
     return {
-      factMetric: toFactMetricApiInterface(factMetric),
+      factMetric: toFactMetricApiInterface({
+        ...factMetric,
+        ...updates,
+      }),
     };
   }
 );

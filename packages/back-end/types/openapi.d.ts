@@ -4865,7 +4865,7 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            factTable?: {
+            factTableFilter: {
               id: string;
               name: string;
               description: string;

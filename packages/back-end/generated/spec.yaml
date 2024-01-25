@@ -2578,7 +2578,7 @@ paths:
                 required:
                   - factTableFilter
                 properties:
-                  factTable:
+                  factTableFilter:
                     $ref: '#/components/schemas/FactTableFilter'
     delete:
       parameters:

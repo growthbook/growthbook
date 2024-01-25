@@ -8,10 +8,13 @@ import { getFactMetricValidator } from "../../validators/openapi";
 
 export const getFactMetric = createApiRequestHandler(getFactMetricValidator)(
   async (req): Promise<GetFactMetricResponse> => {
-    const factMetric = await findFactMetricById(
-      req.organization.id,
-      req.params.id
-    );
+    let id = req.params.id;
+    // Add `fact__` prefix if it doesn't exist
+    if (!id.startsWith("fact__")) {
+      id = `fact__${id}`;
+    }
+
+    const factMetric = await findFactMetricById(req.organization.id, id);
     if (!factMetric) {
       throw new Error("Could not find factMetric with that id");
     }

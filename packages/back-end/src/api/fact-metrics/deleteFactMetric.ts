@@ -10,7 +10,13 @@ export const deleteFactMetric = createApiRequestHandler(
   deleteFactMetricValidator
 )(
   async (req): Promise<DeleteFactMetricResponse> => {
-    const factMetric = await getFactMetric(req.organization.id, req.params.id);
+    let id = req.params.id;
+    // Add `fact__` prefix if it doesn't exist
+    if (!id.startsWith("fact__")) {
+      id = `fact__${id}`;
+    }
+
+    const factMetric = await getFactMetric(req.organization.id, id);
     if (!factMetric) {
       throw new Error(
         "Unable to delete - Could not find factMetric with that id"
@@ -21,7 +27,7 @@ export const deleteFactMetric = createApiRequestHandler(
     await deleteFactMetricInDb(factMetric);
 
     return {
-      deletedId: req.params.id,
+      deletedId: id,
     };
   }
 );

@@ -27,7 +27,7 @@ export const updateFactTableFilter = createApiRequestHandler(
     newFilters[filterIndex] = { ...newFilters[filterIndex], ...req.body };
 
     return {
-      factTable: toFactTableFilterApiInterface(
+      factTableFilter: toFactTableFilterApiInterface(
         { ...factTable, filters: newFilters },
         req.params.id
       ),
