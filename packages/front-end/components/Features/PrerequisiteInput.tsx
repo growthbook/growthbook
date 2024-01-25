@@ -16,7 +16,6 @@ interface Props {
   defaultValue: string;
   onChange: (value: string) => void;
   parentFeature?: FeatureInterface;
-  showPassIfLabel?: boolean;
 }
 
 export default function PrerequisiteInput(props: Props) {
@@ -60,12 +59,10 @@ export default function PrerequisiteInput(props: Props) {
 
   if (advanced || !parentValueMap.size || !simpleAllowed) {
     return (
-      <div className={`${!props.showPassIfLabel && "ml-1"}`}>
+      <div className="ml-1">
         <CodeTextArea
           label={
-            props.showPassIfLabel ? (
-              <span className="text-main">PASS IF</span>
-            ) : undefined
+            <span className="text-main">PASS IF</span>
           }
           language="json"
           value={value}
@@ -206,30 +203,18 @@ export default function PrerequisiteInput(props: Props) {
           return (
             <li key={i} className={`${styles.listitem} py-0`}>
               <div
-                className={`row ${props.showPassIfLabel ? "ml-3" : "pl-1"} ${
-                  styles.listrow
-                }`}
+                className="d-flex align-items-center mb-2"
               >
-                {props.showPassIfLabel && (
-                  <span className={styles.passif}>PASS IF</span>
-                )}
-                <div
-                  className={`${props.showPassIfLabel ? "col" : "col-auto"}`}
-                >
-                  <div className="appbox bg-light mb-0 px-2 py-2">
-                    {field === "@parent" ? (
-                      <>
-                        value
-                        <Tooltip
-                          className="ml-1"
-                          body="The evaluated value of the prerequisite feature"
-                        />
-                      </>
-                    ) : (
-                      field
-                    )}
+                <div className={styles.passif}>PASS IF</div>
+                {!advanced && (
+                  <div className="ml-2">
+                    <div className="appbox bg-main-color mb-0 px-2 py-1">
+                      {field === "@parent" ? "value" : field}
+                    </div>
                   </div>
-                </div>
+                )}
+              </div>
+              <div className="col">
                 <div className="col-sm-12 col-md">
                   <SelectField
                     value={operator}

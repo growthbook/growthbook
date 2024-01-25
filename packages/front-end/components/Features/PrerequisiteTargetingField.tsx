@@ -74,122 +74,144 @@ export default function PrerequisiteTargetingField({
 
                 return (
                   <li key={i} className={styles.listitem}>
-                    <div className="row">
-                      <div className="col-auto">
-                        <div className={`ml-2 ${styles.passif}`}>IF</div>
+                    <div className="row mb-1">
+                      <div className="col">
+                        <label className="mb-0">Feature</label>
                       </div>
-                      <div className="col-3 ml-3 pr-1">
-                        <div className="">
-                          <SelectField
-                            placeholder="Select feature"
-                            options={featureOptions}
-                            value={v.id}
-                            onChange={(v) => {
-                              setValue([
-                                ...value.slice(0, i),
-                                {
-                                  id: v,
-                                  condition: "",
-                                },
-                                ...value.slice(i + 1),
-                              ]);
-                            }}
-                            key={`parentId-${i}`}
-                            sort={false}
-                          />
-                        </div>
-                        {parentFeature ? (
-                          <div className="col-auto d-flex align-items-center">
-                            <div className="mr-3 nowrap text-info cursor-pointer">
-                              <Tooltip
-                                popperStyle={{ minWidth: 450, maxWidth: 650 }}
-                                body={
-                                  <table className="table mb-0">
-                                    <thead className="uppercase-title text-muted">
-                                      <tr>
-                                        <th className="border-top-0">Type</th>
-                                        <th className="border-top-0">
-                                          Default value
-                                        </th>
-                                        <th className="border-top-0">
-                                          Environments
-                                        </th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      <tr>
-                                        <td>
-                                          {parentFeature.valueType === "json"
-                                            ? "JSON"
-                                            : parentFeature.valueType}
-                                        </td>
-                                        <td>
-                                          <div
-                                            className={clsx({
-                                              small:
-                                                parentFeature.valueType ===
-                                                "json",
-                                            })}
-                                          >
-                                            <ValueDisplay
-                                              value={getFeatureDefaultValue(
-                                                parentFeature
-                                              )}
-                                              type={parentFeature.valueType}
-                                              full={false}
-                                            />
+                      <div className="col-md-auto col-sm-12">
+                        <button
+                          className="btn btn-link py-0 text-danger"
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setValue([
+                              ...value.slice(0, i),
+                              ...value.slice(i + 1),
+                            ]);
+                          }}
+                        >
+                          remove
+                        </button>
+                      </div>
+                    </div>
+                    <div className="row">
+                      <div className="col">
+                        <SelectField
+                          placeholder="Select feature"
+                          options={featureOptions}
+                          value={v.id}
+                          onChange={(v) => {
+                            setValue([
+                              ...value.slice(0, i),
+                              {
+                                id: v,
+                                condition: "",
+                              },
+                              ...value.slice(i + 1),
+                            ]);
+                          }}
+                          key={`parentId-${i}`}
+                          sort={false}
+                        />
+                      </div>
+                    </div>
+
+                    {parentFeature ? (
+                      <div className="d-flex align-items-center">
+                        <div className="mr-3 nowrap text-info cursor-pointer">
+                          <Tooltip
+                            popperStyle={{minWidth: 450, maxWidth: 650}}
+                            body={
+                              <table className="table mb-0">
+                                <thead className="uppercase-title text-muted">
+                                <tr>
+                                  <th className="border-top-0">Type</th>
+                                  <th className="border-top-0">
+                                    Default value
+                                  </th>
+                                  <th className="border-top-0">
+                                    Environments
+                                  </th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr>
+                                  <td>
+                                    {parentFeature.valueType === "json"
+                                      ? "JSON"
+                                      : parentFeature.valueType}
+                                  </td>
+                                  <td>
+                                    <div
+                                      className={clsx({
+                                        small:
+                                          parentFeature.valueType ===
+                                          "json",
+                                      })}
+                                    >
+                                      <ValueDisplay
+                                        value={getFeatureDefaultValue(
+                                          parentFeature
+                                        )}
+                                        type={parentFeature.valueType}
+                                        full={false}
+                                      />
+                                    </div>
+                                  </td>
+                                  <td>
+                                    <div className="d-flex small">
+                                      {environments.map((env) => (
+                                        <div
+                                          key={env.id}
+                                          className="mr-3"
+                                        >
+                                          <div className="font-weight-bold">
+                                            {env.id}
                                           </div>
-                                        </td>
-                                        <td>
-                                          <div className="d-flex small">
-                                            {environments.map((env) => (
-                                              <div
-                                                key={env.id}
-                                                className="mr-3"
-                                              >
-                                                <div className="font-weight-bold">
-                                                  {env.id}
-                                                </div>
-                                                <div>
-                                                  {parentFeature
-                                                    ?.environmentSettings?.[
-                                                    env.id
-                                                  ]?.enabled ? (
-                                                    <span className="text-success font-weight-bold uppercase-title">
+                                          <div>
+                                            {parentFeature
+                                              ?.environmentSettings?.[
+                                              env.id
+                                              ]?.enabled ? (
+                                              <span className="text-success font-weight-bold uppercase-title">
                                                       ON
                                                     </span>
-                                                  ) : (
-                                                    <span className="text-danger font-weight-bold uppercase-title">
+                                            ) : (
+                                              <span className="text-danger font-weight-bold uppercase-title">
                                                       OFF
                                                     </span>
-                                                  )}
-                                                </div>
-                                              </div>
-                                            ))}
+                                            )}
                                           </div>
-                                        </td>
-                                      </tr>
-                                    </tbody>
-                                  </table>
-                                }
-                              >
-                                about
-                                <FaInfoCircle className="ml-1" />
-                              </Tooltip>
-                            </div>
-                            <a
-                              className="a nowrap"
-                              href={`/features/${parentFeatureId}`}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              link
-                              <FaExternalLinkAlt className="ml-1" />
-                            </a>
-                          </div>
-                        ) : null}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </td>
+                                </tr>
+                                </tbody>
+                              </table>
+                            }
+                          >
+                            about
+                            <FaInfoCircle className="ml-1"/>
+                          </Tooltip>
+                        </div>
+                        <a
+                          className="a nowrap"
+                          href={`/features/${parentFeatureId}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          link
+                          <FaExternalLinkAlt className="ml-1"/>
+                        </a>
                       </div>
-
+                    ) : null}
+                    {/*<div className="mt-3 d-flex">*/}
+                    {/*  <div className="mr-2">*/}
+                    {/*    <div className="font-weight-semibold" style={{fontSize: "13px"}}>PASS IF</div>*/}
+                    {/*  </div>*/}
+                    {/*</div>*/}
+                    <div className="row mt-3">
                       <div className="col">
                         {parentFeature ? (
                           <PrerequisiteInput
@@ -205,27 +227,12 @@ export default function PrerequisiteTargetingField({
                               ]);
                             }}
                             parentFeature={parentFeature}
-                            showPassIfLabel={false}
                             key={conditionKeys[i]}
                           />
                         ) : null}
                       </div>
 
-                      <div className="col-md-auto col-sm-12">
-                        <button
-                          className="btn btn-link text-danger"
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setValue([
-                              ...value.slice(0, i),
-                              ...value.slice(i + 1),
-                            ]);
-                          }}
-                        >
-                          remove
-                        </button>
-                      </div>
+
                     </div>
                   </li>
                 );

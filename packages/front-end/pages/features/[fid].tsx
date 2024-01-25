@@ -782,14 +782,14 @@ export default function FeaturePage() {
 
       <h3>Top-level Requirements</h3>
       <div className="mb-2">
-        When disabled, feature will evaluate to <code>null</code>. The default
+        When disabled, this feature will evaluate to <code>null</code>. The default
         value and override rules will be ignored.
       </div>
       <div className="mb-4">
         <table className="table border bg-white mb-2" style={{ width: 700 }}>
           <tbody>
-            <tr>
-              <td className="pl-3 align-middle font-weight-bold border-right">
+            <tr className="bg-light">
+              <td className="pl-3 align-bottom font-weight-bold border-right">
                 Kill Switch{" "}
                 <Tooltip
                   body={
@@ -802,12 +802,10 @@ export default function FeaturePage() {
                 />
               </td>
               {envs.map((env) => (
-                <td key={env} className="text-center">
-                  {!prerequisites.length && (
-                    <div className="font-weight-bolder text-dark mb-2">
-                      {env}
-                    </div>
-                  )}
+                <td key={env} className="text-center align-bottom">
+                  <div className="font-weight-bolder text-dark mb-2">
+                    {env}
+                  </div>
                   <EnvironmentToggle
                     feature={feature}
                     environment={env}
@@ -844,20 +842,11 @@ export default function FeaturePage() {
                   }
                 />
               </td>
-              {prerequisites.length > 0 ? (
-                envs.map((env) => (
-                  <td
-                    key={env}
-                    className="text-center font-weight-bolder tet-dark py-2"
-                  >
-                    {env}
-                  </td>
-                ))
-              ) : (
-                <td colSpan={envs.length} className="text-center py-2">
-                  <em className="text-muted">No prerequisites</em>
-                </td>
-              )}
+              <td colSpan={envs.length} className="py-2">
+                {!prerequisites.length && (
+                  <em className="text-muted">No prerequisite features have been added</em>
+                )}
+              </td>
             </tr>
           </tbody>
           {prerequisites.length > 0 && (

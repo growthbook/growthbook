@@ -7,7 +7,7 @@ import {
 import { evaluatePrerequisiteState, PrerequisiteState } from "shared/util";
 import { Environment } from "back-end/types/organization";
 import React, { useMemo } from "react";
-import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
+import {FaRegCircleCheck, FaRegCircleQuestion, FaRegCircleXmark} from "react-icons/fa6";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import usePermissions from "@/hooks/usePermissions";
@@ -181,7 +181,7 @@ export function PrerequisiteStatesCols({
           )}
           {prereqStates?.[env] === "conditional" && (
             <Tooltip
-              className="position-relative cursor-pointer"
+              className="cursor-pointer"
               popperClassName="text-left"
               body={
                 isSummaryRow ? (
@@ -210,12 +210,7 @@ export function PrerequisiteStatesCols({
                 )
               }
             >
-              <FaRegCircleCheck className="text-success" size={24} />
-              <FaInfoCircle
-                className="text-indigo position-absolute"
-                style={{ top: -10, right: -8 }}
-                size={16}
-              />
+              <FaRegCircleQuestion className="text-purple" size={24} />
             </Tooltip>
           )}
           {prereqStates?.[env] === "cyclic" && (
