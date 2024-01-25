@@ -15,7 +15,8 @@ import {
   SECRET_API_KEY_ROLE,
 } from "../util/secrets";
 import { roleForApiKey } from "../util/api-key.util";
-import { ReqContext } from "../services/organizations";
+import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "../../types/api";
 import { findAllOrganizations } from "./OrganizationModel";
 
 const apiKeySchema = new mongoose.Schema({
@@ -277,7 +278,7 @@ export async function deleteApiKeyByKey(organization: string, key: string) {
 }
 
 export async function getApiKeyByIdOrKey(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   id: string | undefined,
   key: string | undefined
 ): Promise<ApiKeyInterface | null> {

@@ -7,6 +7,7 @@ import {
   UpdateFactMetricProps,
 } from "../../types/fact-table";
 import { EventAuditUser } from "../events/event-types";
+import { ApiFactMetric } from "../../types/openapi";
 
 const factTableSchema = new mongoose.Schema({
   id: String,
@@ -130,4 +131,58 @@ export async function deleteFactMetric(
     id: factMetric.id,
     organization: factMetric.organization,
   });
+}
+
+export function toFactMetricApiInterface(
+  factMetric: FactMetricInterface
+): ApiFactMetric {
+  const {
+    capValue,
+    capping,
+    conversionDelayHours,
+    conversionWindowUnit,
+    conversionWindowValue,
+    hasConversionWindow,
+    regressionAdjustmentDays,
+    regressionAdjustmentEnabled,
+    regressionAdjustmentOverride,
+    dateCreated,
+    dateUpdated,
+    denominator,
+    ...otherFields
+  } = omit(factMetric, ["organization"]);
+
+  return {
+    ...otherFields,
+    denominator: denominator || undefined,
+    cappingSettings: {
+      type: capping || "none",
+      value: capValue || 0,
+    },
+    windowSettings: {
+      type: hasConversionWindow ? "conversion" : "none",
+      delayHours: conversionDelayHours || 0,
+      ...(hasConversionWindow
+        ? {
+            windowValue: conversionWindowValue || 0,
+            windowUnit: conversionWindowUnit || "hours",
+          }
+        : null),
+    },
+    regressionAdjustmentSettings: {
+      override: regressionAdjustmentOverride || false,
+      ...(regressionAdjustmentOverride
+        ? {
+            enabled: regressionAdjustmentEnabled || false,
+          }
+        : null),
+      ...(regressionAdjustmentOverride && regressionAdjustmentEnabled
+        ? {
+            days: regressionAdjustmentDays || 0,
+          }
+        : null),
+    },
+    dateCreated: dateCreated?.toISOString() || "",
+    dateUpdated: dateUpdated?.toISOString() || "",
+  };
 }

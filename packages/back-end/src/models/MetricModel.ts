@@ -3,9 +3,10 @@ import { ExperimentMetricInterface } from "shared/experiments";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import { getConfigMetrics, usingFileConfig } from "../init/config";
 import { upgradeMetricDoc } from "../util/migrations";
-import { OrganizationInterface } from "../../types/organization";
 import { EventAuditUser } from "../events/event-types";
 import { ALLOW_CREATE_METRICS } from "../util/secrets";
+import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "../../types/api";
 import { queriesSchema } from "./QueryModel";
 import { ImpactEstimateModel } from "./ImpactEstimateModel";
 import { removeMetricFromExperiments } from "./ExperimentModel";
@@ -143,7 +144,7 @@ export async function insertMetrics(
 
 export async function deleteMetricById(
   metric: MetricInterface,
-  org: OrganizationInterface,
+  context: ReqContext | ApiReqContext,
   user: EventAuditUser
 ) {
   if (metric.managedBy === "config") {
@@ -158,17 +159,17 @@ export async function deleteMetricById(
   await ImpactEstimateModel.updateMany(
     {
       metric: metric.id,
-      organization: org.id,
+      organization: context.org.id,
     },
     { metric: "" }
   );
 
   // Experiments
-  await removeMetricFromExperiments(metric.id, org, user);
+  await removeMetricFromExperiments(metric.id, context, user);
 
   await MetricModel.deleteOne({
     id: metric.id,
-    organization: org.id,
+    organization: context.org.id,
   });
 }
 
@@ -180,20 +181,20 @@ export async function deleteMetricById(
  */
 export async function deleteAllMetricsForAProject({
   projectId,
-  organization,
+  context,
   user,
 }: {
   projectId: string;
-  organization: OrganizationInterface;
+  context: ReqContext | ApiReqContext;
   user: EventAuditUser;
 }) {
   const metricsToDelete = await MetricModel.find({
-    organization: organization.id,
+    organization: context.org.id,
     projects: [projectId],
   });
 
   for (const metric of metricsToDelete) {
-    await deleteMetricById(metric, organization, user);
+    await deleteMetricById(metric, context, user);
   }
 }
 

@@ -12,6 +12,7 @@ import {
 import { validateCondition, validateFeatureValue } from "shared/util";
 import { scrubFeatures, SDKCapability } from "shared/sdk-versioning";
 import {
+  ApiReqContext,
   AutoExperimentWithProject,
   FeatureDefinition,
   FeatureDefinitionWithProject,
@@ -36,29 +37,25 @@ import { getAllSavedGroups } from "../models/SavedGroupModel";
 import {
   Environment,
   OrganizationInterface,
+  ReqContext,
   SDKAttribute,
   SDKAttributeSchema,
 } from "../../types/organization";
 import { getSDKPayload, updateSDKPayload } from "../models/SdkPayloadModel";
 import { logger } from "../util/logger";
 import { promiseAllChunks } from "../util/promise";
-import { queueWebhook } from "../jobs/webhooks";
 import { GroupMap } from "../../types/saved-group";
 import { SDKPayloadKey } from "../../types/sdk-payload";
-import { queueProxyUpdate } from "../jobs/proxyUpdate";
 import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
-import {
-  getSurrogateKeysFromEnvironments,
-  purgeCDNCache,
-} from "../util/cdn.util";
 import {
   ApiFeatureEnvSettings,
   ApiFeatureEnvSettingsRules,
 } from "../api/features/postFeature";
 import { ArchetypeAttributeValues } from "../../types/archetype";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
+import { triggerWebhookJobs } from "../jobs/updateAllJobs";
 import { getEnvironmentIdsFromOrg, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
@@ -213,20 +210,20 @@ export async function getSavedGroupMap(
 }
 
 export async function refreshSDKPayloadCache(
-  organization: OrganizationInterface,
+  context: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[],
   allFeatures: FeatureInterface[] | null = null,
   experimentMap?: Map<string, ExperimentInterface>,
   skipRefreshForProject?: string
 ) {
   logger.debug(
-    `Refreshing SDK Payloads for ${organization.id}: ${JSON.stringify(
+    `Refreshing SDK Payloads for ${context.org.id}: ${JSON.stringify(
       payloadKeys
     )}`
   );
 
   // Ignore any old environments which don't exist anymore
-  const allowedEnvs = new Set(getEnvironmentIdsFromOrg(organization));
+  const allowedEnvs = new Set(getEnvironmentIdsFromOrg(context.org));
   payloadKeys = payloadKeys.filter((k) => allowedEnvs.has(k.environment));
 
   // Remove any projects to skip
@@ -242,12 +239,11 @@ export async function refreshSDKPayloadCache(
     return;
   }
 
-  experimentMap =
-    experimentMap || (await getAllPayloadExperiments(organization.id));
-  const groupMap = await getSavedGroupMap(organization);
-  allFeatures = allFeatures || (await getAllFeatures(organization.id));
+  experimentMap = experimentMap || (await getAllPayloadExperiments(context));
+  const groupMap = await getSavedGroupMap(context.org);
+  allFeatures = allFeatures || (await getAllFeatures(context.org.id));
   const allVisualExperiments = await getAllVisualExperiments(
-    organization.id,
+    context,
     experimentMap
   );
 
@@ -272,9 +268,9 @@ export async function refreshSDKPayloadCache(
     });
 
     promises.push(async () => {
-      logger.debug(`Updating SDK Payload for ${organization.id} ${env}`);
+      logger.debug(`Updating SDK Payload for ${context.org.id} ${env}`);
       await updateSDKPayload({
-        organization: organization.id,
+        organization: context.org.id,
         environment: env,
         featureDefinitions,
         experimentsDefinitions,
@@ -290,20 +286,7 @@ export async function refreshSDKPayloadCache(
   // Batch the promises in chunks of 4 at a time to avoid overloading Mongo
   await promiseAllChunks(promises, 4);
 
-  // Purge CDN if used
-  // Do this before firing webhooks in case a webhook tries fetching the latest payload from the CDN
-  // Only purge the specific payloads that are affected
-  const surrogateKeys = getSurrogateKeysFromEnvironments(organization.id, [
-    ...environments,
-  ]);
-
-  await purgeCDNCache(organization.id, surrogateKeys);
-
-  // After the SDK payloads are updated, fire any webhooks on the organization
-  await queueWebhook(organization.id, payloadKeys, true);
-
-  // Update any Proxy servers that are affected by this change
-  await queueProxyUpdate(organization.id, payloadKeys);
+  triggerWebhookJobs(context, payloadKeys, environments, true);
 }
 
 export type FeatureDefinitionsResponseArgs = {
@@ -425,7 +408,7 @@ async function getFeatureDefinitionsResponse({
 }
 
 export type FeatureDefinitionArgs = {
-  organization: string;
+  context: ReqContext | ApiReqContext;
   capabilities: SDKCapability[];
   environment?: string;
   projects?: string[];
@@ -435,6 +418,7 @@ export type FeatureDefinitionArgs = {
   includeExperimentNames?: boolean;
   hashSecureAttributes?: boolean;
 };
+
 export type FeatureDefinitionSDKPayload = {
   features: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
@@ -444,7 +428,7 @@ export type FeatureDefinitionSDKPayload = {
 };
 
 export async function getFeatureDefinitions({
-  organization,
+  context,
   capabilities,
   environment = "production",
   projects,
@@ -457,14 +441,14 @@ export async function getFeatureDefinitions({
   // Return cached payload from Mongo if exists
   try {
     const cached = await getSDKPayload({
-      organization,
+      organization: context.org.id,
       environment,
     });
     if (cached) {
       let attributes: SDKAttributeSchema | undefined = undefined;
       let secureAttributeSalt: string | undefined = undefined;
       if (hashSecureAttributes) {
-        const org = await getOrganizationById(organization);
+        const org = await getOrganizationById(context.org.id);
         if (org && orgHasPremiumFeature(org, "hash-secure-attributes")) {
           secureAttributeSalt = org.settings?.secureAttributeSalt;
           attributes = org.settings?.attributeSchema;
@@ -489,7 +473,7 @@ export async function getFeatureDefinitions({
     logger.error(e, "Failed to fetch SDK payload from cache");
   }
 
-  const org = await getOrganizationById(organization);
+  const org = await getOrganizationById(context.org.id);
   let attributes: SDKAttributeSchema | undefined = undefined;
   let secureAttributeSalt: string | undefined = undefined;
   if (hashSecureAttributes) {
@@ -515,9 +499,9 @@ export async function getFeatureDefinitions({
   }
 
   // Generate the feature definitions
-  const features = await getAllFeatures(organization);
+  const features = await getAllFeatures(context.org.id);
   const groupMap = await getSavedGroupMap(org);
-  const experimentMap = await getAllPayloadExperiments(organization);
+  const experimentMap = await getAllPayloadExperiments(context);
 
   const featureDefinitions = generatePayload({
     features,
@@ -527,7 +511,7 @@ export async function getFeatureDefinitions({
   });
 
   const allVisualExperiments = await getAllVisualExperiments(
-    organization,
+    context,
     experimentMap
   );
 
@@ -540,7 +524,7 @@ export async function getFeatureDefinitions({
 
   // Cache in Mongo
   await updateSDKPayload({
-    organization,
+    organization: context.org.id,
     environment,
     featureDefinitions,
     experimentsDefinitions,

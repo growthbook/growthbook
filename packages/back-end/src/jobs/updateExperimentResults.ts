@@ -16,12 +16,14 @@ import {
   getExperimentMetricById,
   getRegressionAdjustmentInfo,
 } from "../services/experiments";
-import { getConfidenceLevelsForOrg } from "../services/organizations";
+import {
+  getConfidenceLevelsForOrg,
+  getContextForAgendaJobByOrgId,
+} from "../services/organizations";
 import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
 import { getMetricMap } from "../models/MetricModel";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
-import { findOrganizationById } from "../models/OrganizationModel";
 import { logger } from "../util/logger";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { findProjectById } from "../models/ProjectModel";
@@ -110,20 +112,22 @@ export default async function (agenda: Agenda) {
 async function updateSingleExperiment(job: UpdateSingleExpJob) {
   const experimentId = job.attrs.data?.experimentId;
   const orgId = job.attrs.data?.organization;
+
   if (!experimentId || !orgId) return;
 
-  const experiment = await getExperimentById(orgId, experimentId);
-  if (!experiment) return;
+  const context = await getContextForAgendaJobByOrgId(orgId);
 
-  const organization = await findOrganizationById(experiment.organization);
-  if (!organization) return;
+  const { org: organization } = context;
+
+  const experiment = await getExperimentById(context, experimentId);
+  if (!experiment) return;
 
   let project = null;
   if (experiment.project) {
-    project = await findProjectById(experiment.project, organization.id);
+    project = await findProjectById(context, experiment.project);
   }
   const { settings: scopedSettings } = getScopedSettings({
-    organization,
+    organization: context.org,
     project: project ?? undefined,
   });
 
@@ -160,7 +164,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
     const queryRunner = await createSnapshot({
       experiment,
-      organization,
+      context,
       phaseIndex: experiment.phases.length - 1,
       defaultAnalysisSettings: analysisSettings,
       additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
@@ -188,7 +192,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     // If we failed to update the experiment, turn off auto-updating for the future
     try {
       await updateExperiment({
-        organization,
+        context,
         experiment,
         user: null,
         changes: {

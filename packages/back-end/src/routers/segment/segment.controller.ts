@@ -83,7 +83,8 @@ export const getSegmentUsage = async (
   res: Response<GetSegmentUsageResponse, EventAuditUserForResponseLocals>
 ) => {
   const { id } = req.params;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
   const segment = await findSegmentById(id, org.id);
 
@@ -103,7 +104,7 @@ export const getSegmentUsage = async (
   const metrics = await getMetricsUsingSegment(id, org.id);
 
   // experiments:
-  const experiments = await getExperimentsUsingSegment(id, org.id);
+  const experiments = await getExperimentsUsingSegment(id, context);
 
   res.status(200).json({
     ideas,
@@ -266,7 +267,8 @@ export const deleteSegment = async (
   req.checkPermissions("createSegments");
 
   const { id } = req.params;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const segment = await findSegmentById(id, org.id);
 
   if (!segment) {
@@ -293,7 +295,7 @@ export const deleteSegment = async (
   // metrics
   await removeSegmentFromAllMetrics(org.id, id);
 
-  await deleteExperimentSegment(org, res.locals.eventAudit, id);
+  await deleteExperimentSegment(context, res.locals.eventAudit, id);
 
   res.status(200).json({
     status: 200,

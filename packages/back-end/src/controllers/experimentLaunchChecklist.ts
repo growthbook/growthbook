@@ -119,12 +119,12 @@ export async function putManualLaunchChecklist(
   >,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
   const { id } = req.params;
   const { checklist } = req.body;
 
-  const experiment = await getExperimentById(org.id, id);
+  const experiment = await getExperimentById(context, id);
 
   if (!experiment) {
     throw new Error("Could not find experiment");
@@ -135,7 +135,7 @@ export async function putManualLaunchChecklist(
   req.checkPermissions("runExperiments", experiment?.project || "", envs);
 
   await updateExperiment({
-    organization: org,
+    context,
     experiment,
     user: res.locals.eventAudit,
     changes: { manualLaunchChecklist: checklist },

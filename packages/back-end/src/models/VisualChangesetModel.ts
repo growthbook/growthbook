@@ -5,7 +5,7 @@ import uniqid from "uniqid";
 import { hasVisualChanges } from "shared/util";
 import { ExperimentInterface, Variation } from "../../types/experiment";
 import { ApiVisualChangeset } from "../../types/openapi";
-import { OrganizationInterface } from "../../types/organization";
+import { ReqContext } from "../../types/organization";
 import {
   VisualChange,
   VisualChangesetInterface,
@@ -14,6 +14,7 @@ import {
 import { EventAuditUser } from "../events/event-types";
 import { refreshSDKPayloadCache } from "../services/features";
 import { visualChangesetsHaveChanges } from "../services/experiments";
+import { ApiReqContext } from "../../types/api";
 import {
   getExperimentById,
   getPayloadKeys,
@@ -252,14 +253,14 @@ const genNewVisualChange = (variation: Variation): VisualChange => ({
 
 export const createVisualChangeset = async ({
   experiment,
-  organization,
+  context,
   urlPatterns,
   editorUrl,
   visualChanges,
   user,
 }: {
   experiment: ExperimentInterface;
-  organization: OrganizationInterface;
+  context: ReqContext | ApiReqContext;
   urlPatterns: VisualChangesetURLPattern[];
   editorUrl: VisualChangesetInterface["editorUrl"];
   visualChanges?: VisualChange[];
@@ -269,7 +270,7 @@ export const createVisualChangeset = async ({
     await VisualChangesetModel.create({
       id: uniqid("vcs_"),
       experiment: experiment.id,
-      organization: organization.id,
+      organization: context.org.id,
       urlPatterns,
       editorUrl,
       visualChanges:
@@ -280,7 +281,7 @@ export const createVisualChangeset = async ({
   // mark the experiment as having a visual changeset
   if (!experiment.hasVisualChangesets) {
     await updateExperiment({
-      organization,
+      context,
       experiment,
       changes: { hasVisualChangesets: true },
       user,
@@ -289,7 +290,7 @@ export const createVisualChangeset = async ({
   }
 
   await onVisualChangesetCreate({
-    organization,
+    context,
     visualChangeset,
     experiment,
   });
@@ -308,14 +309,14 @@ const _isUpdatingVisualChanges = (
 export const updateVisualChangeset = async ({
   visualChangeset,
   experiment,
-  organization,
+  context,
   updates,
   bypassWebhooks,
   user,
 }: {
   visualChangeset: VisualChangesetInterface;
   experiment: ExperimentInterface | null;
-  organization: OrganizationInterface;
+  context: ReqContext | ApiReqContext;
   updates: Partial<VisualChangesetInterface>;
   bypassWebhooks?: boolean;
   user: EventAuditUser;
@@ -333,7 +334,7 @@ export const updateVisualChangeset = async ({
   const res = await VisualChangesetModel.updateOne(
     {
       id: visualChangeset.id,
-      organization: organization.id,
+      organization: context.org.id,
     },
     {
       $set: {
@@ -346,7 +347,7 @@ export const updateVisualChangeset = async ({
   // double-check that the experiment is marked as having visual changesets
   if (experiment && !experiment.hasVisualChangesets) {
     await updateExperiment({
-      organization,
+      context,
       experiment,
       user,
       changes: { hasVisualChangesets: true },
@@ -361,7 +362,7 @@ export const updateVisualChangeset = async ({
       ...updates,
       ...(isUpdatingVisualChanges ? { visualChanges } : {}),
     },
-    organization,
+    context,
     bypassWebhooks,
   });
 
@@ -369,28 +370,28 @@ export const updateVisualChangeset = async ({
 };
 
 const onVisualChangesetCreate = async ({
-  organization,
+  context,
   visualChangeset,
   experiment,
 }: {
-  organization: OrganizationInterface;
+  context: ReqContext | ApiReqContext;
   visualChangeset: VisualChangesetInterface;
   experiment: ExperimentInterface;
 }) => {
   if (!hasVisualChanges(visualChangeset.visualChanges)) return;
 
-  const payloadKeys = getPayloadKeys(organization, experiment);
+  const payloadKeys = getPayloadKeys(context, experiment);
 
-  await refreshSDKPayloadCache(organization, payloadKeys);
+  await refreshSDKPayloadCache(context, payloadKeys);
 };
 
 const onVisualChangesetUpdate = async ({
-  organization,
+  context,
   oldVisualChangeset,
   newVisualChangeset,
   bypassWebhooks = false,
 }: {
-  organization: OrganizationInterface;
+  context: ReqContext | ApiReqContext;
   oldVisualChangeset: VisualChangesetInterface;
   newVisualChangeset: VisualChangesetInterface;
   bypassWebhooks?: boolean;
@@ -401,22 +402,22 @@ const onVisualChangesetUpdate = async ({
     return;
 
   const experiment = await getExperimentById(
-    organization.id,
+    context,
     newVisualChangeset.experiment
   );
 
   if (!experiment) return;
 
-  const payloadKeys = getPayloadKeys(organization, experiment);
+  const payloadKeys = getPayloadKeys(context, experiment);
 
-  await refreshSDKPayloadCache(organization, payloadKeys);
+  await refreshSDKPayloadCache(context, payloadKeys);
 };
 
 const onVisualChangesetDelete = async ({
-  organization,
+  context,
   visualChangeset,
 }: {
-  organization: OrganizationInterface;
+  context: ReqContext | ApiReqContext;
   visualChangeset: VisualChangesetInterface;
 }) => {
   // if there were no visual changes before deleting, return early
@@ -424,27 +425,27 @@ const onVisualChangesetDelete = async ({
 
   // get payload keys
   const experiment = await getExperimentById(
-    organization.id,
+    context,
     visualChangeset.experiment
   );
 
   if (!experiment) return;
 
-  const payloadKeys = getPayloadKeys(organization, experiment);
+  const payloadKeys = getPayloadKeys(context, experiment);
 
-  await refreshSDKPayloadCache(organization, payloadKeys);
+  await refreshSDKPayloadCache(context, payloadKeys);
 };
 
 // when an experiment adds/removes variations, we need to update the analogous
 // visual changes to be in sync
 export const syncVisualChangesWithVariations = async ({
   experiment,
-  organization,
+  context,
   visualChangeset,
   user,
 }: {
   experiment: ExperimentInterface;
-  organization: OrganizationInterface;
+  context: ReqContext | ApiReqContext;
   visualChangeset: VisualChangesetInterface;
   user: EventAuditUser;
 }) => {
@@ -457,7 +458,7 @@ export const syncVisualChangesWithVariations = async ({
   });
 
   await updateVisualChangeset({
-    organization,
+    context,
     visualChangeset: visualChangeset,
     experiment,
     updates: { visualChanges: newVisualChanges },
@@ -470,28 +471,28 @@ export const syncVisualChangesWithVariations = async ({
 export const deleteVisualChangesetById = async ({
   visualChangeset,
   experiment,
-  organization,
+  context,
   user,
 }: {
   visualChangeset: VisualChangesetInterface;
   experiment: ExperimentInterface | null;
-  organization: OrganizationInterface;
+  context: ReqContext | ApiReqContext;
   user: EventAuditUser;
 }) => {
   await VisualChangesetModel.deleteOne({
     id: visualChangeset.id,
-    organization: organization.id,
+    organization: context.org.id,
   });
 
   // if experiment has no more visual changesets, update experiment
   const remainingVisualChangesets = await findVisualChangesetsByExperiment(
     visualChangeset.experiment,
-    organization.id
+    context.org.id
   );
   if (remainingVisualChangesets.length === 0) {
     if (experiment && experiment.hasVisualChangesets) {
       await updateExperiment({
-        organization,
+        context,
         experiment,
         changes: { hasVisualChangesets: false },
         bypassWebhooks: true,
@@ -501,7 +502,7 @@ export const deleteVisualChangesetById = async ({
   }
 
   await onVisualChangesetDelete({
-    organization,
+    context,
     visualChangeset,
   });
 };

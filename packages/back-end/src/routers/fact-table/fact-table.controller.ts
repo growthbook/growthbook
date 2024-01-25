@@ -36,6 +36,7 @@ import {
 import { getSourceIntegrationObject } from "../../services/datasource";
 import { getDataSourceById } from "../../models/DataSourceModel";
 import { DataSourceInterface } from "../../../types/datasource";
+import { runRefreshColumnsQuery } from "../../jobs/refreshFactTableColumns";
 
 export const getFactTables = async (
   req: AuthRequest,
@@ -99,8 +100,15 @@ export const postFactTable = async (
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
+  req.checkPermissions("runQueries", datasource.projects || "");
 
-  data.columns = [];
+  data.columns = await runRefreshColumnsQuery(
+    datasource,
+    data as FactTableInterface
+  );
+  if (!data.columns.length) {
+    throw new Error("SQL did not return any rows");
+  }
 
   const factTable = await createFactTable(org.id, data);
   if (data.tags.length > 0) {
@@ -131,7 +139,25 @@ export const putFactTable = async (
     req.checkPermissions("manageFactTables", data.projects || "");
   }
 
+  const datasource = await getDataSourceById(factTable.datasource, org.id);
+  if (!datasource) {
+    throw new Error("Could not find datasource");
+  }
+  req.checkPermissions("runQueries", datasource.projects || "");
+
+  // Update the columns
+  data.columns = await runRefreshColumnsQuery(datasource, {
+    ...factTable,
+    ...data,
+  } as FactTableInterface);
+  data.columnsError = null;
+
+  if (!data.columns.some((col) => !col.deleted)) {
+    throw new Error("SQL did not return any rows");
+  }
+
   await updateFactTable(factTable, data, req.auditUser);
+
   await addTagsDiff(org.id, factTable.tags, data.tags || []);
 
   res.status(200).json({

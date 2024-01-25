@@ -108,7 +108,8 @@ export const putSavedGroup = async (
   req: PutSavedGroupRequest,
   res: Response<PutSavedGroupResponse | ApiErrorResponse>
 ) => {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { groupName, owner, values, condition } = req.body;
   const { id } = req.params;
 
@@ -179,7 +180,7 @@ export const putSavedGroup = async (
 
   // If the values or condition change, we need to invalidate cached feature rules
   if (fieldsToUpdate.condition || fieldsToUpdate.values) {
-    savedGroupUpdated(org, savedGroup.id);
+    savedGroupUpdated(context, savedGroup.id);
   }
 
   return res.status(200).json({

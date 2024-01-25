@@ -37,6 +37,28 @@ export type ReadAccessFilter = {
   projects: { id: string; readAccess: boolean }[];
 };
 
+// there are some cases, like in async jobs, where we need to provide the job with full access permission. E.G. updateScheduledFeature
+export const FULL_ACCESS_PERMISSIONS: ReadAccessFilter = {
+  globalReadAccess: true,
+  projects: [],
+};
+
+export function getApiKeyReadAccessFilter(
+  role: string | undefined
+): ReadAccessFilter {
+  let readAccessFilter: ReadAccessFilter = {
+    globalReadAccess: false,
+    projects: [],
+  };
+
+  // Eventually, we may support API keys that don't have readAccess for all projects
+  if (role && (role === "admin" || role === "readonly")) {
+    readAccessFilter = FULL_ACCESS_PERMISSIONS;
+  }
+
+  return readAccessFilter;
+}
+
 export function getReadAccessFilter(userPermissions: UserPermissions) {
   const readAccess: ReadAccessFilter = {
     globalReadAccess: userPermissions.global.permissions.readData || false,

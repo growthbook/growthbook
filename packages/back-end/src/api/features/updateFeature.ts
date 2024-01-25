@@ -152,7 +152,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     const updatedFeature = await updateFeatureToDb(
-      req.organization,
+      req.context,
       req.eventAudit,
       feature,
       updates
@@ -176,7 +176,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     const groupMap = await getSavedGroupMap(req.organization);
 
     const experimentMap = await getExperimentMapForFeature(
-      req.organization.id,
+      req.context,
       feature.id
     );
 

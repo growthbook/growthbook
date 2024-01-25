@@ -1,7 +1,10 @@
 import { randomBytes } from "crypto";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
-import { ReadAccessFilter, getReadAccessFilter } from "shared/permissions";
+import {
+  FULL_ACCESS_PERMISSIONS,
+  getReadAccessFilter,
+} from "shared/permissions";
 import {
   createOrganization,
   findAllOrganizations,
@@ -23,8 +26,9 @@ import {
   OrganizationInterface,
   PendingMember,
   ProjectMemberRole,
+  ReqContext,
 } from "../../types/organization";
-import { ExperimentOverride } from "../../types/api";
+import { ApiReqContext, ExperimentOverride } from "../../types/api";
 import { ConfigFile } from "../init/config";
 import {
   createDataSource,
@@ -98,15 +102,6 @@ export function validateLoginMethod(
 
   return true;
 }
-
-export type ReqContext = {
-  org: OrganizationInterface;
-  userId: string;
-  email: string;
-  environments: string[];
-  userName: string;
-  readAccessFilter: ReadAccessFilter;
-};
 
 export function getContextFromReq(req: AuthRequest): ReqContext {
   if (!req.organization) {
@@ -803,10 +798,10 @@ export async function getEmailFromUserId(userId: string) {
 }
 
 export async function getExperimentOverrides(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   project?: string
 ) {
-  const experiments = await getAllExperiments(organization, project);
+  const experiments = await getAllExperiments(context, project);
   const overrides: Record<string, ExperimentOverride> = {};
   const expIdMapping: Record<string, { trackingKey: string }> = {};
 
@@ -974,4 +969,18 @@ export async function expandOrgMembers(
     });
   });
   return expandedMembers;
+}
+
+export async function getContextForAgendaJobByOrgId(
+  orgId: string
+): Promise<ApiReqContext> {
+  const organization = await findOrganizationById(orgId);
+
+  if (!organization) throw new Error("Organization not found");
+
+  return {
+    org: organization,
+    environments: getEnvironmentIdsFromOrg(organization),
+    readAccessFilter: FULL_ACCESS_PERMISSIONS,
+  };
 }

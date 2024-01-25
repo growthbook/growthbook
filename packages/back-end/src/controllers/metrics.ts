@@ -82,7 +82,8 @@ export async function deleteMetric(
 ) {
   req.checkPermissions("createAnalyses", "");
 
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.params;
 
   const metric = await getMetricById(id, org.id);
@@ -101,7 +102,7 @@ export async function deleteMetric(
   );
 
   // now remove the metric itself:
-  await deleteMetricById(metric, org, res.locals.eventAudit);
+  await deleteMetricById(metric, context, res.locals.eventAudit);
 
   await req.audit({
     event: "metric.delete",
@@ -131,7 +132,8 @@ export async function getMetricUsage(
   res: Response
 ) {
   const { id } = req.params;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const metric = await getMetricById(id, org.id);
 
   if (!metric) {
@@ -165,7 +167,7 @@ export async function getMetricUsage(
   }
 
   // Experiments
-  const experiments = await getExperimentsByMetric(org.id, metric.id);
+  const experiments = await getExperimentsByMetric(context, metric.id);
 
   res.status(200).json({
     ideas,
@@ -252,7 +254,8 @@ export async function getMetric(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.params;
 
   const metric = await getMetricById(id, org.id, true);
@@ -264,7 +267,7 @@ export async function getMetric(
     });
   }
 
-  const experiments = await getRecentExperimentsUsingMetric(org.id, metric.id);
+  const experiments = await getRecentExperimentsUsingMetric(context, metric.id);
 
   res.status(200).json({
     status: 200,
