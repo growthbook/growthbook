@@ -157,15 +157,17 @@ export const postBulkImport = createApiRequestHandler(postBulkImportValidator)(
         // Update existing filter
         if (existingFactFilter) {
           await updateFactFilter(factTable, existingFactFilter.id, data);
+          Object.assign(existingFactFilter, data);
           numUpdated.factTableFilters++;
         }
         // Create new filter
         else {
-          await createFactFilter(factTable, {
+          const newFilter = await createFactFilter(factTable, {
             description: "",
             ...data,
             id: id,
           });
+          factTable.filters.push(newFilter);
           numCreated.factTableFilters++;
         }
       }
