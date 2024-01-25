@@ -9,13 +9,11 @@ export default function AddLinkedChangesBanner({
   numLinkedChanges,
   setFeatureModal,
   setVisualEditorModal,
-  setUrlRedirectModal,
 }: {
   experiment: ExperimentInterfaceStringDates;
   numLinkedChanges: number;
   setVisualEditorModal: (state: boolean) => unknown;
   setFeatureModal: (state: boolean) => unknown;
-  setUrlRedirectModal: (state: boolean) => unknown;
 }) {
   const { hasCommercialFeature } = useUser();
   const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
@@ -91,13 +89,7 @@ export default function AddLinkedChangesBanner({
             </button>
           </div>
           <div className="col text-align-center">
-            <button
-              className="btn btn-primary btn-lg mb-3"
-              type="button"
-              onClick={() => {
-                setUrlRedirectModal(true);
-              }}
-            >
+            <button className="btn btn-primary btn-lg mb-3" type="button">
               Setup URL Redirects
             </button>
           </div>
