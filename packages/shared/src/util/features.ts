@@ -519,46 +519,46 @@ export function evaluatePrerequisiteState(
   feature: FeatureInterface,
   features: FeatureInterface[],
   env: string,
-  prerequisiteId?: string
+  skipRootConditions?: boolean
 ): PrerequisiteState {
+  let isTopLevel = true;
   if (isFeatureCyclic(feature, features)[0]) return "cyclic";
 
-  const visit = (
-    feature: FeatureInterface,
-    prerequisiteId?: string
-  ): PrerequisiteState => {
+  const visit = (feature: FeatureInterface): PrerequisiteState => {
     if (!feature.environmentSettings[env]) {
       return "off";
     }
-    let state: PrerequisiteState = feature.environmentSettings[env].enabled
-      ? "on"
-      : "off";
-    if (!prerequisiteId) {
-      if (state === "on" && feature.environmentSettings[env].rules?.length) {
+    if (!feature.environmentSettings[env].enabled) {
+      return "off";
+    }
+    let state: PrerequisiteState = "on";
+    if (!skipRootConditions || (skipRootConditions && !isTopLevel)) {
+      if (feature.environmentSettings[env].rules?.length) {
         state = "conditional";
       }
     }
+    isTopLevel = false;
 
-    // traverse a specific node
-    if (prerequisiteId) {
-      const prerequisiteFeature = features.find((f) => f.id === prerequisiteId);
-      if (!prerequisiteFeature) {
-        // todo: consider returning info about missing feature
-        return "off";
-      }
-      // const condition = feature.prerequisites?.find((p) => p.id === prerequisiteId)?.condition;
-      // if (condition !== simpleTargetingCondition) {
-      //   state = state !== "off" ? "conditional" : state;
-      // }
-      const result = visit(prerequisiteFeature);
-      if (result === "off") {
-        return "off";
-      }
-      if (result === "conditional") {
-        return state !== "off" ? "conditional" : state;
-      }
-      return state !== "conditional" ? "on" : state;
-    }
+    // // traverse a specific node
+    // if (prerequisiteId) {
+    //   const prerequisiteFeature = features.find((f) => f.id === prerequisiteId);
+    //   if (!prerequisiteFeature) {
+    //     // todo: consider returning info about missing feature
+    //     return "off";
+    //   }
+    //   // const condition = feature.prerequisites?.find((p) => p.id === prerequisiteId)?.condition;
+    //   // if (condition !== simpleTargetingCondition) {
+    //   //   state = state !== "off" ? "conditional" : state;
+    //   // }
+    //   const result = visit(prerequisiteFeature);
+    //   if (result === "off") {
+    //     return "off";
+    //   }
+    //   if (result === "conditional") {
+    //     return state !== "off" ? "conditional" : state;
+    //   }
+    //   return state !== "conditional" ? "on" : state;
+    // }
 
     // traverse all nodes
     const prerequisites = feature.prerequisites || [];
@@ -589,5 +589,5 @@ export function evaluatePrerequisiteState(
 
     return state;
   };
-  return visit(feature, prerequisiteId);
+  return visit(feature);
 }

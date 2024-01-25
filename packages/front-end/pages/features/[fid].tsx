@@ -6,6 +6,7 @@ import {
   FaChevronRight,
   FaDraftingCompass,
   FaExchangeAlt,
+  FaExclamationCircle,
   FaExclamationTriangle,
   FaLink,
   FaList,
@@ -15,14 +16,21 @@ import {
 import { ago, date, datetime } from "shared/dates";
 import {
   autoMerge,
+  evaluatePrerequisiteState,
   getValidation,
   isFeatureStale,
   mergeResultHasChanges,
   mergeRevision,
+  PrerequisiteState,
 } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { MdHistory, MdRocketLaunch } from "react-icons/md";
-import { FaPlusMinus } from "react-icons/fa6";
+import {
+  FaPlusMinus,
+  FaRegCircleCheck,
+  FaRegCircleQuestion,
+  FaRegCircleXmark,
+} from "react-icons/fa6";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import clsx from "clsx";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -82,8 +90,8 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
-import PrerequisiteList from "@/components/Features/PrerequisiteList";
 import PrerequisiteModal from "@/components/Features/PrerequisiteModal";
+import PrerequisiteRow from "@/components/Features/PrerequisiteRow";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -148,6 +156,7 @@ export default function FeaturePage() {
 
   const { features } = useFeaturesList();
   const environments = useEnvironments();
+  const envs = environments.map((e) => e.id);
 
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 800,
@@ -221,6 +230,15 @@ export default function FeaturePage() {
   }, [data, revision, environments]);
 
   const prerequisites = feature?.prerequisites || [];
+  const prereqStates = useMemo(() => {
+    if (!feature) return null;
+    const states: Record<string, PrerequisiteState> = {};
+    envs.forEach((env) => {
+      // todo: avoid "conditional" when looking at self rules
+      states[env] = evaluatePrerequisiteState(feature, features, env, true);
+    });
+    return states;
+  }, [feature, features, envs]);
 
   const mergeResult = useMemo(() => {
     if (!data || !feature || !revision) return null;
@@ -766,74 +784,146 @@ export default function FeaturePage() {
         </div>
       </div>
 
-      <h3>Prerequisite Features</h3>
+      <h3>Top-level Requirements</h3>
       <div className="mb-1">
-        If any prerequisites do not pass, the feature will evaluate to{" "}
-        <code>null</code>. The default value and override rules will be ignored.
+        When disabled, feature will evaluate to <code>null</code>. The default
+        value and override rules will be ignored.
       </div>
-      <div className="appbox mb-4 p-1">
-        <div className="mb-1">
-          {prerequisites.length > 0 ? (
-            <PrerequisiteList
-              feature={feature}
-              features={features}
-              mutate={mutate}
-              setPrerequisiteModal={setPrerequisiteModal}
-            />
-          ) : (
-            <div className="p-3 bg-white">
-              <em>No prerequisites</em>
-            </div>
+      <div className="mb-4">
+        <table className="table border bg-white mb-2" style={{ width: 700 }}>
+          <tbody>
+            <tr>
+              <td className="pl-3 align-middle font-weight-bold border-right">
+                Kill Switch
+              </td>
+              {envs.map((env) => (
+                <td key={env} className="text-center">
+                  <EnvironmentToggle
+                    feature={feature}
+                    environment={env}
+                    mutate={() => {
+                      mutate();
+                    }}
+                    id={`${env}_toggle`}
+                  />
+                </td>
+              ))}
+            </tr>
+          </tbody>
+          <tbody>
+            <tr className="bg-light">
+              <td className="pl-3 py-2 border-right font-weight-bold">
+                Prerequisite Features
+              </td>
+              {envs.map((env) => (
+                <th key={env} className="text-center text-dark py-2">
+                  {env}
+                </th>
+              ))}
+            </tr>
+          </tbody>
+          <tbody>
+            {prerequisites.length > 0 ? (
+              prerequisites.map(({ ...item }, i) => {
+                const parentFeature = features.find((f) => f.id === item.id);
+                return (
+                  <PrerequisiteRow
+                    key={i}
+                    i={i}
+                    feature={feature}
+                    features={features}
+                    parentFeature={parentFeature}
+                    prerequisite={item}
+                    environments={environments}
+                    mutate={mutate}
+                    setPrerequisiteModal={setPrerequisiteModal}
+                  />
+                );
+              })
+            ) : (
+              <tr>
+                <td className="py-2 border-right"></td>
+                <td colSpan={envs.length} className="py-2 text-center">
+                  <em>No prerequisites</em>
+                </td>
+              </tr>
+            )}
+          </tbody>
+          {prerequisites.length > -1 && (
+            <tbody>
+              <tr>
+                <td className="pl-3 font-weight-bold border-right">Summary</td>
+                {envs.map((env) => (
+                  <td key={env} className="text-center">
+                    {prereqStates?.[env] === "on" && (
+                      <Tooltip
+                        popperClassName="text-left mt-2"
+                        body="The parent feature is currently enabled in this environment"
+                      >
+                        <FaRegCircleCheck
+                          className="text-success cursor-pointer"
+                          size={24}
+                        />
+                      </Tooltip>
+                    )}
+                    {prereqStates?.[env] === "off" && (
+                      <Tooltip
+                        popperClassName="text-left mt-2"
+                        body="The parent feature is currently diabled in this environment"
+                      >
+                        <FaRegCircleXmark
+                          className="text-danger cursor-pointer"
+                          size={24}
+                        />
+                      </Tooltip>
+                    )}
+                    {prereqStates?.[env] === "conditional" && (
+                      <Tooltip
+                        popperClassName="text-left mt-2"
+                        body="The parent feature is currently enabled but has rules which make the result conditional in this environment"
+                      >
+                        <FaRegCircleQuestion
+                          className="text-black-50 cursor-pointer"
+                          size={24}
+                        />
+                      </Tooltip>
+                    )}
+                    {prereqStates?.[env] === "cyclic" && (
+                      <Tooltip
+                        popperClassName="text-left mt-2"
+                        body="Circular dependency detected. Please fix."
+                      >
+                        <FaExclamationCircle
+                          className="text-warning-orange cursor-pointer"
+                          size={24}
+                        />
+                      </Tooltip>
+                    )}
+                  </td>
+                ))}
+              </tr>
+            </tbody>
           )}
-        </div>
-        {canEdit && (
-          <div className="mx-2 mb-2 mt-1">
-            <button
-              className="btn btn-primary"
-              onClick={() => {
-                setPrerequisiteModal({
-                  i: getPrerequisites(feature).length,
-                });
-                track("Viewed prerequisite feature modal", {
-                  source: "add-prerequisite",
-                });
-              }}
-            >
-              <span className="h4 pr-2 m-0 d-inline-block align-top">
-                <GBAddCircle />
-              </span>
-              Add Prerequisite
-            </button>
-          </div>
-        )}
-      </div>
+        </table>
 
-      <h3>Enabled Environments</h3>
-      <div className="mb-1">
-        In disabled environments, the feature will always evaluate to{" "}
-        <code>null</code>. The default value and override rules will be ignored.
-      </div>
-      <div className="appbox mb-4 p-3">
-        <div className="row">
-          {environments.map((en) => (
-            <div className="col-auto" key={en.id}>
-              <label
-                className="font-weight-bold mr-2 mb-0"
-                htmlFor={`${en.id}_toggle`}
-              >
-                {en.id}:{" "}
-              </label>
-              <EnvironmentToggle
-                feature={feature}
-                environment={en.id}
-                mutate={() => {
-                  mutate();
-                }}
-                id={`${en.id}_toggle`}
-              />
-            </div>
-          ))}
-        </div>
+        {canEdit && (
+          <button
+            className="btn btn-link"
+            onClick={() => {
+              setPrerequisiteModal({
+                i: getPrerequisites(feature).length,
+              });
+              track("Viewed prerequisite feature modal", {
+                source: "add-prerequisite",
+              });
+            }}
+          >
+            <span className="h4 pr-2 m-0 d-inline-block align-top">
+              <GBAddCircle />
+            </span>
+            Add Prerequisite
+          </button>
+        )}
       </div>
 
       {feature.valueType === "json" && (
