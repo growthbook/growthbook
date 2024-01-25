@@ -286,7 +286,7 @@ export async function refreshSDKPayloadCache(
   // Batch the promises in chunks of 4 at a time to avoid overloading Mongo
   await promiseAllChunks(promises, 4);
 
-  triggerWebhookJobs(context.org.id, payloadKeys, environments, true);
+  triggerWebhookJobs(context, payloadKeys, environments, true);
 }
 
 export type FeatureDefinitionsResponseArgs = {

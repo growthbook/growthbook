@@ -16,6 +16,8 @@ import { WebhookInterface, WebhookMethod } from "../../types/webhook";
 import { createSdkWebhookLog } from "../models/SdkWebhookLogModel";
 import { cancellableFetch } from "../util/http.util";
 import { getContextForAgendaJobByOrgId } from "../services/organizations";
+import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "../../types/api";
 
 const SDK_WEBHOOKS_JOB_NAME = "fireWebhooks";
 type SDKWebhookJob = Job<{
@@ -276,7 +278,7 @@ export async function queueSingleWebhookById(webhookId: string) {
 }
 
 export async function queueGlobalWebhooks(
-  organizationId: string,
+  context: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[]
 ) {
   for (const webhook of WEBHOOKS) {
@@ -291,7 +293,7 @@ export async function queueGlobalWebhooks(
     } = webhook;
     if (!payloadKeys.length) return;
 
-    const connections = await findSDKConnectionsByOrganization(organizationId);
+    const connections = await findSDKConnectionsByOrganization(context.org.id);
 
     if (!connections) return;
     for (let i = 0; i < connections.length; i++) {
@@ -306,10 +308,6 @@ export async function queueGlobalWebhooks(
               connection.projects.includes(key.project))
         )
       ) {
-        const context = await getContextForAgendaJobByOrgId(
-          connection.organization
-        );
-
         const defs = await getFeatureDefinitions({
           context,
           capabilities: getConnectionSDKCapabilities(connection),
@@ -328,7 +326,7 @@ export async function queueGlobalWebhooks(
         const payload = JSON.stringify(defs);
         fireWebhook({
           webhookId,
-          organizationId,
+          organizationId: context.org.id,
           url,
           signingKey,
           key,
