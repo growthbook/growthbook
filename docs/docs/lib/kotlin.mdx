@@ -17,7 +17,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'io.growthbook.sdk:GrowthBook:1.1.34'
+    implementation 'io.growthbook.sdk:GrowthBook:1.1.43'
 }
 ```
 
@@ -45,9 +45,7 @@ val gb = GBSDKBuilder(
     print("Experiment Id: " + gbExperiment.key)
     print("Variation Id: " + gbExperimentResult.variationId)
   },
-  // Provide the encryption key of type String if you intend to use data encryption,
-  // otherwise you can pass null
-  encryptionKey = "key_123adbc"
+  networkDispatcher = DefaultGBNetworkClient(),
 ).initialize()
 
 if (gb.feature("my-feature").on) {
