@@ -59,6 +59,7 @@ export const updateFactTablePropsValidator = z
     sql: z.string().optional(),
     eventName: z.string().optional(),
     columns: z.array(createColumnPropsValidator).optional(),
+    columnsError: z.string().nullable().optional(),
   })
   .strict();
 
@@ -75,6 +76,7 @@ export const cappingValidator = z.enum(["absolute", "percentile", ""]);
 export const conversionWindowUnitValidator = z.enum(["weeks", "days", "hours"]);
 
 export const createFactMetricPropsValidator = z.object({
+  id: z.string().optional(),
   owner: z.string().optional(),
   datasource: z.string(),
   name: z.string(),
@@ -148,9 +150,9 @@ export const createFactFilterPropsValidator = z
 
 export const updateFactFilterPropsValidator = z
   .object({
-    name: z.string(),
-    description: z.string(),
-    value: z.string(),
+    name: z.string().optional(),
+    description: z.string().optional(),
+    value: z.string().optional(),
   })
   .strict();
 

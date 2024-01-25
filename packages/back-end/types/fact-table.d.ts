@@ -56,6 +56,7 @@ export interface FactTableInterface {
   sql: string;
   eventName: string;
   columns: ColumnInterface[];
+  columnsError?: string | null;
   filters: FactFilterInterface[];
 }
 

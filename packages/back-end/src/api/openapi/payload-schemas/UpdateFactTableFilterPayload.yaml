@@ -1,0 +1,11 @@
+type: object
+properties:
+  name:
+    type: string
+  description:
+    type: string
+    description: Description of the fact table filter
+  value:
+    type: string
+    description: The SQL expression for this filter.
+    example: "country = 'US'"
