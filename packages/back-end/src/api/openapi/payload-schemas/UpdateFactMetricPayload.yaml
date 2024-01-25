@@ -1,22 +1,19 @@
 type: object
 properties:
-  owner:
-    type: string
   name:
     type: string
   description:
     type: string
-  tags:
-    type: array
-    items:
-      type: string
+  owner:
+    type: string
   projects:
     type: array
     items:
       type: string
-  inverse:
-    type: boolean
-    description: Set to true for things like Bounce Rate, where you want the metric to decrease
+  tags:
+    type: array
+    items:
+      type: string
   metricType:
     type: string
     enum:
@@ -53,6 +50,9 @@ properties:
         type: array
         items:
           type: string
+  inverse:
+    type: boolean
+    description: Set to true for things like Bounce Rate, where you want the metric to decrease
   cappingSettings:
     description: Controls how outliers are handled
     type: object

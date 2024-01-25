@@ -2665,23 +2665,20 @@ paths:
                 - metricType
                 - numerator
               properties:
-                owner:
-                  type: string
                 name:
                   type: string
                 description:
                   type: string
-                tags:
-                  type: array
-                  items:
-                    type: string
+                owner:
+                  type: string
                 projects:
                   type: array
                   items:
                     type: string
-                inverse:
-                  type: boolean
-                  description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
+                tags:
+                  type: array
+                  items:
+                    type: string
                 metricType:
                   type: string
                   enum:
@@ -2718,6 +2715,9 @@ paths:
                       type: array
                       items:
                         type: string
+                inverse:
+                  type: boolean
+                  description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
                 cappingSettings:
                   description: Controls how outliers are handled
                   type: object
@@ -2826,23 +2826,20 @@ paths:
             schema:
               type: object
               properties:
-                owner:
-                  type: string
                 name:
                   type: string
                 description:
                   type: string
-                tags:
-                  type: array
-                  items:
-                    type: string
+                owner:
+                  type: string
                 projects:
                   type: array
                   items:
                     type: string
-                inverse:
-                  type: boolean
-                  description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
+                tags:
+                  type: array
+                  items:
+                    type: string
                 metricType:
                   type: string
                   enum:
@@ -2879,6 +2876,9 @@ paths:
                       type: array
                       items:
                         type: string
+                inverse:
+                  type: boolean
+                  description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
                 cappingSettings:
                   description: Controls how outliers are handled
                   type: object
@@ -4499,48 +4499,39 @@ components:
       type: object
       required:
         - id
-        - owner
-        - datasource
-        - dateCreated
-        - dateUpdated
         - name
         - description
-        - tags
+        - owner
         - projects
-        - inverse
+        - tags
+        - datasource
         - metricType
         - numerator
+        - inverse
         - cappingSettings
         - windowSettings
         - regressionAdjustmentSettings
+        - dateCreated
+        - dateUpdated
       properties:
         id:
           type: string
-        owner:
-          type: string
-        datasource:
-          type: string
-        dateCreated:
-          type: string
-          format: date-time
-        dateUpdated:
-          type: string
-          format: date-time
         name:
           type: string
         description:
           type: string
-        tags:
-          type: array
-          items:
-            type: string
+        owner:
+          type: string
         projects:
           type: array
           items:
             type: string
-        inverse:
-          type: boolean
-          description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
+        tags:
+          type: array
+          items:
+            type: string
+        datasource:
+          type: string
         metricType:
           type: string
           enum:
@@ -4577,6 +4568,9 @@ components:
               type: array
               items:
                 type: string
+        inverse:
+          type: boolean
+          description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
         cappingSettings:
           description: Controls how outliers are handled
           type: object
@@ -4630,6 +4624,12 @@ components:
             days:
               type: number
               description: Number of pre-exposure days to use for the regression adjustment
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
   securitySchemes:
     bearerAuth:
       type: http

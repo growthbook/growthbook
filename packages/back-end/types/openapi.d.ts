@@ -1175,18 +1175,12 @@ export interface components {
     };
     FactMetric: {
       id: string;
-      owner: string;
-      datasource: string;
-      /** Format: date-time */
-      dateCreated: string;
-      /** Format: date-time */
-      dateUpdated: string;
       name: string;
       description: string;
-      tags: (string)[];
+      owner: string;
       projects: (string)[];
-      /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
-      inverse: boolean;
+      tags: (string)[];
+      datasource: string;
       /** @enum {string} */
       metricType: "proportion" | "mean" | "ratio";
       numerator: {
@@ -1199,6 +1193,8 @@ export interface components {
         column: string;
         filters: (string)[];
       };
+      /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
+      inverse: boolean;
       /** @description Controls how outliers are handled */
       cappingSettings: {
         /** @enum {string} */
@@ -1225,6 +1221,10 @@ export interface components {
         /** @description Number of pre-exposure days to use for the regression adjustment */
         days?: number;
       };
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
     };
   };
   responses: {
@@ -4924,18 +4924,12 @@ export interface operations {
           "application/json": ({
             factMetrics: ({
                 id: string;
-                owner: string;
-                datasource: string;
-                /** Format: date-time */
-                dateCreated: string;
-                /** Format: date-time */
-                dateUpdated: string;
                 name: string;
                 description: string;
-                tags: (string)[];
+                owner: string;
                 projects: (string)[];
-                /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
-                inverse: boolean;
+                tags: (string)[];
+                datasource: string;
                 /** @enum {string} */
                 metricType: "proportion" | "mean" | "ratio";
                 numerator: {
@@ -4948,6 +4942,8 @@ export interface operations {
                   column: string;
                   filters: (string)[];
                 };
+                /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
+                inverse: boolean;
                 /** @description Controls how outliers are handled */
                 cappingSettings: {
                   /** @enum {string} */
@@ -4974,6 +4970,10 @@ export interface operations {
                   /** @description Number of pre-exposure days to use for the regression adjustment */
                   days?: number;
                 };
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
               })[];
           }) & {
             limit: number;
@@ -4992,13 +4992,11 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          owner?: string;
           name: string;
           description?: string;
-          tags?: (string)[];
+          owner?: string;
           projects?: (string)[];
-          /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
-          inverse?: boolean;
+          tags?: (string)[];
           /** @enum {string} */
           metricType: "proportion" | "mean" | "ratio";
           numerator: {
@@ -5014,6 +5012,8 @@ export interface operations {
             column: string;
             filters?: (string)[];
           };
+          /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
+          inverse?: boolean;
           /** @description Controls how outliers are handled */
           cappingSettings?: {
             /** @enum {string} */
@@ -5049,18 +5049,12 @@ export interface operations {
           "application/json": {
             factMetric: {
               id: string;
-              owner: string;
-              datasource: string;
-              /** Format: date-time */
-              dateCreated: string;
-              /** Format: date-time */
-              dateUpdated: string;
               name: string;
               description: string;
-              tags: (string)[];
+              owner: string;
               projects: (string)[];
-              /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
-              inverse: boolean;
+              tags: (string)[];
+              datasource: string;
               /** @enum {string} */
               metricType: "proportion" | "mean" | "ratio";
               numerator: {
@@ -5073,6 +5067,8 @@ export interface operations {
                 column: string;
                 filters: (string)[];
               };
+              /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
+              inverse: boolean;
               /** @description Controls how outliers are handled */
               cappingSettings: {
                 /** @enum {string} */
@@ -5099,6 +5095,10 @@ export interface operations {
                 /** @description Number of pre-exposure days to use for the regression adjustment */
                 days?: number;
               };
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
             };
           };
         };
@@ -5119,18 +5119,12 @@ export interface operations {
           "application/json": {
             factMetric: {
               id: string;
-              owner: string;
-              datasource: string;
-              /** Format: date-time */
-              dateCreated: string;
-              /** Format: date-time */
-              dateUpdated: string;
               name: string;
               description: string;
-              tags: (string)[];
+              owner: string;
               projects: (string)[];
-              /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
-              inverse: boolean;
+              tags: (string)[];
+              datasource: string;
               /** @enum {string} */
               metricType: "proportion" | "mean" | "ratio";
               numerator: {
@@ -5143,6 +5137,8 @@ export interface operations {
                 column: string;
                 filters: (string)[];
               };
+              /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
+              inverse: boolean;
               /** @description Controls how outliers are handled */
               cappingSettings: {
                 /** @enum {string} */
@@ -5169,6 +5165,10 @@ export interface operations {
                 /** @description Number of pre-exposure days to use for the regression adjustment */
                 days?: number;
               };
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
             };
           };
         };
@@ -5186,13 +5186,11 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          owner?: string;
           name?: string;
           description?: string;
-          tags?: (string)[];
+          owner?: string;
           projects?: (string)[];
-          /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
-          inverse?: boolean;
+          tags?: (string)[];
           /** @enum {string} */
           metricType?: "proportion" | "mean" | "ratio";
           numerator?: {
@@ -5208,6 +5206,8 @@ export interface operations {
             column: string;
             filters?: (string)[];
           };
+          /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
+          inverse?: boolean;
           /** @description Controls how outliers are handled */
           cappingSettings?: {
             /** @enum {string} */
@@ -5243,18 +5243,12 @@ export interface operations {
           "application/json": {
             factMetric: {
               id: string;
-              owner: string;
-              datasource: string;
-              /** Format: date-time */
-              dateCreated: string;
-              /** Format: date-time */
-              dateUpdated: string;
               name: string;
               description: string;
-              tags: (string)[];
+              owner: string;
               projects: (string)[];
-              /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
-              inverse: boolean;
+              tags: (string)[];
+              datasource: string;
               /** @enum {string} */
               metricType: "proportion" | "mean" | "ratio";
               numerator: {
@@ -5267,6 +5261,8 @@ export interface operations {
                 column: string;
                 filters: (string)[];
               };
+              /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
+              inverse: boolean;
               /** @description Controls how outliers are handled */
               cappingSettings: {
                 /** @enum {string} */
@@ -5293,6 +5289,10 @@ export interface operations {
                 /** @description Number of pre-exposure days to use for the regression adjustment */
                 days?: number;
               };
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
             };
           };
         };
@@ -5363,13 +5363,11 @@ export interface operations {
           factMetrics?: ({
               id: string;
               data: {
-                owner?: string;
                 name: string;
                 description?: string;
-                tags?: (string)[];
+                owner?: string;
                 projects?: (string)[];
-                /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
-                inverse?: boolean;
+                tags?: (string)[];
                 /** @enum {string} */
                 metricType: "proportion" | "mean" | "ratio";
                 numerator: {
@@ -5385,6 +5383,8 @@ export interface operations {
                   column: string;
                   filters?: (string)[];
                 };
+                /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
+                inverse?: boolean;
                 /** @description Controls how outliers are handled */
                 cappingSettings?: {
                   /** @enum {string} */
