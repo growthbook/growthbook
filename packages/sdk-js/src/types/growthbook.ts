@@ -190,6 +190,8 @@ export interface Context {
   clientKey?: string;
   decryptionKey?: string;
   remoteEval?: boolean;
+  navigate?: (url: string) => void;
+  navigateDelay?: number;
 }
 
 export type SubscriptionFunction = (

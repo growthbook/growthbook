@@ -1299,10 +1299,16 @@ export class GrowthBook<
       });
     }
     if (changes.urlRedirect) {
-      const script = document.createElement("script");
-      script.innerHTML = `window.location.replace("${changes.urlRedirect}");`;
-      document.head.appendChild(script);
-      undo.push(() => script.remove());
+      if (this._ctx.navigate) {
+        this._ctx.navigate(changes.urlRedirect);
+      } else {
+        const script = document.createElement("script");
+        script.innerHTML = `setTimeout(() => { window.location.replace("${
+          changes.urlRedirect
+        }"); }, ${this._ctx.navigateDelay ?? 100})`;
+        document.head.appendChild(script);
+        undo.push(() => script.remove());
+      }
     }
     return () => {
       undo.forEach((fn) => fn());
