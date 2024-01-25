@@ -2972,17 +2972,17 @@ paths:
                     type: string
                     description: The ID of the deleted fact metric
                     example: fact__123abc
-  /bulk-import:
+  /bulk-import/facts:
     post:
       parameters: []
       tags:
         - fact-tables
       summary: 'Bulk import fact tables, filters, and metrics'
-      operationId: postBulkImport
+      operationId: postBulkImportFacts
       x-codeSamples:
         - lang: cURL
           source: |
-            curl -X POST https://api.growthbook.io/api/v1/bulk-import \
+            curl -X POST https://api.growthbook.io/api/v1/bulk-import/facts \
               -d '{"factTables":[], "factTableFilters":[], "factMetrics":[]}' \
               -u secret_abc123DEF456:
       requestBody:

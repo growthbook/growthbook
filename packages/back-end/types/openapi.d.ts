@@ -237,9 +237,9 @@ export interface paths {
     /** Deletes a single fact metric */
     delete: operations["deleteFactMetric"];
   };
-  "/bulk-import": {
+  "/bulk-import/facts": {
     /** Bulk import fact tables, filters, and metrics */
-    post: operations["postBulkImport"];
+    post: operations["postBulkImportFacts"];
   };
 }
 
@@ -5335,7 +5335,7 @@ export interface operations {
       };
     };
   };
-  postBulkImport: {
+  postBulkImportFacts: {
     /** Bulk import fact tables, filters, and metrics */
     requestBody: {
       content: {
@@ -5526,4 +5526,4 @@ export type PostFactMetricResponse = operations["postFactMetric"]["responses"]["
 export type GetFactMetricResponse = operations["getFactMetric"]["responses"]["200"]["content"]["application/json"];
 export type UpdateFactMetricResponse = operations["updateFactMetric"]["responses"]["200"]["content"]["application/json"];
 export type DeleteFactMetricResponse = operations["deleteFactMetric"]["responses"]["200"]["content"]["application/json"];
-export type PostBulkImportResponse = operations["postBulkImport"]["responses"]["200"]["content"]["application/json"];
+export type PostBulkImportFactsResponse = operations["postBulkImportFacts"]["responses"]["200"]["content"]["application/json"];

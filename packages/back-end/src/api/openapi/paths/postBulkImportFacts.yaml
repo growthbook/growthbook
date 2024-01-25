@@ -2,11 +2,11 @@ parameters: []
 tags:
   - fact-tables
 summary: Bulk import fact tables, filters, and metrics
-operationId: postBulkImport
+operationId: postBulkImportFacts
 x-codeSamples:
   - lang: "cURL"
     source: |
-      curl -X POST https://api.growthbook.io/api/v1/bulk-import \
+      curl -X POST https://api.growthbook.io/api/v1/bulk-import/facts \
         -d '{"factTables":[], "factTableFilters":[], "factMetrics":[]}' \
         -u secret_abc123DEF456:
 requestBody:
@@ -14,7 +14,7 @@ requestBody:
   content:
     application/json:
       schema:
-        $ref: "../payload-schemas/BulkImportPayload.yaml"
+        $ref: "../payload-schemas/BulkImportFactsPayload.yaml"
 responses:
   "200":
     content:

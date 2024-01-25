@@ -1,6 +1,6 @@
 import { DataSourceInterface } from "../../../types/datasource";
 import { FactMetricInterface } from "../../../types/fact-table";
-import { PostBulkImportResponse } from "../../../types/openapi";
+import { PostBulkImportFactsResponse } from "../../../types/openapi";
 import { queueFactTableColumnsRefresh } from "../../jobs/refreshFactTableColumns";
 import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
 import {
@@ -18,15 +18,17 @@ import {
 import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { addTags } from "../../models/TagModel";
 import { createApiRequestHandler } from "../../util/handler";
-import { postBulkImportValidator } from "../../validators/openapi";
+import { postBulkImportFactsValidator } from "../../validators/openapi";
 import {
   getCreateMetricPropsFromBody,
   validateFactMetric,
 } from "../fact-metrics/postFactMetric";
 import { getUpdateFactMetricPropsFromBody } from "../fact-metrics/updateFactMetric";
 
-export const postBulkImport = createApiRequestHandler(postBulkImportValidator)(
-  async (req): Promise<PostBulkImportResponse> => {
+export const postBulkImportFacts = createApiRequestHandler(
+  postBulkImportFactsValidator
+)(
+  async (req): Promise<PostBulkImportFactsResponse> => {
     const numCreated = {
       factTables: 0,
       factTableFilters: 0,
