@@ -2608,7 +2608,7 @@ paths:
                     example: flt_123abc
   /fact-metrics:
     get:
-      summary: Get all fact metric
+      summary: Get all fact metrics
       tags:
         - fact-metrics
       parameters:

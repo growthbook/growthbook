@@ -224,7 +224,7 @@ export interface paths {
     delete: operations["deleteFactTableFilter"];
   };
   "/fact-metrics": {
-    /** Get all fact metric */
+    /** Get all fact metrics */
     get: operations["listFactMetrics"];
     /** Create a single fact metric */
     post: operations["postFactMetric"];
@@ -4903,7 +4903,7 @@ export interface operations {
     };
   };
   listFactMetrics: {
-    /** Get all fact metric */
+    /** Get all fact metrics */
     parameters: {
         /** @description The number of items to return */
         /** @description How many items to skip (use in conjunction with limit for pagination) */
