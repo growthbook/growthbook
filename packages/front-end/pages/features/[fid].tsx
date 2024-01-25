@@ -8,6 +8,7 @@ import {
   FaExchangeAlt,
   FaExclamationCircle,
   FaExclamationTriangle,
+  FaInfoCircle,
   FaLink,
   FaList,
   FaLock,
@@ -28,7 +29,6 @@ import { MdHistory, MdRocketLaunch } from "react-icons/md";
 import {
   FaPlusMinus,
   FaRegCircleCheck,
-  FaRegCircleQuestion,
   FaRegCircleXmark,
 } from "react-icons/fa6";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -857,44 +857,44 @@ export default function FeaturePage() {
                   <td key={env} className="text-center">
                     {prereqStates?.[env] === "on" && (
                       <Tooltip
+                        className="cursor-pointer"
                         popperClassName="text-left"
                         body="This feature is currently enabled in this environment"
                       >
-                        <FaRegCircleCheck
-                          className="text-success cursor-pointer"
-                          size={24}
-                        />
+                        <FaRegCircleCheck className="text-success" size={24} />
                       </Tooltip>
                     )}
                     {prereqStates?.[env] === "off" && (
                       <Tooltip
+                        className="cursor-pointer"
                         popperClassName="text-left"
-                        body="This feature is currently diabled in this environment"
+                        body="This feature is currently disabled in this environment"
                       >
-                        <FaRegCircleXmark
-                          className="text-danger cursor-pointer"
-                          size={24}
-                        />
+                        <FaRegCircleXmark className="text-black-50" size={24} />
                       </Tooltip>
                     )}
                     {prereqStates?.[env] === "conditional" && (
                       <Tooltip
+                        className="position-relative cursor-pointer"
                         popperClassName="text-left"
                         body="This feature is currently enabled but prerequisites have rules which make the result conditional in this environment"
                       >
-                        <FaRegCircleQuestion
-                          className="text-black-50 cursor-pointer"
-                          size={24}
+                        <FaRegCircleCheck className="text-success" size={24} />
+                        <FaInfoCircle
+                          className="text-purple position-absolute"
+                          style={{ top: -10, right: -8 }}
+                          size={16}
                         />
                       </Tooltip>
                     )}
                     {prereqStates?.[env] === "cyclic" && (
                       <Tooltip
+                        className="cursor-pointer"
                         popperClassName="text-left"
                         body="Circular dependency detected. Please fix."
                       >
                         <FaExclamationCircle
-                          className="text-warning-orange cursor-pointer"
+                          className="text-warning-orange"
                           size={24}
                         />
                       </Tooltip>
