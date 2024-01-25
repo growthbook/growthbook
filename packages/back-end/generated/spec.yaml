@@ -92,7 +92,10 @@ tags:
     description: Organizations are used for multi-org deployments where different teams can run their own isolated feature flags and experiments. These endpoints are only via a super-admin's Personal Access Token.
   - name: fact-tables
     x-displayName: Fact Tables
-    description: Fact Tables describe the shape of your data warehouse tables and how to query them
+    description: Fact Tables describe the shape of your data warehouse tables
+  - name: fact-metrics
+    x-displayName: Fact Metrics
+    description: Fact Metrics are metrics built on top of Fact Table definitions
   - name: DataSource_model
     x-displayName: DataSource
     description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
@@ -4675,6 +4678,7 @@ x-tagGroups:
       - saved-groups
       - organizations
       - fact-tables
+      - fact-metrics
   - name: Models
     tags:
       - DataSource_model
