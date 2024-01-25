@@ -36,7 +36,6 @@ import {
 import { getSourceIntegrationObject } from "../../services/datasource";
 import { getDataSourceById } from "../../models/DataSourceModel";
 import { DataSourceInterface } from "../../../types/datasource";
-import { queueFactTableColumnsRefresh } from "../../jobs/refreshFactTableColumns";
 
 export const getFactTables = async (
   req: AuthRequest,
@@ -104,8 +103,6 @@ export const postFactTable = async (
   data.columns = [];
 
   const factTable = await createFactTable(org.id, data);
-  await queueFactTableColumnsRefresh(factTable);
-
   if (data.tags.length > 0) {
     await addTags(org.id, data.tags);
   }
@@ -135,9 +132,6 @@ export const putFactTable = async (
   }
 
   await updateFactTable(factTable, data, req.auditUser);
-
-  await queueFactTableColumnsRefresh(factTable);
-
   await addTagsDiff(org.id, factTable.tags, data.tags || []);
 
   res.status(200).json({

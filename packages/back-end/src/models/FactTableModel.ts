@@ -11,7 +11,6 @@ import {
   UpdateFactTableProps,
 } from "../../types/fact-table";
 import { EventAuditUser } from "../events/event-types";
-import { queueFactTableColumnsRefresh } from "../jobs/refreshFactTableColumns";
 
 const factTableSchema = new mongoose.Schema({
   id: String,
@@ -122,8 +121,6 @@ export async function createFactTable(
   });
 
   const factTable = toInterface(doc);
-  await queueFactTableColumnsRefresh(factTable);
-
   return factTable;
 }
 
@@ -148,10 +145,6 @@ export async function updateFactTable(
       },
     }
   );
-
-  if (changes.sql && changes.sql !== factTable.sql && !changes.columns) {
-    await queueFactTableColumnsRefresh(factTable);
-  }
 }
 
 export async function updateColumn(
