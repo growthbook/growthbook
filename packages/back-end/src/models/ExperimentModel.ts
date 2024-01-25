@@ -545,6 +545,7 @@ export async function getPastExperimentsByDatasource(
       _id: false,
       id: true,
       trackingKey: true,
+      project: true,
     }
   );
 
@@ -642,6 +643,7 @@ export async function getExperimentsForActivityFeed(
       _id: false,
       id: true,
       name: true,
+      project: true,
     }
   );
 
