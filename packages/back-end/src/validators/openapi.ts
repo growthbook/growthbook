@@ -233,3 +233,99 @@ export const putOrganizationValidator = {
   querySchema: z.never(),
   paramsSchema: z.object({"id":z.string()}).strict(),
 };
+
+export const listFactTablesValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0),"datasourceId":z.string().optional(),"projectId":z.string().optional()}).strict(),
+  paramsSchema: z.never(),
+};
+
+export const postFactTableValidator = {
+  bodySchema: z.object({"name":z.string(),"description":z.string().describe("Description of the fact table").optional(),"owner":z.string().describe("The person who is responsible for this fact table").optional(),"projects":z.array(z.string()).describe("List of associated project ids").optional(),"tags":z.array(z.string()).describe("List of associated tags").optional(),"datasource":z.string().describe("The datasource id"),"userIdTypes":z.array(z.string()).describe("List of identifier columns in this table. For example, \"id\" or \"anonymous_id\""),"sql":z.string().describe("The SQL query for this fact table")}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
+export const getFactTableValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
+export const updateFactTableValidator = {
+  bodySchema: z.object({"name":z.string().optional(),"description":z.string().describe("Description of the fact table").optional(),"owner":z.string().describe("The person who is responsible for this fact table").optional(),"projects":z.array(z.string()).describe("List of associated project ids").optional(),"tags":z.array(z.string()).describe("List of associated tags").optional(),"userIdTypes":z.array(z.string()).describe("List of identifier columns in this table. For example, \"id\" or \"anonymous_id\"").optional(),"sql":z.string().describe("The SQL query for this fact table").optional()}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
+export const deleteFactTableValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
+export const listFactTableFiltersValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0)}).strict(),
+  paramsSchema: z.object({"factTableId":z.string()}).strict(),
+};
+
+export const postFactTableFilterValidator = {
+  bodySchema: z.object({"name":z.string(),"description":z.string().describe("Description of the fact table filter").optional(),"value":z.string().describe("The SQL expression for this filter.")}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"factTableId":z.string()}).strict(),
+};
+
+export const getFactTableFilterValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"factTableId":z.string(),"id":z.string()}).strict(),
+};
+
+export const updateFactTableFilterValidator = {
+  bodySchema: z.object({"name":z.string().optional(),"description":z.string().describe("Description of the fact table filter").optional(),"value":z.string().describe("The SQL expression for this filter.").optional()}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"factTableId":z.string(),"id":z.string()}).strict(),
+};
+
+export const deleteFactTableFilterValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"factTableId":z.string(),"id":z.string()}).strict(),
+};
+
+export const listFactMetricsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0),"datasourceId":z.string().optional(),"projectId":z.string().optional(),"factTableId":z.string().optional()}).strict(),
+  paramsSchema: z.never(),
+};
+
+export const postFactMetricValidator = {
+  bodySchema: z.object({"name":z.string(),"description":z.string().optional(),"owner":z.string().optional(),"projects":z.array(z.string()).optional(),"tags":z.array(z.string()).optional(),"metricType":z.enum(["proportion","mean","ratio"]),"numerator":z.object({"factTableId":z.string(),"column":z.string().describe("Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count'").optional(),"filters":z.array(z.string()).describe("Array of Fact Table Filter Ids").optional()}),"denominator":z.object({"factTableId":z.string(),"column":z.string().describe("The column name or one of the special values: '$$distinctUsers' or '$$count'"),"filters":z.array(z.string()).describe("Array of Fact Table Filter Ids").optional()}).describe("Only when metricType is 'ratio'").optional(),"inverse":z.boolean().describe("Set to true for things like Bounce Rate, where you want the metric to decrease").optional(),"cappingSettings":z.object({"type":z.enum(["none","absolute","percentile"]),"value":z.number().describe("When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).").optional()}).describe("Controls how outliers are handled").optional(),"windowSettings":z.object({"type":z.enum(["none","conversion"]),"delayHours":z.number().describe("Wait this many hours after experiment exposure before counting conversions"),"windowValue":z.number().optional(),"windowUnit":z.enum(["hours","days","weeks"]).optional()}).describe("Controls the conversion window for the metric").optional(),"regressionAdjustmentSettings":z.object({"override":z.boolean().describe("If false, the organization default settings will be used"),"enabled":z.boolean().describe("Controls whether or not regresion adjustment is applied to the metric").optional(),"days":z.number().describe("Number of pre-exposure days to use for the regression adjustment").optional()}).describe("Controls the regression adjustment (CUPED) settings for the metric").optional()}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
+export const getFactMetricValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
+export const updateFactMetricValidator = {
+  bodySchema: z.object({"name":z.string().optional(),"description":z.string().optional(),"owner":z.string().optional(),"projects":z.array(z.string()).optional(),"tags":z.array(z.string()).optional(),"metricType":z.enum(["proportion","mean","ratio"]).optional(),"numerator":z.object({"factTableId":z.string(),"column":z.string().describe("Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count'").optional(),"filters":z.array(z.string()).describe("Array of Fact Table Filter Ids").optional()}).optional(),"denominator":z.object({"factTableId":z.string(),"column":z.string().describe("Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count'"),"filters":z.array(z.string()).describe("Array of Fact Table Filter Ids").optional()}).describe("Only when metricType is 'ratio'").optional(),"inverse":z.boolean().describe("Set to true for things like Bounce Rate, where you want the metric to decrease").optional(),"cappingSettings":z.object({"type":z.enum(["none","absolute","percentile"]),"value":z.number().describe("When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).").optional()}).describe("Controls how outliers are handled").optional(),"windowSettings":z.object({"type":z.enum(["none","conversion"]),"delayHours":z.number().describe("Wait this many hours after experiment exposure before counting conversions"),"windowValue":z.number().optional(),"windowUnit":z.enum(["hours","days","weeks"]).optional()}).describe("Controls the conversion window for the metric").optional(),"regressionAdjustmentSettings":z.object({"override":z.boolean().describe("If false, the organization default settings will be used"),"enabled":z.boolean().describe("Controls whether or not regresion adjustment is applied to the metric").optional(),"days":z.number().describe("Number of pre-exposure days to use for the regression adjustment").optional()}).describe("Controls the regression adjustment (CUPED) settings for the metric").optional()}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
+export const deleteFactMetricValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
+export const postBulkImportFactsValidator = {
+  bodySchema: z.object({"factTables":z.array(z.object({"id":z.string(),"data":z.object({"name":z.string(),"description":z.string().describe("Description of the fact table").optional(),"owner":z.string().describe("The person who is responsible for this fact table").optional(),"projects":z.array(z.string()).describe("List of associated project ids").optional(),"tags":z.array(z.string()).describe("List of associated tags").optional(),"datasource":z.string().describe("The datasource id"),"userIdTypes":z.array(z.string()).describe("List of identifier columns in this table. For example, \"id\" or \"anonymous_id\""),"sql":z.string().describe("The SQL query for this fact table")})})).optional(),"factTableFilters":z.array(z.object({"factTableId":z.string(),"id":z.string(),"data":z.object({"name":z.string(),"description":z.string().describe("Description of the fact table filter").optional(),"value":z.string().describe("The SQL expression for this filter.")})})).optional(),"factMetrics":z.array(z.object({"id":z.string(),"data":z.object({"name":z.string(),"description":z.string().optional(),"owner":z.string().optional(),"projects":z.array(z.string()).optional(),"tags":z.array(z.string()).optional(),"metricType":z.enum(["proportion","mean","ratio"]),"numerator":z.object({"factTableId":z.string(),"column":z.string().describe("Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count'").optional(),"filters":z.array(z.string()).describe("Array of Fact Table Filter Ids").optional()}),"denominator":z.object({"factTableId":z.string(),"column":z.string().describe("The column name or one of the special values: '$$distinctUsers' or '$$count'"),"filters":z.array(z.string()).describe("Array of Fact Table Filter Ids").optional()}).describe("Only when metricType is 'ratio'").optional(),"inverse":z.boolean().describe("Set to true for things like Bounce Rate, where you want the metric to decrease").optional(),"cappingSettings":z.object({"type":z.enum(["none","absolute","percentile"]),"value":z.number().describe("When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).").optional()}).describe("Controls how outliers are handled").optional(),"windowSettings":z.object({"type":z.enum(["none","conversion"]),"delayHours":z.number().describe("Wait this many hours after experiment exposure before counting conversions"),"windowValue":z.number().optional(),"windowUnit":z.enum(["hours","days","weeks"]).optional()}).describe("Controls the conversion window for the metric").optional(),"regressionAdjustmentSettings":z.object({"override":z.boolean().describe("If false, the organization default settings will be used"),"enabled":z.boolean().describe("Controls whether or not regresion adjustment is applied to the metric").optional(),"days":z.number().describe("Number of pre-exposure days to use for the regression adjustment").optional()}).describe("Controls the regression adjustment (CUPED) settings for the metric").optional()})})).optional()}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
