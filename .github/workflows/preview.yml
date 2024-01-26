@@ -10,6 +10,7 @@ on:
       - "yarn.lock"
       - "Dockerfile"
       - ".dockerignore"
+    types: [opened, synchronize, reopened, ready_for_review]
 
 jobs:
   preview:
