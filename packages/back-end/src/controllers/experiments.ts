@@ -280,7 +280,7 @@ export async function getExperiment(
     org.id
   );
 
-  const linkedFeatures = await getLinkedFeatureInfo(org, experiment);
+  const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
 
   res.status(200).json({
     status: 200,
