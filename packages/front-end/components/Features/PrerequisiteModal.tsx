@@ -20,7 +20,7 @@ import {
 import track from "@/services/track";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { useAuth } from "@/services/auth";
-import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteRow";
+import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 

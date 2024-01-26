@@ -85,9 +85,9 @@ import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 import PrerequisiteModal from "@/components/Features/PrerequisiteModal";
-import PrerequisiteRow, {
+import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
-} from "@/components/Features/PrerequisiteRow";
+} from "@/components/Features/PrerequisiteStatusRow";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -782,30 +782,26 @@ export default function FeaturePage() {
 
       <h3>Top-level Requirements</h3>
       <div className="mb-2">
-        When disabled, this feature will evaluate to <code>null</code>. The default
-        value and override rules will be ignored.
+        When disabled, this feature will evaluate to <code>null</code>. The
+        default value and override rules will be ignored.
       </div>
       <div className="mb-4">
-        <table className="table border bg-white mb-2" style={{ width: 700 }}>
+        <table className="table border bg-white mb-2" style={{ width: "auto" }}>
           <tbody>
             <tr className="bg-light">
-              <td className="pl-3 align-bottom font-weight-bold border-right">
-                Kill Switch{" "}
-                <Tooltip
-                  body={
-                    <>
-                      Toggle <strong>OFF</strong> to immediately disable this
-                      feature in an environment. Disabled features will not be
-                      sent to the SDK and will evaluate to <code>null</code>.
-                    </>
-                  }
-                />
+              <td
+                className="pl-3 align-bottom font-weight-bold border-right"
+                style={{ width: 320 }}
+              >
+                Kill Switch
               </td>
               {envs.map((env) => (
-                <td key={env} className="text-center align-bottom">
-                  <div className="font-weight-bolder text-dark mb-2">
-                    {env}
-                  </div>
+                <td
+                  key={env}
+                  className="text-center align-bottom"
+                  style={{ minWidth: 120 }}
+                >
+                  <div className="font-weight-bolder text-dark mb-2">{env}</div>
                   <EnvironmentToggle
                     feature={feature}
                     environment={env}
@@ -828,8 +824,7 @@ export default function FeaturePage() {
                     <>
                       <p>
                         Prerequisite features must evaluate to <code>true</code>{" "}
-                        in order for this feature to be enabled. Disabled
-                        features will evaluate to <code>null</code>.
+                        in order for this feature to be enabled.
                       </p>
                       <p className="mb-0">
                         Note that only <strong>boolean</strong> features may be
@@ -844,7 +839,9 @@ export default function FeaturePage() {
               </td>
               <td colSpan={envs.length} className="py-2">
                 {!prerequisites.length && (
-                  <em className="text-muted">No prerequisite features have been added</em>
+                  <em className="text-muted">
+                    No prerequisite features have been added
+                  </em>
                 )}
               </td>
             </tr>
@@ -855,7 +852,7 @@ export default function FeaturePage() {
                 {prerequisites.map(({ ...item }, i) => {
                   const parentFeature = features.find((f) => f.id === item.id);
                   return (
-                    <PrerequisiteRow
+                    <PrerequisiteStatusRow
                       key={i}
                       i={i}
                       feature={feature}

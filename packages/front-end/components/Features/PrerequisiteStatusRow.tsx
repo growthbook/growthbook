@@ -1,13 +1,13 @@
 import { FeatureInterface, FeaturePrerequisite } from "back-end/types/feature";
-import {
-  FaExclamationCircle,
-  FaExternalLinkAlt,
-  FaInfoCircle,
-} from "react-icons/fa";
+import { FaExclamationCircle, FaExternalLinkAlt } from "react-icons/fa";
 import { evaluatePrerequisiteState, PrerequisiteState } from "shared/util";
 import { Environment } from "back-end/types/organization";
 import React, { useMemo } from "react";
-import {FaRegCircleCheck, FaRegCircleQuestion, FaRegCircleXmark} from "react-icons/fa6";
+import {
+  FaRegCircleCheck,
+  FaRegCircleQuestion,
+  FaRegCircleXmark,
+} from "react-icons/fa6";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import usePermissions from "@/hooks/usePermissions";
@@ -26,7 +26,7 @@ interface Props {
   setPrerequisiteModal: (prerequisite: { i: number }) => void;
 }
 
-export default function PrerequisiteRow({
+export default function PrerequisiteStatusRow({
   i,
   prerequisite,
   feature,
@@ -143,12 +143,6 @@ export function PrerequisiteStatesCols({
                       : "This prerequisite feature"}{" "}
                     is currently enabled in this environment.
                   </div>
-                  {isSummaryRow && (
-                    <div className="mt-2">
-                      This feature will be sent to the SDK where its rules will
-                      be evaluated.
-                    </div>
-                  )}
                 </>
               }
             >
@@ -166,13 +160,13 @@ export function PrerequisiteStatesCols({
                       ? "This feature"
                       : "This prerequisite feature"}{" "}
                     is currently disabled in this environment.
+                    {isSummaryRow && (
+                      <>
+                        {" "}
+                        It will evaluate to <code>null</code>.
+                      </>
+                    )}
                   </div>
-                  {isSummaryRow && (
-                    <div className="mt-2">
-                      This feature will not be sent to the SDK and will evaluate
-                      to <code>null</code>.
-                    </div>
-                  )}
                 </>
               }
             >
@@ -193,11 +187,9 @@ export function PrerequisiteStatesCols({
                     </div>
                     {isSummaryRow && (
                       <div className="mt-2">
-                        This feature will be sent to the SDK and its
-                        prerequisites will be evaluated at runtime. If any
+                        Prerequisites will be evaluated at runtime. If any
                         prerequisites do not pass, this feature will evaluate to{" "}
-                        <code>null</code>; otherwise this feature&apos;s rules
-                        will be evaluated.
+                        <code>null</code>.
                       </div>
                     )}
                   </>

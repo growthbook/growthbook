@@ -61,9 +61,7 @@ export default function PrerequisiteInput(props: Props) {
     return (
       <div className="ml-1">
         <CodeTextArea
-          label={
-            <span className="text-main">PASS IF</span>
-          }
+          label={<span className="text-main">PASS IF</span>}
           language="json"
           value={value}
           setValue={setValue}
@@ -202,9 +200,7 @@ export default function PrerequisiteInput(props: Props) {
 
           return (
             <li key={i} className={`${styles.listitem} py-0`}>
-              <div
-                className="d-flex align-items-center mb-2"
-              >
+              <div className="d-flex align-items-center mb-2">
                 <div className={styles.passif}>PASS IF</div>
                 {!advanced && (
                   <div className="ml-2">
@@ -213,8 +209,20 @@ export default function PrerequisiteInput(props: Props) {
                     </div>
                   </div>
                 )}
+                <div className="flex-1" />
+                <a
+                  role="button"
+                  className="ml-auto"
+                  style={{ fontSize: "0.9em" }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setAdvanced(true);
+                  }}
+                >
+                  Advanced mode
+                </a>
               </div>
-              <div className="col">
+              <div className="row">
                 <div className="col-sm-12 col-md">
                   <SelectField
                     value={operator}
@@ -313,19 +321,6 @@ export default function PrerequisiteInput(props: Props) {
           );
         })}
       </ul>
-      <div className="d-flex align-items-center">
-        <a
-          role="button"
-          className="ml-auto"
-          style={{ fontSize: "0.9em" }}
-          onClick={(e) => {
-            e.preventDefault();
-            setAdvanced(true);
-          }}
-        >
-          Advanced mode
-        </a>
-      </div>
     </div>
   );
 }

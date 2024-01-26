@@ -161,15 +161,7 @@ function getConditionParts({
     let parentIdEl: ReactNode = null;
     if (renderPrerequisite) {
       if (field === "@parent") {
-        fieldEl = (
-          <span className="mr-1 border px-2 bg-light rounded">
-            value
-            <Tooltip
-              className="ml-1"
-              body="The evaluated value of the prerequisite feature"
-            />
-          </span>
-        );
+        fieldEl = null;
       }
       if (parentId) {
         parentIdEl = (

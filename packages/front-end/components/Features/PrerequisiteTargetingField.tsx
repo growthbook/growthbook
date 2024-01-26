@@ -1,9 +1,10 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
 import { FeatureInterface, FeaturePrerequisite } from "back-end/types/feature";
-import { FaExternalLinkAlt, FaInfoCircle } from "react-icons/fa";
+import { FaExternalLinkAlt } from "react-icons/fa";
 import clsx from "clsx";
-import React, { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { evaluatePrerequisiteState, PrerequisiteState } from "shared/util";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import {
   getDefaultPrerequisiteCondition,
@@ -13,8 +14,8 @@ import {
 } from "@/services/features";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import styles from "@/components/Features/ConditionInput.module.scss";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { useArrayIncrementer } from "@/hooks/useIncrementer";
+import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
 import { GBAddCircle } from "../Icons";
 import SelectField from "../Forms/SelectField";
 
@@ -36,6 +37,7 @@ export default function PrerequisiteTargetingField({
     .map((f) => ({ label: f.id, value: f.id }));
 
   const environments = useEnvironments();
+  const envs = environments.map((e) => e.id);
 
   const [conditionKeys, forceConditionRender] = useArrayIncrementer();
 
@@ -70,7 +72,6 @@ export default function PrerequisiteTargetingField({
             <ul className={styles.conditionslist}>
               {value.map((v, i) => {
                 const parentFeature = features.find((f) => f.id === v.id);
-                const parentFeatureId = parentFeature?.id;
 
                 return (
                   <li key={i} className={styles.listitem}>
@@ -116,123 +117,30 @@ export default function PrerequisiteTargetingField({
                       </div>
                     </div>
 
-                    {parentFeature ? (
-                      <div className="d-flex align-items-center">
-                        <div className="mr-3 nowrap text-info cursor-pointer">
-                          <Tooltip
-                            popperStyle={{minWidth: 450, maxWidth: 650}}
-                            body={
-                              <table className="table mb-0">
-                                <thead className="uppercase-title text-muted">
-                                <tr>
-                                  <th className="border-top-0">Type</th>
-                                  <th className="border-top-0">
-                                    Default value
-                                  </th>
-                                  <th className="border-top-0">
-                                    Environments
-                                  </th>
-                                </tr>
-                                </thead>
-                                <tbody>
-                                <tr>
-                                  <td>
-                                    {parentFeature.valueType === "json"
-                                      ? "JSON"
-                                      : parentFeature.valueType}
-                                  </td>
-                                  <td>
-                                    <div
-                                      className={clsx({
-                                        small:
-                                          parentFeature.valueType ===
-                                          "json",
-                                      })}
-                                    >
-                                      <ValueDisplay
-                                        value={getFeatureDefaultValue(
-                                          parentFeature
-                                        )}
-                                        type={parentFeature.valueType}
-                                        full={false}
-                                      />
-                                    </div>
-                                  </td>
-                                  <td>
-                                    <div className="d-flex small">
-                                      {environments.map((env) => (
-                                        <div
-                                          key={env.id}
-                                          className="mr-3"
-                                        >
-                                          <div className="font-weight-bold">
-                                            {env.id}
-                                          </div>
-                                          <div>
-                                            {parentFeature
-                                              ?.environmentSettings?.[
-                                              env.id
-                                              ]?.enabled ? (
-                                              <span className="text-success font-weight-bold uppercase-title">
-                                                      ON
-                                                    </span>
-                                            ) : (
-                                              <span className="text-danger font-weight-bold uppercase-title">
-                                                      OFF
-                                                    </span>
-                                            )}
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </td>
-                                </tr>
-                                </tbody>
-                              </table>
-                            }
-                          >
-                            about
-                            <FaInfoCircle className="ml-1"/>
-                          </Tooltip>
-                        </div>
-                        <a
-                          className="a nowrap"
-                          href={`/features/${parentFeatureId}`}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          link
-                          <FaExternalLinkAlt className="ml-1"/>
-                        </a>
-                      </div>
-                    ) : null}
-                    {/*<div className="mt-3 d-flex">*/}
-                    {/*  <div className="mr-2">*/}
-                    {/*    <div className="font-weight-semibold" style={{fontSize: "13px"}}>PASS IF</div>*/}
-                    {/*  </div>*/}
-                    {/*</div>*/}
-                    <div className="row mt-3">
-                      <div className="col">
-                        {parentFeature ? (
-                          <PrerequisiteInput
-                            defaultValue={v.condition}
-                            onChange={(s) => {
-                              setValue([
-                                ...value.slice(0, i),
-                                {
-                                  id: v.id,
-                                  condition: s,
-                                },
-                                ...value.slice(i + 1),
-                              ]);
-                            }}
-                            parentFeature={parentFeature}
-                            key={conditionKeys[i]}
-                          />
-                        ) : null}
-                      </div>
+                    <PrereqStatesRows
+                      parentFeature={parentFeature}
+                      envs={envs}
+                      features={features}
+                    />
 
-
+                    <div className="mt-3">
+                      {parentFeature ? (
+                        <PrerequisiteInput
+                          defaultValue={v.condition}
+                          onChange={(s) => {
+                            setValue([
+                              ...value.slice(0, i),
+                              {
+                                id: v.id,
+                                condition: s,
+                              },
+                              ...value.slice(i + 1),
+                            ]);
+                          }}
+                          parentFeature={parentFeature}
+                          key={conditionKeys[i]}
+                        />
+                      ) : null}
                     </div>
                   </li>
                 );
@@ -283,5 +191,98 @@ export default function PrerequisiteTargetingField({
         )}
       </div>
     </div>
+  );
+}
+
+function PrereqStatesRows({
+  parentFeature,
+  envs,
+  features,
+}: {
+  parentFeature?: FeatureInterface;
+  envs: string[];
+  features: FeatureInterface[];
+}) {
+  const [showDetails, setShowDetails] = useState(false);
+
+  const prereqStates = useMemo(() => {
+    if (!parentFeature) return null;
+    const states: Record<string, PrerequisiteState> = {};
+    envs.forEach((env) => {
+      states[env] = evaluatePrerequisiteState(parentFeature, features, env);
+    });
+    return states;
+  }, [parentFeature, features, envs]);
+
+  if (!parentFeature) {
+    return null;
+  }
+
+  return (
+    <>
+      <div className="d-flex align-items-center mt-2">
+        <div style={{ width: 110 }}>
+          <span
+            className="text-purple hover-underline cursor-pointer"
+            onClick={() => setShowDetails(!showDetails)}
+          >
+            {showDetails ? "Hide details" : "Show details"}
+          </span>
+        </div>
+        <a
+          className="a nowrap"
+          href={`/features/${parentFeature.id}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          {parentFeature.id}
+          <FaExternalLinkAlt className="ml-1" />
+        </a>
+      </div>
+
+      {showDetails && (
+        <div className="mt-3">
+          <table className="table mb-4 border">
+            <thead className="bg-light text-dark">
+              <tr>
+                <th className="pl-4">Type</th>
+                <th className="border-right">Default value</th>
+                {envs.map((env) => (
+                  <th key={env} className="text-center">
+                    {env}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="pl-4">
+                  {parentFeature.valueType === "json"
+                    ? "JSON"
+                    : parentFeature.valueType}
+                </td>
+                <td className="border-right">
+                  <div
+                    className={clsx({
+                      small: parentFeature.valueType === "json",
+                    })}
+                  >
+                    <ValueDisplay
+                      value={getFeatureDefaultValue(parentFeature)}
+                      type={parentFeature.valueType}
+                      full={false}
+                    />
+                  </div>
+                </td>
+                <PrerequisiteStatesCols
+                  prereqStates={prereqStates ?? undefined}
+                  envs={envs}
+                />
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
   );
 }
