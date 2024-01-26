@@ -231,7 +231,7 @@ async function findMetrics(
           return true;
         }
       : false;
-    getConfigMetrics(context.org.id)
+    getConfigMetrics(context)
       .filter((m) => !filter || filter(m))
       .forEach((m) => {
         metrics.push(m);
@@ -289,8 +289,7 @@ export async function getMetricById(
 ) {
   // If using config.yml, immediately return the from there if found
   if (usingFileConfig()) {
-    const doc =
-      getConfigMetrics(context.org.id).filter((m) => m.id === id)[0] || null;
+    const doc = getConfigMetrics(context).filter((m) => m.id === id)[0] || null;
     if (doc) {
       if (includeAnalysis) {
         const metric = await MetricModel.findOne({
@@ -302,11 +301,6 @@ export async function getMetricById(
         doc.analysisError = metric?.analysisError || undefined;
         doc.runStarted = metric?.runStarted || null;
       }
-
-      if (!hasReadAccess(context.readAccessFilter, doc.projects)) {
-        return null;
-      }
-
       return doc;
     }
     // If metrics are locked down to just a config file, return immediately
@@ -336,7 +330,7 @@ export async function getMetricsByIds(
 
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {
-    getConfigMetrics(context.org.id)
+    getConfigMetrics(context)
       .filter((m) => ids.includes(m.id))
       .forEach((m) => {
         metrics.push(m);
