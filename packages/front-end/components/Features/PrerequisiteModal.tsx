@@ -1,13 +1,12 @@
 import { useForm } from "react-hook-form";
 import { FeatureInterface, FeaturePrerequisite } from "back-end/types/feature";
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 import {
   evaluatePrerequisiteState,
   isFeatureCyclic,
   PrerequisiteState,
 } from "shared/util";
 import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
-import clsx from "clsx";
 import cloneDeep from "lodash/cloneDeep";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import {
@@ -21,6 +20,7 @@ import track from "@/services/track";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { useAuth } from "@/services/auth";
 import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 
@@ -62,6 +62,7 @@ export default function PrerequisiteModal({
 
   const featureOptions = features
     .filter((f) => f.id !== feature.id)
+    .filter((f) => !prerequisites.map((p) => p.id).includes(f.id))
     .filter((f) => (f.project || "") === (feature.project || ""))
     .filter((f) => f.valueType === "boolean")
     .map((f) => ({ label: f.id, value: f.id }));
@@ -105,6 +106,7 @@ export default function PrerequisiteModal({
       size="lg"
       cta="Save"
       ctaEnabled={canSubmit}
+      bodyClassName="mx-2"
       header={prerequisite ? "Edit Prerequisite" : "New Prerequisite"}
       submit={form.handleSubmit(async (values) => {
         if (!values.condition) {
@@ -130,6 +132,21 @@ export default function PrerequisiteModal({
         mutate();
       })}
     >
+      <div className="alert alert-info mt-2 mb-3">
+        Prerequisite features must evaluate to <code>true</code> for this
+        feature to be enabled.{" "}
+        <Tooltip
+          body={
+            <p className="mb-0">
+              Only <strong>boolean</strong> features may be used as top-level
+              prerequisites. To implement prerequisites using non-boolean
+              features or non-standard targeting rules, you may add prerequisite
+              targeting to a feature rule.
+            </p>
+          }
+        />
+      </div>
+
       <SelectField
         label="Select from boolean features"
         placeholder="Select feature"
@@ -174,18 +191,17 @@ export default function PrerequisiteModal({
                     ? "JSON"
                     : parentFeature.valueType}
                 </td>
-                <td className="border-right">
-                  <div
-                    className={clsx({
-                      small: parentFeature.valueType === "json",
-                    })}
-                  >
-                    <ValueDisplay
-                      value={getFeatureDefaultValue(parentFeature)}
-                      type={parentFeature.valueType}
-                      full={false}
-                    />
-                  </div>
+                <td className="border-right" style={{ maxWidth: 400 }}>
+                  <ValueDisplay
+                    value={getFeatureDefaultValue(parentFeature)}
+                    type={parentFeature.valueType}
+                    fullStyle={{
+                      maxHeight: 120,
+                      overflowY: "auto",
+                      overflowX: "auto",
+                      maxWidth: "100%",
+                    }}
+                  />
                 </td>
                 <PrerequisiteStatesCols
                   prereqStates={prereqStates ?? undefined}

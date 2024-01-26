@@ -7,23 +7,15 @@
   list-style: none;
   margin-left: 0;
   padding-left: 0;
-  margin-bottom: 8px;
+  margin-bottom: 0;
   li {
     position: relative;
   }
-  li:after {
-    content: "";
-    position: absolute;
-    bottom: 0;
-    width: 100%;
-    height: 1px;
-    border-bottom: 1px solid $gray-200;
-  }
-  li:last-child:after {
-    display: none;
+  li:last-child {
+    padding-bottom: 0.7em;
   }
   .listitem {
-    padding: 1.1em 0 0.7em;
+    padding: 1.1em 0 0;
   }
 
   .firstselect {

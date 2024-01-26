@@ -122,7 +122,7 @@ export default function PrerequisiteInput(props: Props) {
   }
 
   return (
-    <div>
+    <>
       {conds.map(({ field, operator, value }, i) => {
         const attribute = parentValueMap.get(field);
 
@@ -197,7 +197,7 @@ export default function PrerequisiteInput(props: Props) {
             : [];
 
         return (
-          <div key={i} className="py-0">
+          <div key={i}>
             <div className="d-flex align-items-center mb-2">
               <div className={styles.passif}>PASS IF</div>
               {!advanced && (
@@ -207,16 +207,6 @@ export default function PrerequisiteInput(props: Props) {
                   </div>
                 </div>
               )}
-              <div className="flex-1" />
-              <span
-                className="text-purple hover-underline cursor-pointer"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setAdvanced(true);
-                }}
-              >
-                <RxLoop /> Advanced mode
-              </span>
             </div>
             <div className="row">
               <div className="col-sm-12 col-md">
@@ -317,9 +307,23 @@ export default function PrerequisiteInput(props: Props) {
                 ""
               )}
             </div>
+            {!advanced && (
+              <div className="d-flex mt-1">
+                <div className="flex-1"/>
+                <span
+                  className="text-purple hover-underline cursor-pointer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setAdvanced(true);
+                  }}
+                >
+                  <RxLoop/> Advanced mode
+                </span>
+              </div>
+            )}
           </div>
         );
       })}
-    </div>
+    </>
   );
 }

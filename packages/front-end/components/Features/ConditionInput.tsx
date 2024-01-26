@@ -2,7 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import { some } from "lodash";
-import { FaExclamationCircle } from "react-icons/fa";
+import {
+  FaExclamationCircle,
+  FaMinusCircle,
+  FaPlusCircle,
+} from "react-icons/fa";
 import { RxLoop } from "react-icons/rx";
 import {
   condToJson,
@@ -13,7 +17,6 @@ import {
 } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "../Forms/Field";
-import { GBAddCircle } from "../Icons";
 import SelectField from "../Forms/SelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
 import StringArrayField from "../Forms/StringArrayField";
@@ -76,57 +79,58 @@ export default function ConditionInput(props: Props) {
       )
     );
     return (
-      <div className="mb-3">
-        <CodeTextArea
-          label={title}
-          labelClassName={props.labelClassName}
-          language="json"
-          value={value}
-          setValue={setValue}
-          helpText={
-            <>
-              <div className="d-flex">
-                <div>JSON format using MongoDB query syntax.</div>
-                {simpleAllowed && attributes.size && (
-                  <div className="ml-auto">
-                    <span
-                      className="text-purple hover-underline cursor-pointer"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        const newConds = jsonToConds(value, attributes);
-                        // TODO: show error
-                        if (newConds === null) return;
-                        setConds(newConds);
-                        setAdvanced(false);
-                      }}
-                    >
-                      <RxLoop /> Simple mode
-                    </span>
+      <div className="form-group my-4">
+        <label className={props.labelClassName || ""}>{title}</label>
+        <div className="appbox bg-light px-3 py-3">
+          <CodeTextArea
+            labelClassName={props.labelClassName}
+            language="json"
+            value={value}
+            setValue={setValue}
+            helpText={
+              <>
+                <div className="d-flex">
+                  <div>JSON format using MongoDB query syntax.</div>
+                  {simpleAllowed && attributes.size && (
+                    <div className="ml-auto">
+                      <span
+                        className="text-purple hover-underline cursor-pointer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          const newConds = jsonToConds(value, attributes);
+                          // TODO: show error
+                          if (newConds === null) return;
+                          setConds(newConds);
+                          setAdvanced(false);
+                        }}
+                      >
+                        <RxLoop /> Simple mode
+                      </span>
+                    </div>
+                  )}
+                </div>
+                {hasSecureAttributes && (
+                  <div className="mt-1 text-warning-orange">
+                    <FaExclamationCircle /> Secure attribute hashing not
+                    guaranteed to work for complicated rules
                   </div>
                 )}
-              </div>
-              {hasSecureAttributes && (
-                <div className="mt-1 text-warning-orange">
-                  <FaExclamationCircle /> Secure attribute hashing not
-                  guaranteed to work for complicated rules
-                </div>
-              )}
-            </>
-          }
-        />
+              </>
+            }
+          />
+        </div>
       </div>
     );
   }
 
   if (!conds.length) {
     return (
-      <div className="form-group">
+      <div className="form-group my-4">
         <label className={props.labelClassName || ""}>{title}</label>
-        <div className={`mb-3 bg-light p-3 ${styles.conditionbox}`}>
+        <div>
           <em className="text-muted mr-3">{emptyText}</em>
-          <a
-            className="a"
-            role="button"
+          <div
+            className="ml-1 mt-2 text-purple hover-underline cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
               const prop = attributeSchema[0];
@@ -139,17 +143,18 @@ export default function ConditionInput(props: Props) {
               ]);
             }}
           >
+            <FaPlusCircle className="mr-1" />
             Add attribute targeting
-          </a>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="form-group">
+    <div className="form-group my-4">
       <label className={props.labelClassName || ""}>{title}</label>
-      <div className={`mb-3 bg-light px-3 pb-3 ${styles.conditionbox}`}>
+      <div className="appbox bg-light px-3 pb-3">
         <ul className={styles.conditionslist}>
           {conds.map(({ field, operator, value }, i) => {
             const attribute = attributes.get(field);
@@ -441,6 +446,7 @@ export default function ConditionInput(props: Props) {
                           setConds(newConds);
                         }}
                       >
+                        <FaMinusCircle className="mr-1" />
                         remove
                       </button>
                     </div>
@@ -452,9 +458,8 @@ export default function ConditionInput(props: Props) {
         </ul>
         <div className="d-flex align-items-center">
           {attributeSchema.length > 0 && (
-            <a
-              className={`a mr-3 btn btn-outline-primary ${styles.addcondition}`}
-              role="button"
+            <span
+              className="text-purple hover-underline cursor-pointer"
               onClick={(e) => {
                 e.preventDefault();
                 const prop = attributeSchema[0];
@@ -468,13 +473,9 @@ export default function ConditionInput(props: Props) {
                 ]);
               }}
             >
-              <span
-                className={`h4 pr-2 m-0 d-inline-block align-top ${styles.addicon}`}
-              >
-                <GBAddCircle />
-              </span>
+              <FaPlusCircle className="mr-1" />
               Add another condition
-            </a>
+            </span>
           )}
           <span
             className="ml-auto text-purple hover-underline cursor-pointer"

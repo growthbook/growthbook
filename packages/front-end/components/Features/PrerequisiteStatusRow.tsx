@@ -59,11 +59,12 @@ export default function PrerequisiteStatusRow({
             {parentFeature?.id ? (
               <>
                 <a
+                  className="d-flex align-items-center"
                   href={`/features/${parentFeature.id}`}
                   target="_blank"
                   rel="noreferrer"
                 >
-                  {parentFeature.id}
+                  <span className="d-inline-block text-ellipsis" style={{ maxWidth: 230 }}>{parentFeature.id}</span>
                   <FaExternalLinkAlt className="ml-1" />
                 </a>
               </>

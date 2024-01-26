@@ -1,10 +1,10 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
 import { FeatureInterface, FeaturePrerequisite } from "back-end/types/feature";
-import { FaExternalLinkAlt } from "react-icons/fa";
-import clsx from "clsx";
-import { useEffect, useMemo, useState } from "react";
+import { FaExternalLinkAlt, FaMinusCircle, FaPlusCircle } from "react-icons/fa";
+import React, { useEffect, useMemo, useState } from "react";
 import { evaluatePrerequisiteState, PrerequisiteState } from "shared/util";
+import { BiHide, BiShow } from "react-icons/bi";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import {
   getDefaultPrerequisiteCondition,
@@ -61,7 +61,7 @@ export default function PrerequisiteTargetingField({
   }, [JSON.stringify(value)]);
 
   return (
-    <div className="form-group mb-4">
+    <div className="form-group my-4">
       <label>Target by Prerequisite Features</label>
       {value.length > 0 ? (
         <>
@@ -69,20 +69,22 @@ export default function PrerequisiteTargetingField({
             const parentFeature = features.find((f) => f.id === v.id);
 
             return (
-              <div key={i} className="appbox bg-light px-3 pt-3 pb-4 mb-4">
+              <div key={i} className="appbox bg-light px-3 py-3">
                 <div className="row mb-1">
                   <div className="col">
                     <label className="mb-0">Feature</label>
                   </div>
                   <div className="col-md-auto col-sm-12">
                     <button
-                      className="btn btn-link py-0 text-danger"
+                      className="btn btn-link py-0 text-danger position-relative"
+                      style={{ top: -4 }}
                       type="button"
                       onClick={(e) => {
                         e.preventDefault();
                         setValue([...value.slice(0, i), ...value.slice(i + 1)]);
                       }}
                     >
+                      <FaMinusCircle className="mr-1" />
                       remove
                     </button>
                   </div>
@@ -116,7 +118,7 @@ export default function PrerequisiteTargetingField({
                   features={features}
                 />
 
-                <div className="mt-3">
+                <div className="mt-2">
                   {parentFeature ? (
                     <PrerequisiteInput
                       defaultValue={v.condition}
@@ -139,9 +141,8 @@ export default function PrerequisiteTargetingField({
             );
           })}
 
-          <a
-            role="button"
-            className="btn btn-outline-primary"
+          <span
+            className="ml-2 text-purple hover-underline cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
               setValue([
@@ -153,20 +154,17 @@ export default function PrerequisiteTargetingField({
               ]);
             }}
           >
-            <span className="pr-2">
-              <GBAddCircle />
-            </span>
-            Add another prerequisite
-          </a>
+            <FaPlusCircle className="mr-1" />
+            Add prerequisite
+          </span>
         </>
       ) : (
-        <div className="border bg-light p-3 mb-1">
+        <div>
           <em className="text-muted mr-3">
             No prerequisite targeting applied.
           </em>
-          <a
-            className="a"
-            role="button"
+          <div
+            className="ml-1 mt-2 text-purple hover-underline cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
               setValue([
@@ -178,8 +176,9 @@ export default function PrerequisiteTargetingField({
               ]);
             }}
           >
+            <GBAddCircle className="mr-1" />
             Add prerequisite targeting
-          </a>
+          </div>
         </div>
       )}
     </div>
@@ -213,16 +212,25 @@ function PrereqStatesRows({
   return (
     <>
       <div className="d-flex align-items-center mt-1">
+        <div className="flex-1" />
         <span
           className="text-purple hover-underline cursor-pointer"
           onClick={() => setShowDetails(!showDetails)}
         >
-          {showDetails ? "Hide details" : "Show details"}
+          {showDetails ? (
+            <>
+              <BiHide /> Hide details
+            </>
+          ) : (
+            <>
+              <BiShow /> Show details
+            </>
+          )}
         </span>
       </div>
 
       {showDetails && (
-        <div className="mt-2">
+        <div>
           <div className="mb-2">
             <a
               className="a nowrap"
@@ -234,8 +242,8 @@ function PrereqStatesRows({
               <FaExternalLinkAlt className="ml-1" />
             </a>
           </div>
-          <table className="table mb-4 border">
-            <thead className="bg-light text-dark">
+          <table className="table mb-4 border bg-white">
+            <thead className="text-dark">
               <tr>
                 <th className="pl-4">Type</th>
                 <th className="border-right">Default value</th>
@@ -253,18 +261,17 @@ function PrereqStatesRows({
                     ? "JSON"
                     : parentFeature.valueType}
                 </td>
-                <td className="border-right">
-                  <div
-                    className={clsx({
-                      small: parentFeature.valueType === "json",
-                    })}
-                  >
-                    <ValueDisplay
-                      value={getFeatureDefaultValue(parentFeature)}
-                      type={parentFeature.valueType}
-                      full={false}
-                    />
-                  </div>
+                <td className="border-right" style={{ maxWidth: 400 }}>
+                  <ValueDisplay
+                    value={getFeatureDefaultValue(parentFeature)}
+                    type={parentFeature.valueType}
+                    fullStyle={{
+                      maxHeight: 120,
+                      overflowY: "auto",
+                      overflowX: "auto",
+                      maxWidth: "100%",
+                    }}
+                  />
                 </td>
                 <PrerequisiteStatesCols
                   prereqStates={prereqStates ?? undefined}

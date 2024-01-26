@@ -1,12 +1,13 @@
 import { useRouter } from "next/router";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   FaChevronRight,
   FaDraftingCompass,
   FaExchangeAlt,
   FaExclamationTriangle,
+  FaExternalLinkAlt,
   FaLink,
   FaList,
   FaLock,
@@ -16,6 +17,7 @@ import { ago, date, datetime } from "shared/dates";
 import {
   autoMerge,
   evaluatePrerequisiteState,
+  getDependencies,
   getValidation,
   isFeatureStale,
   mergeResultHasChanges,
@@ -235,6 +237,11 @@ export default function FeaturePage() {
     });
     return states;
   }, [feature, features, envs]);
+
+  const dependencies = useMemo(() => {
+    if (!feature || !features) return [];
+    return getDependencies(feature, features);
+  }, [feature, features]);
 
   const mergeResult = useMemo(() => {
     if (!data || !feature || !revision) return null;
@@ -822,17 +829,8 @@ export default function FeaturePage() {
                 <Tooltip
                   body={
                     <>
-                      <p>
-                        Prerequisite features must evaluate to <code>true</code>{" "}
-                        in order for this feature to be enabled.
-                      </p>
-                      <p className="mb-0">
-                        Note that only <strong>boolean</strong> features may be
-                        used as top-level prerequisites. To implement
-                        prerequisite logic using non-boolean features and/or
-                        non-standard targeting rules, you may use prerequisite
-                        targeting within this feature&apos;s rules.
-                      </p>
+                      Prerequisite features must evaluate to <code>true</code>{" "}
+                      in order for this feature to be enabled.
                     </>
                   }
                 />
@@ -897,10 +895,31 @@ export default function FeaturePage() {
             <span className="h4 pr-2 m-0 d-inline-block align-top">
               <GBAddCircle />
             </span>
-            Add Prerequisite
+            Add Prerequisite feature
           </button>
         )}
       </div>
+
+      {dependencies.length > 0 && (
+        <div className="mb-4">
+          <h4>Dependent Features</h4>
+          <div className="mb-2">
+            {dependencies.length === 1
+              ? "Another feature depends on this feature as a prerequisite. Modifying the current feature may affect its behavior:"
+              : `${dependencies.length} other features depend on this feature as a prerequisite. Modifying the current feature may affect their behavior:`}
+          </div>
+          <ul className="pl-4">
+            {dependencies.map((dep, i) => (
+              <li className="my-1" key={i}>
+                <a href={`/features/${dep}`} target="_blank" rel="noreferrer">
+                  {dep}
+                  <FaExternalLinkAlt className="ml-1" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {feature.valueType === "json" && (
         <div>

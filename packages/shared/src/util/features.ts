@@ -539,27 +539,6 @@ export function evaluatePrerequisiteState(
     }
     isTopLevel = false;
 
-    // // traverse a specific node
-    // if (prerequisiteId) {
-    //   const prerequisiteFeature = features.find((f) => f.id === prerequisiteId);
-    //   if (!prerequisiteFeature) {
-    //     // todo: consider returning info about missing feature
-    //     return "off";
-    //   }
-    //   // const condition = feature.prerequisites?.find((p) => p.id === prerequisiteId)?.condition;
-    //   // if (condition !== simpleTargetingCondition) {
-    //   //   state = state !== "off" ? "conditional" : state;
-    //   // }
-    //   const result = visit(prerequisiteFeature);
-    //   if (result === "off") {
-    //     return "off";
-    //   }
-    //   if (result === "conditional") {
-    //     return state !== "off" ? "conditional" : state;
-    //   }
-    //   return state !== "conditional" ? "on" : state;
-    // }
-
     // traverse all nodes
     const prerequisites = feature.prerequisites || [];
     for (const prerequisite of prerequisites) {
@@ -571,15 +550,12 @@ export function evaluatePrerequisiteState(
         state = "off";
         break;
       }
-      // if (prerequisite.condition !== simpleTargetingCondition) {
-      //   state = state !== "off" ? "conditional" : state;
-      //   if (state === "off") break;
-      // }
       const result = visit(prerequisiteFeature);
       if (result === "off") {
         state = "off";
       } else if (result === "conditional") {
-        state = state !== "off" ? "conditional" : state;
+        // don't need to check if state === "off" because off returns early
+        state = "conditional";
       } else {
         state = state !== "conditional" ? "on" : state;
       }
@@ -590,4 +566,22 @@ export function evaluatePrerequisiteState(
     return state;
   };
   return visit(feature);
+}
+
+export function getDependencies(
+  feature: FeatureInterface,
+  features: FeatureInterface[],
+): string[] {
+  // get a subset of features that reference feature.id as a prerequisite or in a rule
+  const dependentFeatures = features.filter((f) => {
+    const prerequisites = f.prerequisites || [];
+    const rules = Object.values(f.environmentSettings || {}).flatMap(
+      (e) => e.rules || []
+    );
+    return (
+      prerequisites.some((p) => p.id === feature.id) ||
+      rules.some((r) => r.prerequisites?.some((p) => p.id === feature.id))
+    );
+  });
+  return dependentFeatures.map((f) => f.id);
 }

@@ -1,21 +1,23 @@
-export interface Props {
-  value: number;
-  setValue: (value: number) => void;
-  label?: string;
-}
-
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 2,
 });
 
+export interface Props {
+  value: number;
+  setValue: (value: number) => void;
+  label?: string;
+  className?: string;
+}
+
 export default function RolloutPercentInput({
   value,
   setValue,
   label = "Percent of Users",
+  className,
 }: Props) {
   return (
-    <div className="form-group">
+    <div className={`form-group ${className}`}>
       <label>{label}</label>
       <div className="row align-items-center">
         <div className="col">
