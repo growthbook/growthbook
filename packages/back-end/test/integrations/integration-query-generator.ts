@@ -159,8 +159,16 @@ const baseMetric: Omit<
   owner: "",
   datasource: "",
   name: "",
-  conversionWindowHours: 72,
-  conversionDelayHours: 0,
+  windowSettings: {
+    type: "conversion",
+    delayHours: 0,
+    windowValue: 72,
+    windowUnit: "hours",
+  },
+  cappingSettings: {
+    type: "",
+    value: 0,
+  },
   description: "",
   inverse: false,
   dateCreated: null,
@@ -263,17 +271,21 @@ const baseFactMetric: Omit<
   // defaults that can be overriden in fact-metrics.json
   denominator: null,
 
-  conversionDelayHours: 0,
-  hasConversionWindow: true,
-  conversionWindowValue: 72,
-  conversionWindowUnit: "hours",
+  windowSettings: {
+    type: "conversion",
+    delayHours: 0,
+    windowValue: 72,
+    windowUnit: "hours",
+  },
+
+  cappingSettings: {
+    type: "",
+    value: 0,
+  },
 
   regressionAdjustmentDays: 14,
   regressionAdjustmentEnabled: false,
   regressionAdjustmentOverride: false,
-
-  capValue: 0,
-  capping: "",
 };
 
 const analysisFactMetrics: FactMetricInterface[] = factMetricConfigs.map(
@@ -486,6 +498,7 @@ engines.forEach((engine) => {
           {
             metric: metric.id,
             reason: "",
+            regressionAdjustmentAvailable: true,
             regressionAdjustmentEnabled:
               metric.regressionAdjustmentEnabled ?? false,
             regressionAdjustmentDays: metric.regressionAdjustmentDays ?? 0,

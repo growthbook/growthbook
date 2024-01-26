@@ -39,8 +39,10 @@
     "type": "count",
     "ignoreNulls": false,
     "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\namount as value\nFROM orders",
-    "capping": "percentile",
-    "capValue": 0.9
+    "cappingSettings": {
+      "capping": "percentile",
+      "capValue": 0.9
+    }
   },
   {
     "id": "nonbinom__count_distinct_date",
