@@ -10,7 +10,7 @@ export const deleteFactTable = createApiRequestHandler(
   deleteFactTableValidator
 )(
   async (req): Promise<DeleteFactTableResponse> => {
-    const factTable = await getFactTable(req.organization.id, req.params.id);
+    const factTable = await getFactTable(req.context, req.params.id);
     if (!factTable) {
       throw new Error(
         "Unable to delete - Could not find factTable with that id"

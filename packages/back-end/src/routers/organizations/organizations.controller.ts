@@ -143,7 +143,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     getAllTags(orgId),
     getAllSavedGroups(orgId),
     findAllProjectsByOrganization(context),
-    getAllFactTablesForOrganization(orgId),
+    getAllFactTablesForOrganization(context),
     getAllFactMetricsForOrganization(context),
   ]);
 

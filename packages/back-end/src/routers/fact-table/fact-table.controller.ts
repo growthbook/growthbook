@@ -42,9 +42,9 @@ export const getFactTables = async (
   req: AuthRequest,
   res: Response<{ status: 200; factTables: FactTableInterface[] }>
 ) => {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
-  const factTables = await getAllFactTablesForOrganization(org.id);
+  const factTables = await getAllFactTablesForOrganization(context);
 
   res.status(200).json({
     status: 200,
@@ -127,9 +127,10 @@ export const putFactTable = async (
   res: Response<{ status: 200 }>
 ) => {
   const data = req.body;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
-  const factTable = await getFactTable(org.id, req.params.id);
+  const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
   }
@@ -170,9 +171,9 @@ export const deleteFactTable = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{ status: 200 }>
 ) => {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
-  const factTable = await getFactTable(org.id, req.params.id);
+  const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
   }
@@ -190,9 +191,9 @@ export const putColumn = async (
   res: Response<{ status: 200 }>
 ) => {
   const data = req.body;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
-  const factTable = await getFactTable(org.id, req.params.id);
+  const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
   }
@@ -214,9 +215,10 @@ export const postFactFilterTest = async (
   }>
 ) => {
   const data = req.body;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
-  const factTable = await getFactTable(org.id, req.params.id);
+  const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
   }
@@ -242,9 +244,10 @@ export const postFactFilter = async (
   res: Response<{ status: 200; filterId: string }>
 ) => {
   const data = req.body;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
-  const factTable = await getFactTable(org.id, req.params.id);
+  const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
   }
@@ -270,9 +273,10 @@ export const putFactFilter = async (
   res: Response<{ status: 200 }>
 ) => {
   const data = req.body;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
-  const factTable = await getFactTable(org.id, req.params.id);
+  const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
   }
@@ -302,9 +306,9 @@ export const deleteFactFilter = async (
   req: AuthRequest<null, { id: string; filterId: string }>,
   res: Response<{ status: 200 }>
 ) => {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
-  const factTable = await getFactTable(org.id, req.params.id);
+  const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
     throw new Error("Could not find filter table with that id");
   }

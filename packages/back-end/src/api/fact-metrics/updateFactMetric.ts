@@ -106,7 +106,7 @@ export const updateFactMetric = createApiRequestHandler(
     }
 
     await validateFactMetric({ ...factMetric, ...updates }, async (id) => {
-      return getFactTable(req.organization.id, id);
+      return getFactTable(req.context, id);
     });
 
     await updateFactMetricInDb(factMetric, updates);

@@ -219,7 +219,7 @@ export async function refreshReport(
       : false;
 
   const metricMap = await getMetricMap(context);
-  const factTableMap = await getFactTableMap(org.id);
+  const factTableMap = await getFactTableMap(context);
 
   const integration = await getIntegrationFromDatasourceId(
     org.id,
@@ -299,7 +299,7 @@ export async function putReport(
   };
   if (needsRun) {
     const metricMap = await getMetricMap(context);
-    const factTableMap = await getFactTableMap(org.id);
+    const factTableMap = await getFactTableMap(context);
 
     const integration = await getIntegrationFromDatasourceId(
       org.id,

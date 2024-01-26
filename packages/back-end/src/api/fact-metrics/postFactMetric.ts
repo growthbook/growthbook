@@ -167,8 +167,7 @@ export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
   async (req): Promise<PostFactMetricResponse> => {
     req.checkPermissions("createMetrics", req.body.projects || "");
 
-    const lookupFactTable = async (id: string) =>
-      getFactTable(req.organization.id, id);
+    const lookupFactTable = async (id: string) => getFactTable(req.context, id);
 
     if (req.body.projects?.length) {
       const projects = await findAllProjectsByOrganization(req.context);

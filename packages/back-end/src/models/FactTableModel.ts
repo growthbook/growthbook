@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
+import { hasReadAccess } from "shared/permissions";
 import {
   CreateFactFilterProps,
   CreateFactTableProps,
@@ -11,6 +12,8 @@ import {
   UpdateFactTableProps,
 } from "../../types/fact-table";
 import { ApiFactTable, ApiFactTableFilter } from "../../types/openapi";
+import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "../../types/api";
 
 const factTableSchema = new mongoose.Schema({
   id: String,
@@ -67,24 +70,42 @@ function toInterface(doc: FactTableDocument): FactTableInterface {
   return omit(ret, ["__v", "_id"]);
 }
 
-export async function getAllFactTablesForOrganization(organization: string) {
-  const docs = await FactTableModel.find({ organization });
-  return docs.map((doc) => toInterface(doc));
+export async function getAllFactTablesForOrganization(
+  context: ReqContext | ApiReqContext
+) {
+  const docs = await FactTableModel.find({ organization: context.org.id });
+  const factTables = docs.map((doc) => toInterface(doc));
+  return factTables.filter((ft) =>
+    hasReadAccess(context.readAccessFilter, ft.projects)
+  );
 }
 
 export type FactTableMap = Map<string, FactTableInterface>;
 
 export async function getFactTableMap(
-  organization: string
+  context: ReqContext | ApiReqContext
 ): Promise<FactTableMap> {
-  const factTables = await getAllFactTablesForOrganization(organization);
+  const factTables = await getAllFactTablesForOrganization(context);
 
   return new Map(factTables.map((f) => [f.id, f]));
 }
 
-export async function getFactTable(organization: string, id: string) {
-  const doc = await FactTableModel.findOne({ organization, id });
-  return doc ? toInterface(doc) : null;
+export async function getFactTable(
+  context: ReqContext | ApiReqContext,
+  id: string
+) {
+  const doc = await FactTableModel.findOne({
+    organization: context.org.id,
+    id,
+  });
+
+  if (!doc) return null;
+
+  const factTable = toInterface(doc);
+
+  return hasReadAccess(context.readAccessFilter, factTable.projects)
+    ? factTable
+    : null;
 }
 
 export async function createFactTable(

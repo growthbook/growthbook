@@ -10,6 +10,7 @@ import {
 import { determineColumnTypes } from "../util/sql";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { DataSourceInterface } from "../../types/datasource";
+import { getContextForAgendaJobByOrgId } from "../services/organizations";
 
 const JOB_NAME = "refreshFactTableColumns";
 type RefreshFactTableColumnsJob = Job<{
@@ -92,7 +93,9 @@ export default function (ag: Agenda) {
 
     if (!factTableId || !organization) return;
 
-    const factTable = await getFactTable(organization, factTableId);
+    const context = await getContextForAgendaJobByOrgId(organization);
+
+    const factTable = await getFactTable(context, factTableId);
     if (!factTable) return;
 
     const datasource = await getDataSourceById(

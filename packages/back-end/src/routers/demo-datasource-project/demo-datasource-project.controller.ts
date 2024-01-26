@@ -387,7 +387,7 @@ spacing and headings.`,
     };
 
     const metricMap = await getMetricMap(context);
-    const factTableMap = await getFactTableMap(org.id);
+    const factTableMap = await getFactTableMap(context);
 
     await createSnapshot({
       experiment: createdExperiment,

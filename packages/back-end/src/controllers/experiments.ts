@@ -1750,7 +1750,7 @@ export async function postSnapshot(
   );
 
   const metricMap = await getMetricMap(context);
-  const factTableMap = await getFactTableMap(org.id);
+  const factTableMap = await getFactTableMap(context);
 
   // Manual snapshot
   if (!experiment.datasource) {

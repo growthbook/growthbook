@@ -161,7 +161,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     );
 
     const metricMap = await getMetricMap(context);
-    const factTableMap = await getFactTableMap(organization.id);
+    const factTableMap = await getFactTableMap(context);
 
     const queryRunner = await createSnapshot({
       experiment,
