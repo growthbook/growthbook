@@ -25,7 +25,7 @@ import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
   async (req): Promise<UpdateFeatureResponse> => {
-    const feature = await getFeature(req.organization.id, req.params.id);
+    const feature = await getFeature(req.context, req.params.id);
     if (!feature) {
       throw new Error(`Feature id '${req.params.id}' not found.`);
     }

@@ -1324,7 +1324,7 @@ const onExperimentUpdate = async ({
     ]);
     let linkedFeatures: FeatureInterface[] = [];
     if (featureIds.size > 0) {
-      linkedFeatures = await getFeaturesByIds(context.org.id, [...featureIds]);
+      linkedFeatures = await getFeaturesByIds(context, [...featureIds]);
     }
 
     const oldPayloadKeys = oldExperiment
@@ -1351,12 +1351,10 @@ const onExperimentDelete = async (
 ) => {
   await logExperimentDeleted(context, user, experiment);
 
-  const organization = context.org;
-
   const featureIds = [...(experiment.linkedFeatures || [])];
   let linkedFeatures: FeatureInterface[] = [];
   if (featureIds.length > 0) {
-    linkedFeatures = await getFeaturesByIds(organization.id, featureIds);
+    linkedFeatures = await getFeaturesByIds(context, featureIds);
   }
 
   const payloadKeys = getPayloadKeys(context, experiment, linkedFeatures);

@@ -162,11 +162,6 @@
     "attributionModel": "firstExposure"
   },
   {
-    "id": "dimension_datecumulative",
-    "dimensionType": "datecumulative",
-    "attributionModel": "firstExposure"
-  },
-  {
     "id": "dimension_experiment",
     "dimensionType": "experiment",
     "dimensionMetric": "browser",

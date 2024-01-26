@@ -50,7 +50,7 @@ export async function savedGroupUpdated(
   );
 
   // Then, add in any feature flags using this saved group
-  const allFeatures = await getAllFeatures(context.org.id);
+  const allFeatures = await getAllFeatures(context);
   addKeys(
     getAffectedSDKPayloadKeys(
       allFeatures,
