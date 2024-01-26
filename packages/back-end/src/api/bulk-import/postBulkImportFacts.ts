@@ -112,7 +112,7 @@ export const postBulkImportFacts = createApiRequestHandler(
             );
           }
 
-          await updateFactTable(existing, data);
+          await updateFactTable(existing, data, req.eventAudit);
           await queueFactTableColumnsRefresh(existing);
           numUpdated.factTables++;
         }
@@ -158,7 +158,12 @@ export const postBulkImportFacts = createApiRequestHandler(
         const existingFactFilter = factTable.filters.find((f) => f.id === id);
         // Update existing filter
         if (existingFactFilter) {
-          await updateFactFilter(factTable, existingFactFilter.id, data);
+          await updateFactFilter(
+            factTable,
+            existingFactFilter.id,
+            data,
+            req.eventAudit
+          );
           Object.assign(existingFactFilter, data);
           numUpdated.factTableFilters++;
         }
@@ -194,7 +199,7 @@ export const postBulkImportFacts = createApiRequestHandler(
             async (id) => factTableMap.get(id) || null
           );
 
-          await updateFactMetric(existing, changes);
+          await updateFactMetric(existing, changes, req.eventAudit);
           numUpdated.factMetrics++;
         }
         // Create new fact metric

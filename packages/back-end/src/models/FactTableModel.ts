@@ -148,6 +148,23 @@ export async function updateFactTable(
   );
 }
 
+// This is called from a background cronjob to re-sync all of the columns
+// It doesn't need to check for 'managedBy' and doesn't need to set 'dateUpdated'
+export async function updateFactTableColumns(
+  factTable: FactTableInterface,
+  changes: Partial<Pick<FactTableInterface, "columns" | "columnsError">>
+) {
+  await FactTableModel.updateOne(
+    {
+      id: factTable.id,
+      organization: factTable.organization,
+    },
+    {
+      $set: changes,
+    }
+  );
+}
+
 export async function updateColumn(
   factTable: FactTableInterface,
   column: string,
