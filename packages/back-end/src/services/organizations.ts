@@ -60,7 +60,6 @@ import {
 import { getAllExperiments } from "../models/ExperimentModel";
 import { LegacyExperimentPhase } from "../../types/experiment";
 import { addTags } from "../models/TagModel";
-import { EventAuditUser } from "../events/event-types";
 import { markInstalled } from "./auth";
 import {
   encryptParams,
@@ -120,6 +119,12 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
     readAccessFilter: getReadAccessFilter(
       getUserPermissions(req.userId, req.organization, req.teams)
     ),
+    auditUser: {
+      type: "dashboard",
+      id: req.userId,
+      email: req.email,
+      name: req.name || "",
+    },
   };
 }
 
@@ -607,10 +612,10 @@ function validateConfig(config: ConfigFile, organizationId: string) {
 }
 
 export async function importConfig(
-  config: ConfigFile,
-  organization: OrganizationInterface,
-  user: EventAuditUser
+  context: ReqContext | ApiReqContext,
+  config: ConfigFile
 ) {
+  const organization = context.org;
   const errors = validateConfig(config, organization.id);
   if (errors.length > 0) {
     throw new Error(errors.join("\n"));
@@ -694,14 +699,14 @@ export async function importConfig(
         }
 
         try {
-          const existing = await getMetricById(k, organization.id);
+          const existing = await getMetricById(context, k);
           if (existing) {
             const updates: Partial<MetricInterface> = {
               ...m,
             };
             delete updates.organization;
 
-            await updateMetric(existing, updates, organization.id, user);
+            await updateMetric(context, existing, updates);
           } else {
             await createMetric({
               ...m,
@@ -971,6 +976,17 @@ export async function expandOrgMembers(
   return expandedMembers;
 }
 
+export function getContextForAgendaJobByOrgObject(
+  organization: OrganizationInterface
+): ApiReqContext {
+  return {
+    org: organization,
+    environments: getEnvironmentIdsFromOrg(organization),
+    readAccessFilter: FULL_ACCESS_PERMISSIONS,
+    auditUser: null,
+  };
+}
+
 export async function getContextForAgendaJobByOrgId(
   orgId: string
 ): Promise<ApiReqContext> {
@@ -978,9 +994,5 @@ export async function getContextForAgendaJobByOrgId(
 
   if (!organization) throw new Error("Organization not found");
 
-  return {
-    org: organization,
-    environments: getEnvironmentIdsFromOrg(organization),
-    readAccessFilter: FULL_ACCESS_PERMISSIONS,
-  };
+  return getContextForAgendaJobByOrgObject(organization);
 }

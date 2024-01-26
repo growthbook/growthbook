@@ -136,15 +136,15 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     factTables,
     factMetrics,
   ] = await Promise.all([
-    getMetricsByOrganization(orgId),
+    getMetricsByOrganization(context),
     getDataSourcesByOrganization(orgId),
     findDimensionsByOrganization(orgId),
     findSegmentsByOrganization(orgId),
     getAllTags(orgId),
     getAllSavedGroups(orgId),
     findAllProjectsByOrganization(context),
-    getAllFactTablesForOrganization(orgId),
-    getAllFactMetricsForOrganization(orgId),
+    getAllFactTablesForOrganization(context),
+    getAllFactMetricsForOrganization(context),
   ]);
 
   return res.status(200).json({
@@ -1694,7 +1694,7 @@ export async function postImportConfig(
 ) {
   req.checkPermissions("organizationSettings");
 
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { contents } = req.body;
 
   const config: ConfigFile = JSON.parse(contents);
@@ -1702,7 +1702,7 @@ export async function postImportConfig(
     throw new Error("Failed to parse config.yml file contents.");
   }
 
-  await importConfig(config, org, res.locals.eventAudit);
+  await importConfig(context, config);
 
   res.status(200).json({
     status: 200,

@@ -40,11 +40,9 @@ export const postBulkImportFacts = createApiRequestHandler(
       factMetrics: 0,
     };
 
-    const factTableMap = await getFactTableMap(req.organization.id);
+    const factTableMap = await getFactTableMap(req.context);
 
-    const allFactMetrics = await getAllFactMetricsForOrganization(
-      req.organization.id
-    );
+    const allFactMetrics = await getAllFactMetricsForOrganization(req.context);
     const factMetricMap = new Map<string, FactMetricInterface>(
       allFactMetrics.map((m) => [m.id, m])
     );
@@ -118,7 +116,7 @@ export const postBulkImportFacts = createApiRequestHandler(
             );
           }
 
-          await updateFactTable(existing, data, req.eventAudit);
+          await updateFactTable(req.context, existing, data);
           await queueFactTableColumnsRefresh(existing);
           factTableMap.set(existing.id, {
             ...existing,
@@ -138,7 +136,7 @@ export const postBulkImportFacts = createApiRequestHandler(
             validateUserIdTypes(data.datasource, data.userIdTypes);
           }
 
-          const newFactTable = await createFactTable(req.organization.id, {
+          const newFactTable = await createFactTable(req.context, {
             columns: [],
             eventName: "",
             id: id,
@@ -175,10 +173,10 @@ export const postBulkImportFacts = createApiRequestHandler(
         // Update existing filter
         if (existingFactFilter) {
           await updateFactFilter(
+            req.context,
             factTable,
             existingFactFilter.id,
-            data,
-            req.eventAudit
+            data
           );
           Object.assign(existingFactFilter, data);
           numUpdated.factTableFilters++;
@@ -221,7 +219,7 @@ export const postBulkImportFacts = createApiRequestHandler(
             async (id) => factTableMap.get(id) || null
           );
 
-          await updateFactMetric(existing, changes, req.eventAudit);
+          await updateFactMetric(req.context, existing, changes);
           factMetricMap.set(existing.id, {
             ...existing,
             ...changes,
@@ -245,7 +243,7 @@ export const postBulkImportFacts = createApiRequestHandler(
           await validateFactMetric(createProps, lookupFactTable);
 
           const newFactMetric = await createFactMetric(
-            req.organization.id,
+            req.context,
             createProps
           );
           factMetricMap.set(newFactMetric.id, newFactMetric);

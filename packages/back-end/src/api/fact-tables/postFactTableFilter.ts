@@ -11,10 +11,7 @@ export const postFactTableFilter = createApiRequestHandler(
   postFactTableFilterValidator
 )(
   async (req): Promise<PostFactTableFilterResponse> => {
-    const factTable = await getFactTable(
-      req.organization.id,
-      req.params.factTableId
-    );
+    const factTable = await getFactTable(req.context, req.params.factTableId);
     if (!factTable) {
       throw new Error("Could not find factTable with that id");
     }

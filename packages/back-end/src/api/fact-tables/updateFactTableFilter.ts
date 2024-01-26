@@ -11,10 +11,7 @@ export const updateFactTableFilter = createApiRequestHandler(
   updateFactTableFilterValidator
 )(
   async (req): Promise<UpdateFactTableFilterResponse> => {
-    const factTable = await getFactTable(
-      req.organization.id,
-      req.params.factTableId
-    );
+    const factTable = await getFactTable(req.context, req.params.factTableId);
     if (!factTable) {
       throw new Error("Could not find factTable with that id");
     }
@@ -26,7 +23,7 @@ export const updateFactTableFilter = createApiRequestHandler(
       );
     }
 
-    await updateFactFilter(factTable, req.params.id, req.body, req.eventAudit);
+    await updateFactFilter(req.context, factTable, req.params.id, req.body);
 
     const newFilters = [...factTable.filters];
     const filterIndex = newFilters.findIndex((f) => f.id === req.params.id);

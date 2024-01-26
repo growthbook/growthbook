@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
+import { hasReadAccess } from "shared/permissions";
 import {
   CreateFactFilterProps,
   CreateFactTableProps,
@@ -10,8 +11,9 @@ import {
   UpdateColumnProps,
   UpdateFactTableProps,
 } from "../../types/fact-table";
-import { EventAuditUser } from "../events/event-types";
 import { ApiFactTable, ApiFactTableFilter } from "../../types/openapi";
+import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "../../types/api";
 
 const factTableSchema = new mongoose.Schema({
   id: String,
@@ -70,28 +72,44 @@ function toInterface(doc: FactTableDocument): FactTableInterface {
   return omit(ret, ["__v", "_id"]);
 }
 
-export async function getAllFactTablesForOrganization(organization: string) {
-  const docs = await FactTableModel.find({ organization });
-  return docs.map((doc) => toInterface(doc));
+export async function getAllFactTablesForOrganization(
+  context: ReqContext | ApiReqContext
+) {
+  const docs = await FactTableModel.find({ organization: context.org.id });
+  return docs
+    .map((doc) => toInterface(doc))
+    .filter((f) => hasReadAccess(context.readAccessFilter, f.projects));
 }
 
 export type FactTableMap = Map<string, FactTableInterface>;
 
 export async function getFactTableMap(
-  organization: string
+  context: ReqContext | ApiReqContext
 ): Promise<FactTableMap> {
-  const factTables = await getAllFactTablesForOrganization(organization);
+  const factTables = await getAllFactTablesForOrganization(context);
 
   return new Map(factTables.map((f) => [f.id, f]));
 }
 
-export async function getFactTable(organization: string, id: string) {
-  const doc = await FactTableModel.findOne({ organization, id });
-  return doc ? toInterface(doc) : null;
+export async function getFactTable(
+  context: ReqContext | ApiReqContext,
+  id: string
+) {
+  const doc = await FactTableModel.findOne({
+    organization: context.org.id,
+    id,
+  });
+  if (!doc) return null;
+
+  const factTable = toInterface(doc);
+  if (!hasReadAccess(context.readAccessFilter, factTable.projects)) {
+    return null;
+  }
+  return factTable;
 }
 
 export async function createFactTable(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   data: CreateFactTableProps
 ) {
   const id = data.id || uniqid("ftb_");
@@ -102,7 +120,7 @@ export async function createFactTable(
   }
 
   const doc = await FactTableModel.create({
-    organization,
+    organization: context.org.id,
     id,
     name: data.name,
     description: data.description,
@@ -126,11 +144,11 @@ export async function createFactTable(
 }
 
 export async function updateFactTable(
+  context: ReqContext | ApiReqContext,
   factTable: FactTableInterface,
-  changes: UpdateFactTableProps,
-  user: EventAuditUser
+  changes: UpdateFactTableProps
 ) {
-  if (factTable.managedBy === "api" && user?.type !== "api_key") {
+  if (factTable.managedBy === "api" && context.auditUser?.type !== "api_key") {
     throw new Error("This fact table is managed by the API");
   }
 
@@ -243,10 +261,10 @@ export async function createFactFilter(
 }
 
 export async function updateFactFilter(
+  context: ReqContext | ApiReqContext,
   factTable: FactTableInterface,
   filterId: string,
-  changes: UpdateFactFilterProps,
-  user: EventAuditUser
+  changes: UpdateFactFilterProps
 ) {
   const filters = [...factTable.filters];
 
@@ -256,7 +274,7 @@ export async function updateFactFilter(
   if (
     factTable.managedBy === "api" &&
     filters[filterIndex]?.managedBy === "api" &&
-    user?.type !== "api_key"
+    context.auditUser?.type !== "api_key"
   ) {
     throw new Error("This fact filter is managed by the API");
   }
@@ -282,10 +300,10 @@ export async function updateFactFilter(
 }
 
 export async function deleteFactTable(
-  factTable: FactTableInterface,
-  user: EventAuditUser
+  context: ReqContext | ApiReqContext,
+  factTable: FactTableInterface
 ) {
-  if (factTable.managedBy === "api" && user?.type !== "api_key") {
+  if (factTable.managedBy === "api" && context.auditUser?.type !== "api_key") {
     throw new Error("This fact table is managed by the API");
   }
 
@@ -296,16 +314,16 @@ export async function deleteFactTable(
 }
 
 export async function deleteFactFilter(
+  context: ReqContext | ApiReqContext,
   factTable: FactTableInterface,
-  filterId: string,
-  user: EventAuditUser
+  filterId: string
 ) {
   const filter = factTable.filters.find((f) => f.id === filterId);
 
   if (
     factTable.managedBy === "api" &&
     filter?.managedBy === "api" &&
-    user?.type !== "api_key"
+    context.auditUser?.type !== "api_key"
   ) {
     throw new Error("This filter is managed by the API");
   }

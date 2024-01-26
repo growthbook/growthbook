@@ -210,7 +210,6 @@ export async function processJWT(
       name: user.name || "",
     };
     res.locals.eventAudit = eventAudit;
-    req.auditUser = eventAudit;
 
     req.audit = async (data: Partial<AuditInterface>) => {
       await insertAudit({

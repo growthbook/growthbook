@@ -101,7 +101,7 @@ export const getSegmentUsage = async (
   const ideas = await getIdeasByQuery(query);
 
   // metricSchema
-  const metrics = await getMetricsUsingSegment(id, org.id);
+  const metrics = await getMetricsUsingSegment(context, id);
 
   // experiments:
   const experiments = await getExperimentsUsingSegment(id, context);

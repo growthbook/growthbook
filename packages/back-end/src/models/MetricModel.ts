@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
 import { ExperimentMetricInterface } from "shared/experiments";
+import { hasReadAccess } from "shared/permissions";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import { getConfigMetrics, usingFileConfig } from "../init/config";
 import { upgradeMetricDoc } from "../util/migrations";
-import { EventAuditUser } from "../events/event-types";
 import { ALLOW_CREATE_METRICS } from "../util/secrets";
 import { ReqContext } from "../../types/organization";
 import { ApiReqContext } from "../../types/api";
@@ -144,13 +144,12 @@ export async function insertMetrics(
 
 export async function deleteMetricById(
   metric: MetricInterface,
-  context: ReqContext | ApiReqContext,
-  user: EventAuditUser
+  context: ReqContext | ApiReqContext
 ) {
   if (metric.managedBy === "config") {
     throw new Error("Cannot delete a metric managed by config.yml");
   }
-  if (metric.managedBy === "api" && user?.type !== "api_key") {
+  if (metric.managedBy === "api" && context.auditUser?.type !== "api_key") {
     throw new Error("Cannot delete a metric managed by the API");
   }
 
@@ -165,7 +164,7 @@ export async function deleteMetricById(
   );
 
   // Experiments
-  await removeMetricFromExperiments(metric.id, context, user);
+  await removeMetricFromExperiments(metric.id, context);
 
   await MetricModel.deleteOne({
     id: metric.id,
@@ -182,11 +181,9 @@ export async function deleteMetricById(
 export async function deleteAllMetricsForAProject({
   projectId,
   context,
-  user,
 }: {
   projectId: string;
   context: ReqContext | ApiReqContext;
-  user: EventAuditUser;
 }) {
   const metricsToDelete = await MetricModel.find({
     organization: context.org.id,
@@ -194,18 +191,18 @@ export async function deleteAllMetricsForAProject({
   });
 
   for (const metric of metricsToDelete) {
-    await deleteMetricById(metric, context, user);
+    await deleteMetricById(metric, context);
   }
 }
 
-export async function getMetricMap(organization: string) {
+export async function getMetricMap(context: ReqContext | ApiReqContext) {
   const metricMap = new Map<string, ExperimentMetricInterface>();
-  const allMetrics = await getMetricsByOrganization(organization);
+  const allMetrics = await getMetricsByOrganization(context);
   allMetrics.forEach((m) => {
     metricMap.set(m.id, m);
   });
 
-  const allFactMetrics = await getAllFactMetricsForOrganization(organization);
+  const allFactMetrics = await getAllFactMetricsForOrganization(context);
   allFactMetrics.forEach((m) => {
     metricMap.set(m.id, m);
   });
@@ -214,7 +211,7 @@ export async function getMetricMap(organization: string) {
 }
 
 async function findMetrics(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   additionalQuery?: Partial<MetricInterface>
 ) {
   const metrics: MetricInterface[] = [];
@@ -234,7 +231,7 @@ async function findMetrics(
           return true;
         }
       : false;
-    getConfigMetrics(organization)
+    getConfigMetrics(context.org.id)
       .filter((m) => !filter || filter(m))
       .forEach((m) => {
         metrics.push(m);
@@ -248,7 +245,7 @@ async function findMetrics(
 
   const docs = await MetricModel.find({
     ...additionalQuery,
-    organization,
+    organization: context.org.id,
   });
   docs.forEach((doc) => {
     if (metrics.some((m) => m.id === doc.id)) {
@@ -257,44 +254,57 @@ async function findMetrics(
     metrics.push(toInterface(doc));
   });
 
-  return metrics;
+  return metrics.filter((m) =>
+    hasReadAccess(context.readAccessFilter, m.projects)
+  );
 }
 
-export async function getMetricsByOrganization(organization: string) {
-  return findMetrics(organization);
+export async function getMetricsByOrganization(
+  context: ReqContext | ApiReqContext
+) {
+  return findMetrics(context);
 }
 
 export async function getMetricsByDatasource(
-  datasource: string,
-  organization: string
+  context: ReqContext | ApiReqContext,
+  datasource: string
 ) {
-  return findMetrics(organization, { datasource });
+  return findMetrics(context, { datasource });
 }
 
-export async function getSampleMetrics(organization: string) {
+export async function getSampleMetrics(context: ReqContext | ApiReqContext) {
   const docs = await MetricModel.find({
     id: /^met_sample/,
-    organization,
+    organization: context.org.id,
   });
-  return docs.map(toInterface);
+  return docs
+    .filter((m) => hasReadAccess(context.readAccessFilter, m.projects))
+    .map(toInterface);
 }
 
 export async function getMetricById(
+  context: ReqContext | ApiReqContext,
   id: string,
-  organization: string,
   includeAnalysis: boolean = false
 ) {
   // If using config.yml, immediately return the from there if found
   if (usingFileConfig()) {
     const doc =
-      getConfigMetrics(organization).filter((m) => m.id === id)[0] || null;
+      getConfigMetrics(context.org.id).filter((m) => m.id === id)[0] || null;
     if (doc) {
       if (includeAnalysis) {
-        const metric = await MetricModel.findOne({ id, organization });
+        const metric = await MetricModel.findOne({
+          id,
+          organization: context.org.id,
+        });
         doc.queries = metric?.queries || [];
         doc.analysis = metric?.analysis || undefined;
         doc.analysisError = metric?.analysisError || undefined;
         doc.runStarted = metric?.runStarted || null;
+      }
+
+      if (!hasReadAccess(context.readAccessFilter, doc.projects)) {
+        return null;
       }
 
       return doc;
@@ -307,18 +317,26 @@ export async function getMetricById(
 
   const res = await MetricModel.findOne({
     id,
-    organization,
+    organization: context.org.id,
   });
 
-  return res ? toInterface(res) : null;
+  const metric = res ? toInterface(res) : null;
+
+  if (!metric || !hasReadAccess(context.readAccessFilter, metric.projects)) {
+    return null;
+  }
+  return metric;
 }
 
-export async function getMetricsByIds(ids: string[], organization: string) {
+export async function getMetricsByIds(
+  context: ReqContext | ApiReqContext,
+  ids: string[]
+) {
   const metrics: MetricInterface[] = [];
 
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {
-    getConfigMetrics(organization)
+    getConfigMetrics(context.org.id)
       .filter((m) => ids.includes(m.id))
       .forEach((m) => {
         metrics.push(m);
@@ -334,13 +352,15 @@ export async function getMetricsByIds(ids: string[], organization: string) {
   if (remainingIds.length > 0) {
     const docs = await MetricModel.find({
       id: { $in: remainingIds },
-      organization,
+      organization: context.org.id,
     });
     docs.forEach((doc) => {
       metrics.push(toInterface(doc));
     });
   }
-  return metrics;
+  return metrics.filter((m) =>
+    hasReadAccess(context.readAccessFilter, m.projects)
+  );
 }
 
 export async function findRunningMetricsByQueryId(
@@ -373,10 +393,10 @@ export async function removeProjectFromMetrics(
 }
 
 export async function getMetricsUsingSegment(
-  segment: string,
-  organization: string
+  context: ReqContext | ApiReqContext,
+  segment: string
 ) {
-  return findMetrics(organization, { segment });
+  return findMetrics(context, { segment });
 }
 
 const FILE_CONFIG_UPDATEABLE_FIELDS: (keyof MetricInterface)[] = [
@@ -410,11 +430,25 @@ function addDateUpdatedToUpdates(
   return updates;
 }
 
-export async function updateMetric(
+export async function updateMetricQueriesAndStatus(
   metric: MetricInterface,
-  updates: Partial<MetricInterface>,
-  organization: string,
-  user: EventAuditUser
+  updates: Partial<Pick<MetricInterface, "queries" | "analysisError">>
+) {
+  await MetricModel.updateOne(
+    {
+      id: metric.id,
+      organization: metric.organization,
+    },
+    {
+      $set: updates,
+    }
+  );
+}
+
+export async function updateMetric(
+  context: ReqContext | ApiReqContext,
+  metric: MetricInterface,
+  updates: Partial<MetricInterface>
 ) {
   updates = addDateUpdatedToUpdates(updates);
 
@@ -425,7 +459,7 @@ export async function updateMetric(
     if (metric.managedBy === "config") {
       throw new Error("Cannot update. Metric managed by config.yml");
     }
-    if (metric.managedBy === "api" && user?.type !== "api_key") {
+    if (metric.managedBy === "api" && context.auditUser?.type !== "api_key") {
       throw new Error("Cannot update. Metric managed by the API");
     }
   }
@@ -433,7 +467,7 @@ export async function updateMetric(
   // If using config.yml, need to do an `upsert` since it might not exist in mongo yet
   if (metric.managedBy === "config") {
     await MetricModel.updateOne(
-      { id: metric.id, organization },
+      { id: metric.id, organization: context.org.id },
       {
         $set: updates,
       },
@@ -443,7 +477,7 @@ export async function updateMetric(
     await MetricModel.updateOne(
       {
         id: metric.id,
-        organization,
+        organization: context.org.id,
       },
       {
         $set: updates,
@@ -451,7 +485,7 @@ export async function updateMetric(
     );
   }
 
-  await addTagsDiff(organization, metric.tags || [], updates.tags || []);
+  await addTagsDiff(context.org.id, metric.tags || [], updates.tags || []);
 }
 
 export async function removeSegmentFromAllMetrics(
