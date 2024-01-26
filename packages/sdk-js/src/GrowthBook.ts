@@ -21,6 +21,8 @@ import type {
   StickyAttributeKey,
   StickyExperimentKey,
   SubscriptionFunction,
+  TrackingCallback,
+  TrackingData,
   VariationMeta,
   VariationRange,
   WidenPrimitives,
@@ -62,6 +64,7 @@ export class GrowthBook<
   // Properties and methods that start with "_" are mangled by Terser (saves ~150 bytes)
   private _ctx: Context;
   private _renderer: null | (() => void);
+  private _redirectedUrl: string;
   private _trackedExperiments: Set<unknown>;
   private _trackedFeatures: Record<string, string>;
   private _subscriptions: Set<SubscriptionFunction>;
@@ -85,6 +88,7 @@ export class GrowthBook<
   >;
   private _triggeredExpKeys: Set<string>;
   private _loadFeaturesCalled: boolean;
+  private _deferredTrackingCalls: TrackingData[];
 
   constructor(context?: Context) {
     context = context || {};
@@ -106,6 +110,8 @@ export class GrowthBook<
     this._activeAutoExperiments = new Map();
     this._triggeredExpKeys = new Set();
     this._loadFeaturesCalled = false;
+    this._redirectedUrl = "";
+    this._deferredTrackingCalls = [];
 
     if (context.remoteEval) {
       if (context.decryptionKey) {
@@ -488,12 +494,23 @@ export class GrowthBook<
 
     // Apply new changes
     if (result.inExperiment) {
-      const undo = this._applyDOMChanges(result.value);
-      if (undo) {
-        this._activeAutoExperiments.set(experiment, {
-          undo,
-          valueHash,
-        });
+      if (result.value.urlRedirect) {
+        const url = result.value.urlRedirect;
+        this._redirectedUrl = url;
+        const navigate = this._getNavigateFunction();
+        if (navigate) {
+          window.setTimeout(() => {
+            navigate(url);
+          }, this._ctx.navigateDelay ?? 100);
+        }
+      } else {
+        const undo = this._applyDOMChanges(result.value);
+        if (undo) {
+          this._activeAutoExperiments.set(experiment, {
+            undo,
+            valueHash,
+          });
+        }
       }
     }
 
@@ -1146,8 +1163,34 @@ export class GrowthBook<
     else console.log(msg, ctx);
   }
 
+  public getDeferredTrackingCalls() {
+    return btoa(JSON.stringify(this._deferredTrackingCalls));
+  }
+
+  public fireDeferredTrackingCalls(data: string) {
+    const calls = JSON.parse(atob(data));
+    if (!Array.isArray(calls)) throw new Error("Invalid tracking data");
+    calls.forEach((call: TrackingData) => {
+      if (!call || !call.experiment || !call.result) {
+        throw new Error("Invalid tracking data");
+      }
+      this._track(call.experiment, call.result);
+    });
+  }
+
+  public setTrackingCallback(callback: TrackingCallback) {
+    this._ctx.trackingCallback = callback;
+    this._deferredTrackingCalls.forEach((call) => {
+      this._track(call.experiment, call.result);
+    });
+    this._deferredTrackingCalls = [];
+  }
+
   private _track<T>(experiment: Experiment<T>, result: Result<T>) {
-    if (!this._ctx.trackingCallback) return;
+    if (!this._ctx.trackingCallback) {
+      this._deferredTrackingCalls.push({ experiment, result });
+      return;
+    }
 
     const key = experiment.key;
 
@@ -1278,6 +1321,23 @@ export class GrowthBook<
     return false;
   }
 
+  public getRedirectUrl(): string {
+    return this._redirectedUrl;
+  }
+
+  private _getNavigateFunction():
+    | null
+    | ((url: string) => void | Promise<void>) {
+    if (this._ctx.navigate) {
+      return this._ctx.navigate;
+    } else if (isBrowser) {
+      return (url: string) => {
+        window.location.href = url;
+      };
+    }
+    return null;
+  }
+
   private _applyDOMChanges(changes: AutoExperimentVariation) {
     if (!isBrowser) return;
     const undo: (() => void)[] = [];
@@ -1297,20 +1357,6 @@ export class GrowthBook<
       changes.domMutations.forEach((mutation) => {
         undo.push(mutate.declarative(mutation as DeclarativeMutation).revert);
       });
-    }
-    if (changes.urlRedirect) {
-      if (this._ctx.navigate) {
-        setTimeout(() => {
-          this._ctx.navigate?.(changes.urlRedirect || "");
-        }, this._ctx.navigateDelay ?? 100);
-      } else {
-        const script = document.createElement("script");
-        script.innerHTML = `setTimeout(() => { window.location.replace("${
-          changes.urlRedirect
-        }"); }, ${this._ctx.navigateDelay ?? 100})`;
-        document.head.appendChild(script);
-        undo.push(() => script.remove());
-      }
     }
     return () => {
       undo.forEach((fn) => fn());

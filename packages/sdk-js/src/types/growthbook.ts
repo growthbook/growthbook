@@ -148,6 +148,16 @@ export type RealtimeUsageData = {
   on: boolean;
 };
 
+export interface TrackingData {
+  experiment: Experiment<any>;
+  result: Result<any>;
+}
+
+export type TrackingCallback = (
+  experiment: Experiment<any>,
+  result: Result<any>
+) => void;
+
 export interface Context {
   enabled?: boolean;
   attributes?: Attributes;
@@ -168,7 +178,7 @@ export interface Context {
   enableDevMode?: boolean;
   /* @deprecated */
   disableDevTools?: boolean;
-  trackingCallback?: (experiment: Experiment<any>, result: Result<any>) => void;
+  trackingCallback?: TrackingCallback;
   onFeatureUsage?: (key: string, result: FeatureResult<any>) => void;
   realtimeKey?: string;
   realtimeInterval?: number;
