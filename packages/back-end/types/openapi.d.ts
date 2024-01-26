@@ -5587,6 +5587,12 @@ export interface operations {
         content: {
           "application/json": {
             success: boolean;
+            factTablesAdded: number;
+            factTablesUpdated: number;
+            factTableFiltersAdded: number;
+            factTableFiltersUpdated: number;
+            factMetricsAdded: number;
+            factMetricsUpdated: number;
           };
         };
       };
