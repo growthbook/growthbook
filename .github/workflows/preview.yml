@@ -14,7 +14,7 @@ on:
 jobs:
   preview:
     runs-on: ubuntu-latest
-    if: ${{ github.repository == 'growthbook/growthbook' }}
+    if: ${{ github.repository == 'growthbook/growthbook' && github.event.pull_request.draft == false }}
     steps:
     - name: Context
       uses: okteto/context@latest
