@@ -1,9 +1,9 @@
 /* eslint-disable react/no-unescaped-entities */
 /* eslint-disable react-hooks/exhaustive-deps */
 
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { FeatureInterface } from "back-end/types/feature";
-import { RxInfoCircled } from "react-icons/rx";
+import { RxInfoCircled, RxLoop } from "react-icons/rx";
 import { condToJson, jsonToConds } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "../Forms/Field";
@@ -59,9 +59,9 @@ export default function PrerequisiteInput(props: Props) {
 
   if (advanced || !parentValueMap.size || !simpleAllowed) {
     return (
-      <div className="ml-1">
+      <div>
+        <div className={`mb-2 ${styles.passif}`}>PASS IF</div>
         <CodeTextArea
-          label={<span className="text-main">PASS IF</span>}
           language="json"
           value={value}
           setValue={setValue}
@@ -73,9 +73,8 @@ export default function PrerequisiteInput(props: Props) {
                 <div>JSON format using MongoDB query syntax.</div>
                 {simpleAllowed && (
                   <div className="ml-auto">
-                    <a
-                      className="a"
-                      role="button"
+                    <span
+                      className="text-purple hover-underline cursor-pointer"
                       onClick={(e) => {
                         e.preventDefault();
                         const newConds = jsonToConds(value, parentValueMap);
@@ -85,8 +84,8 @@ export default function PrerequisiteInput(props: Props) {
                         setAdvanced(false);
                       }}
                     >
-                      switch to simple mode
-                    </a>
+                      <RxLoop /> Simple mode
+                    </span>
                   </div>
                 )}
               </div>
@@ -124,203 +123,203 @@ export default function PrerequisiteInput(props: Props) {
 
   return (
     <div>
-      <ul className={`mb-0 ${styles.conditionslist}`}>
-        {conds.map(({ field, operator, value }, i) => {
-          const attribute = parentValueMap.get(field);
+      {conds.map(({ field, operator, value }, i) => {
+        const attribute = parentValueMap.get(field);
 
-          if (!attribute) {
-            console.error("Attribute not found in attribute Map.");
-            return;
-          }
+        if (!attribute) {
+          console.error("Attribute not found in attribute Map.");
+          return;
+        }
 
-          const handleCondsChange = (value: string, name: string) => {
-            const newConds = [...conds];
-            newConds[i] = { ...newConds[i] };
-            newConds[i][name] = value;
-            setConds(newConds);
-          };
+        const handleCondsChange = (value: string, name: string) => {
+          const newConds = [...conds];
+          newConds[i] = { ...newConds[i] };
+          newConds[i][name] = value;
+          setConds(newConds);
+        };
 
-          const handleFieldChange = (
-            e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>
-          ) => {
-            const name = e.target.name;
-            const value: string | number = e.target.value;
+        const handleFieldChange = (
+          e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>
+        ) => {
+          const name = e.target.name;
+          const value: string | number = e.target.value;
 
-            handleCondsChange(value, name);
-          };
+          handleCondsChange(value, name);
+        };
 
-          const handleListChange = (values: string[]) => {
-            const name = "value";
-            const value: string | number = values.join(",");
-            handleCondsChange(value, name);
-          };
+        const handleListChange = (values: string[]) => {
+          const name = "value";
+          const value: string | number = values.join(",");
+          handleCondsChange(value, name);
+        };
 
-          const operatorOptions =
-            attribute.datatype === "boolean"
-              ? [
-                  { label: "is true", value: "$true" },
-                  { label: "is false", value: "$false" },
-                  { label: "exists", value: "$exists" },
-                  { label: "does not exist", value: "$notExists" },
-                ]
-              : attribute.datatype === "string"
-              ? [
-                  { label: "is equal to", value: "$eq" },
-                  { label: "is not equal to", value: "$ne" },
-                  { label: "matches regex", value: "$regex" },
-                  { label: "does not match regex", value: "$notRegex" },
-                  { label: "is greater than", value: "$gt" },
-                  { label: "is greater than or equal to", value: "$gte" },
-                  { label: "is less than", value: "$lt" },
-                  { label: "is less than or equal to", value: "$lte" },
-                  { label: "is in the list", value: "$in" },
-                  { label: "is not in the list", value: "$nin" },
-                  { label: "exists", value: "$exists" },
-                  { label: "does not exist", value: "$notExists" },
-                ]
-              : attribute.datatype === "number"
-              ? [
-                  { label: "is equal to", value: "$eq" },
-                  { label: "is not equal to", value: "$ne" },
-                  { label: "is greater than", value: "$gt" },
-                  { label: "is greater than or equal to", value: "$gte" },
-                  { label: "is less than", value: "$lt" },
-                  { label: "is less than or equal to", value: "$lte" },
-                  { label: "is in the list", value: "$in" },
-                  { label: "is not in the list", value: "$nin" },
-                  { label: "exists", value: "$exists" },
-                  { label: "does not exist", value: "$notExists" },
-                ]
-              : attribute.datatype === "json"
-              ? [
-                  { label: "exists", value: "$exists" },
-                  { label: "does not exist", value: "$notExists" },
-                ]
-              : [];
+        const operatorOptions =
+          attribute.datatype === "boolean"
+            ? [
+                { label: "is true", value: "$true" },
+                { label: "is false", value: "$false" },
+                { label: "exists", value: "$exists" },
+                { label: "does not exist", value: "$notExists" },
+              ]
+            : attribute.datatype === "string"
+            ? [
+                { label: "is equal to", value: "$eq" },
+                { label: "is not equal to", value: "$ne" },
+                { label: "matches regex", value: "$regex" },
+                { label: "does not match regex", value: "$notRegex" },
+                { label: "is greater than", value: "$gt" },
+                { label: "is greater than or equal to", value: "$gte" },
+                { label: "is less than", value: "$lt" },
+                { label: "is less than or equal to", value: "$lte" },
+                { label: "is in the list", value: "$in" },
+                { label: "is not in the list", value: "$nin" },
+                { label: "exists", value: "$exists" },
+                { label: "does not exist", value: "$notExists" },
+              ]
+            : attribute.datatype === "number"
+            ? [
+                { label: "is equal to", value: "$eq" },
+                { label: "is not equal to", value: "$ne" },
+                { label: "is greater than", value: "$gt" },
+                { label: "is greater than or equal to", value: "$gte" },
+                { label: "is less than", value: "$lt" },
+                { label: "is less than or equal to", value: "$lte" },
+                { label: "is in the list", value: "$in" },
+                { label: "is not in the list", value: "$nin" },
+                { label: "exists", value: "$exists" },
+                { label: "does not exist", value: "$notExists" },
+              ]
+            : attribute.datatype === "json"
+            ? [
+                { label: "exists", value: "$exists" },
+                { label: "does not exist", value: "$notExists" },
+              ]
+            : [];
 
-          return (
-            <li key={i} className={`${styles.listitem} py-0`}>
-              <div className="d-flex align-items-center mb-2">
-                <div className={styles.passif}>PASS IF</div>
-                {!advanced && (
-                  <div className="ml-2">
-                    <div className="appbox bg-main-color mb-0 px-2 py-1">
-                      {field === "@parent" ? "value" : field}
-                    </div>
+        return (
+          <div key={i} className="py-0">
+            <div className="d-flex align-items-center mb-2">
+              <div className={styles.passif}>PASS IF</div>
+              {!advanced && (
+                <div className="ml-2">
+                  <div className="border rounded bg-main-color mb-0 px-2 py-0">
+                    {field === "@parent" ? "value" : field}
                   </div>
-                )}
-                <div className="flex-1" />
-                <a
-                  role="button"
-                  className="ml-auto"
-                  style={{ fontSize: "0.9em" }}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setAdvanced(true);
-                  }}
-                >
-                  Advanced mode
-                </a>
-              </div>
-              <div className="row">
-                <div className="col-sm-12 col-md">
-                  <SelectField
-                    value={operator}
-                    name="operator"
-                    options={operatorOptions}
-                    sort={false}
-                    onChange={(v) => {
-                      handleCondsChange(v, "operator");
-                    }}
-                  />
                 </div>
-                {[
-                  "$exists",
-                  "$notExists",
-                  "$true",
-                  "$false",
-                  "$empty",
-                  "$notEmpty",
-                ].includes(operator) ? (
-                  ""
-                ) : ["$in", "$nin"].includes(operator) ? (
-                  <div className="d-flex align-items-end flex-column col-sm-12 col-md mb-1">
-                    {rawTextMode ? (
-                      <Field
-                        textarea
-                        value={value}
-                        onChange={handleFieldChange}
-                        name="value"
-                        minRows={1}
-                        className={styles.matchingInput}
-                        helpText="separate values by comma"
-                        required
-                      />
-                    ) : (
-                      <StringArrayField
-                        containerClassName="w-100"
-                        value={value ? value.trim().split(",") : []}
-                        onChange={handleListChange}
-                        placeholder="Enter some values..."
-                        delimiters={["Enter", "Tab"]}
-                        required
-                      />
-                    )}
-                    <a
-                      className="a"
-                      role="button"
-                      style={{ fontSize: "0.8em" }}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setRawTextMode((prev) => !prev);
-                      }}
-                    >
-                      Switch to {rawTextMode ? "token" : "raw text"} mode
-                    </a>
-                  </div>
-                ) : attribute.enum.length ? (
-                  <SelectField
-                    options={attribute.enum.map((v) => ({
-                      label: v,
-                      value: v,
-                    }))}
-                    value={value}
-                    onChange={(v) => {
-                      handleCondsChange(v, "value");
-                    }}
-                    name="value"
-                    initialOption="Choose One..."
-                    containerClassName="col-sm-12 col-md"
-                    required
-                  />
-                ) : attribute.datatype === "number" ? (
-                  <Field
-                    type="number"
-                    step="any"
-                    value={value}
-                    onChange={handleFieldChange}
-                    name="value"
-                    className={styles.matchingInput}
-                    containerClassName="col-sm-12 col-md"
-                    required
-                  />
-                ) : ["string", "secureString"].includes(attribute.datatype) ? (
-                  <Field
-                    value={value}
-                    onChange={handleFieldChange}
-                    name="value"
-                    className={styles.matchingInput}
-                    containerClassName="col-sm-12 col-md"
-                    required
-                  />
-                ) : (
-                  ""
-                )}
+              )}
+              <div className="flex-1" />
+              <span
+                className="text-purple hover-underline cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setAdvanced(true);
+                }}
+              >
+                <RxLoop /> Advanced mode
+              </span>
+            </div>
+            <div className="row">
+              <div className="col-sm-12 col-md">
+                <SelectField
+                  value={operator}
+                  name="operator"
+                  options={operatorOptions}
+                  sort={false}
+                  onChange={(v) => {
+                    handleCondsChange(v, "operator");
+                  }}
+                />
               </div>
-            </li>
-          );
-        })}
-      </ul>
+              {[
+                "$exists",
+                "$notExists",
+                "$true",
+                "$false",
+                "$empty",
+                "$notEmpty",
+              ].includes(operator) ? (
+                ""
+              ) : ["$in", "$nin"].includes(operator) ? (
+                <div className="d-flex align-items-end flex-column col-sm-12 col-md mb-1">
+                  {rawTextMode ? (
+                    <Field
+                      containerClassName="w-100"
+                      textarea
+                      value={value}
+                      onChange={handleFieldChange}
+                      name="value"
+                      minRows={1}
+                      className={styles.matchingInput}
+                      helpText={
+                        <span className="position-relative" style={{ top: -5 }}>
+                          separate values by comma
+                        </span>
+                      }
+                      required
+                    />
+                  ) : (
+                    <StringArrayField
+                      containerClassName="w-100"
+                      value={value ? value.trim().split(",") : []}
+                      onChange={handleListChange}
+                      placeholder="Enter some values..."
+                      delimiters={["Enter", "Tab"]}
+                      required
+                    />
+                  )}
+                  <span
+                    className="text-purple hover-underline cursor-pointer"
+                    style={{ fontSize: "0.8em" }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setRawTextMode((prev) => !prev);
+                    }}
+                  >
+                    Switch to {rawTextMode ? "token" : "raw text"} mode
+                  </span>
+                </div>
+              ) : attribute.enum.length ? (
+                <SelectField
+                  options={attribute.enum.map((v) => ({
+                    label: v,
+                    value: v,
+                  }))}
+                  value={value}
+                  onChange={(v) => {
+                    handleCondsChange(v, "value");
+                  }}
+                  name="value"
+                  initialOption="Choose One..."
+                  containerClassName="col-sm-12 col-md"
+                  required
+                />
+              ) : attribute.datatype === "number" ? (
+                <Field
+                  type="number"
+                  step="any"
+                  value={value}
+                  onChange={handleFieldChange}
+                  name="value"
+                  className={styles.matchingInput}
+                  containerClassName="col-sm-12 col-md"
+                  required
+                />
+              ) : ["string", "secureString"].includes(attribute.datatype) ? (
+                <Field
+                  value={value}
+                  onChange={handleFieldChange}
+                  name="value"
+                  className={styles.matchingInput}
+                  containerClassName="col-sm-12 col-md"
+                  required
+                />
+              ) : (
+                ""
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

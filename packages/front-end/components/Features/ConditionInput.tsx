@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { some } from "lodash";
 import { FaExclamationCircle } from "react-icons/fa";
+import { RxLoop } from "react-icons/rx";
 import {
   condToJson,
   jsonToConds,
@@ -88,9 +89,8 @@ export default function ConditionInput(props: Props) {
                 <div>JSON format using MongoDB query syntax.</div>
                 {simpleAllowed && attributes.size && (
                   <div className="ml-auto">
-                    <a
-                      className="a"
-                      role="button"
+                    <span
+                      className="text-purple hover-underline cursor-pointer"
                       onClick={(e) => {
                         e.preventDefault();
                         const newConds = jsonToConds(value, attributes);
@@ -100,8 +100,8 @@ export default function ConditionInput(props: Props) {
                         setAdvanced(false);
                       }}
                     >
-                      switch to simple mode
-                    </a>
+                      <RxLoop /> Simple mode
+                    </span>
                   </div>
                 )}
               </div>
@@ -358,7 +358,14 @@ export default function ConditionInput(props: Props) {
                           name="value"
                           minRows={1}
                           className={styles.matchingInput}
-                          helpText="separate values by comma"
+                          helpText={
+                            <span
+                              className="position-relative"
+                              style={{ top: -5 }}
+                            >
+                              separate values by comma
+                            </span>
+                          }
                           required
                         />
                       ) : (
@@ -371,9 +378,8 @@ export default function ConditionInput(props: Props) {
                           required
                         />
                       )}
-                      <a
-                        className="a"
-                        role="button"
+                      <span
+                        className="text-purple hover-underline cursor-pointer"
                         style={{ fontSize: "0.8em" }}
                         onClick={(e) => {
                           e.preventDefault();
@@ -381,7 +387,7 @@ export default function ConditionInput(props: Props) {
                         }}
                       >
                         Switch to {rawTextMode ? "token" : "raw text"} mode
-                      </a>
+                      </span>
                     </div>
                   ) : attribute.enum.length ? (
                     <SelectField
@@ -470,17 +476,15 @@ export default function ConditionInput(props: Props) {
               Add another condition
             </a>
           )}
-          <a
-            role="button"
-            className="a ml-auto"
-            style={{ fontSize: "0.9em" }}
+          <span
+            className="ml-auto text-purple hover-underline cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
               setAdvanced(true);
             }}
           >
-            Advanced mode
-          </a>
+            <RxLoop /> Advanced mode
+          </span>
         </div>
       </div>
     </div>

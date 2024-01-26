@@ -273,6 +273,7 @@ export default function RuleModal({
       size="lg"
       cta="Save"
       ctaEnabled={canSubmit}
+      bodyClassName="px-4"
       header={rule ? "Edit Override Rule" : "New Override Rule"}
       submit={form.handleSubmit(async (values) => {
         const ruleAction = i === rules.length ? "add" : "edit";
@@ -683,6 +684,7 @@ export default function RuleModal({
               form.setValue("prerequisites", prerequisites)
             }
             feature={feature}
+            environment={environment}
           />
         </>
       )}

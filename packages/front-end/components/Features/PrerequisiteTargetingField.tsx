@@ -9,11 +9,9 @@ import ValueDisplay from "@/components/Features/ValueDisplay";
 import {
   getDefaultPrerequisiteCondition,
   getFeatureDefaultValue,
-  useEnvironments,
   useFeaturesList,
 } from "@/services/features";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
-import styles from "@/components/Features/ConditionInput.module.scss";
 import { useArrayIncrementer } from "@/hooks/useIncrementer";
 import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
 import { GBAddCircle } from "../Icons";
@@ -23,21 +21,20 @@ export interface Props {
   value: FeaturePrerequisite[];
   setValue: (prerequisites: FeaturePrerequisite[]) => void;
   feature: FeatureInterface;
+  environment: string;
 }
 
 export default function PrerequisiteTargetingField({
   value,
   setValue,
   feature,
+  environment,
 }: Props) {
   const { features } = useFeaturesList();
   const featureOptions = features
     .filter((f) => f.id !== feature.id)
     .filter((f) => (f.project || "") === (feature.project || ""))
     .map((f) => ({ label: f.id, value: f.id }));
-
-  const environments = useEnvironments();
-  const envs = environments.map((e) => e.id);
 
   const [conditionKeys, forceConditionRender] = useArrayIncrementer();
 
@@ -64,132 +61,127 @@ export default function PrerequisiteTargetingField({
   }, [JSON.stringify(value)]);
 
   return (
-    <div className="form-group">
+    <div className="form-group mb-4">
       <label>Target by Prerequisite Features</label>
-      <div className="border bg-light px-3 pb-3 mb-1">
-        {value.length > 0 ? (
-          <>
-            <ul className={styles.conditionslist}>
-              {value.map((v, i) => {
-                const parentFeature = features.find((f) => f.id === v.id);
+      {value.length > 0 ? (
+        <>
+          {value.map((v, i) => {
+            const parentFeature = features.find((f) => f.id === v.id);
 
-                return (
-                  <li key={i} className={styles.listitem}>
-                    <div className="row mb-1">
-                      <div className="col">
-                        <label className="mb-0">Feature</label>
-                      </div>
-                      <div className="col-md-auto col-sm-12">
-                        <button
-                          className="btn btn-link py-0 text-danger"
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setValue([
-                              ...value.slice(0, i),
-                              ...value.slice(i + 1),
-                            ]);
-                          }}
-                        >
-                          remove
-                        </button>
-                      </div>
-                    </div>
-                    <div className="row">
-                      <div className="col">
-                        <SelectField
-                          placeholder="Select feature"
-                          options={featureOptions}
-                          value={v.id}
-                          onChange={(v) => {
-                            setValue([
-                              ...value.slice(0, i),
-                              {
-                                id: v,
-                                condition: "",
-                              },
-                              ...value.slice(i + 1),
-                            ]);
-                          }}
-                          key={`parentId-${i}`}
-                          sort={false}
-                        />
-                      </div>
-                    </div>
+            return (
+              <div key={i} className="appbox bg-light px-3 pt-3 pb-4 mb-4">
+                <div className="row mb-1">
+                  <div className="col">
+                    <label className="mb-0">Feature</label>
+                  </div>
+                  <div className="col-md-auto col-sm-12">
+                    <button
+                      className="btn btn-link py-0 text-danger"
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setValue([...value.slice(0, i), ...value.slice(i + 1)]);
+                      }}
+                    >
+                      remove
+                    </button>
+                  </div>
+                </div>
 
-                    <PrereqStatesRows
-                      parentFeature={parentFeature}
-                      envs={envs}
-                      features={features}
+                <div className="row">
+                  <div className="col">
+                    <SelectField
+                      placeholder="Select feature"
+                      options={featureOptions}
+                      value={v.id}
+                      onChange={(v) => {
+                        setValue([
+                          ...value.slice(0, i),
+                          {
+                            id: v,
+                            condition: "",
+                          },
+                          ...value.slice(i + 1),
+                        ]);
+                      }}
+                      key={`parentId-${i}`}
+                      sort={false}
                     />
+                  </div>
+                </div>
 
-                    <div className="mt-3">
-                      {parentFeature ? (
-                        <PrerequisiteInput
-                          defaultValue={v.condition}
-                          onChange={(s) => {
-                            setValue([
-                              ...value.slice(0, i),
-                              {
-                                id: v.id,
-                                condition: s,
-                              },
-                              ...value.slice(i + 1),
-                            ]);
-                          }}
-                          parentFeature={parentFeature}
-                          key={conditionKeys[i]}
-                        />
-                      ) : null}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-            <a
-              role="button"
-              className="btn btn-outline-primary"
-              onClick={(e) => {
-                e.preventDefault();
-                setValue([
-                  ...value,
-                  {
-                    id: "",
-                    condition: "",
-                  },
-                ]);
-              }}
-            >
-              <span className="pr-2">
-                <GBAddCircle />
-              </span>
-              Add another prerequisite
-            </a>
-          </>
-        ) : (
-          <div className="mt-3">
-            <em className="text-muted mr-3">
-              No prerequisite targeting applied.
-            </em>
-            <a
-              className="a"
-              role="button"
-              onClick={(e) => {
-                e.preventDefault();
-                setValue([
-                  ...value,
-                  {
-                    id: "",
-                    condition: "{}",
-                  },
-                ]);
-              }}
-            >
-              Add prerequisite targeting
-            </a>
-          </div>
-        )}
-      </div>
+                <PrereqStatesRows
+                  parentFeature={parentFeature}
+                  envs={[environment]}
+                  features={features}
+                />
+
+                <div className="mt-3">
+                  {parentFeature ? (
+                    <PrerequisiteInput
+                      defaultValue={v.condition}
+                      onChange={(s) => {
+                        setValue([
+                          ...value.slice(0, i),
+                          {
+                            id: v.id,
+                            condition: s,
+                          },
+                          ...value.slice(i + 1),
+                        ]);
+                      }}
+                      parentFeature={parentFeature}
+                      key={conditionKeys[i]}
+                    />
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+
+          <a
+            role="button"
+            className="btn btn-outline-primary"
+            onClick={(e) => {
+              e.preventDefault();
+              setValue([
+                ...value,
+                {
+                  id: "",
+                  condition: "",
+                },
+              ]);
+            }}
+          >
+            <span className="pr-2">
+              <GBAddCircle />
+            </span>
+            Add another prerequisite
+          </a>
+        </>
+      ) : (
+        <div className="border bg-light p-3 mb-1">
+          <em className="text-muted mr-3">
+            No prerequisite targeting applied.
+          </em>
+          <a
+            className="a"
+            role="button"
+            onClick={(e) => {
+              e.preventDefault();
+              setValue([
+                ...value,
+                {
+                  id: "",
+                  condition: "{}",
+                },
+              ]);
+            }}
+          >
+            Add prerequisite targeting
+          </a>
+        </div>
+      )}
     </div>
   );
 }
@@ -220,28 +212,28 @@ function PrereqStatesRows({
 
   return (
     <>
-      <div className="d-flex align-items-center mt-2">
-        <div style={{ width: 110 }}>
-          <span
-            className="text-purple hover-underline cursor-pointer"
-            onClick={() => setShowDetails(!showDetails)}
-          >
-            {showDetails ? "Hide details" : "Show details"}
-          </span>
-        </div>
-        <a
-          className="a nowrap"
-          href={`/features/${parentFeature.id}`}
-          target="_blank"
-          rel="noreferrer"
+      <div className="d-flex align-items-center mt-1">
+        <span
+          className="text-purple hover-underline cursor-pointer"
+          onClick={() => setShowDetails(!showDetails)}
         >
-          {parentFeature.id}
-          <FaExternalLinkAlt className="ml-1" />
-        </a>
+          {showDetails ? "Hide details" : "Show details"}
+        </span>
       </div>
 
       {showDetails && (
-        <div className="mt-3">
+        <div className="mt-2">
+          <div className="mb-2">
+            <a
+              className="a nowrap"
+              href={`/features/${parentFeature.id}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {parentFeature.id}
+              <FaExternalLinkAlt className="ml-1" />
+            </a>
+          </div>
           <table className="table mb-4 border">
             <thead className="bg-light text-dark">
               <tr>
