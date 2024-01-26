@@ -294,7 +294,7 @@ export default function FeaturesPage() {
                 {showGraphs && (
                   <th>
                     Recent Usage{" "}
-                    <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
+                    <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'!" />
                   </th>
                 )}
                 <th>Stale</th>
