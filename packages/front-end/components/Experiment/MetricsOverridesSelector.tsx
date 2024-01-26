@@ -105,6 +105,7 @@ export default function MetricsOverridesSelector({
           const metricDefinition = allMetricDefinitions.find(
             (md) => md.id === mo.id
           );
+          console.log(mo);
 
           const hasRegressionAdjustmentFeature = hasCommercialFeature(
             "regression-adjustment"
@@ -276,12 +277,8 @@ export default function MetricsOverridesSelector({
                               helpText={
                                 <div className="text-right">
                                   default:{" "}
-                                  {["conversion", "lookback"].includes(
-                                    metricDefinition?.windowSettings?.type ?? ""
-                                  )
-                                    ? "No delay"
-                                    : metricDefinition?.windowSettings
-                                        .delayHours}
+                                  {metricDefinition?.windowSettings
+                                    .delayHours ?? 0}
                                 </div>
                               }
                               labelClassName="small mb-1"

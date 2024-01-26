@@ -26,6 +26,7 @@ import {
   ColumnInterface,
   FactMetricInterface,
   FactTableInterface,
+  MetricCappingSettings,
 } from "../../types/fact-table";
 
 const currentDate = new Date();
@@ -151,6 +152,7 @@ type TestMetricConfig = {
   type: MetricType;
   ignoreNulls: boolean;
   sql: string;
+  cappingSettings?: MetricCappingSettings;
   denominator?: string;
 };
 import metricConfigData from "./json/metrics.json";
@@ -214,6 +216,7 @@ const allActivationMetrics: MetricInterface[] = [
 const analysisMetrics: MetricInterface[] = metricConfigs.map(
   (metricConfig) => ({ ...baseMetric, ...metricConfig })
 );
+console.dir(analysisMetrics);
 
 // fact metrics
 type ColumnConfig = Pick<ColumnInterface, "name" | "column">;

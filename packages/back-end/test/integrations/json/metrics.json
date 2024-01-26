@@ -40,8 +40,19 @@
     "ignoreNulls": false,
     "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\namount as value\nFROM orders",
     "cappingSettings": {
-      "capping": "percentile",
-      "capValue": 0.9
+      "type": "percentile",
+      "value": 0.9
+    }
+  },
+  {
+    "id": "nonbinom_null__purchased_value_pctilecapignorezeros",
+    "type": "count",
+    "ignoreNulls": false,
+    "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\namount as value\nFROM orders",
+    "cappingSettings": {
+      "type": "percentile",
+      "value": 0.9,
+      "ignoreZeros": true
     }
   },
   {

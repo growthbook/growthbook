@@ -222,7 +222,7 @@ const AnalysisForm: FC<{
           phaseStartDate: dateStarted,
           skipPartialData: skipPartialData === "strict",
         };
-        console.dir(body.metricOverrides, { depth: null });
+
         fixMetricOverridesBeforeSaving(body.metricOverrides || []);
 
         if (experiment.status === "stopped") {

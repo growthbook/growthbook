@@ -1,4 +1,8 @@
-import { CappingType, MetricCappingSettings, MetricWindowSettings } from "./fact-table";
+import {
+  CappingType,
+  MetricCappingSettings,
+  MetricWindowSettings,
+} from "./fact-table";
 import { Queries } from "./query";
 import { TemplateVariables } from "./sql";
 
@@ -83,7 +87,10 @@ export interface MetricInterface {
   queryFormat?: "sql" | "builder";
 }
 
-export type LegacyMetricInterface = Omit<MetricInterface, "cappingSettings" | "windowSettings"> & {
+export type LegacyMetricInterface = Omit<
+  MetricInterface,
+  "cappingSettings" | "windowSettings"
+> & {
   // make new mandatory fields optional
   cappingSettings?: MetricCappingSettings;
   windowSettings?: MetricWindowSettings;

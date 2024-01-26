@@ -74,7 +74,9 @@ const MetricTooltipBody = ({
       )} Window`,
       body: (
         <>
-          {`${metric.windowSettings.windowValue} ${metric.windowSettings.windowUnit}`}
+          {metric.windowSettings.type
+            ? `${metric.windowSettings.windowValue} ${metric.windowSettings.windowUnit}`
+            : ""}
           {metricOverrideFields.includes("windowType") ||
           metricOverrideFields.includes("windowHours") ? (
             <small className="text-purple ml-1">(override)</small>
@@ -84,9 +86,8 @@ const MetricTooltipBody = ({
     },
     {
       show:
-        !isNullUndefinedOrEmpty(metric.windowSettings.type) &&
-        (metric.windowSettings.delayHours !== 0 ||
-          metricOverrideFields.includes("delayHours")),
+        (metric.windowSettings.delayHours ?? 0) !== 0 ||
+        metricOverrideFields.includes("delayHours"),
       label: "Conversion Delay Hours",
       body: (
         <>

@@ -104,12 +104,8 @@ describe("settings", () => {
             experiment: experiments.exp1,
           });
 
-          expect(metricSettings_revenue.delayHours.value).toEqual(
-            2.5
-          );
-          expect(metricSettings_revenue.windowHours.value).toEqual(
-            72
-          );
+          expect(metricSettings_revenue.delayHours.value).toEqual(2.5);
+          expect(metricSettings_revenue.windowHours.value).toEqual(72);
           expect(
             metricSettings_revenue.regressionAdjustmentEnabled.value
           ).toEqual(false);
@@ -131,9 +127,7 @@ describe("settings", () => {
           });
 
           expect(metricSettings_testvar.delayHours.value).toEqual(0);
-          expect(metricSettings_testvar.windowHours.value).toEqual(
-            72
-          );
+          expect(metricSettings_testvar.windowHours.value).toEqual(72);
           expect(
             metricSettings_testvar.regressionAdjustmentEnabled.value
           ).toEqual(false);

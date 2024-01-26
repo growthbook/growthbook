@@ -741,7 +741,9 @@ export default abstract class SqlIntegration
   private getFunnelUsersCTE(
     baseIdType: string,
     metrics: ExperimentMetricInterface[],
+    endDate: Date,
     regressionAdjusted: boolean = false,
+    cumulativeDate: boolean = false,
     ignoreConversionEnd: boolean = false,
     tablePrefix: string = "__denominator",
     initialTable: string = "__experiment"
@@ -782,6 +784,8 @@ export default abstract class SqlIntegration
               `${prevAlias}.timestamp`,
               `${alias}.timestamp`,
               m,
+              new Date(),
+              cumulativeDate,
               ignoreConversionEnd
             );
           })
@@ -822,22 +826,29 @@ export default abstract class SqlIntegration
     baseCol: string,
     metricCol: string,
     metric: ExperimentMetricInterface,
+    endDate: Date,
+    cumulativeDate: boolean,
     ignoreConversionEnd: boolean
   ): string {
-    const conversionDelayHours = metric.windowSettings.delayHours ?? 0;
-    const conversionWindowHours = getConversionWindowHours(
-      metric.windowSettings
-    );
+    let dateClause = "";
+
+    let windowHours = getConversionWindowHours(metric.windowSettings);
+    const delayHours = metric.windowSettings.delayHours ?? 0;
+
+    if (metric.windowSettings.type === "conversion") {
+      dateClause += `${metricCol} <= ${this.addHours(
+        baseCol,
+        delayHours + windowHours
+      )}`;
+    } else if (metric.windowSettings.type === "lookback") {
+      // ensure positive windowHours
+      if (windowHours < 0) windowHours = windowHours * -1;
+      dateClause = `${this.addHours("m.timestamp", windowHours)} >= 
+        ${cumulativeDate ? "dr.day" : this.toTimestamp(endDate)}`;
+    }
     return `
-      ${metricCol} >= ${this.addHours(baseCol, conversionDelayHours)}
-      ${
-        ignoreConversionEnd
-          ? ""
-          : `AND ${metricCol} <= ${this.addHours(
-              baseCol,
-              conversionDelayHours + conversionWindowHours
-            )}`
-      }`;
+      ${metricCol} >= ${this.addHours(baseCol, delayHours)}
+      ${!ignoreConversionEnd && dateClause ? `AND ${dateClause}` : ""}`;
   }
 
   private getMetricMinDelay(metrics: ExperimentMetricInterface[]) {
@@ -1160,6 +1171,8 @@ export default abstract class SqlIntegration
                   "e.timestamp",
                   "a.timestamp",
                   activationMetric,
+                  settings.endDate,
+                  false,
                   ignoreConversionEnd
                 ),
                 "a.timestamp",
@@ -2179,7 +2192,9 @@ export default abstract class SqlIntegration
           ? `, __denominatorUsers as (${this.getFunnelUsersCTE(
               baseIdType,
               denominatorMetrics,
+              settings.endDate,
               regressionAdjusted,
+              cumulativeDate,
               ignoreConversionEnd,
               "__denominator",
               "__distinctUsers"
@@ -2280,6 +2295,8 @@ export default abstract class SqlIntegration
                   "d.timestamp",
                   "m.timestamp",
                   denominator,
+                  settings.endDate,
+                  cumulativeDate,
                   ignoreConversionEnd
                 )}
                 ${
@@ -3253,23 +3270,15 @@ AND event_name = '${eventName}'`,
     endDate: Date,
     cumulativeDate: boolean
   ): string {
-    let ifExpression = "";
-    if (metric.windowSettings.type === "lookback") {
-      let hours = getConversionWindowHours(metric.windowSettings);
-      // ensure positive
-      if (hours < 0) hours = hours * -1;
-      ifExpression = `${this.addHours("m.timestamp", hours)} >= 
-        ${cumulativeDate ? "dr.day" : this.toTimestamp(endDate)}`;
-    } else {
-      ifExpression = this.getConversionWindowClause(
+    return `${this.ifElse(
+      `${this.getConversionWindowClause(
         "d.timestamp",
         "m.timestamp",
         metric,
+        endDate,
+        cumulativeDate,
         ignoreConversionEnd
-      );
-    }
-    return `${this.ifElse(
-      `${ifExpression}
+      )}
         ${
           cumulativeDate ? `AND ${this.dateTrunc("m.timestamp")} <= dr.day` : ""
         }

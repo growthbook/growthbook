@@ -526,6 +526,12 @@ export function upgradeExperimentDoc(
     experiment.metricOverrides.forEach((mo) => {
       mo.delayHours = mo.delayHours || mo.conversionDelayHours;
       mo.windowHours = mo.windowHours || mo.conversionWindowHours;
+      if (
+        mo.windowType === undefined &&
+        mo.conversionWindowHours !== undefined
+      ) {
+        mo.windowType = "conversion";
+      }
     });
   }
 

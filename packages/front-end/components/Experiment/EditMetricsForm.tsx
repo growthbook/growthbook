@@ -70,7 +70,7 @@ export function fixMetricOverridesBeforeSaving(overrides: MetricOverride[]) {
       if (key === "id") continue;
       const v = overrides[i][key];
       // remove nullish values from payload
-      if (v === undefined || v === null || (key !== "window" && isNaN(v))) {
+      if (v === undefined || v === null || (key !== "windowType" && isNaN(v))) {
         delete overrides[i][key];
         continue;
       }
