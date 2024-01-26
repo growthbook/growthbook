@@ -8,7 +8,10 @@ import { getMetricById } from "../models/MetricModel";
 import { METRIC_REFRESH_FREQUENCY } from "../util/secrets";
 import { logger } from "../util/logger";
 import { promiseAllChunks } from "../util/promise";
-import { getOrganizationById } from "../services/organizations";
+import {
+  getContextForAgendaJobByOrgId,
+  getOrganizationById,
+} from "../services/organizations";
 
 const QUEUE_METRIC_UPDATES = "queueMetricUpdates";
 
@@ -49,7 +52,9 @@ export default async function (agenda: Agenda) {
     const promiseCallbacks: (() => Promise<unknown>)[] = [];
     metrics.forEach(({ organization, id, daysToInclude }) => {
       promiseCallbacks.push(async () => {
-        const metric = await getMetricById(id, organization, true);
+        //TODO: Confirm this async/await will work as expected in this forEach loop
+        const context = await getContextForAgendaJobByOrgId(organization);
+        const metric = await getMetricById(id, context, true);
         if (!metric) return;
         // Skip if metric was already refreshed recently
         if (
@@ -109,11 +114,13 @@ async function updateSingleMetric(job: UpdateSingleMetricJob) {
   const daysToInclude =
     job.attrs.data?.daysToInclude || DEFAULT_METRIC_ANALYSIS_DAYS;
 
+  const context = await getContextForAgendaJobByOrgId(orgId);
+
   try {
     if (!metricId || !orgId) {
       throw new Error("Error getting metricId or orgId from job");
     }
-    const metric = await getMetricById(metricId, orgId, true);
+    const metric = await getMetricById(metricId, context, true);
 
     if (!metric) {
       throw new Error("Error getting metric to refresh: " + metricId);

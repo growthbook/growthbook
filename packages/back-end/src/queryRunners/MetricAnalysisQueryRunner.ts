@@ -8,6 +8,7 @@ import {
   MetricValueResult,
 } from "../types/Integration";
 import { meanVarianceFromSums } from "../util/stats";
+import { getContextForAgendaJobByOrgId } from "../services/organizations";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export class MetricAnalysisQueryRunner extends QueryRunner<
@@ -73,11 +74,11 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
     };
   }
   async getLatestModel(): Promise<MetricInterface> {
-    const model = await getMetricById(
-      this.model.id,
-      this.model.organization,
-      true
+    //TODO: Double check this logic
+    const context = await getContextForAgendaJobByOrgId(
+      this.model.organization
     );
+    const model = await getMetricById(this.model.id, context, true);
     if (!model) throw new Error("Could not find metric");
     return model;
   }
@@ -93,6 +94,10 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
     result?: MetricAnalysis | undefined;
     error?: string | undefined;
   }): Promise<MetricInterface> {
+    //TODO: Double check this logic
+    const context = await getContextForAgendaJobByOrgId(
+      this.model.organization
+    );
     const updates: Partial<MetricInterface> = {
       queries,
       ...(runStarted ? { runStarted } : {}),
@@ -100,7 +105,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
       analysisError: result ? "" : error,
     };
 
-    await updateMetric(this.model.id, updates, this.model.organization);
+    await updateMetric(this.model.id, updates, context);
 
     return {
       ...this.model,

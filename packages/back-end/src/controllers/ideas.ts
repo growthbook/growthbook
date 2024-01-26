@@ -44,6 +44,7 @@ export async function getEstimatedImpact(
 ) {
   req.checkPermissions("createIdeas", "");
 
+  const context = getContextFromReq(req);
   const { metric, segment, ideaId } = req.body;
 
   const idea = await getIdeaById(ideaId || "");
@@ -52,7 +53,7 @@ export async function getEstimatedImpact(
 
   const { org } = getContextFromReq(req);
   const estimate = await getImpactEstimate(
-    org.id,
+    context,
     metric,
     org.settings?.metricAnalysisDays || 30,
     segment

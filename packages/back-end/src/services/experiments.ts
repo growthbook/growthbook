@@ -131,12 +131,12 @@ export async function createMetric(data: Partial<MetricInterface>) {
 
 export async function getExperimentMetricById(
   metricId: string,
-  orgId: string
+  context: ReqContext | ApiReqContext
 ): Promise<ExperimentMetricInterface | null> {
   if (isFactMetricId(metricId)) {
-    return getFactMetric(orgId, metricId);
+    return getFactMetric(context.org.id, metricId);
   }
-  return getMetricById(metricId, orgId);
+  return getMetricById(metricId, context);
 }
 
 export async function refreshMetric(
@@ -1825,7 +1825,7 @@ export function updateExperimentApiPayloadToInterface(
 
 export async function getRegressionAdjustmentInfo(
   experiment: ExperimentInterface,
-  organization: OrganizationInterface
+  context: ReqContext | ApiReqContext
 ): Promise<{
   regressionAdjustmentEnabled: boolean;
   metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
@@ -1837,7 +1837,7 @@ export async function getRegressionAdjustmentInfo(
     return { regressionAdjustmentEnabled, metricRegressionAdjustmentStatuses };
   }
 
-  const metricMap = await getMetricMap(organization.id);
+  const metricMap = await getMetricMap(context);
 
   const allExperimentMetricIds = uniq([
     ...experiment.metrics,
@@ -1864,7 +1864,7 @@ export async function getRegressionAdjustmentInfo(
       experimentRegressionAdjustmentEnabled:
         experiment.regressionAdjustmentEnabled ??
         DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-      organizationSettings: organization.settings,
+      organizationSettings: context.org.settings,
       metricOverrides: experiment.metricOverrides,
     });
     if (metricRegressionAdjustmentStatus.regressionAdjustmentEnabled) {

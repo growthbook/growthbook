@@ -42,9 +42,7 @@ export const postBulkImportFacts = createApiRequestHandler(
 
     const factTableMap = await getFactTableMap(req.organization.id);
 
-    const allFactMetrics = await getAllFactMetricsForOrganization(
-      req.organization.id
-    );
+    const allFactMetrics = await getAllFactMetricsForOrganization(req.context);
     const factMetricMap = new Map<string, FactMetricInterface>(
       allFactMetrics.map((m) => [m.id, m])
     );

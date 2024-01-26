@@ -15,6 +15,7 @@ import {
 import { getStaleQueries } from "../models/QueryModel";
 import { findReportsByQueryId, updateReport } from "../models/ReportModel";
 import { logger } from "../util/logger";
+import { getContextForAgendaJobByOrgId } from "../services/organizations";
 
 const JOB_NAME = "expireOldQueries";
 
@@ -68,6 +69,7 @@ export default async function (agenda: Agenda) {
     );
     for (let i = 0; i < metrics.length; i++) {
       const metric = metrics[i];
+      const context = await getContextForAgendaJobByOrgId(metric.organization);
       logger.info("Updating status of metric " + metric.id);
       updateQueryStatus(metric.queries, queryIds);
       await updateMetric(
@@ -77,7 +79,7 @@ export default async function (agenda: Agenda) {
           analysisError:
             "Queries were interupted. Please try re-running the analysis.",
         },
-        metric.organization
+        context
       );
     }
 

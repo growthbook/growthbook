@@ -607,17 +607,17 @@ function validateConfig(config: ConfigFile, organizationId: string) {
 
 export async function importConfig(
   config: ConfigFile,
-  organization: OrganizationInterface
+  context: ReqContext | ApiReqContext
 ) {
-  const errors = validateConfig(config, organization.id);
+  const errors = validateConfig(config, context.org.id);
   if (errors.length > 0) {
     throw new Error(errors.join("\n"));
   }
 
   if (config.organization?.settings) {
-    await updateOrganization(organization.id, {
+    await updateOrganization(context.org.id, {
       settings: {
-        ...organization.settings,
+        ...context.org.settings,
         ...config.organization.settings,
       },
     });
@@ -633,7 +633,7 @@ export async function importConfig(
             // Fix newlines in the private keys:
             ds.params.privateKey = ds.params?.privateKey?.replace(/\\n/g, "\n");
           }
-          const existing = await getDataSourceById(k, organization.id);
+          const existing = await getDataSourceById(k, context.org.id);
           if (existing) {
             let params = existing.params;
             // If params are changing, merge them with existing and test the connection
@@ -662,10 +662,10 @@ export async function importConfig(
                 },
               },
             };
-            await updateDataSource(existing, organization.id, updates);
+            await updateDataSource(existing, context.org.id, updates);
           } else {
             await createDataSource(
-              organization.id,
+              context.org.id,
               ds.name || k,
               ds.type,
               ds.params,
@@ -692,24 +692,24 @@ export async function importConfig(
         }
 
         try {
-          const existing = await getMetricById(k, organization.id);
+          const existing = await getMetricById(k, context);
           if (existing) {
             const updates: Partial<MetricInterface> = {
               ...m,
             };
             delete updates.organization;
 
-            await updateMetric(k, updates, organization.id);
+            await updateMetric(k, updates, context);
           } else {
             await createMetric({
               ...m,
               name: m.name || k,
               id: k,
-              organization: organization.id,
+              organization: context.org.id,
             });
           }
-          if (m.tags && organization.id) {
-            await addTags(organization.id, m.tags);
+          if (m.tags && context.org.id) {
+            await addTags(context.org.id, m.tags);
           }
         } catch (e) {
           throw new Error(`Metric ${k}: ${e.message}`);
@@ -729,21 +729,21 @@ export async function importConfig(
         }
 
         try {
-          const existing = await findDimensionById(k, organization.id);
+          const existing = await findDimensionById(k, context.org.id);
           if (existing) {
             const updates: Partial<DimensionInterface> = {
               ...d,
             };
             delete updates.organization;
 
-            await updateDimension(k, organization.id, updates);
+            await updateDimension(k, context.org.id, updates);
           } else {
             await createDimension({
               ...d,
               id: k,
               dateCreated: new Date(),
               dateUpdated: new Date(),
-              organization: organization.id,
+              organization: context.org.id,
             });
           }
         } catch (e) {
@@ -765,21 +765,21 @@ export async function importConfig(
         }
 
         try {
-          const existing = await findSegmentById(k, organization.id);
+          const existing = await findSegmentById(k, context.org.id);
           if (existing) {
             const updates: Partial<SegmentInterface> = {
               ...s,
             };
             delete updates.organization;
 
-            await updateSegment(k, organization.id, updates);
+            await updateSegment(k, context.org.id, updates);
           } else {
             await createSegment({
               ...s,
               id: k,
               dateCreated: new Date(),
               dateUpdated: new Date(),
-              organization: organization.id,
+              organization: context.org.id,
             });
           }
         } catch (e) {

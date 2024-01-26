@@ -5,11 +5,7 @@ import { DeleteMetricResponse } from "../../../types/openapi";
 
 export const deleteMetricHandler = createApiRequestHandler(getMetricValidator)(
   async (req): Promise<DeleteMetricResponse> => {
-    const metric = await getMetricById(
-      req.params.id,
-      req.organization.id,
-      false
-    );
+    const metric = await getMetricById(req.params.id, req.context, false);
 
     req.checkPermissions("createMetrics", metric?.projects ?? "");
 

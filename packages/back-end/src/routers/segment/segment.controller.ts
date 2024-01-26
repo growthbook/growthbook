@@ -101,7 +101,7 @@ export const getSegmentUsage = async (
   const ideas = await getIdeasByQuery(query);
 
   // metricSchema
-  const metrics = await getMetricsUsingSegment(id, org.id);
+  const metrics = await getMetricsUsingSegment(id, context);
 
   // experiments:
   const experiments = await getExperimentsUsingSegment(id, context);
@@ -293,7 +293,7 @@ export const deleteSegment = async (
   }
 
   // metrics
-  const metrics = await getMetricsUsingSegment(id, org.id);
+  const metrics = await getMetricsUsingSegment(id, context);
   if (metrics.length > 0) {
     // as update metric query will fail if they are using a config file,
     // we want to allow for deleting if there are no metrics with this segment.

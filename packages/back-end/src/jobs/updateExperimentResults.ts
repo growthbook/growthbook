@@ -29,6 +29,7 @@ import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { findProjectById } from "../models/ProjectModel";
 import { getExperimentWatchers } from "../models/WatchModel";
 import { getFactTableMap } from "../models/FactTableModel";
+import { ApiReqContext } from "../../types/api";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -150,7 +151,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     const {
       regressionAdjustmentEnabled,
       metricRegressionAdjustmentStatuses,
-    } = await getRegressionAdjustmentInfo(experiment, organization);
+    } = await getRegressionAdjustmentInfo(experiment, context);
 
     const analysisSettings = getDefaultExperimentAnalysisSettings(
       experiment.statsEngine || scopedSettings.statsEngine.value,
@@ -159,7 +160,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       regressionAdjustmentEnabled
     );
 
-    const metricMap = await getMetricMap(organization.id);
+    const metricMap = await getMetricMap(context);
     const factTableMap = await getFactTableMap(organization.id);
 
     const queryRunner = await createSnapshot({
@@ -185,7 +186,12 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     );
 
     if (lastSnapshot) {
-      await sendSignificanceEmail(experiment, lastSnapshot, currentSnapshot);
+      await sendSignificanceEmail(
+        experiment,
+        lastSnapshot,
+        currentSnapshot,
+        context
+      );
     }
   } catch (e) {
     logger.error(e, "Failed to update experiment: " + experimentId);
@@ -209,7 +215,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 async function sendSignificanceEmail(
   experiment: ExperimentInterface,
   lastSnapshot: ExperimentSnapshotInterface,
-  currentSnapshot: ExperimentSnapshotInterface
+  currentSnapshot: ExperimentSnapshotInterface,
+  context: ApiReqContext
 ) {
   // If email is not configured, there's nothing else to do
   if (!isEmailEnabled()) {
@@ -255,8 +262,7 @@ async function sendSignificanceEmail(
             // this test variation has gone significant, and won
             experimentChanges.push(
               "The metric " +
-                (await getExperimentMetricById(m, experiment.organization))
-                  ?.name +
+                (await getExperimentMetricById(m, context))?.name +
                 " for variation " +
                 experiment.variations[i].name +
                 " has reached a " +
@@ -270,8 +276,7 @@ async function sendSignificanceEmail(
             // this test variation has gone significant, and lost
             experimentChanges.push(
               "The metric " +
-                (await getExperimentMetricById(m, experiment.organization))
-                  ?.name +
+                (await getExperimentMetricById(m, context))?.name +
                 " for variation " +
                 experiment.variations[i].name +
                 " has dropped to a " +

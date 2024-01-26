@@ -1,12 +1,15 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
+import { hasReadAccess } from "shared/permissions";
 import {
   CreateFactMetricProps,
   FactMetricInterface,
   UpdateFactMetricProps,
 } from "../../types/fact-table";
 import { ApiFactMetric } from "../../types/openapi";
+import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "../../types/api";
 
 const factTableSchema = new mongoose.Schema({
   id: String,
@@ -63,9 +66,15 @@ function toInterface(doc: FactMetricDocument): FactMetricInterface {
   return omit(ret, ["__v", "_id"]);
 }
 
-export async function getAllFactMetricsForOrganization(organization: string) {
-  const docs = await FactMetricModel.find({ organization });
-  return docs.map((doc) => toInterface(doc));
+export async function getAllFactMetricsForOrganization(
+  context: ReqContext | ApiReqContext
+) {
+  const docs = await FactMetricModel.find({ organization: context.org.id });
+
+  const factMetrics = docs.map((doc) => toInterface(doc));
+  return factMetrics.filter((factMetric) =>
+    hasReadAccess(context.readAccessFilter, factMetric.projects)
+  );
 }
 
 export async function getFactMetric(organization: string, id: string) {

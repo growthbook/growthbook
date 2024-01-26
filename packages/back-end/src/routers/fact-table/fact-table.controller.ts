@@ -321,9 +321,9 @@ export const getFactMetrics = async (
   req: AuthRequest,
   res: Response<{ status: 200; factMetrics: FactMetricInterface[] }>
 ) => {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
-  const factMetrics = await getAllFactMetricsForOrganization(org.id);
+  const factMetrics = await getAllFactMetricsForOrganization(context);
 
   res.status(200).json({
     status: 200,

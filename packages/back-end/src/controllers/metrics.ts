@@ -83,10 +83,9 @@ export async function deleteMetric(
   req.checkPermissions("createAnalyses", "");
 
   const context = getContextFromReq(req);
-  const { org } = context;
   const { id } = req.params;
 
-  const metric = await getMetricById(id, org.id);
+  const metric = await getMetricById(id, context);
 
   if (!metric) {
     res.status(403).json({
@@ -119,8 +118,8 @@ export async function deleteMetric(
 }
 
 export async function getMetrics(req: AuthRequest, res: Response) {
-  const { org } = getContextFromReq(req);
-  const metrics = await getMetricsByOrganization(org.id);
+  const context = getContextFromReq(req);
+  const metrics = await getMetricsByOrganization(context);
   res.status(200).json({
     status: 200,
     metrics,
@@ -134,7 +133,7 @@ export async function getMetricUsage(
   const { id } = req.params;
   const context = getContextFromReq(req);
   const { org } = context;
-  const metric = await getMetricById(id, org.id);
+  const metric = await getMetricById(id, context);
 
   if (!metric) {
     res.status(403).json({
@@ -180,9 +179,10 @@ export async function cancelMetricAnalysis(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.params;
-  const metric = await getMetricById(id, org.id, true);
+  const metric = await getMetricById(id, context, true);
   if (!metric) {
     throw new Error("Could not cancel query");
   }
@@ -208,10 +208,11 @@ export async function postMetricAnalysis(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.params;
 
-  const metric = await getMetricById(id, org.id, true);
+  const metric = await getMetricById(id, context, true);
 
   if (!metric) {
     return res.status(404).json({
@@ -255,10 +256,9 @@ export async function getMetric(
   res: Response
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { id } = req.params;
 
-  const metric = await getMetricById(id, org.id, true);
+  const metric = await getMetricById(id, context, true);
 
   if (!metric) {
     return res.status(404).json({
@@ -280,7 +280,8 @@ export async function getMetricsFromTrackedEvents(
   req: AuthRequest<{ schema: string }, { datasourceId: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { schema } = req.body;
   const { datasourceId } = req.params;
 
@@ -311,7 +312,7 @@ export async function getMetricsFromTrackedEvents(
 
     const existingMetrics = await getMetricsByDatasource(
       dataSourceObj.id,
-      org.id
+      context
     );
 
     const trackedEvents: TrackedEventData[] = await integration.getEventsTrackedByDatasource(
@@ -513,9 +514,9 @@ export async function putMetric(
   req: AuthRequest<Partial<MetricInterface>, { id: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { id } = req.params;
-  const metric = await getMetricById(id, org.id);
+  const metric = await getMetricById(id, context);
   if (!metric) {
     throw new Error("Could not find metric");
   }
@@ -537,7 +538,7 @@ export async function putMetric(
     req.checkPermissions("createMetrics", updates.projects);
   }
 
-  await updateMetric(metric.id, updates, org.id);
+  await updateMetric(metric.id, updates, context);
 
   res.status(200).json({
     status: 200,

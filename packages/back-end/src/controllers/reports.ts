@@ -218,7 +218,7 @@ export async function refreshReport(
       ? !!report.args?.regressionAdjustmentEnabled
       : false;
 
-  const metricMap = await getMetricMap(org.id);
+  const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(org.id);
 
   const integration = await getIntegrationFromDatasourceId(
@@ -298,7 +298,7 @@ export async function putReport(
     ...updates,
   };
   if (needsRun) {
-    const metricMap = await getMetricMap(org.id);
+    const metricMap = await getMetricMap(context);
     const factTableMap = await getFactTableMap(org.id);
 
     const integration = await getIntegrationFromDatasourceId(
@@ -353,10 +353,10 @@ export async function postNotebook(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { id } = req.params;
 
-  const notebook = await generateReportNotebook(id, org.id);
+  const notebook = await generateReportNotebook(id, context);
 
   res.status(200).json({
     status: 200,

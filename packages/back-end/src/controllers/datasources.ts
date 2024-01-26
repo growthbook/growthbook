@@ -198,7 +198,7 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
       user: res.locals.eventAudit,
     });
 
-    const metricMap = await getMetricMap(org.id);
+    const metricMap = await getMetricMap(context);
 
     await createManualSnapshot(
       experiment,
@@ -257,7 +257,8 @@ export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.params;
 
   const datasource = await getDataSourceById(id, org.id);
@@ -277,10 +278,7 @@ export async function deleteDataSource(
   }
 
   // Make sure there are no metrics
-  const metrics = await getMetricsByDatasource(
-    datasource.id,
-    datasource.organization
-  );
+  const metrics = await getMetricsByDatasource(datasource.id, context);
   if (metrics.length > 0) {
     throw new Error(
       "Error: Please delete all metrics tied to this datasource first."
@@ -729,10 +727,10 @@ export async function getDataSourceMetrics(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { id } = req.params;
 
-  const metrics = await getMetricsByDatasource(id, org.id);
+  const metrics = await getMetricsByDatasource(id, context);
 
   res.status(200).json({
     status: 200,
