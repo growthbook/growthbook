@@ -320,7 +320,6 @@ export async function getMetricsByIds(
   );
 }
 
-//TODO: Pickup here
 export async function findRunningMetricsByQueryId(
   orgIds: string[],
   queryIds: string[]
@@ -421,7 +420,6 @@ export async function updateMetric(
       throw new Error("Cannot update. Metrics managed by config.yml");
     }
 
-    //TODO: Should we move the getMetricById call above this update?
     await MetricModel.updateOne(
       { id, organization: context.org.id },
       {
