@@ -135,7 +135,6 @@ properties:
     enum:
       - ""
       - api
-      - config
   dateCreated:
     type: string
     format: date-time

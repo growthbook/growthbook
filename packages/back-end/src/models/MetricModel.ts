@@ -213,20 +213,43 @@ export async function getMetricMap(organization: string) {
   return metricMap;
 }
 
-export async function getMetricsByOrganization(organization: string) {
+async function findMetrics(
+  organization: string,
+  additionalQuery?: Partial<MetricInterface>
+) {
   const metrics: MetricInterface[] = [];
 
-  // If using config.yml, immediately return the list from there
+  // If using config.yml, first check there
   if (usingFileConfig()) {
-    getConfigMetrics(organization).forEach((m) => {
-      metrics.push(m);
-    });
+    const filter = additionalQuery
+      ? (m: MetricInterface) => {
+          for (const key in additionalQuery) {
+            if (
+              m[key as keyof MetricInterface] !==
+              additionalQuery[key as keyof MetricInterface]
+            ) {
+              return false;
+            }
+          }
+          return true;
+        }
+      : false;
+    getConfigMetrics(organization)
+      .filter((m) => !filter || filter(m))
+      .forEach((m) => {
+        metrics.push(m);
+      });
+
+    // If metrics are locked down to just a config file, return immediately
+    if (!ALLOW_CREATE_METRICS) {
+      return metrics;
+    }
   }
 
   const docs = await MetricModel.find({
+    ...additionalQuery,
     organization,
   });
-
   docs.forEach((doc) => {
     if (metrics.some((m) => m.id === doc.id)) {
       return;
@@ -237,34 +260,15 @@ export async function getMetricsByOrganization(organization: string) {
   return metrics;
 }
 
+export async function getMetricsByOrganization(organization: string) {
+  return findMetrics(organization);
+}
+
 export async function getMetricsByDatasource(
   datasource: string,
   organization: string
 ) {
-  const metrics: MetricInterface[] = [];
-
-  // If using config.yml, immediately return the list from there
-  if (usingFileConfig()) {
-    getConfigMetrics(organization)
-      .filter((m) => m.datasource === datasource)
-      .forEach((m) => {
-        metrics.push(m);
-      });
-  }
-
-  const docs = await MetricModel.find({
-    datasource,
-    organization,
-  });
-
-  docs.forEach((doc) => {
-    if (metrics.some((m) => m.id === doc.id)) {
-      return;
-    }
-    metrics.push(toInterface(doc));
-  });
-
-  return metrics;
+  return findMetrics(organization, { datasource });
 }
 
 export async function getSampleMetrics(organization: string) {
@@ -295,6 +299,10 @@ export async function getMetricById(
 
       return doc;
     }
+    // If metrics are locked down to just a config file, return immediately
+    if (!ALLOW_CREATE_METRICS) {
+      return null;
+    }
   }
 
   const res = await MetricModel.findOne({
@@ -315,6 +323,10 @@ export async function getMetricsByIds(ids: string[], organization: string) {
       .forEach((m) => {
         metrics.push(m);
       });
+    // If metrics are locked down to just a config file, return immediately
+    if (!ALLOW_CREATE_METRICS) {
+      return metrics;
+    }
   }
 
   const remainingIds = ids.filter((id) => !metrics.some((m) => m.id === id));
@@ -364,29 +376,7 @@ export async function getMetricsUsingSegment(
   segment: string,
   organization: string
 ) {
-  const metrics: MetricInterface[] = [];
-
-  // If using config.yml, start with those
-  if (usingFileConfig()) {
-    getConfigMetrics(organization)
-      .filter((m) => m.segment === segment)
-      .forEach((m) => {
-        metrics.push(m);
-      });
-  }
-
-  const docs = await MetricModel.find({
-    organization,
-    segment,
-  });
-  docs.forEach((doc) => {
-    if (metrics.some((m) => m.id === doc.id)) {
-      return;
-    }
-    metrics.push(toInterface(doc));
-  });
-
-  return metrics;
+  return findMetrics(organization, { segment });
 }
 
 const FILE_CONFIG_UPDATEABLE_FIELDS: (keyof MetricInterface)[] = [

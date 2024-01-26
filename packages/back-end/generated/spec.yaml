@@ -4550,7 +4550,6 @@ components:
           enum:
             - ''
             - api
-            - config
         dateCreated:
           type: string
           format: date-time
@@ -4582,7 +4581,6 @@ components:
           enum:
             - ''
             - api
-            - config
         dateCreated:
           type: string
           format: date-time
@@ -4727,7 +4725,6 @@ components:
           enum:
             - ''
             - api
-            - config
         dateCreated:
           type: string
           format: date-time

@@ -52,7 +52,7 @@ export const getFactTables = async (
   });
 };
 
-export async function testFilterQuery(
+async function testFilterQuery(
   datasource: DataSourceInterface,
   factTable: FactTableInterface,
   filter: string
