@@ -695,12 +695,12 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
     });
   }
   const context = getContextFromReq(req);
-  const { org, environments } = context;
+  const { environments } = context;
 
   const namespaces: NamespaceUsage = {};
 
   // Get all of the active experiments that are tied to a namespace
-  const allFeatures = await getAllFeatures(org.id);
+  const allFeatures = await getAllFeatures(context);
   allFeatures.forEach((f) => {
     environments.forEach((env) => {
       if (!f.environmentSettings?.[env]?.enabled) return;

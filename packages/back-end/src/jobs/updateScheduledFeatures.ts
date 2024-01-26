@@ -68,7 +68,7 @@ async function updateSingleFeature(job: UpdateSingleFeatureJob) {
 
   const context = await getContextForAgendaJobByOrgId(organization);
 
-  const feature = await getFeature(context.org.id, featureId);
+  const feature = await getFeature(context, featureId);
   if (!feature) return;
 
   try {

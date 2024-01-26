@@ -372,7 +372,7 @@ export async function postFeatures(
       "Feature keys can only include letters, numbers, hyphens, and underscores."
     );
   }
-  const existing = await getFeature(org.id, id);
+  const existing = await getFeature(context, id);
   if (existing) {
     throw new Error(
       "This feature key already exists. Feature keys must be unique."
@@ -447,10 +447,11 @@ export async function postFeatureRebase(
   >,
   res: Response
 ) {
-  const { org, environments } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, environments } = context;
   const { strategies, mergeResultSerialized } = req.body;
   const { id, version } = req.params;
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -535,7 +536,7 @@ export async function postFeaturePublish(
   const { org, environments } = context;
   const { comment, mergeResultSerialized } = req.body;
   const { id, version } = req.params;
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -628,7 +629,7 @@ export async function postFeatureRevert(
   const { id, version } = req.params;
   const { comment } = req.body;
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -713,7 +714,7 @@ export async function postFeatureFork(
   const { org, environments } = context;
   const { id, version } = req.params;
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -752,7 +753,7 @@ export async function postFeatureDiscard(
   const { org } = context;
   const { id, version } = req.params;
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -795,11 +796,11 @@ export async function postFeatureRule(
   >
 ) {
   const context = getContextFromReq(req);
-  const { org, environments } = context;
+  const { environments } = context;
   const { id, version } = req.params;
   const { environment, rule } = req.body;
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -848,7 +849,7 @@ export async function postFeatureExperimentRefRule(
   >
 ) {
   const context = getContextFromReq(req);
-  const { org, environments } = context;
+  const { environments } = context;
   const { id } = req.params;
   const { rule } = req.body;
 
@@ -867,7 +868,7 @@ export async function postFeatureExperimentRefRule(
     );
   }
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -998,11 +999,12 @@ export async function putRevisionComment(
   req: AuthRequest<{ comment: string }, { id: string; version: string }>,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id, version } = req.params;
   const { comment } = req.body;
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -1039,11 +1041,10 @@ export async function postFeatureDefaultValue(
   >
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { id, version } = req.params;
   const { defaultValue } = req.body;
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -1071,10 +1072,9 @@ export async function postFeatureSchema(
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { id } = req.params;
   const { schema, enabled } = req.body;
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -1116,11 +1116,11 @@ export async function putFeatureRule(
   >
 ) {
   const context = getContextFromReq(req);
-  const { org, environments } = context;
+  const { environments } = context;
   const { id, version } = req.params;
   const { environment, rule, i } = req.body;
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -1152,10 +1152,10 @@ export async function postFeatureToggle(
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
-  const { org, environments } = context;
+  const { environments } = context;
   const { id } = req.params;
   const { environment, state } = req.body;
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -1216,10 +1216,10 @@ export async function postFeatureMoveRule(
   >
 ) {
   const context = getContextFromReq(req);
-  const { org, environments } = context;
+  const { environments } = context;
   const { id, version } = req.params;
   const { environment, from, to } = req.body;
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -1270,11 +1270,11 @@ export async function deleteFeatureRule(
   >
 ) {
   const context = getContextFromReq(req);
-  const { org, environments } = context;
+  const { environments } = context;
   const { id, version } = req.params;
   const { environment, i } = req.body;
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -1326,7 +1326,7 @@ export async function putFeature(
   const context = getContextFromReq(req);
   const { org, environments } = context;
   const { id } = req.params;
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -1398,9 +1398,9 @@ export async function deleteFeatureById(
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
-  const { org, environments } = context;
+  const { environments } = context;
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
 
   if (feature) {
     req.checkPermissions("manageFeatures", feature.project);
@@ -1441,7 +1441,7 @@ export async function postFeatureEvaluate(
   const { org } = context;
   const { attributes } = req.body;
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -1475,8 +1475,8 @@ export async function postFeatureArchive(
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
-  const { org, environments } = context;
-  const feature = await getFeature(org.id, id);
+  const { environments } = context;
+  const feature = await getFeature(context, id);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -1538,15 +1538,19 @@ export async function getRevisionLog(
   req: AuthRequest<null, { id: string; version: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { id, version } = req.params;
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
 
-  const revision = await getRevision(org.id, feature.id, parseInt(version));
+  const revision = await getRevision(
+    context.org.id,
+    feature.id,
+    parseInt(version)
+  );
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
@@ -1565,7 +1569,7 @@ export async function getFeatureById(
   const { org, environments } = context;
   const { id } = req.params;
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -1774,7 +1778,7 @@ export async function toggleStaleFFDetectionForFeature(
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
-  const feature = await getFeature(context.org.id, id);
+  const feature = await getFeature(context, id);
 
   if (!feature) {
     throw new Error("Could not find feature");

@@ -64,7 +64,7 @@ export const getArchetypeAndEval = async (
   const context = getContextFromReq(req);
   const { org, userId } = context;
   const { id, version } = req.params;
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
 
   if (!orgHasPremiumFeature(org, "archetypes")) {
     return res.status(403).json({
