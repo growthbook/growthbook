@@ -3304,7 +3304,7 @@
                 "parentConditions": [
                   {
                     "id": "parentFlag",
-                    "condition": { "@parent": "green" },
+                    "condition": { "value": "green" },
                     "gate": true
                   }
                 ]
@@ -3341,7 +3341,7 @@
                 "parentConditions": [
                   {
                     "id": "parentFlag",
-                    "condition": { "@parent": "green" },
+                    "condition": { "value": "green" },
                     "gate": true
                   }
                 ]
@@ -3391,7 +3391,7 @@
                 "parentConditions": [
                   {
                     "id": "parentFlag",
-                    "condition": { "@parent": "green" },
+                    "condition": { "value": "green" },
                     "gate": true
                   }
                 ]
@@ -3450,7 +3450,7 @@
                 "parentConditions": [
                   {
                     "id": "parentFlag1",
-                    "condition": { "@parent": "green" },
+                    "condition": { "value": "green" },
                     "gate": true
                   }
                 ]
@@ -3459,7 +3459,7 @@
                 "parentConditions": [
                   {
                     "id": "parentFlag2",
-                    "condition": { "@parent": { "$gt": 1 } },
+                    "condition": { "value": { "$gt": 1 } },
                     "gate": true
                   }
                 ]
@@ -3496,7 +3496,7 @@
                 "parentConditions": [
                   {
                     "id": "parentFlag2",
-                    "condition": { "@parent": { "$gt": 1 } },
+                    "condition": { "value": { "$gt": 1 } },
                     "gate": true
                   }
                 ]
@@ -3527,7 +3527,7 @@
                 "parentConditions": [
                   {
                     "id": "parentFlag1",
-                    "condition": { "@parent": "green" },
+                    "condition": { "value": "green" },
                     "gate": true
                   }
                 ]
@@ -3579,7 +3579,7 @@
                 "parentConditions": [
                   {
                     "id": "parentExperimentFlag",
-                    "condition": { "@parent": 1 },
+                    "condition": { "value": 1 },
                     "gate": true
                   }
                 ]

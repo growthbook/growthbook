@@ -562,7 +562,7 @@ describe("features", () => {
               parentConditions: [
                 {
                   id: "parentFlag",
-                  condition: { "@parent": "green" },
+                  condition: { value: "green" },
                   gate: true,
                 },
               ],
@@ -581,7 +581,7 @@ describe("features", () => {
               parentConditions: [
                 {
                   id: "missingParentFlag",
-                  condition: { "@parent": "green" },
+                  condition: { value: "green" },
                   gate: true,
                 },
               ],
@@ -605,6 +605,67 @@ describe("features", () => {
 
     const result2 = growthbook.evalFeature("childFlag");
     expect(result2.value).toEqual(null);
+
+    growthbook.destroy();
+  });
+
+  it("gates experiment rule evaluation on prerequisite flag", async () => {
+    const growthbook = new GrowthBook({
+      attributes: {
+        id: "1",
+        country: "USA",
+      },
+      features: {
+        parentFlag: {
+          defaultValue: "silver",
+          rules: [
+            {
+              condition: { country: "Canada" },
+              force: "red",
+            },
+            {
+              condition: { country: { $in: ["USA", "Mexico"] } },
+              force: "green",
+            },
+          ],
+        },
+      },
+      experiments: [
+        {
+          key: "childExperiment",
+          variations: [{}, {}],
+          meta: [
+            {
+              key: "v0",
+              name: "variation 0",
+            },
+            {
+              key: "v1",
+              name: "variation 1",
+            },
+          ],
+          parentConditions: [
+            {
+              id: "parentFlag",
+              condition: { value: "green" },
+            },
+          ],
+        },
+      ],
+    });
+
+    const exp = growthbook.getExperiments()[0];
+    const result1 = growthbook.run(exp);
+    expect(result1.variationId).toEqual(1);
+
+    growthbook.setAttributes({
+      id: "123",
+      memberType: "basic",
+      country: "Canada",
+    });
+
+    const result2 = growthbook.run(exp);
+    expect(result2.variationId).toEqual(0);
 
     growthbook.destroy();
   });
@@ -646,7 +707,7 @@ describe("features", () => {
               parentConditions: [
                 {
                   id: "parentFlag1",
-                  condition: { "@parent": "green" },
+                  condition: { value: "green" },
                   gate: true,
                 },
               ],
@@ -655,7 +716,7 @@ describe("features", () => {
               parentConditions: [
                 {
                   id: "parentFlag2",
-                  condition: { "@parent": { $gt: 1 } },
+                  condition: { value: { $gt: 1 } },
                   gate: true,
                 },
               ],
@@ -704,7 +765,7 @@ describe("features", () => {
               parentConditions: [
                 {
                   id: "parentExperimentFlag",
-                  condition: { "@parent": 1 },
+                  condition: { value: 1 },
                   gate: true,
                 },
               ],
@@ -754,7 +815,7 @@ describe("features", () => {
               parentConditions: [
                 {
                   id: "parentFlag",
-                  condition: { "@parent": "green" },
+                  condition: { value: "green" },
                 },
               ],
               condition: { otherGatingProperty: "allow" },
@@ -824,7 +885,7 @@ describe("features", () => {
               parentConditions: [
                 {
                   id: "parentFlag",
-                  condition: { "bar.color": "green" },
+                  condition: { "value.bar.color": "green" },
                 },
               ],
               force: "dark mode",
@@ -843,7 +904,7 @@ describe("features", () => {
               parentConditions: [
                 {
                   id: "parentFlag",
-                  condition: { $not: { "@parent": { $exists: true } } },
+                  condition: { value: { $exists: true } },
                 },
               ],
               force: "dark mode",
@@ -891,7 +952,7 @@ describe("features", () => {
               parentConditions: [
                 {
                   id: "childFlag",
-                  condition: { $not: { "@parent": "success" } },
+                  condition: { $not: { value: "success" } },
                 },
               ],
               force: null,
@@ -913,7 +974,7 @@ describe("features", () => {
               parentConditions: [
                 {
                   id: "parentFlag",
-                  condition: { $not: { "@parent": "green" } },
+                  condition: { $not: { value: "green" } },
                 },
               ],
               force: null,

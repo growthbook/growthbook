@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { GrowthBook, ParentConditionsInterface } from "..";
-import { ConditionInterface } from "./mongrule";
+import type { GrowthBook } from "..";
+import { ConditionInterface, ParentConditionsInterface } from "./mongrule";
 
 declare global {
   interface Window {
@@ -87,6 +87,7 @@ export type Experiment<T> = {
   urlPatterns?: UrlTarget[];
   weights?: number[];
   condition?: ConditionInterface;
+  parentConditions?: ParentConditionsInterface[];
   coverage?: number;
   include?: () => boolean;
   /** @deprecated */
