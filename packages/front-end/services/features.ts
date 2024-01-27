@@ -104,15 +104,15 @@ export function getDefaultPrerequisiteCondition(
 ) {
   const valueType = parentFeature?.valueType || "boolean";
   if (valueType === "boolean") {
-    return `{"@parent": true}`;
+    return `{"value": true}`;
   }
   if (valueType === "number") {
-    return `{"@parent": {"$gt": 0}}`;
+    return `{"value": {"$gt": 0}}`;
   }
   if (valueType === "json") {
-    return `{"@parent": {"$exists": true}}`;
+    return `{"value": {"$ne": null}}`;
   }
-  return `{"@parent": {"$exists": true}}`;
+  return `{"value": {"$ne": null}}`;
 }
 
 export function roundVariationWeight(num: number): number {

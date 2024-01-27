@@ -160,7 +160,7 @@ function getConditionParts({
     );
     let parentIdEl: ReactNode = null;
     if (renderPrerequisite) {
-      if (field === "@parent") {
+      if (field === "value") {
         fieldEl = null;
       }
       if (parentId) {

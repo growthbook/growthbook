@@ -25,8 +25,8 @@ export default function PrerequisiteInput(props: Props) {
   const parentValueMap = useMemo(() => {
     const map = new Map();
     if (parentFeatureValueType) {
-      map.set("@parent", {
-        attribute: "@parent",
+      map.set("value", {
+        attribute: "value",
         datatype: parentFeatureValueType,
         array: false,
         identifier: false,
@@ -91,11 +91,11 @@ export default function PrerequisiteInput(props: Props) {
               </div>
               <div className="text-muted mt-1">
                 <div>
-                  <code>"@parent"</code> refers to the prerequisite&apos;s
+                  <code>"value"</code> refers to the prerequisite&apos;s
                   evaluated value.
                   <Tooltip
                     className="ml-3 text-info hover-underline"
-                    body={<code>{`{"@parent": {"$exists": true}}`}</code>}
+                    body={<code>{`{"value": {"$gt": 3}}`}</code>}
                   >
                     <RxInfoCircled className="mr-1" />
                     Example
@@ -106,7 +106,7 @@ export default function PrerequisiteInput(props: Props) {
                     You may also target specific JSON fields.
                     <Tooltip
                       className="ml-3 text-info hover-underline"
-                      body={<code>{`{"foo.bar": {"$gt": 3}}`}</code>}
+                      body={<code>{`{"value.foo.bar": {"$gt": 3}}`}</code>}
                     >
                       <RxInfoCircled className="mr-1" />
                       Example
@@ -203,7 +203,7 @@ export default function PrerequisiteInput(props: Props) {
               {!advanced && (
                 <div className="ml-2">
                   <div className="border rounded bg-main-color mb-0 px-2 py-0">
-                    {field === "@parent" ? "value" : field}
+                    {field}
                   </div>
                 </div>
               )}
@@ -309,7 +309,7 @@ export default function PrerequisiteInput(props: Props) {
             </div>
             {!advanced && (
               <div className="d-flex mt-1">
-                <div className="flex-1"/>
+                <div className="flex-1" />
                 <span
                   className="link-purple cursor-pointer"
                   onClick={(e) => {
@@ -317,7 +317,7 @@ export default function PrerequisiteInput(props: Props) {
                     setAdvanced(true);
                   }}
                 >
-                  <RxLoop/> Advanced mode
+                  <RxLoop /> Advanced mode
                 </span>
               </div>
             )}
