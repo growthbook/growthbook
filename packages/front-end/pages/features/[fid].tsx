@@ -7,7 +7,6 @@ import {
   FaDraftingCompass,
   FaExchangeAlt,
   FaExclamationTriangle,
-  FaExternalLinkAlt,
   FaLink,
   FaList,
   FaLock,
@@ -17,7 +16,8 @@ import { ago, date, datetime } from "shared/dates";
 import {
   autoMerge,
   evaluatePrerequisiteState,
-  getDependencies,
+  getDependentExperiments,
+  getDependentFeatures,
   getValidation,
   isFeatureStale,
   mergeResultHasChanges,
@@ -29,6 +29,7 @@ import { MdHistory, MdRocketLaunch } from "react-icons/md";
 import { FaPlusMinus } from "react-icons/fa6";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import clsx from "clsx";
+import { BiHide, BiShow } from "react-icons/bi";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -90,6 +91,7 @@ import PrerequisiteModal from "@/components/Features/PrerequisiteModal";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "@/components/Features/PrerequisiteStatusRow";
+import { useExperiments } from "@/hooks/useExperiments";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -152,7 +154,10 @@ export default function FeaturePage() {
   const firstFeature = router?.query && "first" in router.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
 
+  const [showDependents, setShowDependents] = useState(false);
+
   const { features } = useFeaturesList();
+  const { experiments } = useExperiments();
   const environments = useEnvironments();
   const envs = environments.map((e) => e.id);
 
@@ -238,10 +243,17 @@ export default function FeaturePage() {
     return states;
   }, [feature, features, envs]);
 
-  const dependencies = useMemo(() => {
+  const dependentFeatures = useMemo(() => {
     if (!feature || !features) return [];
-    return getDependencies(feature, features);
+    return getDependentFeatures(feature, features);
   }, [feature, features]);
+
+  const dependentExperiments = useMemo(() => {
+    if (!feature || !experiments) return [];
+    return getDependentExperiments(feature, experiments);
+  }, [feature, experiments]);
+
+  const dependents = dependentFeatures.length + dependentExperiments.length;
 
   const mergeResult = useMemo(() => {
     if (!data || !feature || !revision) return null;
@@ -787,18 +799,20 @@ export default function FeaturePage() {
         </div>
       </div>
 
-      <h3>Top-level Requirements</h3>
-      <div className="mb-2">
-        When disabled, this feature will evaluate to <code>null</code>. The
-        default value and override rules will be ignored.
-      </div>
-      <div className="mb-4">
-        <table className="table border bg-white mb-2" style={{ width: "auto" }}>
+      <h3 className="mt-4 mb-3">Requirements and Dependents</h3>
+
+      <div className="appbox mt-2 mb-4 px-4 pt-4 pb-3">
+        <h4>Top-level Requirements</h4>
+        <div className="mb-2">
+          When disabled, this feature will evaluate to <code>null</code>. The
+          default value and override rules will be ignored.
+        </div>
+        <table className="table border bg-white mb-2 w-100">
           <tbody>
             <tr className="bg-light">
               <td
                 className="pl-3 align-bottom font-weight-bold border-right"
-                style={{ width: 320 }}
+                style={{ minWidth: 350 }}
               >
                 Kill Switch
               </td>
@@ -820,6 +834,7 @@ export default function FeaturePage() {
                   />
                 </td>
               ))}
+              <td className="w-100" />
             </tr>
           </tbody>
           <tbody>
@@ -842,6 +857,7 @@ export default function FeaturePage() {
                   </em>
                 )}
               </td>
+              <td />
             </tr>
           </tbody>
           {prerequisites.length > 0 && (
@@ -874,6 +890,7 @@ export default function FeaturePage() {
                     envs={envs}
                     isSummaryRow={true}
                   />
+                  <td />
                 </tr>
               </tbody>
             </>
@@ -881,8 +898,9 @@ export default function FeaturePage() {
         </table>
 
         {canEdit && (
-          <button
-            className="btn btn-link"
+          <a
+            role="button"
+            className="d-inline-block a link-purple mt-3 font-weight-bold"
             onClick={() => {
               setPrerequisiteModal({
                 i: getPrerequisites(feature).length,
@@ -895,29 +913,99 @@ export default function FeaturePage() {
             <span className="h4 pr-2 m-0 d-inline-block align-top">
               <GBAddCircle />
             </span>
-            Add Prerequisite feature
-          </button>
+            Add Prerequisite Feature
+          </a>
         )}
       </div>
 
-      {dependencies.length > 0 && (
-        <div className="mb-4">
-          <h4>Dependent Features</h4>
+      {dependents > 0 && (
+        <div className="appbox mt-2 mb-4 px-4 pt-4 pb-3">
+          <h4>
+            Dependents
+            <div
+              className="ml-2 d-inline-block badge-warning font-weight-bold text-center"
+              style={{
+                width: 24,
+                height: 24,
+                lineHeight: "24px",
+                fontSize: "14px",
+                borderRadius: 30,
+              }}
+            >
+              {dependents}
+            </div>
+          </h4>
           <div className="mb-2">
-            {dependencies.length === 1
-              ? "Another feature depends on this feature as a prerequisite. Modifying the current feature may affect its behavior:"
-              : `${dependencies.length} other features depend on this feature as a prerequisite. Modifying the current feature may affect their behavior:`}
+            {dependents === 1
+              ? `Another ${
+                  dependentFeatures.length ? "feature" : "experiment"
+                } depends on this feature as a prerequisite. Modifying the current feature may affect its behavior.`
+              : `Other ${
+                  dependentFeatures.length
+                    ? dependentExperiments.length
+                      ? "features and experiments"
+                      : "features"
+                    : "experiments"
+                } depend on this feature as a prerequisite. Modifying the current feature may affect their behavior.`}
           </div>
-          <ul className="pl-4">
-            {dependencies.map((dep, i) => (
-              <li className="my-1" key={i}>
-                <a href={`/features/${dep}`} target="_blank" rel="noreferrer">
-                  {dep}
-                  <FaExternalLinkAlt className="ml-1" />
-                </a>
-              </li>
-            ))}
-          </ul>
+          <hr />
+          {showDependents ? (
+            <>
+              {dependentFeatures.length > 0 && (
+                <>
+                  <label>Dependent Features</label>
+                  <ul className="pl-4">
+                    {dependentFeatures.map((fid, i) => (
+                      <li className="my-1" key={i}>
+                        <a
+                          href={`/features/${fid}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {fid}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              {dependentExperiments.length > 0 && (
+                <>
+                  <label>Dependent Experiments</label>
+                  <ul className="pl-4">
+                    {dependentExperiments.map((exp, i) => (
+                      <li className="my-1" key={i}>
+                        <a
+                          href={`/experiment/${exp.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {exp.name}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              <a
+                role="button"
+                className="d-inline-block a link-purple mt-1"
+                onClick={() => setShowDependents(false)}
+              >
+                <BiHide /> Hide details
+              </a>
+            </>
+          ) : (
+            <>
+              <a
+                role="button"
+                className="d-inline-block a link-purple"
+                onClick={() => setShowDependents(true)}
+              >
+                <BiShow /> Show details
+              </a>
+            </>
+          )}
         </div>
       )}
 
@@ -1096,8 +1184,8 @@ export default function FeaturePage() {
                 {canEditDrafts && drafts.length > 0 && (
                   <div>
                     <a
-                      href="#"
-                      className="font-weight-bold text-purple"
+                      role="button"
+                      className="a font-weight-bold link-purple"
                       onClick={(e) => {
                         e.preventDefault();
                         setVersion(drafts[0].version);
@@ -1154,8 +1242,8 @@ export default function FeaturePage() {
                 {canEditDrafts && (
                   <div>
                     <a
-                      href="#"
-                      className="font-weight-bold text-purple"
+                      role="button"
+                      className="a font-weight-bold link-purple"
                       onClick={(e) => {
                         e.preventDefault();
                         setRevertIndex(revision.version);
@@ -1196,12 +1284,12 @@ export default function FeaturePage() {
                       }
                     >
                       <a
-                        href="#"
+                        role="button"
                         className={clsx(
-                          "font-weight-bold",
+                          "a font-weight-bold",
                           !hasDraftPublishPermission || !revisionHasChanges
                             ? "text-muted"
-                            : "text-purple"
+                            : "link-purple"
                         )}
                         onClick={(e) => {
                           e.preventDefault();
@@ -1217,8 +1305,8 @@ export default function FeaturePage() {
                   <div>
                     <Tooltip body="There have been new conflicting changes published since this draft was created that must be resolved before you can publish">
                       <a
-                        href="#"
-                        className="font-weight-bold text-purple"
+                        role="button"
+                        className="a font-weight-bold link-purple"
                         onClick={(e) => {
                           e.preventDefault();
                           setConflictModal(true);

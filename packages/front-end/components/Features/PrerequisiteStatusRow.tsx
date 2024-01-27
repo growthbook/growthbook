@@ -64,8 +64,8 @@ export default function PrerequisiteStatusRow({
                   target="_blank"
                   rel="noreferrer"
                 >
-                  <span className="d-inline-block text-ellipsis" style={{ maxWidth: 230 }}>{parentFeature.id}</span>
-                  <FaExternalLinkAlt className="ml-1" />
+                  <span className="d-inline-block text-ellipsis" style={{maxWidth: 230}}>{parentFeature.id}</span>
+                  <FaExternalLinkAlt className="ml-1"/>
                 </a>
               </>
             ) : (
@@ -82,7 +82,7 @@ export default function PrerequisiteStatusRow({
                   className="dropdown-item"
                   onClick={(e) => {
                     e.preventDefault();
-                    setPrerequisiteModal({ i });
+                    setPrerequisiteModal({i});
                   }}
                 >
                   Edit
@@ -100,7 +100,7 @@ export default function PrerequisiteStatusRow({
                       `/feature/${feature.id}/prerequisite`,
                       {
                         method: "DELETE",
-                        body: JSON.stringify({ i }),
+                        body: JSON.stringify({i}),
                       }
                     );
                     mutate();
@@ -115,6 +115,7 @@ export default function PrerequisiteStatusRow({
         prereqStates={prereqStates ?? undefined}
         envs={envs}
       />
+      <td />
     </tr>
   );
 }
@@ -182,7 +183,7 @@ export function PrerequisiteStatesCols({
                 isSummaryRow ? (
                   <>
                     <div>
-                      This feature is conditionally enabled in this environment.
+                      This feature is currently conditionally enabled in this environment.
                       This feature&apos;s prerequisites have rules which may
                       make the result conditional.
                     </div>
@@ -196,8 +197,8 @@ export function PrerequisiteStatesCols({
                   </>
                 ) : (
                   <div>
-                    This prerequisite feature is conditionally enabled in this
-                    environment. The parent feature&apos;s prerequisites have
+                    This prerequisite feature is currently conditionally enabled in this
+                    environment. This feature or its prerequisites have
                     rules which may make the result conditional.
                   </div>
                 )

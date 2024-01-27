@@ -1315,6 +1315,7 @@ export async function postExperimentTargeting(
   const {
     condition,
     savedGroups,
+    prerequisites,
     coverage,
     hashAttribute,
     fallbackAttribute,
@@ -1358,6 +1359,7 @@ export async function postExperimentTargeting(
       ...phases[phases.length - 1],
       condition,
       savedGroups,
+      prerequisites,
       coverage,
       namespace,
       variationWeights,
@@ -1372,6 +1374,7 @@ export async function postExperimentTargeting(
     phases.push({
       condition,
       savedGroups,
+      prerequisites,
       coverage,
       dateStarted: new Date(),
       name: "Main",

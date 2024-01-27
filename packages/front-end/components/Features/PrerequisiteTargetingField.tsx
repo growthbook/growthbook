@@ -20,20 +20,20 @@ import SelectField from "../Forms/SelectField";
 export interface Props {
   value: FeaturePrerequisite[];
   setValue: (prerequisites: FeaturePrerequisite[]) => void;
-  feature: FeatureInterface;
-  environment: string;
+  feature?: FeatureInterface;
+  environments: string[];
 }
 
 export default function PrerequisiteTargetingField({
   value,
   setValue,
   feature,
-  environment,
+  environments,
 }: Props) {
   const { features } = useFeaturesList();
   const featureOptions = features
-    .filter((f) => f.id !== feature.id)
-    .filter((f) => (f.project || "") === (feature.project || ""))
+    .filter((f) => f.id !== feature?.id)
+    .filter((f) => (f.project || "") === (feature?.project || ""))
     .map((f) => ({ label: f.id, value: f.id }));
 
   const [conditionKeys, forceConditionRender] = useArrayIncrementer();
@@ -114,7 +114,7 @@ export default function PrerequisiteTargetingField({
 
                 <PrereqStatesRows
                   parentFeature={parentFeature}
-                  envs={[environment]}
+                  envs={environments}
                   features={features}
                 />
 
@@ -142,7 +142,7 @@ export default function PrerequisiteTargetingField({
           })}
 
           <span
-            className="ml-2 text-purple hover-underline cursor-pointer"
+            className="ml-2 link-purple font-weight-bold cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
               setValue([
@@ -160,11 +160,11 @@ export default function PrerequisiteTargetingField({
         </>
       ) : (
         <div>
-          <em className="text-muted mr-3">
+          <div className="font-italic text-muted mr-3">
             No prerequisite targeting applied.
-          </em>
+          </div>
           <div
-            className="ml-1 mt-2 text-purple hover-underline cursor-pointer"
+            className="d-inline-block ml-1 mt-2 link-purple font-weight-bold cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
               setValue([
@@ -214,7 +214,7 @@ function PrereqStatesRows({
       <div className="d-flex align-items-center mt-1">
         <div className="flex-1" />
         <span
-          className="text-purple hover-underline cursor-pointer"
+          className="link-purple cursor-pointer"
           onClick={() => setShowDetails(!showDetails)}
         >
           {showDetails ? (

@@ -370,6 +370,7 @@ export default function RuleModal({
                 {
                   condition: values.condition || "",
                   savedGroups: values.savedGroups || [],
+                  prerequisites: values.prerequisites || [],
                   coverage: values.coverage ?? 1,
                   dateStarted: new Date().toISOString().substr(0, 16),
                   name: "Main",
@@ -441,6 +442,7 @@ export default function RuleModal({
 
             delete (values as FeatureRule).condition;
             delete (values as FeatureRule).savedGroups;
+            delete (values as FeatureRule).prerequisites;
             // eslint-disable-next-line
             delete (values as any).value;
           }
@@ -468,6 +470,7 @@ export default function RuleModal({
             type: values.type,
             hasCondition: values.condition && values.condition.length > 2,
             hasSavedGroups: !!values.savedGroups?.length,
+            hasPrerequisites: !!values.prerequisites?.length,
             hasDescription: values.description.length > 0,
           });
 
@@ -492,6 +495,7 @@ export default function RuleModal({
             type: values.type,
             hasCondition: values.condition && values.condition.length > 2,
             hasSavedGroups: !!values.savedGroups?.length,
+            hasPrerequisites: !!values.prerequisites?.length,
             hasDescription: values.description.length > 0,
             error: e.message,
           });
@@ -761,7 +765,7 @@ export default function RuleModal({
         </>
         )}
 
-      {!(type === "experiment" || type === "experiment-ref-new") && (
+      {!(type === "experiment" || type === "experiment-ref" || type === "experiment-ref-new") && (
         <hr />
       )}
 
@@ -786,7 +790,7 @@ export default function RuleModal({
               form.setValue("prerequisites", prerequisites)
             }
             feature={feature}
-            environment={environment}
+            environments={[environment]}
           />
           {(type === "experiment" || type === "experiment-ref-new") && (
             <hr/>

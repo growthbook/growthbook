@@ -1,6 +1,6 @@
 import {
   ExperimentRefVariation,
-  FeatureInterface,
+  FeatureInterface, FeaturePrerequisite,
   NamespaceValue,
   SavedGroupTargeting,
 } from "./feature";
@@ -57,6 +57,7 @@ export interface ExperimentPhase {
   coverage: number;
   condition: string;
   savedGroups?: SavedGroupTargeting[];
+  prerequisites?: FeaturePrerequisite[];
   namespace: NamespaceValue;
   seed?: string;
   variationWeights: number[];
@@ -182,6 +183,7 @@ export type ExperimentTargetingData = Pick<
   | "seed"
   | "variationWeights"
   | "savedGroups"
+  | "prerequisites"
 > &
   Pick<
     ExperimentInterfaceStringDates,

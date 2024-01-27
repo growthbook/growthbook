@@ -118,7 +118,7 @@ export default function SavedGroupTargetingField({ value, setValue }: Props) {
               );
             })}
             <span
-              className="text-purple hover-underline cursor-pointer"
+              className="link-purple font-weight-bold cursor-pointer"
               onClick={(e) => {
                 e.preventDefault();
                 setValue([
@@ -136,11 +136,11 @@ export default function SavedGroupTargetingField({ value, setValue }: Props) {
           </div>
         ) : (
           <div>
-            <em className="text-muted mr-3">
+            <div className="font-italic text-muted mr-3">
               No saved group targeting applied.
-            </em>
+            </div>
             <div
-              className="ml-1 mt-2 text-purple hover-underline cursor-pointer"
+              className="d-inline-block ml-1 mt-2 link-purple font-weight-bold cursor-pointer"
               onClick={(e) => {
                 e.preventDefault();
                 setValue([

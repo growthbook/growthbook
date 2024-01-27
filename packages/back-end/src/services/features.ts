@@ -7,7 +7,7 @@ import { orgHasPremiumFeature } from "enterprise";
 import {
   FeatureRule as FeatureDefinitionRule,
   AutoExperiment,
-  GrowthBook,
+  GrowthBook, ParentConditionsInterface,
 } from "@growthbook/growthbook";
 import { validateCondition, validateFeatureValue } from "shared/util";
 import { scrubFeatures, SDKCapability } from "shared/sdk-versioning";
@@ -123,6 +123,17 @@ function generateVisualExperimentsPayload({
         phase?.savedGroups
       );
 
+      const prerequisites = (phase?.prerequisites ?? [])
+        ?.map((p) => {
+          const condition = getParsedCondition(groupMap, p.condition);
+          if (!condition) return null;
+          return {
+            id: p.id,
+            condition,
+          };
+        })
+        .filter(Boolean) as ParentConditionsInterface[];
+
       if (!phase) return null;
 
       const exp: AutoExperimentWithProject = {
@@ -160,6 +171,7 @@ function generateVisualExperimentsPayload({
           ? e.variations.indexOf(forcedVariation)
           : undefined,
         condition,
+        parentConditions: prerequisites,
         coverage: phase.coverage,
       };
 

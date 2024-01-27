@@ -19,7 +19,7 @@ import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
 import { getEqualWeights } from "@/services/utils";
-import { generateVariationId, useAttributeSchema } from "@/services/features";
+import {generateVariationId, useAttributeSchema, useEnvironments} from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useIncrementer } from "@/hooks/useIncrementer";
@@ -37,6 +37,7 @@ import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "../Features/SavedGroupTargetingField";
 import MetricsSelector, { MetricsSelectorTooltip } from "./MetricsSelector";
+import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -132,6 +133,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     refreshTags,
     project,
   } = useDefinitions();
+
+  const environments = useEnvironments();
+  const envs = environments.map((e) => e.id);
 
   const settings = useOrgSettings();
   const { refreshWatching } = useWatching();
@@ -424,14 +428,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
           {isNewExperiment && (
             <>
-              <div className="d-flex" style={{ gap: "2rem" }}>
+              <div className="d-flex" style={{gap: "2rem"}}>
                 <SelectField
                   containerClassName="flex-1"
                   label="Assign variation based on attribute"
                   labelClassName="font-weight-bold"
                   options={attributeSchema
                     .filter((s) => !hasHashAttributes || s.hashAttribute)
-                    .map((s) => ({ label: s.property, value: s.property }))}
+                    .map((s) => ({label: s.property, value: s.property}))}
                   sort={false}
                   value={form.watch("hashAttribute") || ""}
                   onChange={(v) => {
@@ -441,21 +445,31 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     "Will be hashed together with the Experiment Id (tracking key) to determine which variation to assign"
                   }
                 />
-                <FallbackAttributeSelector form={form} />
+                <FallbackAttributeSelector form={form}/>
               </div>
 
+              <hr />
               <SavedGroupTargetingField
                 value={form.watch("phases.0.savedGroups") || []}
                 setValue={(savedGroups) =>
                   form.setValue("phases.0.savedGroups", savedGroups)
                 }
               />
+              <hr />
               <ConditionInput
                 defaultValue={form.watch("phases.0.condition") || ""}
                 onChange={(value) => form.setValue("phases.0.condition", value)}
                 key={conditionKey}
               />
-
+              <hr />
+              <PrerequisiteTargetingField
+                value={form.watch("phases.0.prerequisites") || []}
+                setValue={(prerequisites) =>
+                  form.setValue("phases.0.prerequisites", prerequisites)
+                }
+                environments={envs}
+              />
+              <hr />
               <NamespaceSelector
                 formPrefix="phases.0."
                 form={form}
@@ -465,6 +479,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             </>
           )}
 
+          <hr />
           <FeatureVariationsInput
             valueType={"string"}
             coverage={form.watch("phases.0.coverage")}

@@ -12,7 +12,7 @@ import {
 } from "react-icons/fa";
 import clsx from "clsx";
 import { BiHide, BiShow } from "react-icons/bi";
-import { SavedGroupTargeting } from "back-end/types/feature";
+import {FeaturePrerequisite, SavedGroupTargeting} from "back-end/types/feature";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import {
@@ -512,12 +512,17 @@ function getRecommendedRolloutData({
     lastPhase.savedGroups || []
   );
 
-  // 1. More restrictive targeting (saved groups)?
-  if (savedGroupsRestrictiveness === "more") {
+  const prerequisiteRestrictiveness = comparePrerequisites(
+    data.prerequisites || [],
+    lastPhase.prerequisites || []
+  );
+
+  // 1. More restrictive targeting (saved groups & prerequisites)?
+  if (savedGroupsRestrictiveness === "more" || prerequisiteRestrictiveness === "more") {
     moreRestrictiveTargeting = true;
   }
-  // 2. Other targeting changes (saved groups)?
-  if (savedGroupsRestrictiveness === "other") {
+  // 2. Other targeting changes (saved groups & prerequisites)?
+  if (savedGroupsRestrictiveness === "other" || prerequisiteRestrictiveness === "other") {
     otherTargetingChanges = true;
   }
 
@@ -780,5 +785,27 @@ function compareSavedGroups(
   if (moreRestrictive && lessRestrictive) return "other";
   if (moreRestrictive) return "more";
   if (lessRestrictive) return "less";
+  return null;
+}
+
+function comparePrerequisites(
+  current: FeaturePrerequisite[],
+  last: FeaturePrerequisite[]
+): "more" | "less" | "other" | null {
+  if (last.length === 0 && current.length > 0) return "more";
+  if (last.length > 0 && current.length === 0) return "less";
+  if (current.length > last.length) return "more";
+  if (current.length < last.length) {
+    // loop through current prerequisites and see if all match last
+    for (const currentPrereq of current) {
+      const lastPrereq = last.find(
+        (p) =>
+          p.id === currentPrereq.id &&
+          p.condition === currentPrereq.condition
+      );
+      if (!lastPrereq) return "other";
+    }
+    return "less";
+  }
   return null;
 }

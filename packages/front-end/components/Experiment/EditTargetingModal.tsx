@@ -12,7 +12,7 @@ import { MdInfoOutline } from "react-icons/md";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import { getEqualWeights } from "@/services/utils";
-import { useAttributeSchema } from "@/services/features";
+import {useAttributeSchema, useEnvironments} from "@/services/features";
 import ReleaseChangesForm from "@/components/Experiment/ReleaseChangesForm";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
@@ -31,6 +31,7 @@ import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "../Features/SavedGroupTargetingField";
 import HashVersionSelector from "./HashVersionSelector";
+import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 
 export type ChangeType =
   | "targeting"
@@ -77,6 +78,7 @@ export default function EditTargetingModal({
   const defaultValues = {
     condition: lastPhase?.condition ?? "",
     savedGroups: lastPhase?.savedGroups ?? [],
+    prerequisites: lastPhase?.prerequisites ?? [],
     coverage: lastPhase?.coverage ?? 1,
     hashAttribute: experiment.hashAttribute || "id",
     fallbackAttribute: experiment.fallbackAttribute || "",
@@ -299,7 +301,7 @@ function ChangeTypeSelector({
   const options = [
     { label: "Start a New Phase", value: "phase" },
     {
-      label: "Saved Group & Attribute Targeting",
+      label: "Saved Group, Attribute, and Prerequisite Targeting",
       value: "targeting",
     },
     {
@@ -378,6 +380,9 @@ function TargetingForm({
     : null;
   const supportsSQL = datasource?.properties?.queryLanguage === "sql";
 
+  const environments = useEnvironments();
+  const envs = environments.map((e) => e.id);
+
   return (
     <div className="px-2 pt-2">
       {safeToEdit && (
@@ -428,9 +433,11 @@ function TargetingForm({
         </>
       )}
 
+      {(!hasLinkedChanges || safeToEdit) && (
+        <hr className="my-4"/>
+      )}
       {!hasLinkedChanges && (
         <>
-          <hr className="my-4" />
           <div className="alert alert-info">
             Changes made below are only metadata changes and will have no impact
             on actual experiment delivery unless you link a GrowthBook-managed
@@ -445,20 +452,37 @@ function TargetingForm({
             value={form.watch("savedGroups") || []}
             setValue={(v) => form.setValue("savedGroups", v)}
           />
+          <hr/>
           <ConditionInput
             defaultValue={form.watch("condition")}
             onChange={(condition) => form.setValue("condition", condition)}
             key={conditionKey}
           />
+          <hr/>
+          <PrerequisiteTargetingField
+            value={form.watch("prerequisites") || []}
+            setValue={(prerequisites) =>
+              form.setValue("prerequisites", prerequisites)
+            }
+            environments={envs}
+          />
+          {["advanced"].includes(changeType) && (
+            <hr />
+          )}
         </>
       )}
 
       {["namespace", "advanced"].includes(changeType) && (
+        <>
         <NamespaceSelector
           form={form}
           featureId={experiment.trackingKey}
           trackingKey={experiment.trackingKey}
         />
+          {["advanced"].includes(changeType) && (
+            <hr />
+          )}
+        </>
       )}
 
       {["traffic", "weights", "advanced"].includes(changeType) && (

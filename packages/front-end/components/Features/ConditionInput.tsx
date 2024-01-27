@@ -94,7 +94,7 @@ export default function ConditionInput(props: Props) {
                   {simpleAllowed && attributes.size && (
                     <div className="ml-auto">
                       <span
-                        className="text-purple hover-underline cursor-pointer"
+                        className="link-purple cursor-pointer"
                         onClick={(e) => {
                           e.preventDefault();
                           const newConds = jsonToConds(value, attributes);
@@ -128,9 +128,11 @@ export default function ConditionInput(props: Props) {
       <div className="form-group my-4">
         <label className={props.labelClassName || ""}>{title}</label>
         <div>
-          <em className="text-muted mr-3">{emptyText}</em>
+          <div className="font-italic text-muted mr-3">
+            {emptyText}
+          </div>
           <div
-            className="ml-1 mt-2 text-purple hover-underline cursor-pointer"
+            className="d-inline-block ml-1 mt-2 link-purple font-weight-bold cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
               const prop = attributeSchema[0];
@@ -384,7 +386,7 @@ export default function ConditionInput(props: Props) {
                         />
                       )}
                       <span
-                        className="text-purple hover-underline cursor-pointer"
+                        className="link-purple cursor-pointer"
                         style={{ fontSize: "0.8em" }}
                         onClick={(e) => {
                           e.preventDefault();
@@ -459,7 +461,7 @@ export default function ConditionInput(props: Props) {
         <div className="d-flex align-items-center">
           {attributeSchema.length > 0 && (
             <span
-              className="text-purple hover-underline cursor-pointer"
+              className="link-purple font-weight-bold cursor-pointer"
               onClick={(e) => {
                 e.preventDefault();
                 const prop = attributeSchema[0];
@@ -478,7 +480,7 @@ export default function ConditionInput(props: Props) {
             </span>
           )}
           <span
-            className="ml-auto text-purple hover-underline cursor-pointer"
+            className="ml-auto link-purple cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
               setAdvanced(true);

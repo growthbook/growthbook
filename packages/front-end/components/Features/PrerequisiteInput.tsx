@@ -74,7 +74,7 @@ export default function PrerequisiteInput(props: Props) {
                 {simpleAllowed && (
                   <div className="ml-auto">
                     <span
-                      className="text-purple hover-underline cursor-pointer"
+                      className="link-purple cursor-pointer"
                       onClick={(e) => {
                         e.preventDefault();
                         const newConds = jsonToConds(value, parentValueMap);
@@ -258,7 +258,7 @@ export default function PrerequisiteInput(props: Props) {
                     />
                   )}
                   <span
-                    className="text-purple hover-underline cursor-pointer"
+                    className="link-purple cursor-pointer"
                     style={{ fontSize: "0.8em" }}
                     onClick={(e) => {
                       e.preventDefault();
@@ -311,7 +311,7 @@ export default function PrerequisiteInput(props: Props) {
               <div className="d-flex mt-1">
                 <div className="flex-1"/>
                 <span
-                  className="text-purple hover-underline cursor-pointer"
+                  className="link-purple cursor-pointer"
                   onClick={(e) => {
                     e.preventDefault();
                     setAdvanced(true);

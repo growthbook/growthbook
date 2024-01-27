@@ -90,6 +90,7 @@ export type Experiment<T> = {
   urlPatterns?: UrlTarget[];
   weights?: number[];
   condition?: ConditionInterface;
+  parentConditions?: ParentConditionsInterface[];
   coverage?: number;
   include?: () => boolean;
   /** @deprecated */

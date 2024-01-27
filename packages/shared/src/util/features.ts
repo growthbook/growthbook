@@ -568,11 +568,10 @@ export function evaluatePrerequisiteState(
   return visit(feature);
 }
 
-export function getDependencies(
+export function getDependentFeatures(
   feature: FeatureInterface,
-  features: FeatureInterface[],
+  features: FeatureInterface[]
 ): string[] {
-  // get a subset of features that reference feature.id as a prerequisite or in a rule
   const dependentFeatures = features.filter((f) => {
     const prerequisites = f.prerequisites || [];
     const rules = Object.values(f.environmentSettings || {}).flatMap(
@@ -584,4 +583,14 @@ export function getDependencies(
     );
   });
   return dependentFeatures.map((f) => f.id);
+}
+
+export function getDependentExperiments(
+  feature: FeatureInterface,
+  experiments: ExperimentInterfaceStringDates[]
+): ExperimentInterfaceStringDates[] {
+  return experiments.filter((e) => {
+    const phase = e.phases.slice(-1)?.[0] ?? null;
+    return phase?.prerequisites?.some((p) => p.id === feature.id);
+  });
 }
