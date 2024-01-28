@@ -161,6 +161,10 @@ export async function createNewQuery({
     language,
     organization,
     query,
+    labels: {
+      organization: organization,
+      datasource: datasource,
+    },
     startedAt: running ? new Date() : undefined,
     status: running ? "running" : "queued",
     dependencies: dependencies,
@@ -185,6 +189,7 @@ export async function createNewQueryFromCached({
     language: existing.language,
     organization: existing.organization,
     query: existing.query,
+    labels: existing.labels,
     startedAt: existing.startedAt,
     finishedAt: existing.finishedAt,
     status: existing.status,

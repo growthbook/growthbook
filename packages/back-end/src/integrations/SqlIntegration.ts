@@ -87,6 +87,7 @@ export default abstract class SqlIntegration
   abstract setParams(encryptedParams: string): void;
   abstract runQuery(
     sql: string,
+    labels?: Map<string, string>,
     setExternalId?: ExternalIdCallback
   ): Promise<QueryResponse>;
   async cancelQuery(externalId: string): Promise<void> {
@@ -126,7 +127,7 @@ export default abstract class SqlIntegration
   }
 
   async testConnection(): Promise<boolean> {
-    await this.runQuery("select 1");
+    await this.runQuery("select 1", new Map());
     return true;
   }
 
@@ -357,9 +358,14 @@ export default abstract class SqlIntegration
   }
   async runPastExperimentQuery(
     query: string,
+    labels: Map<string, string>,
     setExternalId: ExternalIdCallback
   ): Promise<PastExperimentQueryResponse> {
-    const { rows, statistics } = await this.runQuery(query, setExternalId);
+    const { rows, statistics } = await this.runQuery(
+      query,
+      labels,
+      setExternalId
+    );
 
     return {
       rows: rows.map((row) => {
@@ -512,9 +518,14 @@ export default abstract class SqlIntegration
 
   async runExperimentFactMetricsQuery(
     query: string,
+    labels: Map<string, string>,
     setExternalId: ExternalIdCallback
   ): Promise<ExperimentFactMetricsQueryResponse> {
-    const { rows, statistics } = await this.runQuery(query, setExternalId);
+    const { rows, statistics } = await this.runQuery(
+      query,
+      labels,
+      setExternalId
+    );
 
     const floatCols = [
       "main_sum",
@@ -561,9 +572,14 @@ export default abstract class SqlIntegration
 
   async runExperimentMetricQuery(
     query: string,
+    labels: Map<string, string>,
     setExternalId: ExternalIdCallback
   ): Promise<ExperimentMetricQueryResponse> {
-    const { rows, statistics } = await this.runQuery(query, setExternalId);
+    const { rows, statistics } = await this.runQuery(
+      query,
+      labels,
+      setExternalId
+    );
     return {
       rows: rows.map((row) => {
         return {
@@ -600,9 +616,14 @@ export default abstract class SqlIntegration
 
   async runExperimentAggregateUnitsQuery(
     query: string,
+    labels: Map<string, string>,
     setExternalId: ExternalIdCallback
   ): Promise<ExperimentAggregateUnitsQueryResponse> {
-    const { rows, statistics } = await this.runQuery(query, setExternalId);
+    const { rows, statistics } = await this.runQuery(
+      query,
+      labels,
+      setExternalId
+    );
     return {
       rows: rows.map((row) => {
         return {
@@ -618,16 +639,22 @@ export default abstract class SqlIntegration
 
   async runExperimentUnitsQuery(
     query: string,
+    labels: Map<string, string>,
     setExternalId: ExternalIdCallback
   ): Promise<ExperimentUnitsQueryResponse> {
-    return await this.runQuery(query, setExternalId);
+    return await this.runQuery(query, labels, setExternalId);
   }
 
   async runMetricValueQuery(
     query: string,
+    labels: Map<string, string>,
     setExternalId: ExternalIdCallback
   ): Promise<MetricValueQueryResponse> {
-    const { rows, statistics } = await this.runQuery(query, setExternalId);
+    const { rows, statistics } = await this.runQuery(
+      query,
+      labels,
+      setExternalId
+    );
 
     return {
       rows: rows.map((row) => {
@@ -1395,9 +1422,14 @@ export default abstract class SqlIntegration
 
   async runDimensionSlicesQuery(
     query: string,
+    labels: Map<string, string>,
     setExternalId: ExternalIdCallback
   ): Promise<DimensionSlicesQueryResponse> {
-    const { rows, statistics } = await this.runQuery(query, setExternalId);
+    const { rows, statistics } = await this.runQuery(
+      query,
+      labels,
+      setExternalId
+    );
     return {
       rows: rows.map((row) => {
         return {

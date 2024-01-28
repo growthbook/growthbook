@@ -254,8 +254,9 @@ export const startExperimentResultQueries = async (
       name: queryParentId,
       query: integration.getExperimentUnitsTableQuery(unitQueryParams),
       dependencies: [],
-      run: (query, setExternalId) =>
-        integration.runExperimentUnitsQuery(query, setExternalId),
+      labels: new Map<string, string>([["query_parent_id", queryParentId]]),
+      run: (query, labels, setExternalId) =>
+        integration.runExperimentUnitsQuery(query, labels, setExternalId),
       process: (rows) => rows,
       queryType: "experimentUnits",
     });
@@ -292,13 +293,19 @@ export const startExperimentResultQueries = async (
       unitsTableFullName: unitsTableFullName,
       factTableMap: params.factTableMap,
     };
+    const queryLabels = new Map<string, string>([
+      ["metric_id", m.id],
+      ["metric_name", m.name],
+      ["query_type", "experimentMetric"],
+    ]);
     queries.push(
       await startQuery({
         name: m.id,
         query: integration.getExperimentMetricQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
-        run: (query, setExternalId) =>
-          integration.runExperimentMetricQuery(query, setExternalId),
+        labels: queryLabels,
+        run: (query, labels, setExternalId) =>
+          integration.runExperimentMetricQuery(query, labels, setExternalId),
         process: (rows) => rows,
         queryType: "experimentMetric",
       })
@@ -324,14 +331,21 @@ export const startExperimentResultQueries = async (
       throw new Error("Integration does not support multi-metric queries");
     }
 
+    const groupQueryLabels = new Map<string, string>([
+      ["query_type", "experimentMultiMetric"],
+      ["query_parent_id", queryParentId],
+      ["group_id", `${i}`],
+    ]);
     queries.push(
       await startQuery({
         name: `group_${i}`,
         query: integration.getExperimentFactMetricsQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
-        run: (query, setExternalId) =>
+        labels: groupQueryLabels,
+        run: (query, labels, setExternalId) =>
           (integration as SqlIntegration).runExperimentFactMetricsQuery(
             query,
+            labels,
             setExternalId
           ),
         process: (rows) => rows,
@@ -343,6 +357,11 @@ export const startExperimentResultQueries = async (
   await Promise.all([...singlePromises, ...groupPromises]);
 
   if (runTrafficQuery) {
+    const trafficQueryLabels = new Map<string, string>([
+      ["query_type", "experimentTraffic"],
+      ["query_parent_id", queryParentId],
+      ["query_name", TRAFFIC_QUERY_NAME],
+    ]);
     const trafficQuery = await startQuery({
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
@@ -351,8 +370,13 @@ export const startExperimentResultQueries = async (
         useUnitsTable: !!unitQuery,
       }),
       dependencies: unitQuery ? [unitQuery.query] : [],
-      run: (query, setExternalId) =>
-        integration.runExperimentAggregateUnitsQuery(query, setExternalId),
+      labels: trafficQueryLabels,
+      run: (query, labels, setExternalId) =>
+        integration.runExperimentAggregateUnitsQuery(
+          query,
+          labels,
+          setExternalId
+        ),
       process: (rows) => rows,
       queryType: "experimentTraffic",
     });
@@ -501,12 +525,18 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       dimension
     );
 
+    const labels = new Map<string, string>([
+      ["query_type", "experimentResults"],
+      ["model_id", this.model.id],
+      ["experiment_id", this.model.settings.experimentId],
+    ]);
     return [
       await this.startQuery({
         queryType: "experimentResults",
         name: "results",
         query: query,
         dependencies: [],
+        labels: labels,
         run: async () => {
           const rows = (await this.integration.getExperimentResults(
             snapshotSettings,

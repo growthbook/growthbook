@@ -47,9 +47,11 @@ export type ProcessedRowsType = Record<string, any>;
 export type StartQueryParams<Rows, ProcessedRows> = {
   name: string;
   query: string;
+  labels: Map<string, string>;
   dependencies: string[];
   run: (
     query: string,
+    labels: Map<string, string>,
     setExternalId: ExternalIdCallback
   ) => Promise<QueryResponse<Rows>>;
   process: (rows: Rows) => ProcessedRows;
@@ -95,6 +97,7 @@ export abstract class QueryRunner<
     [key: string]: {
       run: (
         query: string,
+        labels: Map<string, string>,
         setExternalId: ExternalIdCallback
       ) => Promise<QueryResponse<RowsType>>;
       process: (rows: RowsType) => ProcessedRowsType;
@@ -420,6 +423,7 @@ export abstract class QueryRunner<
     doc: QueryInterface,
     run: (
       query: string,
+      labels: Map<string, string>,
       setExternalId: ExternalIdCallback
     ) => Promise<QueryResponse<Rows>>,
     process: (rows: Rows) => ProcessedRows
@@ -447,7 +451,8 @@ export abstract class QueryRunner<
       });
     };
 
-    run(doc.query, setExternalId)
+    const labelsMap = new Map<string, string>(Object.entries(doc.labels));
+    run(doc.query, labelsMap, setExternalId)
       .then(async ({ rows, statistics }) => {
         clearInterval(timer);
         logger.debug("Query succeeded");

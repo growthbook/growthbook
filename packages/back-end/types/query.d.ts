@@ -40,6 +40,7 @@ export interface QueryInterface {
   datasource: string;
   language: QueryLanguage;
   query: string;
+  labels: Record<string, string>;
   status: QueryStatus;
   createdAt: Date;
   startedAt?: Date;

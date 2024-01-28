@@ -410,30 +410,37 @@ export interface SourceIntegrationInterface {
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string;
   runDimensionSlicesQuery(
     query: string,
+    labels: Map<string, string>,
     setExternalId: ExternalIdCallback
   ): Promise<DimensionSlicesQueryResponse>;
   runMetricValueQuery(
     query: string,
+    labels: Map<string, string>,
     setExternalId: ExternalIdCallback
   ): Promise<MetricValueQueryResponse>;
   runExperimentMetricQuery(
     query: string,
+    labels: Map<string, string>,
     setExternalId: ExternalIdCallback
   ): Promise<ExperimentMetricQueryResponse>;
   runExperimentFactMetricsQuery?(
     query: string,
+    labels: Map<string, string>,
     setExternalId: ExternalIdCallback
   ): Promise<ExperimentFactMetricsQueryResponse>;
   runExperimentAggregateUnitsQuery(
     query: string,
+    labels: Map<string, string>,
     setExternalId: ExternalIdCallback
   ): Promise<ExperimentAggregateUnitsQueryResponse>;
   runExperimentUnitsQuery(
     query: string,
+    labels: Map<string, string>,
     setExternalId: ExternalIdCallback
   ): Promise<ExperimentUnitsQueryResponse>;
   runPastExperimentQuery(
     query: string,
+    labels: Map<string, string>,
     setExternalId: ExternalIdCallback
   ): Promise<PastExperimentQueryResponse>;
   getEventsTrackedByDatasource?: (
