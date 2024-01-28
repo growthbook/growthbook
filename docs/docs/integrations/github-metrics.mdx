@@ -17,7 +17,7 @@ To keep things simple, we will store all of our metric definitions in a single Y
 
 We're going to use Fact Tables to define our metrics. This lets us write SQL once and re-use that across multiple metric definitions. We will create a single Fact Table for `orders` and 2 metrics - `purchased` and `revenue`.
 
-::: note
+:::note
 
 The format we're using in this example exactly matches what the GrowthBook API expects. If you want to store metrics in a different format, you will need to transform it first before sending to GrowthBook.
 
@@ -132,7 +132,7 @@ Look in GrowthBook to see your newly created Fact Table and Metrics! If they are
 
 Fact Tables and Metrics created via this `bulk-import` endpoint are marked as "Official" by default. This means they cannot be edited from within the GrowthBook UI and must be changed within GitHub instead.
 
-::: note
+:::note
 
 You can still use the GrowthBook UI to create or edit other fact tables and metrics. Only ones created through this `bulk-import` endpoint will be locked down.
 
