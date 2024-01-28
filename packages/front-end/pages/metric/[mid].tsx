@@ -62,6 +62,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
+import MetricName from "@/components/Metrics/MetricName";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -414,7 +415,9 @@ const MetricPage: FC = () => {
       )}
 
       <div className="row align-items-center mb-2">
-        <h1 className="col-auto">{metric.name}</h1>
+        <h1 className="col-auto">
+          <MetricName id={metric.id} />
+        </h1>
         <div style={{ flex: 1 }} />
         {canEditMetric && (
           <div className="col-auto">

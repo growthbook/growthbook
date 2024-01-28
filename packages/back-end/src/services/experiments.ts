@@ -1273,11 +1273,13 @@ export function postMetricApiPayloadToMetricInterface(
     mixpanel,
     tags = [],
     projects = [],
+    managedBy = "",
   } = payload;
 
   const metric: Omit<MetricInterface, "dateCreated" | "dateUpdated" | "id"> = {
     datasource: datasourceId,
     description,
+    managedBy,
     name,
     organization: organization.id,
     owner,
@@ -1407,6 +1409,7 @@ export function putMetricApiPayloadToMetricInterface(
     tags,
     projects,
     type,
+    managedBy,
   } = payload;
 
   const metric: Partial<MetricInterface> = {
@@ -1533,6 +1536,10 @@ export function putMetricApiPayloadToMetricInterface(
     if (typeof mixpanel.eventValue !== "undefined") {
       metric.column = mixpanel.eventValue;
     }
+  }
+
+  if (managedBy !== undefined) {
+    metric.managedBy = managedBy;
   }
 
   return metric;
