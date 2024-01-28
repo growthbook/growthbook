@@ -28,7 +28,7 @@ export function OfficialBadge({
           </>
         }
       >
-        <HiBadgeCheck />
+        <HiBadgeCheck style={{ fontSize: "1.2em", lineHeight: "1em" }} />
       </Tooltip>
     </span>
   );

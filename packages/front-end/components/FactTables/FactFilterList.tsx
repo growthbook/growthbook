@@ -10,6 +10,7 @@ import { GBAddCircle } from "../Icons";
 import MoreMenu from "../Dropdown/MoreMenu";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import InlineCode from "../SyntaxHighlighting/InlineCode";
+import { OfficialBadge } from "../Metrics/MetricName";
 import FactFilterModal from "./FactFilterModal";
 
 export interface Props {
@@ -97,7 +98,10 @@ export default function FactFilterList({ factTable }: Props) {
             <tbody>
               {items.map((filter) => (
                 <tr key={filter.id}>
-                  <td style={{ verticalAlign: "top" }}>{filter.name}</td>
+                  <td style={{ verticalAlign: "top" }}>
+                    {filter.name}
+                    <OfficialBadge type="filter" managedBy={filter.managedBy} />
+                  </td>
                   <td style={{ verticalAlign: "top" }}>
                     <div style={{ marginTop: 2 }}>
                       <InlineCode language="sql" code={filter.value} />
