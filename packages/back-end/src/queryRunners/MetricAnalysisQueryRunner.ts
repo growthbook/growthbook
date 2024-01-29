@@ -21,8 +21,12 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
         name: "metric",
         query: this.integration.getMetricValueQuery(params),
         dependencies: [],
-        run: (query, setExternalId) =>
-          this.integration.runMetricValueQuery(query, setExternalId),
+        labels: new Map<string, string>([
+          ["organization", this.organization.id],
+          ["datasource", this.integration.datasource],
+        ]),
+        run: (query, labels, setExternalId) =>
+          this.integration.runMetricValueQuery(query, labels, setExternalId),
         process: (rows) => processMetricValueQueryResponse(rows),
         queryType: "metricAnalysis",
       }),

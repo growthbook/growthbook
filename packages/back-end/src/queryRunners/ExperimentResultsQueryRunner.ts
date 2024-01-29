@@ -250,11 +250,17 @@ export const startExperimentResultQueries = async (
         "Unable to generate table; table path generator not specified."
       );
     }
+    const unitQueryLabels = new Map<string, string>([
+      ["query_parent_id", queryParentId],
+      ["organization", organization.id],
+      ["datasource", integration.datasource],
+      ["query_type", "experimentUnits"],
+    ]);
     unitQuery = await startQuery({
       name: queryParentId,
       query: integration.getExperimentUnitsTableQuery(unitQueryParams),
       dependencies: [],
-      labels: new Map<string, string>([["query_parent_id", queryParentId]]),
+      labels: unitQueryLabels,
       run: (query, labels, setExternalId) =>
         integration.runExperimentUnitsQuery(query, labels, setExternalId),
       process: (rows) => rows,
@@ -294,6 +300,8 @@ export const startExperimentResultQueries = async (
       factTableMap: params.factTableMap,
     };
     const queryLabels = new Map<string, string>([
+      ["organization", organization.id],
+      ["datasource", integration.datasource],
       ["metric_id", m.id],
       ["metric_name", m.name],
       ["query_type", "experimentMetric"],
@@ -332,6 +340,8 @@ export const startExperimentResultQueries = async (
     }
 
     const groupQueryLabels = new Map<string, string>([
+      ["organization", organization.id],
+      ["datasource", integration.datasource],
       ["query_type", "experimentMultiMetric"],
       ["query_parent_id", queryParentId],
       ["group_id", `${i}`],
@@ -358,6 +368,8 @@ export const startExperimentResultQueries = async (
 
   if (runTrafficQuery) {
     const trafficQueryLabels = new Map<string, string>([
+      ["organization", organization.id],
+      ["datasource", integration.datasource],
       ["query_type", "experimentTraffic"],
       ["query_parent_id", queryParentId],
       ["query_name", TRAFFIC_QUERY_NAME],
@@ -526,6 +538,8 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     );
 
     const labels = new Map<string, string>([
+      ["organization", this.organization],
+      ["datasource", this.datasource],
       ["query_type", "experimentResults"],
       ["model_id", this.model.id],
       ["experiment_id", this.model.settings.experimentId],

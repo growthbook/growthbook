@@ -47,8 +47,8 @@ export type ProcessedRowsType = Record<string, any>;
 export type StartQueryParams<Rows, ProcessedRows> = {
   name: string;
   query: string;
-  labels: Map<string, string>;
   dependencies: string[];
+  labels: Map<string, string>;
   run: (
     query: string,
     labels: Map<string, string>,
