@@ -484,7 +484,15 @@ export abstract class QueryRunner<
     Rows extends RowsType,
     ProcessedRows extends ProcessedRowsType
   >(params: StartQueryParams<Rows, ProcessedRows>): Promise<QueryPointer> {
-    const { name, query, dependencies, run, process, queryType } = params;
+    const {
+      name,
+      query,
+      dependencies,
+      run,
+      process,
+      queryType,
+      labels,
+    } = params;
     // Re-use recent identical query if it exists
     if (this.useCache) {
       logger.debug("Trying to reuse existing query");
@@ -553,7 +561,7 @@ export abstract class QueryRunner<
       language: this.integration.getSourceProperties().queryLanguage,
       dependencies: dependencies,
       running: readyToRun,
-      labels: params.labels,
+      labels: labels,
     });
 
     logger.debug("Created new query object in Mongo: " + doc.id);
