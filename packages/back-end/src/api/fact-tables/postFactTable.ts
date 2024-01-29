@@ -17,7 +17,7 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
 
     const datasource = await getDataSourceById(
       req.body.datasource,
-      req.organization.id
+      req.context
     );
     if (!datasource) {
       throw new Error("Could not find datasource");

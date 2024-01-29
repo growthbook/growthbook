@@ -49,9 +49,7 @@ export const postBulkImportFacts = createApiRequestHandler(
       allFactMetrics.map((m) => [m.id, m])
     );
 
-    const allDataSources = await getDataSourcesByOrganization(
-      req.organization.id
-    );
+    const allDataSources = await getDataSourcesByOrganization(req.context);
     const dataSourceMap = new Map<string, DataSourceInterface>(
       allDataSources.map((s) => [s.id, s])
     );

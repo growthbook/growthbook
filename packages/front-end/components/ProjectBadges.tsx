@@ -1,6 +1,7 @@
 import clsx from "clsx";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/components/Badge";
+import Tooltip from "./Tooltip/Tooltip";
 
 export interface Props {
   projectIds?: string[];
@@ -44,16 +45,20 @@ export default function ProjectBadges({
   return (
     <>
       {filteredProjects.map((p) => {
-        if (!p?.name) return;
         return (
-          <Badge
-            content={p.name}
-            key={p.name}
-            className={clsx(
-              project === p.id ? "badge-primary bg-purple" : "badge-gray",
-              className
-            )}
-          />
+          <Tooltip
+            shouldDisplay={!p?.name}
+            body="Unknown Projects are projects that have been deleted or projects you do not have access to."
+            key={p?.name || `Unknown Project ${p?.id}`}
+          >
+            <Badge
+              content={p?.name || "Unknown Project"}
+              className={clsx(
+                project === p?.id ? "badge-primary bg-purple" : "badge-gray",
+                className
+              )}
+            />
+          </Tooltip>
         );
       })}
     </>

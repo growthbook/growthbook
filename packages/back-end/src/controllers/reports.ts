@@ -222,7 +222,7 @@ export async function refreshReport(
   const factTableMap = await getFactTableMap(org.id);
 
   const integration = await getIntegrationFromDatasourceId(
-    org.id,
+    context,
     report.args.datasource,
     true
   );
@@ -302,7 +302,7 @@ export async function putReport(
     const factTableMap = await getFactTableMap(org.id);
 
     const integration = await getIntegrationFromDatasourceId(
-      org.id,
+      context,
       updatedReport.args.datasource,
       true
     );
@@ -340,7 +340,7 @@ export async function cancelReport(
   req.checkPermissions("runQueries", experiment?.project || "");
 
   const integration = await getIntegrationFromDatasourceId(
-    org.id,
+    context,
     report.args.datasource
   );
   const queryRunner = new ReportQueryRunner(report, integration, org);
@@ -353,10 +353,10 @@ export async function postNotebook(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { id } = req.params;
 
-  const notebook = await generateReportNotebook(id, org.id);
+  const notebook = await generateReportNotebook(id, context);
 
   res.status(200).json({
     status: 200,

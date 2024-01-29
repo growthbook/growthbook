@@ -40,7 +40,7 @@ export const updateFactTable = createApiRequestHandler(
     if (req.body.userIdTypes) {
       const datasource = await getDataSourceById(
         factTable.datasource,
-        req.organization.id
+        req.context
       );
       if (!datasource) {
         throw new Error("Could not find datasource for this fact table");

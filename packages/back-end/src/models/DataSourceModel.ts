@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep, isEqual } from "lodash";
+import { hasReadAccess } from "shared/permissions";
 import {
   DataSourceInterface,
   DataSourceParams,
@@ -20,6 +21,8 @@ import { upgradeDatasourceObject } from "../util/migrations";
 import { ApiDataSource } from "../../types/openapi";
 import { queueCreateInformationSchema } from "../jobs/createInformationSchema";
 import { IS_CLOUD } from "../util/secrets";
+import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "../../types/api";
 import { findAllOrganizations } from "./OrganizationModel";
 
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
@@ -68,49 +71,71 @@ export async function getInstallationDatasources(): Promise<
 }
 
 export async function getDataSourcesByOrganization(
-  organization: string
+  context: ReqContext | ApiReqContext
 ): Promise<DataSourceInterface[]> {
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {
-    return getConfigDatasources(organization);
+    return getConfigDatasources(context.org.id);
   }
 
   const docs: DataSourceDocument[] = await DataSourceModel.find({
-    organization,
+    organization: context.org.id,
   });
 
-  return docs.map(toInterface);
+  const datasources = docs.map(toInterface);
+
+  return datasources.filter((ds) =>
+    hasReadAccess(context.readAccessFilter, ds.projects)
+  );
 }
 
-export async function getDataSourceById(id: string, organization: string) {
+export async function getDataSourceById(
+  id: string,
+  context: ReqContext | ApiReqContext
+) {
   // If using config.yml, immediately return the from there
   if (usingFileConfig()) {
     return (
-      getConfigDatasources(organization).filter((d) => d.id === id)[0] || null
+      getConfigDatasources(context.org.id).filter((d) => d.id === id)[0] || null
     );
   }
 
   const doc: DataSourceDocument | null = await DataSourceModel.findOne({
     id,
-    organization,
+    organization: context.org.id,
   });
 
-  return doc ? toInterface(doc) : null;
+  if (!doc) return null;
+
+  const datasource = toInterface(doc);
+
+  return hasReadAccess(context.readAccessFilter, datasource.projects)
+    ? datasource
+    : null;
 }
-export async function getDataSourcesByIds(ids: string[], organization: string) {
+//TODO: This seems to be an orphaned function - can we remove?
+export async function getDataSourcesByIds(
+  context: ReqContext | ApiReqContext,
+  ids: string[]
+) {
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {
     return (
-      getConfigDatasources(organization).filter((d) => ids.includes(d.id)) || []
+      getConfigDatasources(context.org.id).filter((d) => ids.includes(d.id)) ||
+      []
     );
   }
 
   const docs: DataSourceDocument[] = await DataSourceModel.find({
     id: { $in: ids },
-    organization,
+    organization: context.org.id,
   });
 
-  return docs.map(toInterface);
+  const datasources = docs.map(toInterface);
+
+  return datasources.filter((datasource) =>
+    hasReadAccess(context.readAccessFilter, datasource.projects)
+  );
 }
 
 export async function removeProjectFromDatasources(
@@ -123,6 +148,7 @@ export async function removeProjectFromDatasources(
   );
 }
 
+//TODO: This seems to be an orphaned function - can we remove?
 export async function getOrganizationsWithDatasources(): Promise<string[]> {
   if (usingFileConfig()) {
     return [];
@@ -272,8 +298,8 @@ export function hasActualChanges(
 }
 
 export async function updateDataSource(
+  context: ReqContext | ApiReqContext,
   datasource: DataSourceInterface,
-  organization: string,
   updates: Partial<DataSourceInterface>
 ) {
   if (usingFileConfig()) {
@@ -293,7 +319,7 @@ export async function updateDataSource(
   await DataSourceModel.updateOne(
     {
       id: datasource.id,
-      organization,
+      organization: context.org.id,
     },
     {
       $set: updates,

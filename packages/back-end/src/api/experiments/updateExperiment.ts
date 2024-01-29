@@ -25,7 +25,7 @@ export const updateExperiment = createApiRequestHandler(
 
     const datasource = await getDataSourceById(
       experiment.datasource,
-      req.organization.id
+      req.context
     );
     if (!datasource) {
       throw new Error("No datasource for this experiment was found.");

@@ -19,10 +19,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
 
     const { datasourceId, owner } = req.body;
 
-    const datasource = await getDataSourceById(
-      datasourceId,
-      req.organization.id
-    );
+    const datasource = await getDataSourceById(datasourceId, req.context);
 
     if (!datasource) {
       throw new Error(`Invalid data source: ${datasourceId}`);

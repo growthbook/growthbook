@@ -444,7 +444,7 @@ export async function postExperiments(
   req.checkPermissions("createAnalyses", data.project);
 
   if (data.datasource) {
-    const datasource = await getDataSourceById(data.datasource, org.id);
+    const datasource = await getDataSourceById(data.datasource, context);
     if (!datasource) {
       res.status(403).json({
         status: 403,
@@ -656,7 +656,7 @@ export async function postExperiment(
   req.checkPermissions("createAnalyses", experiment.project);
 
   if (data.datasource) {
-    const datasource = await getDataSourceById(data.datasource, org.id);
+    const datasource = await getDataSourceById(data.datasource, context);
     if (!datasource) {
       res.status(403).json({
         status: 403,
@@ -1642,7 +1642,7 @@ export async function cancelSnapshot(
   req.checkPermissions("runQueries", experiment.project || "");
 
   const integration = await getIntegrationFromDatasourceId(
-    snapshot.organization,
+    context,
     snapshot.settings.datasourceId
   );
   const queryRunner = new ExperimentResultsQueryRunner(
@@ -1711,7 +1711,7 @@ export async function postSnapshot(
   const denominatorMetrics = (
     await Promise.all(denominatorMetricIds.map((m) => getMetricById(m, org.id)))
   ).filter(Boolean) as MetricInterface[];
-  const datasource = await getDataSourceById(experiment.datasource, org.id);
+  const datasource = await getDataSourceById(experiment.datasource, context);
 
   const {
     metricRegressionAdjustmentStatuses,
@@ -2077,7 +2077,8 @@ export async function cancelPastExperiments(
   // Passing in an empty string for "project" since pastExperiments don't have projects
   req.checkPermissions("runQueries", "");
 
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.params;
   const pastExperiments = await getPastExperimentsById(org.id, id);
   if (!pastExperiments) {
@@ -2085,7 +2086,7 @@ export async function cancelPastExperiments(
   }
 
   const integration = await getIntegrationFromDatasourceId(
-    pastExperiments.organization,
+    context,
     pastExperiments.datasource
   );
   const queryRunner = new PastExperimentsQueryRunner(
@@ -2141,10 +2142,11 @@ export async function postPastExperiments(
   req: AuthRequest<{ datasource: string; force: boolean }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { datasource, force } = req.body;
 
-  const datasourceObj = await getDataSourceById(datasource, org.id);
+  const datasourceObj = await getDataSourceById(datasource, context);
   if (!datasourceObj) {
     throw new Error("Could not find datasource");
   }

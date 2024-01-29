@@ -8,7 +8,10 @@ import { getMetricById } from "../models/MetricModel";
 import { METRIC_REFRESH_FREQUENCY } from "../util/secrets";
 import { logger } from "../util/logger";
 import { promiseAllChunks } from "../util/promise";
-import { getOrganizationById } from "../services/organizations";
+import {
+  getContextForAgendaJobByOrgId,
+  getOrganizationById,
+} from "../services/organizations";
 
 const QUEUE_METRIC_UPDATES = "queueMetricUpdates";
 
@@ -119,13 +122,10 @@ async function updateSingleMetric(job: UpdateSingleMetricJob) {
       throw new Error("Error getting metric to refresh: " + metricId);
     }
 
-    const org = await getOrganizationById(orgId);
-    if (!org) {
-      throw new Error("Error getting org to refresh metric: " + orgId);
-    }
+    const context = await getContextForAgendaJobByOrgId(orgId);
 
     logger.info("Start Refreshing Metric: " + metricId);
-    await refreshMetric(metric, org, daysToInclude);
+    await refreshMetric(metric, context, daysToInclude);
     logger.info("Successfully Refreshed Metric: " + metricId);
   } catch (e) {
     logger.error(e, "Error refreshing metric: " + metricId);
