@@ -8,10 +8,7 @@ import { getMetricById } from "../models/MetricModel";
 import { METRIC_REFRESH_FREQUENCY } from "../util/secrets";
 import { logger } from "../util/logger";
 import { promiseAllChunks } from "../util/promise";
-import {
-  getContextForAgendaJobByOrgId,
-  getOrganizationById,
-} from "../services/organizations";
+import { getContextForAgendaJobByOrgId } from "../services/organizations";
 
 const QUEUE_METRIC_UPDATES = "queueMetricUpdates";
 
