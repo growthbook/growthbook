@@ -15,7 +15,11 @@ import {
   validateCondition,
   validateFeatureValue,
 } from "shared/util";
-import { scrubFeatures, SDKCapability } from "shared/sdk-versioning";
+import {
+  scrubExperiments,
+  scrubFeatures,
+  SDKCapability,
+} from "shared/sdk-versioning";
 import {
   AutoExperimentWithProject,
   FeatureDefinition,
@@ -419,6 +423,7 @@ async function getFeatureDefinitionsResponse({
   }
 
   features = scrubFeatures(features, capabilities);
+  experiments = scrubExperiments(experiments, capabilities);
 
   if (!encryptionKey) {
     return {
