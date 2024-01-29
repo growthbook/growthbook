@@ -13,6 +13,7 @@ import {
   FaLock,
   FaTimes,
   FaGithub,
+  FaExternalLinkAlt,
 } from "react-icons/fa";
 import { ago, date, datetime } from "shared/dates";
 import {
@@ -776,27 +777,48 @@ export default function FeaturePage() {
         </div>
       </div>
 
-      <h3>Code References</h3>
-      <div className="mb-1">
-        Find references to this feature flag in your code.
-      </div>
-      <div className="appbox mb-4 p-3">
-        {codeRefs.map((codeRef, i) => (
-          <div
-            key={i}
-            className="row mx-1 d-flex align-items-center"
-            style={{}}
-          >
-            <FaGithub />
-            <div className="mx-2">{codeRef.repo} </div>
-            <div className="mr-2">•</div>
-            <div>
-              {codeRef.codeRefs.length} reference(s) found in{" "}
-              <code>{codeRef.branch}</code> branch.
-            </div>
+      {codeRefs.length > 0 && (
+        <>
+          <h3>Code References</h3>
+          <div className="mb-1">
+            Find references to this feature flag in your code.
           </div>
-        ))}
-      </div>
+          <div className="appbox mb-4 p-3">
+            {codeRefs.map((codeRef, i) => (
+              <div key={i}>
+                <div className="row mx-1 d-flex align-items-center" style={{}}>
+                  <FaGithub />
+                  <div className="mx-2">{codeRef.repo} </div>
+                  <div className="mr-2">•</div>
+                  <div>
+                    {codeRef.codeRefs.length} reference(s) found in{" "}
+                    <code>{codeRef.branch}</code> branch.
+                  </div>
+                </div>
+                <div className="d-flex flex-column ">
+                  {codeRef.codeRefs.map((ref, i) => (
+                    <div key={i} className="appbox my-2 p-2">
+                      <div className="px-1">
+                        <a href="#">
+                          <FaExternalLinkAlt className="mr-2 cursor-pointer" />
+                        </a>
+                        <code>{ref.filePath}</code>
+                      </div>
+                      <Code
+                        language="tsx"
+                        code={ref.lines}
+                        expandable={true}
+                        highlightLine={ref.startingLineNumber + 2}
+                        startingLineNumber={ref.startingLineNumber}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {feature.valueType === "json" && (
         <div>
