@@ -1,5 +1,4 @@
 export interface FeatureCodeRefsInterface {
-  id: string;
   organization: string;
   dateCreated: Date;
   dateUpdated: Date;
@@ -7,7 +6,7 @@ export interface FeatureCodeRefsInterface {
   repo: string;
   branch: string;
   platform: "github" | "gitlab" | "bitbucket";
-  codeRefs: {
+  refs: {
     filePath: string;
     startingLineNumber: number;
     lines: string;

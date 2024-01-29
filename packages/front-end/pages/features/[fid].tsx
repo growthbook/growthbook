@@ -791,7 +791,7 @@ export default function FeaturePage() {
             <div className="mx-2">{codeRef.repo} </div>
             <div className="mr-2">•</div>
             <div>
-              {codeRef.codeRefs.length} reference(s) found in{" "}
+              {codeRef.refs.length} reference(s) found in{" "}
               <code>{codeRef.branch}</code> branch.
             </div>
           </div>

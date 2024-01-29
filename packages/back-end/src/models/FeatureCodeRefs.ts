@@ -1,10 +1,9 @@
 import mongoose from "mongoose";
-// import uniqid from "uniqid";
 import { omit } from "lodash";
 import { FeatureCodeRefsInterface } from "../../types/code-refs";
+import { OrganizationInterface } from "../../types/organization";
 
 const featureCodeRefsSchema = new mongoose.Schema({
-  id: String,
   organization: String,
   dateUpdated: Date,
   feature: String,
@@ -14,8 +13,7 @@ const featureCodeRefsSchema = new mongoose.Schema({
     type: String,
     enum: ["github", "gitlab", "bitbucket"],
   },
-  // TODO rename to refs
-  codeRefs: [
+  refs: [
     {
       filePath: String,
       startingLineNumber: Number,
@@ -26,7 +24,7 @@ const featureCodeRefsSchema = new mongoose.Schema({
 });
 
 featureCodeRefsSchema.index(
-  { id: 1, organizatiion: 1, repo: 1, feature: 1 },
+  { id: 1, organization: 1, repo: 1, branch: 1, feature: 1 },
   { unique: true }
 );
 
@@ -42,19 +40,20 @@ function toInterface(doc: FeatureCodeRefsDocument): FeatureCodeRefsInterface {
   return omit(ret, ["__v", "_id"]);
 }
 
-// TODO add org to query
 export const upsertFeatureCodeRefs = async ({
   feature,
   repo,
   branch,
   platform = "github",
   codeRefs,
+  organization,
 }: {
   feature: string;
   repo: string;
   branch: string;
   platform?: "github" | "gitlab" | "bitbucket";
-  codeRefs: FeatureCodeRefsInterface["codeRefs"];
+  codeRefs: FeatureCodeRefsInterface["refs"];
+  organization: OrganizationInterface;
 }): Promise<FeatureCodeRefsInterface[]> => {
   if (!feature || !repo || !branch || !codeRefs) {
     // eslint-disable-next-line no-console
@@ -73,9 +72,10 @@ export const upsertFeatureCodeRefs = async ({
       feature,
       repo,
       branch,
+      organization: organization.id,
     },
     {
-      codeRefs,
+      refs: codeRefs,
       dateUpdated: new Date(),
     },
     { upsert: true }
@@ -88,15 +88,18 @@ export const upsertFeatureCodeRefs = async ({
   }).then((docs) => docs.map(toInterface));
 };
 
-// TODO add org to query
-export const getAllFeatureCodeRefs = async ({
+export const getFeatureCodeRefsByFeatures = async ({
   repo,
   branch,
   platform,
+  features,
+  organization,
 }: {
   repo: string;
   branch: string;
   platform?: "github" | "gitlab" | "bitbucket";
+  features: string[];
+  organization: OrganizationInterface;
 }): Promise<FeatureCodeRefsInterface[]> => {
   if (!repo || !branch) {
     // eslint-disable-next-line no-console
@@ -111,19 +114,21 @@ export const getAllFeatureCodeRefs = async ({
   return await FeatureCodeRefsModel.find({
     repo,
     branch,
+    feature: { $in: features },
+    organization: organization.id,
   }).then((docs) => docs.map(toInterface));
 };
 
-export const getCodeRefsForFeature = async ({
+export const getAllCodeRefsForFeature = async ({
   feature,
+  organization,
 }: {
   feature: string;
+  organization: OrganizationInterface;
 }): Promise<FeatureCodeRefsInterface[]> => {
-  if (!feature) {
-    throw new Error("Missing required parameters");
-  }
-
+  if (!feature) throw new Error("Missing required parameters");
   return await FeatureCodeRefsModel.find({
     feature,
+    organization: organization.id,
   }).then((docs) => docs.map(toInterface));
 };

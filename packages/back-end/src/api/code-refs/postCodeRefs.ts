@@ -3,14 +3,12 @@ import { PostCodeRefsResponse } from "../../../types/openapi";
 import { createApiRequestHandler } from "../../util/handler";
 import { postCodeRefsValidator } from "../../validators/openapi";
 import {
-  getAllFeatureCodeRefs,
+  getFeatureCodeRefsByFeatures,
   upsertFeatureCodeRefs,
 } from "../../models/FeatureCodeRefs";
 
 export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
   async (req): Promise<PostCodeRefsResponse> => {
-    // eslint-disable-next-line no-console
-
     const { repo, branch, platform } = req.query;
 
     const refsByFeature = groupBy(req.body, "flagKey");
@@ -23,16 +21,19 @@ export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
           branch,
           platform,
           codeRefs: refs,
+          organization: req.context.org,
         });
       })
     );
 
     return {
       featuresUpdated: (
-        await getAllFeatureCodeRefs({
+        await getFeatureCodeRefsByFeatures({
           repo,
           branch,
           platform,
+          features: Object.keys(refsByFeature),
+          organization: req.context.org,
         })
       ).map((f) => f.feature),
     };
