@@ -105,7 +105,6 @@ export default function MetricsOverridesSelector({
           const metricDefinition = allMetricDefinitions.find(
             (md) => md.id === mo.id
           );
-          console.log(mo);
 
           const hasRegressionAdjustmentFeature = hasCommercialFeature(
             "regression-adjustment"

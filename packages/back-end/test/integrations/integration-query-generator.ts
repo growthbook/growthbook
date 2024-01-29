@@ -216,7 +216,6 @@ const allActivationMetrics: MetricInterface[] = [
 const analysisMetrics: MetricInterface[] = metricConfigs.map(
   (metricConfig) => ({ ...baseMetric, ...metricConfig })
 );
-console.dir(analysisMetrics);
 
 // fact metrics
 type ColumnConfig = Pick<ColumnInterface, "name" | "column">;

@@ -196,7 +196,6 @@ export default function FactMetricPage() {
     );
   }
 
-  console.dir(factMetric, { depth: null });
   const canEdit = permissions.check("createMetrics", factMetric.projects || "");
 
   let regressionAdjustmentAvailableForMetric = true;
