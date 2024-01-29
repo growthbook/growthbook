@@ -225,7 +225,7 @@ export default class BigQuery extends SqlIntegration {
         const labels = new Map<string, string>([
           ["call", "getInformationSchema"],
           ["organization", this.organization],
-          ["integration", "bigquery"],
+          ["sql_integration", "bigquery"],
           ["datasource", this.datasource],
         ]);
         const { rows: datasetResults } = await this.runQuery(

@@ -553,6 +553,7 @@ export abstract class QueryRunner<
       language: this.integration.getSourceProperties().queryLanguage,
       dependencies: dependencies,
       running: readyToRun,
+      labels: params.labels,
     });
 
     logger.debug("Created new query object in Mongo: " + doc.id);

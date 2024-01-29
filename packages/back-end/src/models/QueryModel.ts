@@ -144,6 +144,7 @@ export async function createNewQuery({
   dependencies = [],
   running = false,
   queryType = "",
+  labels = new Map<string, string>(),
 }: {
   organization: string;
   datasource: string;
@@ -152,6 +153,7 @@ export async function createNewQuery({
   dependencies: string[];
   running: boolean;
   queryType: QueryType;
+  labels: Map<string, string>;
 }): Promise<QueryInterface> {
   const data: QueryInterface = {
     createdAt: new Date(),
@@ -161,10 +163,7 @@ export async function createNewQuery({
     language,
     organization,
     query,
-    labels: {
-      organization: organization,
-      datasource: datasource,
-    },
+    labels: Object.fromEntries(labels),
     startedAt: running ? new Date() : undefined,
     status: running ? "running" : "queued",
     dependencies: dependencies,
