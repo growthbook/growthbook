@@ -113,30 +113,6 @@ export async function getDataSourceById(
     ? datasource
     : null;
 }
-//TODO: This seems to be an orphaned function - can we remove?
-export async function getDataSourcesByIds(
-  context: ReqContext | ApiReqContext,
-  ids: string[]
-) {
-  // If using config.yml, immediately return the list from there
-  if (usingFileConfig()) {
-    return (
-      getConfigDatasources(context.org.id).filter((d) => ids.includes(d.id)) ||
-      []
-    );
-  }
-
-  const docs: DataSourceDocument[] = await DataSourceModel.find({
-    id: { $in: ids },
-    organization: context.org.id,
-  });
-
-  const datasources = docs.map(toInterface);
-
-  return datasources.filter((datasource) =>
-    hasReadAccess(context.readAccessFilter, datasource.projects)
-  );
-}
 
 export async function removeProjectFromDatasources(
   project: string,
@@ -148,13 +124,6 @@ export async function removeProjectFromDatasources(
   );
 }
 
-//TODO: This seems to be an orphaned function - can we remove?
-export async function getOrganizationsWithDatasources(): Promise<string[]> {
-  if (usingFileConfig()) {
-    return [];
-  }
-  return await DataSourceModel.distinct("organization");
-}
 export async function deleteDatasourceById(id: string, organization: string) {
   if (usingFileConfig()) {
     throw new Error("Cannot delete. Data sources managed by config.yml");
