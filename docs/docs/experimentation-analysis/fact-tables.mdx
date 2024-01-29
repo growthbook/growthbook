@@ -170,7 +170,7 @@ If multiple metrics from the same Fact Table are added to an experiment, they wi
 There are some restrictions that limit when this optimization can be performed:
 
 - Ratio metrics where the numerator and denominator are part of different Fact Tables are always excluded from this optimization
-- If `Ignore In-Progress Conversions` is set for an experiment, optimization is disabled for all metrics
+- If `Exclude In-Progress Conversions` is set for an experiment, optimization is disabled for all metrics
 - If you are using MySQL and a metric has percentile capping, it will be excluded from optimization
 
 In all other cases, this optimization is enabled by default for all Enterprise customers. It can be disabled under **Settings -> General -> Experiment Settings**. When disabled, a separate SQL query will always be run for every individual metric.

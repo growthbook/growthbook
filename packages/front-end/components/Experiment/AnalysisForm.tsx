@@ -440,7 +440,7 @@ const AnalysisForm: FC<{
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
         <SelectField
-          label="Metric Conversion/Lookback Windows"
+          label="Metric Conversion Windows"
           labelClassName="font-weight-bold"
           value={form.watch("skipPartialData")}
           onChange={(value) => form.setValue("skipPartialData", value)}
@@ -454,14 +454,14 @@ const AnalysisForm: FC<{
               value: "strict",
             },
           ]}
-          helpText="How to treat users not enrolled in the experiment long enough to complete conversion or lookback windows."
+          helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
         />
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
         <SelectField
           label={
             <AttributionModelTooltip>
-              <strong>Attribution Model</strong> <FaQuestionCircle />
+              <strong>Conversion Window Override</strong> <FaQuestionCircle />
             </AttributionModelTooltip>
           }
           value={form.watch("attributionModel")}
@@ -471,11 +471,11 @@ const AnalysisForm: FC<{
           }}
           options={[
             {
-              label: "First Exposure",
+              label: "Respect Conversion Windows",
               value: "firstExposure",
             },
             {
-              label: "Experiment Duration",
+              label: "Ignore Conversion Windows",
               value: "experimentDuration",
             },
           ]}

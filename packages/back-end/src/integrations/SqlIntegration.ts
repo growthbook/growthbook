@@ -744,7 +744,7 @@ export default abstract class SqlIntegration
     endDate: Date,
     regressionAdjusted: boolean = false,
     cumulativeDate: boolean = false,
-    ignoreConversionEnd: boolean = false,
+    overrideConversionWindows: boolean = false,
     tablePrefix: string = "__denominator",
     initialTable: string = "__experiment"
   ) {
@@ -784,9 +784,9 @@ export default abstract class SqlIntegration
               `${prevAlias}.timestamp`,
               `${alias}.timestamp`,
               m,
-              new Date(),
+              endDate,
               cumulativeDate,
-              ignoreConversionEnd
+              overrideConversionWindows
             );
           })
           .join("\n AND ")}
@@ -828,27 +828,42 @@ export default abstract class SqlIntegration
     metric: ExperimentMetricInterface,
     endDate: Date,
     cumulativeDate: boolean,
-    ignoreConversionEnd: boolean
+    overrideConversionWindows: boolean
   ): string {
-    let dateClause = "";
-
     let windowHours = getConversionWindowHours(metric.windowSettings);
     const delayHours = metric.windowSettings.delayHours ?? 0;
 
-    if (metric.windowSettings.type === "conversion") {
-      dateClause += `${metricCol} <= ${this.addHours(
+    // all metrics have to be after the base timestamp +- delay hours
+    let metricWindow = `${metricCol} >= ${this.addHours(baseCol, delayHours)}`;
+
+    if (
+      metric.windowSettings.type === "conversion" &&
+      !overrideConversionWindows
+    ) {
+      // if conversion window, then count metrics before window ends
+      // which can extend beyond experiment end date
+      metricWindow = `${metricWindow}
+        AND ${metricCol} <= ${this.addHours(
         baseCol,
         delayHours + windowHours
       )}`;
-    } else if (metric.windowSettings.type === "lookback") {
-      // ensure positive windowHours
-      if (windowHours < 0) windowHours = windowHours * -1;
-      dateClause = `${this.addHours("m.timestamp", windowHours)} >= 
-        ${cumulativeDate ? "dr.day" : this.toTimestamp(endDate)}`;
+    } else {
+      // otherwise, it must be before the experiment end date
+      metricWindow = `${metricWindow}
+      AND ${metricCol} <= ${this.toTimestamp(endDate)}`;
     }
-    return `
-      ${metricCol} >= ${this.addHours(baseCol, delayHours)}
-      ${!ignoreConversionEnd && dateClause ? `AND ${dateClause}` : ""}`;
+
+    if (metric.windowSettings.type === "lookback") {
+      // ensure windowHours is positive
+      windowHours = windowHours < 0 ? windowHours * -1 : windowHours;
+      // also ensure for lookback windows that metric happened in last
+      // X hours of the experiment
+      metricWindow = `${metricWindow}
+      AND ${this.addHours(metricCol, windowHours)} >= 
+      ${cumulativeDate ? "dr.day" : this.toTimestamp(endDate)}`;
+    }
+
+    return metricWindow;
   }
 
   private getMetricMinDelay(metrics: ExperimentMetricInterface[]) {
@@ -882,21 +897,23 @@ export default abstract class SqlIntegration
   private getMetricEnd(
     metrics: ExperimentMetricInterface[],
     initial?: Date,
-    ignoreConversionEnd?: boolean
+    overrideConversionWindows?: boolean
   ): Date | null {
     if (!initial) return null;
-    if (ignoreConversionEnd) return initial;
+    if (overrideConversionWindows) return initial;
 
     const metricEnd = new Date(initial);
     let runningHours = 0;
     let maxHours = 0;
     metrics.forEach((m) => {
-      const hours =
-        runningHours +
-        getConversionWindowHours(m.windowSettings) +
-        (m.windowSettings.delayHours || 0);
-      if (hours > maxHours) maxHours = hours;
-      runningHours = hours;
+      if (m.windowSettings.type === "conversion") {
+        const hours =
+          runningHours +
+          getConversionWindowHours(m.windowSettings) +
+          (m.windowSettings.delayHours || 0);
+        if (hours > maxHours) maxHours = hours;
+        runningHours = hours;
+      }
     });
 
     if (maxHours > 0) {
@@ -911,20 +928,28 @@ export default abstract class SqlIntegration
     metricAndDenominatorMetrics: ExperimentMetricInterface[],
     activationMetric: ExperimentMetricInterface | null
   ): number {
+    // Used to set an experiment end date to filter out users
+    // who have not had enough time to convert (if experimenter
+    // has selected `skipPartialData`)
     let neededHoursForConversion = 0;
     metricAndDenominatorMetrics.forEach((m) => {
-      const metricHours =
-        (m.windowSettings.delayHours || 0) +
-        getConversionWindowHours(m.windowSettings);
-      if (funnelMetric) {
-        // funnel metric windows can cascade, so sum each metric hours to get max
-        neededHoursForConversion += metricHours;
-      } else if (metricHours > neededHoursForConversion) {
-        neededHoursForConversion = metricHours;
+      if (m.windowSettings.type === "conversion") {
+        const metricHours =
+          (m.windowSettings.delayHours || 0) +
+          getConversionWindowHours(m.windowSettings);
+        if (funnelMetric) {
+          // funnel metric windows can cascade, so sum each metric hours to get max
+          neededHoursForConversion += metricHours;
+        } else if (metricHours > neededHoursForConversion) {
+          neededHoursForConversion = metricHours;
+        }
       }
     });
     // activation metrics windows always cascade
-    if (activationMetric) {
+    if (
+      activationMetric &&
+      activationMetric.windowSettings.type == "conversion"
+    ) {
       neededHoursForConversion +=
         (activationMetric.windowSettings.delayHours || 0) +
         getConversionWindowHours(activationMetric.windowSettings);
@@ -1049,13 +1074,9 @@ export default abstract class SqlIntegration
     const timestampColumn = "e.timestamp";
     // BQ datetime cast for SELECT statements (do not use for where)
     const timestampDateTimeColumn = this.castUserDateCol(timestampColumn);
-    let ignoreConversionEnd =
+    const overrideConversionWindows =
       settings.attributionModel === "experimentDuration";
 
-    // If the fact metric doesn't have a conversion window, always treat like Experiment Duration
-    if (activationMetric && !activationMetric.windowSettings.type) {
-      ignoreConversionEnd = true;
-    }
     return `
     ${params.includeIdJoins ? idJoinSQL : ""}
     __rawExperiment AS (
@@ -1108,7 +1129,7 @@ export default abstract class SqlIntegration
             endDate: this.getMetricEnd(
               [activationMetric],
               settings.endDate,
-              ignoreConversionEnd
+              overrideConversionWindows
             ),
             experimentId: settings.experimentId,
             factTableMap,
@@ -1173,7 +1194,7 @@ export default abstract class SqlIntegration
                   activationMetric,
                   settings.endDate,
                   false,
-                  ignoreConversionEnd
+                  overrideConversionWindows
                 ),
                 "a.timestamp",
                 "NULL"
@@ -1441,13 +1462,8 @@ export default abstract class SqlIntegration
       ? (metric.regressionAdjustmentDays ?? 0) * 24
       : 0;
 
-    let ignoreConversionEnd =
+    const overrideConversionWindows =
       settings.attributionModel === "experimentDuration";
-
-    // If metric has disabled conversion windows, always use "Experiment Duration"
-    if (!metric.windowSettings.type) {
-      ignoreConversionEnd = true;
-    }
 
     // Get capping settings and final coalesce statement
     const isPercentileCapped =
@@ -1486,7 +1502,7 @@ export default abstract class SqlIntegration
     const metricEnd = this.getMetricEnd(
       orderedMetrics,
       settings.endDate,
-      ignoreConversionEnd
+      overrideConversionWindows
     );
 
     const raMetricSettings = {
@@ -1509,7 +1525,7 @@ export default abstract class SqlIntegration
       funnelMetric,
       regressionAdjusted,
       regressionAdjustmentHours,
-      ignoreConversionEnd,
+      overrideConversionWindows,
       isPercentileCapped,
       capCoalesceMetric,
       capCoalesceDenominator,
@@ -1758,7 +1774,7 @@ export default abstract class SqlIntegration
                 `${this.addCaseWhenTimeFilter(
                   `m.${data.alias}_value`,
                   data.metric,
-                  data.ignoreConversionEnd,
+                  data.overrideConversionWindows,
                   settings.endDate,
                   cumulativeDate
                 )} as ${data.alias}_value
@@ -1767,7 +1783,7 @@ export default abstract class SqlIntegration
                     ? `, ${this.addCaseWhenTimeFilter(
                         `m.${data.alias}_denominator`,
                         data.metric,
-                        data.ignoreConversionEnd,
+                        data.overrideConversionWindows,
                         settings.endDate,
                         cumulativeDate
                       )} as ${data.alias}_denominator`
@@ -2002,13 +2018,8 @@ export default abstract class SqlIntegration
       ? (metric.regressionAdjustmentDays ?? 0) * 24
       : 0;
 
-    let ignoreConversionEnd =
+    const overrideConversionWindows =
       settings.attributionModel === "experimentDuration";
-
-    // If a fact metric has disabled conversion windows, always use "Experiment Duration"
-    if (!metric.windowSettings.type) {
-      ignoreConversionEnd = true;
-    }
 
     // Get capping settings and final coalesce statement
     const isPercentileCapped =
@@ -2045,7 +2056,7 @@ export default abstract class SqlIntegration
     const metricEnd = this.getMetricEnd(
       orderedMetrics,
       settings.endDate,
-      ignoreConversionEnd
+      overrideConversionWindows
     );
 
     // Get any required identity join queries
@@ -2195,7 +2206,7 @@ export default abstract class SqlIntegration
               settings.endDate,
               regressionAdjusted,
               cumulativeDate,
-              ignoreConversionEnd,
+              overrideConversionWindows,
               "__denominator",
               "__distinctUsers"
             )})`
@@ -2219,7 +2230,7 @@ export default abstract class SqlIntegration
           ${this.addCaseWhenTimeFilter(
             "m.value",
             metric,
-            ignoreConversionEnd,
+            overrideConversionWindows,
             settings.endDate,
             cumulativeDate
           )} as value
@@ -2297,7 +2308,7 @@ export default abstract class SqlIntegration
                   denominator,
                   settings.endDate,
                   cumulativeDate,
-                  ignoreConversionEnd
+                  overrideConversionWindows
                 )}
                 ${
                   cumulativeDate
@@ -2955,7 +2966,6 @@ AND event_name = '${eventName}'`,
     if (startDate) {
       where.push(`m.timestamp >= ${this.toTimestamp(startDate)}`);
     }
-    // endDate is now meaningful if ignoreConversionEnd
     if (endDate) {
       where.push(`m.timestamp <= ${this.toTimestamp(endDate)}`);
     }
@@ -3135,7 +3145,6 @@ AND event_name = '${eventName}'`,
     if (startDate) {
       where.push(`${cols.timestamp} >= ${this.toTimestamp(startDate)}`);
     }
-    // endDate is now meaningful if ignoreConversionEnd
     if (endDate) {
       where.push(`${cols.timestamp} <= ${this.toTimestamp(endDate)}`);
     }
@@ -3266,7 +3275,7 @@ AND event_name = '${eventName}'`,
   private addCaseWhenTimeFilter(
     col: string,
     metric: ExperimentMetricInterface,
-    ignoreConversionEnd: boolean,
+    overrideConversionWindows: boolean,
     endDate: Date,
     cumulativeDate: boolean
   ): string {
@@ -3277,7 +3286,7 @@ AND event_name = '${eventName}'`,
         metric,
         endDate,
         cumulativeDate,
-        ignoreConversionEnd
+        overrideConversionWindows
       )}
         ${
           cumulativeDate ? `AND ${this.dateTrunc("m.timestamp")} <= dr.day` : ""
