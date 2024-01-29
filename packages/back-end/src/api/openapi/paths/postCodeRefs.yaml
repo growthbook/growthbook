@@ -1,4 +1,7 @@
-parameters: []
+parameters:
+  - $ref: "../parameters.yaml#/repo"
+  - $ref: "../parameters.yaml#/branch"
+  - $ref: "../parameters.yaml#/platform"
 tags:
   - code-references
 summary: Submit list of code references

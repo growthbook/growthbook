@@ -1255,6 +1255,12 @@ export interface components {
     visualChangeId: string;
     /** @description Specify a specific fact table */
     factTableId: string;
+    /** @description Fully qualified name of repo either in GitHub or some other version control platform. */
+    repo: string;
+    /** @description Name of branch for git repo. */
+    branch: string;
+    /** @description Name of versino control platform like GitHub or Gitlab. */
+    platform: "github" | "gitlab" | "bitbucket";
   };
   requestBodies: never;
   headers: never;
@@ -5468,14 +5474,24 @@ export interface operations {
   };
   postCodeRefs: {
     /** Submit list of code references */
+    parameters: {
+        /** @description Fully qualified name of repo either in GitHub or some other version control platform. */
+        /** @description Name of branch for git repo. */
+        /** @description Name of versino control platform like GitHub or Gitlab. */
+      query: {
+        repo: string;
+        branch: string;
+        platform?: "github" | "gitlab" | "bitbucket";
+      };
+    };
     requestBody: {
       content: {
         "application/json": ({
-            filePath?: string;
-            startingLineNumber?: number;
-            lines?: string;
-            flagKey?: string;
-            contentHash?: string;
+            filePath: string;
+            startingLineNumber: number;
+            lines: string;
+            flagKey: string;
+            contentHash: string;
           })[];
       };
     };

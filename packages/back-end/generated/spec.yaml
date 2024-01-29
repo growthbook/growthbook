@@ -3068,7 +3068,10 @@ paths:
                     type: boolean
   /code-refs:
     post:
-      parameters: []
+      parameters:
+        - $ref: '#/components/parameters/repo'
+        - $ref: '#/components/parameters/branch'
+        - $ref: '#/components/parameters/platform'
       tags:
         - code-references
       summary: Submit list of code references
@@ -3087,6 +3090,12 @@ paths:
               type: array
               items:
                 type: object
+                required:
+                  - filePath
+                  - startingLineNumber
+                  - lines
+                  - flagKey
+                  - contentHash
                 properties:
                   filePath:
                     type: string
@@ -3161,6 +3170,30 @@ components:
       description: Specify a specific fact table
       schema:
         type: string
+    repo:
+      name: repo
+      in: query
+      required: true
+      description: Fully qualified name of repo either in GitHub or some other version control platform.
+      schema:
+        type: string
+    branch:
+      name: branch
+      in: query
+      required: true
+      description: Name of branch for git repo.
+      schema:
+        type: string
+    platform:
+      name: platform
+      in: query
+      description: Name of versino control platform like GitHub or Gitlab.
+      schema:
+        type: string
+        enum:
+          - github
+          - gitlab
+          - bitbucket
   schemas:
     PaginationFields:
       type: object

@@ -1,6 +1,12 @@
 type: array
 items:
   type: object
+  required:
+    - filePath
+    - startingLineNumber
+    - lines
+    - flagKey
+    - contentHash
   properties:
     filePath:
       type: string
