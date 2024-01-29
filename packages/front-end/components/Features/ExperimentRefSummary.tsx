@@ -132,7 +132,8 @@ export default function ExperimentRefSummary({
 
   const hasCondition =
     (phase.condition && phase.condition !== "{}") ||
-    !!phase.savedGroups?.length;
+    !!phase.savedGroups?.length ||
+    phase.prerequisites?.length;
 
   return (
     <div>

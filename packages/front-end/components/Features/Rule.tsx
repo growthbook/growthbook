@@ -97,7 +97,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       !rule.enabled;
 
     const hasCondition =
-      (rule.condition && rule.condition !== "{}") || !!rule.savedGroups?.length;
+      (rule.condition && rule.condition !== "{}") ||
+      !!rule.savedGroups?.length ||
+      !!rule.prerequisites?.length;
 
     return (
       <div
