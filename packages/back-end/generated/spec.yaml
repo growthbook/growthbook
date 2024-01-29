@@ -96,6 +96,9 @@ tags:
   - name: fact-metrics
     x-displayName: Fact Metrics
     description: Fact Metrics are metrics built on top of Fact Table definitions
+  - name: code-references
+    x-displayName: Code References
+    description: 'Intended for use with our code reference CI utility, [`gb-find-code-refs`](https://github.com/growthbook/gb-find-code-refs).'
   - name: DataSource_model
     x-displayName: DataSource
     description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
@@ -3067,7 +3070,7 @@ paths:
     post:
       parameters: []
       tags:
-        - code-refs
+        - code-references
       summary: Submit list of code references
       operationId: postCodeRefs
       x-codeSamples:
@@ -3081,23 +3084,20 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - codeRefs
-              properties:
-                codeRefs:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      startingLineNumber:
-                        type: integer
-                      lines:
-                        type: string
-                      flagKey:
-                        type: string
-                      contentHash:
-                        type: string
+              type: array
+              items:
+                type: object
+                properties:
+                  filePath:
+                    type: string
+                  startingLineNumber:
+                    type: integer
+                  lines:
+                    type: string
+                  flagKey:
+                    type: string
+                  contentHash:
+                    type: string
       responses:
         '200':
           content:
@@ -4752,6 +4752,7 @@ x-tagGroups:
       - organizations
       - fact-tables
       - fact-metrics
+      - code-references
   - name: Models
     tags:
       - DataSource_model

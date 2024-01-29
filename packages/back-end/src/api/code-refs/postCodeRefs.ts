@@ -5,7 +5,7 @@ import { postCodeRefsValidator } from "../../validators/openapi";
 export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
   async (req): Promise<PostCodeRefsResponse> => {
     // eslint-disable-next-line no-console
-    console.log("req", req);
+    console.log("req", req.body);
     return {
       featuresUpdated: [],
     };

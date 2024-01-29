@@ -5470,14 +5470,13 @@ export interface operations {
     /** Submit list of code references */
     requestBody: {
       content: {
-        "application/json": {
-          codeRefs: ({
-              startingLineNumber?: number;
-              lines?: string;
-              flagKey?: string;
-              contentHash?: string;
-            })[];
-        };
+        "application/json": ({
+            filePath?: string;
+            startingLineNumber?: number;
+            lines?: string;
+            flagKey?: string;
+            contentHash?: string;
+          })[];
       };
     };
     responses: {

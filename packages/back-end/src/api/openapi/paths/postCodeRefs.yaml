@@ -1,6 +1,6 @@
 parameters: []
 tags:
-  - code-refs
+  - code-references
 summary: Submit list of code references
 operationId: postCodeRefs
 x-codeSamples:
