@@ -631,7 +631,7 @@ export async function importConfig(config: ConfigFile, context: ReqContext) {
             // Fix newlines in the private keys:
             ds.params.privateKey = ds.params?.privateKey?.replace(/\\n/g, "\n");
           }
-          const existing = await getDataSourceById(k, context);
+          const existing = await getDataSourceById(context, k);
           if (existing) {
             let params = existing.params;
             // If params are changing, merge them with existing and test the connection

@@ -152,7 +152,7 @@ export const postSegment = async (
   const context = getContextFromReq(req);
   const { org, userName } = context;
 
-  const datasourceDoc = await getDataSourceById(datasource, context);
+  const datasourceDoc = await getDataSourceById(context, datasource);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
@@ -226,7 +226,7 @@ export const putSegment = async (
 
   const { datasource, name, sql, userIdType, owner, description } = req.body;
 
-  const datasourceDoc = await getDataSourceById(datasource, context);
+  const datasourceDoc = await getDataSourceById(context, datasource);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }

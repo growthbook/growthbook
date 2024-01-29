@@ -58,7 +58,7 @@ export async function getImpactEstimate(
     return null;
   }
 
-  const datasource = await getDataSourceById(metricObj.datasource, context);
+  const datasource = await getDataSourceById(context, metricObj.datasource);
   if (!datasource) {
     throw new Error("Datasource not found");
   }

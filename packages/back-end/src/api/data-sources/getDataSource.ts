@@ -8,7 +8,7 @@ import { getDataSourceValidator } from "../../validators/openapi";
 
 export const getDataSource = createApiRequestHandler(getDataSourceValidator)(
   async (req): Promise<GetDataSourceResponse> => {
-    const dataSource = await getDataSourceById(req.params.id, req.context);
+    const dataSource = await getDataSourceById(req.context, req.params.id);
     if (!dataSource) {
       throw new Error("Could not find dataSource with that id");
     }

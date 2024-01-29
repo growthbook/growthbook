@@ -46,8 +46,8 @@ export default function (ag: Agenda) {
       const context = await getContextForAgendaJobByOrgId(organization);
 
       const datasource = await getDataSourceById(
-        informationSchemaTable.datasourceId,
-        context
+        context,
+        informationSchemaTable.datasourceId
       );
 
       const informationSchema = await getInformationSchemaById(

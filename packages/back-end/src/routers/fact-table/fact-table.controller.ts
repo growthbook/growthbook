@@ -97,7 +97,7 @@ export const postFactTable = async (
   if (!data.datasource) {
     throw new Error("Must specify a data source for this fact table");
   }
-  const datasource = await getDataSourceById(data.datasource, context);
+  const datasource = await getDataSourceById(context, data.datasource);
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
@@ -142,7 +142,7 @@ export const putFactTable = async (
     req.checkPermissions("manageFactTables", data.projects || "");
   }
 
-  const datasource = await getDataSourceById(factTable.datasource, context);
+  const datasource = await getDataSourceById(context, factTable.datasource);
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
@@ -226,7 +226,7 @@ export const postFactFilterTest = async (
 
   req.checkPermissions("manageFactTables", factTable.projects);
 
-  const datasource = await getDataSourceById(factTable.datasource, context);
+  const datasource = await getDataSourceById(context, factTable.datasource);
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
@@ -255,7 +255,7 @@ export const postFactFilter = async (
 
   req.checkPermissions("manageFactTables", factTable.projects);
 
-  const datasource = await getDataSourceById(factTable.datasource, context);
+  const datasource = await getDataSourceById(context, factTable.datasource);
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
@@ -289,7 +289,7 @@ export const putFactFilter = async (
     (f) => f.id === req.params.filterId
   );
   if (existingFilter && existingFilter.value !== data.value) {
-    const datasource = await getDataSourceById(factTable.datasource, context);
+    const datasource = await getDataSourceById(context, factTable.datasource);
     if (!datasource) {
       throw new Error("Could not find datasource");
     }

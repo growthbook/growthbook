@@ -13,7 +13,7 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(
   async (req): Promise<PostMetricResponse> => {
     const { datasourceId } = req.body;
 
-    const datasource = await getDataSourceById(datasourceId, req.context);
+    const datasource = await getDataSourceById(req.context, datasourceId);
     if (!datasource) {
       throw new Error(`Invalid data source: ${datasourceId}`);
     }

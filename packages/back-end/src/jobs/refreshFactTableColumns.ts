@@ -98,7 +98,7 @@ export default function (ag: Agenda) {
 
     const context = await getContextForAgendaJobByOrgId(organization);
 
-    const datasource = await getDataSourceById(factTable.datasource, context);
+    const datasource = await getDataSourceById(context, factTable.datasource);
     if (!datasource) return;
 
     const updates: UpdateFactTableProps = {};

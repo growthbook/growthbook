@@ -444,7 +444,7 @@ export async function postExperiments(
   req.checkPermissions("createAnalyses", data.project);
 
   if (data.datasource) {
-    const datasource = await getDataSourceById(data.datasource, context);
+    const datasource = await getDataSourceById(context, data.datasource);
     if (!datasource) {
       res.status(403).json({
         status: 403,
@@ -656,7 +656,7 @@ export async function postExperiment(
   req.checkPermissions("createAnalyses", experiment.project);
 
   if (data.datasource) {
-    const datasource = await getDataSourceById(data.datasource, context);
+    const datasource = await getDataSourceById(context, data.datasource);
     if (!datasource) {
       res.status(403).json({
         status: 403,
@@ -1711,7 +1711,7 @@ export async function postSnapshot(
   const denominatorMetrics = (
     await Promise.all(denominatorMetricIds.map((m) => getMetricById(m, org.id)))
   ).filter(Boolean) as MetricInterface[];
-  const datasource = await getDataSourceById(experiment.datasource, context);
+  const datasource = await getDataSourceById(context, experiment.datasource);
 
   const {
     metricRegressionAdjustmentStatuses,
@@ -2146,7 +2146,7 @@ export async function postPastExperiments(
   const { org } = context;
   const { datasource, force } = req.body;
 
-  const datasourceObj = await getDataSourceById(datasource, context);
+  const datasourceObj = await getDataSourceById(context, datasource);
   if (!datasourceObj) {
     throw new Error("Could not find datasource");
   }

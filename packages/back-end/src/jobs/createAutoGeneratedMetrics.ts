@@ -51,7 +51,7 @@ export default function (ag: Agenda) {
       const context = await getContextForAgendaJobByOrgId(organizationId);
 
       try {
-        const datasource = await getDataSourceById(datasourceId, context);
+        const datasource = await getDataSourceById(context, datasourceId);
 
         if (!datasource) throw new Error("No datasource");
 

@@ -21,7 +21,7 @@ export async function getInformationSchema(
   const context = getContextFromReq(req);
   const { org } = context;
 
-  const datasource = await getDataSourceById(req.params.datasourceId, context);
+  const datasource = await getDataSourceById(context, req.params.datasourceId);
 
   if (!datasource) {
     res.status(404).json({
@@ -70,8 +70,8 @@ export async function getTableData(
   }
 
   const datasource = await getDataSourceById(
-    informationSchema.datasourceId,
-    context
+    context,
+    informationSchema.datasourceId
   );
 
   if (!datasource) {
@@ -185,7 +185,7 @@ export async function postInformationSchema(
   const context = getContextFromReq(req);
   const { org } = context;
 
-  const datasource = await getDataSourceById(req.params.datasourceId, context);
+  const datasource = await getDataSourceById(context, req.params.datasourceId);
 
   if (!datasource) {
     res.status(404).json({
@@ -213,7 +213,7 @@ export async function putInformationSchema(
   const { org } = context;
   const { informationSchemaId } = req.body;
 
-  const datasource = await getDataSourceById(req.params.datasourceId, context);
+  const datasource = await getDataSourceById(context, req.params.datasourceId);
 
   if (!datasource) {
     res.status(404).json({

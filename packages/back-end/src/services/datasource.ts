@@ -95,7 +95,7 @@ export async function getIntegrationFromDatasourceId(
   id: string,
   throwOnDecryptionError: boolean = false
 ) {
-  const datasource = await getDataSourceById(id, context);
+  const datasource = await getDataSourceById(context, id);
   if (!datasource) {
     throw new Error("Could not load data source");
   }

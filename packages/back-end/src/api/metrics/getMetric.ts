@@ -17,7 +17,7 @@ export const getMetric = createApiRequestHandler(getMetricValidator)(
     }
 
     const datasource = metric.datasource
-      ? await getDataSourceById(metric.datasource, req.context)
+      ? await getDataSourceById(req.context, metric.datasource)
       : null;
 
     return {

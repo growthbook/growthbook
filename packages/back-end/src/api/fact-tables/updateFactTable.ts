@@ -39,8 +39,8 @@ export const updateFactTable = createApiRequestHandler(
     // Validate userIdTypes
     if (req.body.userIdTypes) {
       const datasource = await getDataSourceById(
-        factTable.datasource,
-        req.context
+        req.context,
+        factTable.datasource
       );
       if (!datasource) {
         throw new Error("Could not find datasource for this fact table");

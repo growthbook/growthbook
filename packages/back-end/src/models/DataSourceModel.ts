@@ -90,8 +90,8 @@ export async function getDataSourcesByOrganization(
 }
 
 export async function getDataSourceById(
-  id: string,
-  context: ReqContext | ApiReqContext
+  context: ReqContext | ApiReqContext,
+  id: string
 ) {
   // If using config.yml, immediately return the from there
   if (usingFileConfig()) {

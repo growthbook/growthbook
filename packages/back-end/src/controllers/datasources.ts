@@ -261,7 +261,7 @@ export async function deleteDataSource(
   const { org } = context;
   const { id } = req.params;
 
-  const datasource = await getDataSourceById(id, context);
+  const datasource = await getDataSourceById(context, id);
   if (!datasource) {
     throw new Error("Cannot find datasource");
   }
@@ -364,7 +364,7 @@ export async function getDataSource(
   const context = getContextFromReq(req);
   const { id } = req.params;
 
-  const datasource = await getDataSourceById(id, context);
+  const datasource = await getDataSourceById(context, id);
   if (!datasource) {
     res.status(404).json({
       status: 404,
@@ -488,7 +488,7 @@ export async function putDataSource(
     metricsToCreate,
   } = req.body;
 
-  const datasource = await getDataSourceById(id, context);
+  const datasource = await getDataSourceById(context, id);
   if (!datasource) {
     res.status(404).json({
       status: 404,
@@ -592,11 +592,10 @@ export async function updateExposureQuery(
   res: Response
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { datasourceId, exposureQueryId } = req.params;
   const { updates } = req.body;
 
-  const dataSource = await getDataSourceById(datasourceId, context);
+  const dataSource = await getDataSourceById(context, datasourceId);
   if (!dataSource) {
     res.status(404).json({
       status: 404,
@@ -701,7 +700,7 @@ export async function testLimitedQuery(
 
   const { query, datasourceId, templateVariables } = req.body;
 
-  const datasource = await getDataSourceById(datasourceId, context);
+  const datasource = await getDataSourceById(context, datasourceId);
   if (!datasource) {
     return res.status(404).json({
       status: 404,
@@ -789,7 +788,7 @@ export async function postDimensionSlices(
   const { org } = context;
   const { dataSourceId, queryId, lookbackDays } = req.body;
 
-  const datasourceObj = await getDataSourceById(dataSourceId, context);
+  const datasourceObj = await getDataSourceById(context, dataSourceId);
   if (!datasourceObj) {
     throw new Error("Could not find datasource");
   }
@@ -829,8 +828,8 @@ export async function cancelDimensionSlices(
     throw new Error("Could not cancel automatic dimension");
   }
   const datasource = await getDataSourceById(
-    dimensionSlices.datasource,
-    context
+    context,
+    dimensionSlices.datasource
   );
   if (!datasource) {
     throw new Error("Could not find datasource");
