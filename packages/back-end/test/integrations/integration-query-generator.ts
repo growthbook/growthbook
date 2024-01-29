@@ -363,6 +363,7 @@ type TestExperimentConfig = {
   queryFilter?: string;
   removeMultiplxposures?: boolean;
   metricOverrides?: MetricOverride[];
+  skippartialData?: boolean;
   guardrails?: string[];
 };
 const experimentConfigs = experimentConfigData as TestExperimentConfig[];
@@ -444,14 +445,28 @@ engines.forEach((engine) => {
   const factTableMap = new Map(factTablesCopy.map((f) => [f.id, f]));
 
   experimentConfigs.forEach((experimentConfig) => {
-    const experiment: ExperimentInterface = {
-      ...baseExperiment,
-      ...experimentConfig,
-    };
     const jointMetrics: ExperimentMetricInterface[] = [
       ...analysisMetrics,
       ...analysisFactMetrics,
     ];
+
+    const metricOverrides: MetricOverride[] = [];
+    if (experimentConfig.metricOverrides) {
+      // apply override to all metrics
+      jointMetrics.forEach((metric) => {
+        metricOverrides.push({
+          ...(experimentConfig.metricOverrides?.[0] ?? {}),
+          id: metric.id,
+        });
+      });
+    }
+
+    const experiment: ExperimentInterface = {
+      ...baseExperiment,
+      ...experimentConfig,
+      metricOverrides: metricOverrides,
+      metrics: jointMetrics.map((m) => m.id),
+    };
 
     let activationMetric: MetricInterface | null = null;
     if (experiment.activationMetric) {
@@ -582,13 +597,9 @@ engines.forEach((engine) => {
 
     // RUN FACT AND NON-FACT METRICS AS SINGLES
     jointMetrics.forEach((metric) => {
-      experiment.metrics = [metric.id];
       // if override in experiment config, have to set it to the right id
       let denominatorMetrics: MetricInterface[] = [];
 
-      if (experiment.metricOverrides) {
-        experiment.metricOverrides[0].id = metric.id;
-      }
       if (!isFactMetric(metric) && metric.denominator) {
         denominatorMetrics.push(
           ...expandDenominatorMetrics(metric.denominator, baseMetricMap)
@@ -619,6 +630,11 @@ engines.forEach((engine) => {
         engine: engine,
         sql: sql,
       });
+      if (metric.id === "nonbinom_null__purchased_value") {
+        console.log("===============================");
+        console.log(experiment.id);
+        console.dir(queryParams, { depth: null });
+      }
 
       // pipeline version
       if (pipelineEnabled) {
