@@ -448,10 +448,9 @@ const MetricsPage = (): React.ReactElement => {
                   e.preventDefault();
                 }}
               >
-                <MoreMenu>
-                  {canCreateMetrics() &&
-                    metric.onDuplicate &&
-                    editMetricsPermissions[metric.id] && (
+                {canCreateMetrics() && (
+                  <MoreMenu>
+                    {metric.onDuplicate && editMetricsPermissions[metric.id] && (
                       <button
                         className="btn dropdown-item py-2"
                         onClick={(e) => {
@@ -463,23 +462,24 @@ const MetricsPage = (): React.ReactElement => {
                         <FaRegCopy /> Duplicate
                       </button>
                     )}
-                  {!metric.managedBy &&
-                    metric.onArchive &&
-                    editMetricsPermissions[metric.id] && (
-                      <button
-                        className="btn dropdown-item py-2"
-                        onClick={async (e) => {
-                          e.preventDefault();
-                          metric.onArchive &&
-                            (await metric.onArchive(!metric.archived));
-                          mutateDefinitions({});
-                        }}
-                      >
-                        <FaArchive />{" "}
-                        {metric.archived ? "Unarchive" : "Archive"}
-                      </button>
-                    )}
-                </MoreMenu>
+                    {!metric.managedBy &&
+                      metric.onArchive &&
+                      editMetricsPermissions[metric.id] && (
+                        <button
+                          className="btn dropdown-item py-2"
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            metric.onArchive &&
+                              (await metric.onArchive(!metric.archived));
+                            mutateDefinitions({});
+                          }}
+                        >
+                          <FaArchive />{" "}
+                          {metric.archived ? "Unarchive" : "Archive"}
+                        </button>
+                      )}
+                  </MoreMenu>
+                )}
               </td>
             </tr>
           ))}
