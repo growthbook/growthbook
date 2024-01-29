@@ -25,7 +25,7 @@ export const triggerWebhookJobs = async (
   isProxyEnabled: boolean,
   isFeature = true
 ) => {
-  queueWebhookUpdate(context.org.id, payloadKeys);
+  queueWebhookUpdate(context, payloadKeys);
   queueGlobalWebhooks(context, payloadKeys);
   if (isProxyEnabled) queueProxyUpdate(context.org.id, payloadKeys);
   queueWebhook(context.org.id, payloadKeys, isFeature);

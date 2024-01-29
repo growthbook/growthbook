@@ -18,6 +18,7 @@ import { getContextForAgendaJobByOrgId } from "../services/organizations";
 const PROXY_UPDATE_JOB_NAME = "proxyUpdate";
 type ProxyUpdateJob = Job<{
   connectionId: string;
+  orgId: string;
   useCloudProxy: boolean;
   retryCount: number;
 }>;
@@ -29,6 +30,7 @@ export default function addProxyUpdateJob(ag: Agenda) {
   // Fire webhooks
   agenda.define(PROXY_UPDATE_JOB_NAME, async (job: ProxyUpdateJob) => {
     const connectionId = job.attrs.data?.connectionId;
+    const orgId = job.attrs.data?.orgId;
     const useCloudProxy = job.attrs.data?.useCloudProxy;
     if (!connectionId) {
       logger.error(
@@ -38,7 +40,17 @@ export default function addProxyUpdateJob(ag: Agenda) {
       return;
     }
 
-    const connection = await findSDKConnectionById(connectionId);
+    if (!orgId) {
+      logger.error("proxyUpdate: No orgId provided for proxy update job", {
+        connectionId,
+        useCloudProxy,
+      });
+      return;
+    }
+
+    const context = await getContextForAgendaJobByOrgId(orgId);
+
+    const connection = await findSDKConnectionById(context, connectionId);
     if (!connection) {
       logger.error("proxyUpdate: Could not find sdk connection", {
         connectionId,
@@ -46,10 +58,6 @@ export default function addProxyUpdateJob(ag: Agenda) {
       });
       return;
     }
-
-    const context = await getContextForAgendaJobByOrgId(
-      connection.organization
-    );
 
     const defs = await getFeatureDefinitions({
       context,
@@ -123,6 +131,7 @@ export async function queueSingleProxyUpdate(
 
   const job = agenda.create(PROXY_UPDATE_JOB_NAME, {
     connectionId: connection.id,
+    orgId: connection.organization, // TODO: Get feedback on this change - ultimately it's needed to call getConnectionById
     retryCount: 0,
     useCloudProxy,
   }) as ProxyUpdateJob;
@@ -141,7 +150,9 @@ export async function queueProxyUpdate(
   if (!CRON_ENABLED) return;
   if (!payloadKeys.length) return;
 
-  const connections = await findSDKConnectionsByOrganization(orgId);
+  const context = await getContextForAgendaJobByOrgId(orgId);
+
+  const connections = await findSDKConnectionsByOrganization(context);
 
   if (!connections) return;
 
