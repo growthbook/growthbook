@@ -68,4 +68,7 @@ platform:
   description: Name of versino control platform like GitHub or Gitlab.
   schema:
     type: string
-    enum: [github, gitlab, bitbucket]
+    enum:
+      - github
+      - gitlab
+      - bitbucket

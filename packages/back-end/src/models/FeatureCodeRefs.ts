@@ -13,7 +13,6 @@ const featureCodeRefsSchema = new mongoose.Schema({
   platform: {
     type: String,
     enum: ["github", "gitlab", "bitbucket"],
-    default: "github",
   },
   // TODO rename to refs
   codeRefs: [
@@ -54,10 +53,10 @@ export const upsertFeatureCodeRefs = async ({
   feature: string;
   repo: string;
   branch: string;
-  platform: "github" | "gitlab" | "bitbucket";
+  platform?: "github" | "gitlab" | "bitbucket";
   codeRefs: FeatureCodeRefsInterface["codeRefs"];
 }): Promise<FeatureCodeRefsInterface[]> => {
-  if (!feature || !repo || !branch || !platform || !codeRefs) {
+  if (!feature || !repo || !branch || !codeRefs) {
     // eslint-disable-next-line no-console
     console.error("Missing required params", {
       feature,
@@ -93,13 +92,19 @@ export const upsertFeatureCodeRefs = async ({
 export const getAllFeatureCodeRefs = async ({
   repo,
   branch,
-  platform = "github",
+  platform,
 }: {
   repo: string;
   branch: string;
-  platform: "github" | "gitlab" | "bitbucket";
+  platform?: "github" | "gitlab" | "bitbucket";
 }): Promise<FeatureCodeRefsInterface[]> => {
-  if (!repo || !branch || !platform) {
+  if (!repo || !branch) {
+    // eslint-disable-next-line no-console
+    console.error("Missing required parameters", {
+      repo,
+      branch,
+      platform,
+    });
     throw new Error("Missing required parameters");
   }
 
