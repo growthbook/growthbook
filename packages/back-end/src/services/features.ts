@@ -20,6 +20,7 @@ import {
   scrubFeatures,
   SDKCapability,
 } from "shared/sdk-versioning";
+import cloneDeep from "lodash/cloneDeep";
 import {
   AutoExperimentWithProject,
   FeatureDefinition,
@@ -1090,13 +1091,19 @@ export const updateInterfaceEnvSettingsFromApiEnvSettings = (
   }, existing);
 };
 
+// Only keep features that are "on" or "conditional". For "on" features, remove any top level prerequisites
 export const removeFeaturesBlockedByPrerequisites = (
   features: FeatureInterface[],
   environment: string
 ): FeatureInterface[] => {
   const newFeatures: FeatureInterface[] = [];
   for (const feature of features) {
-    const state = evaluatePrerequisiteState(feature, features, environment);
+    const newFeature = cloneDeep(feature);
+    const state = evaluatePrerequisiteState(newFeature, features, environment);
+    if (state === "on") {
+      // scrub any top level prerequisites
+      newFeature.prerequisites = [];
+    }
     if (["on", "conditional"].includes(state)) {
       newFeatures.push(feature);
     }
