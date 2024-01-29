@@ -64,8 +64,13 @@ export default function PrerequisiteStatusRow({
                   target="_blank"
                   rel="noreferrer"
                 >
-                  <span className="d-inline-block text-ellipsis" style={{maxWidth: 230}}>{parentFeature.id}</span>
-                  <FaExternalLinkAlt className="ml-1"/>
+                  <span
+                    className="d-inline-block text-ellipsis"
+                    style={{ maxWidth: 230 }}
+                  >
+                    {parentFeature.id}
+                  </span>
+                  <FaExternalLinkAlt className="ml-1" />
                 </a>
               </>
             ) : (
@@ -82,7 +87,7 @@ export default function PrerequisiteStatusRow({
                   className="dropdown-item"
                   onClick={(e) => {
                     e.preventDefault();
-                    setPrerequisiteModal({i});
+                    setPrerequisiteModal({ i });
                   }}
                 >
                   Edit
@@ -100,7 +105,7 @@ export default function PrerequisiteStatusRow({
                       `/feature/${feature.id}/prerequisite`,
                       {
                         method: "DELETE",
-                        body: JSON.stringify({i}),
+                        body: JSON.stringify({ i }),
                       }
                     );
                     mutate();
@@ -183,9 +188,9 @@ export function PrerequisiteStatesCols({
                 isSummaryRow ? (
                   <>
                     <div>
-                      This feature is currently conditionally enabled in this environment.
-                      This feature&apos;s prerequisites have rules which may
-                      make the result conditional.
+                      This feature is currently conditionally enabled in this
+                      environment. This feature&apos;s prerequisites have rules
+                      which may make the result conditional.
                     </div>
                     {isSummaryRow && (
                       <div className="mt-2">
@@ -197,8 +202,8 @@ export function PrerequisiteStatesCols({
                   </>
                 ) : (
                   <div>
-                    This prerequisite feature is currently conditionally enabled in this
-                    environment. This feature or its prerequisites have
+                    This prerequisite feature is currently conditionally enabled
+                    in this environment. This feature or its prerequisites have
                     rules which may make the result conditional.
                   </div>
                 )

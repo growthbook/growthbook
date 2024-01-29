@@ -7,9 +7,14 @@ import { orgHasPremiumFeature } from "enterprise";
 import {
   FeatureRule as FeatureDefinitionRule,
   AutoExperiment,
-  GrowthBook, ParentConditionsInterface,
+  GrowthBook,
+  ParentConditionsInterface,
 } from "@growthbook/growthbook";
-import { validateCondition, validateFeatureValue } from "shared/util";
+import {
+  evaluatePrerequisiteState,
+  validateCondition,
+  validateFeatureValue,
+} from "shared/util";
 import { scrubFeatures, SDKCapability } from "shared/sdk-versioning";
 import {
   AutoExperimentWithProject,
@@ -75,7 +80,11 @@ function generatePayload({
   groupMap: GroupMap;
 }): Record<string, FeatureDefinition> {
   const defs: Record<string, FeatureDefinition> = {};
-  features.forEach((feature) => {
+  const newFeatures = removeFeaturesBlockedByPrerequisites(
+    features,
+    environment
+  );
+  newFeatures.forEach((feature) => {
     const def = getFeatureDefinition({
       feature,
       environment,
@@ -1074,4 +1083,18 @@ export const updateInterfaceEnvSettingsFromApiEnvSettings = (
       },
     };
   }, existing);
+};
+
+export const removeFeaturesBlockedByPrerequisites = (
+  features: FeatureInterface[],
+  environment: string
+): FeatureInterface[] => {
+  const newFeatures: FeatureInterface[] = [];
+  for (const feature of features) {
+    const state = evaluatePrerequisiteState(feature, features, environment);
+    if (["on", "conditional"].includes(state)) {
+      newFeatures.push(feature);
+    }
+  }
+  return newFeatures;
 };

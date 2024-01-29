@@ -162,6 +162,26 @@ function getConditionParts({
     if (renderPrerequisite) {
       if (field === "value") {
         fieldEl = null;
+      } else if (field.substring(0, 6) === "value.") {
+        fieldEl = (
+          <span className="mr-1 border px-2 bg-light rounded">
+            {field.substring(6)}
+          </span>
+        );
+      } else {
+        fieldEl = (
+          <Tooltip
+            className="mr-1 border px-2 alert-danger rounded text-danger"
+            body={
+              <>
+                Prerequisite targeting conditions must reference{" "}
+                <code>value</code> as the root element
+              </>
+            }
+          >
+            {field}
+          </Tooltip>
+        );
       }
       if (parentId) {
         parentIdEl = (
