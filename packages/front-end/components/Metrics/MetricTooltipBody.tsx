@@ -139,7 +139,7 @@ const MetricTooltipBody = ({
     return (
       <div>
         <h4>
-          <MetricName id={metric.id} />
+          <MetricName id={metric.id} showOfficialLabel disableTooltip />
         </h4>
         <table className="table table-sm table-bordered text-left mb-0">
           <tbody>
