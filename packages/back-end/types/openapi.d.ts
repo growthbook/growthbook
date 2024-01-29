@@ -3766,7 +3766,7 @@ export interface operations {
             /** @description Controls the conversion window for the metric */
             windowSettings?: {
               /** @enum {string} */
-              type: "none" | "conversion";
+              type: "none" | "conversion" | "lookback";
               /** @description Wait this many hours after experiment exposure before counting conversions */
               delayHours: number;
               windowValue?: number;
@@ -4085,7 +4085,7 @@ export interface operations {
             /** @description Controls the conversion window for the metric */
             windowSettings?: {
               /** @enum {string} */
-              type: "none" | "conversion";
+              type: "none" | "conversion" | "lookback";
               /** @description Wait this many hours after experiment exposure before counting conversions */
               delayHours: number;
               windowValue?: number;

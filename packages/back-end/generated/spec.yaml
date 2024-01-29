@@ -1483,6 +1483,7 @@ paths:
                           enum:
                             - none
                             - conversion
+                            - lookback
                         delayHours:
                           type: number
                           description: Wait this many hours after experiment exposure before counting conversions
@@ -1752,6 +1753,7 @@ paths:
                           enum:
                             - none
                             - conversion
+                            - lookback
                         delayHours:
                           type: number
                           description: Wait this many hours after experiment exposure before counting conversions
