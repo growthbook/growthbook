@@ -150,7 +150,7 @@ export async function postWatchItem(
   }
 
   if (type === "feature") {
-    item = await getFeature(org.id, id);
+    item = await getFeature(context, id);
   } else if (type === "experiment") {
     item = await getExperimentById(context, id);
     if (item && item.organization !== org.id) {

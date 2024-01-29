@@ -10,8 +10,14 @@ import {
   Variation,
 } from "../../types/experiment";
 import { SegmentInterface } from "../../types/segment";
-import { Dimension } from "../../src/types/Integration";
+import {
+  Dimension,
+  ExperimentFactMetricsQueryParams,
+  ExperimentMetricQueryParams,
+  ExperimentUnitsQueryParams,
+} from "../../src/types/Integration";
 import { MetricInterface, MetricType } from "../../types/metric";
+import { getFactMetricGroup } from "../../src/queryRunners/ExperimentResultsQueryRunner";
 import { getSourceIntegrationObject } from "../../src/services/datasource";
 import { getSnapshotSettings } from "../../src/services/experiments";
 import { expandDenominatorMetrics } from "../../src/util/sql";
@@ -302,11 +308,28 @@ const factTables: FactTableInterface[] = (factTableConfigData as FactTableConfig
 );
 
 // BUILD METRIC MAPS
-const metricMap = new Map<string, MetricInterface>();
-analysisMetrics.forEach((m) => metricMap.set(m.id, m));
-allActivationMetrics.forEach((m) => metricMap.set(m.id, m));
+const baseMetricMap = new Map<string, MetricInterface>();
+analysisMetrics.forEach((m) => baseMetricMap.set(m.id, m));
+allActivationMetrics.forEach((m) => baseMetricMap.set(m.id, m));
 
-const factMetricMap = new Map(analysisFactMetrics.map((m) => [m.id, m]));
+const allMetricMap: Map<string, ExperimentMetricInterface> = new Map(
+  [
+    ...analysisMetrics,
+    ...allActivationMetrics,
+    ...analysisFactMetrics,
+  ].map((m) => [m.id, m])
+);
+
+const metricRegressionAdjustmentStatuses = [
+  ...analysisMetrics,
+  ...analysisFactMetrics,
+].map((m) => ({
+  metric: m.id,
+  reason: "",
+  regressionAdjustmentAvailable: true,
+  regressionAdjustmentEnabled: m.regressionAdjustmentEnabled ?? false,
+  regressionAdjustmentDays: m.regressionAdjustmentDays ?? 0,
+}));
 
 // IMPORT AND BUILD TEST EXPERIMENTS
 import experimentConfigData from "./json/experiments.json";
@@ -393,9 +416,18 @@ const engines: DataSourceType[] = [
 const testCases: { name: string; engine: string; sql: string }[] = [];
 
 engines.forEach((engine) => {
-  // TODO: get integration object
   const engineInterface = buildInterface(engine);
   const integration = getSourceIntegrationObject(engineInterface);
+  const pipelineEnabled = integration.getSourceProperties()
+    .supportsWritingTables;
+
+  const factTablesCopy = cloneDeep<FactTableInterface[]>(factTables);
+  if (engine === "bigquery") {
+    factTablesCopy.forEach(
+      (ft) => (ft.sql = ft.sql?.replace("FROM ", "FROM sample."))
+    );
+  }
+  const factTableMap = new Map(factTablesCopy.map((f) => [f.id, f]));
 
   experimentConfigs.forEach((experimentConfig) => {
     const experiment: ExperimentInterface = {
@@ -406,96 +438,158 @@ engines.forEach((engine) => {
       ...analysisMetrics,
       ...analysisFactMetrics,
     ];
+
+    let activationMetric: MetricInterface | null = null;
+    if (experiment.activationMetric) {
+      activationMetric =
+        allActivationMetrics.find(
+          (m) => m.id === experiment.activationMetric
+        ) ?? null;
+      if (engine === "bigquery" && activationMetric) {
+        activationMetric = addDatabaseToMetric(activationMetric);
+      }
+    }
+
+    const dimension: Dimension | null = buildDimension(
+      experimentConfig,
+      engine
+    );
+    const segment: SegmentInterface | null = buildSegment(
+      experimentConfig,
+      engine
+    );
+
+    let dimensionId = "";
+    if (dimension) {
+      if (dimension.type === "experiment") {
+        dimensionId = "exp:" + dimension.id;
+      } else if (dimension.type === "activation") {
+        dimensionId = "pre:activation";
+      } else if (dimension.type === "date") {
+        dimensionId = "pre:date";
+      } else if (dimension.type === "datecumulative") {
+        dimensionId = "pre:datecumulative";
+      } else if (dimension.type === "datedaily") {
+        dimensionId = "pre:datedaily";
+      } else {
+        dimensionId = dimension.dimension.id;
+      }
+    }
+
+    // Cribbed from getFactMetricGroups
+    // create groups from fact metrics to run alongside individual queries
+    const groups: Record<string, FactMetricInterface[]> = {};
+    analysisFactMetrics.forEach((m) => {
+      // Skip grouping metrics with percentile caps if there's not an efficient implementation
+      if (
+        m.capping === "percentile" &&
+        !integration.getSourceProperties().hasEfficientPercentiles
+      ) {
+        return;
+      }
+
+      const group = getFactMetricGroup(m);
+      if (group) {
+        groups[group] = groups[group] || [];
+        groups[group].push(m);
+      }
+    });
+
+    const snapshotSettings = getSnapshotSettings({
+      experiment,
+      phaseIndex: 0,
+      settings: {
+        dimensions: dimensionId ? [dimensionId] : [],
+        differenceType: "relative",
+        statsEngine: "frequentist",
+        pValueCorrection: null,
+        regressionAdjusted: true,
+        sequentialTesting: false,
+        sequentialTestingTuningParameter: 0,
+      },
+      metricRegressionAdjustmentStatuses: metricRegressionAdjustmentStatuses,
+      metricMap: allMetricMap,
+    });
+
+    const unitsQueryParams: ExperimentUnitsQueryParams = {
+      settings: snapshotSettings,
+      activationMetric: activationMetric,
+      factTableMap: factTableMap,
+      dimensions: dimension ? [dimension] : [],
+      segment: segment,
+      unitsTableFullName: `${
+        engine === "bigquery" ? "sample." : ""
+      }growthbook_tmp_units_${experiment.id}`,
+      includeIdJoins: true,
+    };
+
+    // RUN FACT METRICS GROUPED
+    Object.entries(groups).forEach(([groupName, group]) => {
+      const queryParams: ExperimentFactMetricsQueryParams = {
+        activationMetric,
+        dimensions: dimension ? [dimension] : [],
+        metrics: group,
+        segment: segment,
+        settings: snapshotSettings,
+        useUnitsTable: false,
+        unitsTableFullName: "",
+        factTableMap: factTableMap,
+      };
+
+      if (integration.getExperimentFactMetricsQuery) {
+        const sql = integration.getExperimentFactMetricsQuery(queryParams);
+
+        testCases.push({
+          name: `${engine} > ${experiment.id} > ${groupName}`,
+          engine: engine,
+          sql: sql,
+        });
+
+        if (pipelineEnabled) {
+          const unitsQueryFullName = `${unitsQueryParams.unitsTableFullName}_${groupName}`;
+          const sql = integration.getExperimentFactMetricsQuery({
+            ...queryParams,
+            useUnitsTable: true,
+            unitsTableFullName: unitsQueryFullName,
+          });
+          const unitsSql = integration.getExperimentUnitsTableQuery({
+            ...unitsQueryParams,
+            unitsTableFullName: unitsQueryFullName,
+          });
+
+          testCases.push({
+            name: `${engine} > ${experiment.id}_pipeline > ${groupName}`,
+            engine: engine,
+            sql: unitsSql.concat(sql),
+          });
+        }
+      }
+    });
+
+    // RUN FACT AND NON-FACT METRICS AS SINGLES
     jointMetrics.forEach((metric) => {
       experiment.metrics = [metric.id];
       // if override in experiment config, have to set it to the right id
       let denominatorMetrics: MetricInterface[] = [];
-      let activationMetric: MetricInterface | null = null;
-      if (experiment.activationMetric) {
-        activationMetric =
-          allActivationMetrics.find(
-            (m) => m.id === experiment.activationMetric
-          ) ?? null;
-      }
+
       if (experiment.metricOverrides) {
         experiment.metricOverrides[0].id = metric.id;
       }
       if (!isFactMetric(metric) && metric.denominator) {
         denominatorMetrics.push(
-          ...expandDenominatorMetrics(metric.denominator, metricMap)
-            .map((m) => metricMap.get(m) as MetricInterface)
+          ...expandDenominatorMetrics(metric.denominator, baseMetricMap)
+            .map((m) => baseMetricMap.get(m) as MetricInterface)
             .filter(Boolean)
         );
       }
 
-      const factTablesCopy = cloneDeep<FactTableInterface[]>(factTables);
-      if (engine === "bigquery") {
-        if (activationMetric) {
-          activationMetric = addDatabaseToMetric(activationMetric);
-        }
+      if (!isFactMetric(metric) && engine === "bigquery") {
+        metric = addDatabaseToMetric(metric);
         denominatorMetrics = denominatorMetrics.map(addDatabaseToMetric);
-        if (isFactMetric(metric)) {
-          factTablesCopy.forEach(
-            (ft) => (ft.sql = ft.sql?.replace("FROM ", "FROM sample."))
-          );
-        } else {
-          metric = addDatabaseToMetric(metric);
-        }
       }
-      const factTableMap = new Map(factTablesCopy.map((f) => [f.id, f]));
-
-      const dimension: Dimension | null = buildDimension(
-        experimentConfig,
-        engine
-      );
-      const segment: SegmentInterface | null = buildSegment(
-        experimentConfig,
-        engine
-      );
-
-      let dimensionId = "";
-      if (dimension) {
-        if (dimension.type === "experiment") {
-          dimensionId = "exp:" + dimension.id;
-        } else if (dimension.type === "activation") {
-          dimensionId = "pre:activation";
-        } else if (dimension.type === "date") {
-          dimensionId = "pre:date";
-        } else if (dimension.type === "datecumulative") {
-          dimensionId = "pre:datecumulative";
-        } else if (dimension.type === "datedaily") {
-          dimensionId = "pre:datedaily";
-        } else {
-          dimensionId = dimension.dimension.id;
-        }
-      }
-
-      const snapshotSettings = getSnapshotSettings({
-        experiment,
-        phaseIndex: 0,
-        settings: {
-          dimensions: dimensionId ? [dimensionId] : [],
-          differenceType: "relative",
-          statsEngine: "frequentist",
-          pValueCorrection: null,
-          regressionAdjusted: metric.regressionAdjustmentEnabled ?? false,
-          sequentialTesting: false,
-          sequentialTestingTuningParameter: 0,
-        },
-        metricRegressionAdjustmentStatuses: [
-          {
-            metric: metric.id,
-            reason: "",
-            regressionAdjustmentEnabled:
-              metric.regressionAdjustmentEnabled ?? false,
-            regressionAdjustmentDays: metric.regressionAdjustmentDays ?? 0,
-          },
-        ],
-        metricMap: isFactMetric(metric) ? factMetricMap : metricMap,
-      });
 
       // non-pipeline version
-      const sql = integration.getExperimentMetricQuery({
+      const queryParams: ExperimentMetricQueryParams = {
         settings: snapshotSettings,
         metric: metric,
         activationMetric: activationMetric,
@@ -504,8 +598,8 @@ engines.forEach((engine) => {
         dimensions: dimension ? [dimension] : [],
         segment: segment,
         useUnitsTable: false,
-      });
-
+      };
+      const sql = integration.getExperimentMetricQuery(queryParams);
       testCases.push({
         name: `${engine} > ${experiment.id} > ${metric.id}`,
         engine: engine,
@@ -513,37 +607,23 @@ engines.forEach((engine) => {
       });
 
       // pipeline version
-      const pipelineEnabled = ["bigquery", "snowflake"];
-      if (pipelineEnabled.includes(engine)) {
-        const unitsTableFullName = `${
-          engine === "bigquery" ? "sample." : ""
-        }growthbook_tmp_units_${experiment.id}_${metric.id}`;
+      if (pipelineEnabled) {
+        const unitsQueryFullName = `${unitsQueryParams.unitsTableFullName}_${metric.id}`;
         const unitsSql = integration.getExperimentUnitsTableQuery({
-          settings: snapshotSettings,
-          activationMetric: activationMetric,
-          factTableMap: factTableMap,
-          dimensions: dimension ? [dimension] : [],
-          segment: segment,
-          unitsTableFullName: unitsTableFullName,
-          includeIdJoins: true,
-        });
-        const metricSql = integration.getExperimentMetricQuery({
-          settings: snapshotSettings,
-          metric: metric,
-          activationMetric: activationMetric,
-          denominatorMetrics: denominatorMetrics,
-          factTableMap: factTableMap,
-          dimensions: dimension ? [dimension] : [],
-          segment: segment,
-          useUnitsTable: true,
-          unitsTableFullName: unitsTableFullName,
+          ...unitsQueryParams,
+          unitsTableFullName: unitsQueryFullName,
         });
 
+        const sql = integration.getExperimentMetricQuery({
+          ...queryParams,
+          useUnitsTable: true,
+          unitsTableFullName: unitsQueryFullName,
+        });
         // just prepend units table creation (rather than queueing jobs)
         testCases.push({
           name: `${engine} > ${experiment.id}_pipeline > ${metric.id}`,
           engine: engine,
-          sql: unitsSql.concat(metricSql),
+          sql: unitsSql.concat(sql),
         });
       }
     });

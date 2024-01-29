@@ -5,6 +5,7 @@ import { getFeatureDefinitions } from "../services/features";
 import { CRON_ENABLED, IS_CLOUD } from "../util/secrets";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import {
+  clearProxyError,
   findSDKConnectionById,
   findSDKConnectionsByOrganization,
   setProxyError,
@@ -73,7 +74,7 @@ export default function addProxyUpdateJob(ag: Agenda) {
 
     const url = useCloudProxy
       ? `https://proxy.growthbook.io/proxy/features`
-      : `${connection.proxy.host}/proxy/features`;
+      : `${connection.proxy.host.replace(/\/$/, "")}/proxy/features`;
 
     const res = await fireProxyWebhook({
       url,
@@ -88,7 +89,7 @@ export default function addProxyUpdateJob(ag: Agenda) {
       throw new Error(e);
     }
 
-    await setProxyError(connection, "");
+    await clearProxyError(connection);
   });
   agenda.on(
     "fail:" + PROXY_UPDATE_JOB_NAME,

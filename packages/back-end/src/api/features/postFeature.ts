@@ -66,7 +66,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
   async (req): Promise<PostFeatureResponse> => {
     req.checkPermissions("manageFeatures", req.body.project);
 
-    const existing = await getFeature(req.organization.id, req.body.id);
+    const existing = await getFeature(req.context, req.body.id);
     if (existing) {
       throw new Error(`Feature id '${req.body.id}' already exists.`);
     }

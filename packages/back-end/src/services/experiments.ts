@@ -1908,20 +1908,20 @@ export function visualChangesetsHaveChanges({
 }
 
 export async function getLinkedFeatureInfo(
-  org: OrganizationInterface,
+  context: ReqContext,
   experiment: ExperimentInterface
 ) {
   const linkedFeatures = experiment.linkedFeatures || [];
   if (!linkedFeatures.length) return [];
 
-  const features = await getFeaturesByIds(org.id, linkedFeatures);
+  const features = await getFeaturesByIds(context, linkedFeatures);
 
   const revisionsByFeatureId = await getFeatureRevisionsByFeatureIds(
-    org.id,
+    context.org.id,
     linkedFeatures
   );
 
-  const environments = getEnvironmentIdsFromOrg(org);
+  const environments = getEnvironmentIdsFromOrg(context.org);
 
   const filter = (rule: FeatureRule) =>
     rule.type === "experiment-ref" && rule.experimentId === experiment.id;
