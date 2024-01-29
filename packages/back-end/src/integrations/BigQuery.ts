@@ -71,6 +71,7 @@ export default class BigQuery extends SqlIntegration {
     const client = this.getClient();
 
     labels.set("integration", "growthbook");
+    labels.set("sql_integration", "bigquery");
     const [job] = await client.createQueryJob({
       labels: Object.fromEntries(labels),
       query: sql,
