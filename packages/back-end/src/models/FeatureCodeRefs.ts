@@ -15,6 +15,7 @@ const featureCodeRefsSchema = new mongoose.Schema({
     enum: ["github", "gitlab", "bitbucket"],
     default: "github",
   },
+  // TODO rename to refs
   codeRefs: [
     {
       filePath: String,
@@ -42,6 +43,7 @@ function toInterface(doc: FeatureCodeRefsDocument): FeatureCodeRefsInterface {
   return omit(ret, ["__v", "_id"]);
 }
 
+// TODO add org to query
 export const upsertFeatureCodeRefs = async ({
   feature,
   repo,
@@ -87,6 +89,7 @@ export const upsertFeatureCodeRefs = async ({
   }).then((docs) => docs.map(toInterface));
 };
 
+// TODO add org to query
 export const getAllFeatureCodeRefs = async ({
   repo,
   branch,
@@ -103,5 +106,19 @@ export const getAllFeatureCodeRefs = async ({
   return await FeatureCodeRefsModel.find({
     repo,
     branch,
+  }).then((docs) => docs.map(toInterface));
+};
+
+export const getCodeRefsForFeature = async ({
+  feature,
+}: {
+  feature: string;
+}): Promise<FeatureCodeRefsInterface[]> => {
+  if (!feature) {
+    throw new Error("Missing required parameters");
+  }
+
+  return await FeatureCodeRefsModel.find({
+    feature,
   }).then((docs) => docs.map(toInterface));
 };

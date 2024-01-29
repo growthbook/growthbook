@@ -1,4 +1,5 @@
 import { useRouter } from "next/router";
+import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import React, { useEffect, useMemo, useState } from "react";
@@ -11,6 +12,7 @@ import {
   FaList,
   FaLock,
   FaTimes,
+  FaGithub,
 } from "react-icons/fa";
 import { ago, date, datetime } from "shared/dates";
 import {
@@ -135,6 +137,7 @@ export default function FeaturePage() {
     feature: FeatureInterface;
     revisions: FeatureRevisionInterface[];
     experiments: ExperimentInterfaceStringDates[];
+    codeRefs: FeatureCodeRefsInterface[];
   }>(`/feature/${fid}${extraQueryString}`);
   const firstFeature = router?.query && "first" in router.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
@@ -298,6 +301,8 @@ export default function FeaturePage() {
   );
 
   const { stale, reason } = isFeatureStale(feature, data.experiments);
+
+  const codeRefs = data.codeRefs;
 
   return (
     <div className="contents container-fluid pagecontents">
@@ -769,6 +774,28 @@ export default function FeaturePage() {
             </div>
           ))}
         </div>
+      </div>
+
+      <h3>Code References</h3>
+      <div className="mb-1">
+        Find references to this feature flag in your code.
+      </div>
+      <div className="appbox mb-4 p-3">
+        {codeRefs.map((codeRef, i) => (
+          <div
+            key={i}
+            className="row mx-1 d-flex align-items-center"
+            style={{}}
+          >
+            <FaGithub />
+            <div className="mx-2">{codeRef.repo} </div>
+            <div className="mr-2">•</div>
+            <div>
+              {codeRef.codeRefs.length} reference(s) found in{" "}
+              <code>{codeRef.branch}</code> branch.
+            </div>
+          </div>
+        ))}
       </div>
 
       {feature.valueType === "json" && (
