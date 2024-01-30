@@ -12,6 +12,7 @@ import {
 } from "@growthbook/growthbook";
 import {
   evaluatePrerequisiteState,
+  getDefaultPrerequisiteCondition,
   validateCondition,
   validateFeatureValue,
 } from "shared/util";
@@ -35,6 +36,7 @@ import {
   RolloutRule,
   FeatureTestResult,
   ExperimentRefRule,
+  FeaturePrerequisite,
 } from "../../types/feature";
 import { getAllFeatures } from "../models/FeatureModel";
 import {
@@ -73,7 +75,7 @@ import { getEnvironmentIdsFromOrg, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
 
-function generatePayload({
+function generateFeaturesPayload({
   features,
   experimentMap,
   environment,
@@ -85,10 +87,7 @@ function generatePayload({
   groupMap: GroupMap;
 }): Record<string, FeatureDefinition> {
   const defs: Record<string, FeatureDefinition> = {};
-  const newFeatures = removeFeaturesBlockedByPrerequisites(
-    features,
-    environment
-  );
+  const newFeatures = reduceFeaturesWithPrerequisites(features, environment);
   newFeatures.forEach((feature) => {
     const def = getFeatureDefinition({
       feature,
@@ -111,11 +110,9 @@ export type VisualExperiment = {
 
 function generateVisualExperimentsPayload({
   visualExperiments,
-  // environment,
   groupMap,
 }: {
   visualExperiments: Array<VisualExperiment>;
-  // environment: string,
   groupMap: GroupMap;
 }): AutoExperimentWithProject[] {
   const isValidSDKExperiment = (
@@ -284,7 +281,7 @@ export async function refreshSDKPayloadCache(
 
   const promises: (() => Promise<void>)[] = [];
   for (const env of environments) {
-    const featureDefinitions = generatePayload({
+    const featureDefinitions = generateFeaturesPayload({
       features: allFeatures,
       environment: env,
       groupMap,
@@ -293,7 +290,6 @@ export async function refreshSDKPayloadCache(
 
     const experimentsDefinitions = generateVisualExperimentsPayload({
       visualExperiments: allVisualExperiments,
-      // environment: key.environment,
       groupMap,
     });
 
@@ -546,7 +542,7 @@ export async function getFeatureDefinitions({
   const groupMap = await getSavedGroupMap(org);
   const experimentMap = await getAllPayloadExperiments(organization);
 
-  const featureDefinitions = generatePayload({
+  const featureDefinitions = generateFeaturesPayload({
     features,
     environment,
     groupMap,
@@ -1092,11 +1088,13 @@ export const updateInterfaceEnvSettingsFromApiEnvSettings = (
 };
 
 // Only keep features that are "on" or "conditional". For "on" features, remove any top level prerequisites
-export const removeFeaturesBlockedByPrerequisites = (
+export const reduceFeaturesWithPrerequisites = (
   features: FeatureInterface[],
   environment: string
 ): FeatureInterface[] => {
   const newFeatures: FeatureInterface[] = [];
+
+  // block "always off" features
   for (const feature of features) {
     const newFeature = cloneDeep(feature);
     const state = evaluatePrerequisiteState(newFeature, features, environment);
@@ -1108,5 +1106,50 @@ export const removeFeaturesBlockedByPrerequisites = (
       newFeatures.push(feature);
     }
   }
+
+  // block "always off" rules
+  for (let i = 0; i < newFeatures.length; i++) {
+    const feature = newFeatures[i];
+    const newFeatureRules: FeatureRule[] = [];
+    for (
+      let i = 0;
+      i < feature.environmentSettings[environment].rules.length;
+      i++
+    ) {
+      const rule = feature.environmentSettings[environment].rules[i];
+      let ruleOk = true;
+      const newPrerequisites: FeaturePrerequisite[] = [];
+      for (const pc of rule.prerequisites || []) {
+        const prereqFeature = features.find((f) => f.id === pc.id);
+        const state = prereqFeature
+          ? evaluatePrerequisiteState(prereqFeature, features, environment)
+          : "off";
+        if (!["on", "conditional"].includes(state)) {
+          // prereq is "always off", remove this rule
+          ruleOk = false;
+          continue;
+        }
+        if (pc.condition !== getDefaultPrerequisiteCondition(prereqFeature)) {
+          // prereq targeting condition is non-standard, remove this rule
+          ruleOk = false;
+          continue;
+        }
+        if (
+          state === "on" &&
+          pc.condition === getDefaultPrerequisiteCondition(prereqFeature)
+        ) {
+          // prereq is "always on" and has default targeting condition, remove this prerequisite because it will evaluate to true
+          continue;
+        }
+        newPrerequisites.push(pc);
+      }
+      rule.prerequisites = newPrerequisites;
+      if (ruleOk) {
+        newFeatureRules.push(rule);
+      }
+    }
+    newFeatures[i].environmentSettings[environment].rules = newFeatureRules;
+  }
+
   return newFeatures;
 };

@@ -19,11 +19,16 @@ import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
 import { getEqualWeights } from "@/services/utils";
-import {generateVariationId, useAttributeSchema, useEnvironments} from "@/services/features";
+import {
+  generateVariationId,
+  useAttributeSchema,
+  useEnvironments,
+} from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
+import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import TagsInput from "../Tags/TagsInput";
 import Page from "../Modal/Page";
@@ -37,7 +42,6 @@ import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "../Features/SavedGroupTargetingField";
 import MetricsSelector, { MetricsSelectorTooltip } from "./MetricsSelector";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -136,6 +140,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const environments = useEnvironments();
   const envs = environments.map((e) => e.id);
+
+  const [
+    prerequisiteTargetingSdkIssues,
+    setPrerequisiteTargetingSdkIssues,
+  ] = useState(false);
 
   const settings = useOrgSettings();
   const { refreshWatching } = useWatching();
@@ -250,6 +259,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         form.setValue("phases.0.condition", condition);
         forceConditionRender();
       });
+
+      if (prerequisiteTargetingSdkIssues) {
+        throw new Error("Prerequisite targeting issues must be resolved");
+      }
     }
 
     const body = JSON.stringify(data);
@@ -428,14 +441,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
           {isNewExperiment && (
             <>
-              <div className="d-flex" style={{gap: "2rem"}}>
+              <div className="d-flex" style={{ gap: "2rem" }}>
                 <SelectField
                   containerClassName="flex-1"
                   label="Assign variation based on attribute"
                   labelClassName="font-weight-bold"
                   options={attributeSchema
                     .filter((s) => !hasHashAttributes || s.hashAttribute)
-                    .map((s) => ({label: s.property, value: s.property}))}
+                    .map((s) => ({ label: s.property, value: s.property }))}
                   sort={false}
                   value={form.watch("hashAttribute") || ""}
                   onChange={(v) => {
@@ -445,7 +458,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     "Will be hashed together with the Experiment Id (tracking key) to determine which variation to assign"
                   }
                 />
-                <FallbackAttributeSelector form={form}/>
+                <FallbackAttributeSelector form={form} />
               </div>
 
               <hr />
@@ -468,6 +481,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   form.setValue("phases.0.prerequisites", prerequisites)
                 }
                 environments={envs}
+                setPrerequisiteTargetingSdkIssues={
+                  setPrerequisiteTargetingSdkIssues
+                }
               />
               <hr />
               <NamespaceSelector

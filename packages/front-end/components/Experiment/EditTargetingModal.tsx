@@ -12,7 +12,7 @@ import { MdInfoOutline } from "react-icons/md";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import { getEqualWeights } from "@/services/utils";
-import {useAttributeSchema, useEnvironments} from "@/services/features";
+import { useAttributeSchema, useEnvironments } from "@/services/features";
 import ReleaseChangesForm from "@/components/Experiment/ReleaseChangesForm";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
@@ -21,6 +21,7 @@ import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSe
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
@@ -31,7 +32,6 @@ import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "../Features/SavedGroupTargetingField";
 import HashVersionSelector from "./HashVersionSelector";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 
 export type ChangeType =
   | "targeting"
@@ -69,6 +69,11 @@ export default function EditTargetingModal({
   const [changeType, setChangeType] = useState<ChangeType | undefined>();
   const [releasePlan, setReleasePlan] = useState<ReleasePlan | undefined>();
   const [changesConfirmed, setChangesConfirmed] = useState(false);
+
+  const [
+    prerequisiteTargetingSdkIssues,
+    setPrerequisiteTargetingSdkIssues,
+  ] = useState(false);
 
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
@@ -143,6 +148,10 @@ export default function EditTargetingModal({
       forceConditionRender();
     });
 
+    if (prerequisiteTargetingSdkIssues) {
+      throw new Error("Prerequisite targeting issues must be resolved");
+    }
+
     await apiCall(`/experiment/${experiment.id}/targeting`, {
       method: "POST",
       body: JSON.stringify(value),
@@ -165,6 +174,7 @@ export default function EditTargetingModal({
           form={form}
           safeToEdit={true}
           conditionKey={conditionKey}
+          setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
         />
       </Modal>
     );
@@ -269,6 +279,9 @@ export default function EditTargetingModal({
               safeToEdit={false}
               changeType={changeType}
               conditionKey={conditionKey}
+              setPrerequisiteTargetingSdkIssues={
+                setPrerequisiteTargetingSdkIssues
+              }
             />
           </div>
         </Page>
@@ -360,12 +373,14 @@ function TargetingForm({
   safeToEdit,
   changeType = "advanced",
   conditionKey,
+  setPrerequisiteTargetingSdkIssues,
 }: {
   experiment: ExperimentInterfaceStringDates;
   form: UseFormReturn<ExperimentTargetingData>;
   safeToEdit: boolean;
   changeType?: ChangeType;
   conditionKey: number;
+  setPrerequisiteTargetingSdkIssues: (v: boolean) => void;
 }) {
   const hasLinkedChanges =
     !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
@@ -433,9 +448,7 @@ function TargetingForm({
         </>
       )}
 
-      {(!hasLinkedChanges || safeToEdit) && (
-        <hr className="my-4"/>
-      )}
+      {(!hasLinkedChanges || safeToEdit) && <hr className="my-4" />}
       {!hasLinkedChanges && (
         <>
           <div className="alert alert-info">
@@ -452,36 +465,35 @@ function TargetingForm({
             value={form.watch("savedGroups") || []}
             setValue={(v) => form.setValue("savedGroups", v)}
           />
-          <hr/>
+          <hr />
           <ConditionInput
             defaultValue={form.watch("condition")}
             onChange={(condition) => form.setValue("condition", condition)}
             key={conditionKey}
           />
-          <hr/>
+          <hr />
           <PrerequisiteTargetingField
             value={form.watch("prerequisites") || []}
             setValue={(prerequisites) =>
               form.setValue("prerequisites", prerequisites)
             }
             environments={envs}
+            setPrerequisiteTargetingSdkIssues={
+              setPrerequisiteTargetingSdkIssues
+            }
           />
-          {["advanced"].includes(changeType) && (
-            <hr />
-          )}
+          {["advanced"].includes(changeType) && <hr />}
         </>
       )}
 
       {["namespace", "advanced"].includes(changeType) && (
         <>
-        <NamespaceSelector
-          form={form}
-          featureId={experiment.trackingKey}
-          trackingKey={experiment.trackingKey}
-        />
-          {["advanced"].includes(changeType) && (
-            <hr />
-          )}
+          <NamespaceSelector
+            form={form}
+            featureId={experiment.trackingKey}
+            trackingKey={experiment.trackingKey}
+          />
+          {["advanced"].includes(changeType) && <hr />}
         </>
       )}
 

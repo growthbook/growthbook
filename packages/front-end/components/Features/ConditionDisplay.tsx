@@ -43,9 +43,9 @@ function operatorToText(operator: string): string {
     case "$vgte":
       return `is greater than or equal to`;
     case "$exists":
-      return `exists`;
+      return `is not NULL`;
     case "$notExists":
-      return `does not exist`;
+      return `is NULL`;
     case "$in":
       return `is in the list`;
     case "$nin":

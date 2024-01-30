@@ -158,11 +158,13 @@ export default function PrerequisiteInput(props: Props) {
             ? [
                 { label: "is true", value: "$true" },
                 { label: "is false", value: "$false" },
-                { label: "exists", value: "$exists" },
-                { label: "does not exist", value: "$notExists" },
+                { label: "is not NULL", value: "$exists" },
+                { label: "is NULL", value: "$notExists" },
               ]
             : attribute.datatype === "string"
             ? [
+                { label: "is not NULL", value: "$exists" },
+                { label: "is NULL", value: "$notExists" },
                 { label: "is equal to", value: "$eq" },
                 { label: "is not equal to", value: "$ne" },
                 { label: "matches regex", value: "$regex" },
@@ -173,11 +175,11 @@ export default function PrerequisiteInput(props: Props) {
                 { label: "is less than or equal to", value: "$lte" },
                 { label: "is in the list", value: "$in" },
                 { label: "is not in the list", value: "$nin" },
-                { label: "exists", value: "$exists" },
-                { label: "does not exist", value: "$notExists" },
               ]
             : attribute.datatype === "number"
             ? [
+                { label: "is not NULL", value: "$exists" },
+                { label: "is NULL", value: "$notExists" },
                 { label: "is equal to", value: "$eq" },
                 { label: "is not equal to", value: "$ne" },
                 { label: "is greater than", value: "$gt" },
@@ -186,13 +188,11 @@ export default function PrerequisiteInput(props: Props) {
                 { label: "is less than or equal to", value: "$lte" },
                 { label: "is in the list", value: "$in" },
                 { label: "is not in the list", value: "$nin" },
-                { label: "exists", value: "$exists" },
-                { label: "does not exist", value: "$notExists" },
               ]
             : attribute.datatype === "json"
             ? [
-                { label: "exists", value: "$exists" },
-                { label: "does not exist", value: "$notExists" },
+                { label: "is not NULL", value: "$exists" },
+                { label: "is NULL", value: "$notExists" },
               ]
             : [];
 
@@ -217,6 +217,26 @@ export default function PrerequisiteInput(props: Props) {
                   sort={false}
                   onChange={(v) => {
                     handleCondsChange(v, "operator");
+                  }}
+                  formatOptionLabel={({ value, label }) => {
+                    const def =
+                      parentFeatureValueType === "boolean"
+                        ? "$true"
+                        : "$exists";
+                    if (value === def) {
+                      return (
+                        <>
+                          {label}
+                          <span
+                            className="badge badge-muted-info badge-pill ml-2 position-relative"
+                            style={{ zIndex: 1, fontSize: "10px" }}
+                          >
+                            default
+                          </span>
+                        </>
+                      );
+                    }
+                    return label;
                   }}
                 />
               </div>

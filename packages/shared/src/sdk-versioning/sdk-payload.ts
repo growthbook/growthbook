@@ -51,7 +51,10 @@ export const scrubFeatures = (
   }
 
   // Remove features that have any gating parentConditions & any rules that have parentConditions
-  // "always off" features are already removed irrespective of capabilities.
+  // Note:
+  //   - "always off" features are already removed irrespective of capabilities.
+  //   - inline "always on" prerequisites are removed; inline "always off" prerequisites have their rule removed.
+  //   see: reduceFeaturesWithPrerequisites()
   if (!capabilities.includes("prerequisites")) {
     for (const k in features) {
       // delete feature
@@ -64,12 +67,9 @@ export const scrubFeatures = (
         continue;
       }
       // delete rules
-      features[k].rules = features[k].rules?.map((rule) => {
-        rule = {
-          ...pick(rule, allowedFeatureRuleKeys),
-        };
-        return rule;
-      });
+      features[k].rules = features[k].rules?.filter(
+        (rule) => (rule.parentConditions?.length ?? 0) > 0
+      );
     }
   }
 
@@ -105,7 +105,7 @@ export const scrubExperiments = (
     const newExperiments: AutoExperimentWithProject[] = [];
     // Keep experiments that do not have any parentConditions
     for (const experiment of experiments) {
-      if (!("parentConditions" in experiment)) {
+      if ((experiment.parentConditions?.length ?? 0) === 0) {
         newExperiments.push(experiment);
       }
     }

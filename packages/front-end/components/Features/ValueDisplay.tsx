@@ -1,5 +1,5 @@
 import { FeatureValueType } from "back-end/types/feature";
-import {CSSProperties, useMemo} from "react";
+import { CSSProperties, useMemo } from "react";
 import stringify from "json-stringify-pretty-compact";
 import InlineCode from "../SyntaxHighlighting/InlineCode";
 
@@ -7,7 +7,7 @@ export default function ValueDisplay({
   value,
   type,
   full = true,
-  fullStyle = { maxHeight: 150, overflowY: "auto", maxWidth: "100%" }
+  fullStyle = { maxHeight: 150, overflowY: "auto", maxWidth: "100%" },
 }: {
   value: string;
   type: FeatureValueType;

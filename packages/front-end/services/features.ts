@@ -99,21 +99,6 @@ export function getFeatureDefaultValue(feature: FeatureInterface) {
 export function getPrerequisites(feature: FeatureInterface) {
   return feature.prerequisites ?? [];
 }
-export function getDefaultPrerequisiteCondition(
-  parentFeature?: FeatureInterface
-) {
-  const valueType = parentFeature?.valueType || "boolean";
-  if (valueType === "boolean") {
-    return `{"value": true}`;
-  }
-  if (valueType === "number") {
-    return `{"value": {"$gt": 0}}`;
-  }
-  if (valueType === "json") {
-    return `{"value": {"$ne": null}}`;
-  }
-  return `{"value": {"$ne": null}}`;
-}
 
 export function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;

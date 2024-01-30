@@ -1,6 +1,7 @@
 import {
   ExperimentRefVariation,
-  FeatureInterface, FeaturePrerequisite,
+  FeatureInterface,
+  FeaturePrerequisite,
   NamespaceValue,
   SavedGroupTargeting,
 } from "./feature";

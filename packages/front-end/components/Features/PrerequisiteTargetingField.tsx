@@ -1,19 +1,30 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
 import { FeatureInterface, FeaturePrerequisite } from "back-end/types/feature";
-import { FaExternalLinkAlt, FaMinusCircle, FaPlusCircle } from "react-icons/fa";
-import React, { useEffect, useMemo, useState } from "react";
-import { evaluatePrerequisiteState, PrerequisiteState } from "shared/util";
-import { BiHide, BiShow } from "react-icons/bi";
-import ValueDisplay from "@/components/Features/ValueDisplay";
 import {
+  FaExclamationTriangle,
+  FaExternalLinkAlt,
+  FaMinusCircle,
+  FaPlusCircle,
+} from "react-icons/fa";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  evaluatePrerequisiteState,
   getDefaultPrerequisiteCondition,
-  getFeatureDefaultValue,
-  useFeaturesList,
-} from "@/services/features";
+  PrerequisiteState,
+} from "shared/util";
+import { BiHide, BiShow } from "react-icons/bi";
+import {
+  getConnectionSDKCapabilities,
+  getConnectionsSDKCapabilities,
+} from "shared/dist/sdk-versioning";
+import ValueDisplay from "@/components/Features/ValueDisplay";
+import { getFeatureDefaultValue, useFeaturesList } from "@/services/features";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import { useArrayIncrementer } from "@/hooks/useIncrementer";
 import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBAddCircle } from "../Icons";
 import SelectField from "../Forms/SelectField";
 
@@ -22,6 +33,7 @@ export interface Props {
   setValue: (prerequisites: FeaturePrerequisite[]) => void;
   feature?: FeatureInterface;
   environments: string[];
+  setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
 }
 
 export default function PrerequisiteTargetingField({
@@ -29,6 +41,7 @@ export default function PrerequisiteTargetingField({
   setValue,
   feature,
   environments,
+  setPrerequisiteTargetingSdkIssues,
 }: Props) {
   const { features } = useFeaturesList();
   const featureOptions = features
@@ -37,6 +50,12 @@ export default function PrerequisiteTargetingField({
     .map((f) => ({ label: f.id, value: f.id }));
 
   const [conditionKeys, forceConditionRender] = useArrayIncrementer();
+
+  const { data: sdkConnectionsData } = useSDKConnections();
+
+  const hasSDKWithPrerequisites = getConnectionsSDKCapabilities(
+    sdkConnectionsData?.connections || []
+  ).includes("prerequisites");
 
   useEffect(() => {
     for (let i = 0; i < value.length; i++) {
@@ -59,6 +78,46 @@ export default function PrerequisiteTargetingField({
       }
     }
   }, [JSON.stringify(value)]);
+
+  const prereqStatesArr: (Record<
+    string,
+    PrerequisiteState
+  > | null)[] = useMemo(() => {
+    return value.map((v) => {
+      const parentFeature = features.find((f) => f.id === v.id);
+      if (!parentFeature) return null;
+      const states: Record<string, PrerequisiteState> = {};
+      environments.forEach((env) => {
+        states[env] = evaluatePrerequisiteState(parentFeature, features, env);
+      });
+      return states;
+    });
+  }, [value, features, environments]);
+
+  const blockedBySdkLimitations = useMemo(() => {
+    for (let i = 0; i < prereqStatesArr.length; i++) {
+      const parentFeature = features.find((f) => f.id === value[i].id);
+      const parentCondition = value[i].condition;
+      const prereqStates = prereqStatesArr[i];
+      if (!prereqStates) continue;
+      const hasConditionalState = Object.values(prereqStates).some(
+        (s) => s === "conditional"
+      );
+      const hasNonStandardTargeting =
+        parentCondition !== getDefaultPrerequisiteCondition(parentFeature);
+      if (
+        !hasSDKWithPrerequisites &&
+        (hasConditionalState || hasNonStandardTargeting)
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }, [prereqStatesArr, features, value, hasSDKWithPrerequisites]);
+
+  useEffect(() => {
+    setPrerequisiteTargetingSdkIssues(blockedBySdkLimitations);
+  }, [blockedBySdkLimitations, setPrerequisiteTargetingSdkIssues]);
 
   return (
     <div className="form-group my-4">
@@ -114,8 +173,9 @@ export default function PrerequisiteTargetingField({
 
                 <PrereqStatesRows
                   parentFeature={parentFeature}
+                  parentCondition={value[i].condition}
+                  prereqStates={prereqStatesArr[i]}
                   envs={environments}
-                  features={features}
                 />
 
                 <div className="mt-2">
@@ -187,23 +247,33 @@ export default function PrerequisiteTargetingField({
 
 function PrereqStatesRows({
   parentFeature,
+  parentCondition,
+  prereqStates,
   envs,
-  features,
 }: {
   parentFeature?: FeatureInterface;
+  parentCondition: string;
+  prereqStates: Record<string, PrerequisiteState> | null;
   envs: string[];
-  features: FeatureInterface[];
 }) {
-  const [showDetails, setShowDetails] = useState(false);
+  const { data: sdkConnectionsData } = useSDKConnections();
 
-  const prereqStates = useMemo(() => {
-    if (!parentFeature) return null;
-    const states: Record<string, PrerequisiteState> = {};
-    envs.forEach((env) => {
-      states[env] = evaluatePrerequisiteState(parentFeature, features, env);
-    });
-    return states;
-  }, [parentFeature, features, envs]);
+  const [showDetails, setShowDetails] = useState(true);
+
+  const hasConditionalState =
+    prereqStates &&
+    Object.values(prereqStates).some((s) => s === "conditional");
+
+  const hasSDKWithPrerequisites = getConnectionsSDKCapabilities(
+    sdkConnectionsData?.connections || []
+  ).includes("prerequisites");
+
+  const hasSDKWithNoPrerequisites = (sdkConnectionsData?.connections || [])
+    .map((sdk) => getConnectionSDKCapabilities(sdk))
+    .some((c) => !c.includes("prerequisites"));
+
+  const hasNonStandardTargeting =
+    parentCondition !== getDefaultPrerequisiteCondition(parentFeature);
 
   if (!parentFeature) {
     return null;
@@ -266,7 +336,7 @@ function PrereqStatesRows({
                     value={getFeatureDefaultValue(parentFeature)}
                     type={parentFeature.valueType}
                     fullStyle={{
-                      maxHeight: 120,
+                      maxHeight: 80,
                       overflowY: "auto",
                       overflowX: "auto",
                       maxWidth: "100%",
@@ -282,6 +352,65 @@ function PrereqStatesRows({
           </table>
         </div>
       )}
+
+      {hasSDKWithNoPrerequisites &&
+        (hasConditionalState || hasNonStandardTargeting) && (
+          <div
+            className={`mt-2 alert ${
+              hasSDKWithPrerequisites
+                ? "text-warning-orange py-0"
+                : "alert-danger"
+            }`}
+          >
+            <div>
+              <FaExclamationTriangle className="mr-1" />
+              {hasConditionalState && (
+                <>
+                  This prerequisite is{" "}
+                  <span className="text-purple font-weight-bold">
+                    conditionally enabled
+                  </span>{" "}
+                  {envs.length > 1
+                    ? "in one or more environments"
+                    : "in this environment"}
+                  .{" "}
+                </>
+              )}
+              {hasNonStandardTargeting && (
+                <>
+                  {hasConditionalState ? "Additionally, the" : "The"} targeting
+                  condition is non-standard, which requires conditional
+                  evaluation.{" "}
+                </>
+              )}
+              Conditional prerequisite evaluation happens in the SDK; therefore
+              a compatible SDK version is required.{" "}
+              <Tooltip
+                body={
+                  <>
+                    <div>
+                      {hasSDKWithPrerequisites
+                        ? "Some of your SDK Connections may not support prerequisite evaluation. Use at your own risk."
+                        : `None of your SDK Connections currently support prerequisite evaluation. Either upgrade your SDKs${
+                            hasNonStandardTargeting && !hasConditionalState
+                              ? ", use default targeting, "
+                              : ""
+                          } or remove this prerequisite.`}
+                    </div>
+                    <div className="mt-2">
+                      Prerequisite evaluation is only supported in the following
+                      SDKs and versions:
+                      <ul className="mb-1">
+                        <li>Javascript &gt;= 0.33.0</li>
+                        <li>React &gt;= 0.23.0</li>
+                      </ul>
+                    </div>
+                  </>
+                }
+              />
+            </div>
+          </div>
+        )}
     </>
   );
 }

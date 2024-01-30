@@ -3,6 +3,7 @@ import { FeatureInterface, FeaturePrerequisite } from "back-end/types/feature";
 import React, { useMemo } from "react";
 import {
   evaluatePrerequisiteState,
+  getDefaultPrerequisiteCondition,
   isFeatureCyclic,
   PrerequisiteState,
 } from "shared/util";
@@ -10,17 +11,21 @@ import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
 import cloneDeep from "lodash/cloneDeep";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import {
+  getConnectionSDKCapabilities,
+  getConnectionsSDKCapabilities,
+} from "shared/sdk-versioning";
+import {
   getFeatureDefaultValue,
   useEnvironments,
   useFeaturesList,
   getPrerequisites,
-  getDefaultPrerequisiteCondition,
 } from "@/services/features";
 import track from "@/services/track";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { useAuth } from "@/services/auth";
 import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import useSDKConnections from "@/hooks/useSDKConnections";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 
@@ -46,6 +51,7 @@ export default function PrerequisiteModal({
   const prerequisite = prerequisites[i] ?? null;
   const environments = useEnvironments();
   const envs = environments.map((e) => e.id);
+  const { data: sdkConnectionsData } = useSDKConnections();
 
   const defaultValues = {
     id: "",
@@ -88,8 +94,6 @@ export default function PrerequisiteModal({
     i,
   ]);
 
-  const canSubmit = !isCyclic && !!parentFeature && !!form.watch("id");
-
   const prereqStates = useMemo(() => {
     if (!parentFeature) return null;
     const states: Record<string, PrerequisiteState> = {};
@@ -98,6 +102,24 @@ export default function PrerequisiteModal({
     });
     return states;
   }, [parentFeature, features, envs]);
+
+  const hasConditionalState =
+    prereqStates &&
+    Object.values(prereqStates).some((s) => s === "conditional");
+
+  const hasSDKWithPrerequisites = getConnectionsSDKCapabilities(
+    sdkConnectionsData?.connections || []
+  ).includes("prerequisites");
+
+  const hasSDKWithNoPrerequisites = (sdkConnectionsData?.connections || [])
+    .map((sdk) => getConnectionSDKCapabilities(sdk))
+    .some((c) => !c.includes("prerequisites"));
+
+  const canSubmit =
+    !isCyclic &&
+    !!parentFeature &&
+    !!form.watch("id") &&
+    (!hasConditionalState || hasSDKWithPrerequisites);
 
   return (
     <Modal
@@ -137,12 +159,12 @@ export default function PrerequisiteModal({
         feature to be enabled.{" "}
         <Tooltip
           body={
-            <p className="mb-0">
+            <>
               Only <strong>boolean</strong> features may be used as top-level
               prerequisites. To implement prerequisites using non-boolean
               features or non-standard targeting rules, you may add prerequisite
               targeting to a feature rule.
-            </p>
+            </>
           }
         />
       </div>
@@ -218,6 +240,43 @@ export default function PrerequisiteModal({
           <FaExclamationTriangle />
           <code>{cyclicFeatureId}</code> creates a circular dependency. Select a
           different feature.
+        </div>
+      )}
+
+      {hasSDKWithNoPrerequisites && hasConditionalState && (
+        <div
+          className={`alert ${
+            hasSDKWithPrerequisites
+              ? "text-warning-orange py-0"
+              : "alert-danger"
+          }`}
+        >
+          <FaExclamationTriangle className="mr-1" />
+          This prerequisite is{" "}
+          <span className="text-purple font-weight-bold">
+            conditionally enabled
+          </span>{" "}
+          in one or more environments. Conditional prerequisite evaluation
+          happens in the SDK; therefore a compatible SDK version is required.{" "}
+          <Tooltip
+            body={
+              <>
+                <div>
+                  {hasSDKWithPrerequisites
+                    ? "Some of your SDK Connections may not support prerequisite evaluation. Use at your own risk."
+                    : "None of your SDK Connections currently support prerequisite evaluation. Either upgrade your SDKs or remove this prerequisite."}
+                </div>
+                <div className="mt-2">
+                  Prerequisite evaluation is only supported in the following
+                  SDKs and versions:
+                  <ul className="mb-1">
+                    <li>Javascript &gt;= 0.33.0</li>
+                    <li>React &gt;= 0.23.0</li>
+                  </ul>
+                </div>
+              </>
+            }
+          />
         </div>
       )}
     </Modal>

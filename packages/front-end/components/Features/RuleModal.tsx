@@ -177,7 +177,11 @@ export default function RuleModal({
     i,
   ]);
 
-  const canSubmit = !isCyclic;
+  const [
+    prerequisiteTargetingSdkIssues,
+    setPrerequisiteTargetingSdkIssues,
+  ] = useState(false);
+  const canSubmit = !isCyclic && !prerequisiteTargetingSdkIssues;
 
   if (showUpgradeModal) {
     return (
@@ -274,7 +278,9 @@ export default function RuleModal({
       cta="Save"
       ctaEnabled={canSubmit}
       bodyClassName="px-4"
-      header={`${rule ? "Edit Override Rule" : "New Override Rule"} in ${environment}`}
+      header={`${
+        rule ? "Edit Override Rule" : "New Override Rule"
+      } in ${environment}`}
       submit={form.handleSubmit(async (values) => {
         const ruleAction = i === rules.length ? "add" : "edit";
 
@@ -508,8 +514,7 @@ export default function RuleModal({
     >
       <div className="alert alert-info">
         {rules[i] ? "Changes here" : "New rules"} will be added to a draft
-        revision. You will be able to review them before making them
-        live.
+        revision. You will be able to review them before making them live.
       </div>
 
       <div className="form-group mt-3">
@@ -526,7 +531,7 @@ export default function RuleModal({
           />
         ) : (
           <div className="border rounded py-2 px-3">
-            {ruleTypeOptions.find(r => r.value === type)?.label || type}
+            {ruleTypeOptions.find((r) => r.value === type)?.label || type}
             <Field type={"hidden"} {...form.register("type")} />
           </div>
         )}
@@ -703,31 +708,32 @@ export default function RuleModal({
             valueType={feature.valueType}
           />
           <div className="appbox mt-4 mb-4 px-3 pt-3 bg-light">
-          <RolloutPercentInput
-            value={form.watch("coverage") || 0}
-            setValue={(coverage) => {
-              form.setValue("coverage", coverage);
-            }}
-            className="mb-1"
-          />
-          <SelectField
-            label="Assign value based on attribute"
-            options={attributeSchema
-              .filter((s) => !hasHashAttributes || s.hashAttribute)
-              .map((s) => ({ label: s.property, value: s.property }))}
-            value={form.watch("hashAttribute")}
-            onChange={(v) => {
-              form.setValue("hashAttribute", v);
-            }}
-            helpText={
-              "Will be hashed together with the Tracking Key to determine which variation to assign"
-            }
-          />
+            <RolloutPercentInput
+              value={form.watch("coverage") || 0}
+              setValue={(coverage) => {
+                form.setValue("coverage", coverage);
+              }}
+              className="mb-1"
+            />
+            <SelectField
+              label="Assign value based on attribute"
+              options={attributeSchema
+                .filter((s) => !hasHashAttributes || s.hashAttribute)
+                .map((s) => ({ label: s.property, value: s.property }))}
+              value={form.watch("hashAttribute")}
+              onChange={(v) => {
+                form.setValue("hashAttribute", v);
+              }}
+              helpText={
+                "Will be hashed together with the Tracking Key to determine which variation to assign"
+              }
+            />
           </div>
         </div>
       )}
 
-      {(type !== "experiment-ref" && type !== "experiment-ref-new") || rule?.scheduleRules?.length ? (
+      {(type !== "experiment-ref" && type !== "experiment-ref-new") ||
+      rule?.scheduleRules?.length ? (
         <ScheduleInputs
           defaultValue={defaultValues.scheduleRules || []}
           onChange={(value) => form.setValue("scheduleRules", value)}
@@ -740,34 +746,36 @@ export default function RuleModal({
 
       {(type === "experiment" || type === "experiment-ref-new") && (
         <>
-        <div className="mt-4 mb-4">
-          <Field
-            label="Tracking Key"
-            {...form.register(`trackingKey`)}
-            placeholder={feature.id}
-            helpText="Unique identifier for this experiment, used to track impressions and analyze results"
-          />
-          <SelectField
-            label="Assign value based on attribute"
-            options={attributeSchema
-              .filter((s) => !hasHashAttributes || s.hashAttribute)
-              .map((s) => ({label: s.property, value: s.property}))}
-            value={form.watch("hashAttribute")}
-            onChange={(v) => {
-              form.setValue("hashAttribute", v);
-            }}
-            helpText={
-              "Will be hashed together with the Tracking Key to determine which variation to assign"
-            }
-          />
-        </div>
-        <hr/>
+          <div className="mt-4 mb-4">
+            <Field
+              label="Tracking Key"
+              {...form.register(`trackingKey`)}
+              placeholder={feature.id}
+              helpText="Unique identifier for this experiment, used to track impressions and analyze results"
+            />
+            <SelectField
+              label="Assign value based on attribute"
+              options={attributeSchema
+                .filter((s) => !hasHashAttributes || s.hashAttribute)
+                .map((s) => ({ label: s.property, value: s.property }))}
+              value={form.watch("hashAttribute")}
+              onChange={(v) => {
+                form.setValue("hashAttribute", v);
+              }}
+              helpText={
+                "Will be hashed together with the Tracking Key to determine which variation to assign"
+              }
+            />
+          </div>
+          <hr />
         </>
-        )}
-
-      {!(type === "experiment" || type === "experiment-ref" || type === "experiment-ref-new") && (
-        <hr />
       )}
+
+      {!(
+        type === "experiment" ||
+        type === "experiment-ref" ||
+        type === "experiment-ref-new"
+      ) && <hr />}
 
       {type !== "experiment-ref" && (
         <div className="mt-4">
@@ -777,13 +785,13 @@ export default function RuleModal({
               form.setValue("savedGroups", savedGroups)
             }
           />
-          <hr/>
+          <hr />
           <ConditionInput
             defaultValue={form.watch("condition") || ""}
             onChange={(value) => form.setValue("condition", value)}
             key={conditionKey}
           />
-          <hr/>
+          <hr />
           <PrerequisiteTargetingField
             value={form.watch("prerequisites") || []}
             setValue={(prerequisites) =>
@@ -791,10 +799,11 @@ export default function RuleModal({
             }
             feature={feature}
             environments={[environment]}
+            setPrerequisiteTargetingSdkIssues={
+              setPrerequisiteTargetingSdkIssues
+            }
           />
-          {(type === "experiment" || type === "experiment-ref-new") && (
-            <hr/>
-          )}
+          {(type === "experiment" || type === "experiment-ref-new") && <hr />}
         </div>
       )}
       {isCyclic && (

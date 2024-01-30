@@ -1,5 +1,5 @@
 import { FeatureInterface, FeaturePrerequisite } from "back-end/types/feature";
-import { FaExclamationCircle, FaExternalLinkAlt } from "react-icons/fa";
+import { FaExclamationCircle } from "react-icons/fa";
 import { evaluatePrerequisiteState, PrerequisiteState } from "shared/util";
 import { Environment } from "back-end/types/organization";
 import React, { useMemo } from "react";
@@ -66,11 +66,10 @@ export default function PrerequisiteStatusRow({
                 >
                   <span
                     className="d-inline-block text-ellipsis"
-                    style={{ maxWidth: 230 }}
+                    style={{ maxWidth: 290 }}
                   >
                     {parentFeature.id}
                   </span>
-                  <FaExternalLinkAlt className="ml-1" />
                 </a>
               </>
             ) : (
@@ -148,7 +147,11 @@ export function PrerequisiteStatesCols({
                     {isSummaryRow
                       ? "This feature"
                       : "This prerequisite feature"}{" "}
-                    is currently enabled in this environment.
+                    is currently{" "}
+                    <span className="text-success font-weight-bold">
+                      enabled
+                    </span>{" "}
+                    in this environment.
                   </div>
                 </>
               }
@@ -166,7 +169,9 @@ export function PrerequisiteStatesCols({
                     {isSummaryRow
                       ? "This feature"
                       : "This prerequisite feature"}{" "}
-                    is currently disabled in this environment.
+                    is currently{" "}
+                    <span className="text-gray font-weight-bold">disabled</span>{" "}
+                    in this environment.
                     {isSummaryRow && (
                       <>
                         {" "}
@@ -188,9 +193,12 @@ export function PrerequisiteStatesCols({
                 isSummaryRow ? (
                   <>
                     <div>
-                      This feature is currently conditionally enabled in this
-                      environment. This feature&apos;s prerequisites have rules
-                      which may make the result conditional.
+                      This feature is currently{" "}
+                      <span className="text-purple font-weight-bold">
+                        conditionally enabled
+                      </span>{" "}
+                      in this environment. This feature&apos;s prerequisites
+                      have rules which may make the result conditional.
                     </div>
                     {isSummaryRow && (
                       <div className="mt-2">
@@ -202,7 +210,10 @@ export function PrerequisiteStatesCols({
                   </>
                 ) : (
                   <div>
-                    This prerequisite feature is currently conditionally enabled
+                    This prerequisite feature is currently{" "}
+                    <span className="text-purple font-weight-bold">
+                      conditionally enabled
+                    </span>{" "}
                     in this environment. This feature or its prerequisites have
                     rules which may make the result conditional.
                   </div>

@@ -61,7 +61,7 @@ export default function TargetingInfo({
   const hasPrerequisiteChanges =
     showChanges &&
     JSON.stringify(changes?.prerequisites || []) !==
-    JSON.stringify(phase.prerequisites || []);
+      JSON.stringify(phase.prerequisites || []);
   const hasCoverageChanges =
     showChanges && changes?.coverage !== phase.coverage;
   const hasVariationWeightsChanges =
@@ -157,7 +157,7 @@ export default function TargetingInfo({
                       })}
                     >
                       {hasSavedGroupsChanges && (
-                        <div className="text-center mx-1" style={{width: 20}}>
+                        <div className="text-center mx-1" style={{ width: 20 }}>
                           Δ
                         </div>
                       )}
@@ -173,7 +173,7 @@ export default function TargetingInfo({
                     </div>
                     {hasSavedGroupsChanges && (
                       <div className="font-weight-bold text-success d-flex ml-4">
-                        <div className="text-center mx-1" style={{width: 20}}>
+                        <div className="text-center mx-1" style={{ width: 20 }}>
                           →
                         </div>
                         <div>
@@ -200,13 +200,13 @@ export default function TargetingInfo({
                       })}
                     >
                       {hasConditionChanges && (
-                        <div className="text-center mx-1" style={{width: 20}}>
+                        <div className="text-center mx-1" style={{ width: 20 }}>
                           Δ
                         </div>
                       )}
                       <div>
                         {phase.condition && phase.condition !== "{}" ? (
-                          <ConditionDisplay condition={phase.condition}/>
+                          <ConditionDisplay condition={phase.condition} />
                         ) : (
                           <em>None</em>
                         )}
@@ -214,12 +214,12 @@ export default function TargetingInfo({
                     </div>
                     {hasConditionChanges && (
                       <div className="font-weight-bold text-success d-flex ml-4">
-                        <div className="text-center mx-1" style={{width: 20}}>
+                        <div className="text-center mx-1" style={{ width: 20 }}>
                           →
                         </div>
                         <div>
                           {changes?.condition && changes.condition !== "{}" ? (
-                            <ConditionDisplay condition={changes.condition}/>
+                            <ConditionDisplay condition={changes.condition} />
                           ) : (
                             <em>None</em>
                           )}
@@ -239,7 +239,7 @@ export default function TargetingInfo({
                       })}
                     >
                       {hasPrerequisiteChanges && (
-                        <div className="text-center mx-1" style={{width: 20}}>
+                        <div className="text-center mx-1" style={{ width: 20 }}>
                           Δ
                         </div>
                       )}
@@ -256,7 +256,7 @@ export default function TargetingInfo({
                     </div>
                     {hasPrerequisiteChanges && (
                       <div className="font-weight-bold text-success d-flex ml-4">
-                        <div className="text-center mx-1" style={{width: 20}}>
+                        <div className="text-center mx-1" style={{ width: 20 }}>
                           →
                         </div>
                         <div>
@@ -280,9 +280,8 @@ export default function TargetingInfo({
               <div className="mb-3">
                 <div className="mb-1">
                   <strong>Namespace targeting</strong>{" "}
-                  <Tooltip
-                    body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration → Namespaces">
-                    <MdInfoOutline className="text-info"/>
+                  <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration → Namespaces">
+                    <MdInfoOutline className="text-info" />
                   </Tooltip>
                 </div>
                 <div className="d-flex">
@@ -293,7 +292,7 @@ export default function TargetingInfo({
                       })}
                     >
                       {hasNamespaceChanges && (
-                        <div className="text-center" style={{width: 20}}>
+                        <div className="text-center" style={{ width: 20 }}>
                           Δ
                         </div>
                       )}

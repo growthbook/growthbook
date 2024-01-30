@@ -128,9 +128,7 @@ export default function ConditionInput(props: Props) {
       <div className="form-group my-4">
         <label className={props.labelClassName || ""}>{title}</label>
         <div>
-          <div className="font-italic text-muted mr-3">
-            {emptyText}
-          </div>
+          <div className="font-italic text-muted mr-3">{emptyText}</div>
           <div
             className="d-inline-block ml-1 mt-2 link-purple font-weight-bold cursor-pointer"
             onClick={(e) => {
@@ -199,8 +197,8 @@ export default function ConditionInput(props: Props) {
                 ? [
                     { label: "is true", value: "$true" },
                     { label: "is false", value: "$false" },
-                    { label: "exists", value: "$exists" },
-                    { label: "does not exist", value: "$notExists" },
+                    { label: "is not NULL", value: "$exists" },
+                    { label: "is NULL", value: "$notExists" },
                   ]
                 : attribute.array
                 ? [
@@ -208,8 +206,8 @@ export default function ConditionInput(props: Props) {
                     { label: "does not include", value: "$notIncludes" },
                     { label: "is empty", value: "$empty" },
                     { label: "is not empty", value: "$notEmpty" },
-                    { label: "exists", value: "$exists" },
-                    { label: "does not exist", value: "$notExists" },
+                    { label: "is not NULL", value: "$exists" },
+                    { label: "is NULL", value: "$notExists" },
                   ]
                 : attribute.enum?.length || 0 > 0
                 ? [
@@ -217,8 +215,8 @@ export default function ConditionInput(props: Props) {
                     { label: "is not equal to", value: "$ne" },
                     { label: "is in the list", value: "$in" },
                     { label: "is not in the list", value: "$nin" },
-                    { label: "exists", value: "$exists" },
-                    { label: "does not exist", value: "$notExists" },
+                    { label: "is not NULL", value: "$exists" },
+                    { label: "is NULL", value: "$notExists" },
                   ]
                 : attribute.datatype === "string"
                 ? [
@@ -250,8 +248,8 @@ export default function ConditionInput(props: Props) {
                     },
                     { label: "is in the list", value: "$in" },
                     { label: "is not in the list", value: "$nin" },
-                    { label: "exists", value: "$exists" },
-                    { label: "does not exist", value: "$notExists" },
+                    { label: "is not NULL", value: "$exists" },
+                    { label: "is NULL", value: "$notExists" },
                     ...(savedGroupOptions.length > 0
                       ? savedGroupOperators
                       : []),
@@ -262,8 +260,8 @@ export default function ConditionInput(props: Props) {
                     { label: "is not equal to", value: "$ne" },
                     { label: "is in the list", value: "$in" },
                     { label: "is not in the list", value: "$nin" },
-                    { label: "exists", value: "$exists" },
-                    { label: "does not exist", value: "$notExists" },
+                    { label: "is not NULL", value: "$exists" },
+                    { label: "is NULL", value: "$notExists" },
                     ...(savedGroupOptions.length > 0
                       ? savedGroupOperators
                       : []),
@@ -278,8 +276,8 @@ export default function ConditionInput(props: Props) {
                     { label: "is less than or equal to", value: "$lte" },
                     { label: "is in the list", value: "$in" },
                     { label: "is not in the list", value: "$nin" },
-                    { label: "exists", value: "$exists" },
-                    { label: "does not exist", value: "$notExists" },
+                    { label: "is not NULL", value: "$exists" },
+                    { label: "is NULL", value: "$notExists" },
                     ...(savedGroupOptions.length > 0
                       ? savedGroupOperators
                       : []),
