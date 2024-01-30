@@ -1,18 +1,16 @@
 import type { Response } from "express";
 import { AuthRequest } from "../../types/AuthRequest";
-import { getOrgFromReq } from "../../services/organizations";
+import { getContextFromReq } from "../../services/organizations";
 import {
   CreateFactFilterProps,
   CreateFactMetricProps,
   CreateFactTableProps,
   FactMetricInterface,
-  ColumnInterface,
   FactTableInterface,
   UpdateFactFilterProps,
   UpdateFactMetricProps,
   UpdateColumnProps,
   UpdateFactTableProps,
-  FactTableColumnType,
   TestFactFilterProps,
   FactFilterTestResults,
 } from "../../../types/fact-table";
@@ -38,13 +36,13 @@ import {
 import { getSourceIntegrationObject } from "../../services/datasource";
 import { getDataSourceById } from "../../models/DataSourceModel";
 import { DataSourceInterface } from "../../../types/datasource";
-import { determineColumnTypes } from "../../util/sql";
+import { runRefreshColumnsQuery } from "../../jobs/refreshFactTableColumns";
 
 export const getFactTables = async (
   req: AuthRequest,
   res: Response<{ status: 200; factTables: FactTableInterface[] }>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const factTables = await getAllFactTablesForOrganization(org.id);
 
@@ -86,78 +84,12 @@ async function testFilterQuery(
   }
 }
 
-async function updateColumns(
-  datasource: DataSourceInterface,
-  factTable: Pick<FactTableInterface, "sql" | "eventName" | "columns">
-): Promise<ColumnInterface[]> {
-  const integration = getSourceIntegrationObject(datasource, true);
-
-  if (!integration.getTestQuery || !integration.runTestQuery) {
-    throw new Error("Testing not supported on this data source");
-  }
-
-  const sql = integration.getTestQuery(factTable.sql, {
-    eventName: factTable.eventName,
-  });
-
-  const result = await integration.runTestQuery(sql, ["timestamp"]);
-
-  const typeMap = new Map<string, FactTableColumnType>();
-  determineColumnTypes(result.results).forEach((col) => {
-    typeMap.set(col.column, col.datatype);
-  });
-
-  const columns = factTable.columns || [];
-
-  // Update existing column
-  columns.forEach((col) => {
-    const type = typeMap.get(col.column);
-
-    // Column no longer exists, mark as deleted
-    if (type === undefined) {
-      col.deleted = true;
-      col.dateUpdated = new Date();
-    }
-    // Column exists
-    else {
-      if (col.deleted) {
-        col.deleted = false;
-        col.dateUpdated = new Date();
-      }
-
-      // If we now know the datatype, update it
-      if (col.datatype === "" && type !== "") {
-        col.datatype = type;
-        col.dateUpdated = new Date();
-      }
-    }
-  });
-
-  // Add new columns that don't exist yet
-  typeMap.forEach((datatype, column) => {
-    if (!columns.some((c) => c.column === column)) {
-      columns.push({
-        column,
-        datatype,
-        dateCreated: new Date(),
-        dateUpdated: new Date(),
-        description: "",
-        name: column,
-        numberFormat: "",
-        deleted: false,
-      });
-    }
-  });
-
-  return columns;
-}
-
 export const postFactTable = async (
   req: AuthRequest<CreateFactTableProps>,
   res: Response<{ status: 200; factTable: FactTableInterface }>
 ) => {
   const data = req.body;
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   req.checkPermissions("manageFactTables", data.projects || "");
 
@@ -168,11 +100,12 @@ export const postFactTable = async (
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
-
   req.checkPermissions("runQueries", datasource.projects || "");
 
-  data.columns = await updateColumns(datasource, data as FactTableInterface);
-
+  data.columns = await runRefreshColumnsQuery(
+    datasource,
+    data as FactTableInterface
+  );
   if (!data.columns.length) {
     throw new Error("SQL did not return any rows");
   }
@@ -194,7 +127,7 @@ export const putFactTable = async (
   res: Response<{ status: 200 }>
 ) => {
   const data = req.body;
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const factTable = await getFactTable(org.id, req.params.id);
   if (!factTable) {
@@ -214,10 +147,11 @@ export const putFactTable = async (
   req.checkPermissions("runQueries", datasource.projects || "");
 
   // Update the columns
-  data.columns = await updateColumns(datasource, {
+  data.columns = await runRefreshColumnsQuery(datasource, {
     ...factTable,
     ...data,
   } as FactTableInterface);
+  data.columnsError = null;
 
   if (!data.columns.some((col) => !col.deleted)) {
     throw new Error("SQL did not return any rows");
@@ -236,7 +170,7 @@ export const deleteFactTable = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{ status: 200 }>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const factTable = await getFactTable(org.id, req.params.id);
   if (!factTable) {
@@ -256,7 +190,7 @@ export const putColumn = async (
   res: Response<{ status: 200 }>
 ) => {
   const data = req.body;
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const factTable = await getFactTable(org.id, req.params.id);
   if (!factTable) {
@@ -280,7 +214,7 @@ export const postFactFilterTest = async (
   }>
 ) => {
   const data = req.body;
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const factTable = await getFactTable(org.id, req.params.id);
   if (!factTable) {
@@ -308,7 +242,7 @@ export const postFactFilter = async (
   res: Response<{ status: 200; filterId: string }>
 ) => {
   const data = req.body;
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const factTable = await getFactTable(org.id, req.params.id);
   if (!factTable) {
@@ -336,7 +270,7 @@ export const putFactFilter = async (
   res: Response<{ status: 200 }>
 ) => {
   const data = req.body;
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const factTable = await getFactTable(org.id, req.params.id);
   if (!factTable) {
@@ -368,7 +302,7 @@ export const deleteFactFilter = async (
   req: AuthRequest<null, { id: string; filterId: string }>,
   res: Response<{ status: 200 }>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const factTable = await getFactTable(org.id, req.params.id);
   if (!factTable) {
@@ -387,7 +321,7 @@ export const getFactMetrics = async (
   req: AuthRequest,
   res: Response<{ status: 200; factMetrics: FactMetricInterface[] }>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const factMetrics = await getAllFactMetricsForOrganization(org.id);
 
@@ -402,7 +336,7 @@ export const postFactMetric = async (
   res: Response<{ status: 200; factMetric: FactMetricInterface }>
 ) => {
   const data = req.body;
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   req.checkPermissions("createMetrics", data.projects || "");
 
@@ -423,7 +357,7 @@ export const putFactMetric = async (
   res: Response<{ status: 200 }>
 ) => {
   const data = req.body;
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const factMetric = await getFactMetric(org.id, req.params.id);
   if (!factMetric) {
@@ -449,7 +383,7 @@ export const deleteFactMetric = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{ status: 200 }>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const factMetric = await getFactMetric(org.id, req.params.id);
   if (!factMetric) {

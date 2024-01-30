@@ -21,7 +21,6 @@ import {
 import {
   ExperimentMetricInterface,
   getRegressionAdjustmentsForMetric,
-  isBinomialMetric,
   isFactMetric,
   isFactMetricId,
 } from "shared/experiments";
@@ -48,10 +47,7 @@ import {
   createExperimentSnapshotModel,
   updateSnapshotAnalysis,
 } from "../models/ExperimentSnapshotModel";
-import {
-  Dimension,
-  ExperimentMetricQueryResponseRows,
-} from "../types/Integration";
+import { Dimension } from "../types/Integration";
 import {
   Condition,
   MetricInterface,
@@ -75,6 +71,7 @@ import {
 import {
   ExperimentUpdateSchedule,
   OrganizationInterface,
+  ReqContext,
 } from "../../types/organization";
 import { logger } from "../util/logger";
 import { DataSourceInterface } from "../../types/datasource";
@@ -103,9 +100,16 @@ import { StatsEngine } from "../../types/stats";
 import { getFeaturesByIds } from "../models/FeatureModel";
 import { getFeatureRevisionsByFeatureIds } from "../models/FeatureRevisionModel";
 import { ExperimentRefRule, FeatureRule } from "../../types/feature";
+import { ApiReqContext } from "../../types/api";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
-import { analyzeExperimentMetric, analyzeExperimentResults } from "./stats";
+import {
+  MetricSettingsForStatsEngine,
+  QueryResultsForStatsEngine,
+  analyzeExperimentMetric,
+  analyzeExperimentResults,
+  getMetricSettingsForStatsEngine,
+} from "./stats";
 import { getEnvironmentIdsFromOrg } from "./organizations";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
@@ -137,7 +141,7 @@ export async function getExperimentMetricById(
 
 export async function refreshMetric(
   metric: MetricInterface,
-  orgId: string,
+  org: OrganizationInterface,
   metricAnalysisDays: number = DEFAULT_METRIC_ANALYSIS_DAYS
 ) {
   if (metric.datasource) {
@@ -149,7 +153,7 @@ export async function refreshMetric(
 
     let segment: SegmentInterface | undefined = undefined;
     if (metric.segment) {
-      segment = (await findSegmentById(metric.segment, orgId)) || undefined;
+      segment = (await findSegmentById(metric.segment, org.id)) || undefined;
       if (!segment || segment.datasource !== metric.datasource) {
         throw new Error("Invalid user segment chosen");
       }
@@ -165,7 +169,7 @@ export async function refreshMetric(
     const to = new Date();
     to.setDate(to.getDate() + 1);
 
-    const queryRunner = new MetricAnalysisQueryRunner(metric, integration);
+    const queryRunner = new MetricAnalysisQueryRunner(metric, integration, org);
     await queryRunner.startAnalysis({
       from,
       to,
@@ -206,6 +210,7 @@ export function generateTrackingKey(name: string, n: number): string {
 
 export async function getManualSnapshotData(
   experiment: ExperimentInterface,
+  analysisSettings: ExperimentSnapshotAnalysisSettings,
   phaseIndex: number,
   users: number[],
   metrics: {
@@ -221,37 +226,25 @@ export async function getManualSnapshotData(
     metrics: {},
   }));
 
-  const result = await analyzeExperimentMetric({
-    variations: getReportVariations(experiment, phase),
-    phaseLengthHours: Math.max(
-      hoursBetween(phase.dateStarted, phase.dateEnded ?? new Date()),
-      1
-    ),
-    coverage: 1,
-    analyses: [
-      {
-        dimensions: [],
-        statsEngine: DEFAULT_STATS_ENGINE,
-        sequentialTesting: false,
-        sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-        baselineVariationIndex: 0,
-        pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
-        differenceType: "relative",
-      },
-    ],
-    metrics: Object.keys(metrics).map((m) => {
-      const stats = metrics[m];
-      const metric = metricMap.get(m);
-      if (!metric) return null;
+  const metricSettings: Record<string, MetricSettingsForStatsEngine> = {};
+  const queryResults: QueryResultsForStatsEngine[] = [];
+  Object.keys(metrics).forEach((m) => {
+    const stats = metrics[m];
+    const metric = metricMap.get(m);
+    if (!metric) return null;
 
-      const rows: ExperimentMetricQueryResponseRows = stats.map((s, i) => {
+    metricSettings[m] = {
+      ...getMetricSettingsForStatsEngine(metric, metricMap),
+      // no ratio or regression adjustment for manual snapshots
+      statistic_type: "mean",
+    };
+    queryResults.push({
+      rows: stats.map((s, i) => {
         return {
           dimension: "All",
           variation: experiment.variations[i].key || i + "",
           users: s.count,
           count: s.count,
-          statistic_type: "mean", // ratio not supported for now
-          main_metric_type: isBinomialMetric(metric) ? "binomial" : "count",
           main_sum: s.mean * s.count,
           main_sum_squares: sumSquaresFromStats(
             s.mean * s.count,
@@ -259,12 +252,21 @@ export async function getManualSnapshotData(
             s.count
           ),
         };
-      });
-      return {
-        metric,
-        rows,
-      };
-    }),
+      }),
+      metrics: [m],
+    });
+  });
+
+  const result = await analyzeExperimentMetric({
+    variations: getReportVariations(experiment, phase),
+    phaseLengthHours: Math.max(
+      hoursBetween(phase.dateStarted, phase.dateEnded ?? new Date()),
+      1
+    ),
+    coverage: experiment.phases?.[phaseIndex]?.coverage ?? 1,
+    analyses: [{ ...analysisSettings, regressionAdjusted: false }], // no RA for manual snapshots
+    metrics: metricSettings,
+    queryResults: queryResults,
   });
 
   result.forEach(({ metric, analyses }) => {
@@ -420,11 +422,12 @@ export async function createManualSnapshot(
   metrics: {
     [key: string]: MetricStats[];
   },
-  settings: ExperimentSnapshotAnalysisSettings,
+  analysisSettings: ExperimentSnapshotAnalysisSettings,
   metricMap: Map<string, ExperimentMetricInterface>
 ) {
   const { srm, variations } = await getManualSnapshotData(
     experiment,
+    analysisSettings,
     phaseIndex,
     users,
     metrics,
@@ -444,7 +447,7 @@ export async function createManualSnapshot(
     settings: getSnapshotSettings({
       experiment,
       phaseIndex,
-      settings,
+      settings: analysisSettings,
       metricRegressionAdjustmentStatuses: [],
       metricMap,
     }),
@@ -454,7 +457,7 @@ export async function createManualSnapshot(
       {
         dateCreated: new Date(),
         status: "success",
-        settings: settings,
+        settings: analysisSettings,
         results: [
           {
             name: "All",
@@ -529,7 +532,7 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
 
 export async function createSnapshot({
   experiment,
-  organization,
+  context,
   user = null,
   phaseIndex,
   useCache = false,
@@ -540,7 +543,7 @@ export async function createSnapshot({
   factTableMap,
 }: {
   experiment: ExperimentInterface;
-  organization: OrganizationInterface;
+  context: ReqContext | ApiReqContext;
   user?: EventAuditUser;
   phaseIndex: number;
   useCache?: boolean;
@@ -550,6 +553,7 @@ export async function createSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
 }): Promise<ExperimentResultsQueryRunner> {
+  const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
 
   const snapshotSettings = getSnapshotSettings({
@@ -600,7 +604,7 @@ export async function createSnapshot({
     undefined;
 
   await updateExperiment({
-    organization,
+    context,
     experiment,
     user,
     changes: {
@@ -621,6 +625,7 @@ export async function createSnapshot({
   const queryRunner = new ExperimentResultsQueryRunner(
     snapshot,
     integration,
+    organization,
     useCache
   );
   await queryRunner.startAnalysis({
@@ -717,12 +722,13 @@ function getExperimentMetric(
 }
 
 export async function toExperimentApiInterface(
-  organization: OrganizationInterface,
+  context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface
 ): Promise<ApiExperiment> {
   let project = null;
+  const organization = context.org;
   if (experiment.project) {
-    project = await findProjectById(experiment.project, organization.id);
+    project = await findProjectById(context, experiment.project);
   }
   const { settings: scopedSettings } = getScopedSettings({
     organization,
@@ -745,7 +751,11 @@ export async function toExperimentApiInterface(
     status: experiment.status,
     autoRefresh: !!experiment.autoSnapshots,
     hashAttribute: experiment.hashAttribute || "id",
+    fallbackAttribute: experiment.fallbackAttribute,
     hashVersion: experiment.hashVersion || 2,
+    disableStickyBucketing: experiment.disableStickyBucketing,
+    bucketVersion: experiment.bucketVersion,
+    minBucketVersion: experiment.minBucketVersion,
     variations: experiment.variations.map((v) => ({
       variationId: v.id,
       key: v.key,
@@ -1898,20 +1908,20 @@ export function visualChangesetsHaveChanges({
 }
 
 export async function getLinkedFeatureInfo(
-  org: OrganizationInterface,
+  context: ReqContext,
   experiment: ExperimentInterface
 ) {
   const linkedFeatures = experiment.linkedFeatures || [];
   if (!linkedFeatures.length) return [];
 
-  const features = await getFeaturesByIds(org.id, linkedFeatures);
+  const features = await getFeaturesByIds(context, linkedFeatures);
 
   const revisionsByFeatureId = await getFeatureRevisionsByFeatureIds(
-    org.id,
+    context.org.id,
     linkedFeatures
   );
 
-  const environments = getEnvironmentIdsFromOrg(org);
+  const environments = getEnvironmentIdsFromOrg(context.org);
 
   const filter = (rule: FeatureRule) =>
     rule.type === "experiment-ref" && rule.experimentId === experiment.id;

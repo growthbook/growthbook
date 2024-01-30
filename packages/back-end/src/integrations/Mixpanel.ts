@@ -1,3 +1,4 @@
+import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceProperties,
   DataSourceSettings,
@@ -29,6 +30,7 @@ import {
 } from "../util/mixpanel";
 import { compileSqlTemplate } from "../util/sql";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
+import { applyMetricOverrides } from "../util/integration";
 
 export default class Mixpanel implements SourceIntegrationInterface {
   type!: DataSourceType;
@@ -101,10 +103,19 @@ export default class Mixpanel implements SourceIntegrationInterface {
 
   getExperimentResultsQuery(
     snapshotSettings: ExperimentSnapshotSettings,
-    metrics: MetricInterface[],
-    activationMetric: MetricInterface,
+    metricDocs: MetricInterface[],
+    activationMetricDoc: MetricInterface,
     dimension: DimensionInterface
   ): string {
+    const activationMetric = cloneDeep<MetricInterface>(activationMetricDoc);
+    applyMetricOverrides(activationMetric, snapshotSettings);
+
+    const metrics = metricDocs.map((m) => {
+      const mCopy = cloneDeep<MetricInterface>(m);
+      applyMetricOverrides(mCopy, snapshotSettings);
+      return mCopy;
+    });
+
     const hasEarlyStartMetrics =
       metrics.filter(
         (m) => m.conversionDelayHours && m.conversionDelayHours < 0

@@ -20,6 +20,7 @@ export const ENV_SCOPED_PERMISSIONS = [
 ] as const;
 
 export const PROJECT_SCOPED_PERMISSIONS = [
+  "readData",
   "addComments",
   "createFeatureDrafts",
   "manageFeatures",
@@ -34,6 +35,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
 ] as const;
 
 export const GLOBAL_PERMISSIONS = [
+  "readData",
   "createPresentations",
   "createDimensions",
   "createSegments",
@@ -321,19 +323,31 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
   // TODO: support custom roles?
   return [
     {
+      id: "noaccess",
+      description:
+        "Cannot view any features or experiments. Most useful when combined with project-scoped roles.",
+      permissions: [],
+    },
+    {
       id: "readonly",
       description: "View all features and experiment results",
-      permissions: [],
+      permissions: ["readData"],
     },
     {
       id: "collaborator",
       description: "Add comments and contribute ideas",
-      permissions: ["addComments", "createIdeas", "createPresentations"],
+      permissions: [
+        "readData",
+        "addComments",
+        "createIdeas",
+        "createPresentations",
+      ],
     },
     {
       id: "engineer",
       description: "Manage features",
       permissions: [
+        "readData",
         "addComments",
         "createIdeas",
         "createPresentations",
@@ -353,6 +367,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
       id: "analyst",
       description: "Analyze experiments",
       permissions: [
+        "readData",
         "addComments",
         "createIdeas",
         "createPresentations",
@@ -370,6 +385,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
       id: "experimenter",
       description: "Manage features AND Analyze experiments",
       permissions: [
+        "readData",
         "addComments",
         "createIdeas",
         "createPresentations",

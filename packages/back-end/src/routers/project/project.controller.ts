@@ -1,7 +1,7 @@
 import type { Response } from "express";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
-import { getOrgFromReq } from "../../services/organizations";
+import { getContextFromReq } from "../../services/organizations";
 import { ProjectInterface, ProjectSettings } from "../../../types/project";
 import {
   createProject,
@@ -58,7 +58,7 @@ export const postProject = async (
   req.checkPermissions("manageProjects", "");
 
   const { name, description } = req.body;
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const doc = await createProject(org.id, {
     name,
@@ -101,9 +101,9 @@ export const putProject = async (
   const { id } = req.params;
   req.checkPermissions("manageProjects", id);
 
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
 
-  const project = await findProjectById(id, org.id);
+  const project = await findProjectById(context, id);
 
   if (!project) {
     res.status(404).json({
@@ -169,7 +169,8 @@ export const deleteProject = async (
 
   req.checkPermissions("manageProjects", id);
 
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
   await deleteProjectById(id, org.id);
 
@@ -200,7 +201,7 @@ export const deleteProject = async (
 
       await deleteAllMetricsForAProject({
         projectId: id,
-        organization: org,
+        context,
         user: res.locals.eventAudit,
       });
     } catch (e) {
@@ -220,7 +221,7 @@ export const deleteProject = async (
 
       await deleteAllFeaturesForAProject({
         projectId: id,
-        organization: org,
+        context,
         user: res.locals.eventAudit,
       });
     } catch (e) {
@@ -230,7 +231,7 @@ export const deleteProject = async (
       });
     }
   } else {
-    await removeProjectFromFeatures(id, org, res.locals.eventAudit);
+    await removeProjectFromFeatures(id, context, res.locals.eventAudit);
   }
 
   // Clean up experiments
@@ -240,7 +241,7 @@ export const deleteProject = async (
 
       await deleteAllExperimentsForAProject({
         projectId: id,
-        organization: org,
+        context,
         user: res.locals.eventAudit,
       });
     } catch (e) {
@@ -250,7 +251,7 @@ export const deleteProject = async (
       });
     }
   } else {
-    await removeProjectFromExperiments(id, org, res.locals.eventAudit);
+    await removeProjectFromExperiments(id, context, res.locals.eventAudit);
   }
 
   // Clean up Slack integrations
@@ -304,9 +305,9 @@ export const putProjectSettings = async (
   const { id } = req.params;
   req.checkPermissions("manageProjects", id);
 
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
 
-  const project = await findProjectById(id, org.id);
+  const project = await findProjectById(context, id);
 
   if (!project) {
     res.status(404).json({

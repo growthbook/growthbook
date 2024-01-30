@@ -23,6 +23,12 @@ const bucketingV2Keys = [
   "name",
   "phase",
 ];
+const stickyBucketingKeys = [
+  "fallbackAttribute",
+  "disableStickyBucketing",
+  "bucketVersion",
+  "minBucketVersion",
+];
 
 export const scrubFeatures = (
   features: Record<string, FeatureDefinitionWithProject>,
@@ -37,6 +43,9 @@ export const scrubFeatures = (
   const allowedFeatureRuleKeys = [...strictFeatureRuleKeys];
   if (capabilities.includes("bucketingV2")) {
     allowedFeatureRuleKeys.push(...bucketingV2Keys);
+  }
+  if (capabilities.includes("stickyBucketing")) {
+    allowedFeatureRuleKeys.push(...stickyBucketingKeys);
   }
 
   for (const k in features) {

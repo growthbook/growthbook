@@ -1,11 +1,11 @@
 import { DetailedHTMLProps, FC, HTMLAttributes } from "react";
-import markdown from "markdown-it";
-import sanitizer from "markdown-it-sanitizer";
-import mark from "markdown-it-mark";
 import clsx from "clsx";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import AuthorizedImage from "../AuthorizedImage";
 import styles from "./Markdown.module.scss";
 
-const md = markdown({ html: true, linkify: true }).use(sanitizer).use(mark);
+const imageCache = {};
 
 const Markdown: FC<
   DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>
@@ -20,13 +20,18 @@ const Markdown: FC<
   const text = typeof children === "string" ? children : "";
 
   return (
-    <div
-      {...props}
-      className={clsx(className, styles.markdown)}
-      dangerouslySetInnerHTML={{
-        __html: md.render(text),
-      }}
-    />
+    <div {...props} className={clsx(className, styles.markdown)}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          img: ({ ...props }) => (
+            <AuthorizedImage imageCache={imageCache} {...props} />
+          ),
+        }}
+      >
+        {text}
+      </ReactMarkdown>
+    </div>
   );
 };
 export default Markdown;

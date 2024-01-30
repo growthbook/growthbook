@@ -3,7 +3,7 @@ import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { AuthRequest } from "../types/AuthRequest";
-import { getOrgFromReq } from "../services/organizations";
+import { getContextFromReq } from "../services/organizations";
 import {
   DataSourceParams,
   DataSourceType,
@@ -66,7 +66,8 @@ export async function postSampleData(
   req.checkPermissions("createMetrics", "");
   req.checkPermissions("createAnalyses", "");
 
-  const { org, userId } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
   const orgId = org.id;
   const statsEngine = org.settings?.statsEngine || DEFAULT_STATS_ENGINE;
 
@@ -193,7 +194,7 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
 
     await createExperiment({
       data: experiment,
-      organization: org,
+      context,
       user: res.locals.eventAudit,
     });
 
@@ -256,7 +257,7 @@ export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
 
   const datasource = await getDataSourceById(id, org.id);
@@ -327,7 +328,7 @@ export async function deleteDataSource(
 }
 
 export async function getDataSources(req: AuthRequest, res: Response) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const datasources = await getDataSourcesByOrganization(org.id);
 
   if (!datasources || !datasources.length) {
@@ -359,7 +360,7 @@ export async function getDataSource(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
 
   const datasource = await getDataSourceById(id, org.id);
@@ -395,7 +396,7 @@ export async function postDataSources(
   }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { name, description, type, params, projects } = req.body;
   const settings = req.body.settings || {};
 
@@ -473,7 +474,7 @@ export async function putDataSource(
     email: user.email,
     name: user.name || "",
   };
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
   const {
     name,
@@ -588,7 +589,7 @@ export async function updateExposureQuery(
   >,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { datasourceId, exposureQueryId } = req.params;
   const { updates } = req.body;
 
@@ -671,7 +672,7 @@ export async function getQueries(
   req: AuthRequest<null, { ids: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { ids } = req.params;
   const queries = ids.split(",");
 
@@ -693,7 +694,7 @@ export async function testLimitedQuery(
   }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const { query, datasourceId, templateVariables } = req.body;
 
@@ -728,7 +729,7 @@ export async function getDataSourceMetrics(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
 
   const metrics = await getMetricsByDatasource(id, org.id);
@@ -743,7 +744,7 @@ export async function getDimensionSlices(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
 
   const dimensionSlices = await getDimensionSlicesById(org.id, id);
@@ -758,7 +759,7 @@ export async function getLatestDimensionSlicesForDatasource(
   req: AuthRequest<null, { datasourceId: string; exposureQueryId: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { datasourceId, exposureQueryId } = req.params;
 
   const dimensionSlices = await getLatestDimensionSlices(
@@ -781,7 +782,7 @@ export async function postDimensionSlices(
   }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { dataSourceId, queryId, lookbackDays } = req.body;
 
   const datasourceObj = await getDataSourceById(dataSourceId, org.id);
@@ -801,7 +802,7 @@ export async function postDimensionSlices(
     queryId,
   });
 
-  const queryRunner = new DimensionSlicesQueryRunner(model, integration);
+  const queryRunner = new DimensionSlicesQueryRunner(model, integration, org);
   const outputmodel = await queryRunner.startAnalysis({
     exposureQueryId: queryId,
     lookbackDays: Number(lookbackDays) ?? 30,
@@ -816,7 +817,7 @@ export async function cancelDimensionSlices(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
   const dimensionSlices = await getDimensionSlicesById(org.id, id);
   if (!dimensionSlices) {
@@ -839,7 +840,8 @@ export async function cancelDimensionSlices(
 
   const queryRunner = new DimensionSlicesQueryRunner(
     dimensionSlices,
-    integration
+    integration,
+    org
   );
   await queryRunner.cancelQueries();
 

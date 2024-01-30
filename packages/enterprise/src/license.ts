@@ -4,7 +4,10 @@ import path from "path";
 import fetch from "node-fetch";
 import type Stripe from "stripe";
 import pino from "pino";
-import { omit, sortBy } from "lodash";
+import { omit, pick, sortBy } from "lodash";
+import AsyncLock from "async-lock";
+import { stringToBoolean } from "shared/util";
+import { ProxyAgent } from "proxy-agent";
 import { LicenseDocument, LicenseModel } from "./models/licenseModel";
 
 export const LICENSE_SERVER =
@@ -14,6 +17,7 @@ const logger = pino();
 
 export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
 export type CommercialFeature =
+  | "scim"
   | "sso"
   | "advanced-permissions"
   | "encrypt-features-endpoint"
@@ -33,7 +37,10 @@ export type CommercialFeature =
   | "remote-evaluation"
   | "multi-org"
   | "custom-launch-checklist"
-  | "teams";
+  | "multi-metric-queries"
+  | "no-access-role"
+  | "teams"
+  | "sticky-bucketing";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface LicenseInterface {
@@ -44,8 +51,15 @@ export interface LicenseInterface {
   dateCreated: string; // Date the license was issued
   dateExpires: string; // Date the license expires
   isTrial: boolean; // True if this is a trial license
-  plan: AccountPlan; // The plan (pro, enterprise, etc.) for this license
+  plan: AccountPlan; // The assigned plan (pro, enterprise, etc.) for this license
   seatsInUse: number; // Number of seats currently in use
+  remoteDowngrade: boolean; // True if the license was downgraded remotely
+  message?: {
+    text: string; // The text to show in the account notice
+    className: string; // The class name to apply to the account notice
+    tooltipText: string; // The text to show in the tooltip
+    showAllUsers: boolean; // True if all users should see the notice rather than just the admins
+  };
   installationUsers: {
     [installationId: string]: { date: string; userHashes: string[] };
   }; // Map of first 7 chars of user email shas to the last time they were in a usage request
@@ -95,6 +109,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "hash-secure-attributes",
     "livechat",
     "remote-evaluation",
+    "sticky-bucketing",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -110,8 +125,10 @@ export const accountFeatures: CommercialFeaturesMap = {
     "hash-secure-attributes",
     "livechat",
     "remote-evaluation",
+    "sticky-bucketing",
   ]),
   enterprise: new Set<CommercialFeature>([
+    "scim",
     "sso",
     "advanced-permissions",
     "audit-logging",
@@ -122,6 +139,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "regression-adjustment",
     "sequential-testing",
     "pipeline-mode",
+    "multi-metric-queries",
     "visual-editor",
     "archetypes",
     "cloud-proxy",
@@ -132,10 +150,13 @@ export const accountFeatures: CommercialFeaturesMap = {
     "multi-org",
     "teams",
     "custom-launch-checklist",
+    "no-access-role",
+    "sticky-bucketing",
   ]),
 };
 
 type MinimalOrganization = {
+  id: string;
   enterprise?: boolean;
   restrictAuthSubPrefix?: string;
   restrictLoginMethod?: string;
@@ -150,8 +171,11 @@ export function isActiveSubscriptionStatus(
   return ["active", "trialing", "past_due"].includes(status || "");
 }
 
+// This returns the actual plan the organzation is on.  If you would prefer to know
+// what plan the organization is effectively on (taking into account downgrades)
+// use getEffectiveAccountPlan() instead.
 export function getAccountPlan(org: MinimalOrganization): AccountPlan {
-  if (process.env.IS_CLOUD) {
+  if (stringToBoolean(process.env.IS_CLOUD)) {
     if (org.enterprise) return "enterprise";
     if (org.restrictAuthSubPrefix || org.restrictLoginMethod) return "pro_sso";
     if (isActiveSubscriptionStatus(org.subscription?.status)) return "pro";
@@ -161,17 +185,19 @@ export function getAccountPlan(org: MinimalOrganization): AccountPlan {
   // For self-hosted deployments
   return getLicense()?.plan || "oss";
 }
-export function planHasPremiumFeature(
+
+function planHasPremiumFeature(
   plan: AccountPlan,
   feature: CommercialFeature
 ): boolean {
   return accountFeatures[plan].has(feature);
 }
+
 export function orgHasPremiumFeature(
   org: MinimalOrganization,
   feature: CommercialFeature
 ): boolean {
-  return planHasPremiumFeature(getAccountPlan(org), feature);
+  return planHasPremiumFeature(getEffectiveAccountPlan(org), feature);
 }
 
 async function getPublicKey(): Promise<Buffer> {
@@ -207,16 +233,8 @@ export async function getVerifiedLicenseData(
     throw new Error("Invalid License Key - Missing expiration date");
   }
   delete decodedLicense.eat;
-
   // The `trial` field used to be optional, force it to always be defined
   decodedLicense.trial = !!decodedLicense.trial;
-
-  // If it's a trial license key, make sure it's not expired yet
-  // For real license keys, we show an "expired" banner in the app instead of throwing an error
-  // We want to be strict for trial keys, but lenient for real Enterprise customers
-  if (decodedLicense.trial && decodedLicense.exp < new Date().toISOString()) {
-    throw new Error(`Your License Key trial expired on ${decodedLicense.exp}.`);
-  }
 
   // We used to only offer license keys for Enterprise plans (not pro)
   if (!decodedLicense.plan) {
@@ -231,7 +249,7 @@ export async function getVerifiedLicenseData(
   }
   // Trying to use IS_MULTI_ORG, but the plan doesn't support it
   if (
-    process.env.IS_MULTI_ORG &&
+    stringToBoolean(process.env.IS_MULTI_ORG) &&
     !planHasPremiumFeature(decodedLicense.plan, "multi-org")
   ) {
     throw new Error(
@@ -280,7 +298,7 @@ function checkIfEnvVarSettingsAreAllowedByLicense(license: LicenseInterface) {
   }
   // Trying to use IS_MULTI_ORG, but the plan doesn't support it
   if (
-    process.env.IS_MULTI_ORG &&
+    stringToBoolean(process.env.IS_MULTI_ORG) &&
     !planHasPremiumFeature(license.plan, "multi-org")
   ) {
     throw new Error(
@@ -290,12 +308,11 @@ function checkIfEnvVarSettingsAreAllowedByLicense(license: LicenseInterface) {
 }
 
 async function getLicenseDataFromMongoCache(
-  cache: LicenseDocument | null
+  cache: LicenseDocument | null,
+  errorMessage: string
 ): Promise<LicenseInterface> {
   if (!cache) {
-    throw new Error(
-      "License server is not working and no cached license data exists"
-    );
+    throw new Error(errorMessage);
   }
   if (
     new Date(cache.dateUpdated) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // 7 days
@@ -307,7 +324,16 @@ async function getLicenseDataFromMongoCache(
 
     // In order to verify the license key, we need to strip out the fields that are not part of the license data
     // and sort the fields alphabetically as we do on the license server itself.
-    const strippedLicense = omit(licenseInterface, ["signedChecksum"]);
+    const strippedLicense = pick(licenseInterface, [
+      "dateExpires",
+      "seats",
+      "seatsInUse",
+      "archived",
+      "remoteDowngrade",
+      "isTrial",
+      "organizationId",
+      "plan",
+    ]);
     const data = Object.fromEntries(sortBy(Object.entries(strippedLicense)));
     const dataBuffer = Buffer.from(JSON.stringify(data));
 
@@ -330,7 +356,7 @@ async function getLicenseDataFromMongoCache(
     }
 
     checkIfEnvVarSettingsAreAllowedByLicense(cache);
-    logger.info("Using cached license data");
+    licenseInterface.effectivePlan = logger.info("Using cached license data");
     return licenseInterface as LicenseInterface;
   }
   throw new Error(
@@ -343,7 +369,14 @@ async function getLicenseDataFromServer(
   userLicenseCodes: string[],
   metaData: LicenseMetaData
 ): Promise<LicenseInterface> {
+  logger.info("Getting license data from server for " + licenseId);
   const url = `${LICENSE_SERVER}license/${licenseId}/check`;
+  const use_proxy =
+    !!process.env.http_proxy ||
+    !!process.env.https_proxy ||
+    !!process.env.HTTPS_PROXY;
+  const agentOptions = use_proxy ? { agent: new ProxyAgent() } : {};
+
   const options = {
     method: "PUT",
     headers: {
@@ -353,6 +386,7 @@ async function getLicenseDataFromServer(
       userHashes: userLicenseCodes,
       metaData,
     }),
+    ...agentOptions,
   };
 
   let serverResult;
@@ -363,14 +397,20 @@ async function getLicenseDataFromServer(
     serverResult = await fetch(url, options);
   } catch (e) {
     logger.warn("Could not connect to license server. Falling back to cache.");
-    return getLicenseDataFromMongoCache(currentCache);
+    return getLicenseDataFromMongoCache(
+      currentCache,
+      "Could not connect to license server. Make sure to whitelist 75.2.109.47."
+    );
   }
 
   if (!serverResult.ok) {
     logger.warn(
       `Falling back to LicenseModel cache because the license server threw a ${serverResult.status} error: ${serverResult.statusText}.`
     );
-    return getLicenseDataFromMongoCache(currentCache);
+    return getLicenseDataFromMongoCache(
+      currentCache,
+      "License server errored with " + serverResult.statusText
+    );
   }
 
   const licenseData = await serverResult.json();
@@ -400,6 +440,7 @@ export interface LicenseMetaData {
   isCloud: boolean;
 }
 
+const lock = new AsyncLock();
 let licenseData: Partial<LicenseInterface> | null = null;
 let cacheDate: Date | null = null;
 // in-memory cache to avoid hitting the license server on every request
@@ -410,7 +451,7 @@ export async function licenseInit(
   userLicenseCodes?: string[],
   metaData?: LicenseMetaData,
   forceRefresh = false
-) {
+): Promise<Partial<LicenseInterface> | undefined> {
   const key = licenseKey || process.env.LICENSE_KEY || null;
 
   if (!key) {
@@ -420,30 +461,46 @@ export async function licenseInit(
 
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
+  // When hitting a page for a new license we often make many simulataneous requests
+  // By acquiring a lock we make sure to only call the license server once, the remaining
+  // calls will be able to read from the cache.
+  await lock.acquire(key, async () => {
+    if (
+      !forceRefresh &&
+      key &&
+      keyToLicenseData[key] &&
+      (cacheDate === null || cacheDate > oneDayAgo)
+    ) {
+      licenseData = keyToLicenseData[key];
+    } else if (key.startsWith("license_") && userLicenseCodes && metaData) {
+      licenseData = await getLicenseDataFromServer(
+        key,
+        userLicenseCodes,
+        metaData
+      );
+      cacheDate = new Date();
+    } else {
+      // Old style: the key itself has the encrypted license data in it.
+      licenseData = await getVerifiedLicenseData(key);
+    }
+
+    keyToLicenseData[key] = licenseData;
+  });
+
   if (
-    !forceRefresh &&
-    key &&
-    keyToLicenseData[key] &&
-    (cacheDate === null || cacheDate > oneDayAgo)
+    process.env.LICENSE_KEY &&
+    key != process.env.LICENSE_KEY &&
+    new Date(keyToLicenseData[key]?.dateExpires || "") < new Date()
   ) {
-    licenseData = keyToLicenseData[key];
+    return licenseInit(
+      process.env.LICENSE_KEY,
+      userLicenseCodes,
+      metaData,
+      forceRefresh
+    );
+  } else {
     return keyToLicenseData[key];
   }
-
-  if (key.startsWith("license_") && userLicenseCodes && metaData) {
-    licenseData = await getLicenseDataFromServer(
-      key,
-      userLicenseCodes,
-      metaData
-    );
-    cacheDate = new Date();
-  } else {
-    // Old style: the key itself has the encrypted license data in it.
-    licenseData = await getVerifiedLicenseData(key);
-  }
-
-  keyToLicenseData[key] = licenseData;
-  return licenseData;
 }
 
 export function getLicense() {
@@ -460,4 +517,67 @@ export function resetInMemoryLicenseCache(): void {
   Object.keys(keyToLicenseData).forEach((key) => {
     delete keyToLicenseData[key];
   });
+}
+
+function shouldLimitAccess(orgId: string): boolean {
+  if (shouldLimitAccessDueToExpiredLicense()) {
+    return true;
+  }
+
+  if (
+    orgId &&
+    licenseData?.organizationId &&
+    orgId !== licenseData.organizationId
+  ) {
+    return true;
+  }
+
+  if (licenseData?.remoteDowngrade) {
+    return true;
+  }
+
+  return false;
+}
+
+export function getEffectiveAccountPlan(org: MinimalOrganization): AccountPlan {
+  if (process.env.IS_CLOUD) {
+    return getAccountPlan(org);
+  }
+  const hasError = shouldLimitAccess(org.id);
+  const basicPlan = "oss";
+
+  if (hasError) {
+    return basicPlan;
+  }
+
+  return getLicense()?.plan || basicPlan;
+}
+
+/**
+ * Checks if the license is expired.
+ * @returns {boolean} True if the license is expired, false otherwise.
+ */
+function shouldLimitAccessDueToExpiredLicense(): boolean {
+  // If licenseData is not available, consider it as not expired
+  if (!licenseData) {
+    return false;
+  }
+
+  // Check if the license is in trial and has an expiration date
+  if (
+    (licenseData.isTrial || licenseData.remoteDowngrade) &&
+    licenseData.dateExpires
+  ) {
+    // Create a date object for the expiration date
+    const expirationDate = new Date(licenseData.dateExpires);
+
+    // Check if the adjusted expiration date is in the past
+    if (expirationDate < new Date()) {
+      // The license is expired
+      return true;
+    }
+  }
+
+  // The license is not expired
+  return false;
 }

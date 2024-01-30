@@ -32,7 +32,7 @@ import ResultsIndicator from "../ResultsIndicator";
 import { StartExperimentBanner } from "../StartExperimentBanner";
 import { useSnapshot } from "../SnapshotProvider";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
-import StopExperimentButton from "./StopExperimentButton";
+import ExperimentActionButtons from "./ExperimentActionButtons";
 import { ExperimentTab } from ".";
 
 export interface Props {
@@ -141,9 +141,6 @@ export default function ExperimentHeader({
   }
   const canRunExperiment = canEditExperiment && hasRunExperimentsPermission;
 
-  const hasLinkedChanges =
-    linkedFeatures.length > 0 || visualChangesets.length > 0;
-
   const isUsingHealthUnsupportDatasource =
     !dataSource || datasourcesWithoutHealthData.has(dataSource.type);
   const disableHealthTab = isUsingHealthUnsupportDatasource || !!dimension;
@@ -211,11 +208,9 @@ export default function ExperimentHeader({
 
             <div className="ml-2">
               {experiment.status === "running" ? (
-                <StopExperimentButton
+                <ExperimentActionButtons
                   editResult={editResult}
                   editTargeting={editTargeting}
-                  coverage={lastPhase?.coverage}
-                  hasLinkedChanges={hasLinkedChanges}
                 />
               ) : experiment.status === "stopped" && experiment.results ? (
                 <div className="experiment-status-widget border d-flex">
@@ -241,14 +236,14 @@ export default function ExperimentHeader({
 
             <div className="ml-2">
               <MoreMenu>
-                {editTargeting && (
+                {experiment.status !== "running" && editTargeting && (
                   <button
                     className="dropdown-item"
                     onClick={() => {
                       editTargeting();
                     }}
                   >
-                    Edit targeting / rollout
+                    Edit targeting & traffic
                   </button>
                 )}
                 {canRunExperiment && (
@@ -259,12 +254,6 @@ export default function ExperimentHeader({
                     Edit status
                   </button>
                 )}
-                <button
-                  className="dropdown-item"
-                  onClick={() => setAuditModal(true)}
-                >
-                  Audit log
-                </button>
                 {editPhases && (
                   <button
                     className="dropdown-item"
@@ -286,6 +275,12 @@ export default function ExperimentHeader({
                   <span className="badge badge-pill badge-info">
                     {usersWatching.length}
                   </span>
+                </button>
+                <button
+                  className="dropdown-item"
+                  onClick={() => setAuditModal(true)}
+                >
+                  Audit log
                 </button>
                 {duplicate && (
                   <button className="dropdown-item" onClick={duplicate}>

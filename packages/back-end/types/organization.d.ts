@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { ReadAccessFilter } from "shared/permissions";
 import {
   ENV_SCOPED_PERMISSIONS,
   GLOBAL_PERMISSIONS,
@@ -30,6 +31,7 @@ export type UserPermissions = {
 };
 
 export type MemberRole =
+  | "noaccess"
   | "readonly"
   | "collaborator"
   | "designer"
@@ -181,6 +183,9 @@ export interface OrganizationSettings {
   secureAttributeSalt?: string;
   killswitchConfirmation?: boolean;
   defaultDataSource?: string;
+  disableMultiMetricQueries?: boolean;
+  useStickyBucketing?: boolean;
+  useFallbackAttributes?: boolean;
 }
 
 export interface SubscriptionQuote {
@@ -270,3 +275,12 @@ export type NamespaceUsage = Record<
     end: number;
   }[]
 >;
+
+export type ReqContext = {
+  org: OrganizationInterface;
+  userId: string;
+  email: string;
+  environments: string[];
+  userName: string;
+  readAccessFilter: ReadAccessFilter;
+};

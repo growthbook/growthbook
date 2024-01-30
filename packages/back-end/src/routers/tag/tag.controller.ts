@@ -1,7 +1,7 @@
 import type { Response } from "express";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
-import { getOrgFromReq } from "../../services/organizations";
+import { getContextFromReq } from "../../services/organizations";
 import { TagInterface } from "../../../types/tag";
 import { addTag, removeTag } from "../../models/TagModel";
 import { removeTagInMetrics } from "../../models/MetricModel";
@@ -30,7 +30,7 @@ export const postTag = async (
 ) => {
   req.checkPermissions("manageTags");
 
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id, color, description } = req.body;
 
   await addTag(org.id, id, color, description);
@@ -65,12 +65,13 @@ export const deleteTag = async (
 ) => {
   req.checkPermissions("manageTags");
 
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.body;
 
   // experiments
   await removeTagFromExperiments({
-    organization: org,
+    context,
     user: res.locals.eventAudit,
     tag: id,
   });
@@ -79,7 +80,7 @@ export const deleteTag = async (
   await removeTagInMetrics(org.id, id);
 
   // features
-  await removeTagInFeature(org, res.locals.eventAudit, id);
+  await removeTagInFeature(context, res.locals.eventAudit, id);
 
   // Slack integrations
   await removeTagFromSlackIntegration({ organizationId: org.id, tag: id });

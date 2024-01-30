@@ -2,7 +2,7 @@ import type { Response } from "express";
 import uniqid from "uniqid";
 import { AuthRequest } from "../../types/AuthRequest";
 import { PrivateApiErrorResponse } from "../../../types/api";
-import { getOrgFromReq } from "../../services/organizations";
+import { getContextFromReq } from "../../services/organizations";
 import { DimensionInterface } from "../../../types/dimension";
 import {
   createDimension,
@@ -32,7 +32,7 @@ export const getDimensions = async (
   req: GetDimensionsRequest,
   res: Response<GetDimensionsResponse | PrivateApiErrorResponse>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const dimensions = await findDimensionsByOrganization(org.id);
   res.status(200).json({
     status: 200,
@@ -69,7 +69,7 @@ export const postDimension = async (
 ) => {
   req.checkPermissions("createDimensions");
 
-  const { org, userName } = getOrgFromReq(req);
+  const { org, userName } = getContextFromReq(req);
   const { datasource, name, sql, userIdType, description } = req.body;
 
   const datasourceDoc = await getDataSourceById(datasource, org.id);
@@ -129,7 +129,7 @@ export const putDimension = async (
 ) => {
   req.checkPermissions("createDimensions");
 
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
   const dimension = await findDimensionById(id, org.id);
 
@@ -182,7 +182,7 @@ export const deleteDimension = async (
   req.checkPermissions("createDimensions");
 
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const dimension = await findDimensionById(id, org.id);
 
   if (!dimension) {

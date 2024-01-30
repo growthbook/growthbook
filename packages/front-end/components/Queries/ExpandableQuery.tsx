@@ -9,7 +9,12 @@ import {
 } from "react-icons/fa";
 import clsx from "clsx";
 import { getValidDate } from "shared/dates";
+import { isFactMetricId } from "shared/experiments";
+import { FaBoltLightning } from "react-icons/fa6";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Code from "../SyntaxHighlighting/Code";
+import Tooltip from "../Tooltip/Tooltip";
+import QueryStatsRow from "./QueryStatsRow";
 
 const ExpandableQuery: FC<{
   query: QueryInterface;
@@ -24,9 +29,11 @@ const ExpandableQuery: FC<{
     }
   }
 
+  const { getFactMetricById } = useDefinitions();
+
   return (
     <div className="mb-4">
-      <h4>
+      <h4 className="d-flex align-items-top">
         {query.status === "running" && (
           <FaCircle className="text-info mr-2" title="Running" />
         )}
@@ -39,11 +46,37 @@ const ExpandableQuery: FC<{
         {query.status === "succeeded" && (
           <FaCheck className="text-success mr-2" title="Succeeded" />
         )}
-        {title}
+        <div className="mr-1">{title}</div>
         <span style={{ fontWeight: "normal" }}>
           {title && " - "}
           Query {i + 1} of {total}
         </span>
+        {query.queryType === "experimentMultiMetric" && (
+          <div className="ml-auto">
+            <Tooltip
+              body={
+                <>
+                  <h5>Fact Table Query Optimization</h5>
+                  <p>
+                    Multiple metrics in the same Fact Table are being combined
+                    into a single query, which is much faster and more
+                    efficient.
+                  </p>
+                  <p>
+                    This is a new feature, so please report any issues you
+                    encounter. You can disable this optimization under{" "}
+                    <strong>Settings</strong> -&gt; <strong>General</strong>{" "}
+                    -&gt; <strong>Experiment Settings</strong>.
+                  </p>
+                </>
+              }
+            >
+              <span className="badge badge-warning">
+                <FaBoltLightning /> Optimized
+              </span>
+            </Tooltip>
+          </div>
+        )}
       </h4>
       <Code language={query.language} code={query.query} expandable={true} />
       {query.error && (
@@ -76,6 +109,23 @@ const ExpandableQuery: FC<{
                         <th>{i}</th>
                         {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                         {Object.keys(query.rawResult[0]).map((k) => {
+                          const val = row[k];
+                          if (typeof val === "string" && isFactMetricId(val)) {
+                            const factMetric = getFactMetricById(val);
+                            if (factMetric) {
+                              return (
+                                <td key={k}>
+                                  <span
+                                    className="badge badge-secondary"
+                                    title={val}
+                                  >
+                                    {factMetric?.name || val}
+                                  </span>
+                                </td>
+                              );
+                            }
+                          }
+
                           return (
                             <td key={k}>
                               {JSON.stringify(row[k]) ?? (
@@ -98,15 +148,23 @@ const ExpandableQuery: FC<{
         </>
       )}
       {query.status === "succeeded" && (
-        <small>
-          <em>
-            Took{" "}
-            {formatDistanceStrict(
-              getValidDate(query.startedAt),
-              getValidDate(query.finishedAt)
-            )}
-          </em>
-        </small>
+        <div>
+          {query.statistics ? (
+            <QueryStatsRow queries={[query]} />
+          ) : (
+            <div className="row">
+              <div className="col-auto mb-2">
+                <em>Total time</em>:{" "}
+                <strong>
+                  {formatDistanceStrict(
+                    getValidDate(query.startedAt),
+                    getValidDate(query.finishedAt)
+                  )}
+                </strong>
+              </div>
+            </div>
+          )}
+        </div>
       )}
       {query.status === "running" && (
         <>

@@ -24,6 +24,20 @@ const config = {
     locales: ["en"],
   },
 
+  // Kapa.ai chat bot on Docs page
+  scripts: [
+    {
+      src: "https://widget.kapa.ai/kapa-widget.bundle.js",
+      "data-website-id": "c4406b9f-35c5-43ca-b0c1-e7c0e261831f", // Safe to expose publicly
+      "data-project-name": "GrowthBook",
+      "data-project-color": "#7817d3",
+      "data-modal-example-questions": "How do I run an experiment?",
+      "data-project-logo":
+        "https://docs.growthbook.io/images/chatbot-icon-white.png",
+      async: true,
+    },
+  ],
+
   presets: [
     [
       "classic",

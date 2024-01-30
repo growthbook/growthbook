@@ -3,6 +3,7 @@ import { webcrypto } from "node:crypto";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
+import { hasReadAccess } from "shared/permissions";
 import {
   ApiKeyInterface,
   PublishableApiKey,
@@ -14,6 +15,8 @@ import {
   SECRET_API_KEY_ROLE,
 } from "../util/secrets";
 import { roleForApiKey } from "../util/api-key.util";
+import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "../../types/api";
 import { findAllOrganizations } from "./OrganizationModel";
 
 const apiKeySchema = new mongoose.Schema({
@@ -275,16 +278,23 @@ export async function deleteApiKeyByKey(organization: string, key: string) {
 }
 
 export async function getApiKeyByIdOrKey(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   id: string | undefined,
   key: string | undefined
 ): Promise<ApiKeyInterface | null> {
   if (!id && !key) return null;
 
+  const { org, readAccessFilter } = context;
+
   const doc = await ApiKeyModel.findOne(
-    id ? { organization, id } : { organization, key }
+    id ? { organization: org.id, id } : { organization: org.id, key }
   );
-  return doc ? toInterface(doc) : null;
+
+  if (!doc) return null;
+
+  const apiKey = toInterface(doc);
+
+  return hasReadAccess(readAccessFilter, apiKey.project) ? apiKey : null;
 }
 
 export async function getVisualEditorApiKey(
@@ -325,21 +335,25 @@ export async function lookupOrganizationByApiKey(
 }
 
 export async function getAllApiKeysByOrganization(
-  organization: string
+  context: ReqContext
 ): Promise<ApiKeyInterface[]> {
+  const { org, readAccessFilter } = context;
+
   const docs: ApiKeyDocument[] = await ApiKeyModel.find(
     {
-      organization,
+      organization: org.id,
     },
     { encryptionKey: 0 }
   );
-  return docs.map((k) => {
+  const keys = docs.map((k) => {
     const json = toInterface(k);
     if (json.secret) {
       json.key = "";
     }
     return json;
   });
+
+  return keys.filter((k) => hasReadAccess(readAccessFilter, k.project));
 }
 
 export async function getFirstPublishableApiKey(

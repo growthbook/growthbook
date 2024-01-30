@@ -129,6 +129,8 @@ export default function AnalysisSettingsBar({
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const [refreshError, setRefreshError] = useState("");
 
+  const manualSnapshot = !datasource;
+
   return (
     <div>
       {modalOpen && experiment && (
@@ -176,7 +178,9 @@ export default function AnalysisSettingsBar({
                   setAnalysisSettings={setAnalysisSettings}
                   loading={!!loading}
                   mutate={mutate}
-                  dropdownEnabled={snapshot?.dimension !== "pre:date"}
+                  dropdownEnabled={
+                    !manualSnapshot && snapshot?.dimension !== "pre:date"
+                  }
                   dimension={dimension}
                 />
               </div>
@@ -198,7 +202,7 @@ export default function AnalysisSettingsBar({
               setAnalysisSettings={setAnalysisSettings}
             />
           </div>
-          {newUi && setDifferenceType ? (
+          {newUi && !manualSnapshot && setDifferenceType ? (
             <div className="col-auto form-inline pr-5">
               <DifferenceTypeChooser
                 differenceType={differenceType ?? "relative"}
