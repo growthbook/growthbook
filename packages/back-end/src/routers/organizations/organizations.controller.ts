@@ -1133,11 +1133,11 @@ export async function putOrganization(
   res: Response
 ) {
   const { org } = getContextFromReq(req);
-  const { name, settings, connections, externalId } = req.body;
+  const { name, ownerEmail, settings, connections, externalId } = req.body;
 
   const deletedEnvIds: string[] = [];
 
-  if (connections || name) {
+  if (connections || name || ownerEmail) {
     req.checkPermissions("organizationSettings");
   }
   if (settings) {
@@ -1195,6 +1195,10 @@ export async function putOrganization(
     if (name) {
       updates.name = name;
       orig.name = org.name;
+    }
+    if (ownerEmail) {
+      updates.ownerEmail = ownerEmail;
+      orig.ownerEmail = org.ownerEmail;
     }
     if (externalId !== undefined) {
       updates.externalId = externalId;

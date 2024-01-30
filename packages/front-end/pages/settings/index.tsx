@@ -255,6 +255,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const [statsEngineTab, setStatsEngineTab] = useState<string>(
     settings.statsEngine || DEFAULT_STATS_ENGINE
   );
+
   const displayCurrency = useCurrency();
   const growthbook = useGrowthBook<AppFeatures>();
   const { datasources } = useDefinitions();
@@ -278,6 +279,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const hasCustomChecklistFeature = hasCommercialFeature(
     "custom-launch-checklist"
   );
+  const canEditOwner = permissions.check("organizationSettings");
 
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithStickyBucketing = getConnectionsSDKCapabilities(
@@ -572,6 +574,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         {editOpen && (
           <EditOrganizationModal
             name={organization.name || ""}
+            ownerEmail={organization.ownerEmail || ""}
             close={() => setEditOpen(false)}
             mutate={refreshOrganization}
           />
@@ -603,6 +606,17 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 <div className="form-group row">
                   <div className="col-sm-12">
                     <strong>Owner:</strong> {organization.ownerEmail}
+                    {canEditOwner && (
+                      <a
+                        className="pl-2"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setEditOpen(true);
+                        }}
+                      >
+                        <FaPencilAlt />
+                      </a>
+                    )}
                   </div>
                 </div>
               </div>
