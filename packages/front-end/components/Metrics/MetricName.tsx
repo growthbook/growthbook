@@ -77,7 +77,7 @@ export default function MetricName({
   const { getExperimentMetricById } = useDefinitions();
   const metric = getExperimentMetricById(id);
 
-  if (!metric) return <>id</>;
+  if (!metric) return <>{id}</>;
 
   return (
     <>
