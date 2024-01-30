@@ -1,0 +1,47 @@
+on: push
+name: Find feature flag code references
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  fetchFlags:
+    name: Fetch flag keys from GB
+    runs-on: ubuntu-latest
+    outputs:
+      json-path: ${{ steps.set-path.outputs.json-path }}
+    steps:
+      - name: Fetch Data
+        run: |
+          curl -H "Authorization: Bearer secret_admin_QbPWH2rQGGqxzM6okjoYUFYsLRBp6rQLGXj0I1Jyo" "https://growthbook-3100-pr-2066-bttf.growthbook.okteto.dev/api/v1/feature-keys" -o flags.json
+      - name: Upload flags.json
+        uses: actions/upload-artifact@v3
+        with:
+          name: flags-json
+          path: flags.json
+      - name: Set flags path for next jobs
+        id: set-path
+        run: echo "::set-output name=json-path::$(pwd)/flags.json"
+  growthBookCodeReferences:
+    name: GrowthBook Code References
+    runs-on: ubuntu-latest
+    needs: fetchFlags
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 11 # This value must be set if the lookback configuration option is defined for find-code-refs. Read more: https://github.com/growthbook/gb-find-code-refs#searching-for-unused-flags-extinctions
+     - name: Download JSON file
+       uses: actions/download-artifact@v3
+       with:
+           name: flags-json
+           path: ${{ needs.fetchData.outputs.json-path }}
+      - name: GrowthBook Code References
+        uses: growthbook/gb-find-code-refs@v2.11.5
+        with:
+          flagsPath: ${{ needs.fetchData.outputs.json-path }}
+          dir: ${{ github.workspace }}
+      - name: Upload coderefs.json
+        uses: actions/upload-artifact@v3
+        with:
+          name: flags-json
+          path: *.json
+
