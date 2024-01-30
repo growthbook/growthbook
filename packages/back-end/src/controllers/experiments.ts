@@ -457,10 +457,7 @@ export async function postExperiments(
   // Validate that specified metrics exist and belong to the organization
   if (data.metrics && data.metrics.length) {
     for (let i = 0; i < data.metrics.length; i++) {
-      const metric = await getExperimentMetricById(
-        data.metrics[i],
-        data.organization
-      );
+      const metric = await getExperimentMetricById(context, data.metrics[i]);
 
       if (metric) {
         // Make sure it is tied to the same datasource as the experiment
@@ -668,7 +665,7 @@ export async function postExperiment(
 
   if (data.metrics && data.metrics.length) {
     for (let i = 0; i < data.metrics.length; i++) {
-      const metric = await getExperimentMetricById(data.metrics[i], org.id);
+      const metric = await getExperimentMetricById(context, data.metrics[i]);
 
       if (metric) {
         // Make sure it is tied to the same datasource as the experiment
@@ -1648,7 +1645,7 @@ export async function cancelSnapshot(
   const queryRunner = new ExperimentResultsQueryRunner(
     snapshot,
     integration,
-    org
+    context
   );
   await queryRunner.cancelQueries();
   await deleteSnapshotById(org.id, snapshot.id);
@@ -1701,7 +1698,7 @@ export async function postSnapshot(
     ...(experiment.guardrails ?? []),
   ]);
   const allExperimentMetrics = await Promise.all(
-    allExperimentMetricIds.map((m) => getExperimentMetricById(m, org.id))
+    allExperimentMetricIds.map((m) => getExperimentMetricById(context, m))
   );
   const denominatorMetricIds = uniq<string>(
     allExperimentMetrics
@@ -1709,7 +1706,9 @@ export async function postSnapshot(
       .filter((d) => d && typeof d === "string") as string[]
   );
   const denominatorMetrics = (
-    await Promise.all(denominatorMetricIds.map((m) => getMetricById(m, org.id)))
+    await Promise.all(
+      denominatorMetricIds.map((m) => getMetricById(context, m))
+    )
   ).filter(Boolean) as MetricInterface[];
   const datasource = await getDataSourceById(context, experiment.datasource);
 
@@ -1750,8 +1749,8 @@ export async function postSnapshot(
     dimension
   );
 
-  const metricMap = await getMetricMap(org.id);
-  const factTableMap = await getFactTableMap(org.id);
+  const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
 
   // Manual snapshot
   if (!experiment.datasource) {
@@ -1892,7 +1891,7 @@ export async function postSnapshotAnalysis(
     await updateSnapshot(org.id, id, { settings: snapshot.settings });
   }
 
-  const metricMap = await getMetricMap(org.id);
+  const metricMap = await getMetricMap(context);
 
   try {
     await createSnapshotAnalysis({
@@ -2092,7 +2091,7 @@ export async function cancelPastExperiments(
   const queryRunner = new PastExperimentsQueryRunner(
     pastExperiments,
     integration,
-    org
+    context
   );
   await queryRunner.cancelQueries();
 
@@ -2191,7 +2190,7 @@ export async function postPastExperiments(
     const queryRunner = new PastExperimentsQueryRunner(
       pastExperiments,
       integration,
-      org
+      context
     );
     pastExperiments = await queryRunner.startAnalysis({
       from: start,

@@ -7,10 +7,10 @@ import {
 import React from "react";
 import { isNullUndefinedOrEmpty } from "@/services/utils";
 import { ExperimentTableRow } from "@/services/experiments";
-import FactBadge from "@/components/FactTables/FactBadge";
 import Markdown from "../Markdown/Markdown";
 import SortedTags from "../Tags/SortedTags";
 import styles from "./MetricToolTipBody.module.scss";
+import MetricName from "./MetricName";
 
 interface MetricToolTipCompProps {
   metric: ExperimentMetricInterface;
@@ -139,7 +139,7 @@ const MetricTooltipBody = ({
     return (
       <div>
         <h4>
-          {metric.name} <FactBadge metricId={metric.id} />
+          <MetricName id={metric.id} showOfficialLabel disableTooltip />
         </h4>
         <table className="table table-sm table-bordered text-left mb-0">
           <tbody>

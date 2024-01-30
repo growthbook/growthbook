@@ -49,7 +49,7 @@ export async function getImpactEstimate(
   numDays: number,
   segment?: string
 ): Promise<ImpactEstimateDocument | null> {
-  const metricObj = await getMetricById(metric, context.org.id);
+  const metricObj = await getMetricById(context, metric);
   if (!metricObj) {
     throw new Error("Metric not found");
   }

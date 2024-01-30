@@ -16,7 +16,7 @@ export const deleteFactMetric = createApiRequestHandler(
       id = `fact__${id}`;
     }
 
-    const factMetric = await getFactMetric(req.organization.id, id);
+    const factMetric = await getFactMetric(req.context, id);
     if (!factMetric) {
       throw new Error(
         "Unable to delete - Could not find factMetric with that id"
@@ -24,7 +24,7 @@ export const deleteFactMetric = createApiRequestHandler(
     }
     req.checkPermissions("createMetrics", factMetric.projects);
 
-    await deleteFactMetricInDb(factMetric);
+    await deleteFactMetricInDb(req.context, factMetric);
 
     return {
       deletedId: id,

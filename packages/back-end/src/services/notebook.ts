@@ -13,6 +13,7 @@ import { Queries } from "../../types/query";
 import { QueryMap } from "../queryRunners/QueryRunner";
 import { getQueriesByIds } from "../models/QueryModel";
 import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "../../types/api";
 import {
   getAnalysisSettingsFromReportArgs,
   reportArgsFromSnapshot,
@@ -44,8 +45,8 @@ async function getQueryData(
 }
 
 export async function generateReportNotebook(
-  reportId: string,
-  context: ReqContext
+  context: ReqContext | ApiReqContext,
+  reportId: string
 ): Promise<string> {
   const report = await getReportById(context.org.id, reportId);
   if (!report) {
@@ -100,7 +101,7 @@ export async function generateExperimentNotebook(
 }
 
 export async function generateNotebook(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   queryPointers: Queries,
   args: ExperimentReportArgs,
   url: string,
@@ -119,7 +120,7 @@ export async function generateNotebook(
   }
 
   // Get metrics
-  const metricMap = await getMetricMap(context.org.id);
+  const metricMap = await getMetricMap(context);
 
   // Get queries
   const queries = await getQueryData(queryPointers, context.org.id);

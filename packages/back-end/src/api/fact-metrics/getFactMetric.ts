@@ -14,7 +14,7 @@ export const getFactMetric = createApiRequestHandler(getFactMetricValidator)(
       id = `fact__${id}`;
     }
 
-    const factMetric = await findFactMetricById(req.organization.id, id);
+    const factMetric = await findFactMetricById(req.context, id);
     if (!factMetric) {
       throw new Error("Could not find factMetric with that id");
     }

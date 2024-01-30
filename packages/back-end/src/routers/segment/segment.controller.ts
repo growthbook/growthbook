@@ -16,7 +16,7 @@ import { getIdeasByQuery } from "../../services/ideas";
 import { IdeaDocument, IdeaModel } from "../../models/IdeasModel";
 import {
   getMetricsUsingSegment,
-  updateMetricsByQuery,
+  removeSegmentFromAllMetrics,
 } from "../../models/MetricModel";
 import {
   deleteExperimentSegment,
@@ -101,7 +101,7 @@ export const getSegmentUsage = async (
   const ideas = await getIdeasByQuery(query);
 
   // metricSchema
-  const metrics = await getMetricsUsingSegment(id, org.id);
+  const metrics = await getMetricsUsingSegment(context, id);
 
   // experiments:
   const experiments = await getExperimentsUsingSegment(id, context);
@@ -295,15 +295,7 @@ export const deleteSegment = async (
   }
 
   // metrics
-  const metrics = await getMetricsUsingSegment(id, org.id);
-  if (metrics.length > 0) {
-    // as update metric query will fail if they are using a config file,
-    // we want to allow for deleting if there are no metrics with this segment.
-    await updateMetricsByQuery(
-      { organization: org.id, segment: id },
-      { segment: "" }
-    );
-  }
+  await removeSegmentFromAllMetrics(org.id, id);
 
   await deleteExperimentSegment(context, res.locals.eventAudit, id);
 

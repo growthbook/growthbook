@@ -218,15 +218,20 @@ export async function refreshReport(
       ? !!report.args?.regressionAdjustmentEnabled
       : false;
 
-  const metricMap = await getMetricMap(org.id);
-  const factTableMap = await getFactTableMap(org.id);
+  const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
 
   const integration = await getIntegrationFromDatasourceId(
     context,
     report.args.datasource,
     true
   );
-  const queryRunner = new ReportQueryRunner(report, integration, org, useCache);
+  const queryRunner = new ReportQueryRunner(
+    report,
+    integration,
+    context,
+    useCache
+  );
 
   const updatedReport = await queryRunner.startAnalysis({
     metricMap,
@@ -298,15 +303,19 @@ export async function putReport(
     ...updates,
   };
   if (needsRun) {
-    const metricMap = await getMetricMap(org.id);
-    const factTableMap = await getFactTableMap(org.id);
+    const metricMap = await getMetricMap(context);
+    const factTableMap = await getFactTableMap(context);
 
     const integration = await getIntegrationFromDatasourceId(
       context,
       updatedReport.args.datasource,
       true
     );
-    const queryRunner = new ReportQueryRunner(updatedReport, integration, org);
+    const queryRunner = new ReportQueryRunner(
+      updatedReport,
+      integration,
+      context
+    );
 
     await queryRunner.startAnalysis({
       metricMap,
@@ -343,7 +352,7 @@ export async function cancelReport(
     context,
     report.args.datasource
   );
-  const queryRunner = new ReportQueryRunner(report, integration, org);
+  const queryRunner = new ReportQueryRunner(report, integration, context);
   await queryRunner.cancelQueries();
 
   res.status(200).json({ status: 200 });
@@ -356,7 +365,7 @@ export async function postNotebook(
   const context = getContextFromReq(req);
   const { id } = req.params;
 
-  const notebook = await generateReportNotebook(id, context);
+  const notebook = await generateReportNotebook(context, id);
 
   res.status(200).json({
     status: 200,
