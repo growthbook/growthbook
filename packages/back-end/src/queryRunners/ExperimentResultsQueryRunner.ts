@@ -68,7 +68,7 @@ export const TRAFFIC_QUERY_NAME = "traffic";
 
 export const MAX_METRICS_PER_QUERY = 20;
 
-function getFactMetricGroup(metric: FactMetricInterface) {
+export function getFactMetricGroup(metric: FactMetricInterface) {
   // Ratio metrics must have the same numerator and denominator fact table to be grouped
   if (isRatioMetric(metric)) {
     if (metric.numerator.factTableId !== metric.denominator?.factTableId) {
@@ -379,7 +379,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       return startExperimentResultQueries(
         params,
         this.integration,
-        this.organization,
+        this.context.org,
         this.startQuery.bind(this)
       );
     } else {

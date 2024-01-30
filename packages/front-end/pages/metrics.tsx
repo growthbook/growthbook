@@ -22,16 +22,17 @@ import usePermissions from "@/hooks/usePermissions";
 import Toggle from "@/components/Forms/Toggle";
 import { DocLink } from "@/components/DocLink";
 import { useUser } from "@/services/UserContext";
-import { hasFileConfig } from "@/services/env";
+import { canCreateMetrics } from "@/services/env";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { checkMetricProjectPermissions } from "@/services/metrics";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
-import FactBadge from "@/components/FactTables/FactBadge";
+import MetricName from "@/components/Metrics/MetricName";
 interface MetricTableItem {
   id: string;
+  managedBy: "" | "api" | "config";
   name: string;
   type: string;
   tags: string[];
@@ -81,6 +82,7 @@ const MetricsPage = (): React.ReactElement => {
     ...inlineMetrics.map((m) => {
       const item: MetricTableItem = {
         id: m.id,
+        managedBy: m.managedBy || "",
         archived: m.status === "archived",
         datasource: m.datasource || "",
         dateUpdated: m.dateUpdated,
@@ -121,6 +123,7 @@ const MetricsPage = (): React.ReactElement => {
     ...factMetrics.map((m) => {
       const item: MetricTableItem = {
         id: m.id,
+        managedBy: m.managedBy || "",
         archived: false,
         datasource: m.datasource,
         dateUpdated: m.dateUpdated,
@@ -237,14 +240,7 @@ const MetricsPage = (): React.ReactElement => {
             transactions, revenue, engagement
           </li>
         </ul>
-        {hasFileConfig() && (
-          <div className="alert alert-info">
-            It looks like you have a <code>config.yml</code> file. Metrics
-            defined there will show up on this page.{" "}
-            <DocLink docSection="config_yml">View Documentation</DocLink>
-          </div>
-        )}
-        {permissions.check("createMetrics", project) && !hasFileConfig() && (
+        {permissions.check("createMetrics", project) && canCreateMetrics() && (
           <>
             <AutoGenerateMetricsButton
               setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
@@ -304,7 +300,7 @@ const MetricsPage = (): React.ReactElement => {
           </DocLink>
         </div>
         <div style={{ flex: 1 }} />
-        {permissions.check("createMetrics", project) && !hasFileConfig() && (
+        {permissions.check("createMetrics", project) && canCreateMetrics() && (
           <div className="col-auto">
             <AutoGenerateMetricsButton
               setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
@@ -364,14 +360,12 @@ const MetricsPage = (): React.ReactElement => {
             >
               Data Source
             </SortableTH>
-            {!hasFileConfig() && (
-              <SortableTH
-                field="dateUpdated"
-                className="d-none d-md-table-cell col-1"
-              >
-                Last Updated
-              </SortableTH>
-            )}
+            <SortableTH
+              field="dateUpdated"
+              className="d-none d-md-table-cell col-1"
+            >
+              Last Updated
+            </SortableTH>
             <th></th>
             <th></th>
           </tr>
@@ -394,10 +388,9 @@ const MetricsPage = (): React.ReactElement => {
                       metric.archived ? "text-muted" : "text-dark"
                     } font-weight-bold`}
                   >
-                    {metric.name}
+                    <MetricName id={metric.id} />
                   </a>
                 </Link>
-                <FactBadge metricId={metric.id} />
               </td>
               <td>{metric.type}</td>
 
@@ -429,14 +422,14 @@ const MetricsPage = (): React.ReactElement => {
                   </div>
                 )}
               </td>
-              {!hasFileConfig() && (
-                <td
-                  title={datetime(metric.dateUpdated || "")}
-                  className="d-none d-md-table-cell"
-                >
-                  {ago(metric.dateUpdated || "")}
-                </td>
-              )}
+              <td
+                title={datetime(metric.dateUpdated || "")}
+                className="d-none d-md-table-cell"
+              >
+                {metric.managedBy === "config"
+                  ? ""
+                  : ago(metric.dateUpdated || "")}
+              </td>
               <td className="text-muted">
                 {metric.archived && (
                   <Tooltip
@@ -455,10 +448,9 @@ const MetricsPage = (): React.ReactElement => {
                   e.preventDefault();
                 }}
               >
-                <MoreMenu>
-                  {!hasFileConfig() &&
-                    metric.onDuplicate &&
-                    editMetricsPermissions[metric.id] && (
+                {canCreateMetrics() && (
+                  <MoreMenu>
+                    {metric.onDuplicate && editMetricsPermissions[metric.id] && (
                       <button
                         className="btn dropdown-item py-2"
                         onClick={(e) => {
@@ -470,30 +462,31 @@ const MetricsPage = (): React.ReactElement => {
                         <FaRegCopy /> Duplicate
                       </button>
                     )}
-                  {!hasFileConfig() &&
-                    metric.onArchive &&
-                    editMetricsPermissions[metric.id] && (
-                      <button
-                        className="btn dropdown-item py-2"
-                        onClick={async (e) => {
-                          e.preventDefault();
-                          metric.onArchive &&
-                            (await metric.onArchive(!metric.archived));
-                          mutateDefinitions({});
-                        }}
-                      >
-                        <FaArchive />{" "}
-                        {metric.archived ? "Unarchive" : "Archive"}
-                      </button>
-                    )}
-                </MoreMenu>
+                    {!metric.managedBy &&
+                      metric.onArchive &&
+                      editMetricsPermissions[metric.id] && (
+                        <button
+                          className="btn dropdown-item py-2"
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            metric.onArchive &&
+                              (await metric.onArchive(!metric.archived));
+                            mutateDefinitions({});
+                          }}
+                        >
+                          <FaArchive />{" "}
+                          {metric.archived ? "Unarchive" : "Archive"}
+                        </button>
+                      )}
+                  </MoreMenu>
+                )}
               </td>
             </tr>
           ))}
 
           {!items.length && (isFiltered || tagsFilter.tags.length > 0) && (
             <tr>
-              <td colSpan={!hasFileConfig() ? 5 : 4} align={"center"}>
+              <td colSpan={9} align={"center"}>
                 No matching metrics
               </td>
             </tr>

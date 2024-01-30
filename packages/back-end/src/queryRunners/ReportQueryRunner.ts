@@ -49,7 +49,7 @@ export class ReportQueryRunner extends QueryRunner<
     return startExperimentResultQueries(
       experimentParams,
       this.integration,
-      this.organization,
+      this.context.org,
       this.startQuery.bind(this)
     );
   }

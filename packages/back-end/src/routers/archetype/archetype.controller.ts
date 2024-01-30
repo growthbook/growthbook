@@ -61,9 +61,10 @@ export const getArchetypeAndEval = async (
   req: AuthRequest<null, { id: string; version: string }>,
   res: Response<GetArchetypeAndEvalResponse | PrivateApiErrorResponse>
 ) => {
-  const { org, userId } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
   const { id, version } = req.params;
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
 
   if (!orgHasPremiumFeature(org, "archetypes")) {
     return res.status(403).json({
@@ -88,7 +89,7 @@ export const getArchetypeAndEval = async (
 
   if (archetype.length) {
     const groupMap = await getSavedGroupMap(org);
-    const experimentMap = await getAllPayloadExperiments(org.id);
+    const experimentMap = await getAllPayloadExperiments(context);
     const environments = getEnvironments(org);
 
     archetype.forEach((arch) => {

@@ -5,6 +5,7 @@ import { getFeatureDefinitions } from "../services/features";
 import { CRON_ENABLED, IS_CLOUD } from "../util/secrets";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import {
+  clearProxyError,
   findSDKConnectionById,
   findSDKConnectionsByOrganization,
   setProxyError,
@@ -12,6 +13,7 @@ import {
 import { SDKConnectionInterface } from "../../types/sdk-connection";
 import { cancellableFetch } from "../util/http.util";
 import { logger } from "../util/logger";
+import { getContextForAgendaJobByOrgId } from "../services/organizations";
 
 const PROXY_UPDATE_JOB_NAME = "proxyUpdate";
 type ProxyUpdateJob = Job<{
@@ -45,8 +47,12 @@ export default function addProxyUpdateJob(ag: Agenda) {
       return;
     }
 
+    const context = await getContextForAgendaJobByOrgId(
+      connection.organization
+    );
+
     const defs = await getFeatureDefinitions({
-      organization: connection.organization,
+      context,
       capabilities: getConnectionSDKCapabilities(connection),
       environment: connection.environment,
       projects: connection.projects,
@@ -68,7 +74,7 @@ export default function addProxyUpdateJob(ag: Agenda) {
 
     const url = useCloudProxy
       ? `https://proxy.growthbook.io/proxy/features`
-      : `${connection.proxy.host}/proxy/features`;
+      : `${connection.proxy.host.replace(/\/$/, "")}/proxy/features`;
 
     const res = await fireProxyWebhook({
       url,
@@ -83,7 +89,7 @@ export default function addProxyUpdateJob(ag: Agenda) {
       throw new Error(e);
     }
 
-    await setProxyError(connection, "");
+    await clearProxyError(connection);
   });
   agenda.on(
     "fail:" + PROXY_UPDATE_JOB_NAME,

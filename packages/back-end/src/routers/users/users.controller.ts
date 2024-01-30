@@ -136,7 +136,8 @@ export async function postWatchItem(
   req: AuthRequest<null, { type: string; id: string }>,
   res: Response
 ) {
-  const { org, userId } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
   const { type, id } = req.params;
   let item;
 
@@ -149,9 +150,9 @@ export async function postWatchItem(
   }
 
   if (type === "feature") {
-    item = await getFeature(org.id, id);
+    item = await getFeature(context, id);
   } else if (type === "experiment") {
-    item = await getExperimentById(org.id, id);
+    item = await getExperimentById(context, id);
     if (item && item.organization !== org.id) {
       res.status(403).json({
         status: 403,

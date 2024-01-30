@@ -1,0 +1,29 @@
+parameters:
+  - $ref: "../parameters.yaml#/id"
+tags:
+  - fact-tables
+summary: Update a single fact table
+operationId: updateFactTable
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X POST https://api.growthbook.io/api/v1/fact-tables/ftb_abc123 \
+        -d '{"name": "New Fact Table Name"}' \
+        -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/UpdateFactTablePayload.yaml"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - factTable
+          properties:
+            factTable:
+              $ref: "../schemas/FactTable.yaml"
