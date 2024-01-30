@@ -1,6 +1,11 @@
 import z from "zod";
 import { getScopedSettings } from "shared/settings";
 import {
+  DEFAULT_FACT_METRIC_WINDOW,
+  DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+  DEFAULT_METRIC_WINDOW_HOURS,
+} from "shared/constants";
+import {
   CreateFactMetricProps,
   FactMetricInterface,
   FactTableInterface,
@@ -111,9 +116,11 @@ export async function getCreateMetricPropsFromBody(
     tags: [],
     inverse: false,
     windowSettings: {
-      type: scopedSettings.windowType.value ?? "",
-      delayHours: scopedSettings.delayHours.value ?? 0,
-      windowValue: scopedSettings.windowHours.value ?? 72,
+      type: scopedSettings.windowType.value ?? DEFAULT_FACT_METRIC_WINDOW,
+      delayHours:
+        scopedSettings.delayHours.value ?? DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+      windowValue:
+        scopedSettings.windowHours.value ?? DEFAULT_METRIC_WINDOW_HOURS,
       windowUnit: "hours",
     },
     cappingSettings: {

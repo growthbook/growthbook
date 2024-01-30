@@ -91,6 +91,9 @@ const experimentSchema = new mongoose.Schema({
       regressionAdjustmentOverride: Boolean,
       regressionAdjustmentEnabled: Boolean,
       regressionAdjustmentDays: Number,
+      // deprecated fields
+      conversionWindowHours: Number,
+      conversionDelayHours: Number,
     },
   ],
   guardrails: [String],

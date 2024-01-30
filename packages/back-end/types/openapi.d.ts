@@ -309,7 +309,7 @@ export interface components {
           /** @enum {string} */
           type: "none" | "conversion" | "lookback";
           /** @description Wait this many hours after experiment exposure before counting conversions */
-          delayHours: number;
+          delayHours?: number;
           windowValue?: number;
           /** @enum {string} */
           windowUnit?: "hours" | "days" | "weeks";
@@ -1272,7 +1272,7 @@ export interface components {
         /** @enum {string} */
         type: "none" | "conversion" | "lookback";
         /** @description Wait this many hours after experiment exposure before counting conversions */
-        delayHours: number;
+        delayHours?: number;
         windowValue?: number;
         /** @enum {string} */
         windowUnit?: "hours" | "days" | "weeks";
@@ -3679,7 +3679,7 @@ export interface operations {
                     /** @enum {string} */
                     type: "none" | "conversion" | "lookback";
                     /** @description Wait this many hours after experiment exposure before counting conversions */
-                    delayHours: number;
+                    delayHours?: number;
                     windowValue?: number;
                     /** @enum {string} */
                     windowUnit?: "hours" | "days" | "weeks";
@@ -3798,7 +3798,7 @@ export interface operations {
               /** @enum {string} */
               type: "none" | "conversion" | "lookback";
               /** @description Wait this many hours after experiment exposure before counting conversions */
-              delayHours: number;
+              delayHours?: number;
               windowValue?: number;
               /** @enum {string} */
               windowUnit?: "hours" | "days" | "weeks";
@@ -3909,7 +3909,7 @@ export interface operations {
                   /** @enum {string} */
                   type: "none" | "conversion" | "lookback";
                   /** @description Wait this many hours after experiment exposure before counting conversions */
-                  delayHours: number;
+                  delayHours?: number;
                   windowValue?: number;
                   /** @enum {string} */
                   windowUnit?: "hours" | "days" | "weeks";
@@ -4016,7 +4016,7 @@ export interface operations {
                   /** @enum {string} */
                   type: "none" | "conversion" | "lookback";
                   /** @description Wait this many hours after experiment exposure before counting conversions */
-                  delayHours: number;
+                  delayHours?: number;
                   windowValue?: number;
                   /** @enum {string} */
                   windowUnit?: "hours" | "days" | "weeks";
@@ -4132,7 +4132,7 @@ export interface operations {
               /** @enum {string} */
               type: "none" | "conversion" | "lookback";
               /** @description Wait this many hours after experiment exposure before counting conversions */
-              delayHours: number;
+              delayHours?: number;
               windowValue?: number;
               /** @enum {string} */
               windowUnit?: "hours" | "days" | "weeks";
@@ -5292,7 +5292,7 @@ export interface operations {
                   /** @enum {string} */
                   type: "none" | "conversion" | "lookback";
                   /** @description Wait this many hours after experiment exposure before counting conversions */
-                  delayHours: number;
+                  delayHours?: number;
                   windowValue?: number;
                   /** @enum {string} */
                   windowUnit?: "hours" | "days" | "weeks";
@@ -5371,7 +5371,7 @@ export interface operations {
             /** @enum {string} */
             type: "none" | "conversion" | "lookback";
             /** @description Wait this many hours after experiment exposure before counting conversions */
-            delayHours: number;
+            delayHours?: number;
             windowValue?: number;
             /** @enum {string} */
             windowUnit?: "hours" | "days" | "weeks";
@@ -5435,7 +5435,7 @@ export interface operations {
                 /** @enum {string} */
                 type: "none" | "conversion" | "lookback";
                 /** @description Wait this many hours after experiment exposure before counting conversions */
-                delayHours: number;
+                delayHours?: number;
                 windowValue?: number;
                 /** @enum {string} */
                 windowUnit?: "hours" | "days" | "weeks";
@@ -5514,7 +5514,7 @@ export interface operations {
                 /** @enum {string} */
                 type: "none" | "conversion" | "lookback";
                 /** @description Wait this many hours after experiment exposure before counting conversions */
-                delayHours: number;
+                delayHours?: number;
                 windowValue?: number;
                 /** @enum {string} */
                 windowUnit?: "hours" | "days" | "weeks";
@@ -5592,7 +5592,7 @@ export interface operations {
             /** @enum {string} */
             type: "none" | "conversion" | "lookback";
             /** @description Wait this many hours after experiment exposure before counting conversions */
-            delayHours: number;
+            delayHours?: number;
             windowValue?: number;
             /** @enum {string} */
             windowUnit?: "hours" | "days" | "weeks";
@@ -5656,7 +5656,7 @@ export interface operations {
                 /** @enum {string} */
                 type: "none" | "conversion" | "lookback";
                 /** @description Wait this many hours after experiment exposure before counting conversions */
-                delayHours: number;
+                delayHours?: number;
                 windowValue?: number;
                 /** @enum {string} */
                 windowUnit?: "hours" | "days" | "weeks";
@@ -5797,7 +5797,7 @@ export interface operations {
                   /** @enum {string} */
                   type: "none" | "conversion" | "lookback";
                   /** @description Wait this many hours after experiment exposure before counting conversions */
-                  delayHours: number;
+                  delayHours?: number;
                   windowValue?: number;
                   /** @enum {string} */
                   windowUnit?: "hours" | "days" | "weeks";

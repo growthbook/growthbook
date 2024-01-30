@@ -1342,7 +1342,9 @@ export function postMetricApiPayloadToMetricInterface(
           behavior.windowSettings.type === "none"
             ? ""
             : behavior?.windowSettings?.type ?? DEFAULT_METRIC_WINDOW,
-        delayHours: behavior.windowSettings.delayHours,
+        delayHours:
+          behavior.windowSettings.delayHours ??
+          DEFAULT_METRIC_WINDOW_DELAY_HOURS,
         windowUnit: behavior.windowSettings.windowUnit ?? "hours",
         windowValue:
           behavior.windowSettings.windowValue ??

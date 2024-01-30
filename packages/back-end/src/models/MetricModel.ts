@@ -109,6 +109,12 @@ const metricSchema = new mongoose.Schema({
         c: Number,
       },
     ],
+
+    // deprecated fields
+    capping: String,
+    capValue: Number,
+    conversionWindowHours: Number,
+    conversionDelayHours: Number,
   },
 });
 metricSchema.index({ id: 1, organization: 1 }, { unique: true });

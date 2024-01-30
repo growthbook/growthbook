@@ -93,7 +93,6 @@ properties:
         description: Controls the conversion window for the metric
         required:
           - type
-          - delayHours
         properties:
           type:
             type: string

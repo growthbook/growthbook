@@ -58,6 +58,14 @@ const factTableSchema = new mongoose.Schema({
   regressionAdjustmentOverride: Boolean,
   regressionAdjustmentEnabled: Boolean,
   regressionAdjustmentDays: Number,
+
+  // deprecated fields
+  capping: String,
+  capValue: Number,
+  conversionDelayHours: Number,
+  hasConversionWindow: Boolean,
+  conversionWindowValue: Number,
+  conversionWindowUnit: String,
 });
 
 factTableSchema.index({ id: 1, organization: 1 }, { unique: true });
