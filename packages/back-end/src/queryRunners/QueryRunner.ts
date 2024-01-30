@@ -31,6 +31,7 @@ export type InterfaceWithQueries = {
   runStarted: Date | null;
   queries: Queries;
   organization: string;
+  id: string;
 };
 
 export type QueryStatusEndpointResponse = {
@@ -132,26 +133,29 @@ export abstract class QueryRunner<
 
   async onQueryFinish() {
     if (!this.timer) {
-      logger.debug("Query finished, refreshing in 1 second");
+      logger.debug(
+        "Query finished for " +
+          this.model.id +
+          " runner, refreshing in 1 second"
+      );
       this.timer = setTimeout(async () => {
         this.timer = null;
         try {
-          logger.debug(
-            "Getting latest model for " +
-              typeof this +
-              " (" +
-              typeof this.model +
-              ")"
-          );
+          logger.debug("Getting latest model for " + this.model.id);
           this.model = await this.getLatestModel();
           const queryMap = await this.refreshQueryStatuses();
           await this.startReadyQueries(queryMap);
         } catch (e) {
-          logger.error(e);
+          logger.error(
+            e,
+            "Error refreshing query statuses for runner of " + this.model.id
+          );
         }
       }, 1000);
     } else {
-      logger.debug("Query finished, timer already started");
+      logger.debug(
+        "Query finished for " + this.model.id + " runner, timer already started"
+      );
     }
   }
 
@@ -160,7 +164,7 @@ export abstract class QueryRunner<
   }
 
   public async startAnalysis(params: Params): Promise<Model> {
-    logger.debug("Starting queries");
+    logger.debug(this.model.id + " runner: Starting queries");
     const queries = await this.startQueries(params);
     this.model.queries = queries;
 
@@ -170,17 +174,17 @@ export abstract class QueryRunner<
 
     const queryStatus = this.getOverallQueryStatus();
     if (queryStatus === "succeeded") {
-      logger.debug("Query already succeeded (cached)");
+      logger.debug(this.model.id + " runner: Query already succeeded (cached)");
       const queryMap = await this.getQueryMap(queries);
       try {
         result = await this.runAnalysis(queryMap);
-        logger.debug("Ran analysis successfully");
+        logger.debug(this.model.id + " runner: Ran analysis successfully");
       } catch (e) {
-        logger.debug("Error running analysis");
+        logger.debug(this.model.id + " runner: Error running analysis");
         error = "Error running analysis: " + e.message;
       }
     } else if (queryStatus === "failed") {
-      logger.debug("Query failed immediately");
+      logger.debug(this.model.id + " runner: Query failed immediately");
       error = "Error running one or more database queries";
     }
 
@@ -246,9 +250,9 @@ export abstract class QueryRunner<
       (q) => q.status === "queued"
     );
     logger.debug(
-      `Starting any queued queries that are ready: ${queuedQueries.map(
-        (q) => q.id
-      )}`
+      `Starting any queued queries for ${
+        this.model.id
+      } runner that are ready: ${queuedQueries.map((q) => q.id)}`
     );
     await Promise.all(
       queuedQueries.map(async (query) => {
@@ -317,7 +321,7 @@ export abstract class QueryRunner<
 
   public async refreshQueryStatuses(): Promise<QueryMap> {
     const oldStatus = this.getOverallQueryStatus();
-    logger.debug("Refreshing query statuses");
+    logger.debug("Refreshing query statuses for " + this.model.id);
 
     // If there are no running or queued queries, return immediately
     if (
@@ -325,7 +329,9 @@ export abstract class QueryRunner<
         (q) => q.status === "running" || q.status === "queued"
       )
     ) {
-      logger.debug("No running or queued queries, return");
+      logger.debug(
+        "No running or queued queries for " + this.model.id + ", return"
+      );
       return new Map();
     }
 
@@ -333,7 +339,13 @@ export abstract class QueryRunner<
 
     const newStatus = this.getOverallQueryStatus();
 
-    logger.debug("Has changes? " + hasChanges + ", New Status: " + newStatus);
+    logger.debug(
+      this.model.id +
+        " has changes? " +
+        hasChanges +
+        ", New Status: " +
+        newStatus
+    );
 
     if (!hasChanges) return queryMap;
 
@@ -342,7 +354,11 @@ export abstract class QueryRunner<
 
     if (oldStatus === "running" && newStatus === "failed") {
       error = "Failed to run a majority of the database queries";
-      logger.debug("Query failed, transitioning to error state");
+      logger.debug(
+        "Query failed for " +
+          this.model.id +
+          " runner, transitioning to error state"
+      );
     }
     if (
       oldStatus === "running" &&

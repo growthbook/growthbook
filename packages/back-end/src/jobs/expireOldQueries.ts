@@ -33,6 +33,8 @@ export default async function (agenda: Agenda) {
 
     if (queryIds.size > 0) {
       logger.info("Found " + queryIds.size + " stale queries");
+    } else {
+      logger.debug("Found no stale queries");
     }
 
     // Look for matching snapshots and update the status
