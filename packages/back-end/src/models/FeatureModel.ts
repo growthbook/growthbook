@@ -155,7 +155,7 @@ export async function getAllFeatures(
   );
 
   return features.filter((feature) =>
-    hasReadAccess(context.readAccessFilter, feature.project)
+    hasReadAccess(context.readAccessFilter, feature.project || "")
   );
 }
 
@@ -177,7 +177,7 @@ export async function getAllFeaturesWithLinkedExperiments(
   const allFeatures = await FeatureModel.find(q);
 
   const features = allFeatures.filter((feature) =>
-    hasReadAccess(context.readAccessFilter, feature.project)
+    hasReadAccess(context.readAccessFilter, feature.project || "")
   );
   const expIds = new Set<string>(
     features
@@ -203,7 +203,7 @@ export async function getFeature(
   });
   if (!feature) return null;
 
-  return hasReadAccess(context.readAccessFilter, feature.project)
+  return hasReadAccess(context.readAccessFilter, feature.project || "")
     ? upgradeFeatureInterface(toInterface(feature))
     : null;
 }
@@ -241,7 +241,7 @@ export async function getFeaturesByIds(
   ).map((m) => upgradeFeatureInterface(toInterface(m)));
 
   return features.filter((feature) =>
-    hasReadAccess(context.readAccessFilter, feature.project)
+    hasReadAccess(context.readAccessFilter, feature.project || "")
   );
 }
 

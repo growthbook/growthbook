@@ -78,17 +78,17 @@ export function getReadAccessFilter(userPermissions: UserPermissions) {
 }
 export function hasReadAccess(
   filter: ReadAccessFilter,
-  projects: string | string[] | null | undefined
+  projects: string | string[]
 ): boolean {
-  // If the resource is not project-specific, then everyone has read access
-  if (!projects || !projects.length) {
+  // If the resource is available to all projects (an empty array), then everyone should have read access
+  if (Array.isArray(projects) && !projects.length) {
     return true;
   }
 
   const hasGlobaReadAccess = filter.globalReadAccess;
 
-  // if the user doesn't have project specific roles, fallback to user's global role
-  if (!filter.projects.length) {
+  // if the user doesn't have project specific roles or resource doesn't have a project (project is an empty string), fallback to user's global role
+  if (!filter.projects.length || projects === "") {
     return hasGlobaReadAccess;
   }
 
