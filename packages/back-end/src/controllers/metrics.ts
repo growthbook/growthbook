@@ -180,7 +180,6 @@ export async function cancelMetricAnalysis(
   res: Response
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { id } = req.params;
   const metric = await getMetricById(context, id, true);
   if (!metric) {
@@ -284,7 +283,6 @@ export async function getMetricsFromTrackedEvents(
   res: Response
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { schema } = req.body;
   const { datasourceId } = req.params;
 
