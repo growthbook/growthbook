@@ -11,7 +11,7 @@ import { listMetricsValidator } from "../../validators/openapi";
 
 export const listMetrics = createApiRequestHandler(listMetricsValidator)(
   async (req): Promise<ListMetricsResponse> => {
-    const metrics = await getMetricsByOrganization(req.organization.id);
+    const metrics = await getMetricsByOrganization(req.context);
 
     const datasources = await getDataSourcesByOrganization(req.organization.id);
 
