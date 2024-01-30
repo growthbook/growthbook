@@ -2,7 +2,7 @@ import {
   AutoExperimentWithProject,
   FeatureDefinitionWithProject,
 } from "back-end/types/api";
-import pick from "lodash/pick";
+import { pick, omit } from "lodash";
 import { SDKCapability } from "./index";
 
 const strictFeatureKeys = ["defaultValue", "rules"];
@@ -68,7 +68,7 @@ export const scrubFeatures = (
       }
       // delete rules
       features[k].rules = features[k].rules?.filter(
-        (rule) => (rule.parentConditions?.length ?? 0) > 0
+        (rule) => (rule.parentConditions?.length ?? 0) === 0
       );
     }
   }
@@ -101,11 +101,15 @@ export const scrubExperiments = (
   experiments: AutoExperimentWithProject[],
   capabilities: SDKCapability[]
 ): AutoExperimentWithProject[] => {
+  const removedExperimentKeys = [];
   if (!capabilities.includes("prerequisites")) {
+    removedExperimentKeys.push(...prerequisiteKeys);
     const newExperiments: AutoExperimentWithProject[] = [];
     // Keep experiments that do not have any parentConditions
-    for (const experiment of experiments) {
+    for (let experiment of experiments) {
       if ((experiment.parentConditions?.length ?? 0) === 0) {
+        // keep and scrub experiments
+        experiment = omit(experiment, removedExperimentKeys) as AutoExperimentWithProject;
         newExperiments.push(experiment);
       }
     }

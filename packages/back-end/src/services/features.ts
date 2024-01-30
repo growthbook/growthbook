@@ -12,7 +12,6 @@ import {
 } from "@growthbook/growthbook";
 import {
   evaluatePrerequisiteState,
-  getDefaultPrerequisiteCondition,
   validateCondition,
   validateFeatureValue,
 } from "shared/util";
@@ -1088,63 +1087,132 @@ export const updateInterfaceEnvSettingsFromApiEnvSettings = (
 };
 
 // Only keep features that are "on" or "conditional". For "on" features, remove any top level prerequisites
+// todo: similar logic for experiments
 export const reduceFeaturesWithPrerequisites = (
   features: FeatureInterface[],
   environment: string
 ): FeatureInterface[] => {
   const newFeatures: FeatureInterface[] = [];
 
-  // block "always off" features
+  // block "always off" features, or remove "always on" prereqs
   for (const feature of features) {
     const newFeature = cloneDeep(feature);
-    const state = evaluatePrerequisiteState(newFeature, features, environment);
-    if (state === "on") {
-      // scrub any top level prerequisites
-      newFeature.prerequisites = [];
+    let removeFeature = false;
+
+    const newPrerequisites: FeaturePrerequisite[] = [];
+    for (const prereq of newFeature.prerequisites || []) {
+      const prereqFeature = features.find((f) => f.id === prereq.id);
+      const state = prereqFeature ? evaluatePrerequisiteState(prereqFeature, features, environment) : "off";
+      switch (state) {
+        case "on":
+          // keep the feature, remove the prerequisite
+          break;
+        case "conditional":
+          // keep the feature and the prerequisite
+          newPrerequisites.push(prereq);
+          break;
+        case "cyclic":
+        case "off":
+          // remove the feature
+          removeFeature = true;
+          break;
+      }
     }
-    if (["on", "conditional"].includes(state)) {
-      newFeatures.push(feature);
+    if (!removeFeature) {
+      newFeature.prerequisites = newPrerequisites;
+      newFeatures.push(newFeature);
     }
   }
 
-  // block "always off" rules
+  // block "always off" rules, or reduce "always on" rules
   for (let i = 0; i < newFeatures.length; i++) {
     const feature = newFeatures[i];
+
     const newFeatureRules: FeatureRule[] = [];
+
     for (
       let i = 0;
       i < feature.environmentSettings[environment].rules.length;
       i++
     ) {
       const rule = feature.environmentSettings[environment].rules[i];
-      let ruleOk = true;
+      let removeRule = false;
+
       const newPrerequisites: FeaturePrerequisite[] = [];
+
       for (const pc of rule.prerequisites || []) {
         const prereqFeature = features.find((f) => f.id === pc.id);
         const state = prereqFeature
           ? evaluatePrerequisiteState(prereqFeature, features, environment)
           : "off";
-        if (!["on", "conditional"].includes(state)) {
-          // prereq is "always off", remove this rule
-          ruleOk = false;
-          continue;
+
+        switch (state) {
+          case "conditional":
+            // keep the rule and prerequisite
+            break;
+          case "cyclic":
+            // remove the rule
+            removeRule = true;
+            continue;
+          case "off":
+            // "value" will be null
+            // try to reduce the rule or feature
+            if (pc.condition === `{"value": {"$exists": false}}`) {
+              // condition passes: keep the rule, remove the prerequisite
+              continue;
+            }
+            if (pc.condition === `{"value": {"$exists": true}}`) {
+              // condition fails: remove the rule
+              removeRule = true;
+              continue;
+            }
+            if (pc.condition === `{"value": true}`) {
+              // condition fails: remove the rule
+              removeRule = true;
+              continue;
+            }
+            if (pc.condition === `{"value": false}`) {
+              // condition fails (null !== false): remove the rule
+              removeRule = true;
+              continue;
+            }
+            // otherwise, keep the rule and prerequisite
+            break;
+          case "on":
+            // "value" will be null
+            // try to reduce the rule or feature
+            if (pc.condition === `{"value": {"$exists": false}}`) {
+              // condition fails: remove the rule
+              removeRule = true;
+              continue;
+            }
+            if (pc.condition === `{"value": {"$exists": true}}`) {
+              // condition passes: keep the rule, remove the prerequisite
+              continue;
+            }
+            if (
+              (pc.condition === `{"value": true}` && prereqFeature?.valueType === "boolean" && prereqFeature?.defaultValue === "true")
+              || (pc.condition === `{"value": false}` && prereqFeature?.valueType === "boolean" && prereqFeature?.defaultValue === "false")
+            ) {
+              // condition passes: keep the rule, remove the prerequisite
+              continue;
+            }
+            if (
+              (pc.condition === `{"value": false}` && prereqFeature?.valueType === "boolean" && prereqFeature?.defaultValue === "true")
+              || (pc.condition === `{"value": true}` && prereqFeature?.valueType === "boolean" && prereqFeature?.defaultValue === "false")
+            ) {
+              // condition fails: remove the rule
+              continue;
+            }
+            // otherwise, keep the rule and prerequisite
+            break;
         }
-        if (pc.condition !== getDefaultPrerequisiteCondition(prereqFeature)) {
-          // prereq targeting condition is non-standard, remove this rule
-          ruleOk = false;
-          continue;
-        }
-        if (
-          state === "on" &&
-          pc.condition === getDefaultPrerequisiteCondition(prereqFeature)
-        ) {
-          // prereq is "always on" and has default targeting condition, remove this prerequisite because it will evaluate to true
-          continue;
-        }
+
+        // only keep the prerequisite if switch logic hasn't prevented it
         newPrerequisites.push(pc);
       }
       rule.prerequisites = newPrerequisites;
-      if (ruleOk) {
+      if (!removeRule) {
         newFeatureRules.push(rule);
       }
     }

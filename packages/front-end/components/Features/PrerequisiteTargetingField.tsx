@@ -64,7 +64,7 @@ export default function PrerequisiteTargetingField({
       const parentCondition = v.condition;
       if (parentFeature) {
         if (parentCondition === "" || parentCondition === "{}") {
-          const condStr = getDefaultPrerequisiteCondition(parentFeature);
+          const condStr = getDefaultPrerequisiteCondition();
           setValue([
             ...value.slice(0, i),
             {
@@ -96,7 +96,6 @@ export default function PrerequisiteTargetingField({
 
   const blockedBySdkLimitations = useMemo(() => {
     for (let i = 0; i < prereqStatesArr.length; i++) {
-      const parentFeature = features.find((f) => f.id === value[i].id);
       const parentCondition = value[i].condition;
       const prereqStates = prereqStatesArr[i];
       if (!prereqStates) continue;
@@ -104,7 +103,7 @@ export default function PrerequisiteTargetingField({
         (s) => s === "conditional"
       );
       const hasNonStandardTargeting =
-        parentCondition !== getDefaultPrerequisiteCondition(parentFeature);
+        parentCondition !== getDefaultPrerequisiteCondition();
       if (
         !hasSDKWithPrerequisites &&
         (hasConditionalState || hasNonStandardTargeting)
@@ -273,7 +272,7 @@ function PrereqStatesRows({
     .some((c) => !c.includes("prerequisites"));
 
   const hasNonStandardTargeting =
-    parentCondition !== getDefaultPrerequisiteCondition(parentFeature);
+    parentCondition !== getDefaultPrerequisiteCondition();
 
   if (!parentFeature) {
     return null;
