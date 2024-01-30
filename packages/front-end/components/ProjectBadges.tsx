@@ -1,5 +1,4 @@
 import clsx from "clsx";
-import { useState } from "react";
 import { FaInfoCircle } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/components/Badge";
@@ -18,7 +17,6 @@ export default function ProjectBadges({
   sort = true,
   className = "badge-ellipsis short",
 }: Props) {
-  const [showMissingProjectError, setShowMissingProjectError] = useState(false);
   const { projects, project } = useDefinitions();
   if (!projectIds) {
     return (
@@ -47,12 +45,11 @@ export default function ProjectBadges({
     });
   }
 
+  const showMissingProjectErr = filteredProjects.some((p) => !p);
+
   return (
     <>
       {filteredProjects.map((p) => {
-        if (!p && showMissingProjectError !== true) {
-          setShowMissingProjectError(true);
-        }
         if (!p?.name) return;
         return (
           <Badge
@@ -65,7 +62,7 @@ export default function ProjectBadges({
           />
         );
       })}
-      {showMissingProjectError ? (
+      {showMissingProjectErr ? (
         <Tooltip
           body={`This ${resourceType} is associated with a project that has been deleted or that you do not have access to.`}
           key="Unknown Project"
