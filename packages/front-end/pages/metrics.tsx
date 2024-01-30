@@ -410,11 +410,15 @@ const MetricsPage = (): React.ReactElement => {
               <td className="col-2">
                 {metric && (metric.projects || []).length > 0 ? (
                   <ProjectBadges
+                    resourceType="metric"
                     projectIds={metric.projects}
                     className="badge-ellipsis short align-middle"
                   />
                 ) : (
-                  <ProjectBadges className="badge-ellipsis short align-middle" />
+                  <ProjectBadges
+                    resourceType="metric"
+                    className="badge-ellipsis short align-middle"
+                  />
                 )}
               </td>
               <td>{metric.owner}</td>

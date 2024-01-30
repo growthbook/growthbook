@@ -464,11 +464,15 @@ const MetricPage: FC = () => {
           {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
           {metric?.projects?.length > 0 ? (
             <ProjectBadges
+              resourceType="metric"
               projectIds={metric.projects}
               className="badge-ellipsis align-middle"
             />
           ) : (
-            <ProjectBadges className="badge-ellipsis align-middle" />
+            <ProjectBadges
+              resourceType="metric"
+              className="badge-ellipsis align-middle"
+            />
           )}
           {canEditProjects && (
             <a
@@ -976,11 +980,15 @@ const MetricPage: FC = () => {
                 {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                 {metric?.projects?.length > 0 ? (
                   <ProjectBadges
+                    resourceType="metric"
                     projectIds={metric.projects}
                     className="badge-ellipsis align-middle"
                   />
                 ) : (
-                  <ProjectBadges className="badge-ellipsis align-middle" />
+                  <ProjectBadges
+                    resourceType="metric"
+                    className="badge-ellipsis align-middle"
+                  />
                 )}
               </RightRailSectionGroup>
             </RightRailSection>
