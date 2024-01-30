@@ -146,17 +146,13 @@ export function toFactMetricApiInterface(
     denominator: denominator || undefined,
     cappingSettings: {
       type: cappingSettings.type || "none",
-      value: cappingSettings.value || 0,
+      value: cappingSettings.value,
     },
     windowSettings: {
       type: windowSettings.type || "none",
-      delayHours: windowSettings.delayHours || 0,
-      ...(windowSettings.type
-        ? {
-            windowValue: windowSettings.windowValue || 0,
-            windowUnit: windowSettings.windowUnit || "hours",
-          }
-        : null),
+      delayHours: windowSettings.delayHours,
+      windowValue: windowSettings.windowValue,
+      windowUnit: windowSettings.windowUnit,
     },
     regressionAdjustmentSettings: {
       override: regressionAdjustmentOverride || false,

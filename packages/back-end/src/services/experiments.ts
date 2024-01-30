@@ -105,7 +105,6 @@ import { getFeaturesByIds } from "../models/FeatureModel";
 import { getFeatureRevisionsByFeatureIds } from "../models/FeatureRevisionModel";
 import { ExperimentRefRule, FeatureRule } from "../../types/feature";
 import { ApiReqContext } from "../../types/api";
-import { MetricWindowSettings } from "../../types/fact-table";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import {
@@ -1331,13 +1330,12 @@ export function postMetricApiPayloadToMetricInterface(
     }
 
     if (typeof behavior.windowSettings !== "undefined") {
-      let type: MetricWindowSettings["type"] = DEFAULT_METRIC_WINDOW;
-      if (behavior.windowSettings.type === "none") {
-        type = "";
-      }
       metric.windowSettings = {
-        ...behavior.windowSettings,
-        type: type,
+        type:
+          behavior.windowSettings.type === "none"
+            ? ""
+            : behavior?.windowSettings?.type ?? DEFAULT_METRIC_WINDOW,
+        delayHours: behavior.windowSettings.delayHours,
         windowUnit: behavior.windowSettings.windowUnit ?? "hours",
         windowValue:
           behavior.windowSettings.windowValue ??

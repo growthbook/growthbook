@@ -72,15 +72,21 @@ describe("bigquery integration", () => {
       "(CASE WHEN m.timestamp >= d.timestamp AND m.timestamp <= DATETIME_ADD(d.timestamp, INTERVAL 72 HOUR) THEN val ELSE NULL END)"
     );
 
+    const date = new Date();
+    const endDateFilter = `AND m.timestamp <= ${bqIntegration["toTimestamp"](
+      date
+    )}`;
     expect(
       bqIntegration["addCaseWhenTimeFilter"](
         "val",
         normalSqlMetric,
         true,
-        new Date(),
+        date,
         false
       ).replace(/\s+/g, " ")
-    ).toEqual("(CASE WHEN m.timestamp >= d.timestamp THEN val ELSE NULL END)");
+    ).toEqual(
+      `(CASE WHEN m.timestamp >= d.timestamp ${endDateFilter} THEN val ELSE NULL END)`
+    );
 
     expect(
       bqIntegration["addCaseWhenTimeFilter"](
@@ -91,7 +97,7 @@ describe("bigquery integration", () => {
         true
       ).replace(/\s+/g, " ")
     ).toEqual(
-      "(CASE WHEN m.timestamp >= d.timestamp AND date_trunc(m.timestamp, DAY) <= dr.day THEN val ELSE NULL END)"
+      `(CASE WHEN m.timestamp >= d.timestamp ${endDateFilter} AND date_trunc(m.timestamp, DAY) <= dr.day THEN val ELSE NULL END)`
     );
 
     expect(

@@ -112,8 +112,8 @@ export async function getCreateMetricPropsFromBody(
     inverse: false,
     windowSettings: {
       type: scopedSettings.windowType.value ?? "",
-      delayHours: scopedSettings.delayHours.value || 0,
-      windowValue: scopedSettings.windowHours.value || 72,
+      delayHours: scopedSettings.delayHours.value ?? 0,
+      windowValue: scopedSettings.windowHours.value ?? 72,
       windowUnit: "hours",
     },
     cappingSettings: {
