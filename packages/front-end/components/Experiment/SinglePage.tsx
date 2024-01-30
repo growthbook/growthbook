@@ -1267,14 +1267,14 @@ export default function SinglePage({
                 )}
                 {datasource && (
                   <RightRailSectionGroup
-                    title="Attribution Model"
+                    title="Conversion Window Override"
                     type="custom"
                   >
                     <AttributionModelTooltip>
                       <strong>
                         {experiment.attributionModel === "experimentDuration"
-                          ? "Experiment Duration"
-                          : "First Exposure"}
+                          ? "Ignore Conversion Windows"
+                          : "Respect Conversion Windows"}
                       </strong>{" "}
                       <FaQuestionCircle />
                     </AttributionModelTooltip>

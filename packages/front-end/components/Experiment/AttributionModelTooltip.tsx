@@ -7,13 +7,13 @@ export function AttributionModelTooltip({ children }: { children: ReactNode }) {
       body={
         <div>
           <div className="mb-2">
-            Determines whether we respect conversion windows (note: lookback
-            windows cannot be overriden this way).
+            Determines whether we respect conversion windows (lookback windows
+            cannot be overriden this way).
           </div>
           <div className="mb-2">
             <strong>Respect Conversion Windows</strong> - Builds a single
             conversion window off of each user{"'"}s first exposure for metrics
-            with exposure windows.
+            with conversion windows.
           </div>
           <div>
             <strong>Ignore Conversion Windows</strong> - Override all metric
