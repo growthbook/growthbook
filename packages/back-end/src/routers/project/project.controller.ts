@@ -202,7 +202,6 @@ export const deleteProject = async (
       await deleteAllMetricsForAProject({
         projectId: id,
         context,
-        user: res.locals.eventAudit,
       });
     } catch (e) {
       return res.json({

@@ -1396,6 +1396,12 @@ paths:
                 datasourceId:
                   type: string
                   description: 'ID for the [DataSource](#tag/DataSource_model)'
+                managedBy:
+                  type: string
+                  description: 'Where this metric must be managed from. If not set (empty string), it can be managed from anywhere.'
+                  enum:
+                    - ''
+                    - api
                 owner:
                   type: string
                   description: Name of the person who owns this metric
@@ -1666,6 +1672,12 @@ paths:
             schema:
               type: object
               properties:
+                managedBy:
+                  type: string
+                  description: 'Where this metric must be managed from. If not set (empty string), it can be managed from anywhere.'
+                  enum:
+                    - ''
+                    - api
                 owner:
                   type: string
                   description: Name of the person who owns this metric
@@ -2423,6 +2435,12 @@ paths:
                 sql:
                   type: string
                   description: The SQL query for this fact table
+                managedBy:
+                  type: string
+                  description: Set this to "api" to disable editing in the GrowthBook UI
+                  enum:
+                    - ''
+                    - api
       responses:
         '200':
           content:
@@ -2504,6 +2522,12 @@ paths:
                 sql:
                   type: string
                   description: The SQL query for this fact table
+                managedBy:
+                  type: string
+                  description: Set this to "api" to disable editing in the GrowthBook UI
+                  enum:
+                    - ''
+                    - api
       responses:
         '200':
           content:
@@ -2602,6 +2626,12 @@ paths:
                   type: string
                   description: The SQL expression for this filter.
                   example: country = 'US'
+                managedBy:
+                  type: string
+                  description: 'Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api"'
+                  enum:
+                    - ''
+                    - api
       responses:
         '200':
           content:
@@ -2668,6 +2698,12 @@ paths:
                   type: string
                   description: The SQL expression for this filter.
                   example: country = 'US'
+                managedBy:
+                  type: string
+                  description: 'Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api"'
+                  enum:
+                    - ''
+                    - api
       responses:
         '200':
           content:
@@ -2876,6 +2912,12 @@ paths:
                     days:
                       type: number
                       description: Number of pre-exposure days to use for the regression adjustment
+                managedBy:
+                  type: string
+                  description: Set this to "api" to disable editing in the GrowthBook UI
+                  enum:
+                    - ''
+                    - api
       responses:
         '200':
           content:
@@ -3043,6 +3085,12 @@ paths:
                     days:
                       type: number
                       description: Number of pre-exposure days to use for the regression adjustment
+                managedBy:
+                  type: string
+                  description: Set this to "api" to disable editing in the GrowthBook UI
+                  enum:
+                    - ''
+                    - api
       responses:
         '200':
           content:
@@ -3146,9 +3194,27 @@ paths:
                 type: object
                 required:
                   - success
+                  - factTablesAdded
+                  - factTablesUpdated
+                  - factTableFiltersAdded
+                  - factTableFiltersUpdated
+                  - factMetricsAdded
+                  - factMetricsUpdated
                 properties:
                   success:
                     type: boolean
+                  factTablesAdded:
+                    type: integer
+                  factTablesUpdated:
+                    type: integer
+                  factTableFiltersAdded:
+                    type: integer
+                  factTableFiltersUpdated:
+                    type: integer
+                  factMetricsAdded:
+                    type: integer
+                  factMetricsUpdated:
+                    type: integer
 components:
   parameters:
     id:
@@ -3258,6 +3324,7 @@ components:
       type: object
       required:
         - id
+        - managedBy
         - dateCreated
         - dateUpdated
         - owner
@@ -3272,6 +3339,13 @@ components:
       properties:
         id:
           type: string
+        managedBy:
+          type: string
+          description: 'Where this metric must be managed from. If not set (empty string), it can be managed from anywhere.'
+          enum:
+            - ''
+            - api
+            - config
         dateCreated:
           type: string
         dateUpdated:
@@ -4601,6 +4675,7 @@ components:
         - datasource
         - userIdTypes
         - sql
+        - managedBy
         - dateCreated
         - dateUpdated
       properties:
@@ -4628,6 +4703,12 @@ components:
             type: string
         sql:
           type: string
+        managedBy:
+          type: string
+          description: 'Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere.'
+          enum:
+            - ''
+            - api
         dateCreated:
           type: string
           format: date-time
@@ -4641,6 +4722,7 @@ components:
         - name
         - description
         - value
+        - managedBy
         - dateCreated
         - dateUpdated
       properties:
@@ -4652,6 +4734,12 @@ components:
           type: string
         value:
           type: string
+        managedBy:
+          type: string
+          description: 'Where this fact table filter must be managed from. If not set (empty string), it can be managed from anywhere.'
+          enum:
+            - ''
+            - api
         dateCreated:
           type: string
           format: date-time
@@ -4674,6 +4762,7 @@ components:
         - cappingSettings
         - windowSettings
         - regressionAdjustmentSettings
+        - managedBy
         - dateCreated
         - dateUpdated
       properties:
@@ -4793,6 +4882,12 @@ components:
             days:
               type: number
               description: Number of pre-exposure days to use for the regression adjustment
+        managedBy:
+          type: string
+          description: 'Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere.'
+          enum:
+            - ''
+            - api
         dateCreated:
           type: string
           format: date-time

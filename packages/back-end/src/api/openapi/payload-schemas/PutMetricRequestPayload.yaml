@@ -1,5 +1,11 @@
 type: object
 properties:
+  managedBy:
+    type: string
+    description: Where this metric must be managed from. If not set (empty string), it can be managed from anywhere.
+    enum:
+      - ""
+      - api
   owner:
     type: string
     description: Name of the person who owns this metric

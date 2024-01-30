@@ -462,6 +462,18 @@ column: event.properties.filename
 aggregation: new Set(values).size
 ```
 
+#### Allow Creating Metrics in the UI
+
+By default, when using `config.yml`, it's not possible to create metrics via the GrowthBook UI. Everything must be done directly in the `config.yml` file.
+
+There is an optional environment variable you can specify to change this behavior:
+
+```sh
+ALLOW_CREATE_METRICS=true
+```
+
+This will let you create new metrics via the UI. Metrics defined in `config.yml` will be marked as "Official" and not editable, while ones defined via the UI will be editable.
+
 ### Dimensions
 
 Dimensions let you drill down into your experiment results. They are currently only supported for SQL data sources.

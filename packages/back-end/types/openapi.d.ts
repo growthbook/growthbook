@@ -267,6 +267,11 @@ export interface components {
     };
     Metric: {
       id: string;
+      /**
+       * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+       * @enum {string}
+       */
+      managedBy: "" | "api" | "config";
       dateCreated: string;
       dateUpdated: string;
       owner: string;
@@ -1204,6 +1209,11 @@ export interface components {
       datasource: string;
       userIdTypes: (string)[];
       sql: string;
+      /**
+       * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
+       * @enum {string}
+       */
+      managedBy: "" | "api";
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
@@ -1214,6 +1224,11 @@ export interface components {
       name: string;
       description: string;
       value: string;
+      /**
+       * @description Where this fact table filter must be managed from. If not set (empty string), it can be managed from anywhere. 
+       * @enum {string}
+       */
+      managedBy: "" | "api";
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
@@ -1271,6 +1286,11 @@ export interface components {
         /** @description Number of pre-exposure days to use for the regression adjustment */
         days?: number;
       };
+      /**
+       * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+       * @enum {string}
+       */
+      managedBy: "" | "api";
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
@@ -3617,6 +3637,11 @@ export interface operations {
           "application/json": ({
             metrics: ({
                 id: string;
+                /**
+                 * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+                 * @enum {string}
+                 */
+                managedBy: "" | "api" | "config";
                 dateCreated: string;
                 dateUpdated: string;
                 owner: string;
@@ -3719,6 +3744,11 @@ export interface operations {
         "application/json": {
           /** @description ID for the [DataSource](#tag/DataSource_model) */
           datasourceId: string;
+          /**
+           * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
           /** @description Name of the person who owns this metric */
           owner?: string;
           /** @description Name of the metric */
@@ -3837,6 +3867,11 @@ export interface operations {
           "application/json": {
             metric: {
               id: string;
+              /**
+               * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy: "" | "api" | "config";
               dateCreated: string;
               dateUpdated: string;
               owner: string;
@@ -3939,6 +3974,11 @@ export interface operations {
           "application/json": {
             metric: {
               id: string;
+              /**
+               * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy: "" | "api" | "config";
               dateCreated: string;
               dateUpdated: string;
               owner: string;
@@ -4038,6 +4078,11 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
+          /**
+           * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
           /** @description Name of the person who owns this metric */
           owner?: string;
           /** @description Name of the metric */
@@ -4772,7 +4817,7 @@ export interface operations {
     responses: {
       200: {
         content: {
-          "application/json": {
+          "application/json": ({
             factTables: ({
                 id: string;
                 name: string;
@@ -4783,12 +4828,17 @@ export interface operations {
                 datasource: string;
                 userIdTypes: (string)[];
                 sql: string;
+                /**
+                 * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
+                 * @enum {string}
+                 */
+                managedBy: "" | "api";
                 /** Format: date-time */
                 dateCreated: string;
                 /** Format: date-time */
                 dateUpdated: string;
               })[];
-          } & {
+          }) & {
             limit: number;
             offset: number;
             count: number;
@@ -4820,6 +4870,11 @@ export interface operations {
           userIdTypes: (string)[];
           /** @description The SQL query for this fact table */
           sql: string;
+          /**
+           * @description Set this to "api" to disable editing in the GrowthBook UI 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
         };
       };
     };
@@ -4837,6 +4892,11 @@ export interface operations {
               datasource: string;
               userIdTypes: (string)[];
               sql: string;
+              /**
+               * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy: "" | "api";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -4869,6 +4929,11 @@ export interface operations {
               datasource: string;
               userIdTypes: (string)[];
               sql: string;
+              /**
+               * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy: "" | "api";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -4903,6 +4968,11 @@ export interface operations {
           userIdTypes?: (string)[];
           /** @description The SQL query for this fact table */
           sql?: string;
+          /**
+           * @description Set this to "api" to disable editing in the GrowthBook UI 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
         };
       };
     };
@@ -4920,6 +4990,11 @@ export interface operations {
               datasource: string;
               userIdTypes: (string)[];
               sql: string;
+              /**
+               * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy: "" | "api";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -4969,18 +5044,23 @@ export interface operations {
     responses: {
       200: {
         content: {
-          "application/json": {
+          "application/json": ({
             factTableFilters: ({
                 id: string;
                 name: string;
                 description: string;
                 value: string;
+                /**
+                 * @description Where this fact table filter must be managed from. If not set (empty string), it can be managed from anywhere. 
+                 * @enum {string}
+                 */
+                managedBy: "" | "api";
                 /** Format: date-time */
                 dateCreated: string;
                 /** Format: date-time */
                 dateUpdated: string;
               })[];
-          } & {
+          }) & {
             limit: number;
             offset: number;
             count: number;
@@ -5011,6 +5091,11 @@ export interface operations {
            * @example country = 'US'
            */
           value: string;
+          /**
+           * @description Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api" 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
         };
       };
     };
@@ -5023,6 +5108,11 @@ export interface operations {
               name: string;
               description: string;
               value: string;
+              /**
+               * @description Where this fact table filter must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy: "" | "api";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -5052,6 +5142,11 @@ export interface operations {
               name: string;
               description: string;
               value: string;
+              /**
+               * @description Where this fact table filter must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy: "" | "api";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -5083,6 +5178,11 @@ export interface operations {
            * @example country = 'US'
            */
           value?: string;
+          /**
+           * @description Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api" 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
         };
       };
     };
@@ -5095,6 +5195,11 @@ export interface operations {
               name: string;
               description: string;
               value: string;
+              /**
+               * @description Where this fact table filter must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy: "" | "api";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -5201,6 +5306,11 @@ export interface operations {
                   /** @description Number of pre-exposure days to use for the regression adjustment */
                   days?: number;
                 };
+                /**
+                 * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+                 * @enum {string}
+                 */
+                managedBy: "" | "api";
                 /** Format: date-time */
                 dateCreated: string;
                 /** Format: date-time */
@@ -5275,6 +5385,11 @@ export interface operations {
             /** @description Number of pre-exposure days to use for the regression adjustment */
             days?: number;
           };
+          /**
+           * @description Set this to "api" to disable editing in the GrowthBook UI 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
         };
       };
     };
@@ -5334,6 +5449,11 @@ export interface operations {
                 /** @description Number of pre-exposure days to use for the regression adjustment */
                 days?: number;
               };
+              /**
+               * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy: "" | "api";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -5408,6 +5528,11 @@ export interface operations {
                 /** @description Number of pre-exposure days to use for the regression adjustment */
                 days?: number;
               };
+              /**
+               * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy: "" | "api";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -5481,6 +5606,11 @@ export interface operations {
             /** @description Number of pre-exposure days to use for the regression adjustment */
             days?: number;
           };
+          /**
+           * @description Set this to "api" to disable editing in the GrowthBook UI 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
         };
       };
     };
@@ -5540,6 +5670,11 @@ export interface operations {
                 /** @description Number of pre-exposure days to use for the regression adjustment */
                 days?: number;
               };
+              /**
+               * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy: "" | "api";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -5595,6 +5730,11 @@ export interface operations {
                 userIdTypes: (string)[];
                 /** @description The SQL query for this fact table */
                 sql: string;
+                /**
+                 * @description Set this to "api" to disable editing in the GrowthBook UI 
+                 * @enum {string}
+                 */
+                managedBy?: "" | "api";
               };
             })[];
           factTableFilters?: ({
@@ -5609,6 +5749,11 @@ export interface operations {
                  * @example country = 'US'
                  */
                 value: string;
+                /**
+                 * @description Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api" 
+                 * @enum {string}
+                 */
+                managedBy?: "" | "api";
               };
             })[];
           factMetrics?: ({
@@ -5666,6 +5811,11 @@ export interface operations {
                   /** @description Number of pre-exposure days to use for the regression adjustment */
                   days?: number;
                 };
+                /**
+                 * @description Set this to "api" to disable editing in the GrowthBook UI 
+                 * @enum {string}
+                 */
+                managedBy?: "" | "api";
               };
             })[];
         };
@@ -5676,6 +5826,12 @@ export interface operations {
         content: {
           "application/json": {
             success: boolean;
+            factTablesAdded: number;
+            factTablesUpdated: number;
+            factTableFiltersAdded: number;
+            factTableFiltersUpdated: number;
+            factMetricsAdded: number;
+            factMetricsUpdated: number;
           };
         };
       };

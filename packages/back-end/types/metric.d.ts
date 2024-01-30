@@ -34,9 +34,12 @@ export interface Condition {
   value: string;
 }
 
+export type ManagedBy = "" | "config" | "api";
+
 export interface MetricInterface {
   id: string;
   organization: string;
+  managedBy?: ManagedBy;
   owner: string;
   datasource: string;
   dateCreated: Date | null;

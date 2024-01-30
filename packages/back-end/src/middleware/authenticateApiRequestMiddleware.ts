@@ -123,6 +123,11 @@ export default function authenticateApiRequestMiddleware(
 
       const teams = await getTeamsForOrganization(org.id);
 
+      const eventAudit: EventAuditUserApiKey = {
+        type: "api_key",
+        apiKey: id || "unknown",
+      };
+
       req.context = {
         org,
         userId: req.user?.id,
@@ -134,6 +139,7 @@ export default function authenticateApiRequestMiddleware(
               getUserPermissions(userId, req.organization, teams)
             )
           : getApiKeyReadAccessFilter(role),
+        auditUser: eventAudit,
       };
 
       // Check permissions for user API keys
@@ -168,10 +174,6 @@ export default function authenticateApiRequestMiddleware(
       // Add user info to logger
       res.log = req.log = req.log.child(getCustomLogProps(req as Request));
 
-      const eventAudit: EventAuditUserApiKey = {
-        type: "api_key",
-        apiKey: id || "unknown",
-      };
       req.eventAudit = eventAudit;
 
       // Add audit method to req

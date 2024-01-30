@@ -379,7 +379,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       return startExperimentResultQueries(
         params,
         this.integration,
-        this.organization,
+        this.context.org,
         this.startQuery.bind(this)
       );
     } else {

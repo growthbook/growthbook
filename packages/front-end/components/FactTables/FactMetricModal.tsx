@@ -43,6 +43,7 @@ import ButtonSelectField from "../Forms/ButtonSelectField";
 import { MetricWindowSettingsForm } from "../Metrics/MetricForm/MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "../Metrics/MetricForm/MetricCappingSettingsForm";
 import { ConversionDelayHours } from "../Metrics/MetricForm/ConversionDelayHours";
+import { OfficialBadge } from "../Metrics/MetricName";
 
 export interface Props {
   close?: () => void;
@@ -152,6 +153,21 @@ function ColumnRefSelector({
                   label: t.name,
                   value: t.id,
                 }))}
+              formatOptionLabel={({ value, label }) => {
+                const factTable = getFactTableById(value);
+                if (factTable) {
+                  return (
+                    <>
+                      {factTable.name}
+                      <OfficialBadge
+                        managedBy={factTable.managedBy}
+                        type="fact table"
+                      />
+                    </>
+                  );
+                }
+                return label;
+              }}
               placeholder="Select..."
               required
             />
@@ -170,6 +186,21 @@ function ColumnRefSelector({
                 }))}
                 placeholder="Add Filter..."
                 closeMenuOnSelect={true}
+                formatOptionLabel={({ value, label }) => {
+                  const filter = factTable?.filters.find((f) => f.id === value);
+                  if (filter) {
+                    return (
+                      <>
+                        {filter.name}
+                        <OfficialBadge
+                          managedBy={filter.managedBy}
+                          type="filter"
+                        />
+                      </>
+                    );
+                  }
+                  return label;
+                }}
               />
             ) : (
               <div className="form-group">

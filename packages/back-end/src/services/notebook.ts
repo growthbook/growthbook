@@ -13,6 +13,7 @@ import { Queries } from "../../types/query";
 import { QueryMap } from "../queryRunners/QueryRunner";
 import { getQueriesByIds } from "../models/QueryModel";
 import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "../../types/api";
 import {
   getAnalysisSettingsFromReportArgs,
   reportArgsFromSnapshot,
@@ -44,16 +45,16 @@ async function getQueryData(
 }
 
 export async function generateReportNotebook(
-  reportId: string,
-  organization: string
+  context: ReqContext | ApiReqContext,
+  reportId: string
 ): Promise<string> {
-  const report = await getReportById(organization, reportId);
+  const report = await getReportById(context.org.id, reportId);
   if (!report) {
     throw new Error("Could not find report");
   }
 
   return generateNotebook(
-    organization,
+    context,
     report.queries,
     report.args,
     `/report/${report.id}`,
@@ -90,7 +91,7 @@ export async function generateExperimentNotebook(
   }
 
   return generateNotebook(
-    context.org.id,
+    context,
     snapshot.queries,
     reportArgsFromSnapshot(experiment, snapshot, analysis.settings),
     `/experiment/${experiment.id}`,
@@ -100,7 +101,7 @@ export async function generateExperimentNotebook(
 }
 
 export async function generateNotebook(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   queryPointers: Queries,
   args: ExperimentReportArgs,
   url: string,
@@ -108,7 +109,7 @@ export async function generateNotebook(
   description: string
 ) {
   // Get datasource
-  const datasource = await getDataSourceById(args.datasource, organization);
+  const datasource = await getDataSourceById(args.datasource, context.org.id);
   if (!datasource) {
     throw new Error("Cannot find datasource");
   }
@@ -119,10 +120,10 @@ export async function generateNotebook(
   }
 
   // Get metrics
-  const metricMap = await getMetricMap(organization);
+  const metricMap = await getMetricMap(context);
 
   // Get queries
-  const queries = await getQueryData(queryPointers, organization);
+  const queries = await getQueryData(queryPointers, context.org.id);
 
   // use min query run date as end date if missing (legacy reports)
   let createdAt = new Date();

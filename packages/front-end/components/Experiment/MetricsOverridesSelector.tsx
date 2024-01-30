@@ -16,10 +16,10 @@ import Toggle from "@/components/Forms/Toggle";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
-import FactBadge from "@/components/FactTables/FactBadge";
 import { capitalizeFirstLetter } from "@/services/utils";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
+import MetricName from "../Metrics/MetricName";
 import { EditMetricsFormInterface } from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
 
@@ -197,10 +197,7 @@ export default function MetricsOverridesSelector({
               <div>
                 <label className="mb-1">
                   <strong className="text-body">
-                    {metricDefinition?.name}
-                    {metricDefinition && isFactMetric(metricDefinition) ? (
-                      <FactBadge metricId={metricDefinition.id} />
-                    ) : null}
+                    <MetricName id={metricDefinition?.id || ""} />
                   </strong>
                 </label>
 

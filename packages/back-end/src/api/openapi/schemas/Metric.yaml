@@ -1,6 +1,7 @@
 type: object
 required:
   - id
+  - managedBy
   - dateCreated
   - dateUpdated
   - owner
@@ -15,6 +16,13 @@ required:
 properties:
   id:
     type: string
+  managedBy:
+    type: string
+    description: Where this metric must be managed from. If not set (empty string), it can be managed from anywhere.
+    enum:
+      - ""
+      - api
+      - config
   dateCreated:
     type: string
   dateUpdated:

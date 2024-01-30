@@ -842,8 +842,7 @@ export const removeTagFromExperiments = async ({
 
 export async function removeMetricFromExperiments(
   metricId: string,
-  context: ReqContext | ApiReqContext,
-  user: EventAuditUser
+  context: ReqContext | ApiReqContext
 ) {
   const oldExperiments: Record<
     string,
@@ -915,7 +914,7 @@ export async function removeMetricFromExperiments(
         oldExperiment: previous,
         newExperiment: current,
         bypassWebhooks: true,
-        user,
+        user: context.auditUser,
       });
     }
   });

@@ -11,9 +11,7 @@ export const listFactMetrics = createApiRequestHandler(
   listFactMetricsValidator
 )(
   async (req): Promise<ListFactMetricsResponse> => {
-    const factMetrics = await getAllFactMetricsForOrganization(
-      req.organization.id
-    );
+    const factMetrics = await getAllFactMetricsForOrganization(req.context);
 
     let matches = factMetrics;
     if (req.query.projectId) {

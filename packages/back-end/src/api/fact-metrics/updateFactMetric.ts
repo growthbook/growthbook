@@ -90,7 +90,7 @@ export const updateFactMetric = createApiRequestHandler(
   updateFactMetricValidator
 )(
   async (req): Promise<UpdateFactMetricResponse> => {
-    const factMetric = await getFactMetric(req.organization.id, req.params.id);
+    const factMetric = await getFactMetric(req.context, req.params.id);
 
     if (!factMetric) {
       throw new Error("Could not find factMetric with that id");
@@ -110,10 +110,10 @@ export const updateFactMetric = createApiRequestHandler(
     }
 
     await validateFactMetric({ ...factMetric, ...updates }, async (id) => {
-      return getFactTable(req.organization.id, id);
+      return getFactTable(req.context, id);
     });
 
-    await updateFactMetricInDb(factMetric, updates);
+    await updateFactMetricInDb(req.context, factMetric, updates);
 
     if (updates.tags) {
       await addTagsDiff(req.organization.id, factMetric.tags, updates.tags);
