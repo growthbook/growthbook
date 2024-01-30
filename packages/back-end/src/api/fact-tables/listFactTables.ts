@@ -9,9 +9,7 @@ import { listFactTablesValidator } from "../../validators/openapi";
 
 export const listFactTables = createApiRequestHandler(listFactTablesValidator)(
   async (req): Promise<ListFactTablesResponse> => {
-    const factTables = await getAllFactTablesForOrganization(
-      req.organization.id
-    );
+    const factTables = await getAllFactTablesForOrganization(req.context);
 
     let matches = factTables;
     if (req.query.projectId) {

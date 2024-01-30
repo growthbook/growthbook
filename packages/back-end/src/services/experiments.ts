@@ -130,18 +130,18 @@ export async function createMetric(data: Partial<MetricInterface>) {
 }
 
 export async function getExperimentMetricById(
-  metricId: string,
-  orgId: string
+  context: ReqContext | ApiReqContext,
+  metricId: string
 ): Promise<ExperimentMetricInterface | null> {
   if (isFactMetricId(metricId)) {
-    return getFactMetric(orgId, metricId);
+    return getFactMetric(context, metricId);
   }
-  return getMetricById(metricId, orgId);
+  return getMetricById(context, metricId);
 }
 
 export async function refreshMetric(
+  context: ReqContext | ApiReqContext,
   metric: MetricInterface,
-  org: OrganizationInterface,
   metricAnalysisDays: number = DEFAULT_METRIC_ANALYSIS_DAYS
 ) {
   if (metric.datasource) {
@@ -153,7 +153,8 @@ export async function refreshMetric(
 
     let segment: SegmentInterface | undefined = undefined;
     if (metric.segment) {
-      segment = (await findSegmentById(metric.segment, org.id)) || undefined;
+      segment =
+        (await findSegmentById(metric.segment, context.org.id)) || undefined;
       if (!segment || segment.datasource !== metric.datasource) {
         throw new Error("Invalid user segment chosen");
       }
@@ -169,7 +170,11 @@ export async function refreshMetric(
     const to = new Date();
     to.setDate(to.getDate() + 1);
 
-    const queryRunner = new MetricAnalysisQueryRunner(metric, integration, org);
+    const queryRunner = new MetricAnalysisQueryRunner(
+      metric,
+      integration,
+      context
+    );
     await queryRunner.startAnalysis({
       from,
       to,
@@ -625,7 +630,7 @@ export async function createSnapshot({
   const queryRunner = new ExperimentResultsQueryRunner(
     snapshot,
     integration,
-    organization,
+    context,
     useCache
   );
   await queryRunner.startAnalysis({
@@ -1268,11 +1273,13 @@ export function postMetricApiPayloadToMetricInterface(
     mixpanel,
     tags = [],
     projects = [],
+    managedBy = "",
   } = payload;
 
   const metric: Omit<MetricInterface, "dateCreated" | "dateUpdated" | "id"> = {
     datasource: datasourceId,
     description,
+    managedBy,
     name,
     organization: organization.id,
     owner,
@@ -1402,6 +1409,7 @@ export function putMetricApiPayloadToMetricInterface(
     tags,
     projects,
     type,
+    managedBy,
   } = payload;
 
   const metric: Partial<MetricInterface> = {
@@ -1530,6 +1538,10 @@ export function putMetricApiPayloadToMetricInterface(
     }
   }
 
+  if (managedBy !== undefined) {
+    metric.managedBy = managedBy;
+  }
+
   return metric;
 }
 
@@ -1550,6 +1562,7 @@ export function toMetricApiInterface(
 
   const obj: ApiMetric = {
     id: metric.id,
+    managedBy: metric.managedBy || "",
     name: metric.name,
     description: metric.description || "",
     dateCreated: metric.dateCreated?.toISOString() || "",
@@ -1824,8 +1837,8 @@ export function updateExperimentApiPayloadToInterface(
 }
 
 export async function getRegressionAdjustmentInfo(
-  experiment: ExperimentInterface,
-  organization: OrganizationInterface
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface
 ): Promise<{
   regressionAdjustmentEnabled: boolean;
   metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
@@ -1837,7 +1850,7 @@ export async function getRegressionAdjustmentInfo(
     return { regressionAdjustmentEnabled, metricRegressionAdjustmentStatuses };
   }
 
-  const metricMap = await getMetricMap(organization.id);
+  const metricMap = await getMetricMap(context);
 
   const allExperimentMetricIds = uniq([
     ...experiment.metrics,
@@ -1864,7 +1877,7 @@ export async function getRegressionAdjustmentInfo(
       experimentRegressionAdjustmentEnabled:
         experiment.regressionAdjustmentEnabled ??
         DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-      organizationSettings: organization.settings,
+      organizationSettings: context.org.settings,
       metricOverrides: experiment.metricOverrides,
     });
     if (metricRegressionAdjustmentStatus.regressionAdjustmentEnabled) {

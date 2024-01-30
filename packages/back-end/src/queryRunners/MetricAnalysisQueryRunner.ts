@@ -73,11 +73,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
     };
   }
   async getLatestModel(): Promise<MetricInterface> {
-    const model = await getMetricById(
-      this.model.id,
-      this.model.organization,
-      true
-    );
+    const model = await getMetricById(this.context, this.model.id, true);
     if (!model) throw new Error("Could not find metric");
     return model;
   }
@@ -100,7 +96,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
       analysisError: result ? "" : error,
     };
 
-    await updateMetric(this.model.id, updates, this.model.organization);
+    await updateMetric(this.context, this.model, updates);
 
     return {
       ...this.model,

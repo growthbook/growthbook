@@ -58,7 +58,7 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
       ...req.body,
     };
 
-    const factTable = await createFactTable(req.organization.id, data);
+    const factTable = await createFactTable(req.context, data);
     await queueFactTableColumnsRefresh(factTable);
 
     if (data.tags.length > 0) {

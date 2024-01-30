@@ -23,6 +23,24 @@ responses:
           type: object
           required:
             - success
+            - factTablesAdded
+            - factTablesUpdated
+            - factTableFiltersAdded
+            - factTableFiltersUpdated
+            - factMetricsAdded
+            - factMetricsUpdated
           properties:
             success:
               type: boolean
+            factTablesAdded:
+              type: integer
+            factTablesUpdated:
+              type: integer
+            factTableFiltersAdded:
+              type: integer
+            factTableFiltersUpdated:
+              type: integer
+            factMetricsAdded:
+              type: integer
+            factMetricsUpdated:
+              type: integer
