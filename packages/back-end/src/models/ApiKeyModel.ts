@@ -294,7 +294,7 @@ export async function getApiKeyByIdOrKey(
 
   const apiKey = toInterface(doc);
 
-  return hasReadAccess(readAccessFilter, apiKey.project || "") ? apiKey : null;
+  return hasReadAccess(readAccessFilter, apiKey.project) ? apiKey : null;
 }
 
 export async function getVisualEditorApiKey(
@@ -353,7 +353,7 @@ export async function getAllApiKeysByOrganization(
     return json;
   });
 
-  return keys.filter((k) => hasReadAccess(readAccessFilter, k.project || ""));
+  return keys.filter((k) => hasReadAccess(readAccessFilter, k.project));
 }
 
 export async function getFirstPublishableApiKey(
