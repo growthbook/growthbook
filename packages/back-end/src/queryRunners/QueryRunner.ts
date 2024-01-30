@@ -505,7 +505,7 @@ export abstract class QueryRunner<
     const { name, query, dependencies, run, process, queryType } = params;
     // Re-use recent identical query if it exists
     if (this.useCache) {
-      logger.debug("Trying to reuse existing query");
+      logger.debug("Trying to reuse existing query for " + name);
       try {
         const existing = await getRecentQuery(
           this.integration.organization,
@@ -516,7 +516,11 @@ export abstract class QueryRunner<
           // Query still running, periodically check the status
           if (existing.status === "running") {
             logger.debug(
-              "Reusing previous query. Currently running, checking every 3 seconds for changes"
+              "Reusing previous query " +
+                existing.id +
+                " for query " +
+                query +
+                ". Currently running, checking every 3 seconds for changes"
             );
             const check = () => {
               getQueriesByIds(this.model.organization, [existing.id])
@@ -541,10 +545,17 @@ export abstract class QueryRunner<
           }
           // Query already finished
           else {
-            logger.debug("Reusing previous query. Already finished");
+            logger.debug(
+              "Reusing previous query for " + query + ". Already finished"
+            );
             this.onQueryFinish();
           }
-          logger.debug("Creating query with cached values");
+          logger.debug(
+            "Creating query with cached values for " +
+              query +
+              " from " +
+              existing.id
+          );
           const copiedCachedDoc = await createNewQueryFromCached({
             existing: existing,
             dependencies: dependencies,
@@ -561,7 +572,7 @@ export abstract class QueryRunner<
     }
 
     // Create a new query in mongo
-    logger.debug("Creating query: " + name);
+    logger.debug("Creating query for: " + name);
     const readyToRun = dependencies.length === 0;
     const doc = await createNewQuery({
       query,
@@ -573,7 +584,7 @@ export abstract class QueryRunner<
       running: readyToRun,
     });
 
-    logger.debug("Created new query object in Mongo: " + doc.id);
+    logger.debug("Created new query " + doc.id + " for " + name);
     if (readyToRun) {
       this.executeQuery(doc, run, process);
     } else {
