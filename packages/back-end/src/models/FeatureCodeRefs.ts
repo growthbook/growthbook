@@ -24,7 +24,7 @@ const featureCodeRefsSchema = new mongoose.Schema({
 });
 
 featureCodeRefsSchema.index(
-  { id: 1, organization: 1, repo: 1, branch: 1, feature: 1 },
+  { organization: 1, repo: 1, branch: 1, feature: 1 },
   { unique: true }
 );
 
@@ -44,7 +44,7 @@ export const upsertFeatureCodeRefs = async ({
   feature,
   repo,
   branch,
-  platform = "github",
+  platform,
   codeRefs,
   organization,
 }: {
@@ -76,6 +76,7 @@ export const upsertFeatureCodeRefs = async ({
     },
     {
       refs: codeRefs,
+      platform,
       dateUpdated: new Date(),
     },
     { upsert: true }
