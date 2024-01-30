@@ -40,11 +40,9 @@ export const postBulkImportFacts = createApiRequestHandler(
       factMetrics: 0,
     };
 
-    const factTableMap = await getFactTableMap(req.organization.id);
+    const factTableMap = await getFactTableMap(req.context);
 
-    const allFactMetrics = await getAllFactMetricsForOrganization(
-      req.organization.id
-    );
+    const allFactMetrics = await getAllFactMetricsForOrganization(req.context);
     const factMetricMap = new Map<string, FactMetricInterface>(
       allFactMetrics.map((m) => [m.id, m])
     );
@@ -94,6 +92,12 @@ export const postBulkImportFacts = createApiRequestHandler(
         data.tags?.forEach((t) => tagsToAdd.add(t));
         if (data.projects) validateProjectIds(data.projects);
 
+        // This bulk endpoint is mostly used to sync from version control
+        // So default these resources to only be managed by API and not the UI
+        if (data.managedBy === undefined) {
+          data.managedBy = "api";
+        }
+
         const existing = factTableMap.get(id);
         // Update existing fact table
         if (existing) {
@@ -110,8 +114,12 @@ export const postBulkImportFacts = createApiRequestHandler(
             );
           }
 
-          await updateFactTable(existing, data);
+          await updateFactTable(req.context, existing, data);
           await queueFactTableColumnsRefresh(existing);
+          factTableMap.set(existing.id, {
+            ...existing,
+            ...data,
+          });
           numUpdated.factTables++;
         }
         // Create new fact table
@@ -126,7 +134,7 @@ export const postBulkImportFacts = createApiRequestHandler(
             validateUserIdTypes(data.datasource, data.userIdTypes);
           }
 
-          const newFactTable = await createFactTable(req.organization.id, {
+          const newFactTable = await createFactTable(req.context, {
             columns: [],
             eventName: "",
             id: id,
@@ -153,10 +161,21 @@ export const postBulkImportFacts = createApiRequestHandler(
         }
         checkFactTablePermission(factTable);
 
+        // This bulk endpoint is mostly used to sync from version control
+        // So default these resources to only be managed by API and not the UI
+        if (factTable.managedBy === "api" && data.managedBy === undefined) {
+          data.managedBy = "api";
+        }
+
         const existingFactFilter = factTable.filters.find((f) => f.id === id);
         // Update existing filter
         if (existingFactFilter) {
-          await updateFactFilter(factTable, existingFactFilter.id, data);
+          await updateFactFilter(
+            req.context,
+            factTable,
+            existingFactFilter.id,
+            data
+          );
           Object.assign(existingFactFilter, data);
           numUpdated.factTableFilters++;
         }
@@ -180,6 +199,12 @@ export const postBulkImportFacts = createApiRequestHandler(
 
         const id = origId.match(/^fact__/) ? origId : `fact__${origId}`;
 
+        // This bulk endpoint is mostly used to sync from version control
+        // So default these resources to only be managed by API and not the UI
+        if (data.managedBy === undefined) {
+          data.managedBy = "api";
+        }
+
         const existing = factMetricMap.get(id);
         // Update existing fact metric
         if (existing) {
@@ -192,7 +217,11 @@ export const postBulkImportFacts = createApiRequestHandler(
             async (id) => factTableMap.get(id) || null
           );
 
-          await updateFactMetric(existing, changes);
+          await updateFactMetric(req.context, existing, changes);
+          factMetricMap.set(existing.id, {
+            ...existing,
+            ...changes,
+          });
           numUpdated.factMetrics++;
         }
         // Create new fact metric
@@ -212,7 +241,7 @@ export const postBulkImportFacts = createApiRequestHandler(
           await validateFactMetric(createProps, lookupFactTable);
 
           const newFactMetric = await createFactMetric(
-            req.organization.id,
+            req.context,
             createProps
           );
           factMetricMap.set(newFactMetric.id, newFactMetric);
@@ -229,6 +258,12 @@ export const postBulkImportFacts = createApiRequestHandler(
 
     return {
       success: true,
+      factTablesAdded: numCreated.factTables,
+      factTablesUpdated: numUpdated.factTables,
+      factTableFiltersAdded: numCreated.factTableFilters,
+      factTableFiltersUpdated: numUpdated.factTableFilters,
+      factMetricsAdded: numCreated.factMetrics,
+      factMetricsUpdated: numUpdated.factMetrics,
     };
   }
 );

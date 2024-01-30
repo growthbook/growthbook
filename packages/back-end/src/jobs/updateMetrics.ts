@@ -8,7 +8,11 @@ import { getMetricById } from "../models/MetricModel";
 import { METRIC_REFRESH_FREQUENCY } from "../util/secrets";
 import { logger } from "../util/logger";
 import { promiseAllChunks } from "../util/promise";
-import { getContextForAgendaJobByOrgId } from "../services/organizations";
+import {
+  getContextForAgendaJobByOrgObject,
+  getOrganizationById,
+} from "../services/organizations";
+import { OrganizationInterface } from "../../types/organization";
 
 const QUEUE_METRIC_UPDATES = "queueMetricUpdates";
 
@@ -26,14 +30,14 @@ export default async function (agenda: Agenda) {
     const orgsWithNorthStars = await getOrganizationsWithNorthStars();
 
     const metrics: {
-      organization: string;
+      organization: OrganizationInterface;
       id: string;
       daysToInclude: number;
     }[] = [];
     orgsWithNorthStars.forEach((org) => {
       org?.settings?.northStar?.metricIds?.forEach((metricId) =>
         metrics.push({
-          organization: org.id,
+          organization: org,
           id: metricId,
           daysToInclude:
             org?.settings?.metricAnalysisDays || DEFAULT_METRIC_ANALYSIS_DAYS,
@@ -49,7 +53,9 @@ export default async function (agenda: Agenda) {
     const promiseCallbacks: (() => Promise<unknown>)[] = [];
     metrics.forEach(({ organization, id, daysToInclude }) => {
       promiseCallbacks.push(async () => {
-        const metric = await getMetricById(id, organization, true);
+        const context = getContextForAgendaJobByOrgObject(organization);
+
+        const metric = await getMetricById(context, id, true);
         if (!metric) return;
         // Skip if metric was already refreshed recently
         if (
@@ -59,7 +65,7 @@ export default async function (agenda: Agenda) {
           return;
         }
 
-        await queueMetricUpdate(id, organization, daysToInclude);
+        await queueMetricUpdate(id, organization.id, daysToInclude);
       });
     });
 
@@ -113,16 +119,21 @@ async function updateSingleMetric(job: UpdateSingleMetricJob) {
     if (!metricId || !orgId) {
       throw new Error("Error getting metricId or orgId from job");
     }
-    const metric = await getMetricById(metricId, orgId, true);
+
+    const org = await getOrganizationById(orgId);
+    if (!org) {
+      throw new Error("Error getting org to refresh metric: " + orgId);
+    }
+    const context = getContextForAgendaJobByOrgObject(org);
+
+    const metric = await getMetricById(context, metricId, true);
 
     if (!metric) {
       throw new Error("Error getting metric to refresh: " + metricId);
     }
 
-    const context = await getContextForAgendaJobByOrgId(orgId);
-
     logger.info("Start Refreshing Metric: " + metricId);
-    await refreshMetric(metric, context, daysToInclude);
+    await refreshMetric(context, metric, daysToInclude);
     logger.info("Successfully Refreshed Metric: " + metricId);
   } catch (e) {
     logger.error(e, "Error refreshing metric: " + metricId);

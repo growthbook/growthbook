@@ -1,11 +1,10 @@
 import Agenda, { Job } from "agenda";
-import { getFactTable, updateFactTable } from "../models/FactTableModel";
+import { getFactTable, updateFactTableColumns } from "../models/FactTableModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import {
   ColumnInterface,
   FactTableColumnType,
   FactTableInterface,
-  UpdateFactTableProps,
 } from "../../types/fact-table";
 import { determineColumnTypes } from "../util/sql";
 import { getSourceIntegrationObject } from "../services/datasource";
@@ -93,15 +92,18 @@ export default function (ag: Agenda) {
 
     if (!factTableId || !organization) return;
 
-    const factTable = await getFactTable(organization, factTableId);
-    if (!factTable) return;
-
     const context = await getContextForAgendaJobByOrgId(organization);
+
+    const factTable = await getFactTable(context, factTableId);
+    if (!factTable) return;
 
     const datasource = await getDataSourceById(context, factTable.datasource);
     if (!datasource) return;
 
-    const updates: UpdateFactTableProps = {};
+    const updates: Partial<
+      Pick<FactTableInterface, "columns" | "columnsError">
+    > = {};
+
     try {
       const columns = await runRefreshColumnsQuery(datasource, factTable);
       updates.columns = columns;
@@ -110,7 +112,7 @@ export default function (ag: Agenda) {
       updates.columnsError = e.message;
     }
 
-    await updateFactTable(factTable, updates);
+    await updateFactTableColumns(factTable, updates);
   });
 }
 

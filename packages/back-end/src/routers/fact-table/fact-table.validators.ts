@@ -45,6 +45,7 @@ export const createFactTablePropsValidator = z
     sql: z.string(),
     eventName: z.string(),
     columns: z.array(createColumnPropsValidator),
+    managedBy: z.enum(["", "api"]).optional(),
   })
   .strict();
 
@@ -59,6 +60,7 @@ export const updateFactTablePropsValidator = z
     sql: z.string().optional(),
     eventName: z.string().optional(),
     columns: z.array(createColumnPropsValidator).optional(),
+    managedBy: z.enum(["", "api"]).optional(),
     columnsError: z.string().nullable().optional(),
   })
   .strict();
@@ -83,6 +85,7 @@ export const createFactMetricPropsValidator = z.object({
   description: z.string(),
   tags: z.array(z.string()),
   projects: z.array(z.string()),
+  managedBy: z.enum(["", "api"]).optional(),
 
   metricType: metricTypeValidator,
   numerator: columnRefValidator,
@@ -114,6 +117,7 @@ export const updateFactMetricPropsValidator = z.object({
   description: z.string().optional(),
   tags: z.array(z.string()).optional(),
   projects: z.array(z.string()).optional(),
+  managedBy: z.enum(["", "api"]).optional(),
 
   metricType: metricTypeValidator.optional(),
   numerator: columnRefValidator.optional(),
@@ -145,6 +149,7 @@ export const createFactFilterPropsValidator = z
     name: z.string(),
     description: z.string(),
     value: z.string(),
+    managedBy: z.enum(["", "api"]).optional(),
   })
   .strict();
 
@@ -153,6 +158,7 @@ export const updateFactFilterPropsValidator = z
     name: z.string().optional(),
     description: z.string().optional(),
     value: z.string().optional(),
+    managedBy: z.enum(["", "api"]).optional(),
   })
   .strict();
 

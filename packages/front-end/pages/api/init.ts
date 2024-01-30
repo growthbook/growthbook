@@ -22,6 +22,7 @@ export interface EnvironmentInitValue {
   sentryDSN: string;
   usingSSO: boolean;
   storeSegmentsInMongo: boolean;
+  allowCreateMetrics: boolean;
   usingFileProxy: boolean;
 }
 
@@ -43,6 +44,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     NEXT_PUBLIC_SENTRY_DSN,
     SSO_CONFIG,
     STORE_SEGMENTS_IN_MONGO,
+    ALLOW_CREATE_METRICS,
     USE_FILE_PROXY: USING_FILE_PROXY,
   } = process.env;
 
@@ -82,6 +84,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     isMultiOrg: stringToBoolean(IS_MULTI_ORG),
     allowSelfOrgCreation: stringToBoolean(ALLOW_SELF_ORG_CREATION, true), // Default to true
     config: hasConfigFile ? "file" : "db",
+    allowCreateMetrics: !hasConfigFile || stringToBoolean(ALLOW_CREATE_METRICS),
     build,
     defaultConversionWindowHours: DEFAULT_CONVERSION_WINDOW_HOURS
       ? parseInt(DEFAULT_CONVERSION_WINDOW_HOURS)

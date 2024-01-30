@@ -20,6 +20,7 @@ import SortedTags from "@/components/Tags/SortedTags";
 import FactMetricList from "@/components/FactTables/FactMetricList";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import { usesEventName } from "@/components/Metrics/MetricForm";
+import { OfficialBadge } from "@/components/Metrics/MetricName";
 
 export default function FactTablePage() {
   const router = useRouter();
@@ -56,10 +57,9 @@ export default function FactTablePage() {
     );
   }
 
-  const canEdit = permissions.check(
-    "manageFactTables",
-    factTable.projects || ""
-  );
+  const canEdit =
+    !factTable.managedBy &&
+    permissions.check("manageFactTables", factTable.projects || "");
 
   const hasColumns = factTable.columns?.some((col) => !col.deleted);
 
@@ -105,7 +105,10 @@ export default function FactTablePage() {
       />
       <div className="row mb-3">
         <div className="col-auto">
-          <h1 className="mb-0">{factTable.name}</h1>
+          <h1 className="mb-0">
+            {factTable.name}{" "}
+            <OfficialBadge type="Fact Table" managedBy={factTable.managedBy} />
+          </h1>
         </div>
         {canEdit && (
           <div className="ml-auto">
@@ -222,15 +225,19 @@ export default function FactTablePage() {
               containerClassName="m-0"
               className="mb-4"
               filename={
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setEditOpen(true);
-                  }}
-                >
-                  Edit SQL <GBEdit />
-                </a>
+                canEdit ? (
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setEditOpen(true);
+                    }}
+                  >
+                    Edit SQL <GBEdit />
+                  </a>
+                ) : (
+                  "SQL"
+                )
               }
             />
             {usesEventName(factTable.sql) && (

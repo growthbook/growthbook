@@ -386,8 +386,8 @@ spacing and headings.`,
         org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
     };
 
-    const metricMap = await getMetricMap(org.id);
-    const factTableMap = await getFactTableMap(org.id);
+    const metricMap = await getMetricMap(context);
+    const factTableMap = await getFactTableMap(context);
 
     await createSnapshot({
       experiment: createdExperiment,
