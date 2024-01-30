@@ -196,9 +196,13 @@ export default function DataSourceMetrics({
                               >
                                 <strong>Projects: </strong>
                                 {!metric?.projects?.length ? (
-                                  <ProjectBadges className="badge-ellipsis align-middle" />
+                                  <ProjectBadges
+                                    resourceType="data source"
+                                    badge-ellipsis="align-middle"
+                                  />
                                 ) : (
                                   <ProjectBadges
+                                    resourceType="data source"
                                     projectIds={metric.projects}
                                     className={clsx(
                                       {

@@ -261,11 +261,15 @@ export default function FactTablesPage() {
                   <td className="col-2">
                     {f.projects.length > 0 ? (
                       <ProjectBadges
+                        resourceType="fact table"
                         projectIds={f.projects}
                         className="badge-ellipsis short align-middle"
                       />
                     ) : (
-                      <ProjectBadges className="badge-ellipsis short align-middle" />
+                      <ProjectBadges
+                        resourceType="fact table"
+                        className="badge-ellipsis short align-middle"
+                      />
                     )}
                   </td>
                   <td>

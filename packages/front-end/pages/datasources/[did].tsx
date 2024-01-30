@@ -174,11 +174,15 @@ const DataSourcePage: FC = () => {
           Projects:{" "}
           {d?.projects?.length || 0 > 0 ? (
             <ProjectBadges
+              resourceType="data source"
               projectIds={d.projects}
               className="badge-ellipsis align-middle"
             />
           ) : (
-            <ProjectBadges className="badge-ellipsis align-middle" />
+            <ProjectBadges
+              resourceType="data source"
+              badge-ellipsis="align-middle"
+            />
           )}
         </div>
       </div>
