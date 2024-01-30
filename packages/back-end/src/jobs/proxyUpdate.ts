@@ -14,6 +14,8 @@ import { SDKConnectionInterface } from "../../types/sdk-connection";
 import { cancellableFetch } from "../util/http.util";
 import { logger } from "../util/logger";
 import { getContextForAgendaJobByOrgId } from "../services/organizations";
+import { ApiReqContext } from "../../types/api";
+import { ReqContext } from "../../types/organization";
 
 const PROXY_UPDATE_JOB_NAME = "proxyUpdate";
 type ProxyUpdateJob = Job<{
@@ -144,13 +146,11 @@ export async function queueSingleProxyUpdate(
 }
 
 export async function queueProxyUpdate(
-  orgId: string,
+  context: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[]
 ) {
   if (!CRON_ENABLED) return;
   if (!payloadKeys.length) return;
-
-  const context = await getContextForAgendaJobByOrgId(orgId);
 
   const connections = await findSDKConnectionsByOrganization(context);
 
