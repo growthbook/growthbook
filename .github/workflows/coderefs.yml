@@ -31,7 +31,7 @@ jobs:
           name: flags-json
           path: ${{ needs.fetchFlags.outputs.json-path }}
       - name: GrowthBook Code References
-        uses: growthbook/coderefs-github-action@2.11.5-2
+        uses: growthbook/coderefs-github-action@2.11.5-3
         with:
           flagsPath: ${{ needs.fetchFlags.outputs.json-path }}
           dir: ${{ github.workspace }}
