@@ -238,7 +238,6 @@ export default function FeaturePage() {
     if (!feature) return null;
     const states: Record<string, PrerequisiteState> = {};
     envs.forEach((env) => {
-      // todo: avoid "conditional" when looking at self rules
       states[env] = evaluatePrerequisiteState(feature, features, env, true);
     });
     return states;

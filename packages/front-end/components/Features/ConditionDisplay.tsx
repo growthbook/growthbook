@@ -43,9 +43,9 @@ function operatorToText(operator: string, isPrerequisite?: boolean): string {
     case "$vgte":
       return `is greater than or equal to`;
     case "$exists":
-      return isPrerequisite ? `is enabled` : `is not NULL`;
+      return isPrerequisite ? `is live` : `is not NULL`;
     case "$notExists":
-      return isPrerequisite ? `is disabled` : `is NULL`;
+      return isPrerequisite ? `is not live` : `is NULL`;
     case "$in":
       return `is in the list`;
     case "$nin":

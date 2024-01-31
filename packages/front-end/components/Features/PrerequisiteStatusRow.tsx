@@ -148,9 +148,7 @@ export function PrerequisiteStatesCols({
                       ? "This feature"
                       : "This prerequisite feature"}{" "}
                     is currently{" "}
-                    <span className="text-success font-weight-bold">
-                      enabled
-                    </span>{" "}
+                    <span className="text-success font-weight-bold">live</span>{" "}
                     in this environment.
                   </div>
                 </>
@@ -170,7 +168,7 @@ export function PrerequisiteStatesCols({
                       ? "This feature"
                       : "This prerequisite feature"}{" "}
                     is currently{" "}
-                    <span className="text-gray font-weight-bold">disabled</span>{" "}
+                    <span className="text-gray font-weight-bold">not live</span>{" "}
                     in this environment.
                     {isSummaryRow && (
                       <>
@@ -193,12 +191,13 @@ export function PrerequisiteStatesCols({
                 isSummaryRow ? (
                   <>
                     <div>
-                      This feature is currently{" "}
+                      This feature is currently in a{" "}
                       <span className="text-purple font-weight-bold">
-                        conditionally enabled
+                        Schrödinger state
                       </span>{" "}
                       in this environment. This feature&apos;s prerequisites
-                      have rules which may make the result conditional.
+                      have rules which cannot be evaluated until runtime in the
+                      SDK.
                     </div>
                     {isSummaryRow && (
                       <div className="mt-2">
@@ -210,12 +209,12 @@ export function PrerequisiteStatesCols({
                   </>
                 ) : (
                   <div>
-                    This prerequisite feature is currently{" "}
+                    This prerequisite feature is currently in a{" "}
                     <span className="text-purple font-weight-bold">
-                      conditionally enabled
+                      Schrödinger state
                     </span>{" "}
                     in this environment. This feature or its prerequisites have
-                    rules which may make the result conditional.
+                    rules which cannot be evaluated until runtime in the SDK.
                   </div>
                 )
               }

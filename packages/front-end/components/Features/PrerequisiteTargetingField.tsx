@@ -392,25 +392,27 @@ export const PrerequisiteAlerts = ({
         <FaExclamationTriangle className="mr-1" />
         {issue === "conditional-prerequisite" && (
           <>
-            This {type} is{" "}
+            This {type} is in a{" "}
             <span className="text-purple font-weight-bold">
-              conditionally enabled
+              Schrödinger state
             </span>{" "}
             {environments.length > 1
               ? "in one or more environments"
               : "in this environment"}
-            .{" "}
+            . This means that we can&apos;t know if it&apos;s live or not until
+            it&apos;s evaluated at runtime in the SDK.{" "}
           </>
         )}
         {issue === "conditional-targeting" && (
           <>
-            The selected targeting condition requires{" "}
-            <span className="text-purple font-weight-bold">conditional</span>{" "}
-            evaluation.{" "}
+            The selected targeting condition gives this prerequisite a{" "}
+            <span className="text-purple font-weight-bold">
+              Schrödinger state
+            </span>
+            . This means that we can&apos;t know if it passes or not until
+            it&apos;s evaluated at runtime in the SDK.{" "}
           </>
         )}
-        Conditional prerequisite evaluation happens in the SDK; therefore a
-        compatible SDK version is required.{" "}
         <Tooltip
           body={
             <>
@@ -424,7 +426,7 @@ export const PrerequisiteAlerts = ({
                     } or ${
                       type === "prerequisite"
                         ? "remove this prerequisite"
-                        : "remove conditional prerequisites"
+                        : "remove Schrödinger prerequisites"
                     }.`}
               </div>
               <div className="mt-2">

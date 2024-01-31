@@ -158,15 +158,15 @@ export default function PrerequisiteInput(props: Props) {
         const operatorOptions =
           attribute.datatype === "boolean"
             ? [
-                { label: "is enabled", value: "$exists" },
-                { label: "is disabled", value: "$notExists" },
+                { label: "is live", value: "$exists" },
+                { label: "is not live", value: "$notExists" },
                 { label: "is true", value: "$true" },
                 { label: "is false", value: "$false" },
               ]
             : attribute.datatype === "string"
             ? [
-                { label: "is enabled", value: "$exists" },
-                { label: "is disabled", value: "$notExists" },
+                { label: "is live", value: "$exists" },
+                { label: "is not live", value: "$notExists" },
                 { label: "is equal to", value: "$eq" },
                 { label: "is not equal to", value: "$ne" },
                 { label: "matches regex", value: "$regex" },
@@ -180,8 +180,8 @@ export default function PrerequisiteInput(props: Props) {
               ]
             : attribute.datatype === "number"
             ? [
-                { label: "is enabled", value: "$exists" },
-                { label: "is disabled", value: "$notExists" },
+                { label: "is live", value: "$exists" },
+                { label: "is not live", value: "$notExists" },
                 { label: "is equal to", value: "$eq" },
                 { label: "is not equal to", value: "$ne" },
                 { label: "is greater than", value: "$gt" },
@@ -193,8 +193,8 @@ export default function PrerequisiteInput(props: Props) {
               ]
             : attribute.datatype === "json"
             ? [
-                { label: "is enabled", value: "$exists" },
-                { label: "is disabled", value: "$notExists" },
+                { label: "is live", value: "$exists" },
+                { label: "is not live", value: "$notExists" },
               ]
             : [];
 
@@ -251,7 +251,7 @@ export default function PrerequisiteInput(props: Props) {
                 />
                 {operatorIsConditional && (
                   <div className="text-purple small mt-1 ml-1">
-                    <FaRegCircleQuestion /> Conditional{" "}
+                    <FaRegCircleQuestion /> Schrödinger{" "}
                     <span className="text-muted">
                       targeting will be evaluated in the SDK
                     </span>
