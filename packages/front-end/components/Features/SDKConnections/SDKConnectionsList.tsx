@@ -20,7 +20,7 @@ export default function SDKConnectionsList() {
 
   const [modalOpen, setModalOpen] = useState(false);
 
-  const { getProjectById, projects } = useDefinitions();
+  const { projects } = useDefinitions();
 
   const router = useRouter();
   const permissions = usePermissions();
