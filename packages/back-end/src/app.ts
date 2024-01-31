@@ -419,6 +419,10 @@ app.get(
   experimentsController.getSnapshotWithDimension
 );
 app.post("/experiment/:id/snapshot", experimentsController.postSnapshot);
+app.post(
+  "/experiments/snapshots/scaled/",
+  experimentsController.postSnapshotsWithScaledImpactAnalysis
+);
 app.post("/experiment/:id", experimentsController.postExperiment);
 app.delete("/experiment/:id", experimentsController.deleteExperiment);
 app.get("/experiment/:id/watchers", experimentsController.getWatchingUsers);

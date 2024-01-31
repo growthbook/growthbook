@@ -8,6 +8,7 @@ import ExperimentGraph from "../Experiment/ExperimentGraph";
 import styles from "./Dashboard.module.scss";
 import IdeasFeed from "./IdeasFeed";
 import NorthStar from "./NorthStar";
+import ExperimentImpact from "./ExperimentImpact";
 
 export interface Props {
   experiments: ExperimentInterfaceStringDates[];
@@ -77,6 +78,12 @@ export default function Dashboard({ experiments }: Props) {
               </h4>
               <IdeasFeed num={5} />
             </div>
+          </div>
+        </div>
+        <div className="col-xl-12 mb-4">
+          <div className="list-group activity-box overflow-auto">
+            <h4>Experiment Impact</h4>
+            <ExperimentImpact experiments={experiments} />
           </div>
         </div>
       </div>

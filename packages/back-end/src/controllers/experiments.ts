@@ -4,7 +4,7 @@ import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import { getAffectedEnvsForExperiment } from "shared/util";
+import { getAffectedEnvsForExperiment, getSnapshotAnalysis } from "shared/util";
 import { getAllMetricRegressionAdjustmentStatuses } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
@@ -1912,6 +1912,88 @@ export async function postSnapshotAnalysis(
     });
   }
 }
+
+function addCoverageToSnapshotIfMissing(
+  snapshot: ExperimentSnapshotInterface,
+  experiment: ExperimentInterface,
+  phase?: number
+): ExperimentSnapshotInterface {
+  if (snapshot.settings.coverage === undefined) {
+    const latestPhase = experiment.phases.length - 1;
+    snapshot.settings.coverage =
+      experiment.phases[phase ?? latestPhase].coverage;
+  }
+  return snapshot;
+}
+
+export async function postSnapshotsWithScaledImpactAnalysis(
+  req: AuthRequest<{
+    ids: string[];
+  }>,
+  res: Response<
+    | { status: 200; snapshots: ExperimentSnapshotInterface[] }
+    | PrivateApiErrorResponse
+  >
+) {
+
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { ids } = req.body;
+  if (!ids.length) {
+    res.status(200).json({
+      status: 200,
+      snapshots: [],
+    });
+    return;
+  }
+  const metricMap = await getMetricMap(context);
+
+  let snapshotsPromises: Promise<ExperimentSnapshotInterface | null>[] = [];
+  snapshotsPromises = ids.map(async (i) => {
+    return await _getSnapshot(context, i);
+  });
+  const snapshots = await Promise.all(snapshotsPromises);
+
+  const preppedSnapshots: ExperimentSnapshotInterface[] = [];
+  await Promise.all(
+    snapshots.map(async (s) => {
+      if (!s) return;
+      const defaultAnalysis = getSnapshotAnalysis(s);
+      if (!defaultAnalysis) return; // TODO edge cases where latest snapshot differs from whats in results UI? is it possible?
+      const scaledImpactAnalysisSettings: ExperimentSnapshotAnalysisSettings = {
+        ...defaultAnalysis.settings,
+        differenceType: "scaled",
+      };
+      if (getSnapshotAnalysis(s, scaledImpactAnalysisSettings)) {
+        preppedSnapshots.push(s);
+        return;
+      }
+      const experiment = await getExperimentById(context, s.experiment);
+      if (!experiment) return;
+      addCoverageToSnapshotIfMissing(s, experiment);
+
+      // TRY
+      createSnapshotAnalysis({
+        experiment: experiment,
+        organization: org,
+        analysisSettings: scaledImpactAnalysisSettings,
+        metricMap: metricMap,
+        snapshot: s,
+      }).then(() => {
+        preppedSnapshots.push(s);
+    }).catch((e) => {
+      console.error(e);
+    })
+      return;
+    })
+  );
+  res.status(200).json({
+    status: 200,
+    snapshots: preppedSnapshots,
+  });
+  return;
+}
+
 
 export async function deleteScreenshot(
   req: AuthRequest<{ url: string }, { id: string; variation: number }>,
