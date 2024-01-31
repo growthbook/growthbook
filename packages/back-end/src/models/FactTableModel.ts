@@ -78,7 +78,7 @@ export async function getAllFactTablesForOrganization(
   const docs = await FactTableModel.find({ organization: context.org.id });
   return docs
     .map((doc) => toInterface(doc))
-    .filter((f) => hasReadAccess(context.readAccessFilter, f.projects));
+    .filter((f) => hasReadAccess(context.readAccessFilter, f.projects || []));
 }
 
 export type FactTableMap = Map<string, FactTableInterface>;
@@ -102,7 +102,7 @@ export async function getFactTable(
   if (!doc) return null;
 
   const factTable = toInterface(doc);
-  if (!hasReadAccess(context.readAccessFilter, factTable.projects)) {
+  if (!hasReadAccess(context.readAccessFilter, factTable.projects || [])) {
     return null;
   }
   return factTable;
