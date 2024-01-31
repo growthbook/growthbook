@@ -109,7 +109,7 @@ export async function generateNotebook(
   description: string
 ) {
   // Get datasource
-  const datasource = await getDataSourceById(args.datasource, context.org.id);
+  const datasource = await getDataSourceById(context, args.datasource);
   if (!datasource) {
     throw new Error("Cannot find datasource");
   }

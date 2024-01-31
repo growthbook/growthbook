@@ -146,7 +146,7 @@ export async function refreshMetric(
 ) {
   if (metric.datasource) {
     const integration = await getIntegrationFromDatasourceId(
-      metric.organization,
+      context,
       metric.datasource,
       true
     );
@@ -622,7 +622,7 @@ export async function createSnapshot({
   const snapshot = await createExperimentSnapshotModel(data);
 
   const integration = await getIntegrationFromDatasourceId(
-    experiment.organization,
+    context,
     experiment.datasource,
     true
   );

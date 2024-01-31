@@ -222,7 +222,7 @@ export async function refreshReport(
   const factTableMap = await getFactTableMap(context);
 
   const integration = await getIntegrationFromDatasourceId(
-    org.id,
+    context,
     report.args.datasource,
     true
   );
@@ -307,7 +307,7 @@ export async function putReport(
     const factTableMap = await getFactTableMap(context);
 
     const integration = await getIntegrationFromDatasourceId(
-      org.id,
+      context,
       updatedReport.args.datasource,
       true
     );
@@ -349,7 +349,7 @@ export async function cancelReport(
   req.checkPermissions("runQueries", experiment?.project || "");
 
   const integration = await getIntegrationFromDatasourceId(
-    org.id,
+    context,
     report.args.datasource
   );
   const queryRunner = new ReportQueryRunner(report, integration, context);
