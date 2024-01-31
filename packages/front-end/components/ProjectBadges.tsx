@@ -5,7 +5,13 @@ import Badge from "@/components/Badge";
 import Tooltip from "./Tooltip/Tooltip";
 
 export interface Props {
-  resourceType: "metric" | "data source" | "member" | "team" | "fact table";
+  resourceType:
+    | "metric"
+    | "data source"
+    | "member"
+    | "team"
+    | "fact table"
+    | "sdk connection";
   projectIds?: string[];
   sort?: boolean;
   className?: string;
@@ -17,6 +23,7 @@ export default function ProjectBadges({
   sort = true,
   className = "badge-ellipsis short",
 }: Props) {
+  console.log("projectIds", projectIds);
   const { projects, project } = useDefinitions();
   if (!projectIds) {
     return (
