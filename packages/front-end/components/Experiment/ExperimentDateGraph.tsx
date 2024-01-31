@@ -465,6 +465,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                 <AxisLeft
                   scale={yScale}
                   numTicks={numYTicks}
+                  labelOffset={50}
                   tickFormat={(v) => formatter(v as number, formatterOptions)}
                   tickLabelProps={() => ({
                     fill: "var(--text-color-table)",
