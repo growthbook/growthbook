@@ -37,6 +37,7 @@ jobs:
         with:
           flagsPath: flags.json
           dir: ${{ github.workspace }}
+          branch: ${{ github.ref_name }}
       - name: Upload coderefs.json
         uses: actions/upload-artifact@v3
         with:
