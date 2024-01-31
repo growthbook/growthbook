@@ -29,14 +29,13 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: flags-json
-          path: ${{ needs.fetchFlags.outputs.json-path }}
       - name: Debug flags path
         run: |
-          echo ${{ needs.fetchFlags.outputs.json-path }}
+          cat flags.json
       - name: GrowthBook Code References
         uses: growthbook/coderefs-github-action@2.11.5-5
         with:
-          flagsPath: ${{ needs.fetchFlags.outputs.json-path }}
+          flagsPath: flags.json
           dir: ${{ github.workspace }}
       - name: Upload coderefs.json
         uses: actions/upload-artifact@v3
