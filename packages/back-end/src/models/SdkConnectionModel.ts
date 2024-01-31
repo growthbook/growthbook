@@ -113,7 +113,7 @@ export async function findSDKConnectionById(
   if (!doc) return null;
 
   const connection = toInterface(doc);
-  return hasReadAccess(context.readAccessFilter, connection.projects)
+  return hasReadAccess(context.readAccessFilter, connection.projects || [])
     ? connection
     : null;
 }
@@ -127,7 +127,7 @@ export async function findSDKConnectionsByOrganization(
 
   const connections = docs.map(toInterface);
   return connections.filter((conn) =>
-    hasReadAccess(context.readAccessFilter, conn.projects)
+    hasReadAccess(context.readAccessFilter, conn.projects || [])
   );
 }
 
