@@ -7,6 +7,7 @@ import { ago, datetime } from "shared/dates";
 import { isFeatureStale } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaTriangleExclamation } from "react-icons/fa6";
+import { Tabs } from "@radix-ui/themes";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle } from "@/components/Icons";
 import FeatureModal from "@/components/Features/FeatureModal";
@@ -104,6 +105,228 @@ export default function FeaturesPage() {
     },
     [showArchived, tagsFilter.tags, environments]
   );
+  const renderFeaturesTable = (onlyDrafts = false) => {
+    return (
+      features.length > 0 && (
+        <div>
+          <div className="row mb-2 align-items-center">
+            <div className="col-auto">
+              <Field
+                placeholder="Search..."
+                type="search"
+                {...searchInputProps}
+              />
+            </div>
+            <div className="col-auto">
+              <TagsFilter filter={tagsFilter} items={items} />
+            </div>
+            {showArchivedToggle && (
+              <div className="col">
+                <Toggle
+                  value={showArchived}
+                  id="archived"
+                  setValue={setShowArchived}
+                ></Toggle>
+                Show Archived
+              </div>
+            )}
+          </div>
+
+          <table className="table gbtable table-hover appbox">
+            <thead
+              className="sticky-top bg-white shadow-sm"
+              style={{ top: "56px", zIndex: 900 }}
+            >
+              <tr>
+                <th></th>
+                <SortableTH field="id">Feature Key</SortableTH>
+                {showProjectColumn && <th>Project</th>}
+                <SortableTH field="tags">Tags</SortableTH>
+                {toggleEnvs.map((en) => (
+                  <th key={en.id}>{en.id}</th>
+                ))}
+                <th>Value When Enabled</th>
+                <th>Overrides Rules</th>
+                <th>Version</th>
+                <SortableTH field="dateUpdated">Last Updated</SortableTH>
+                {showGraphs && (
+                  <th>
+                    Recent Usage{" "}
+                    <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
+                  </th>
+                )}
+                <th>Stale</th>
+                <th style={{ width: 30 }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.slice(start, end).map((feature) => {
+                let rules: FeatureRule[] = [];
+                environments.forEach(
+                  (e) => (rules = rules.concat(getRules(feature, e.id)))
+                );
+
+                // When showing a summary of rules, prefer experiments to rollouts to force rules
+                const orderedRules = [
+                  ...rules.filter((r) => r.type === "experiment"),
+                  ...rules.filter((r) => r.type === "rollout"),
+                  ...rules.filter((r) => r.type === "force"),
+                ];
+
+                const firstRule = orderedRules[0];
+                const totalRules = rules.length || 0;
+
+                const version = feature.version;
+
+                const projectId = feature.project;
+                const projectName = projectId
+                  ? getProjectById(projectId)?.name || null
+                  : null;
+                const projectIsDeReferenced = projectId && !projectName;
+                const { stale, reason: staleReason } = isFeatureStale(
+                  feature,
+                  experiments.filter((e) =>
+                    feature.linkedExperiments?.includes(e.id)
+                  )
+                );
+                if (onlyDrafts && !feature?.hasDrafts) {
+                  return;
+                }
+                return (
+                  <tr
+                    key={feature.id}
+                    className={feature.archived ? "text-muted" : ""}
+                  >
+                    <td data-title="Watching status:" className="watching">
+                      <WatchButton
+                        item={feature.id}
+                        itemType="feature"
+                        type="icon"
+                      />
+                    </td>
+                    <td>
+                      <Link href={`/features/${feature.id}`}>
+                        <a className={feature.archived ? "text-muted" : ""}>
+                          {feature.id}
+                        </a>
+                      </Link>
+                    </td>
+                    {showProjectColumn && (
+                      <td>
+                        {projectIsDeReferenced ? (
+                          <Tooltip
+                            body={
+                              <>
+                                Project <code>{feature.project}</code> not found
+                              </>
+                            }
+                          >
+                            <span className="text-danger">Invalid project</span>
+                          </Tooltip>
+                        ) : (
+                          projectName ?? <em>None</em>
+                        )}
+                      </td>
+                    )}
+                    <td>
+                      <SortedTags tags={feature?.tags || []} />
+                    </td>
+                    {toggleEnvs.map((en) => (
+                      <td key={en.id} className="position-relative">
+                        <EnvironmentToggle
+                          feature={feature}
+                          environment={en.id}
+                          mutate={mutate}
+                        />
+                      </td>
+                    ))}
+                    <td>
+                      <ValueDisplay
+                        value={getFeatureDefaultValue(feature) || ""}
+                        type={feature.valueType}
+                        full={false}
+                      />
+                    </td>
+                    <td>
+                      {firstRule && (
+                        <span className="text-dark">{firstRule.type}</span>
+                      )}
+                      {totalRules > 1 && (
+                        <small className="text-muted ml-1">
+                          +{totalRules - 1} more
+                        </small>
+                      )}
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      {version}
+                      {feature?.hasDrafts ? (
+                        <Tooltip body="This feature has an active draft that has not been published yet">
+                          <FaTriangleExclamation
+                            className="text-warning ml-1"
+                            style={{ marginTop: -3 }}
+                          />
+                        </Tooltip>
+                      ) : null}
+                    </td>
+                    <td title={datetime(feature.dateUpdated)}>
+                      {ago(feature.dateUpdated)}
+                    </td>
+                    {showGraphs && (
+                      <td style={{ width: 170 }}>
+                        <RealTimeFeatureGraph
+                          data={usage?.[feature.id]?.realtime || []}
+                          yDomain={usageDomain}
+                        />
+                      </td>
+                    )}
+                    <td style={{ textAlign: "center" }}>
+                      {stale && (
+                        <StaleFeatureIcon
+                          staleReason={staleReason}
+                          onClick={() => {
+                            if (permissions.check("manageFeatures", project))
+                              setFeatureToToggleStaleDetection(feature);
+                          }}
+                        />
+                      )}
+                    </td>
+                    <td>
+                      <MoreMenu>
+                        <button
+                          className="dropdown-item"
+                          onClick={() => {
+                            setFeatureToDuplicate(feature);
+                            setModalOpen(true);
+                          }}
+                        >
+                          Duplicate
+                        </button>
+                      </MoreMenu>
+                    </td>
+                  </tr>
+                );
+              })}
+              {!items.length && (
+                <tr>
+                  <td colSpan={showGraphs ? 7 : 6}>No matching features</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+          {Math.ceil(items.length / NUM_PER_PAGE) > 1 && (
+            <Pagination
+              numItemsTotal={items.length}
+              currentPage={currentPage}
+              perPage={NUM_PER_PAGE}
+              onPageChange={(d) => {
+                setCurrentPage(d);
+              }}
+            />
+          )}
+        </div>
+      )
+    );
+  };
   const { searchInputProps, items, SortableTH } = useSearch({
     items: features,
     defaultSortField: "id",
@@ -248,223 +471,18 @@ export default function FeaturesPage() {
           </a>
         </div>
       )}
+      <Tabs.Root defaultValue="all-features" className="mb-2">
+        <Tabs.List>
+          <Tabs.Trigger value="all-features">All Features</Tabs.Trigger>
+          <Tabs.Trigger value="drafts">Drafts</Tabs.Trigger>
+        </Tabs.List>
 
-      {features.length > 0 && (
-        <div>
-          <div className="row mb-2 align-items-center">
-            <div className="col-auto">
-              <Field
-                placeholder="Search..."
-                type="search"
-                {...searchInputProps}
-              />
-            </div>
-            <div className="col-auto">
-              <TagsFilter filter={tagsFilter} items={items} />
-            </div>
-            {showArchivedToggle && (
-              <div className="col">
-                <Toggle
-                  value={showArchived}
-                  id="archived"
-                  setValue={setShowArchived}
-                ></Toggle>
-                Show Archived
-              </div>
-            )}
-          </div>
+        <Tabs.Content value="all-features">
+          {renderFeaturesTable()}
+        </Tabs.Content>
 
-          <table className="table gbtable table-hover appbox">
-            <thead
-              className="sticky-top bg-white shadow-sm"
-              style={{ top: "56px", zIndex: 900 }}
-            >
-              <tr>
-                <th></th>
-                <SortableTH field="id">Feature Key</SortableTH>
-                {showProjectColumn && <th>Project</th>}
-                <SortableTH field="tags">Tags</SortableTH>
-                {toggleEnvs.map((en) => (
-                  <th key={en.id}>{en.id}</th>
-                ))}
-                <th>Value When Enabled</th>
-                <th>Overrides Rules</th>
-                <th>Version</th>
-                <SortableTH field="dateUpdated">Last Updated</SortableTH>
-                {showGraphs && (
-                  <th>
-                    Recent Usage{" "}
-                    <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
-                  </th>
-                )}
-                <th>Stale</th>
-                <th style={{ width: 30 }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.slice(start, end).map((feature) => {
-                let rules: FeatureRule[] = [];
-                environments.forEach(
-                  (e) => (rules = rules.concat(getRules(feature, e.id)))
-                );
-
-                // When showing a summary of rules, prefer experiments to rollouts to force rules
-                const orderedRules = [
-                  ...rules.filter((r) => r.type === "experiment"),
-                  ...rules.filter((r) => r.type === "rollout"),
-                  ...rules.filter((r) => r.type === "force"),
-                ];
-
-                const firstRule = orderedRules[0];
-                const totalRules = rules.length || 0;
-
-                const version = feature.version;
-
-                const projectId = feature.project;
-                const projectName = projectId
-                  ? getProjectById(projectId)?.name || null
-                  : null;
-                const projectIsDeReferenced = projectId && !projectName;
-                const { stale, reason: staleReason } = isFeatureStale(
-                  feature,
-                  experiments.filter((e) =>
-                    feature.linkedExperiments?.includes(e.id)
-                  )
-                );
-
-                return (
-                  <tr
-                    key={feature.id}
-                    className={feature.archived ? "text-muted" : ""}
-                  >
-                    <td data-title="Watching status:" className="watching">
-                      <WatchButton
-                        item={feature.id}
-                        itemType="feature"
-                        type="icon"
-                      />
-                    </td>
-                    <td>
-                      <Link href={`/features/${feature.id}`}>
-                        <a className={feature.archived ? "text-muted" : ""}>
-                          {feature.id}
-                        </a>
-                      </Link>
-                    </td>
-                    {showProjectColumn && (
-                      <td>
-                        {projectIsDeReferenced ? (
-                          <Tooltip
-                            body={
-                              <>
-                                Project <code>{feature.project}</code> not found
-                              </>
-                            }
-                          >
-                            <span className="text-danger">Invalid project</span>
-                          </Tooltip>
-                        ) : (
-                          projectName ?? <em>None</em>
-                        )}
-                      </td>
-                    )}
-                    <td>
-                      <SortedTags tags={feature?.tags || []} />
-                    </td>
-                    {toggleEnvs.map((en) => (
-                      <td key={en.id} className="position-relative">
-                        <EnvironmentToggle
-                          feature={feature}
-                          environment={en.id}
-                          mutate={mutate}
-                        />
-                      </td>
-                    ))}
-                    <td>
-                      <ValueDisplay
-                        value={getFeatureDefaultValue(feature) || ""}
-                        type={feature.valueType}
-                        full={false}
-                      />
-                    </td>
-                    <td>
-                      {firstRule && (
-                        <span className="text-dark">{firstRule.type}</span>
-                      )}
-                      {totalRules > 1 && (
-                        <small className="text-muted ml-1">
-                          +{totalRules - 1} more
-                        </small>
-                      )}
-                    </td>
-                    <td style={{ textAlign: "center" }}>
-                      {version}
-                      {feature?.hasDrafts ? (
-                        <Tooltip body="This feature has an active draft that has not been published yet">
-                          <FaTriangleExclamation
-                            className="text-warning ml-1"
-                            style={{ marginTop: -3 }}
-                          />
-                        </Tooltip>
-                      ) : null}
-                    </td>
-                    <td title={datetime(feature.dateUpdated)}>
-                      {ago(feature.dateUpdated)}
-                    </td>
-                    {showGraphs && (
-                      <td style={{ width: 170 }}>
-                        <RealTimeFeatureGraph
-                          data={usage?.[feature.id]?.realtime || []}
-                          yDomain={usageDomain}
-                        />
-                      </td>
-                    )}
-                    <td style={{ textAlign: "center" }}>
-                      {stale && (
-                        <StaleFeatureIcon
-                          staleReason={staleReason}
-                          onClick={() => {
-                            if (permissions.check("manageFeatures", project))
-                              setFeatureToToggleStaleDetection(feature);
-                          }}
-                        />
-                      )}
-                    </td>
-                    <td>
-                      <MoreMenu>
-                        <button
-                          className="dropdown-item"
-                          onClick={() => {
-                            setFeatureToDuplicate(feature);
-                            setModalOpen(true);
-                          }}
-                        >
-                          Duplicate
-                        </button>
-                      </MoreMenu>
-                    </td>
-                  </tr>
-                );
-              })}
-              {!items.length && (
-                <tr>
-                  <td colSpan={showGraphs ? 7 : 6}>No matching features</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-          {Math.ceil(items.length / NUM_PER_PAGE) > 1 && (
-            <Pagination
-              numItemsTotal={items.length}
-              currentPage={currentPage}
-              perPage={NUM_PER_PAGE}
-              onPageChange={(d) => {
-                setCurrentPage(d);
-              }}
-            />
-          )}
-        </div>
-      )}
+        <Tabs.Content value="drafts"> {renderFeaturesTable(true)}</Tabs.Content>
+      </Tabs.Root>
 
       <div className="alert alert-info mt-5">
         Looking for <strong>Attributes</strong>, <strong>Namespaces</strong>,{" "}

@@ -21,7 +21,13 @@ export interface FeatureRevisionInterface {
   publishedBy: null | EventAuditUser;
   createdBy: EventAuditUser;
   comment: string;
-  status: "draft" | "published" | "discarded" | "reviewed" | "pending-review";
+  status:
+    | "draft"
+    | "published"
+    | "discarded"
+    | "approved"
+    | "changes-requested"
+    | "pending-review";
   defaultValue: string;
   rules: Record<string, FeatureRule[]>;
   log?: RevisionLog[];

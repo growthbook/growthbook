@@ -52,6 +52,7 @@ import {
   auditDetailsDelete,
 } from "../services/audit";
 import {
+  ReviewSubmittedType,
   cleanUpPreviousRevisions,
   createInitialRevision,
   createRevision,
@@ -61,6 +62,7 @@ import {
   hasDraft,
   markRevisionAsPublished,
   markRevisionAsReviewRequested,
+  submitReviewAndComments,
   updateRevision,
 } from "../models/FeatureRevisionModel";
 import { getEnabledEnvironments } from "../util/features";
@@ -518,7 +520,6 @@ export async function postFeatureRequestReview(
   req: AuthRequest<
     {
       comment: string;
-      mergeResultSerialized: string;
     },
     { id: string; version: string }
   >,
@@ -526,6 +527,7 @@ export async function postFeatureRequestReview(
 ) {
   const { org } = getContextFromReq(req);
   const { id, version } = req.params;
+  const { comment } = req.body;
   const feature = await getFeature(org.id, id);
   if (!feature) {
     throw new Error("Could not find feature");
@@ -538,7 +540,43 @@ export async function postFeatureRequestReview(
   if (revision.status !== "draft") {
     throw new Error("Can only request review if is a draft");
   }
-  await markRevisionAsReviewRequested(revision, res.locals.eventAudit);
+  await markRevisionAsReviewRequested(revision, res.locals.eventAudit, comment);
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function postFeaturetReviewOrComment(
+  req: AuthRequest<
+    {
+      comment: string;
+      review: ReviewSubmittedType;
+    },
+    { id: string; version: string }
+  >,
+  res: Response
+) {
+  const { org } = getContextFromReq(req);
+  const { id, version } = req.params;
+  const { comment, review } = req.body;
+  const feature = await getFeature(org.id, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  const revision = await getRevision(org.id, feature.id, parseInt(version));
+  if (!revision) {
+    throw new Error("Could not find feature revision");
+  }
+  if (revision.status !== "draft") {
+    throw new Error("Can only request review if is a draft");
+  }
+  await submitReviewAndComments(
+    revision,
+    res.locals.eventAudit,
+    review,
+    comment
+  );
   res.status(200).json({
     status: 200,
   });

@@ -7,6 +7,7 @@ import {
   ReactNode,
 } from "react";
 import clsx from "clsx";
+import { Theme } from "@radix-ui/themes";
 import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
 import Tooltip from "./Tooltip/Tooltip";
@@ -285,15 +286,17 @@ const Modal: FC<ModalProps> = ({
 
   return (
     <Portal>
-      <div
-        className={clsx("modal-backdrop fade", {
-          show: open,
-          "d-none": !open,
-          "bg-dark": solidOverlay,
-        })}
-        style={overlayStyle}
-      />
-      {modalHtml}
+      <Theme accentColor="violet" panelBackground="solid" radius="small">
+        <div
+          className={clsx("modal-backdrop fade", {
+            show: open,
+            "d-none": !open,
+            "bg-dark": solidOverlay,
+          })}
+          style={overlayStyle}
+        />
+        {modalHtml}
+      </Theme>
     </Portal>
   );
 };

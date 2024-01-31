@@ -8,6 +8,7 @@ import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { ago, date } from "shared/dates";
 import { useMemo, useState } from "react";
 import stringify from "json-stringify-pretty-compact";
+import clsx from "clsx";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "../LoadingOverlay";
 import Avatar from "../Avatar/Avatar";
@@ -16,9 +17,18 @@ import Code from "../SyntaxHighlighting/Code";
 export interface Props {
   feature: FeatureInterface;
   revision: FeatureRevisionInterface;
+  commentsOnly?: boolean;
 }
 
-function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
+function RevisionLogRow({
+  log,
+  first,
+  commentsOnly,
+}: {
+  log: RevisionLog;
+  first: boolean;
+  commentsOnly: boolean;
+}) {
   const [open, setOpen] = useState(false);
 
   let value = log.value;
@@ -27,24 +37,51 @@ function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
   } catch (e) {
     // Ignore
   }
-
+  let comment: string | undefined;
+  try {
+    comment = JSON.parse(log.value)?.comment;
+  } catch (e) {
+    // Ignore
+  }
+  const showCommentInTitle = log.action === "comment" && !!comment;
+  const openContent = () => {
+    if (commentsOnly && !!comment) {
+      return <div>{comment}</div>;
+    } else {
+      return <Code language="json" code={value} />;
+    }
+  };
+  console.log(commentsOnly);
+  const openClickClassNames = clsx("mb-2", "d-flex", {
+    "cursor-pointer": !commentsOnly,
+  });
   return (
     <div className={`appbox p-2 mb-0 ${first ? "" : "mt-3"}`}>
       <div
-        className="mb-2 d-flex cursor-pointer"
+        className={openClickClassNames}
         onClick={(e) => {
           e.preventDefault();
-          setOpen(!open);
+          if (!commentsOnly) {
+            setOpen(!open);
+          }
         }}
       >
         <h3 className="mb-0">
-          {log.action} {log.subject}
+          {showCommentInTitle ? (
+            comment
+          ) : (
+            <>
+              {log.action} {log.subject}
+            </>
+          )}
         </h3>
-        <div className="ml-auto">
-          {open ? <FaAngleDown /> : <FaAngleRight />}
-        </div>
+        {commentsOnly && !!comment && (
+          <div className="ml-auto">
+            {open ? <FaAngleDown /> : <FaAngleRight />}
+          </div>
+        )}
       </div>
-      {open && <Code language="json" code={value} />}
+      {open && openContent()}
       <div className="d-flex">
         {log.user?.type === "dashboard" && (
           <div className="mr-2">
@@ -60,7 +97,11 @@ function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
   );
 }
 
-export default function Revisionlog({ feature, revision }: Props) {
+export default function Revisionlog({
+  feature,
+  revision,
+  commentsOnly,
+}: Props) {
   const { data, error } = useApi<{ log: RevisionLog[] }>(
     `/feature/${feature.id}/${revision.version}/log`
   );
@@ -113,7 +154,12 @@ export default function Revisionlog({ feature, revision }: Props) {
           </div>
           <div className="mb-1">{date}</div>
           {logs.map((log, i) => (
-            <RevisionLogRow log={log} key={i} first={i === 0} />
+            <RevisionLogRow
+              log={log}
+              key={i}
+              first={i === 0}
+              commentsOnly={commentsOnly}
+            />
           ))}
         </div>
       ))}

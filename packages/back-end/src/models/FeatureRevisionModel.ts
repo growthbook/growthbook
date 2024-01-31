@@ -7,6 +7,12 @@ import {
 } from "../../types/feature-revision";
 import { EventAuditUser, EventAuditUserLoggedIn } from "../events/event-types";
 
+export enum ReviewSubmittedType {
+  COMMENT = "Comment",
+  APPROVED = "Approved",
+  REQUESTED_CHANGES = "Requested Changes",
+}
+
 const featureRevisionSchema = new mongoose.Schema({
   organization: String,
   featureId: String,
@@ -321,7 +327,7 @@ export async function markRevisionAsReviewRequested(
   user: EventAuditUser,
   comment?: string
 ) {
-  const action = "pending-review";
+  const action = "Review Requested";
 
   const log: RevisionLog = {
     action,
@@ -340,6 +346,53 @@ export async function markRevisionAsReviewRequested(
     {
       $set: {
         status: "pending-review",
+        publishedBy: user,
+        datePublished: new Date(),
+        dateUpdated: new Date(),
+        comment: comment ?? revision.comment,
+      },
+      $push: {
+        log,
+      },
+    }
+  );
+}
+
+export async function submitReviewAndComments(
+  revision: FeatureRevisionInterface,
+  user: EventAuditUser,
+  reviewSubmittedType: ReviewSubmittedType,
+  comment?: string
+) {
+  const action = reviewSubmittedType;
+  let status = "pending-review";
+  switch (reviewSubmittedType) {
+    case ReviewSubmittedType.APPROVED:
+      status = "approved";
+      break;
+    case ReviewSubmittedType.REQUESTED_CHANGES:
+      status = "changes-requested";
+      break;
+    default:
+      status = "pending-review";
+  }
+  const log: RevisionLog = {
+    action,
+    subject: "",
+    timestamp: new Date(),
+    user,
+    value: JSON.stringify(comment ? { comment } : {}),
+  };
+
+  await FeatureRevisionModel.updateOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    {
+      $set: {
+        status,
         publishedBy: user,
         datePublished: new Date(),
         dateUpdated: new Date(),

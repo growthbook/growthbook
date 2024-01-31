@@ -25,6 +25,7 @@ import { MdHistory, MdRocketLaunch } from "react-icons/md";
 import { FaPlusMinus } from "react-icons/fa6";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import clsx from "clsx";
+import { BsClock } from "react-icons/bs";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -251,6 +252,8 @@ export default function FeaturePage() {
   );
 
   const isDraft = revision?.status === "draft";
+  const isPendingReview = revision?.status === "pending-review";
+  console.log(isPendingReview, "isPending Review");
   const isLive = revision?.version === feature.version;
   const isArchived = feature.archived;
 
@@ -291,7 +294,9 @@ export default function FeaturePage() {
     ) &&
     !requireReviews;
 
-  const drafts = data.revisions.filter((r) => r.status === "draft");
+  const drafts = data.revisions.filter(
+    (r) => r.status === "draft" || r.status === "pending-review"
+  );
 
   const isLocked =
     (revision.status === "published" || revision.status === "discarded") &&
@@ -1037,7 +1042,7 @@ export default function FeaturePage() {
                 )}
               </div>
             </div>
-          ) : isDraft ? (
+          ) : isDraft || isPendingReview ? (
             <div
               className="px-3 py-2 alert alert-warning mb-0"
               style={{
@@ -1075,7 +1080,15 @@ export default function FeaturePage() {
                           setReviewModal(true);
                         }}
                       >
-                        <MdRocketLaunch /> Request Approval to Publish
+                        {isPendingReview ? (
+                          <>
+                            <BsClock /> Awaiting Approval
+                          </>
+                        ) : (
+                          <>
+                            <MdRocketLaunch /> Request Approval to Publish
+                          </>
+                        )}
                       </a>
                     </Tooltip>
                   </div>
@@ -1125,7 +1138,7 @@ export default function FeaturePage() {
                     </Tooltip>
                   </div>
                 )}
-                {canEditDrafts && (
+                {canEditDrafts && !isPendingReview && (
                   <div className="ml-4">
                     <a
                       href="#"

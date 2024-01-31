@@ -3,6 +3,7 @@ import "../styles/global.scss";
 import Head from "next/head";
 import { useEffect, useState } from "react";
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
+import { Theme } from "@radix-ui/themes";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
 import { PageHeadProvider } from "@/components/Layout/PageHead";
@@ -17,6 +18,8 @@ import Layout from "../components/Layout/Layout";
 import { AppearanceUIThemeProvider } from "../services/AppearanceUIThemeProvider";
 import TopNavLite from "../components/Layout/TopNavLite";
 import { AppFeatures } from "../types/app-features";
+
+import "@radix-ui/themes/styles.css";
 
 type ModAppProps = AppProps & {
   Component: {
@@ -87,33 +90,42 @@ function App({
         <title>GrowthBook</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
+      <div className="guy-testing"></div>
       {ready ? (
         preAuth ? (
-          <Component {...pageProps} />
+          <Theme accentColor="violet" panelBackground="solid" radius="small">
+            <Component {...pageProps} />
+          </Theme>
         ) : (
           <PageHeadProvider>
             <AuthProvider>
               <AppearanceUIThemeProvider>
                 <GrowthBookProvider growthbook={growthbook}>
-                  <ProtectedPage organizationRequired={organizationRequired}>
-                    {organizationRequired ? (
-                      <DefinitionsProvider>
-                        {!liteLayout && <Layout />}
-                        <main className={`main ${parts[0]}`}>
-                          <OrganizationMessagesContainer />
-                          <DemoDataSourceGlobalBannerContainer />
-                          <Component {...pageProps} />
-                        </main>
-                      </DefinitionsProvider>
-                    ) : (
-                      <div>
-                        <TopNavLite />
-                        <main className="container mt-5">
-                          <Component {...pageProps} />
-                        </main>
-                      </div>
-                    )}
-                  </ProtectedPage>
+                  <Theme
+                    accentColor="violet"
+                    panelBackground="solid"
+                    radius="small"
+                  >
+                    <ProtectedPage organizationRequired={organizationRequired}>
+                      {organizationRequired ? (
+                        <DefinitionsProvider>
+                          {!liteLayout && <Layout />}
+                          <main className={`main ${parts[0]}`}>
+                            <OrganizationMessagesContainer />
+                            <DemoDataSourceGlobalBannerContainer />
+                            <Component {...pageProps} />
+                          </main>
+                        </DefinitionsProvider>
+                      ) : (
+                        <div>
+                          <TopNavLite />
+                          <main className="container mt-5">
+                            <Component {...pageProps} />
+                          </main>
+                        </div>
+                      )}
+                    </ProtectedPage>
+                  </Theme>
                 </GrowthBookProvider>
               </AppearanceUIThemeProvider>
             </AuthProvider>
