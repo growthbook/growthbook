@@ -24,7 +24,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 11 # This value must be set if the lookback configuration option is defined for find-code-refs. Read more: https://github.com/growthbook/gb-find-code-refs#searching-for-unused-flags-extinctions
+          # This value must be set if the lookback configuration option is
+          # defined for find-code-refs. Read more: 
+          # https://github.com/growthbook/gb-find-code-refs#searching-for-unused-flags-extinctions
+          fetch-depth: 11 
       - name: Download JSON file
         uses: actions/download-artifact@v3
         with:
@@ -37,7 +40,9 @@ jobs:
         with:
           flagsPath: flags.json
           dir: ${{ github.workspace }}
-          branch: ${{ github.ref_name }}
+          # head_ref only available on pull request eventss, ref_name for push
+          # events
+          branch: ${{ github.head_ref || github.ref_name }} 
       - name: Upload coderefs.json
         uses: actions/upload-artifact@v3
         with:
