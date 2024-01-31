@@ -444,7 +444,7 @@ export async function postExperiments(
   req.checkPermissions("createAnalyses", data.project);
 
   if (data.datasource) {
-    const datasource = await getDataSourceById(data.datasource, org.id);
+    const datasource = await getDataSourceById(context, data.datasource);
     if (!datasource) {
       res.status(403).json({
         status: 403,
@@ -653,7 +653,7 @@ export async function postExperiment(
   req.checkPermissions("createAnalyses", experiment.project);
 
   if (data.datasource) {
-    const datasource = await getDataSourceById(data.datasource, org.id);
+    const datasource = await getDataSourceById(context, data.datasource);
     if (!datasource) {
       res.status(403).json({
         status: 403,
@@ -1639,7 +1639,7 @@ export async function cancelSnapshot(
   req.checkPermissions("runQueries", experiment.project || "");
 
   const integration = await getIntegrationFromDatasourceId(
-    snapshot.organization,
+    context,
     snapshot.settings.datasourceId
   );
   const queryRunner = new ExperimentResultsQueryRunner(
@@ -1710,7 +1710,7 @@ export async function postSnapshot(
       denominatorMetricIds.map((m) => getMetricById(context, m))
     )
   ).filter(Boolean) as MetricInterface[];
-  const datasource = await getDataSourceById(experiment.datasource, org.id);
+  const datasource = await getDataSourceById(context, experiment.datasource);
 
   const {
     metricRegressionAdjustmentStatuses,
@@ -2085,7 +2085,7 @@ export async function cancelPastExperiments(
   }
 
   const integration = await getIntegrationFromDatasourceId(
-    pastExperiments.organization,
+    context,
     pastExperiments.datasource
   );
   const queryRunner = new PastExperimentsQueryRunner(
@@ -2145,7 +2145,7 @@ export async function postPastExperiments(
   const { org } = context;
   const { datasource, force } = req.body;
 
-  const datasourceObj = await getDataSourceById(datasource, org.id);
+  const datasourceObj = await getDataSourceById(context, datasource);
   if (!datasourceObj) {
     throw new Error("Could not find datasource");
   }
