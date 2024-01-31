@@ -36,6 +36,7 @@ export const triggerWebhookJobs = async (
 };
 
 export const triggerSingleSDKWebhookJobs = async (
+  context: ReqContext | ApiReqContext,
   connection: SDKConnectionInterface,
   otherChanges: Partial<SDKConnectionInterface>,
   newProxy: ProxyConnection,
@@ -50,7 +51,7 @@ export const triggerSingleSDKWebhookJobs = async (
         proxy: newProxy,
       } as SDKConnectionInterface;
 
-      queueSingleProxyUpdate(newConnection, IS_CLOUD);
+      queueSingleProxyUpdate(context, newConnection, IS_CLOUD);
     }
   }
 

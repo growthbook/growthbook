@@ -23,7 +23,6 @@ export default function ProjectBadges({
   sort = true,
   className = "badge-ellipsis short",
 }: Props) {
-  console.log("projectIds", projectIds);
   const { projects, project } = useDefinitions();
   if (!projectIds) {
     return (

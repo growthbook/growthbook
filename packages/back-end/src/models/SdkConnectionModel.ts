@@ -232,6 +232,7 @@ export const editSDKConnectionValidator = z
   .strict();
 
 export async function editSDKConnection(
+  context: ReqContext | ApiReqContext,
   connection: SDKConnectionInterface,
   updates: EditSDKConnectionParams
 ) {
@@ -302,6 +303,7 @@ export async function editSDKConnection(
     // Purge CDN if used
     const isUsingProxy = !!(newProxy.enabled && newProxy.host);
     await triggerSingleSDKWebhookJobs(
+      context,
       connection,
       otherChanges as Partial<SDKConnectionInterface>,
       newProxy,

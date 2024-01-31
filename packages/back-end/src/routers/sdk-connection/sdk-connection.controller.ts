@@ -124,7 +124,7 @@ export const putSDKConnection = async (
     hashSecureAttributes = false;
   }
 
-  await editSDKConnection(connection, {
+  await editSDKConnection(context, connection, {
     ...req.body,
     encryptPayload,
     hashSecureAttributes,
