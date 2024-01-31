@@ -30,10 +30,6 @@ import { FaPlusMinus } from "react-icons/fa6";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import clsx from "clsx";
 import { BiHide, BiShow } from "react-icons/bi";
-import {
-  getConnectionSDKCapabilities,
-  getConnectionsSDKCapabilities,
-} from "shared/sdk-versioning";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -96,7 +92,7 @@ import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "@/components/Features/PrerequisiteStatusRow";
 import { useExperiments } from "@/hooks/useExperiments";
-import useSDKConnections from "@/hooks/useSDKConnections";
+import { PrerequisiteAlerts } from "@/components/Features/PrerequisiteTargetingField";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -165,8 +161,6 @@ export default function FeaturePage() {
   const { experiments } = useExperiments();
   const environments = useEnvironments();
   const envs = environments.map((e) => e.id);
-
-  const { data: sdkConnectionsData } = useSDKConnections();
 
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 800,
@@ -265,14 +259,6 @@ export default function FeaturePage() {
   const hasConditionalState =
     prereqStates &&
     Object.values(prereqStates).some((s) => s === "conditional");
-
-  const hasSDKWithPrerequisites = getConnectionsSDKCapabilities(
-    sdkConnectionsData?.connections || []
-  ).includes("prerequisites");
-
-  const hasSDKWithNoPrerequisites = (sdkConnectionsData?.connections || [])
-    .map((sdk) => getConnectionSDKCapabilities(sdk))
-    .some((c) => !c.includes("prerequisites"));
 
   const mergeResult = useMemo(() => {
     if (!data || !feature || !revision) return null;
@@ -916,35 +902,12 @@ export default function FeaturePage() {
           )}
         </table>
 
-        {hasConditionalState && hasSDKWithNoPrerequisites && (
-          <div
-            className={`mt-3 alert ${
-              hasSDKWithPrerequisites ? "text-warning-orange" : "alert-danger"
-            }`}
-          >
-            <FaExclamationTriangle className="mr-1" />
-            This feature is conditionally enabled in one or more environments. A
-            compatible SDK version is required.{" "}
-            <Tooltip
-              body={
-                <>
-                  <div>
-                    {hasSDKWithPrerequisites
-                      ? "Some of your SDK Connections may not support prerequisite evaluation. Use at your own risk."
-                      : "None of your SDK Connections currently support prerequisite evaluation."}
-                  </div>
-                  <div className="mt-2">
-                    Prerequisite evaluation is only supported in the following
-                    SDKs and versions:
-                    <ul className="mb-1">
-                      <li>Javascript &gt;= 0.33.0</li>
-                      <li>React &gt;= 0.23.0</li>
-                    </ul>
-                  </div>
-                </>
-              }
-            />
-          </div>
+        {hasConditionalState && (
+          <PrerequisiteAlerts
+            issue="conditional-prerequisite"
+            environments={envs}
+            type="feature"
+          />
         )}
 
         {canEdit && (

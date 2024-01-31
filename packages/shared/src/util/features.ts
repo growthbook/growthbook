@@ -473,6 +473,29 @@ export function getDefaultPrerequisiteCondition() {
   return `{"value": {"$exists": true}}`;
 }
 
+export function isPrerequisiteConditionConditional(condition: string) {
+  if ([
+    `{"value": {"$exists": false}}`,
+    `{"value": {"$exists": true}}`,
+    `{"value": true}`,
+    `{"value": false}`,
+  ].includes(condition)) {
+    return false;
+  }
+  return true;
+}
+export function isPrerequisiteConditionOperatorConditional(condition: string) {
+  if ([
+    "$exists",
+    "$notExists",
+    "$true",
+    "$false",
+  ].includes(condition)) {
+    return false;
+  }
+  return true;
+}
+
 export function isFeatureCyclic(
   feature: FeatureInterface,
   features: FeatureInterface[],

@@ -160,6 +160,7 @@ export default function ExperimentRefSummary({
             <ConditionDisplay
               condition={phase.condition}
               savedGroups={phase.savedGroups}
+              prerequisites={phase.prerequisites}
             />
           </div>
         </div>

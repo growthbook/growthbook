@@ -293,7 +293,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     condition={rule.condition || ""}
                     savedGroups={rule.savedGroups}
                     prerequisites={rule.prerequisites}
-                    renderParentIds={true}
                   />
                 </div>
               </div>

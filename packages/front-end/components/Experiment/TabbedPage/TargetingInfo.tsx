@@ -247,7 +247,6 @@ export default function TargetingInfo({
                         {phase.prerequisites?.length ? (
                           <ConditionDisplay
                             prerequisites={phase.prerequisites}
-                            renderParentIds={true}
                           />
                         ) : (
                           <em>None</em>
@@ -263,7 +262,6 @@ export default function TargetingInfo({
                           {changes?.prerequisites?.length ? (
                             <ConditionDisplay
                               prerequisites={changes.prerequisites}
-                              renderParentIds={true}
                             />
                           ) : (
                             <em>None</em>

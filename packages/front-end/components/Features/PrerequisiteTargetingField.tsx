@@ -11,13 +11,14 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   evaluatePrerequisiteState,
   getDefaultPrerequisiteCondition,
+  isPrerequisiteConditionConditional,
   PrerequisiteState,
 } from "shared/util";
 import { BiHide, BiShow } from "react-icons/bi";
 import {
   getConnectionSDKCapabilities,
   getConnectionsSDKCapabilities,
-} from "shared/dist/sdk-versioning";
+} from "shared/sdk-versioning";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { getFeatureDefaultValue, useFeaturesList } from "@/services/features";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
@@ -126,6 +127,15 @@ export default function PrerequisiteTargetingField({
           {value.map((v, i) => {
             const parentFeature = features.find((f) => f.id === v.id);
 
+            const parentCondition = value[i].condition;
+            const prereqStates = prereqStatesArr[i];
+            const hasConditionalState = Object.values(prereqStates || {}).some(
+              (s) => s === "conditional"
+            );
+            const hasConditionalTargeting = isPrerequisiteConditionConditional(
+              parentCondition
+            );
+
             return (
               <div key={i} className="appbox bg-light px-3 py-3">
                 <div className="row mb-1">
@@ -172,10 +182,16 @@ export default function PrerequisiteTargetingField({
 
                 <PrereqStatesRows
                   parentFeature={parentFeature}
-                  parentCondition={value[i].condition}
                   prereqStates={prereqStatesArr[i]}
-                  envs={environments}
+                  environments={environments}
                 />
+
+                {hasConditionalState && (
+                  <PrerequisiteAlerts
+                    issue="conditional-prerequisite"
+                    environments={environments}
+                  />
+                )}
 
                 <div className="mt-2">
                   {parentFeature ? (
@@ -196,6 +212,13 @@ export default function PrerequisiteTargetingField({
                     />
                   ) : null}
                 </div>
+
+                {hasConditionalTargeting && (
+                  <PrerequisiteAlerts
+                    issue="conditional-targeting"
+                    environments={environments}
+                  />
+                )}
               </div>
             );
           })}
@@ -246,33 +269,14 @@ export default function PrerequisiteTargetingField({
 
 function PrereqStatesRows({
   parentFeature,
-  parentCondition,
   prereqStates,
-  envs,
+  environments,
 }: {
   parentFeature?: FeatureInterface;
-  parentCondition: string;
   prereqStates: Record<string, PrerequisiteState> | null;
-  envs: string[];
+  environments: string[];
 }) {
-  const { data: sdkConnectionsData } = useSDKConnections();
-
   const [showDetails, setShowDetails] = useState(true);
-
-  const hasConditionalState =
-    prereqStates &&
-    Object.values(prereqStates).some((s) => s === "conditional");
-
-  const hasSDKWithPrerequisites = getConnectionsSDKCapabilities(
-    sdkConnectionsData?.connections || []
-  ).includes("prerequisites");
-
-  const hasSDKWithNoPrerequisites = (sdkConnectionsData?.connections || [])
-    .map((sdk) => getConnectionSDKCapabilities(sdk))
-    .some((c) => !c.includes("prerequisites"));
-
-  const hasNonStandardTargeting =
-    parentCondition !== getDefaultPrerequisiteCondition();
 
   if (!parentFeature) {
     return null;
@@ -316,7 +320,7 @@ function PrereqStatesRows({
               <tr>
                 <th className="pl-4">Type</th>
                 <th className="border-right">Default value</th>
-                {envs.map((env) => (
+                {environments.map((env) => (
                   <th key={env} className="text-center">
                     {env}
                   </th>
@@ -344,72 +348,97 @@ function PrereqStatesRows({
                 </td>
                 <PrerequisiteStatesCols
                   prereqStates={prereqStates ?? undefined}
-                  envs={envs}
+                  envs={environments}
                 />
               </tr>
             </tbody>
           </table>
         </div>
       )}
-
-      {hasSDKWithNoPrerequisites &&
-        (hasConditionalState || hasNonStandardTargeting) && (
-          <div
-            className={`mt-2 alert ${
-              hasSDKWithPrerequisites
-                ? "text-warning-orange py-0"
-                : "alert-danger"
-            }`}
-          >
-            <div>
-              <FaExclamationTriangle className="mr-1" />
-              {hasConditionalState && (
-                <>
-                  This prerequisite is{" "}
-                  <span className="text-purple font-weight-bold">
-                    conditionally enabled
-                  </span>{" "}
-                  {envs.length > 1
-                    ? "in one or more environments"
-                    : "in this environment"}
-                  .{" "}
-                </>
-              )}
-              {hasNonStandardTargeting && (
-                <>
-                  {hasConditionalState ? "Additionally, the" : "The"} targeting
-                  condition is non-standard, which requires conditional
-                  evaluation.{" "}
-                </>
-              )}
-              Conditional prerequisite evaluation happens in the SDK; therefore
-              a compatible SDK version is required.{" "}
-              <Tooltip
-                body={
-                  <>
-                    <div>
-                      {hasSDKWithPrerequisites
-                        ? "Some of your SDK Connections may not support prerequisite evaluation. Use at your own risk."
-                        : `None of your SDK Connections currently support prerequisite evaluation. Either upgrade your SDKs${
-                            hasNonStandardTargeting && !hasConditionalState
-                              ? ", use default targeting, "
-                              : ""
-                          } or remove this prerequisite.`}
-                    </div>
-                    <div className="mt-2">
-                      Prerequisite evaluation is only supported in the following
-                      SDKs and versions:
-                      <ul className="mb-1">
-                        <li>Javascript &gt;= 0.33.0</li>
-                        <li>React &gt;= 0.23.0</li>
-                      </ul>
-                    </div>
-                  </>
-                }
-              />
-            </div>
-          </div>
-        )}
     </>
   );
 }
+
+export const PrerequisiteAlerts = ({
+  issue,
+  environments,
+  type = "prerequisite",
+}: {
+  issue: "conditional-prerequisite" | "conditional-targeting";
+  environments: string[];
+  type?: "feature" | "prerequisite";
+}) => {
+  const { data: sdkConnectionsData } = useSDKConnections();
+
+  const hasSDKWithPrerequisites = getConnectionsSDKCapabilities(
+    sdkConnectionsData?.connections || []
+  ).includes("prerequisites");
+
+  const hasSDKWithNoPrerequisites = (sdkConnectionsData?.connections || [])
+    .map((sdk) => getConnectionSDKCapabilities(sdk))
+    .some((c) => !c.includes("prerequisites"));
+
+  if (!hasSDKWithNoPrerequisites) {
+    return null;
+  }
+
+  return (
+    <div
+      className={`mt-2 alert ${
+        hasSDKWithPrerequisites ? "text-warning-orange py-0" : "alert-danger"
+      }`}
+    >
+      <div>
+        <FaExclamationTriangle className="mr-1" />
+        {issue === "conditional-prerequisite" && (
+          <>
+            This {type} is{" "}
+            <span className="text-purple font-weight-bold">
+              conditionally enabled
+            </span>{" "}
+            {environments.length > 1
+              ? "in one or more environments"
+              : "in this environment"}
+            .{" "}
+          </>
+        )}
+        {issue === "conditional-targeting" && (
+          <>
+            The selected targeting condition requires{" "}
+            <span className="text-purple font-weight-bold">conditional</span>{" "}
+            evaluation.{" "}
+          </>
+        )}
+        Conditional prerequisite evaluation happens in the SDK; therefore a
+        compatible SDK version is required.{" "}
+        <Tooltip
+          body={
+            <>
+              <div>
+                {hasSDKWithPrerequisites
+                  ? "Some of your SDK Connections may not support prerequisite evaluation. Use at your own risk."
+                  : `None of your SDK Connections currently support prerequisite evaluation. Either upgrade your SDKs${
+                      issue === "conditional-targeting"
+                        ? ", change the targeting condition, "
+                        : ""
+                    } or ${
+                      type === "prerequisite"
+                        ? "remove this prerequisite"
+                        : "remove conditional prerequisites"
+                    }.`}
+              </div>
+              <div className="mt-2">
+                Prerequisite evaluation is only supported in the following SDKs
+                and versions:
+                <ul className="mb-1">
+                  <li>Javascript &gt;= 0.33.0</li>
+                  <li>React &gt;= 0.23.0</li>
+                </ul>
+              </div>
+            </>
+          }
+        />
+      </div>
+    </div>
+  );
+};

@@ -121,29 +121,8 @@ function generateVisualExperimentsPayload({
   const isValidSDKExperiment = (
     e: AutoExperimentWithProject | null
   ): e is AutoExperimentWithProject => !!e;
-  const newVisualExperiments: VisualExperiment[] = [];
-  for (const visualExperiment of visualExperiments) {
-    const phaseIndex = visualExperiment.experiment.phases.length - 1;
-    const phase: ExperimentPhase | null =
-      visualExperiment.experiment.phases?.[phaseIndex] ?? null;
-    if (!phase) continue;
-    const newVisualExperiment = cloneDeep(visualExperiment);
 
-    const {
-      removeRule,
-      newPrerequisites,
-    } = getInlinePrerequisitesReductionInfo(
-      phase.prerequisites || [],
-      features,
-      environment
-    );
-    if (!removeRule) {
-      newVisualExperiment.experiment.phases[
-        phaseIndex
-      ].prerequisites = newPrerequisites;
-      newVisualExperiments.push(newVisualExperiment);
-    }
-  }
+  const newVisualExperiments = reduceExperimentsWithPrerequisites(visualExperiments, features, environment);
 
   const sdkExperiments: Array<AutoExperimentWithProject | null> = newVisualExperiments.map(
     ({ experiment: e, visualChangeset: v }) => {
@@ -1188,6 +1167,37 @@ export const reduceFeaturesWithPrerequisites = (
 
   return newFeatures;
 };
+
+export const reduceExperimentsWithPrerequisites = (
+  visualExperiments: VisualExperiment[],
+  features: FeatureInterface[],
+  environment: string
+): VisualExperiment[] => {
+  const newVisualExperiments: VisualExperiment[] = [];
+  for (const visualExperiment of visualExperiments) {
+    const phaseIndex = visualExperiment.experiment.phases.length - 1;
+    const phase: ExperimentPhase | null =
+      visualExperiment.experiment.phases?.[phaseIndex] ?? null;
+    if (!phase) continue;
+    const newVisualExperiment = cloneDeep(visualExperiment);
+
+    const {
+      removeRule,
+      newPrerequisites,
+    } = getInlinePrerequisitesReductionInfo(
+      phase.prerequisites || [],
+      features,
+      environment
+    );
+    if (!removeRule) {
+      newVisualExperiment.experiment.phases[
+        phaseIndex
+        ].prerequisites = newPrerequisites;
+      newVisualExperiments.push(newVisualExperiment);
+    }
+  }
+  return newVisualExperiments;
+}
 
 export const getInlinePrerequisitesReductionInfo = (
   prerequisites: FeaturePrerequisite[],

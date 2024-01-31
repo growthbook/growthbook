@@ -11,6 +11,8 @@ import SelectField from "../Forms/SelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
 import StringArrayField from "../Forms/StringArrayField";
 import styles from "./ConditionInput.module.scss";
+import {isPrerequisiteConditionOperatorConditional} from "shared/util";
+import {FaRegCircleQuestion} from "react-icons/fa6";
 
 interface Props {
   defaultValue: string;
@@ -156,10 +158,10 @@ export default function PrerequisiteInput(props: Props) {
         const operatorOptions =
           attribute.datatype === "boolean"
             ? [
-                { label: "is true", value: "$true" },
-                { label: "is false", value: "$false" },
                 { label: "is not NULL", value: "$exists" },
                 { label: "is NULL", value: "$notExists" },
+                { label: "is true", value: "$true" },
+                { label: "is false", value: "$false" },
               ]
             : attribute.datatype === "string"
             ? [
@@ -196,6 +198,8 @@ export default function PrerequisiteInput(props: Props) {
               ]
             : [];
 
+        const operatorIsConditional = isPrerequisiteConditionOperatorConditional(operator);
+
         return (
           <div key={i}>
             <div className="d-flex align-items-center mb-2">
@@ -219,26 +223,34 @@ export default function PrerequisiteInput(props: Props) {
                     handleCondsChange(v, "operator");
                   }}
                   formatOptionLabel={({ value, label }) => {
-                    const def =
-                      parentFeatureValueType === "boolean"
-                        ? "$true"
-                        : "$exists";
-                    if (value === def) {
-                      return (
-                        <>
-                          {label}
+                    const def = "$exists";
+                    const conditional = isPrerequisiteConditionOperatorConditional(value);
+                    return (
+                      <span>
+                        {label}
+                        {value === def && (
                           <span
-                            className="badge badge-muted-info badge-pill ml-2 position-relative"
-                            style={{ zIndex: 1, fontSize: "10px" }}
+                            className="badge badge-muted-info badge-pill ml-2"
+                            style={{ fontSize: "10px" }}
                           >
                             default
                           </span>
-                        </>
-                      );
-                    }
-                    return label;
+                        )}
+                        {conditional && (
+                          <span className="ml-2 small">
+                            <FaRegCircleQuestion className="text-purple" />
+                          </span>
+                          )}
+                      </span>
+                    );
                   }}
                 />
+                {operatorIsConditional && (
+                  <div className="text-purple small mt-1 ml-1">
+                    <FaRegCircleQuestion />{" "}
+                    Conditional <span className="text-muted">targeting will be evaluated in the SDK</span>
+                  </div>
+                )}
               </div>
               {[
                 "$exists",

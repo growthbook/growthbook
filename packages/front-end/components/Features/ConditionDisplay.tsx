@@ -226,12 +226,10 @@ export default function ConditionDisplay({
   condition,
   savedGroups: savedGroupTargeting,
   prerequisites,
-  renderParentIds = false,
 }: {
   condition?: string;
   savedGroups?: SavedGroupTargeting[];
   prerequisites?: FeaturePrerequisite[];
-  renderParentIds?: boolean;
 }) {
   const { savedGroups } = useDefinitions();
   const attributes = useAttributeMap();
@@ -306,7 +304,7 @@ export default function ConditionDisplay({
             field,
             operator,
             value,
-            parentId: renderParentIds ? p.id : undefined,
+            parentId: p.id,
           };
         });
         return cond;
