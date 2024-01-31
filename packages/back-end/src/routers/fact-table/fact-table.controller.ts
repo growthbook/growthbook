@@ -6,13 +6,11 @@ import {
   CreateFactMetricProps,
   CreateFactTableProps,
   FactMetricInterface,
-  ColumnInterface,
   FactTableInterface,
   UpdateFactFilterProps,
   UpdateFactMetricProps,
   UpdateColumnProps,
   UpdateFactTableProps,
-  FactTableColumnType,
   TestFactFilterProps,
   FactFilterTestResults,
 } from "../../../types/fact-table";
@@ -38,15 +36,15 @@ import {
 import { getSourceIntegrationObject } from "../../services/datasource";
 import { getDataSourceById } from "../../models/DataSourceModel";
 import { DataSourceInterface } from "../../../types/datasource";
-import { determineColumnTypes } from "../../util/sql";
+import { runRefreshColumnsQuery } from "../../jobs/refreshFactTableColumns";
 
 export const getFactTables = async (
   req: AuthRequest,
   res: Response<{ status: 200; factTables: FactTableInterface[] }>
 ) => {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
-  const factTables = await getAllFactTablesForOrganization(org.id);
+  const factTables = await getAllFactTablesForOrganization(context);
 
   res.status(200).json({
     status: 200,
@@ -86,101 +84,35 @@ async function testFilterQuery(
   }
 }
 
-async function updateColumns(
-  datasource: DataSourceInterface,
-  factTable: Pick<FactTableInterface, "sql" | "eventName" | "columns">
-): Promise<ColumnInterface[]> {
-  const integration = getSourceIntegrationObject(datasource, true);
-
-  if (!integration.getTestQuery || !integration.runTestQuery) {
-    throw new Error("Testing not supported on this data source");
-  }
-
-  const sql = integration.getTestQuery(factTable.sql, {
-    eventName: factTable.eventName,
-  });
-
-  const result = await integration.runTestQuery(sql, ["timestamp"]);
-
-  const typeMap = new Map<string, FactTableColumnType>();
-  determineColumnTypes(result.results).forEach((col) => {
-    typeMap.set(col.column, col.datatype);
-  });
-
-  const columns = factTable.columns || [];
-
-  // Update existing column
-  columns.forEach((col) => {
-    const type = typeMap.get(col.column);
-
-    // Column no longer exists, mark as deleted
-    if (type === undefined) {
-      col.deleted = true;
-      col.dateUpdated = new Date();
-    }
-    // Column exists
-    else {
-      if (col.deleted) {
-        col.deleted = false;
-        col.dateUpdated = new Date();
-      }
-
-      // If we now know the datatype, update it
-      if (col.datatype === "" && type !== "") {
-        col.datatype = type;
-        col.dateUpdated = new Date();
-      }
-    }
-  });
-
-  // Add new columns that don't exist yet
-  typeMap.forEach((datatype, column) => {
-    if (!columns.some((c) => c.column === column)) {
-      columns.push({
-        column,
-        datatype,
-        dateCreated: new Date(),
-        dateUpdated: new Date(),
-        description: "",
-        name: column,
-        numberFormat: "",
-        deleted: false,
-      });
-    }
-  });
-
-  return columns;
-}
-
 export const postFactTable = async (
   req: AuthRequest<CreateFactTableProps>,
   res: Response<{ status: 200; factTable: FactTableInterface }>
 ) => {
   const data = req.body;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
   req.checkPermissions("manageFactTables", data.projects || "");
 
   if (!data.datasource) {
     throw new Error("Must specify a data source for this fact table");
   }
-  const datasource = await getDataSourceById(data.datasource, org.id);
+  const datasource = await getDataSourceById(data.datasource, context.org.id);
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
-
   req.checkPermissions("runQueries", datasource.projects || "");
 
-  data.columns = await updateColumns(datasource, data as FactTableInterface);
-
+  data.columns = await runRefreshColumnsQuery(
+    datasource,
+    data as FactTableInterface
+  );
   if (!data.columns.length) {
     throw new Error("SQL did not return any rows");
   }
 
-  const factTable = await createFactTable(org.id, data);
-
+  const factTable = await createFactTable(context, data);
   if (data.tags.length > 0) {
-    await addTags(org.id, data.tags);
+    await addTags(context.org.id, data.tags);
   }
 
   res.status(200).json({
@@ -194,9 +126,9 @@ export const putFactTable = async (
   res: Response<{ status: 200 }>
 ) => {
   const data = req.body;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
-  const factTable = await getFactTable(org.id, req.params.id);
+  const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
   }
@@ -207,25 +139,29 @@ export const putFactTable = async (
     req.checkPermissions("manageFactTables", data.projects || "");
   }
 
-  const datasource = await getDataSourceById(factTable.datasource, org.id);
+  const datasource = await getDataSourceById(
+    factTable.datasource,
+    context.org.id
+  );
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
   req.checkPermissions("runQueries", datasource.projects || "");
 
   // Update the columns
-  data.columns = await updateColumns(datasource, {
+  data.columns = await runRefreshColumnsQuery(datasource, {
     ...factTable,
     ...data,
   } as FactTableInterface);
+  data.columnsError = null;
 
   if (!data.columns.some((col) => !col.deleted)) {
     throw new Error("SQL did not return any rows");
   }
 
-  await updateFactTable(factTable, data);
+  await updateFactTable(context, factTable, data);
 
-  await addTagsDiff(org.id, factTable.tags, data.tags || []);
+  await addTagsDiff(context.org.id, factTable.tags, data.tags || []);
 
   res.status(200).json({
     status: 200,
@@ -236,15 +172,15 @@ export const deleteFactTable = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{ status: 200 }>
 ) => {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
-  const factTable = await getFactTable(org.id, req.params.id);
+  const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
   }
   req.checkPermissions("manageFactTables", factTable.projects);
 
-  await deleteFactTableInDb(factTable);
+  await deleteFactTableInDb(context, factTable);
 
   res.status(200).json({
     status: 200,
@@ -256,9 +192,9 @@ export const putColumn = async (
   res: Response<{ status: 200 }>
 ) => {
   const data = req.body;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
-  const factTable = await getFactTable(org.id, req.params.id);
+  const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
   }
@@ -280,16 +216,19 @@ export const postFactFilterTest = async (
   }>
 ) => {
   const data = req.body;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
-  const factTable = await getFactTable(org.id, req.params.id);
+  const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
   }
 
   req.checkPermissions("manageFactTables", factTable.projects);
 
-  const datasource = await getDataSourceById(factTable.datasource, org.id);
+  const datasource = await getDataSourceById(
+    factTable.datasource,
+    context.org.id
+  );
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
@@ -308,16 +247,19 @@ export const postFactFilter = async (
   res: Response<{ status: 200; filterId: string }>
 ) => {
   const data = req.body;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
-  const factTable = await getFactTable(org.id, req.params.id);
+  const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
   }
 
   req.checkPermissions("manageFactTables", factTable.projects);
 
-  const datasource = await getDataSourceById(factTable.datasource, org.id);
+  const datasource = await getDataSourceById(
+    factTable.datasource,
+    context.org.id
+  );
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
@@ -336,9 +278,9 @@ export const putFactFilter = async (
   res: Response<{ status: 200 }>
 ) => {
   const data = req.body;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
-  const factTable = await getFactTable(org.id, req.params.id);
+  const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
   }
@@ -350,14 +292,17 @@ export const putFactFilter = async (
     (f) => f.id === req.params.filterId
   );
   if (existingFilter && existingFilter.value !== data.value) {
-    const datasource = await getDataSourceById(factTable.datasource, org.id);
+    const datasource = await getDataSourceById(
+      factTable.datasource,
+      context.org.id
+    );
     if (!datasource) {
       throw new Error("Could not find datasource");
     }
     req.checkPermissions("runQueries", datasource.projects || "");
   }
 
-  await updateFactFilter(factTable, req.params.filterId, data);
+  await updateFactFilter(context, factTable, req.params.filterId, data);
 
   res.status(200).json({
     status: 200,
@@ -368,15 +313,15 @@ export const deleteFactFilter = async (
   req: AuthRequest<null, { id: string; filterId: string }>,
   res: Response<{ status: 200 }>
 ) => {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
-  const factTable = await getFactTable(org.id, req.params.id);
+  const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
     throw new Error("Could not find filter table with that id");
   }
   req.checkPermissions("manageFactTables", factTable.projects);
 
-  await deleteFactFilterInDb(factTable, req.params.filterId);
+  await deleteFactFilterInDb(context, factTable, req.params.filterId);
 
   res.status(200).json({
     status: 200,
@@ -387,9 +332,9 @@ export const getFactMetrics = async (
   req: AuthRequest,
   res: Response<{ status: 200; factMetrics: FactMetricInterface[] }>
 ) => {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
-  const factMetrics = await getAllFactMetricsForOrganization(org.id);
+  const factMetrics = await getAllFactMetricsForOrganization(context);
 
   res.status(200).json({
     status: 200,
@@ -402,14 +347,14 @@ export const postFactMetric = async (
   res: Response<{ status: 200; factMetric: FactMetricInterface }>
 ) => {
   const data = req.body;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
   req.checkPermissions("createMetrics", data.projects || "");
 
-  const factMetric = await createFactMetric(org.id, data);
+  const factMetric = await createFactMetric(context, data);
 
   if (data.tags.length > 0) {
-    await addTags(org.id, data.tags);
+    await addTags(context.org.id, data.tags);
   }
 
   res.status(200).json({
@@ -423,9 +368,9 @@ export const putFactMetric = async (
   res: Response<{ status: 200 }>
 ) => {
   const data = req.body;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
-  const factMetric = await getFactMetric(org.id, req.params.id);
+  const factMetric = await getFactMetric(context, req.params.id);
   if (!factMetric) {
     throw new Error("Could not find fact metric with that id");
   }
@@ -436,9 +381,9 @@ export const putFactMetric = async (
     req.checkPermissions("createMetrics", data.projects || "");
   }
 
-  await updateFactMetric(factMetric, data);
+  await updateFactMetric(context, factMetric, data);
 
-  await addTagsDiff(org.id, factMetric.tags, data.tags || []);
+  await addTagsDiff(context.org.id, factMetric.tags, data.tags || []);
 
   res.status(200).json({
     status: 200,
@@ -449,15 +394,15 @@ export const deleteFactMetric = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{ status: 200 }>
 ) => {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
-  const factMetric = await getFactMetric(org.id, req.params.id);
+  const factMetric = await getFactMetric(context, req.params.id);
   if (!factMetric) {
     throw new Error("Could not find fact metric with that id");
   }
   req.checkPermissions("createMetrics", factMetric.projects);
 
-  await deleteFactMetricInDb(factMetric);
+  await deleteFactMetricInDb(context, factMetric);
 
   res.status(200).json({
     status: 200,

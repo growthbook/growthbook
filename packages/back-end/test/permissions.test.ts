@@ -1675,6 +1675,10 @@ describe("hasReadAccess filter", () => {
 
     expect(filteredMetrics).toEqual([
       {
+        id: "test-feature-123",
+        projects: [],
+      },
+      {
         id: "test-feature-456",
         projects: ["prj_exl5jr5dl4rbw856", "prj_exl5jr5dl4rbw123"],
       },

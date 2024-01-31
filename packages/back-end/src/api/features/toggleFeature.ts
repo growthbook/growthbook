@@ -12,7 +12,7 @@ import { toggleFeatureValidator } from "../../validators/openapi";
 
 export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
   async (req): Promise<ToggleFeatureResponse> => {
-    const feature = await getFeature(req.organization.id, req.params.id);
+    const feature = await getFeature(req.context, req.params.id);
     if (!feature) {
       throw new Error("Could not find a feature with that key");
     }
@@ -37,7 +37,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
     });
 
     const updatedFeature = await toggleMultipleEnvironments(
-      req.organization,
+      req.context,
       req.eventAudit,
       feature,
       toggles
@@ -57,7 +57,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
 
     const groupMap = await getSavedGroupMap(req.organization);
     const experimentMap = await getExperimentMapForFeature(
-      req.organization.id,
+      req.context,
       updatedFeature.id
     );
     return {

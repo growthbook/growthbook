@@ -4,7 +4,8 @@
     "metricType": "mean",
     "numerator": {
       "factTableId": "orders",
-      "column": "qty"
+      "column": "qty",
+      "filters": []
     }
   },
   {
@@ -12,7 +13,8 @@
     "metricType": "mean",
     "numerator": {
       "factTableId": "orders",
-      "column": "qty"
+      "column": "qty",
+      "filters": []
     },
     "regressionAdjustmentDays": 4,
     "regressionAdjustmentEnabled": true
@@ -73,7 +75,8 @@
     "metricType": "ratio",
     "numerator": {
       "factTableId": "orders",
-      "column": "$$count"
+      "column": "$$count",
+      "filters": []
     },
     "denominator": {
       "factTableId": "events",
@@ -100,7 +103,8 @@
     "metricType": "ratio",
     "numerator": {
       "factTableId": "orders",
-      "column": "amount"
+      "column": "amount",
+      "filters": []
     },
     "denominator": {
       "factTableId": "orders",

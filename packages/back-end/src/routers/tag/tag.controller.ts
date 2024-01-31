@@ -65,12 +65,13 @@ export const deleteTag = async (
 ) => {
   req.checkPermissions("manageTags");
 
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.body;
 
   // experiments
   await removeTagFromExperiments({
-    organization: org,
+    context,
     user: res.locals.eventAudit,
     tag: id,
   });
@@ -79,7 +80,7 @@ export const deleteTag = async (
   await removeTagInMetrics(org.id, id);
 
   // features
-  await removeTagInFeature(org, res.locals.eventAudit, id);
+  await removeTagInFeature(context, res.locals.eventAudit, id);
 
   // Slack integrations
   await removeTagFromSlackIntegration({ organizationId: org.id, tag: id });

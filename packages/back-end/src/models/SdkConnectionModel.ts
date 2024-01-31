@@ -11,7 +11,6 @@ import {
   SDKConnectionInterface,
   SDKLanguage,
 } from "../../types/sdk-connection";
-import { queueSingleProxyUpdate } from "../jobs/proxyUpdate";
 import { cancellableFetch } from "../util/http.util";
 import {
   IS_CLOUD,
@@ -20,7 +19,7 @@ import {
   PROXY_HOST_PUBLIC,
 } from "../util/secrets";
 import { errorStringFromZodResult } from "../util/validation";
-import { purgeCDNCache } from "../util/cdn.util";
+import { triggerSingleSDKWebhookJobs } from "../jobs/updateAllJobs";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
 
 const sdkConnectionSchema = new mongoose.Schema({
@@ -116,6 +115,11 @@ export async function findSDKConnectionsByOrganization(organization: string) {
 
 export async function findAllSDKConnections() {
   const docs = await SDKConnectionModel.find();
+  return docs.map(toInterface);
+}
+
+export async function findSDKConnectionsByIds(keys: string[]) {
+  const docs = await SDKConnectionModel.find({ id: { $in: keys } });
   return docs.map(toInterface);
 }
 
@@ -278,21 +282,13 @@ export async function editSDKConnection(
 
   if (needsProxyUpdate) {
     // Purge CDN if used
-    await purgeCDNCache(connection.organization, [connection.key]);
-
-    const newConnection = {
-      ...connection,
-      ...otherChanges,
-      proxy: newProxy,
-    } as SDKConnectionInterface;
-
-    if (IS_CLOUD) {
-      await queueSingleProxyUpdate(newConnection, true);
-    }
-
-    if (newProxy.enabled && newProxy.host) {
-      await queueSingleProxyUpdate(newConnection, false);
-    }
+    const isUsingProxy = !!(newProxy.enabled && newProxy.host);
+    await triggerSingleSDKWebhookJobs(
+      connection,
+      otherChanges as Partial<SDKConnectionInterface>,
+      newProxy,
+      isUsingProxy
+    );
   }
 }
 
@@ -331,6 +327,21 @@ export async function setProxyError(
         "proxy.error": error,
         "proxy.connected": false,
         "proxy.lastError": new Date(),
+      },
+    }
+  );
+}
+
+export async function clearProxyError(connection: SDKConnectionInterface) {
+  await SDKConnectionModel.updateOne(
+    {
+      organization: connection.organization,
+      id: connection.id,
+    },
+    {
+      $set: {
+        "proxy.error": "",
+        "proxy.connected": true,
       },
     }
   );

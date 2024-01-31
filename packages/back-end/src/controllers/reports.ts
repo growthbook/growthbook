@@ -30,7 +30,8 @@ export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
   const snapshot = await findSnapshotById(org.id, req.params.snapshot);
 
@@ -38,7 +39,7 @@ export async function postReportFromSnapshot(
     throw new Error("Invalid snapshot id");
   }
 
-  const experiment = await getExperimentById(org.id, snapshot.experiment);
+  const experiment = await getExperimentById(context, snapshot.experiment);
 
   if (!experiment) {
     throw new Error("Could not find experiment");
@@ -102,13 +103,13 @@ export async function getReports(
   >,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   let project = "";
   if (typeof req.query?.project === "string") {
     project = req.query.project;
   }
 
-  const reports = await getReportsByOrg(org.id, project);
+  const reports = await getReportsByOrg(context, project);
 
   // get the experiments for these reports, mostly needed for names.
   const experimentsIds: string[] = [];
@@ -121,7 +122,7 @@ export async function getReports(
   }
 
   const experiments = experimentsIds.length
-    ? await getExperimentsByIds(org.id, experimentsIds)
+    ? await getExperimentsByIds(context, experimentsIds)
     : [];
 
   res.status(200).json({
@@ -191,7 +192,8 @@ export async function refreshReport(
   req: AuthRequest<null, { id: string }, { force?: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const report = await getReportById(org.id, req.params.id);
 
   if (!report) {
@@ -201,7 +203,7 @@ export async function refreshReport(
   let experiment: ExperimentInterface | null = null;
 
   if (report.experimentId) {
-    experiment = await getExperimentById(org.id, report.experimentId || "");
+    experiment = await getExperimentById(context, report.experimentId || "");
   }
 
   req.checkPermissions("runQueries", experiment?.project || "");
@@ -216,15 +218,20 @@ export async function refreshReport(
       ? !!report.args?.regressionAdjustmentEnabled
       : false;
 
-  const metricMap = await getMetricMap(org.id);
-  const factTableMap = await getFactTableMap(org.id);
+  const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
 
   const integration = await getIntegrationFromDatasourceId(
     org.id,
     report.args.datasource,
     true
   );
-  const queryRunner = new ReportQueryRunner(report, integration, org, useCache);
+  const queryRunner = new ReportQueryRunner(
+    report,
+    integration,
+    context,
+    useCache
+  );
 
   const updatedReport = await queryRunner.startAnalysis({
     metricMap,
@@ -243,7 +250,8 @@ export async function putReport(
 ) {
   req.checkPermissions("createAnalyses", "");
 
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
   const report = await getReportById(org.id, req.params.id);
 
@@ -251,7 +259,10 @@ export async function putReport(
     throw new Error("Unknown report id");
   }
 
-  const experiment = await getExperimentById(org.id, report.experimentId || "");
+  const experiment = await getExperimentById(
+    context,
+    report.experimentId || ""
+  );
 
   req.checkPermissions("runQueries", experiment?.project || "");
 
@@ -292,15 +303,19 @@ export async function putReport(
     ...updates,
   };
   if (needsRun) {
-    const metricMap = await getMetricMap(org.id);
-    const factTableMap = await getFactTableMap(org.id);
+    const metricMap = await getMetricMap(context);
+    const factTableMap = await getFactTableMap(context);
 
     const integration = await getIntegrationFromDatasourceId(
       org.id,
       updatedReport.args.datasource,
       true
     );
-    const queryRunner = new ReportQueryRunner(updatedReport, integration, org);
+    const queryRunner = new ReportQueryRunner(
+      updatedReport,
+      integration,
+      context
+    );
 
     await queryRunner.startAnalysis({
       metricMap,
@@ -318,14 +333,18 @@ export async function cancelReport(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.params;
   const report = await getReportById(org.id, id);
   if (!report) {
     throw new Error("Could not cancel query");
   }
 
-  const experiment = await getExperimentById(org.id, report.experimentId || "");
+  const experiment = await getExperimentById(
+    context,
+    report.experimentId || ""
+  );
 
   req.checkPermissions("runQueries", experiment?.project || "");
 
@@ -333,7 +352,7 @@ export async function cancelReport(
     org.id,
     report.args.datasource
   );
-  const queryRunner = new ReportQueryRunner(report, integration, org);
+  const queryRunner = new ReportQueryRunner(report, integration, context);
   await queryRunner.cancelQueries();
 
   res.status(200).json({ status: 200 });
@@ -343,10 +362,10 @@ export async function postNotebook(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { id } = req.params;
 
-  const notebook = await generateReportNotebook(id, org.id);
+  const notebook = await generateReportNotebook(context, id);
 
   res.status(200).json({
     status: 200,
