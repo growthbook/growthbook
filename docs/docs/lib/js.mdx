@@ -203,6 +203,35 @@ const gb = new GrowthBook({
 });
 ```
 
+#### Customize the Cache Settings
+
+The JavaScript SDK has a built-in caching layer using a browser's localStorage by default. This localStorage implementation can be polyfilled for mobile or back-end use cases.
+
+There are a number of cache settings you can configure within GrowthBook. This must be done BEFORE creating a GrowthBook instance.
+
+Below are all of the default values. You can call `configureCache` with a subset of these fields and the rest will keep their default values.
+
+```ts
+import { configureCache } from "@growthbook/growthbook";
+
+configureCache({
+  // The localStorage key the cache will be stored under
+  cacheKey: "gbFeaturesCache",
+  // Consider features stale after this much time (60 seconds default)
+  staleTTL: 1000 * 60,
+  // Cached features older than this will be ignored (24 hours default)
+  maxTTL: 1000 * 60 * 60 * 24,
+  // For Remote Eval only - limit the number of cache entries (~1 entry per user)
+  maxEntries: 10,
+  // Set to `false` to disable SSE streaming
+  backgroundSync: true,
+  // When `false`, we add a `visibilitychange` listener to disable SSE when the page is idle
+  disableIdleStreams: false,
+  // Consider a page "idle" when it is hidden for this long (default 20 seconds)
+  idleStreamInterval: 20000,
+})
+```
+
 ### Custom Integration
 
 If you prefer to handle the network and caching logic yourself, you can instead pass in a features JSON object directly. For example, you might store features in Postgres and send it down to your front-end as part of your app's initial bootstrap API call.

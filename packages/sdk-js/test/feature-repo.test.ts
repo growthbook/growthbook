@@ -25,6 +25,7 @@ setPolyfills({
 const localStorageCacheKey = "growthbook:cache:features";
 configureCache({
   staleTTL: 100,
+  maxTTL: 2000,
   cacheKey: localStorageCacheKey,
 });
 
@@ -461,6 +462,103 @@ describe("feature-repo", () => {
     growthbook2.destroy();
     cleanup();
     event.clear();
+  });
+
+  it("automatically refreshes localStorage cache in the background when stale", async () => {
+    await clearCache();
+    await seedLocalStorage(
+      false,
+      "https://fakeapi.sample.io",
+      "qwerty1234",
+      "foo",
+      "localstorage",
+      -1000
+    );
+
+    const apiVersion = "2025-01-01T00:00:00Z";
+    const [f, cleanup] = mockApi({
+      features: {
+        foo: {
+          defaultValue: "api",
+        },
+      },
+      dateUpdated: apiVersion,
+    });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      subscribeToChanges: true,
+    });
+    // Initial value of feature should be null
+    expect(growthbook.evalFeature("foo").value).toEqual(null);
+
+    // Once features are loaded, value should be from localstorage (skip localStorage)
+    await growthbook.loadFeatures();
+    expect(growthbook.evalFeature("foo").value).toEqual("localstorage");
+
+    await sleep(100);
+
+    // Should refresh in the background and features should now have the new value
+    expect(f.mock.calls.length).toEqual(1);
+    expect(growthbook.evalFeature("foo").value).toEqual("api");
+
+    await clearCache();
+    growthbook.destroy();
+
+    cleanup();
+  });
+
+  it("doesn't restore from localStorage cache when ttl is more than maxTTL", async () => {
+    await clearCache();
+    await seedLocalStorage(
+      false,
+      "https://fakeapi.sample.io",
+      "qwerty1234",
+      "foo",
+      "localstorage",
+      -3000
+    );
+
+    const apiVersion = "2025-01-01T00:00:00Z";
+    const [f, cleanup] = mockApi({
+      features: {
+        foo: {
+          defaultValue: "api",
+        },
+      },
+      dateUpdated: apiVersion,
+    });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    // Initial value of feature should be null
+    expect(growthbook.evalFeature("foo").value).toEqual(null);
+
+    // Once features are loaded, value should be from api (skip localStorage)
+    await growthbook.loadFeatures();
+    expect(f.mock.calls.length).toEqual(1);
+    expect(growthbook.evalFeature("foo").value).toEqual("api");
+
+    // Still should update localStorage cache, just not read from it
+    const lsValue = JSON.parse(
+      localStorage.getItem(localStorageCacheKey) || "[]"
+    );
+    expect(lsValue.length).toEqual(1);
+    expect(lsValue[0][0]).toEqual("https://fakeapi.sample.io||qwerty1234");
+    expect(lsValue[0][1].version).toEqual(apiVersion);
+    expect(lsValue[0][1].data.features).toEqual({
+      foo: {
+        defaultValue: "api",
+      },
+    });
+
+    await clearCache();
+    growthbook.destroy();
+
+    cleanup();
   });
 
   it("doesn't cache when `enableDevMode` is on", async () => {
