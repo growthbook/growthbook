@@ -26,6 +26,7 @@ export default class Athena extends SqlIntegration {
   }
   runQuery(
     sql: string,
+    labels: Map<string, string>,
     setExternalId: ExternalIdCallback
   ): Promise<QueryResponse> {
     return runAthenaQuery(this.params, sql, setExternalId);

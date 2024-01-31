@@ -40,6 +40,13 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
       );
     }
 
+    const labels = new Map<string, string>([
+      ["organization", this.organization.id],
+      ["datasource", this.integration.datasource],
+      ["model_id", this.model.id],
+      ["query_type", "dimensionSlices"],
+    ]);
+
     return [
       await this.startQuery({
         name: "dimensionSlices",
@@ -49,8 +56,13 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
           lookbackDays: params.lookbackDays,
         }),
         dependencies: [],
-        run: (query, setExternalId) =>
-          this.integration.runDimensionSlicesQuery(query, setExternalId),
+        labels: labels,
+        run: (query, labels, setExternalId) =>
+          this.integration.runDimensionSlicesQuery(
+            query,
+            labels,
+            setExternalId
+          ),
         process: (rows) => rows,
         queryType: "dimensionSlices",
       }),

@@ -538,8 +538,8 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     );
 
     const labels = new Map<string, string>([
-      ["organization", this.organization],
-      ["datasource", this.datasource],
+      ["organization", this.organization.name],
+      ["datasource", this.integration.datasource],
       ["query_type", "experimentResults"],
       ["model_id", this.model.id],
       ["experiment_id", this.model.settings.experimentId],
