@@ -30,6 +30,9 @@ jobs:
         with:
           name: flags-json
           path: ${{ needs.fetchFlags.outputs.json-path }}
+      - name: Debug flags path
+        run: |
+          echo ${{ needs.fetchFlags.outputs.json-path }}
       - name: GrowthBook Code References
         uses: growthbook/coderefs-github-action@2.11.5-5
         with:
