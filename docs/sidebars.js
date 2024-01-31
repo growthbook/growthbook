@@ -473,6 +473,12 @@ const sidebars = {
           label: "SCIM",
           className: "pill-new",
         },
+        {
+          type: "doc",
+          id: "integrations/github-metrics",
+          label: "GitHub (Metric Definitions)",
+          className: "pill-new",
+        },
       ],
     },
     { type: "doc", id: "faq", label: "FAQ" },

@@ -10,6 +10,7 @@ import {
   InformationSchemaError,
   MissingDatasourceParamsError,
 } from "../types/Integration";
+import { getContextForAgendaJobByOrgId } from "../services/organizations";
 
 const CREATE_INFORMATION_SCHEMA_JOB_NAME = "createInformationSchema";
 type CreateInformationSchemaJob = Job<{
@@ -28,12 +29,14 @@ export default function (ag: Agenda) {
 
       if (!datasourceId || !organization) return;
 
-      const datasource = await getDataSourceById(datasourceId, organization);
+      const context = await getContextForAgendaJobByOrgId(organization);
+
+      const datasource = await getDataSourceById(context, datasourceId);
 
       if (!datasource) return;
 
       try {
-        await initializeDatasourceInformationSchema(datasource, organization);
+        await initializeDatasourceInformationSchema(context, datasource);
       } catch (e) {
         const error: InformationSchemaError = {
           errorType: "generic",

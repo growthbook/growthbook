@@ -39,13 +39,15 @@ export interface FactFilterInterface {
   name: string;
   description: string;
   value: string;
+  managedBy?: "" | "api";
 }
 
 export interface FactTableInterface {
   organization: string;
   id: string;
-  dateCreated: Date;
-  dateUpdated: Date;
+  managedBy?: "" | "api";
+  dateCreated: Date | null;
+  dateUpdated: Date | null;
   name: string;
   description: string;
   owner: string;
@@ -56,6 +58,7 @@ export interface FactTableInterface {
   sql: string;
   eventName: string;
   columns: ColumnInterface[];
+  columnsError?: string | null;
   filters: FactFilterInterface[];
 }
 
@@ -72,10 +75,11 @@ export type ConversionWindowUnit = z.infer<
 export interface FactMetricInterface {
   id: string;
   organization: string;
+  managedBy?: "" | "api";
   owner: string;
   datasource: string;
-  dateCreated: Date;
-  dateUpdated: Date;
+  dateCreated: Date | null;
+  dateUpdated: Date | null;
   name: string;
   description: string;
   tags: string[];

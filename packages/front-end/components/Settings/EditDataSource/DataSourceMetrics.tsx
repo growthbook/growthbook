@@ -6,7 +6,7 @@ import { ago, datetime } from "@/../shared/dates";
 import clsx from "clsx";
 import { getMetricLink } from "shared/experiments";
 import { DocLink } from "@/components/DocLink";
-import { hasFileConfig } from "@/services/env";
+import { canCreateMetrics } from "@/services/env";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -93,7 +93,7 @@ export default function DataSourceMetrics({
           </p>
         </div>
         <div className="d-flex flex-row pl-3">
-          {canEdit && !hasFileConfig() ? (
+          {canEdit && canCreateMetrics() ? (
             <>
               <AutoGenerateMetricsButton
                 setShowAutoGenerateMetricsModal={
@@ -196,9 +196,13 @@ export default function DataSourceMetrics({
                               >
                                 <strong>Projects: </strong>
                                 {!metric?.projects?.length ? (
-                                  <ProjectBadges className="badge-ellipsis align-middle" />
+                                  <ProjectBadges
+                                    resourceType="metric"
+                                    className="badge-ellipsis align-middle"
+                                  />
                                 ) : (
                                   <ProjectBadges
+                                    resourceType="metric"
                                     projectIds={metric.projects}
                                     className={clsx(
                                       {
@@ -210,7 +214,7 @@ export default function DataSourceMetrics({
                                   />
                                 )}
                               </div>
-                              {!hasFileConfig() && (
+                              {metric.managedBy !== "config" && (
                                 <div
                                   title={datetime(metric.dateUpdated || "")}
                                   className={clsx(
@@ -240,8 +244,7 @@ export default function DataSourceMetrics({
                               </Tooltip>
                             ) : null}
                           </div>
-                          {!hasFileConfig() &&
-                          editMetricsPermissions[metric.id] ? (
+                          {editMetricsPermissions[metric.id] ? (
                             <MoreMenu className="px-2">
                               <button
                                 className="btn dropdown-item py-2"
@@ -251,6 +254,7 @@ export default function DataSourceMetrics({
                                   setModalData({
                                     current: {
                                       ...metric,
+                                      managedBy: "",
                                       name: metric.name + " (copy)",
                                     },
                                     edit: false,
@@ -260,29 +264,31 @@ export default function DataSourceMetrics({
                               >
                                 <FaRegCopy /> Duplicate
                               </button>
-                              <button
-                                className="btn dropdown-item py-2"
-                                color=""
-                                onClick={async () => {
-                                  const newStatus =
-                                    metric.status === "archived"
-                                      ? "active"
-                                      : "archived";
-                                  await apiCall(`/metric/${metric.id}`, {
-                                    method: "PUT",
-                                    body: JSON.stringify({
-                                      status: newStatus,
-                                    }),
-                                  });
-                                  mutateDefinitions({});
-                                  mutate();
-                                }}
-                              >
-                                <FaArchive />{" "}
-                                {metric.status === "archived"
-                                  ? "Unarchive"
-                                  : "Archive"}
-                              </button>
+                              {!metric.managedBy ? (
+                                <button
+                                  className="btn dropdown-item py-2"
+                                  color=""
+                                  onClick={async () => {
+                                    const newStatus =
+                                      metric.status === "archived"
+                                        ? "active"
+                                        : "archived";
+                                    await apiCall(`/metric/${metric.id}`, {
+                                      method: "PUT",
+                                      body: JSON.stringify({
+                                        status: newStatus,
+                                      }),
+                                    });
+                                    mutateDefinitions({});
+                                    mutate();
+                                  }}
+                                >
+                                  <FaArchive />{" "}
+                                  {metric.status === "archived"
+                                    ? "Unarchive"
+                                    : "Archive"}
+                                </button>
+                              ) : null}
                             </MoreMenu>
                           ) : null}
                         </div>
