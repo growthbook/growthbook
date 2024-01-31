@@ -16,8 +16,8 @@ export const putVisualChange = createApiRequestHandler(
     const payload = req.body;
 
     const experiment = await findExperimentByVisualChangesetId(
-      changesetId,
-      orgId
+      req.context,
+      changesetId
     );
 
     if (!experiment) {

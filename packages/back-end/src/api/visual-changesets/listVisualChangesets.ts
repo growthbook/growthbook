@@ -11,10 +11,7 @@ export const listVisualChangesets = createApiRequestHandler(
   listVisualChangesetsValidator
 )(
   async (req): Promise<ListVisualChangesetsResponse> => {
-    const experiment = await getExperimentById(
-      req.organization.id,
-      req.params.id
-    );
+    const experiment = await getExperimentById(req.context, req.params.id);
 
     req.checkPermissions("manageVisualChanges", experiment?.project);
 

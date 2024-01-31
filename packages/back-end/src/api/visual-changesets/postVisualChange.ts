@@ -11,8 +11,8 @@ export const postVisualChange = createApiRequestHandler(
 )(
   async (req): Promise<PostVisualChangeResponse> => {
     const experiment = await findExperimentByVisualChangesetId(
-      req.params.id,
-      req.organization.id
+      req.context,
+      req.params.id
     );
 
     if (!experiment) {

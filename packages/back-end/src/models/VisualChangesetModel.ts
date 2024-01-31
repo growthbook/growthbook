@@ -508,15 +508,15 @@ export const deleteVisualChangesetById = async ({
 };
 
 export const findExperimentByVisualChangesetId = async (
-  visualChangesetId: string,
-  organization: string
+  context: ReqContext | ApiReqContext,
+  visualChangesetId: string
 ): Promise<ExperimentInterface | null> => {
   const visualChangeset = await findVisualChangesetById(
     visualChangesetId,
-    organization
+    context.org.id
   );
 
   if (!visualChangeset) return null;
 
-  return getExperimentById(organization, visualChangeset.experiment);
+  return getExperimentById(context, visualChangeset.experiment);
 };
