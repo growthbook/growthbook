@@ -134,14 +134,17 @@ export async function createUserPersonalAccessApiKey({
 }
 
 export async function createUserVisualEditorApiKey({
+  userId,
   organizationId,
   description,
 }: {
+  userId: string;
   organizationId: string;
   description: string;
 }): Promise<ApiKeyInterface> {
   return await createApiKey({
     organization: organizationId,
+    userId,
     secret: true,
     environment: "",
     project: "",
