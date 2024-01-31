@@ -1483,7 +1483,7 @@ describe("hasReadAccess filter", () => {
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      hasReadAccess(readAccessFilter, [feature.project || ""])
+      hasReadAccess(readAccessFilter, feature.project)
     );
 
     expect(filteredFeatures).toEqual([]);
@@ -1509,7 +1509,7 @@ describe("hasReadAccess filter", () => {
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      hasReadAccess(readAccessFilter, [feature.project || ""])
+      hasReadAccess(readAccessFilter, feature.project)
     );
 
     expect(filteredFeatures).toEqual([
@@ -1561,7 +1561,7 @@ describe("hasReadAccess filter", () => {
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      hasReadAccess(readAccessFilter, [feature.project || ""])
+      hasReadAccess(readAccessFilter, feature.project)
     );
 
     expect(filteredFeatures).toEqual([
@@ -1613,7 +1613,7 @@ describe("hasReadAccess filter", () => {
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      hasReadAccess(readAccessFilter, [feature.project || ""])
+      hasReadAccess(readAccessFilter, feature.project)
     );
 
     expect(filteredFeatures).toEqual([
