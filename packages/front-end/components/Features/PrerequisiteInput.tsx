@@ -4,6 +4,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { FeatureInterface } from "back-end/types/feature";
 import { RxInfoCircled, RxLoop } from "react-icons/rx";
+import { isPrerequisiteConditionOperatorConditional } from "shared/util";
+import { FaRegCircleQuestion } from "react-icons/fa6";
 import { condToJson, jsonToConds } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "../Forms/Field";
@@ -11,8 +13,6 @@ import SelectField from "../Forms/SelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
 import StringArrayField from "../Forms/StringArrayField";
 import styles from "./ConditionInput.module.scss";
-import {isPrerequisiteConditionOperatorConditional} from "shared/util";
-import {FaRegCircleQuestion} from "react-icons/fa6";
 
 interface Props {
   defaultValue: string;
@@ -158,15 +158,15 @@ export default function PrerequisiteInput(props: Props) {
         const operatorOptions =
           attribute.datatype === "boolean"
             ? [
-                { label: "is not NULL", value: "$exists" },
-                { label: "is NULL", value: "$notExists" },
+                { label: "is enabled", value: "$exists" },
+                { label: "is disabled", value: "$notExists" },
                 { label: "is true", value: "$true" },
                 { label: "is false", value: "$false" },
               ]
             : attribute.datatype === "string"
             ? [
-                { label: "is not NULL", value: "$exists" },
-                { label: "is NULL", value: "$notExists" },
+                { label: "is enabled", value: "$exists" },
+                { label: "is disabled", value: "$notExists" },
                 { label: "is equal to", value: "$eq" },
                 { label: "is not equal to", value: "$ne" },
                 { label: "matches regex", value: "$regex" },
@@ -180,8 +180,8 @@ export default function PrerequisiteInput(props: Props) {
               ]
             : attribute.datatype === "number"
             ? [
-                { label: "is not NULL", value: "$exists" },
-                { label: "is NULL", value: "$notExists" },
+                { label: "is enabled", value: "$exists" },
+                { label: "is disabled", value: "$notExists" },
                 { label: "is equal to", value: "$eq" },
                 { label: "is not equal to", value: "$ne" },
                 { label: "is greater than", value: "$gt" },
@@ -193,12 +193,14 @@ export default function PrerequisiteInput(props: Props) {
               ]
             : attribute.datatype === "json"
             ? [
-                { label: "is not NULL", value: "$exists" },
-                { label: "is NULL", value: "$notExists" },
+                { label: "is enabled", value: "$exists" },
+                { label: "is disabled", value: "$notExists" },
               ]
             : [];
 
-        const operatorIsConditional = isPrerequisiteConditionOperatorConditional(operator);
+        const operatorIsConditional = isPrerequisiteConditionOperatorConditional(
+          operator
+        );
 
         return (
           <div key={i}>
@@ -224,7 +226,9 @@ export default function PrerequisiteInput(props: Props) {
                   }}
                   formatOptionLabel={({ value, label }) => {
                     const def = "$exists";
-                    const conditional = isPrerequisiteConditionOperatorConditional(value);
+                    const conditional = isPrerequisiteConditionOperatorConditional(
+                      value
+                    );
                     return (
                       <span>
                         {label}
@@ -240,15 +244,17 @@ export default function PrerequisiteInput(props: Props) {
                           <span className="ml-2 small">
                             <FaRegCircleQuestion className="text-purple" />
                           </span>
-                          )}
+                        )}
                       </span>
                     );
                   }}
                 />
                 {operatorIsConditional && (
                   <div className="text-purple small mt-1 ml-1">
-                    <FaRegCircleQuestion />{" "}
-                    Conditional <span className="text-muted">targeting will be evaluated in the SDK</span>
+                    <FaRegCircleQuestion /> Conditional{" "}
+                    <span className="text-muted">
+                      targeting will be evaluated in the SDK
+                    </span>
                   </div>
                 )}
               </div>

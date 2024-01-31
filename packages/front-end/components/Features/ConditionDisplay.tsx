@@ -14,7 +14,7 @@ import SavedGroupTargetingDisplay from "./SavedGroupTargetingDisplay";
 
 type ConditionWithParentId = Condition & { parentId?: string };
 
-function operatorToText(operator: string): string {
+function operatorToText(operator: string, isPrerequisite?: boolean): string {
   switch (operator) {
     case "$eq":
     case "$veq":
@@ -43,9 +43,9 @@ function operatorToText(operator: string): string {
     case "$vgte":
       return `is greater than or equal to`;
     case "$exists":
-      return `is not NULL`;
+      return isPrerequisite ? `is enabled` : `is not NULL`;
     case "$notExists":
-      return `is NULL`;
+      return isPrerequisite ? `is disabled` : `is NULL`;
     case "$in":
       return `is in the list`;
     case "$nin":
@@ -197,7 +197,9 @@ function getConditionParts({
         {(i > 0 || initialAnd) && <span className="mr-1">AND</span>}
         {parentIdEl}
         {fieldEl}
-        <span className="mr-1">{operatorToText(operator)}</span>
+        <span className="mr-1">
+          {operatorToText(operator, renderPrerequisite)}
+        </span>
         {hasMultiValues(operator) ? (
           <MultiValueDisplay value={value} />
         ) : needsValue(operator) ? (
