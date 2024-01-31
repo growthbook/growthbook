@@ -85,7 +85,7 @@ export async function getDataSourcesByOrganization(
   const datasources = docs.map(toInterface);
 
   return datasources.filter((ds) =>
-    hasReadAccess(context.readAccessFilter, ds.projects)
+    hasReadAccess(context.readAccessFilter, ds.projects || [])
   );
 }
 
