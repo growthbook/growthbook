@@ -26,6 +26,8 @@ import { useArrayIncrementer } from "@/hooks/useIncrementer";
 import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { useUser } from "@/services/UserContext";
 import { GBAddCircle } from "../Icons";
 import SelectField from "../Forms/SelectField";
 
@@ -57,6 +59,11 @@ export default function PrerequisiteTargetingField({
   const hasSDKWithPrerequisites = getConnectionsSDKCapabilities(
     sdkConnectionsData?.connections || []
   ).includes("prerequisites");
+
+  const { hasCommercialFeature } = useUser();
+  const hasPrerequisitesCommercialFeature = hasCommercialFeature(
+    "prerequisites"
+  );
 
   useEffect(() => {
     for (let i = 0; i < value.length; i++) {
@@ -121,7 +128,9 @@ export default function PrerequisiteTargetingField({
 
   return (
     <div className="form-group my-4">
-      <label>Target by Prerequisite Features</label>
+      <PremiumTooltip commercialFeature={"prerequisite-targeting"}>
+        <label>Target by Prerequisite Features</label>
+      </PremiumTooltip>
       {value.length > 0 ? (
         <>
           {value.map((v, i) => {
@@ -223,8 +232,9 @@ export default function PrerequisiteTargetingField({
             );
           })}
 
-          <span
-            className="ml-2 link-purple font-weight-bold cursor-pointer"
+          <button
+            className="btn p-0 ml-2 link-purple font-weight-bold"
+            disabled={!hasPrerequisitesCommercialFeature}
             onClick={(e) => {
               e.preventDefault();
               setValue([
@@ -238,15 +248,16 @@ export default function PrerequisiteTargetingField({
           >
             <FaPlusCircle className="mr-1" />
             Add prerequisite
-          </span>
+          </button>
         </>
       ) : (
         <div>
           <div className="font-italic text-muted mr-3">
             No prerequisite targeting applied.
           </div>
-          <div
-            className="d-inline-block ml-1 mt-2 link-purple font-weight-bold cursor-pointer"
+          <button
+            className="btn p-0 ml-1 mt-2 link-purple font-weight-bold"
+            disabled={!hasPrerequisitesCommercialFeature}
             onClick={(e) => {
               e.preventDefault();
               setValue([
@@ -260,7 +271,7 @@ export default function PrerequisiteTargetingField({
           >
             <GBAddCircle className="mr-1" />
             Add prerequisite targeting
-          </div>
+          </button>
         </div>
       )}
     </div>

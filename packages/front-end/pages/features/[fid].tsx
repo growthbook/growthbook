@@ -9,7 +9,7 @@ import {
   FaExclamationTriangle,
   FaLink,
   FaList,
-  FaLock,
+  FaLock, FaQuestionCircle,
   FaTimes,
 } from "react-icons/fa";
 import { ago, date, datetime } from "shared/dates";
@@ -258,6 +258,8 @@ export default function FeaturePage() {
   const hasConditionalState =
     prereqStates &&
     Object.values(prereqStates).some((s) => s === "conditional");
+
+  const hasPrerequisitesCommercialFeature = hasCommercialFeature("prerequisites");
 
   const mergeResult = useMemo(() => {
     if (!data || !feature || !revision) return null;
@@ -844,15 +846,17 @@ export default function FeaturePage() {
           <tbody>
             <tr className="bg-light">
               <td className="pl-3 py-2 border-right font-weight-bold">
-                Prerequisite Features{" "}
-                <Tooltip
+                <PremiumTooltip
+                  commercialFeature={"prerequisites"}
                   body={
                     <>
                       Prerequisite features must evaluate to <code>true</code>{" "}
                       in order for this feature to be enabled.
                     </>
                   }
-                />
+                >
+                  Prerequisite Features <FaQuestionCircle />
+                </PremiumTooltip>
               </td>
               <td colSpan={envs.length} className="py-2">
                 {!prerequisites.length && (
@@ -910,9 +914,9 @@ export default function FeaturePage() {
         )}
 
         {canEdit && (
-          <a
-            role="button"
-            className="d-inline-block a link-purple mt-3 font-weight-bold"
+          <button
+            className="btn d-inline-block mt-3 font-weight-bold link-purple"
+            disabled={!hasPrerequisitesCommercialFeature}
             onClick={() => {
               setPrerequisiteModal({
                 i: getPrerequisites(feature).length,
@@ -926,7 +930,7 @@ export default function FeaturePage() {
               <GBAddCircle />
             </span>
             Add Prerequisite Feature
-          </a>
+          </button>
         )}
       </div>
 

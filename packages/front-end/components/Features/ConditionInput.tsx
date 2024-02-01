@@ -36,7 +36,7 @@ export default function ConditionInput(props: Props) {
 
   const attributes = useAttributeMap();
 
-  const title = props.title || "Target by Attribute";
+  const title = props.title || "Target by Attributes";
   const emptyText = props.emptyText || "Applied to everyone by default.";
 
   const [advanced, setAdvanced] = useState(
