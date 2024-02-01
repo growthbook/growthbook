@@ -1,8 +1,11 @@
-import { ChangeEventHandler, FC } from "react";
+import { ChangeEventHandler, FC, useState } from "react";
 import { BigQueryConnectionParams } from "back-end/types/integrations/bigquery";
 import { isCloud } from "@/services/env";
+import { useAuth } from "@/services/auth";
 import Field from "../Forms/Field";
 import Tooltip from "../Tooltip/Tooltip";
+import SelectField from "../Forms/SelectField";
+import Button from "../Button";
 
 const BigQueryForm: FC<{
   params: Partial<BigQueryConnectionParams>;
@@ -10,6 +13,34 @@ const BigQueryForm: FC<{
   setParams: (params: { [key: string]: string }) => void;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
 }> = ({ params, setParams, existing, onParamChange }) => {
+  const [datasetOptions, setDatasetOptions] = useState<string[]>([]);
+  const [testConnectionError, setTestConnectionError] = useState<string | null>(
+    null
+  );
+  const [loadingDatasetOptions, setLoadingDatasetOptions] = useState(false);
+  const { apiCall } = useAuth();
+  async function testConnection() {
+    try {
+      setLoadingDatasetOptions(true);
+      const response = await apiCall<{ datasets: string[] }>(
+        "/datasources/test-connection",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            projectId: params.projectId,
+            client_email: params.clientEmail,
+            private_key: params.privateKey,
+          }),
+        }
+      );
+
+      setDatasetOptions(response.datasets);
+    } catch (e) {
+      setTestConnectionError(e.message);
+    }
+    setLoadingDatasetOptions(false);
+  }
+
   return (
     <div className="row">
       {!isCloud() && (
@@ -90,6 +121,30 @@ const BigQueryForm: FC<{
               <label className="custom-file-label" htmlFor="bigQueryFileInput">
                 Upload key file...
               </label>
+              <div className="d-flex justify-content-end pt-2">
+                <Tooltip
+                  body="Must upload a key file in order to test the connection."
+                  shouldDisplay={
+                    !params.projectId ||
+                    !params.clientEmail ||
+                    !params.privateKey
+                  }
+                >
+                  <Button
+                    disabled={
+                      !params.projectId ||
+                      !params.clientEmail ||
+                      !params.privateKey
+                    }
+                    color="outline-primary"
+                    onClick={async () => {
+                      testConnection();
+                    }}
+                  >
+                    {loadingDatasetOptions ? "Loading..." : "Test Connection"}
+                  </Button>
+                </Tooltip>
+              </div>
             </div>
           </div>
           <div className="form-group col-md-12">
@@ -115,7 +170,17 @@ const BigQueryForm: FC<{
         </>
       )}
       <div className="form-group col-md-12">
-        <label>BigQuery Project ID </label>
+        {testConnectionError ? (
+          <div className="alert alert-danger">
+            <strong>Error:</strong> {testConnectionError}
+          </div>
+        ) : null}
+        {datasetOptions.length && !testConnectionError ? (
+          <div className="alert alert-success">
+            Connected to <strong>{params.projectId}</strong> successfully!
+          </div>
+        ) : null}
+        <label>BigQuery Project ID</label>
         <Field
           type="text"
           className="form-control"
@@ -127,17 +192,37 @@ const BigQueryForm: FC<{
       </div>
       <div className="form-group col-md-12">
         <label>
-          Default Dataset (Optional){" "}
-          <Tooltip body="Specifying a dataset here allows GrowthBook to create better default queries to define working assignments and metrics. This value can be edited later if needed." />
+          Default Dataset{" "}
+          <Tooltip body="The default dataset is where your experiment assignments are stored. GrowthBook uses this to create default queries that define working assignments and metrics. This value can be edited later if needed." />
         </label>
-        <Field
-          type="text"
-          className="form-control"
-          name="defaultDataset"
-          value={params.defaultDataset || ""}
-          onChange={onParamChange}
-          placeholder=""
-        />
+        {datasetOptions.length > 0 ? (
+          <SelectField
+            placeholder="Choose a dataset or create a new one..."
+            name="defaultDataset"
+            autoComplete="off"
+            sort={false}
+            options={datasetOptions.map((option) => ({
+              label: option,
+              value: option,
+            }))}
+            createable
+            isClearable={false}
+            value={params.defaultDataset || ""}
+            onChange={(value) => setParams({ ["defaultDataset"]: value })}
+            helpText="Select the dataset where your experiment assignments are or will be stored."
+          />
+        ) : (
+          <Field
+            type="text"
+            className="form-control"
+            name="defaultDataset"
+            value={params.defaultDataset || ""}
+            onChange={onParamChange}
+            placeholder=""
+            helpText="Use the 'Test Connection' button to fetch a list of datasets from your BigQuery project."
+            required
+          />
+        )}
       </div>
     </div>
   );

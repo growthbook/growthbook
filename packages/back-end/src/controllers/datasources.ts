@@ -2,6 +2,7 @@ import { Response } from "express";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import * as bq from "@google-cloud/bigquery";
 import { AuthRequest } from "../types/AuthRequest";
 import { getContextFromReq } from "../services/organizations";
 import {
@@ -852,5 +853,43 @@ export async function cancelDimensionSlices(
 
   res.status(200).json({
     status: 200,
+  });
+}
+
+export async function testBigQueryConnection(
+  req: AuthRequest<{
+    projectId: string;
+    client_email: string;
+    private_key: string;
+  }>,
+  res: Response
+) {
+  const { projectId, client_email, private_key } = req.body;
+
+  const client = new bq.BigQuery({
+    projectId,
+    credentials: { client_email, private_key },
+  });
+
+  const datasetIds: string[] = [];
+
+  try {
+    const [datasets] = await client.getDatasets();
+    if (!datasets.length) {
+      throw new Error("Unable to connect - No datasets found");
+    }
+
+    datasets.forEach((dataset) => {
+      if (dataset.id) {
+        datasetIds.push(dataset.id);
+      }
+    });
+  } catch (e) {
+    throw new Error("Unable to connect - " + e.message);
+  }
+
+  res.status(200).json({
+    status: 200,
+    datasets: datasetIds,
   });
 }

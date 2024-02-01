@@ -580,6 +580,10 @@ app.put(
   "/datasource/:datasourceId/exposureQuery/:exposureQueryId",
   datasourcesController.updateExposureQuery
 );
+app.post(
+  "/datasources/test-connection",
+  datasourcesController.testBigQueryConnection
+);
 
 // Information Schemas
 app.get(
