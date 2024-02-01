@@ -141,7 +141,7 @@ export async function generateNotebook(
     queries,
     metricMap,
     args.variations,
-    args.regressionAdjustmentEnabled ?? false,
+    args.regressionAdjustmentEnabled ?? false
   );
 
   const data: DataForStatsEngine = {
