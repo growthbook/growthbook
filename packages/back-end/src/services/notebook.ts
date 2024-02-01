@@ -140,7 +140,8 @@ export async function generateNotebook(
   const { queryResults, metricSettings } = getMetricsAndQueryDataForStatsEngine(
     queries,
     metricMap,
-    args.variations
+    args.variations,
+    args.regressionAdjustmentEnabled ?? false,
   );
 
   const data: DataForStatsEngine = {
