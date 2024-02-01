@@ -1800,11 +1800,11 @@ export async function postPrerequisite(
   req: AuthRequest<{ prerequisite: FeaturePrerequisite }, { id: string }>,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { id } = req.params;
   const { prerequisite } = req.body;
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -1816,7 +1816,7 @@ export async function postPrerequisite(
   };
   changes.prerequisites.push(prerequisite);
 
-  await updateFeature(org, res.locals.eventAudit, feature, changes);
+  await updateFeature(context, res.locals.eventAudit, feature, changes);
 
   res.status(200).json({
     status: 200,
@@ -1830,11 +1830,11 @@ export async function putPrerequisite(
   >,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { id } = req.params;
   const { prerequisite, i } = req.body;
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -1850,7 +1850,7 @@ export async function putPrerequisite(
   }
   changes.prerequisites[i] = prerequisite;
 
-  await updateFeature(org, res.locals.eventAudit, feature, changes);
+  await updateFeature(context, res.locals.eventAudit, feature, changes);
 
   res.status(200).json({
     status: 200,
@@ -1861,11 +1861,11 @@ export async function deletePrerequisite(
   req: AuthRequest<{ i: number }, { id: string }>,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { id } = req.params;
   const { i } = req.body;
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -1881,7 +1881,7 @@ export async function deletePrerequisite(
   }
   changes.prerequisites.splice(i, 1);
 
-  await updateFeature(org, res.locals.eventAudit, feature, changes);
+  await updateFeature(context, res.locals.eventAudit, feature, changes);
 
   res.status(200).json({
     status: 200,

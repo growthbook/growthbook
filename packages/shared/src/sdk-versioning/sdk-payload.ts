@@ -99,7 +99,7 @@ export const scrubExperiments = (
   experiments: AutoExperimentWithProject[],
   capabilities: SDKCapability[]
 ): AutoExperimentWithProject[] => {
-  const removedExperimentKeys = [];
+  const removedExperimentKeys: string[] = [];
   if (!capabilities.includes("prerequisites")) {
     removedExperimentKeys.push(...prerequisiteKeys);
     const newExperiments: AutoExperimentWithProject[] = [];
