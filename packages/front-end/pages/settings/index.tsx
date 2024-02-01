@@ -608,6 +608,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     <strong>Owner:</strong> {organization.ownerEmail}
                     {canEditOwner && (
                       <a
+                        href="#"
                         className="pl-2"
                         onClick={(e) => {
                           e.preventDefault();

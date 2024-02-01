@@ -38,6 +38,14 @@ const EditOrganizationModal: FC<{
         }
         if (!value?.ownerEmail || value.ownerEmail.trim() === "") {
           throw new Error("Owner email cannot be empty");
+        } else {
+          const newDomain = value.ownerEmail.trim().split("@")[1];
+          const oldDomain = ownerEmail.trim().split("@")[1];
+          if (newDomain !== oldDomain) {
+            throw new Error(
+              "For account security, the owner email domain cannot be changed though the UI. Please contact support for help with account transfers."
+            );
+          }
         }
         await apiCall("/organization", {
           method: "PUT",
