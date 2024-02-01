@@ -31,7 +31,6 @@ export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
         await getFeatureCodeRefsByFeatures({
           repo,
           branch,
-          platform,
           features: Object.keys(refsByFeature),
           organization: req.context.org,
         })
