@@ -5,6 +5,7 @@ import {
 } from "../../types/fact-table";
 import { ApiFactMetric } from "../../types/openapi";
 import { BaseModel, ModelConfig } from "./BaseModel";
+import { getFactTable } from "./FactTableModel";
 
 export class FactMetricDataModel extends BaseModel<FactMetricInterface> {
   protected config: ModelConfig<FactMetricInterface> = {
@@ -33,6 +34,54 @@ export class FactMetricDataModel extends BaseModel<FactMetricInterface> {
   protected async beforeDelete(existing: FactMetricInterface) {
     if (existing.managedBy === "api" && !this.context.isApiRequest) {
       throw new Error("Cannot delete fact metric managed by API");
+    }
+  }
+
+  protected async customValidation(data: FactMetricInterface): Promise<void> {
+    const numeratorFactTable = await getFactTable(
+      this.context,
+      data.numerator.factTableId
+    );
+    if (!numeratorFactTable) {
+      throw new Error("Could not find numerator fact table");
+    }
+
+    if (data.numerator.filters?.length) {
+      for (const filter of data.numerator.filters) {
+        if (!numeratorFactTable.filters.some((f) => f.id === filter)) {
+          throw new Error(`Invalid numerator filter id: ${filter}`);
+        }
+      }
+    }
+
+    if (data.metricType === "ratio") {
+      if (!data.denominator) {
+        throw new Error("Denominator required for ratio metric");
+      }
+      if (data.denominator.factTableId !== data.numerator.factTableId) {
+        const denominatorFactTable = await getFactTable(
+          this.context,
+          data.denominator.factTableId
+        );
+        if (!denominatorFactTable) {
+          throw new Error("Could not find denominator fact table");
+        }
+        if (denominatorFactTable.datasource !== numeratorFactTable.datasource) {
+          throw new Error(
+            "Numerator and denominator must be in the same datasource"
+          );
+        }
+
+        if (data.denominator.filters?.length) {
+          for (const filter of data.denominator.filters) {
+            if (!denominatorFactTable.filters.some((f) => f.id === filter)) {
+              throw new Error(`Invalid denominator filter id: ${filter}`);
+            }
+          }
+        }
+      }
+    } else if (data.denominator?.factTableId) {
+      throw new Error("Denominator not allowed for non-ratio metric");
     }
   }
 

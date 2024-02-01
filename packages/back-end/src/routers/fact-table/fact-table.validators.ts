@@ -37,7 +37,7 @@ export const createFactTablePropsValidator = z
     name: z.string(),
     description: z.string(),
     id: z.string().optional(),
-    owner: z.string().optional(),
+    owner: z.string().default(""),
     projects: z.array(z.string()),
     tags: z.array(z.string()),
     datasource: z.string(),
@@ -79,7 +79,7 @@ export const conversionWindowUnitValidator = z.enum(["weeks", "days", "hours"]);
 
 export const createFactMetricPropsValidator = z.object({
   id: z.string().optional(),
-  owner: z.string().optional(),
+  owner: z.string().optional().default(""),
   datasource: z.string(),
   name: z.string(),
   description: z.string(),

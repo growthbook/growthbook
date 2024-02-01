@@ -5,6 +5,7 @@ import { hasReadAccess } from "shared/permissions";
 import omit from "lodash/omit";
 import { ApiReqContext } from "../../types/api";
 import { Permission, ReqContext } from "../../types/organization";
+import { addTags, addTagsDiff } from "./TagModel";
 
 export interface AutoFields {
   id: string;
@@ -54,6 +55,10 @@ export abstract class BaseModel<T extends AutoFields> {
   // Methods that can be overridden by subclasses
   protected migrate(legacyDoc: unknown): T {
     return legacyDoc as T;
+  }
+  // eslint-disable-next-line
+  protected async customValidation(doc: T) {
+    // Do nothing by default
   }
   // eslint-disable-next-line
   protected async beforeCreate(props: CreateProps<T>) {
@@ -209,9 +214,23 @@ export abstract class BaseModel<T extends AutoFields> {
     return undefined;
   }
 
+  // eslint-disable-next-line
+  protected async _standardFieldValidation(obj: Partial<T>) {
+    // TODO: if `project` is being set, make sure it's a valid id
+    // TODO: if `projects` is being set, make sure they are all valid ids
+    // TODO: if `datasource` is being set, make sure it's a valid id
+    // TODO: other field validations
+  }
+
   protected async _createOne(props: CreateProps<T>) {
     if (this.config.globallyUniqueIds && "id" in props) {
       throw new Error("Cannot set a custom id for this model");
+    }
+
+    // Add default owner if empty
+    if ("owner" in props && props.owner === "") {
+      // TODO: is id the right thing to store here?
+      props.owner = this.context.userId || "";
     }
 
     await this.beforeCreate(props);
@@ -226,11 +245,19 @@ export abstract class BaseModel<T extends AutoFields> {
       dateUpdated: new Date(),
     } as T;
 
+    await this._standardFieldValidation(doc);
+    await this.customValidation(doc);
+
     await this._dangerousGetCollection().insertOne(doc);
 
     // TODO: audit log
 
     await this.afterCreate(doc);
+
+    // Add tags if needed
+    if ("tags" in doc && Array.isArray(doc.tags) && doc.tags.length > 0) {
+      await addTags(this.context.org.id, doc.tags);
+    }
 
     return doc;
   }
@@ -265,6 +292,11 @@ export abstract class BaseModel<T extends AutoFields> {
       ...(setDateUpdated ? { dateUpdated: new Date() } : null),
     };
 
+    const newDoc = { ...doc, ...allUpdates } as T;
+
+    await this._standardFieldValidation(newDoc);
+    await this.customValidation(newDoc);
+
     await this._dangerousGetCollection().updateOne(
       {
         organization: this.context.org.id,
@@ -277,8 +309,21 @@ export abstract class BaseModel<T extends AutoFields> {
 
     // TODO: audit log
 
-    const newDoc = { ...doc, ...allUpdates } as T;
     await this.afterUpdate(doc, updates, newDoc);
+
+    // Update tags if needed
+    // TODO: keep a reference of current tags in Context to make this more efficient
+    if (
+      "tags" in newDoc &&
+      Array.isArray(newDoc.tags) &&
+      newDoc.tags.length > 0
+    ) {
+      await addTagsDiff(
+        this.context.org.id,
+        (doc as T & { tags?: string[] }).tags || [],
+        newDoc.tags
+      );
+    }
 
     return newDoc;
   }

@@ -14,10 +14,7 @@ import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { addTags } from "../../models/TagModel";
 import { createApiRequestHandler } from "../../util/handler";
 import { postBulkImportFactsValidator } from "../../validators/openapi";
-import {
-  getCreateMetricPropsFromBody,
-  validateFactMetric,
-} from "../fact-metrics/postFactMetric";
+import { getCreateMetricPropsFromBody } from "../fact-metrics/postFactMetric";
 import { getUpdateFactMetricPropsFromBody } from "../fact-metrics/updateFactMetric";
 
 export const postBulkImportFacts = createApiRequestHandler(
@@ -207,10 +204,6 @@ export const postBulkImportFacts = createApiRequestHandler(
           if (data.projects) checkFactMetricPermission(data);
 
           const changes = getUpdateFactMetricPropsFromBody(data);
-          await validateFactMetric(
-            { ...existing, ...changes },
-            async (id) => factTableMap.get(id) || null
-          );
 
           await req.context.factMetrics.update(existing, changes);
 
@@ -230,12 +223,9 @@ export const postBulkImportFacts = createApiRequestHandler(
           );
           createProps.id = id;
 
-          await validateFactMetric(createProps, lookupFactTable);
-
-          const newFactMetric = await req.context.factMetrics.create({
-            owner: "",
-            ...createProps,
-          });
+          const newFactMetric = await req.context.factMetrics.create(
+            createProps
+          );
           factMetricMap.set(newFactMetric.id, newFactMetric);
 
           numCreated.factMetrics++;

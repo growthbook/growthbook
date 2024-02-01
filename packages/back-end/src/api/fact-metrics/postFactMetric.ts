@@ -2,63 +2,14 @@ import z from "zod";
 import { getScopedSettings } from "shared/settings";
 import {
   CreateFactMetricProps,
-  FactMetricInterface,
   FactTableInterface,
 } from "../../../types/fact-table";
 import { PostFactMetricResponse } from "../../../types/openapi";
 import { getFactTable } from "../../models/FactTableModel";
-import { addTags } from "../../models/TagModel";
 import { createApiRequestHandler } from "../../util/handler";
 import { postFactMetricValidator } from "../../validators/openapi";
 import { OrganizationInterface } from "../../../types/organization";
 import { findAllProjectsByOrganization } from "../../models/ProjectModel";
-
-export async function validateFactMetric(
-  data: Pick<FactMetricInterface, "numerator" | "denominator" | "metricType">,
-  getFactTable: (id: string) => Promise<FactTableInterface | null>
-) {
-  const numeratorFactTable = await getFactTable(data.numerator.factTableId);
-  if (!numeratorFactTable) {
-    throw new Error("Could not find numerator fact table");
-  }
-
-  if (data.numerator.filters?.length) {
-    for (const filter of data.numerator.filters) {
-      if (!numeratorFactTable.filters.some((f) => f.id === filter)) {
-        throw new Error(`Invalid numerator filter id: ${filter}`);
-      }
-    }
-  }
-
-  if (data.metricType === "ratio") {
-    if (!data.denominator) {
-      throw new Error("Denominator required for ratio metric");
-    }
-    if (data.denominator.factTableId !== data.numerator.factTableId) {
-      const denominatorFactTable = await getFactTable(
-        data.denominator.factTableId
-      );
-      if (!denominatorFactTable) {
-        throw new Error("Could not find denominator fact table");
-      }
-      if (denominatorFactTable.datasource !== numeratorFactTable.datasource) {
-        throw new Error(
-          "Numerator and denominator must be in the same datasource"
-        );
-      }
-
-      if (data.denominator.filters?.length) {
-        for (const filter of data.denominator.filters) {
-          if (!denominatorFactTable.filters.some((f) => f.id === filter)) {
-            throw new Error(`Invalid denominator filter id: ${filter}`);
-          }
-        }
-      }
-    }
-  } else if (data.denominator?.factTableId) {
-    throw new Error("Denominator not allowed for non-ratio metric");
-  }
-}
 
 export async function getCreateMetricPropsFromBody(
   body: z.infer<typeof postFactMetricValidator.bodySchema>,
@@ -180,16 +131,11 @@ export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
       req.organization,
       lookupFactTable
     );
-    await validateFactMetric(data, lookupFactTable);
 
     const factMetric = await req.context.factMetrics.create(data);
 
-    if (factMetric.tags.length > 0) {
-      await addTags(req.organization.id, factMetric.tags);
-    }
-
     return {
-      factMetric: toFactMetricApiInterface(factMetric),
+      factMetric: req.context.factMetrics.toApiInterface(factMetric),
     };
   }
 );
