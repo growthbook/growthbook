@@ -29,8 +29,6 @@ export const getVisualChangeset = createApiRequestHandler(
         ? await getExperimentById(req.context, visualChangeset.experiment)
         : null;
 
-    req.checkPermissions("manageVisualChanges", experiment?.project);
-
     const apiExperiment = experiment
       ? await toExperimentApiInterface(req.context, experiment)
       : null;
