@@ -52,7 +52,6 @@ const DeleteButton: FC<{
       .then((c) => setDynamicContent(c))
       .catch((e) => console.error(e));
   }, [confirming, getConfirmationContent]);
-
   return (
     <>
       {confirming ? (

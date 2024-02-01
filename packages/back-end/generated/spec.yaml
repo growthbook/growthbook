@@ -952,8 +952,6 @@ paths:
                   type: number
                 minBucketVersion:
                   type: number
-                excludeBlockedBucketUsers:
-                  type: boolean
                 releasedVariationId:
                   type: string
                 excludeFromPayload:
@@ -1179,8 +1177,6 @@ paths:
                   type: number
                 minBucketVersion:
                   type: number
-                excludeBlockedBucketUsers:
-                  type: boolean
                 releasedVariationId:
                   type: string
                 excludeFromPayload:
@@ -3741,8 +3737,6 @@ components:
           type: number
         minBucketVersion:
           type: number
-        excludeBlockedBucketUsers:
-          type: boolean
         namespace:
           type: obect
           required:
@@ -3943,8 +3937,6 @@ components:
           type: number
         minBucketVersion:
           type: number
-        excludeBlockedBucketUsers:
-          type: boolean
         variations:
           type: array
           items:

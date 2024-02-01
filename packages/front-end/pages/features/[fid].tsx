@@ -31,6 +31,7 @@ import { FaPlusMinus } from "react-icons/fa6";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import clsx from "clsx";
 import { BiHide, BiShow } from "react-icons/bi";
+import { ImBlocked } from "react-icons/im";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -425,13 +426,26 @@ export default function FeaturePage() {
           mutate={mutate}
           method="PUT"
           current={feature.project}
+          ctaEnabled={dependents === 0}
           additionalMessage={
-            feature.linkedExperiments?.length ? (
-              <div className="alert alert-danger">
-                Changing the project may prevent your linked Experiments from
-                being sent to users.
-              </div>
-            ) : null
+            <>
+              {dependents > 0 ? (
+                <div className="alert alert-info">
+                  <ImBlocked className="text-danger" /> This feature has{" "}
+                  <strong>
+                    {dependents} dependent{dependents !== 1 && "s"}
+                  </strong>
+                  . The project cannot be changed until{" "}
+                  {dependents === 1 ? "it has" : "they have"} been removed.
+                </div>
+              ) : undefined}
+              {feature.linkedExperiments?.length ? (
+                <div className="alert alert-danger">
+                  Changing the project may prevent your linked Experiments from
+                  being sent to users.
+                </div>
+              ) : null}
+            </>
           }
         />
       )}
@@ -637,6 +651,19 @@ export default function FeaturePage() {
                   }}
                   className="dropdown-item"
                   text="Delete feature"
+                  canDelete={dependents === 0}
+                  additionalMessage={
+                    dependents > 0 ? (
+                      <div className="alert alert-info">
+                        <ImBlocked className="text-danger" /> This feature has{" "}
+                        <strong>
+                          {dependents} dependent{dependents !== 1 && "s"}
+                        </strong>{" "}
+                        and cannot be deleted until{" "}
+                        {dependents === 1 ? "it has" : "they have"} been removed
+                      </div>
+                    ) : undefined
+                  }
                 />
               )}
             {canEdit &&
@@ -671,6 +698,19 @@ export default function FeaturePage() {
                   }
                   cta={isArchived ? "Unarchive" : "Archive"}
                   ctaColor="danger"
+                  ctaEnabled={dependents === 0}
+                  additionalMessage={
+                    dependents > 0 ? (
+                      <div className="alert alert-info">
+                        <ImBlocked className="text-danger" /> This feature has{" "}
+                        <strong>
+                          {dependents} dependent{dependents !== 1 && "s"}
+                        </strong>{" "}
+                        and cannot be archived until{" "}
+                        {dependents === 1 ? "it has" : "they have"} been removed
+                      </div>
+                    ) : undefined
+                  }
                 >
                   <button className="dropdown-item">
                     {isArchived ? "Unarchive" : "Archive"} feature

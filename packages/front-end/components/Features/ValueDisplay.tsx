@@ -7,11 +7,13 @@ export default function ValueDisplay({
   value,
   type,
   full = true,
+  additionalStyle = {},
   fullStyle = { maxHeight: 150, overflowY: "auto", maxWidth: "100%" },
 }: {
   value: string;
   type: FeatureValueType;
   full?: boolean;
+  additionalStyle?: CSSProperties;
   fullStyle?: CSSProperties;
 }) {
   const formatted = useMemo(() => {
@@ -52,6 +54,7 @@ export default function ValueDisplay({
           overflow: "hidden",
           maxWidth: "180px",
           whiteSpace: "nowrap",
+          ...additionalStyle,
         }}
         className="text-muted"
       >
