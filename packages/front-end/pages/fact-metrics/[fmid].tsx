@@ -409,8 +409,8 @@ export default function FactMetricPage() {
             <div className="appbox p-3 mb-3">
               {factMetric.windowSettings.type === "conversion" ? (
                 <>
-                  <em className="font-weight-bold">Conversion</em> - Require
-                  conversions to happen within{" "}
+                  <em className="font-weight-bold">Conversion Window</em> -
+                  Require conversions to happen within{" "}
                   <strong>
                     {factMetric.windowSettings.windowValue}{" "}
                     {factMetric.windowSettings.windowUnit}
@@ -423,8 +423,8 @@ export default function FactMetricPage() {
                 </>
               ) : factMetric.windowSettings.type === "lookback" ? (
                 <>
-                  <em className="font-weight-bold">Lookback</em> - Require
-                  metric data to be in latest{" "}
+                  <em className="font-weight-bold">Lookback Window</em> -
+                  Require metric data to be in latest{" "}
                   <strong>
                     {factMetric.windowSettings.windowValue}{" "}
                     {factMetric.windowSettings.windowUnit}

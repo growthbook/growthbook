@@ -67,11 +67,11 @@ export function MetricWindowSettingsForm({ form }) {
               value: "",
             },
             {
-              label: "Conversion",
+              label: "Conversion Window",
               value: "conversion",
             },
             {
-              label: "Lookback",
+              label: "Lookback Window",
               value: "lookback",
             },
           ]}

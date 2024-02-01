@@ -1152,13 +1152,17 @@ const MetricPage: FC = () => {
                         <span className="font-weight-bold">
                           {metric.cappingSettings.value}
                         </span>{" "}
-                        {metric.cappingSettings.type === "percentile"
-                          ? `(${100 * metric.cappingSettings.value} pctile${
-                              metric.cappingSettings.ignoreZeros
-                                ? ", ignoring zeros"
-                                : ""
-                            })`
-                          : ""}{" "}
+                        {metric.cappingSettings.type === "percentile" ? (
+                          <span className="text-gray">{`(${
+                            100 * metric.cappingSettings.value
+                          } pctile${
+                            metric.cappingSettings.ignoreZeros
+                              ? ", ignoring zeros"
+                              : ""
+                          })`}</span>
+                        ) : (
+                          ""
+                        )}{" "}
                       </li>
                     </>
                   )}
@@ -1179,37 +1183,59 @@ const MetricPage: FC = () => {
                   {metric.windowSettings.type === "conversion" ? (
                     <>
                       <li>
-                        <span className="font-weight-bold">Conversion</span> -
-                        Require conversions to happen within{" "}
+                        <span className="font-weight-bold">
+                          Conversion Window
+                        </span>
+                      </li>
+                      <li>
+                        <span className="text-gray">
+                          {` -
+                        Require conversions to happen within `}
+                        </span>
                         <strong>
                           {metric.windowSettings.windowValue}{" "}
                           {metric.windowSettings.windowUnit}
-                        </strong>{" "}
+                        </strong>
+                        <span className="text-gray">{` 
                         of first experiment exposure
-                        {metric.windowSettings.delayHours
-                          ? " plus the conversion delay"
-                          : ""}
+                        ${
+                          metric.windowSettings.delayHours
+                            ? " plus the conversion delay"
+                            : ""
+                        }`}</span>
                         .
                       </li>
                     </>
                   ) : metric.windowSettings.type === "lookback" ? (
-                    <li>
-                      <span className="font-weight-bold">Lookback</span> -
-                      Require metric data to be in latest{" "}
-                      <strong>
-                        {metric.windowSettings.windowValue}{" "}
-                        {metric.windowSettings.windowUnit}
-                      </strong>{" "}
-                      of the experiment.
-                    </li>
+                    <>
+                      <li>
+                        <span className="font-weight-bold">
+                          Lookback Window
+                        </span>
+                      </li>
+                      <li>
+                        <span className="text-gray">{`Require metric data to be in latest `}</span>
+                        <strong>
+                          {metric.windowSettings.windowValue}{" "}
+                          {metric.windowSettings.windowUnit}
+                        </strong>
+                        <span className="text-gray"> of the experiment.</span>
+                      </li>
+                    </>
                   ) : (
-                    <li>
-                      <span className="font-weight-bold">Disabled</span> -
-                      Include all metric data after first experiment exposure
-                      {metric.windowSettings.delayHours
-                        ? " plus the conversion delay"
-                        : ""}
-                    </li>
+                    <>
+                      <li>
+                        <span className="font-weight-bold">Disabled</span>
+                      </li>
+                      <li>
+                        <span className="text-gray">{`Include all metric data after first experiment exposure
+                      ${
+                        metric.windowSettings.delayHours
+                          ? " plus the conversion delay"
+                          : ""
+                      }`}</span>
+                      </li>
+                    </>
                   )}
                   {metric.windowSettings.delayHours ? (
                     <>
