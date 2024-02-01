@@ -55,18 +55,6 @@ export const upsertFeatureCodeRefs = async ({
   codeRefs: FeatureCodeRefsInterface["refs"];
   organization: OrganizationInterface;
 }): Promise<FeatureCodeRefsInterface[]> => {
-  if (!feature || !repo || !branch || !codeRefs) {
-    // eslint-disable-next-line no-console
-    console.error("Missing required params", {
-      feature,
-      repo,
-      branch,
-      platform,
-      codeRefs,
-    });
-    throw new Error("Missing required parameters");
-  }
-
   await FeatureCodeRefsModel.updateMany(
     {
       feature,
@@ -92,26 +80,14 @@ export const upsertFeatureCodeRefs = async ({
 export const getFeatureCodeRefsByFeatures = async ({
   repo,
   branch,
-  platform,
   features,
   organization,
 }: {
   repo: string;
   branch: string;
-  platform?: "github" | "gitlab" | "bitbucket";
   features: string[];
   organization: OrganizationInterface;
 }): Promise<FeatureCodeRefsInterface[]> => {
-  if (!repo || !branch) {
-    // eslint-disable-next-line no-console
-    console.error("Missing required parameters", {
-      repo,
-      branch,
-      platform,
-    });
-    throw new Error("Missing required parameters");
-  }
-
   return await FeatureCodeRefsModel.find({
     repo,
     branch,
@@ -127,7 +103,6 @@ export const getAllCodeRefsForFeature = async ({
   feature: string;
   organization: OrganizationInterface;
 }): Promise<FeatureCodeRefsInterface[]> => {
-  if (!feature) throw new Error("Missing required parameters");
   return await FeatureCodeRefsModel.find({
     feature,
     organization: organization.id,
