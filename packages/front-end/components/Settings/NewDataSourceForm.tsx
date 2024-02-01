@@ -830,6 +830,14 @@ const NewDataSourceForm: FC<{
     );
   }
 
+  if (
+    step == 2 &&
+    datasource.type === "bigquery" &&
+    !datasource.params?.defaultDataset
+  ) {
+    ctaEnabled = false;
+  }
+
   return (
     <Modal
       open={true}

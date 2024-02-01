@@ -856,7 +856,7 @@ export async function cancelDimensionSlices(
   });
 }
 
-export async function testBigQueryConnection(
+export async function fetchBigQueryDatasets(
   req: AuthRequest<{
     projectId: string;
     client_email: string;
@@ -875,9 +875,6 @@ export async function testBigQueryConnection(
 
   try {
     const [datasets] = await client.getDatasets();
-    if (!datasets.length) {
-      throw new Error("Unable to connect - No datasets found");
-    }
 
     datasets.forEach((dataset) => {
       if (dataset.id) {
@@ -885,7 +882,7 @@ export async function testBigQueryConnection(
       }
     });
   } catch (e) {
-    throw new Error("Unable to connect - " + e.message);
+    throw new Error(e.message);
   }
 
   res.status(200).json({

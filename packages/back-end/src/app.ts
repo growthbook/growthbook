@@ -582,7 +582,7 @@ app.put(
 );
 app.post(
   "/datasources/test-connection",
-  datasourcesController.testBigQueryConnection
+  datasourcesController.fetchBigQueryDatasets
 );
 
 // Information Schemas

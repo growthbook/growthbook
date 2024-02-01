@@ -14,15 +14,17 @@ const BigQueryForm: FC<{
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
 }> = ({ params, setParams, existing, onParamChange }) => {
   const [datasetOptions, setDatasetOptions] = useState<string[]>([]);
-  const [testConnectionError, setTestConnectionError] = useState<string | null>(
-    null
-  );
+  const [testConnectionResults, setTestConnectionResults] = useState<{
+    status: "success" | "danger" | "warning";
+    message: string;
+  } | null>(null);
   const [loadingDatasetOptions, setLoadingDatasetOptions] = useState(false);
   const { apiCall } = useAuth();
+
   async function testConnection() {
     try {
       setLoadingDatasetOptions(true);
-      const response = await apiCall<{ datasets: string[] }>(
+      const { datasets } = await apiCall<{ datasets: string[]; error: string }>(
         "/datasources/test-connection",
         {
           method: "POST",
@@ -34,9 +36,23 @@ const BigQueryForm: FC<{
         }
       );
 
-      setDatasetOptions(response.datasets);
+      setDatasetOptions(datasets);
+
+      if (!datasets.length) {
+        setTestConnectionResults({
+          status: "warning",
+          message:
+            "We were able to connect to BigQuery, but we weren't able to retreive any datasets in this project.",
+        });
+        return;
+      }
+      setTestConnectionResults({
+        status: "success",
+        message: `Connected to ${params.projectId} successfully!`,
+      });
+      //TODO: Intelligently select a default dataset based on the datasource type (manual, ga4, segment, etc)
     } catch (e) {
-      setTestConnectionError(e.message);
+      setTestConnectionResults({ status: "danger", message: e.message });
     }
     setLoadingDatasetOptions(false);
   }
@@ -121,45 +137,39 @@ const BigQueryForm: FC<{
               <label className="custom-file-label" htmlFor="bigQueryFileInput">
                 Upload key file...
               </label>
-              <div className="d-flex justify-content-end pt-2">
-                <Tooltip
-                  body="Must upload a key file in order to test the connection."
-                  shouldDisplay={
-                    !params.projectId ||
-                    !params.clientEmail ||
-                    !params.privateKey
-                  }
-                >
+            </div>
+          </div>
+          <div className="form-group col-md-12">
+            {params && params.projectId ? (
+              <>
+                <ul>
+                  <li>
+                    <strong>BigQuery Project Id:</strong> {params.projectId}
+                  </li>
+                  <li>
+                    <strong>Client Email:</strong> {params.clientEmail}
+                  </li>
+                  <li>
+                    <strong>Private Key:</strong> *****
+                  </li>
+                </ul>
+                {!testConnectionResults ? (
                   <Button
-                    disabled={
-                      !params.projectId ||
-                      !params.clientEmail ||
-                      !params.privateKey
-                    }
-                    color="outline-primary"
+                    color="primary"
                     onClick={async () => {
                       testConnection();
                     }}
                   >
                     {loadingDatasetOptions ? "Loading..." : "Test Connection"}
                   </Button>
-                </Tooltip>
-              </div>
-            </div>
-          </div>
-          <div className="form-group col-md-12">
-            {params && params.projectId ? (
-              <ul>
-                <li>
-                  <strong>BigQuery Project Id:</strong> {params.projectId}
-                </li>
-                <li>
-                  <strong>Client Email:</strong> {params.clientEmail}
-                </li>
-                <li>
-                  <strong>Private Key:</strong> *****
-                </li>
-              </ul>
+                ) : (
+                  <div
+                    className={`alert alert-${testConnectionResults.status}`}
+                  >
+                    {testConnectionResults.message}
+                  </div>
+                )}
+              </>
             ) : (
               <div className="alert alert-info">
                 Your connection info will appear here when you select a valid
@@ -170,16 +180,6 @@ const BigQueryForm: FC<{
         </>
       )}
       <div className="form-group col-md-12">
-        {testConnectionError ? (
-          <div className="alert alert-danger">
-            <strong>Error:</strong> {testConnectionError}
-          </div>
-        ) : null}
-        {datasetOptions.length && !testConnectionError ? (
-          <div className="alert alert-success">
-            Connected to <strong>{params.projectId}</strong> successfully!
-          </div>
-        ) : null}
         <label>BigQuery Project ID</label>
         <Field
           type="text"
@@ -206,7 +206,8 @@ const BigQueryForm: FC<{
               value: option,
             }))}
             createable
-            isClearable={false}
+            required
+            isClearable
             value={params.defaultDataset || ""}
             onChange={(value) => setParams({ ["defaultDataset"]: value })}
             helpText="Select the dataset where your experiment assignments are or will be stored."
