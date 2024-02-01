@@ -624,14 +624,38 @@ export function evaluateFeature({
         returnRuleId: true,
       });
       if (definition) {
+        // Prerequisite scrubbing:
+        const rulesWithPrereqs: FeatureDefinitionRule[] = [];
+        definition.rules = definition.rules
+          ? (definition?.rules
+              ?.map((rule) => {
+                if (rule?.parentConditions?.length) {
+                  rulesWithPrereqs.push(rule);
+                  if (rule.parentConditions.some((pc) => !!pc.gate)) {
+                    return null;
+                  }
+                  delete rule.parentConditions;
+                }
+                return rule;
+              })
+              .filter(Boolean) as FeatureDefinitionRule[])
+          : undefined;
+
         thisEnvResult.featureDefinition = definition;
-        const log: [string, never][] = [];
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const log: [string, any][] = [];
         const gb = new GrowthBook({
           features: {
             [feature.id]: definition,
           },
           attributes: attributes,
-          log: (msg: string, ctx: never) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          log: (msg: string, ctx: any) => {
+            const ruleId = ctx?.rule?.id ?? null;
+            if (ruleId && rulesWithPrereqs.find((r) => r.id === ruleId)) {
+              msg += " (skipped prerequisite evaluation)";
+            }
             log.push([msg, ctx]);
           },
         });
