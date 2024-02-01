@@ -141,11 +141,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               title
             )}
             {unreachable && !ruleDisabled ? (
-              <Tooltip
-                body={
-                  "A rule above this one will serve to 100% of the traffic, and this rule will never be reached."
-                }
-              >
+              <Tooltip body="A rule above this one will serve to 100% of the traffic, and this rule will never be reached.">
                 <span className="ml-2 font-italic bg-secondary text-light border px-2 rounded d-inline-block">
                   {" "}
                   <FaExclamationTriangle className="text-warning" /> This rule
