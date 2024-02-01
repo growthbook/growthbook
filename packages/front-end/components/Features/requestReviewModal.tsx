@@ -2,7 +2,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import { useState, useMemo } from "react";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { autoMerge, mergeResultHasChanges } from "shared/util";
-import { Callout } from "@radix-ui/themes";
+import { Callout, Flex, RadioGroup, TextArea, Text } from "@radix-ui/themes";
 import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
@@ -32,7 +32,7 @@ export default function RequestReviewModal({
 }: Props) {
   const environments = useEnvironments();
   const permissions = usePermissions();
-
+  const [showSubmitReview, setShowSumbmitReview] = useState(false);
   const { apiCall } = useAuth();
   const user = useUser();
   const revision = revisions.find((r) => r.version === version);
@@ -72,7 +72,8 @@ export default function RequestReviewModal({
       }
       await mutate();
     } else if (canReview) {
-      return;
+      console.log("setting it to false");
+      setShowSumbmitReview(true);
     }
   };
 
@@ -121,86 +122,132 @@ export default function RequestReviewModal({
   );
 
   const hasChanges = mergeResultHasChanges(mergeResult);
-  return (
-    <Modal
-      open={true}
-      header={"Review Draft Changes"}
-      cta={canReview ? "Next" : "Request Review"}
-      close={close}
-      closeCta="Cancel"
-      size="max"
-      submit={!isPendingReview || canReview ? submitButton : undefined}
-      secondaryCTA={
-        isPendingReview && !canReview ? (
-          <LegacyButton
-            color="danger"
-            onClick={async () => {
-              try {
-                await apiCall(
-                  `/feature/${feature.id}/${revision.version}/discard`,
-                  {
-                    method: "POST",
-                  }
-                );
-              } catch (e) {
+
+  const submitReview = () => {
+    return;
+  };
+
+  const renderRequestAndViewModal = () => {
+    return (
+      <Modal
+        open={true}
+        header={"Review Draft Changes"}
+        cta={canReview ? "Next" : "Request Review"}
+        close={close}
+        autoCloseOnSubmit={canReview ? false : true}
+        closeCta="Cancel"
+        size="max"
+        submit={!isPendingReview || canReview ? submitButton : undefined}
+        secondaryCTA={
+          isPendingReview && !canReview ? (
+            <LegacyButton
+              color="danger"
+              onClick={async () => {
+                try {
+                  await apiCall(
+                    `/feature/${feature.id}/${revision.version}/discard`,
+                    {
+                      method: "POST",
+                    }
+                  );
+                } catch (e) {
+                  await mutate();
+                  throw e;
+                }
                 await mutate();
-                throw e;
-              }
-              await mutate();
-              onDiscard && onDiscard();
-              close();
-            }}
-          >
-            Discard
-          </LegacyButton>
-        ) : undefined
-      }
-    >
-      {mergeResult.conflicts.length > 0 && (
-        <div className="alert alert-danger">
-          <strong>Conflicts Detected</strong>. Please fix conflicts before
-          publishing this draft.
-        </div>
-      )}
-
-      {!hasChanges && !mergeResult.conflicts.length && (
-        <div className="alert alert-info">
-          There are no changes to publish. Either discard the draft or add
-          changes first before publishing.
-        </div>
-      )}
-
-      {mergeResult.success && hasChanges && (
-        <div>
-          <Callout.Root color={isPendingReview ? "amber" : "gray"}>
-            <Callout.Text>
-              Publishing to the prod environment requires approval.
-            </Callout.Text>
-          </Callout.Root>
-
-          <div className="list-group mb-4 mt-4">
-            {resultDiffs.map((diff) => (
-              <ExpandableDiff {...diff} key={diff.title} />
-            ))}
-          </div>
-          <Revisionlog
-            feature={feature}
-            revision={revision}
-            commentsOnly={true}
-          />
-          {hasPermission && !isPendingReview && (
-            <Field
-              label="Add a Comment (optional)"
-              textarea
-              placeholder="Summary of changes..."
-              value={comment}
-              onChange={(e) => {
-                setComment(e.target.value);
+                onDiscard && onDiscard();
+                close();
               }}
+            >
+              Discard
+            </LegacyButton>
+          ) : undefined
+        }
+      >
+        {mergeResult.conflicts.length > 0 && (
+          <div className="alert alert-danger">
+            <strong>Conflicts Detected</strong>. Please fix conflicts before
+            publishing this draft.
+          </div>
+        )}
+
+        {!hasChanges && !mergeResult.conflicts.length && (
+          <div className="alert alert-info">
+            There are no changes to publish. Either discard the draft or add
+            changes first before publishing.
+          </div>
+        )}
+
+        {mergeResult.success && hasChanges && (
+          <div>
+            <Callout.Root color={isPendingReview ? "amber" : "gray"}>
+              <Callout.Text>
+                Publishing to the prod environment requires approval.
+              </Callout.Text>
+            </Callout.Root>
+
+            <div className="list-group mb-4 mt-4">
+              {resultDiffs.map((diff) => (
+                <ExpandableDiff {...diff} key={diff.title} />
+              ))}
+            </div>
+            <Revisionlog
+              feature={feature}
+              revision={revision}
+              commentsOnly={true}
             />
-          )}
-        </div>
-      )}
-    </Modal>
-  );
+            {hasPermission && !isPendingReview && (
+              <Field
+                label="Add a Comment (optional)"
+                textarea
+                placeholder="Summary of changes..."
+                value={comment}
+                onChange={(e) => {
+                  setComment(e.target.value);
+                }}
+              />
+            )}
+          </div>
+        )}
+      </Modal>
+    );
+  };
+
+  const renderReviewAndSubmitModal = () => {
+    return (
+      <Modal
+        open={true}
+        close={close}
+        header={"Review Draft Changes"}
+        cta={"submit"}
+        size="max"
+        submit={submitReview}
+      >
+        <TextArea placeholder="leave a commen" />
+        <RadioGroup.Root defaultValue="1">
+          <Flex gap="2" direction="column">
+            <Text as="label" size="2">
+              <Flex gap="2">
+                <RadioGroup.Item value="1" /> Comment
+              </Flex>
+            </Text>
+            <Text as="label" size="2">
+              <Flex gap="2">
+                <RadioGroup.Item value="2" /> Request Changes
+              </Flex>
+            </Text>
+            <Text as="label" size="2">
+              <Flex gap="2">
+                <RadioGroup.Item value="3" /> Approve
+              </Flex>
+            </Text>
+          </Flex>
+        </RadioGroup.Root>
+      </Modal>
+    );
+  };
+
+  return showSubmitReview
+    ? renderReviewAndSubmitModal()
+    : renderRequestAndViewModal();
 }
