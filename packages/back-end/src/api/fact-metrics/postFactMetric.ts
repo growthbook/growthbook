@@ -6,10 +6,6 @@ import {
   FactTableInterface,
 } from "../../../types/fact-table";
 import { PostFactMetricResponse } from "../../../types/openapi";
-import {
-  createFactMetric,
-  toFactMetricApiInterface,
-} from "../../models/FactMetricModel";
 import { getFactTable } from "../../models/FactTableModel";
 import { addTags } from "../../models/TagModel";
 import { createApiRequestHandler } from "../../util/handler";
@@ -186,7 +182,7 @@ export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
     );
     await validateFactMetric(data, lookupFactTable);
 
-    const factMetric = await createFactMetric(req.context, data);
+    const factMetric = await req.context.factMetrics.create(data);
 
     if (factMetric.tags.length > 0) {
       await addTags(req.organization.id, factMetric.tags);

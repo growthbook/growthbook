@@ -1,8 +1,4 @@
 import { DeleteFactMetricResponse } from "../../../types/openapi";
-import {
-  deleteFactMetric as deleteFactMetricInDb,
-  getFactMetric,
-} from "../../models/FactMetricModel";
 import { createApiRequestHandler } from "../../util/handler";
 import { deleteFactMetricValidator } from "../../validators/openapi";
 
@@ -16,15 +12,14 @@ export const deleteFactMetric = createApiRequestHandler(
       id = `fact__${id}`;
     }
 
-    const factMetric = await getFactMetric(req.context, id);
+    const factMetric = await req.context.factMetrics.getById(id);
     if (!factMetric) {
       throw new Error(
         "Unable to delete - Could not find factMetric with that id"
       );
     }
-    req.checkPermissions("createMetrics", factMetric.projects);
 
-    await deleteFactMetricInDb(req.context, factMetric);
+    await req.context.factMetrics.delete(factMetric);
 
     return {
       deletedId: id,

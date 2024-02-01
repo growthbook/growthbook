@@ -4,11 +4,6 @@ import { PostBulkImportFactsResponse } from "../../../types/openapi";
 import { queueFactTableColumnsRefresh } from "../../jobs/refreshFactTableColumns";
 import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
 import {
-  createFactMetric,
-  getAllFactMetricsForOrganization,
-  updateFactMetric,
-} from "../../models/FactMetricModel";
-import {
   createFactFilter,
   createFactTable,
   updateFactTable,
@@ -42,7 +37,7 @@ export const postBulkImportFacts = createApiRequestHandler(
 
     const factTableMap = await getFactTableMap(req.context);
 
-    const allFactMetrics = await getAllFactMetricsForOrganization(req.context);
+    const allFactMetrics = await req.context.factMetrics.getAll();
     const factMetricMap = new Map<string, FactMetricInterface>(
       allFactMetrics.map((m) => [m.id, m])
     );
@@ -217,11 +212,8 @@ export const postBulkImportFacts = createApiRequestHandler(
             async (id) => factTableMap.get(id) || null
           );
 
-          await updateFactMetric(req.context, existing, changes);
-          factMetricMap.set(existing.id, {
-            ...existing,
-            ...changes,
-          });
+          await req.context.factMetrics.update(existing, changes);
+
           numUpdated.factMetrics++;
         }
         // Create new fact metric
@@ -240,10 +232,10 @@ export const postBulkImportFacts = createApiRequestHandler(
 
           await validateFactMetric(createProps, lookupFactTable);
 
-          const newFactMetric = await createFactMetric(
-            req.context,
-            createProps
-          );
+          const newFactMetric = await req.context.factMetrics.create({
+            owner: "",
+            ...createProps,
+          });
           factMetricMap.set(newFactMetric.id, newFactMetric);
 
           numCreated.factMetrics++;

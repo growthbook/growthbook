@@ -1,9 +1,5 @@
 import { isProjectListValidForProject } from "shared/util";
 import { ListFactMetricsResponse } from "../../../types/openapi";
-import {
-  getAllFactMetricsForOrganization,
-  toFactMetricApiInterface,
-} from "../../models/FactMetricModel";
 import { applyPagination, createApiRequestHandler } from "../../util/handler";
 import { listFactMetricsValidator } from "../../validators/openapi";
 
@@ -11,7 +7,7 @@ export const listFactMetrics = createApiRequestHandler(
   listFactMetricsValidator
 )(
   async (req): Promise<ListFactMetricsResponse> => {
-    const factMetrics = await getAllFactMetricsForOrganization(req.context);
+    const factMetrics = await req.context.factMetrics.getAll();
 
     let matches = factMetrics;
     if (req.query.projectId) {
@@ -39,7 +35,7 @@ export const listFactMetrics = createApiRequestHandler(
 
     return {
       factMetrics: filtered.map((factMetric) =>
-        toFactMetricApiInterface(factMetric)
+        req.context.factMetrics.toApiInterface(factMetric)
       ),
       ...returnFields,
     };

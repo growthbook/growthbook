@@ -1,11 +1,10 @@
 import Stripe from "stripe";
-import { ReadAccessFilter } from "shared/permissions";
 import {
   ENV_SCOPED_PERMISSIONS,
   GLOBAL_PERMISSIONS,
   PROJECT_SCOPED_PERMISSIONS,
 } from "../src/util/organization.util";
-import { EventAuditUser } from "../src/events/event-types";
+import { ReqContextClass } from "../src/services/context";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
 
@@ -277,12 +276,4 @@ export type NamespaceUsage = Record<
   }[]
 >;
 
-export type ReqContext = {
-  org: OrganizationInterface;
-  userId: string;
-  email: string;
-  environments: string[];
-  userName: string;
-  readAccessFilter: ReadAccessFilter;
-  auditUser: EventAuditUser;
-};
+export type ReqContext = ReqContextClass;
