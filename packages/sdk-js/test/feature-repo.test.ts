@@ -25,7 +25,7 @@ setPolyfills({
 const localStorageCacheKey = "growthbook:cache:features";
 configureCache({
   staleTTL: 100,
-  maxTTL: 2000,
+  maxAge: 2000,
   cacheKey: localStorageCacheKey,
 });
 
@@ -509,7 +509,7 @@ describe("feature-repo", () => {
     cleanup();
   });
 
-  it("doesn't restore from localStorage cache when ttl is more than maxTTL", async () => {
+  it("doesn't restore from localStorage cache when ttl is more than maxAge", async () => {
     await clearCache();
     await seedLocalStorage(
       false,

@@ -297,7 +297,7 @@ export type CacheSettings = {
   backgroundSync: boolean;
   cacheKey: string;
   staleTTL: number;
-  maxTTL: number;
+  maxAge: number;
   maxEntries: number;
   disableIdleStreams: boolean;
   idleStreamInterval: number;

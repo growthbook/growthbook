@@ -220,7 +220,7 @@ configureCache({
   // Consider features stale after this much time (60 seconds default)
   staleTTL: 1000 * 60,
   // Cached features older than this will be ignored (24 hours default)
-  maxTTL: 1000 * 60 * 60 * 24,
+  maxAge: 1000 * 60 * 60 * 24,
   // For Remote Eval only - limit the number of cache entries (~1 entry per user)
   maxEntries: 10,
   // Set to `false` to disable SSE streaming

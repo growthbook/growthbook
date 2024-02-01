@@ -28,7 +28,7 @@ const cacheSettings: CacheSettings = {
   // Consider a fetch stale after 1 minute
   staleTTL: 1000 * 60,
   // Max time to keep a fetch in cache (24 hours default)
-  maxTTL: 1000 * 60 * 60 * 24,
+  maxAge: 1000 * 60 * 60 * 24,
   cacheKey: "gbFeaturesCache",
   backgroundSync: true,
   maxEntries: 10,
@@ -199,7 +199,7 @@ async function fetchFeaturesWithCache(
   const now = new Date();
 
   const minStaleAt = new Date(
-    now.getTime() - cacheSettings.maxTTL + cacheSettings.staleTTL
+    now.getTime() - cacheSettings.maxAge + cacheSettings.staleTTL
   );
 
   await initializeCache();
