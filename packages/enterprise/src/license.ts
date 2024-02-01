@@ -41,7 +41,7 @@ export type CommercialFeature =
   | "teams"
   | "sticky-bucketing"
   | "prerequisites"
-  | "prerequisite-targeting"
+  | "prerequisite-targeting";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface LicenseInterface {

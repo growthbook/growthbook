@@ -9,7 +9,8 @@ import {
   FaExclamationTriangle,
   FaLink,
   FaList,
-  FaLock, FaQuestionCircle,
+  FaLock,
+  FaQuestionCircle,
   FaTimes,
 } from "react-icons/fa";
 import { ago, date, datetime } from "shared/dates";
@@ -259,7 +260,9 @@ export default function FeaturePage() {
     prereqStates &&
     Object.values(prereqStates).some((s) => s === "conditional");
 
-  const hasPrerequisitesCommercialFeature = hasCommercialFeature("prerequisites");
+  const hasPrerequisitesCommercialFeature = hasCommercialFeature(
+    "prerequisites"
+  );
 
   const mergeResult = useMemo(() => {
     if (!data || !feature || !revision) return null;

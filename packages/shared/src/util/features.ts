@@ -474,23 +474,20 @@ export function getDefaultPrerequisiteCondition() {
 }
 
 export function isPrerequisiteConditionConditional(condition: string) {
-  if ([
-    `{"value": {"$exists": false}}`,
-    `{"value": {"$exists": true}}`,
-    `{"value": true}`,
-    `{"value": false}`,
-  ].includes(condition)) {
+  if (
+    [
+      `{"value": {"$exists": false}}`,
+      `{"value": {"$exists": true}}`,
+      `{"value": true}`,
+      `{"value": false}`,
+    ].includes(condition)
+  ) {
     return false;
   }
   return true;
 }
 export function isPrerequisiteConditionOperatorConditional(condition: string) {
-  if ([
-    "$exists",
-    "$notExists",
-    "$true",
-    "$false",
-  ].includes(condition)) {
+  if (["$exists", "$notExists", "$true", "$false"].includes(condition)) {
     return false;
   }
   return true;
