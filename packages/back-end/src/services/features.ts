@@ -587,6 +587,8 @@ export function evaluateFeature({
   groupMap,
   experimentMap,
   revision,
+  scrubPrerequisites = true,
+  skipRulesWithPrerequisites = true,
 }: {
   feature: FeatureInterface;
   attributes: ArchetypeAttributeValues;
@@ -594,6 +596,8 @@ export function evaluateFeature({
   experimentMap: Map<string, ExperimentInterface>;
   environments: Environment[];
   revision: FeatureRevisionInterface;
+  scrubPrerequisites?: boolean;
+  skipRulesWithPrerequisites?: boolean;
 }) {
   const results: FeatureTestResult[] = [];
 
@@ -626,20 +630,25 @@ export function evaluateFeature({
       if (definition) {
         // Prerequisite scrubbing:
         const rulesWithPrereqs: FeatureDefinitionRule[] = [];
-        definition.rules = definition.rules
-          ? (definition?.rules
-              ?.map((rule) => {
-                if (rule?.parentConditions?.length) {
-                  rulesWithPrereqs.push(rule);
-                  if (rule.parentConditions.some((pc) => !!pc.gate)) {
-                    return null;
+        if (scrubPrerequisites) {
+          definition.rules = definition.rules
+            ? (definition?.rules
+                ?.map((rule) => {
+                  if (rule?.parentConditions?.length) {
+                    rulesWithPrereqs.push(rule);
+                    if (rule.parentConditions.some((pc) => !!pc.gate)) {
+                      return null;
+                    }
+                    if (skipRulesWithPrerequisites) {
+                      delete rule.force; // make rule invalid so it is skipped
+                    }
+                    delete rule.parentConditions;
                   }
-                  delete rule.parentConditions;
-                }
-                return rule;
-              })
-              .filter(Boolean) as FeatureDefinitionRule[])
-          : undefined;
+                  return rule;
+                })
+                .filter(Boolean) as FeatureDefinitionRule[])
+            : undefined;
+        }
 
         thisEnvResult.featureDefinition = definition;
 
@@ -654,7 +663,11 @@ export function evaluateFeature({
           log: (msg: string, ctx: any) => {
             const ruleId = ctx?.rule?.id ?? null;
             if (ruleId && rulesWithPrereqs.find((r) => r.id === ruleId)) {
-              msg += " (skipped prerequisite evaluation)";
+              if (skipRulesWithPrerequisites) {
+                msg = "Skip rule with prerequisite targeting";
+              } else {
+                msg += " (skipped prerequisite evaluation)";
+              }
             }
             log.push([msg, ctx]);
           },

@@ -1429,7 +1429,11 @@ export async function deleteFeatureById(
 
 export async function postFeatureEvaluate(
   req: AuthRequest<
-    { attributes: Record<string, boolean | string | number | object> },
+    {
+      attributes: Record<string, boolean | string | number | object>;
+      scrubPrerequisites?: boolean;
+      skipRulesWithPrerequisites?: boolean;
+    },
     { id: string; version: string }
   >,
   res: Response<
@@ -1440,7 +1444,11 @@ export async function postFeatureEvaluate(
   const { id, version } = req.params;
   const context = getContextFromReq(req);
   const { org } = context;
-  const { attributes } = req.body;
+  const {
+    attributes,
+    scrubPrerequisites,
+    skipRulesWithPrerequisites,
+  } = req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -1462,6 +1470,8 @@ export async function postFeatureEvaluate(
     groupMap,
     experimentMap,
     environments,
+    scrubPrerequisites,
+    skipRulesWithPrerequisites,
   });
 
   res.status(200).json({

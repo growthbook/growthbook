@@ -17,6 +17,7 @@ import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { NewBucketingSDKList } from "@/components/Experiment/HashVersionSelector";
+import Toggle from "@/components/Forms/Toggle";
 import styles from "./AssignmentTester.module.scss";
 
 export interface Props {
@@ -33,6 +34,20 @@ export default function AssignmentTester({ feature, version }: Props) {
     openArchetypeModal,
     setOpenArchetypeModal,
   ] = useState<null | Partial<ArchetypeInterface>>(null);
+  const [skipRulesWithPrerequisites, setSkipRulesWithPrerequisites] = useState(
+    false
+  );
+
+  const hasPrerequisites = useMemo(() => {
+    if (feature?.prerequisites?.length) return true;
+    if (
+      Object.values(feature?.environmentSettings ?? {}).some((env) =>
+        env?.rules?.some((rule) => !!rule?.prerequisites?.length)
+      )
+    )
+      return true;
+    return false;
+  }, [feature]);
 
   const { apiCall } = useAuth();
 
@@ -80,13 +95,16 @@ export default function AssignmentTester({ feature, version }: Props) {
       results: FeatureTestResult[];
     }>(`/feature/${feature.id}/${version}/eval`, {
       method: "POST",
-      body: JSON.stringify({ attributes: formValues }),
+      body: JSON.stringify({
+        attributes: formValues,
+        skipRulesWithPrerequisites,
+      }),
     })
       .then((data) => {
         setResults(data.results);
       })
       .catch((e) => console.error(e));
-  }, [formValues, apiCall, feature, version]);
+  }, [formValues, apiCall, feature, version, skipRulesWithPrerequisites]);
 
   const showResults = () => {
     if (!results) {
@@ -303,6 +321,33 @@ export default function AssignmentTester({ feature, version }: Props) {
             <div>
               {" "}
               <hr />
+              {hasPrerequisites && (
+                <div
+                  className="d-flex justify-content-end"
+                  style={{ marginTop: -10, marginBottom: -15 }}
+                >
+                  <div>
+                    <div className="text-gray">
+                      Prerequisites are assumed to be{" "}
+                      <span className="text-success font-weight-bold">
+                        live
+                      </span>{" "}
+                      by default
+                    </div>
+                    <label
+                      className="mt-2 mr-2 small"
+                      htmlFor="skipRulesWithPrerequisites"
+                    >
+                      Skip any rules with prerequisite targeting
+                    </label>
+                    <Toggle
+                      id="skipRulesWithPrerequisites"
+                      value={skipRulesWithPrerequisites}
+                      setValue={(v) => setSkipRulesWithPrerequisites(v)}
+                    />
+                  </div>
+                </div>
+              )}
               <div className="row">
                 <div className="col-6">
                   <AttributeForm
