@@ -405,7 +405,7 @@ export default function FactMetricPage() {
           </div>
 
           <div className="mb-4">
-            <h3>Conversion/Lookback Window</h3>
+            <h3>Metric Window</h3>
             <div className="appbox p-3 mb-3">
               {factMetric.windowSettings.type === "conversion" ? (
                 <>
@@ -424,7 +424,7 @@ export default function FactMetricPage() {
               ) : factMetric.windowSettings.type === "lookback" ? (
                 <>
                   <em className="font-weight-bold">Lookback</em> - Require
-                  conversions to happen in latest{" "}
+                  metric data to be in latest{" "}
                   <strong>
                     {factMetric.windowSettings.windowValue}{" "}
                     {factMetric.windowSettings.windowUnit}
@@ -434,7 +434,11 @@ export default function FactMetricPage() {
               ) : (
                 <>
                   <em className="font-weight-bold">Disabled</em> - Include all
-                  conversions that happen while an experiment is running.
+                  metric data after first experiment exposure
+                  {factMetric.windowSettings.delayHours
+                    ? " plus the conversion delay"
+                    : ""}
+                  .
                 </>
               )}
             </div>
@@ -456,12 +460,9 @@ export default function FactMetricPage() {
                 <RightRailSectionGroup type="custom" empty="" className="mt-3">
                   <ul className="right-rail-subsection list-unstyled mb-4">
                     <li className="mt-3 mb-1">
-                      <span className="uppercase-title lg">
-                        Conversion Settings
-                      </span>
+                      <span className="uppercase-title lg">Metric Delay</span>
                     </li>
                     <li className="mb-2">
-                      <span className="text-gray">Conversion Delay: </span>
                       <span className="font-weight-bold">
                         {factMetric.windowSettings.delayHours} hours
                       </span>

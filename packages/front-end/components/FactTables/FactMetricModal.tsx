@@ -42,8 +42,8 @@ import { getNewExperimentDatasourceDefaults } from "../Experiment/NewExperimentF
 import ButtonSelectField from "../Forms/ButtonSelectField";
 import { MetricWindowSettingsForm } from "../Metrics/MetricForm/MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "../Metrics/MetricForm/MetricCappingSettingsForm";
-import { ConversionDelayHours } from "../Metrics/MetricForm/ConversionDelayHours";
 import { OfficialBadge } from "../Metrics/MetricName";
+import { MetricDelayHours } from "../Metrics/MetricForm/MetricDelayHours";
 
 export interface Props {
   close?: () => void;
@@ -664,7 +664,7 @@ export default function FactMetricModal({
               }
             >
               <Tab id="query" display="Query Settings">
-                <ConversionDelayHours form={form} />
+                <MetricDelayHours form={form} />
                 <MetricCappingSettingsForm
                   form={form}
                   datasourceType={selectedDataSource.type}

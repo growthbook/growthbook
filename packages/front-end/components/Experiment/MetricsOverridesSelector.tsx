@@ -268,7 +268,7 @@ export default function MetricsOverridesSelector({
                         <div className="row m-1 mr-1 px-1">
                           <div className="col">
                             <Field
-                              label="Conversion Delay (hours)"
+                              label="Metric Delay (hours)"
                               placeholder="default"
                               helpText={
                                 <div className="text-right">
@@ -332,7 +332,7 @@ export default function MetricsOverridesSelector({
                         <div className="row m-1 mr-1 px-1">
                           <div className="col">
                             <Field
-                              label="Conversion Delay (hours)"
+                              label="Metric Delay (hours)"
                               placeholder="default"
                               helpText={
                                 <div className="text-right">

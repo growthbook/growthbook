@@ -48,7 +48,7 @@ import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import { MetricWindowSettingsForm } from "./MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "./MetricCappingSettingsForm";
-import { ConversionDelayHours } from "./ConversionDelayHours";
+import { MetricDelayHours } from "./MetricDelayHours";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -517,6 +517,7 @@ const MetricForm: FC<MetricFormProps> = ({
     if (value.loseRisk < value.winRisk) return;
 
     const body = JSON.stringify(sendValue);
+
     if (edit) {
       await apiCall(`/metric/${current.id}`, {
         method: "PUT",
@@ -1213,7 +1214,7 @@ const MetricForm: FC<MetricFormProps> = ({
             </a>
           ) : (
             <>
-              <ConversionDelayHours form={form} />
+              <MetricDelayHours form={form} />
               {ignoreNullsSupported && value.type !== "binomial" && (
                 <div className="form-group">
                   <SelectField

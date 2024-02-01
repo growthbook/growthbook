@@ -86,7 +86,7 @@ export const cappingSettingsValidator = z
 
 export const windowSettingsValidator = z.object({
   type: windowTypeValidator,
-  delayHours: z.number(),
+  delayHours: z.coerce.number(),
   windowValue: z.number(),
   windowUnit: conversionWindowUnitValidator,
 });

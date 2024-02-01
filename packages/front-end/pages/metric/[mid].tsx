@@ -1174,9 +1174,7 @@ const MetricPage: FC = () => {
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-4">
                   <li className="mt-3 mb-1">
-                    <span className="uppercase-title lg">
-                      Conversion/Lookback Window
-                    </span>
+                    <span className="uppercase-title lg">Metric Window</span>
                   </li>
                   {metric.windowSettings.type === "conversion" ? (
                     <>
@@ -1197,7 +1195,7 @@ const MetricPage: FC = () => {
                   ) : metric.windowSettings.type === "lookback" ? (
                     <li>
                       <span className="font-weight-bold">Lookback</span> -
-                      Require conversions to happen in latest{" "}
+                      Require metric data to be in latest{" "}
                       <strong>
                         {metric.windowSettings.windowValue}{" "}
                         {metric.windowSettings.windowUnit}
@@ -1207,17 +1205,23 @@ const MetricPage: FC = () => {
                   ) : (
                     <li>
                       <span className="font-weight-bold">Disabled</span> -
-                      Include all conversions that happen while an experiment is
-                      running.
+                      Include all metric data after first experiment exposure
+                      {metric.windowSettings.delayHours
+                        ? " plus the conversion delay"
+                        : ""}
                     </li>
                   )}
                   {metric.windowSettings.delayHours ? (
-                    <li className="mt-1">
-                      <span className="text-gray">Conversion Delay: </span>
-                      <span className="font-weight-bold">
-                        {metric.windowSettings.delayHours} hours
-                      </span>
-                    </li>
+                    <>
+                      <li className="mt-3 mb-1">
+                        <span className="uppercase-title lg">Metric Delay</span>
+                      </li>
+                      <li className="mt-1">
+                        <span className="font-weight-bold">
+                          {metric.windowSettings.delayHours} hours
+                        </span>
+                      </li>
+                    </>
                   ) : null}
                 </ul>
               </RightRailSectionGroup>

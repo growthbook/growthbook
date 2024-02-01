@@ -1,7 +1,7 @@
-export function ConversionDelayHours({ form }) {
+export function MetricDelayHours({ form }) {
   return (
     <div className="form-group">
-      <label>Conversion Delay (hours)</label>
+      <label>Metric Delay (hours)</label>
       <input
         type="number"
         step="any"
@@ -12,7 +12,7 @@ export function ConversionDelayHours({ form }) {
         })}
       />
       <small className="text-muted">
-        Ignore all conversions within the first X hours of being put into an
+        Ignore all metric data within the first X hours of being put into an
         experiment.
         {form.watch("windowSettings.type") === "conversion"
           ? " Will shift the start of the conversion window."

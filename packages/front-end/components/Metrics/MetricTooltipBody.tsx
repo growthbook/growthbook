@@ -88,7 +88,7 @@ const MetricTooltipBody = ({
       show:
         (metric.windowSettings.delayHours ?? 0) !== 0 ||
         metricOverrideFields.includes("delayHours"),
-      label: "Conversion Delay Hours",
+      label: "Metric Delay Hours",
       body: (
         <>
           {metric.windowSettings.delayHours}

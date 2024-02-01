@@ -52,7 +52,7 @@ export function MetricWindowSettingsForm({ form }) {
     <div className="mb-3 mt-4">
       <div className="form-group mb-1">
         <SelectField
-          label={"Conversion/Lookback Window?"}
+          label={"Metric Window"}
           value={form.watch("windowSettings.type")}
           onChange={(value) => {
             form.setValue(
