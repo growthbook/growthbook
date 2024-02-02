@@ -1,15 +1,19 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
+import { hasReadAccess } from "shared/permissions";
 import {
   CreateFactMetricProps,
   FactMetricInterface,
   UpdateFactMetricProps,
 } from "../../types/fact-table";
 import { ApiFactMetric } from "../../types/openapi";
+import { ApiReqContext } from "../../types/api";
+import { ReqContext } from "../../types/organization";
 
 const factTableSchema = new mongoose.Schema({
   id: String,
+  managedBy: String,
   organization: String,
   dateCreated: Date,
   dateUpdated: Date,
@@ -63,18 +67,36 @@ function toInterface(doc: FactMetricDocument): FactMetricInterface {
   return omit(ret, ["__v", "_id"]);
 }
 
-export async function getAllFactMetricsForOrganization(organization: string) {
-  const docs = await FactMetricModel.find({ organization });
-  return docs.map((doc) => toInterface(doc));
+export async function getAllFactMetricsForOrganization(
+  context: ReqContext | ApiReqContext
+) {
+  const docs = await FactMetricModel.find({ organization: context.org.id });
+  return docs
+    .map((doc) => toInterface(doc))
+    .filter((f) => hasReadAccess(context.readAccessFilter, f.projects || []));
 }
 
-export async function getFactMetric(organization: string, id: string) {
-  const doc = await FactMetricModel.findOne({ organization, id });
-  return doc ? toInterface(doc) : null;
+export async function getFactMetric(
+  context: ReqContext | ApiReqContext,
+  id: string
+) {
+  const doc = await FactMetricModel.findOne({
+    organization: context.org.id,
+    id,
+  });
+
+  if (!doc) return null;
+
+  const factMetric = toInterface(doc);
+  if (!hasReadAccess(context.readAccessFilter, factMetric.projects || [])) {
+    return null;
+  }
+
+  return factMetric;
 }
 
 export async function createFactMetric(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   data: CreateFactMetricProps
 ) {
   const id = data.id || uniqid("fact__");
@@ -85,7 +107,7 @@ export async function createFactMetric(
   }
 
   const doc = await FactMetricModel.create({
-    organization: organization,
+    organization: context.org.id,
     id,
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -95,9 +117,14 @@ export async function createFactMetric(
 }
 
 export async function updateFactMetric(
+  context: ReqContext | ApiReqContext,
   factMetric: FactMetricInterface,
   changes: UpdateFactMetricProps
 ) {
+  if (factMetric.managedBy === "api" && context.auditUser?.type !== "api_key") {
+    throw new Error("Cannot update fact metric managed by API");
+  }
+
   await FactMetricModel.updateOne(
     {
       id: factMetric.id,
@@ -112,7 +139,14 @@ export async function updateFactMetric(
   );
 }
 
-export async function deleteFactMetric(factMetric: FactMetricInterface) {
+export async function deleteFactMetric(
+  context: ReqContext | ApiReqContext,
+  factMetric: FactMetricInterface
+) {
+  if (factMetric.managedBy === "api" && context.auditUser?.type !== "api_key") {
+    throw new Error("Cannot delete fact metric managed by API");
+  }
+
   await FactMetricModel.deleteOne({
     id: factMetric.id,
     organization: factMetric.organization,
@@ -140,6 +174,7 @@ export function toFactMetricApiInterface(
 
   return {
     ...otherFields,
+    managedBy: factMetric.managedBy || "",
     denominator: denominator || undefined,
     cappingSettings: {
       type: capping || "none",

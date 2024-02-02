@@ -5,6 +5,7 @@ import {
   GLOBAL_PERMISSIONS,
   PROJECT_SCOPED_PERMISSIONS,
 } from "../src/util/organization.util";
+import { EventAuditUser } from "../src/events/event-types";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
 
@@ -34,6 +35,7 @@ export type MemberRole =
   | "noaccess"
   | "readonly"
   | "collaborator"
+  | "visualEditor"
   | "designer"
   | "analyst"
   | "developer"
@@ -283,4 +285,5 @@ export type ReqContext = {
   environments: string[];
   userName: string;
   readAccessFilter: ReadAccessFilter;
+  auditUser: EventAuditUser;
 };

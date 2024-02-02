@@ -16,8 +16,8 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
     req.checkPermissions("manageFactTables", req.body.projects || []);
 
     const datasource = await getDataSourceById(
-      req.body.datasource,
-      req.organization.id
+      req.context,
+      req.body.datasource
     );
     if (!datasource) {
       throw new Error("Could not find datasource");
@@ -58,7 +58,7 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
       ...req.body,
     };
 
-    const factTable = await createFactTable(req.organization.id, data);
+    const factTable = await createFactTable(req.context, data);
     await queueFactTableColumnsRefresh(factTable);
 
     if (data.tags.length > 0) {

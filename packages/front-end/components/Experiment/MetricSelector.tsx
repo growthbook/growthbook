@@ -2,7 +2,7 @@ import { FC } from "react";
 import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { SelectFieldProps } from "@/components/Forms/SelectField";
-import FactBadge from "../FactTables/FactBadge";
+import MetricName from "../Metrics/MetricName";
 import { isMetricJoinable } from "./MetricsSelector";
 
 type MetricOption = {
@@ -105,13 +105,8 @@ const MetricSelector: FC<
           label: m.name,
         };
       })}
-      formatOptionLabel={({ label, value }) => {
-        return (
-          <>
-            {label}
-            <FactBadge metricId={value} />
-          </>
-        );
+      formatOptionLabel={({ value, label }) => {
+        return value ? <MetricName id={value} /> : label;
       }}
     />
   );

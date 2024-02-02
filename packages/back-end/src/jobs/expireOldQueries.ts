@@ -6,7 +6,7 @@ import {
 } from "../models/ExperimentSnapshotModel";
 import {
   findRunningMetricsByQueryId,
-  updateMetric,
+  updateMetricQueriesAndStatus,
 } from "../models/MetricModel";
 import {
   findRunningPastExperimentsByQueryId,
@@ -15,7 +15,6 @@ import {
 import { getStaleQueries } from "../models/QueryModel";
 import { findReportsByQueryId, updateReport } from "../models/ReportModel";
 import { logger } from "../util/logger";
-
 const JOB_NAME = "expireOldQueries";
 
 function updateQueryStatus(queries: Queries, ids: Set<string>) {
@@ -34,6 +33,8 @@ export default async function (agenda: Agenda) {
 
     if (queryIds.size > 0) {
       logger.info("Found " + queryIds.size + " stale queries");
+    } else {
+      logger.debug("Found no stale queries");
     }
 
     // Look for matching snapshots and update the status
@@ -70,15 +71,11 @@ export default async function (agenda: Agenda) {
       const metric = metrics[i];
       logger.info("Updating status of metric " + metric.id);
       updateQueryStatus(metric.queries, queryIds);
-      await updateMetric(
-        metric.id,
-        {
-          queries: metric.queries,
-          analysisError:
-            "Queries were interupted. Please try re-running the analysis.",
-        },
-        metric.organization
-      );
+      await updateMetricQueriesAndStatus(metric, {
+        queries: metric.queries,
+        analysisError:
+          "Queries were interupted. Please try re-running the analysis.",
+      });
     }
 
     // Look for matching pastExperiments and update the status

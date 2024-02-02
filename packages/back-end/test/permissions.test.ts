@@ -1483,7 +1483,7 @@ describe("hasReadAccess filter", () => {
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      hasReadAccess(readAccessFilter, [feature.project || ""])
+      hasReadAccess(readAccessFilter, feature.project)
     );
 
     expect(filteredFeatures).toEqual([]);
@@ -1509,7 +1509,7 @@ describe("hasReadAccess filter", () => {
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      hasReadAccess(readAccessFilter, [feature.project || ""])
+      hasReadAccess(readAccessFilter, feature.project)
     );
 
     expect(filteredFeatures).toEqual([
@@ -1561,7 +1561,7 @@ describe("hasReadAccess filter", () => {
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      hasReadAccess(readAccessFilter, [feature.project || ""])
+      hasReadAccess(readAccessFilter, feature.project)
     );
 
     expect(filteredFeatures).toEqual([
@@ -1613,7 +1613,7 @@ describe("hasReadAccess filter", () => {
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      hasReadAccess(readAccessFilter, [feature.project || ""])
+      hasReadAccess(readAccessFilter, feature.project)
     );
 
     expect(filteredFeatures).toEqual([
@@ -1674,6 +1674,10 @@ describe("hasReadAccess filter", () => {
     );
 
     expect(filteredMetrics).toEqual([
+      {
+        id: "test-feature-123",
+        projects: [],
+      },
       {
         id: "test-feature-456",
         projects: ["prj_exl5jr5dl4rbw856", "prj_exl5jr5dl4rbw123"],

@@ -168,6 +168,12 @@ export const SENTRY_DSN = process.env.SENTRY_DSN || "";
 export const STORE_SEGMENTS_IN_MONGO = stringToBoolean(
   process.env.STORE_SEGMENTS_IN_MONGO
 );
+
+// If set to false AND using a config file, don't allow creating metric via the UI
+export const ALLOW_CREATE_METRICS = stringToBoolean(
+  process.env.ALLOW_CREATE_METRICS
+);
+
 // Add a default secret access key via an environment variable
 // Only allowed while self-hosting and not multi org
 let secretAPIKey = IS_MULTI_ORG ? "" : process.env.SECRET_API_KEY || "";

@@ -8,10 +8,7 @@ import { getFactTableValidator } from "../../validators/openapi";
 
 export const getFactTable = createApiRequestHandler(getFactTableValidator)(
   async (req): Promise<GetFactTableResponse> => {
-    const factTable = await findFactTableById(
-      req.organization.id,
-      req.params.id
-    );
+    const factTable = await findFactTableById(req.context, req.params.id);
     if (!factTable) {
       throw new Error("Could not find factTable with that id");
     }

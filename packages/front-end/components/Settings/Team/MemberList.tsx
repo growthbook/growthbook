@@ -134,6 +134,7 @@ const MemberList: FC<{
                           return (
                             <div key={`project-tags-${p.id}`}>
                               <ProjectBadges
+                                resourceType="member"
                                 projectIds={[p.id]}
                                 className="badge-ellipsis align-middle font-weight-normal"
                               />{" "}

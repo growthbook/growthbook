@@ -44,7 +44,7 @@ import InlineForm from "@/components/Forms/InlineForm";
 import EditableH1 from "@/components/Forms/EditableH1";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Code from "@/components/SyntaxHighlighting/Code";
-import { getDefaultConversionWindowHours, hasFileConfig } from "@/services/env";
+import { getDefaultConversionWindowHours } from "@/services/env";
 import PickSegmentModal from "@/components/Segments/PickSegmentModal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/components/Button";
@@ -62,6 +62,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
+import MetricName from "@/components/Metrics/MetricName";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -134,9 +135,9 @@ const MetricPage: FC = () => {
 
   const metric = data.metric;
   const canEditMetric =
-    checkMetricProjectPermissions(metric, permissions) && !hasFileConfig();
+    checkMetricProjectPermissions(metric, permissions) && !metric.managedBy;
   const canEditProjects =
-    permissions.check("createMetrics", "") && !hasFileConfig();
+    permissions.check("createMetrics", "") && !metric.managedBy;
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
@@ -414,7 +415,9 @@ const MetricPage: FC = () => {
       )}
 
       <div className="row align-items-center mb-2">
-        <h1 className="col-auto">{metric.name}</h1>
+        <h1 className="col-auto">
+          <MetricName id={metric.id} />
+        </h1>
         <div style={{ flex: 1 }} />
         {canEditMetric && (
           <div className="col-auto">
@@ -464,11 +467,15 @@ const MetricPage: FC = () => {
           {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
           {metric?.projects?.length > 0 ? (
             <ProjectBadges
+              resourceType="metric"
               projectIds={metric.projects}
               className="badge-ellipsis align-middle"
             />
           ) : (
-            <ProjectBadges className="badge-ellipsis align-middle" />
+            <ProjectBadges
+              resourceType="metric"
+              className="badge-ellipsis align-middle"
+            />
           )}
           {canEditProjects && (
             <a
@@ -976,11 +983,15 @@ const MetricPage: FC = () => {
                 {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                 {metric?.projects?.length > 0 ? (
                   <ProjectBadges
+                    resourceType="metric"
                     projectIds={metric.projects}
                     className="badge-ellipsis align-middle"
                   />
                 ) : (
-                  <ProjectBadges className="badge-ellipsis align-middle" />
+                  <ProjectBadges
+                    resourceType="metric"
+                    className="badge-ellipsis align-middle"
+                  />
                 )}
               </RightRailSectionGroup>
             </RightRailSection>

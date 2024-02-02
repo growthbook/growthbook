@@ -27,6 +27,8 @@ type ScopedChannel = {
 const cacheSettings: CacheSettings = {
   // Consider a fetch stale after 1 minute
   staleTTL: 1000 * 60,
+  // Max time to keep a fetch in cache (24 hours default)
+  maxAge: 1000 * 60 * 60 * 24,
   cacheKey: "gbFeaturesCache",
   backgroundSync: true,
   maxEntries: 10,
@@ -195,9 +197,19 @@ async function fetchFeaturesWithCache(
   const key = getKey(instance);
   const cacheKey = getCacheKey(instance);
   const now = new Date();
+
+  const minStaleAt = new Date(
+    now.getTime() - cacheSettings.maxAge + cacheSettings.staleTTL
+  );
+
   await initializeCache();
   const existing = cache.get(cacheKey);
-  if (existing && !skipCache && (allowStale || existing.staleAt > now)) {
+  if (
+    existing &&
+    !skipCache &&
+    (allowStale || existing.staleAt > now) &&
+    existing.staleAt > minStaleAt
+  ) {
     // Restore from cache whether SSE is supported
     if (existing.sse) supportsSSE.add(key);
 

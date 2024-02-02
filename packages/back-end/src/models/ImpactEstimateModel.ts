@@ -6,6 +6,8 @@ import { getSourceIntegrationObject } from "../services/datasource";
 import { SegmentInterface } from "../../types/segment";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 import { processMetricValueQueryResponse } from "../queryRunners/MetricAnalysisQueryRunner";
+import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "../../types/api";
 import { findSegmentById } from "./SegmentModel";
 import { getDataSourceById } from "./DataSourceModel";
 
@@ -42,12 +44,12 @@ export async function createImpactEstimate(
 }
 
 export async function getImpactEstimate(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   metric: string,
   numDays: number,
   segment?: string
 ): Promise<ImpactEstimateDocument | null> {
-  const metricObj = await getMetricById(metric, organization);
+  const metricObj = await getMetricById(context, metric);
   if (!metricObj) {
     throw new Error("Metric not found");
   }
@@ -56,17 +58,14 @@ export async function getImpactEstimate(
     return null;
   }
 
-  const datasource = await getDataSourceById(
-    metricObj.datasource,
-    organization
-  );
+  const datasource = await getDataSourceById(context, metricObj.datasource);
   if (!datasource) {
     throw new Error("Datasource not found");
   }
 
   let segmentObj: SegmentInterface | null = null;
   if (segment) {
-    segmentObj = await findSegmentById(segment, organization);
+    segmentObj = await findSegmentById(segment, context.org.id);
   }
 
   if (segmentObj?.datasource !== metricObj.datasource) {
@@ -118,7 +117,7 @@ export async function getImpactEstimate(
   const conversionsPerDay = value.count / daysWithData;
 
   return createImpactEstimate({
-    organization,
+    organization: context.org.id,
     metric,
     segment: segment || undefined,
     conversionsPerDay: conversionsPerDay,
