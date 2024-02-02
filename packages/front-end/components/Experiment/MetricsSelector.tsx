@@ -172,8 +172,8 @@ const MetricsSelector: FC<{
         })}
         placeholder="Select metrics..."
         autoFocus={autoFocus}
-        formatOptionLabel={({ value }) => {
-          return <MetricName id={value} />;
+        formatOptionLabel={({ value, label }) => {
+          return value ? <MetricName id={value} /> : label;
         }}
       />
       {Object.keys(tagCounts).length > 0 && (

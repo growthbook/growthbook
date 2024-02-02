@@ -105,8 +105,8 @@ const MetricSelector: FC<
           label: m.name,
         };
       })}
-      formatOptionLabel={({ value }) => {
-        return <MetricName id={value} />;
+      formatOptionLabel={({ value, label }) => {
+        return value ? <MetricName id={value} /> : label;
       }}
     />
   );

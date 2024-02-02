@@ -137,7 +137,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     factMetrics,
   ] = await Promise.all([
     getMetricsByOrganization(context),
-    getDataSourcesByOrganization(orgId),
+    getDataSourcesByOrganization(context),
     findDimensionsByOrganization(orgId),
     findSegmentsByOrganization(orgId),
     getAllTags(orgId),

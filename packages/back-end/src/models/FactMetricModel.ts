@@ -88,7 +88,7 @@ export async function getAllFactMetricsForOrganization(
   const docs = await FactMetricModel.find({ organization: context.org.id });
   return docs
     .map((doc) => toInterface(doc))
-    .filter((f) => hasReadAccess(context.readAccessFilter, f.projects));
+    .filter((f) => hasReadAccess(context.readAccessFilter, f.projects || []));
 }
 
 export async function getFactMetric(
@@ -103,7 +103,7 @@ export async function getFactMetric(
   if (!doc) return null;
 
   const factMetric = toInterface(doc);
-  if (!hasReadAccess(context.readAccessFilter, factMetric.projects)) {
+  if (!hasReadAccess(context.readAccessFilter, factMetric.projects || [])) {
     return null;
   }
 

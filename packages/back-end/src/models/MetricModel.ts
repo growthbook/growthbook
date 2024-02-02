@@ -268,7 +268,7 @@ async function findMetrics(
   });
 
   return metrics.filter((m) =>
-    hasReadAccess(context.readAccessFilter, m.projects)
+    hasReadAccess(context.readAccessFilter, m.projects || [])
   );
 }
 
@@ -291,7 +291,7 @@ export async function getSampleMetrics(context: ReqContext | ApiReqContext) {
     organization: context.org.id,
   });
   return docs
-    .filter((m) => hasReadAccess(context.readAccessFilter, m.projects))
+    .filter((m) => hasReadAccess(context.readAccessFilter, m.projects || []))
     .map(toInterface);
 }
 
@@ -329,7 +329,10 @@ export async function getMetricById(
 
   const metric = res ? toInterface(res) : null;
 
-  if (!metric || !hasReadAccess(context.readAccessFilter, metric.projects)) {
+  if (
+    !metric ||
+    !hasReadAccess(context.readAccessFilter, metric.projects || [])
+  ) {
     return null;
   }
   return metric;
@@ -366,7 +369,7 @@ export async function getMetricsByIds(
     });
   }
   return metrics.filter((m) =>
-    hasReadAccess(context.readAccessFilter, m.projects)
+    hasReadAccess(context.readAccessFilter, m.projects || [])
   );
 }
 

@@ -430,7 +430,8 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
   async getLatestModel(): Promise<ExperimentSnapshotInterface> {
     const obj = await findSnapshotById(this.model.organization, this.model.id);
-    if (!obj) throw new Error("Could not load snapshot model");
+    if (!obj)
+      throw new Error("Could not load snapshot model: " + this.model.id);
     return obj;
   }
   async updateModel({

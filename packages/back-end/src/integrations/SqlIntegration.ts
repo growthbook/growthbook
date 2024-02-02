@@ -1300,22 +1300,26 @@ export default abstract class SqlIntegration
         FROM ${
           useUnitsTable ? `${params.unitsTableFullName}` : "__experimentUnits"
         }
-      )
-      -- One row per variation per dimension slice
-      ${[
-        "dim_exposure_date",
-        ...experimentDimensions.map((d) => `dim_exp_${d.id}`),
-        ...(activationMetric ? ["dim_activated"] : []),
-      ]
-        .map((d) =>
-          this.getUnitCountCTE(
-            d,
-            activationMetric && d !== "dim_activated"
-              ? "WHERE dim_activated = 'Activated'"
-              : ""
+      ),
+      __unitsByDimension AS (
+        -- One row per variation per dimension slice
+        ${[
+          "dim_exposure_date",
+          ...experimentDimensions.map((d) => `dim_exp_${d.id}`),
+          ...(activationMetric ? ["dim_activated"] : []),
+        ]
+          .map((d) =>
+            this.getUnitCountCTE(
+              d,
+              activationMetric && d !== "dim_activated"
+                ? "WHERE dim_activated = 'Activated'"
+                : ""
+            )
           )
-        )
-        .join("\nUNION ALL\n")}
+          .join("\nUNION ALL\n")}
+      )
+      SELECT *
+      FROM __unitsByDimension
       LIMIT ${MAX_ROWS_UNIT_AGGREGATE_QUERY}
     `,
       this.getFormatDialect()
@@ -1324,7 +1328,7 @@ export default abstract class SqlIntegration
 
   getUnitCountCTE(dimensionColumn: string, whereClause?: string): string {
     return ` -- ${dimensionColumn}
-    (SELECT
+    SELECT
       variation AS variation
       , ${dimensionColumn} AS dimension_value
       , MAX(${this.castToString(`'${dimensionColumn}'`)}) AS dimension_name
@@ -1334,7 +1338,7 @@ export default abstract class SqlIntegration
     ${whereClause ?? ""}
     GROUP BY
       variation
-      , ${dimensionColumn})`;
+      , ${dimensionColumn}`;
   }
 
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string {
@@ -1382,14 +1386,14 @@ export default abstract class SqlIntegration
       ),
       -- One row per dimension slice
       dim_values AS (
-        (SELECT
+        SELECT
           1 AS variation
           , ${this.castToString("'All'")} AS dimension_value
           , ${this.castToString("'All'")} AS dimension_name
           , COUNT(*) AS units
         FROM
           __distinctUnits
-          ) UNION ALL
+        UNION ALL
         ${params.dimensions
           .map((d) => this.getUnitCountCTE(`dim_exp_${d.id}`))
           .join("\nUNION ALL\n")}

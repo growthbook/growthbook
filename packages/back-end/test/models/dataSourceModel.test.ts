@@ -1,3 +1,4 @@
+import { FULL_ACCESS_PERMISSIONS } from "shared/permissions";
 import {
   updateDataSource,
   validateExposureQueriesAndAddMissingIds,
@@ -293,7 +294,25 @@ describe("dataSourceModel", () => {
         name: "Updated Data Source",
       };
       await expect(
-        updateDataSource(datasource, "test", updates)
+        //TODO: Create a helper function to create a mock datasource if we need to do this again
+        updateDataSource(
+          {
+            org: {
+              id: "test",
+              name: "Test",
+              url: "",
+              ownerEmail: "",
+              dateCreated: new Date(),
+              members: [],
+              invites: [],
+              settings: {},
+            },
+            environments: [],
+            readAccessFilter: FULL_ACCESS_PERMISSIONS,
+          },
+          datasource,
+          updates
+        )
       ).rejects.toThrow("Cannot update. Data sources managed by config.yml");
     });
   });
