@@ -36,6 +36,7 @@ export type MemberRole =
   | "noaccess"
   | "readonly"
   | "collaborator"
+  | "visualEditor"
   | "designer"
   | "analyst"
   | "developer"

@@ -68,7 +68,7 @@ export async function postNewSubscription(
 
   const payload: Stripe.Checkout.SessionCreateParams = {
     mode: "subscription",
-    payment_method_types: ["card"],
+    payment_method_types: ["card", "us_bank_account"],
     customer: stripeCustomerId,
     discounts: [
       {

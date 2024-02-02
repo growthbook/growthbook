@@ -243,7 +243,7 @@ export async function getManualSnapshotData(
     if (!metric) return null;
 
     metricSettings[m] = {
-      ...getMetricSettingsForStatsEngine(metric, metricMap),
+      ...getMetricSettingsForStatsEngine(metric, metricMap, false),
       // no ratio or regression adjustment for manual snapshots
       statistic_type: "mean",
     };
