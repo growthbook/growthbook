@@ -41,7 +41,7 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
     }
 
     const labels = new Map<string, string>([
-      ["organization", this.organization.id],
+      ["organization", this.context.org.id],
       ["datasource", this.integration.datasource],
       ["model_id", this.model.id],
       ["query_type", "dimensionSlices"],

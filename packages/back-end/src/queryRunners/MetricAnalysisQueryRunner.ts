@@ -22,7 +22,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
         query: this.integration.getMetricValueQuery(params),
         dependencies: [],
         labels: new Map<string, string>([
-          ["organization", this.organization.id],
+          ["organization", this.context.org.id],
           ["datasource", this.integration.datasource],
         ]),
         run: (query, labels, setExternalId) =>

@@ -96,7 +96,7 @@ export async function getImpactEstimate(
   const queryResponse = await integration.runMetricValueQuery(
     query,
     new Map<string, string>([
-      ["organization", organization],
+      ["organization", context.org.id],
       ["datasource", integration.datasource],
       ["metric_id", metric],
       ["metric_name", metricObj.name],
