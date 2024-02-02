@@ -1,10 +1,10 @@
 /* eslint-disable react/no-unescaped-entities */
 /* eslint-disable react-hooks/exhaustive-deps */
 
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { FeatureInterface } from "back-end/types/feature";
 import { RxInfoCircled, RxLoop } from "react-icons/rx";
-import { isPrerequisiteConditionOperatorConditional } from "shared/util";
+import {isPrerequisiteConditionOperatorConditional, PrerequisiteState} from "shared/util";
 import { FaRegCircleQuestion } from "react-icons/fa6";
 import { condToJson, jsonToConds } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -18,6 +18,7 @@ interface Props {
   defaultValue: string;
   onChange: (value: string) => void;
   parentFeature?: FeatureInterface;
+  prereqStates?: Record<string, PrerequisiteState> | null
 }
 
 export default function PrerequisiteInput(props: Props) {
@@ -48,6 +49,10 @@ export default function PrerequisiteInput(props: Props) {
     () => jsonToConds(props.defaultValue, parentValueMap) || []
   );
   const [rawTextMode, setRawTextMode] = useState(false);
+
+  const hasConditionalState = props.prereqStates ? Object.values(props.prereqStates).some(
+    (s) => s === "conditional"
+  ) : true;
 
   useEffect(() => {
     if (advanced) return;
@@ -158,10 +163,10 @@ export default function PrerequisiteInput(props: Props) {
         const operatorOptions =
           attribute.datatype === "boolean"
             ? [
-                { label: "is live", value: "$exists" },
-                { label: "is not live", value: "$notExists" },
                 { label: "is true", value: "$true" },
                 { label: "is false", value: "$false" },
+                { label: "is live", value: "$exists" },
+                { label: "is not live", value: "$notExists" },
               ]
             : attribute.datatype === "string"
             ? [
@@ -199,7 +204,8 @@ export default function PrerequisiteInput(props: Props) {
             : [];
 
         const operatorIsConditional = isPrerequisiteConditionOperatorConditional(
-          operator
+          operator,
+          hasConditionalState ? "conditional" : "on"
         );
 
         return (
@@ -225,9 +231,10 @@ export default function PrerequisiteInput(props: Props) {
                     handleCondsChange(v, "operator");
                   }}
                   formatOptionLabel={({ value, label }) => {
-                    const def = "$exists";
+                    const def = attribute.datatype === "boolean" ? "$true" : "$exists";
                     const conditional = isPrerequisiteConditionOperatorConditional(
-                      value
+                      value,
+                      hasConditionalState ? "conditional" : "on"
                     );
                     return (
                       <span>

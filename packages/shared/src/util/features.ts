@@ -469,25 +469,36 @@ export function validateAndFixCondition(
   throw new Error("Invalid targeting condition JSON: " + res.error);
 }
 
-export function getDefaultPrerequisiteCondition() {
+export function getDefaultPrerequisiteCondition(
+  parentFeature?: FeatureInterface
+) {
+  const valueType = parentFeature?.valueType || "boolean";
+  if (valueType === "boolean") {
+    return `{"value": true}`;
+  }
   return `{"value": {"$exists": true}}`;
 }
 
-export function isPrerequisiteConditionConditional(condition: string) {
-  if (
-    [
-      `{"value": {"$exists": false}}`,
-      `{"value": {"$exists": true}}`,
-      `{"value": true}`,
-      `{"value": false}`,
-    ].includes(condition)
-  ) {
+export function isPrerequisiteConditionConditional(condition: string, prerequisiteState: PrerequisiteState) {
+  if ([
+    `{"value": {"$exists": false}}`,
+    `{"value": {"$exists": true}}`,
+  ].includes(condition)) {
+    return false;
+  }
+  if (["on", "off"].includes(prerequisiteState) && [
+    `{"value": true}`,
+    `{"value": false}`,
+  ].includes(condition)) {
     return false;
   }
   return true;
 }
-export function isPrerequisiteConditionOperatorConditional(condition: string) {
-  if (["$exists", "$notExists", "$true", "$false"].includes(condition)) {
+export function isPrerequisiteConditionOperatorConditional(condition: string, prerequisiteState: PrerequisiteState) {
+  if (["$exists", "$notExists"].includes(condition)) {
+    return false;
+  }
+  if (["on", "off"].includes(prerequisiteState) && ["$true", "$false"].includes(condition)) {
     return false;
   }
   return true;
@@ -557,7 +568,7 @@ export function evaluatePrerequisiteState(
     }
     let state: PrerequisiteState = "on";
     if (!skipRootConditions || (skipRootConditions && !isTopLevel)) {
-      if (feature.environmentSettings[env].rules?.length) {
+      if (feature.environmentSettings[env].rules?.filter(r => !!r.enabled)?.length) {
         state = "conditional";
       }
     }

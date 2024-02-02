@@ -41,7 +41,7 @@ export default function ValueDisplay({
             backgroundColor: on ? "#3aa8e8" : "#cccccc",
           }}
         ></div>
-        {on ? "ON" : "OFF"}
+        {on ? "TRUE" : "FALSE"}
       </span>
     );
   }

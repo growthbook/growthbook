@@ -95,6 +95,7 @@ import PrerequisiteStatusRow, {
 } from "@/components/Features/PrerequisiteStatusRow";
 import { useExperiments } from "@/hooks/useExperiments";
 import { PrerequisiteAlerts } from "@/components/Features/PrerequisiteTargetingField";
+import ValueDisplay from "@/components/Features/ValueDisplay";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -893,7 +894,7 @@ export default function FeaturePage() {
                   commercialFeature={"prerequisites"}
                   body={
                     <>
-                      Prerequisite features must evaluate to <code>true</code>{" "}
+                      Prerequisite features must evaluate to <span className="rounded px-1 bg-light"><ValueDisplay value={"true"} type="boolean" /></span>{" "}
                       in order for this feature to be enabled.
                     </>
                   }
@@ -934,7 +935,7 @@ export default function FeaturePage() {
               <tbody>
                 <tr>
                   <td className="pl-3 font-weight-bold border-right">
-                    Summary
+                    Feature Status
                   </td>
                   <PrerequisiteStatesCols
                     prereqStates={prereqStates ?? undefined}

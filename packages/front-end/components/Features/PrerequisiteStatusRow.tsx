@@ -145,9 +145,9 @@ export function PrerequisiteStatesCols({
                 <>
                   <div>
                     {isSummaryRow
-                      ? "This feature"
+                      ? "The current feature"
                       : "This prerequisite feature"}{" "}
-                    is currently{" "}
+                    is{" "}
                     <span className="text-success font-weight-bold">live</span>{" "}
                     in this environment.
                   </div>
@@ -165,9 +165,9 @@ export function PrerequisiteStatesCols({
                 <>
                   <div>
                     {isSummaryRow
-                      ? "This feature"
+                      ? "The current feature"
                       : "This prerequisite feature"}{" "}
-                    is currently{" "}
+                    is{" "}
                     <span className="text-gray font-weight-bold">not live</span>{" "}
                     in this environment.
                     {isSummaryRow && (
@@ -191,30 +191,28 @@ export function PrerequisiteStatesCols({
                 isSummaryRow ? (
                   <>
                     <div>
-                      This feature is currently in a{" "}
+                      The current feature is in a{" "}
                       <span className="text-purple font-weight-bold">
                         Schrödinger state
                       </span>{" "}
-                      in this environment. This feature&apos;s prerequisites
-                      have rules which cannot be evaluated until runtime in the
-                      SDK.
+                      in this environment. We can&apos;t know whether it is live or not until
+                      its prerequisites are evaluated at runtime in the SDK.
                     </div>
                     {isSummaryRow && (
                       <div className="mt-2">
-                        Prerequisites will be evaluated at runtime. If any
-                        prerequisites do not pass, this feature will evaluate to{" "}
+                        If any prerequisites do not pass at runtime, this feature will evaluate to{" "}
                         <code>null</code>.
                       </div>
                     )}
                   </>
                 ) : (
                   <div>
-                    This prerequisite feature is currently in a{" "}
+                    This prerequisite is in a{" "}
                     <span className="text-purple font-weight-bold">
                       Schrödinger state
                     </span>{" "}
-                    in this environment. This feature or its prerequisites have
-                    rules which cannot be evaluated until runtime in the SDK.
+                    in this environment. We can&apos;t know its value until it is evaluated
+                    at runtime in the SDK.
                   </div>
                 )
               }

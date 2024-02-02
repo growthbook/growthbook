@@ -72,7 +72,7 @@ export default function PrerequisiteTargetingField({
       const parentCondition = v.condition;
       if (parentFeature) {
         if (parentCondition === "" || parentCondition === "{}") {
-          const condStr = getDefaultPrerequisiteCondition();
+          const condStr = getDefaultPrerequisiteCondition(parentFeature);
           setValue([
             ...value.slice(0, i),
             {
@@ -110,8 +110,10 @@ export default function PrerequisiteTargetingField({
       const hasConditionalState = Object.values(prereqStates).some(
         (s) => s === "conditional"
       );
-      const hasNonStandardTargeting =
-        parentCondition !== getDefaultPrerequisiteCondition();
+      const hasNonStandardTargeting = isPrerequisiteConditionConditional(
+        parentCondition,
+        hasConditionalState ? "conditional" : "on"
+      );
       if (
         !hasSDKWithPrerequisites &&
         (hasConditionalState || hasNonStandardTargeting)
@@ -142,7 +144,8 @@ export default function PrerequisiteTargetingField({
               (s) => s === "conditional"
             );
             const hasConditionalTargeting = isPrerequisiteConditionConditional(
-              parentCondition
+              parentCondition,
+              hasConditionalState ? "conditional" : "on"
             );
 
             return (
@@ -195,12 +198,12 @@ export default function PrerequisiteTargetingField({
                   environments={environments}
                 />
 
-                {hasConditionalState && (
+                {parentFeature && hasConditionalState ? (
                   <PrerequisiteAlerts
                     issue="conditional-prerequisite"
                     environments={environments}
                   />
-                )}
+                ) : null}
 
                 <div className="mt-2">
                   {parentFeature ? (
@@ -217,17 +220,18 @@ export default function PrerequisiteTargetingField({
                         ]);
                       }}
                       parentFeature={parentFeature}
+                      prereqStates={prereqStates}
                       key={conditionKeys[i]}
                     />
                   ) : null}
                 </div>
 
-                {hasConditionalTargeting && (
+                {parentFeature && hasConditionalTargeting ? (
                   <PrerequisiteAlerts
                     issue="conditional-targeting"
                     environments={environments}
                   />
-                )}
+                ) : null}
               </div>
             );
           })}
@@ -395,7 +399,7 @@ export const PrerequisiteAlerts = ({
 
   return (
     <div
-      className={`mt-2 alert ${
+      className={`mt-2 mb-3 alert ${
         hasSDKWithPrerequisites ? "text-warning-orange py-0" : "alert-danger"
       }`}
     >
@@ -408,10 +412,9 @@ export const PrerequisiteAlerts = ({
               Schrödinger state
             </span>{" "}
             {environments.length > 1
-              ? "in one or more environments"
-              : "in this environment"}
-            . This means that we can&apos;t know if it&apos;s live or not until
-            it&apos;s evaluated at runtime in the SDK.{" "}
+              ? "in some environments"
+              : "in this environment"}{" "}
+            and must be evaluated at runtime in the SDK.{" "}
           </>
         )}
         {issue === "conditional-targeting" && (
@@ -424,30 +427,40 @@ export const PrerequisiteAlerts = ({
             it&apos;s evaluated at runtime in the SDK.{" "}
           </>
         )}
+        {hasSDKWithPrerequisites ? (
+          <>
+            However, some of your{" "}
+            <a href="/sdks" target="_blank">
+              SDK Connections <FaExternalLinkAlt />
+            </a>{" "}
+            may not support prerequisite evaluation.
+          </>
+        ) : (
+          <>
+            However, none of your{" "}
+            <a href="/sdks" target="_blank">
+              SDK Connections <FaExternalLinkAlt />
+            </a>{" "}
+            support prerequisite evaluation. Either upgrade your SDKs
+            {issue === "conditional-targeting"
+              ? ", change the targeting condition, "
+              : ""}{" "}
+            or{" "}
+            {type === "prerequisite"
+              ? "remove this prerequisite"
+              : "remove Schrödinger prerequisites"}
+            .
+          </>
+        )}{" "}
         <Tooltip
           body={
             <>
-              <div>
-                {hasSDKWithPrerequisites
-                  ? "Some of your SDK Connections may not support prerequisite evaluation. Use at your own risk."
-                  : `None of your SDK Connections currently support prerequisite evaluation. Either upgrade your SDKs${
-                      issue === "conditional-targeting"
-                        ? ", change the targeting condition, "
-                        : ""
-                    } or ${
-                      type === "prerequisite"
-                        ? "remove this prerequisite"
-                        : "remove Schrödinger prerequisites"
-                    }.`}
-              </div>
-              <div className="mt-2">
-                Prerequisite evaluation is only supported in the following SDKs
-                and versions:
-                <ul className="mb-1">
-                  <li>Javascript &gt;= 0.33.0</li>
-                  <li>React &gt;= 0.23.0</li>
-                </ul>
-              </div>
+              Prerequisite evaluation is only supported in the following SDKs
+              and versions:
+              <ul className="mb-1">
+                <li>Javascript &gt;= 0.33.0</li>
+                <li>React &gt;= 0.23.0</li>
+              </ul>
             </>
           }
         />
