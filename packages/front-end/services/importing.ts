@@ -1,7 +1,6 @@
 import { ProjectInterface } from "back-end/types/project";
 import { Environment } from "back-end/types/organization";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import uniqid from "uniqid";
 import { ConditionInterface } from "@growthbook/growthbook-react";
 
 // Various utilities to help migrate from another service to GrowthBook
@@ -153,8 +152,7 @@ function transformLDClause(
   negate: boolean
 ): null | ConditionInterface {
   if (!values.length) {
-    console.error("No values in rule clause");
-    return null;
+    throw new Error("No values in rule clause");
   }
 
   // Shortcut for in/nin operator
@@ -256,8 +254,16 @@ function transformLDClause(
           $gt: String(value),
         },
       });
+    } else if (op === "segmentMatch") {
+      ors.push({
+        // Attribute is also set to `segmentMatch`, which isn't very useful
+        // Default to `id` instead
+        id: {
+          $inGroup: value,
+        },
+      });
     } else {
-      console.error("Unknown LD operator", op);
+      throw new Error(`Unknown LD operator: ${op}`);
     }
   });
 
@@ -270,142 +276,206 @@ function transformLDClause(
   return null;
 }
 
+export const transformLDFeatureFlag = (
+  data: LDListFeatureFlagsResponse["items"][0],
+  project: string
+): Omit<
+  FeatureInterface,
+  "dateCreated" | "dateUpdated" | "version" | "organization"
+> => {
+  const {
+    description,
+    environments,
+    key,
+    kind,
+    name,
+    tags,
+    variations,
+    _maintainer,
+  } = data;
+
+  const envKeys = Object.keys(environments);
+  const valueType =
+    kind === "boolean"
+      ? "boolean"
+      : typeof variations[0].value === "number"
+      ? "number"
+      : typeof variations[0].value === "string"
+      ? "string"
+      : "json";
+
+  const variationValues = variations.map((v) => {
+    if (valueType === "boolean") {
+      return v.value ? "true" : "false";
+    }
+    if (valueType === "string") {
+      return String(v.value);
+    }
+    return JSON.stringify(v.value);
+  });
+
+  function getFallthroughForEnvironments(envKey: string): number | null {
+    const envData = environments[envKey];
+    if (envData.fallthrough?.variation !== undefined) {
+      return envData.fallthrough.variation;
+    } else {
+      const fallthroughFromSummary = [
+        ...Object.entries(envData._summary?.variations || {}),
+      ].find((v) => v[1].isFallthrough)?.[0];
+
+      if (fallthroughFromSummary !== undefined) {
+        return Number(fallthroughFromSummary);
+      }
+    }
+    return null;
+  }
+
+  const fallthroughs = new Map<number, number>();
+  fallthroughs.set(0, 0.5);
+  envKeys.forEach((envKey) => {
+    const fallthrough = getFallthroughForEnvironments(envKey);
+    if (fallthrough !== null) {
+      fallthroughs.set(fallthrough, (fallthroughs.get(fallthrough) || 0) + 1);
+    }
+  });
+
+  // Set default to the most common fallthrough
+  const defaultValueIndex =
+    Array.from(fallthroughs.entries()).sort((a, b) => b[1] - a[1])[0][0] || 0;
+  const defaultValue = variationValues[defaultValueIndex];
+
+  const gbEnvironments: FeatureInterface["environmentSettings"] = {};
+  envKeys.forEach((envKey) => {
+    const envData = environments[envKey];
+
+    const rules: FeatureRule[] = [];
+
+    // First add targeting rules
+    const targets = (envData.targets || []).concat(
+      envData.contextTargets || []
+    );
+    targets.forEach((target, i) => {
+      rules.push({
+        type: "force",
+        id: `rule_targets_${i}`,
+        description: "Targets",
+        condition: JSON.stringify({
+          id: {
+            $in: target.values,
+          },
+        }),
+        enabled: true,
+        value: variationValues[target.variation],
+      });
+    });
+
+    // Then add other rules
+    (envData.rules || []).forEach((rule, i) => {
+      try {
+        const ands: ConditionInterface[] = [];
+        (rule.clauses || []).forEach((clause) => {
+          const cond = transformLDClause(
+            clause.attribute,
+            clause.op,
+            clause.values,
+            clause.negate
+          );
+          if (cond) {
+            ands.push(cond);
+          }
+        });
+
+        const cond = ands.length === 1 ? ands[0] : { $and: ands };
+
+        if (rule.rollout) {
+          const totalWeight = rule.rollout.variations.reduce(
+            (sum, v) => sum + v.weight,
+            0
+          );
+          const coverage = Math.min(1, Math.max(totalWeight / 100000, 0));
+
+          rules.push({
+            type: "experiment",
+            id: rule._id || `rule_${i}`,
+            description: rule.description || "",
+            condition: JSON.stringify(cond),
+            enabled: true,
+            hashAttribute: rule.rollout.bucketBy || "id",
+            trackingKey: (rule.rollout.seed || rule._id || "") + "",
+            values: rule.rollout.variations.map((v) => ({
+              value: variationValues[v.variation],
+              weight: v.weight / totalWeight,
+            })),
+            coverage: coverage,
+          });
+          return;
+        }
+
+        if (!rule.variation) {
+          throw new Error("Rule found without a variation");
+        }
+
+        rules.push({
+          type: "force",
+          id: rule._id || `rule_${i}`,
+          description: rule.description || "",
+          condition: JSON.stringify(cond),
+          enabled: true,
+          value: variationValues[rule.variation],
+        });
+      } catch (e) {
+        console.error("Error transforming rule", e, {
+          envKey,
+          rule,
+          featurekey: key,
+        });
+      }
+    });
+
+    // If fallback for this environment is different from the default,
+    // add a force rule without a condition to the end
+    const fallthrough = getFallthroughForEnvironments(envKey);
+    if (fallthrough !== null && fallthrough !== defaultValueIndex) {
+      rules.push({
+        type: "force",
+        id: `rule_fallthrough`,
+        description: "Fallthrough",
+        enabled: true,
+        value: variationValues[fallthrough],
+        condition: "{}",
+      });
+    }
+
+    gbEnvironments[envKey] = {
+      enabled: environments[envKey].on,
+      rules: rules,
+    };
+  });
+
+  const owner = _maintainer
+    ? `${_maintainer.firstName} ${_maintainer.lastName} (${_maintainer.email})`
+    : "";
+
+  return {
+    environmentSettings: gbEnvironments,
+    defaultValue: defaultValue,
+    project,
+    id: key,
+    description: description || (name === key ? "" : name),
+    owner,
+    tags,
+    valueType: valueType,
+  };
+};
+
 export const transformLDFeatureFlagToGBFeature = (
   data: LDListFeatureFlagsResponse,
   project: string
 ): Omit<
   FeatureInterface,
-  "dateCreated" | "dateUpdated" | "version" | "organization"
+  "organization" | "dateUpdated" | "dateCreated" | "version"
 >[] => {
-  return data.items.map(
-    ({
-      _maintainer,
-      environments,
-      key,
-      kind,
-      variations,
-      name,
-      description,
-      tags,
-    }) => {
-      const envKeys = Object.keys(environments);
-      const valueType =
-        kind === "boolean"
-          ? "boolean"
-          : typeof variations[0].value === "number"
-          ? "number"
-          : typeof variations[0].value === "string"
-          ? "string"
-          : "json";
-
-      const variationValues = variations.map((v) => {
-        if (valueType === "boolean") {
-          return v.value ? "true" : "false";
-        }
-        if (valueType === "string") {
-          return String(v.value);
-        }
-        return JSON.stringify(v.value);
-      });
-
-      const defaultValue = variationValues[0];
-
-      const gbEnvironments: FeatureInterface["environmentSettings"] = {};
-      envKeys.forEach((envKey) => {
-        const envData = environments[envKey];
-
-        const rules: FeatureRule[] = [];
-
-        // First add targeting rules
-        const targets = (envData.targets || []).concat(
-          envData.contextTargets || []
-        );
-        targets.forEach((target) => {
-          rules.push({
-            type: "force",
-            id: uniqid("var_"),
-            description: "Targets",
-            condition: JSON.stringify({
-              id: {
-                $in: target.values,
-              },
-            }),
-            enabled: true,
-            value: variationValues[target.variation],
-          });
-        });
-
-        // Then add other rules
-        (envData.rules || []).forEach((rule) => {
-          const ands: ConditionInterface[] = [];
-          (rule.clauses || []).forEach((clause) => {
-            const cond = transformLDClause(
-              clause.attribute,
-              clause.op,
-              clause.values,
-              clause.negate
-            );
-            if (cond) {
-              ands.push(cond);
-            }
-          });
-
-          const cond = ands.length === 1 ? ands[0] : { $and: ands };
-
-          if (rule.rollout) {
-            console.error("Rollouts not yet supported");
-            return;
-          }
-
-          if (!rule.variation) {
-            console.error("Rule without a variation");
-            return;
-          }
-
-          rules.push({
-            type: "force",
-            id: uniqid("var_"),
-            description: rule.description || "",
-            condition: JSON.stringify(cond),
-            enabled: true,
-            value: variationValues[rule.variation],
-          });
-        });
-
-        // If fallback for this environment is different from the default,
-        // add a force rule without a condition to the end
-        if (envData.fallthrough?.variation) {
-          rules.push({
-            type: "force",
-            id: uniqid("var_"),
-            description: "Fallthrough",
-            enabled: true,
-            value: variationValues[envData.fallthrough.variation],
-          });
-        }
-
-        gbEnvironments[envKey] = {
-          enabled: environments[envKey].on,
-          rules: rules,
-        };
-      });
-
-      const owner = _maintainer
-        ? `${_maintainer.firstName} ${_maintainer.lastName} (${_maintainer.email})`
-        : "(unknown - imported from LaunchDarkly)";
-
-      return {
-        environmentSettings: gbEnvironments,
-        defaultValue: defaultValue,
-        project,
-        id: key,
-        description: description || (name === key ? "" : name),
-        owner,
-        tags,
-        valueType: valueType,
-      };
-    }
-  );
+  return data.items.map((item) => transformLDFeatureFlag(item, project));
 };
 
 /**
@@ -432,14 +502,14 @@ async function getFromLD<ResType>(
 export const getLDProjects = async (
   apiToken: string
 ): Promise<LDListProjectsResponse> =>
-  getFromLD("https://app.launchdarkly.com/api/v2/projects", apiToken);
+  getFromLD("https://app.launchdarkly.com/api/v2/projects?limit=300", apiToken);
 
 export const getLDEnvironments = async (
   apiToken: string,
   project: string
 ): Promise<LDListEnvironmentsResponse> =>
   getFromLD(
-    `https://app.launchdarkly.com/api/v2/projects/${project}/environments`,
+    `https://app.launchdarkly.com/api/v2/projects/${project}/environments?limit=300`,
     apiToken
   );
 

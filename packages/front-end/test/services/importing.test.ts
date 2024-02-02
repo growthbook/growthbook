@@ -333,14 +333,23 @@ describe("importing utils", () => {
           project: "prj_abc1234",
           description: "Whether some feature should be displayed or not",
           owner: "Firstname Lastname (email@email.com)",
-          defaultValue: "false",
+          defaultValue: "true",
           environmentSettings: {
             development: {
               rules: [],
               enabled: false,
             },
             production: {
-              rules: [],
+              rules: [
+                {
+                  id: "rule_fallthrough",
+                  description: "Fallthrough",
+                  enabled: true,
+                  type: "force",
+                  value: "false",
+                  condition: "{}",
+                },
+              ],
               enabled: false,
             },
           },
@@ -356,7 +365,261 @@ describe("importing utils", () => {
       expect(result).toEqual(expected);
     });
 
-    it.only("should transform complex feature with rules", () => {
+    it("should transform complex feature with multiple rules", () => {
+      const input = {
+        name: "ff-test-multiple-rules",
+        kind: "multivariate",
+        description: "",
+        key: "ff-test-multiple-rules",
+        _version: 1,
+        creationDate: 1706720000000,
+        includeInSnippet: false,
+        clientSideAvailability: {
+          usingMobileKey: false,
+          usingEnvironmentId: false,
+        },
+        variations: [
+          {
+            _id: "a",
+            value: "a",
+            name: "x",
+          },
+          {
+            _id: "b",
+            value: "b",
+            name: "y",
+          },
+          {
+            _id: "c",
+            value: "c",
+            name: "z",
+          },
+        ],
+        variationJsonSchema: null,
+        temporary: false,
+        tags: [],
+        _links: {
+          parent: {
+            href: "/api/v2/flags/ld-to-gb-migration-testing",
+            type: "application/json",
+          },
+          self: {
+            href:
+              "/api/v2/flags/ld-to-gb-migration-testing/ff-test-multiple-rules",
+            type: "application/json",
+          },
+        },
+        maintainerId: "",
+        _maintainer: {
+          _links: {
+            self: {
+              href: "",
+              type: "application/json",
+            },
+          },
+          _id: "",
+          firstName: "Growth",
+          lastName: "Book",
+          role: "admin",
+          email: "hello@growthbook.io",
+        },
+        goalIds: [],
+        experiments: {
+          baselineIdx: 0,
+          items: [],
+        },
+        customProperties: {},
+        archived: false,
+        deprecated: false,
+        defaults: {
+          onVariation: 0,
+          offVariation: 1,
+        },
+        environments: {
+          production: {
+            on: true,
+            archived: false,
+            salt: "abc123",
+            sel: "def123",
+            lastModified: 1706730000000,
+            version: 4,
+            targets: [],
+            contextTargets: [],
+            rules: [
+              {
+                _id: "abcdef-1234-abcd-1234-abcdef123456",
+                rollout: {
+                  variations: [
+                    {
+                      variation: 0,
+                      weight: 80000,
+                    },
+                    {
+                      variation: 1,
+                      weight: 20000,
+                    },
+                    {
+                      variation: 2,
+                      weight: 0,
+                    },
+                  ],
+                  contextKind: "user",
+                },
+                clauses: [
+                  {
+                    _id: "abcdef-1234-abcd-1234-abcdef123457",
+                    attribute: "segmentMatch",
+                    op: "segmentMatch",
+                    values: ["seg-1"],
+                    contextKind: "user",
+                    negate: false,
+                  },
+                ],
+                trackEvents: false,
+              },
+              {
+                _id: "abcdef-1234-abcd-1234-abcdef123458",
+                variation: 1,
+                clauses: [
+                  {
+                    _id: "abcdef-1234-abcd-1234-abcdef123459",
+                    attribute: "not-segmentMatch",
+                    op: "segmentMatch",
+                    values: ["seg-2"],
+                    contextKind: "user",
+                    negate: true,
+                  },
+                ],
+                trackEvents: false,
+                description: "Rule 2",
+              },
+            ],
+            fallthrough: {
+              variation: 0,
+            },
+            offVariation: 1,
+            prerequisites: [],
+            _site: {
+              href:
+                "/ld-to-gb-migration-testing/production/features/ff-test-multiple-rules",
+              type: "text/html",
+            },
+            _environmentName: "Production",
+            trackEvents: false,
+            trackEventsFallthrough: false,
+            _summary: {
+              variations: {
+                "0": {
+                  rules: 1,
+                  nullRules: 0,
+                  targets: 0,
+                  contextTargets: 0,
+                  isFallthrough: true,
+                },
+                "1": {
+                  rules: 2,
+                  nullRules: 0,
+                  targets: 0,
+                  contextTargets: 0,
+                  isOff: true,
+                },
+                "2": {
+                  rules: 1,
+                  nullRules: 1,
+                  targets: 0,
+                  contextTargets: 0,
+                },
+              },
+              prerequisites: 0,
+            },
+          },
+        },
+      };
+
+      const result = transformLDFeatureFlagToGBFeature(
+        {
+          _links: {
+            self: {
+              href: "/api/v2/flags/my-first-project?summary=true",
+            },
+          },
+          items: [input as LDListFeatureFlagsResponse["items"][0]],
+        },
+        "prj_xyz987"
+      );
+
+      const ruleIds = result?.[0]?.environmentSettings?.[
+        "production"
+      ]?.rules?.map((r) => r.id);
+
+      const expected: Omit<
+        FeatureInterface,
+        "dateCreated" | "dateUpdated" | "version" | "organization"
+      >[] = [
+        {
+          id: "ff-test-multiple-rules",
+          tags: [],
+          project: "prj_xyz987",
+          description: "",
+          owner: "Growth Book (hello@growthbook.io)",
+          defaultValue: "a",
+          environmentSettings: {
+            production: {
+              enabled: true,
+              rules: [
+                {
+                  id: ruleIds[0] || "",
+                  description: "",
+                  enabled: true,
+                  type: "experiment",
+                  condition: JSON.stringify({
+                    id: {
+                      $inGroup: "seg-1",
+                    },
+                  }),
+                  hashAttribute: "id",
+                  trackingKey: "abcdef-1234-abcd-1234-abcdef123456",
+                  values: [
+                    {
+                      value: "a",
+                      weight: 0.8,
+                    },
+                    {
+                      value: "b",
+                      weight: 0.2,
+                    },
+                    {
+                      value: "c",
+                      weight: 0,
+                    },
+                  ],
+                  coverage: 1,
+                },
+                {
+                  id: ruleIds[1] || "",
+                  description: "Rule 2",
+                  enabled: true,
+                  type: "force",
+                  value: "b",
+                  condition: JSON.stringify({
+                    $not: {
+                      id: {
+                        $inGroup: "seg-2",
+                      },
+                    },
+                  }),
+                },
+              ],
+            },
+          },
+          valueType: "string",
+        },
+      ];
+
+      expect(result).toEqual(expected);
+    });
+
+    it("should transform complex feature with multiple targets", () => {
       const input = {
         name: "ff-test-multiple-targets",
         kind: "multivariate",
@@ -467,7 +730,7 @@ describe("importing utils", () => {
                     _id: "r2c1",
                     attribute: "key",
                     op: "in",
-                    values: ['"new test"'],
+                    values: ["new test"],
                     contextKind: "testing",
                     negate: false,
                   },
@@ -627,7 +890,7 @@ describe("importing utils", () => {
                   condition: JSON.stringify({
                     $and: [
                       {
-                        key: { $eq: '"new test"' },
+                        key: { $eq: "new test" },
                       },
                       {
                         email: {
@@ -833,7 +1096,7 @@ describe("importing utils", () => {
           project: "prj_xyz987",
           description: "HTML that will be injected",
           owner: "Firstname Lastname (email@email.com)",
-          defaultValue: "",
+          defaultValue: "<p>Now on Android! Click <a href='#'>here</a>!</p>",
           environmentSettings: {
             development: {
               enabled: false,
@@ -845,7 +1108,16 @@ describe("importing utils", () => {
             },
             production: {
               enabled: false,
-              rules: [],
+              rules: [
+                {
+                  id: "rule_fallthrough",
+                  description: "Fallthrough",
+                  enabled: true,
+                  type: "force",
+                  value: "",
+                  condition: "{}",
+                },
+              ],
             },
           },
           valueType: "string",

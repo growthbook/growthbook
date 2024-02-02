@@ -1,4 +1,4 @@
-import React, { FC, FormEvent, ReactNode, useCallback } from "react";
+import React, { FC, FormEvent, ReactNode, useCallback, useEffect } from "react";
 import { FaUpload } from "react-icons/fa";
 import { BsCheck, BsDash, BsX } from "react-icons/bs";
 import Link from "next/link";
@@ -8,6 +8,8 @@ import {
 } from "@/components/importing/ImportFromLaunchDarkly/useImportFromLaunchDarkly";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { GBCircleArrowLeft } from "@/components/Icons";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 
 type ImportFromLaunchDarklyProps = {
   status: "idle" | "pending" | "completed";
@@ -34,6 +36,18 @@ export const ImportFromLaunchDarkly: FC<ImportFromLaunchDarklyProps> = ({
     [onSubmit]
   );
 
+  const { mutateDefinitions } = useDefinitions();
+  const { refreshOrganization } = useUser();
+
+  useEffect(() => {
+    if (status === "completed") {
+      // Update project and environment definitions
+      mutateDefinitions();
+      refreshOrganization();
+    }
+    // eslint-disable-next-line
+  }, [status]);
+
   return (
     <div className="">
       <div className="mb-4">
@@ -50,6 +64,10 @@ export const ImportFromLaunchDarkly: FC<ImportFromLaunchDarklyProps> = ({
         or personal access token to proceed.
       </p>
       <p>
+        Your API key will not be stored and will not be sent to GrowthBook
+        servers. API calls will be made directly from the browser.
+      </p>
+      <p>
         This task will attempt to import the following resources from
         LaunchDarkly:
       </p>
@@ -58,7 +76,12 @@ export const ImportFromLaunchDarkly: FC<ImportFromLaunchDarklyProps> = ({
         <li>Environments</li>
         <li>Feature flags</li>
       </ul>
-      <p>Duplicate items will not be imported.</p>
+
+      <div className="alert alert-warning">
+        <strong>Warning:</strong> Imported features will overwrite any matching
+        features in GrowthBook.
+      </div>
+
       <p>
         Read the{" "}
         <a

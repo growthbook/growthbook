@@ -1,11 +1,4 @@
-import {
-  Reducer,
-  useCallback,
-  useEffect,
-  useMemo,
-  useReducer,
-  useState,
-} from "react";
+import { Reducer, useCallback, useEffect, useReducer, useState } from "react";
 import { ProjectInterface } from "back-end/types/project";
 import { Environment } from "back-end/types/organization";
 import { FeatureInterface } from "back-end/types/feature";
@@ -24,6 +17,7 @@ import { enqueueTasks, QueueTask, TaskResult } from "@/services/async-queue";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
+import { useEnvironments } from "@/services/features";
 
 /**
  * User-friendly result message with status
@@ -273,10 +267,8 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
   );
 
   const { projects } = useDefinitions();
-  const existingProjectNames = useMemo(
-    () => (projects || []).map((project) => (project.name || "").toLowerCase()),
-    [projects]
-  );
+
+  const environments = useEnvironments();
 
   const [state, dispatch] = useReducer(importFromLDReducer, initialState);
 
@@ -432,6 +424,14 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
             },
             async perform(data: Environment): Promise<TaskResult<Environment>> {
               try {
+                const existing = environments.find((e) => e.id === data.id);
+                if (existing) {
+                  return {
+                    status: "success",
+                    data: existing,
+                  };
+                }
+
                 const response = await apiCall<{
                   status: number;
                   message?: string;
@@ -608,7 +608,7 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
                 status: number;
                 message?: string;
                 feature: FeatureInterface;
-              }>("/feature", {
+              }>(`/feature/${data.id}/sync`, {
                 method: "POST",
                 body: JSON.stringify(data),
               });
@@ -672,6 +672,7 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
       state.gbEnvironments,
       apiCall,
       status,
+      environments,
     ]
   );
 
@@ -744,10 +745,13 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
             }
           },
           async perform(data): Promise<TaskResult<ProjectInterface>> {
-            if (existingProjectNames.includes(data.name.toLowerCase())) {
+            const existing = projects.find(
+              (p) => p.name.toLowerCase() === data.name.toLowerCase()
+            );
+            if (existing) {
               return {
-                status: "fail",
-                error: "duplicate",
+                status: "success",
+                data: existing,
               };
             }
 
@@ -795,7 +799,7 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
 
       perform();
     },
-    [state.gbProjects, apiToken, apiCall, existingProjectNames]
+    [state.gbProjects, apiToken, apiCall, projects]
   );
 
   return {
