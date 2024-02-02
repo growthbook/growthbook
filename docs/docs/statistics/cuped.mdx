@@ -54,7 +54,7 @@ where $\bar{Y}_{post}$ is the post-exposure metric average, $\bar{Y}_{pre}$ is t
 
 As discussed above, we could use any correlated data instead of $Y_{pre}$. For example, we could use some model that includes all pre-exposure metrics added to your experiment, or auxiliary dimension information you have configured per user. However, one downside of these approaches is that your results for metric A will depend on whether or not you add a metric B to your experiment and our analysis pipeline would lose its modularity, where each metric can be processed in parallel. Nonetheless, we anticipate continuing to build methods that leverage additional data to improve variance reduction from CUPED.
 
-### Lookback window
+### Regression Adjustment lookback window
 
 GrowthBook defaults to using 14 days of pre-exposure data, but this is customizable at the organization, metric, and metric-experiment level.
 
