@@ -12,7 +12,6 @@ import {
   MetricWindowSettings,
 } from "back-end/types/fact-table";
 import {
-  DEFAULT_METRIC_WINDOW,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_METRIC_WINDOW_HOURS,
 } from "shared/constants";
@@ -139,20 +138,20 @@ export default function RestoreConfigYamlButton({
               delete n.capValue;
             }
             if (
-              (n.conversionWindowDelay || n.conversionWindowHours) &&
+              (n.conversionDelayHours || n.conversionWindowHours) &&
               n.windowSettings === undefined
             ) {
               const windowSetting: MetricWindowSettings = {
-                type: DEFAULT_METRIC_WINDOW,
+                type: "conversion",
                 delayHours:
-                  n.conversionWindowDelay ?? DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+                  n.conversionDelayHours ?? DEFAULT_METRIC_WINDOW_DELAY_HOURS,
                 windowValue:
                   n.conversionWindowHours ?? DEFAULT_METRIC_WINDOW_HOURS,
                 windowUnit: "hours",
               };
               n.windowSettings = windowSetting;
               delete n.conversionWindowDelay;
-              delete n.conversionWindowHours;
+              delete n.conversionDelayHours;
             }
             if (n.userIdType || n.anonymousIdType) {
               throw new Error(`
