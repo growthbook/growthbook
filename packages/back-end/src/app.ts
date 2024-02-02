@@ -581,7 +581,7 @@ app.put(
   datasourcesController.updateExposureQuery
 );
 app.post(
-  "/datasources/test-connection",
+  "/datasources/fetch-bigquery-datasets",
   datasourcesController.fetchBigQueryDatasets
 );
 

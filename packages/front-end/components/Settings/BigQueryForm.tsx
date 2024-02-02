@@ -13,19 +13,19 @@ const BigQueryForm: FC<{
   setParams: (params: { [key: string]: string }) => void;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
 }> = ({ params, setParams, existing, onParamChange }) => {
-  const [datasetOptions, setDatasetOptions] = useState<string[]>([]);
   const [testConnectionResults, setTestConnectionResults] = useState<{
     status: "success" | "danger" | "warning";
     message: string;
+    datasetOptions: string[];
   } | null>(null);
   const [loadingDatasetOptions, setLoadingDatasetOptions] = useState(false);
   const { apiCall } = useAuth();
 
   async function testConnection() {
     try {
-      setLoadingDatasetOptions(true);
+      setTestConnectionResults(null);
       const { datasets } = await apiCall<{ datasets: string[]; error: string }>(
-        "/datasources/test-connection",
+        "/datasources/fetch-bigquery-datasets",
         {
           method: "POST",
           body: JSON.stringify({
@@ -36,11 +36,10 @@ const BigQueryForm: FC<{
         }
       );
 
-      setDatasetOptions(datasets);
-
       if (!datasets.length) {
         setTestConnectionResults({
           status: "warning",
+          datasetOptions: [],
           message:
             "We were able to connect to BigQuery, but we weren't able to retreive any datasets in this project.",
         });
@@ -48,11 +47,16 @@ const BigQueryForm: FC<{
       }
       setTestConnectionResults({
         status: "success",
+        datasetOptions: datasets,
         message: `Connected to ${params.projectId} successfully!`,
       });
       //TODO: Intelligently select a default dataset based on the datasource type (manual, ga4, segment, etc)
     } catch (e) {
-      setTestConnectionResults({ status: "danger", message: e.message });
+      setTestConnectionResults({
+        status: "danger",
+        message: e.message,
+        datasetOptions: [],
+      });
     }
     setLoadingDatasetOptions(false);
   }
@@ -94,8 +98,8 @@ const BigQueryForm: FC<{
                 id="bigQueryFileInput"
                 accept="application/json"
                 onChange={(e) => {
-                  // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
-                  const file = e.target.files[0];
+                  setTestConnectionResults(null);
+                  const file: File | undefined = e.target?.files?.[0];
                   if (!file) {
                     return;
                   }
@@ -103,8 +107,7 @@ const BigQueryForm: FC<{
                   const reader = new FileReader();
                   reader.onload = function (e) {
                     try {
-                      // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
-                      const str = e.target.result;
+                      const str = e.target?.result;
                       if (typeof str !== "string") {
                         return;
                       }
@@ -153,7 +156,8 @@ const BigQueryForm: FC<{
                     <strong>Private Key:</strong> *****
                   </li>
                 </ul>
-                {!testConnectionResults ? (
+                {!testConnectionResults ||
+                testConnectionResults?.status !== "success" ? (
                   <Button
                     color="primary"
                     onClick={async () => {
@@ -162,13 +166,14 @@ const BigQueryForm: FC<{
                   >
                     {loadingDatasetOptions ? "Loading..." : "Test Connection"}
                   </Button>
-                ) : (
+                ) : null}
+                {testConnectionResults?.message ? (
                   <div
                     className={`alert alert-${testConnectionResults.status}`}
                   >
                     {testConnectionResults.message}
                   </div>
-                )}
+                ) : null}
               </>
             ) : (
               <div className="alert alert-info">
@@ -195,13 +200,14 @@ const BigQueryForm: FC<{
           Default Dataset{" "}
           <Tooltip body="The default dataset is where your experiment assignments are stored. GrowthBook uses this to create default queries that define working assignments and metrics. This value can be edited later if needed." />
         </label>
-        {datasetOptions.length > 0 ? (
+        {testConnectionResults &&
+        testConnectionResults?.datasetOptions.length > 0 ? (
           <SelectField
             placeholder="Choose a dataset or create a new one..."
             name="defaultDataset"
             autoComplete="off"
             sort={false}
-            options={datasetOptions.map((option) => ({
+            options={testConnectionResults.datasetOptions.map((option) => ({
               label: option,
               value: option,
             }))}

@@ -866,27 +866,19 @@ export async function fetchBigQueryDatasets(
 ) {
   const { projectId, client_email, private_key } = req.body;
 
-  const client = new bq.BigQuery({
-    projectId,
-    credentials: { client_email, private_key },
-  });
-
-  const datasetIds: string[] = [];
-
   try {
+    const client = new bq.BigQuery({
+      projectId,
+      credentials: { client_email, private_key },
+    });
+
     const [datasets] = await client.getDatasets();
 
-    datasets.forEach((dataset) => {
-      if (dataset.id) {
-        datasetIds.push(dataset.id);
-      }
+    res.status(200).json({
+      status: 200,
+      datasets: datasets.map((dataset) => dataset.id).filter(Boolean),
     });
   } catch (e) {
     throw new Error(e.message);
   }
-
-  res.status(200).json({
-    status: 200,
-    datasets: datasetIds,
-  });
 }
