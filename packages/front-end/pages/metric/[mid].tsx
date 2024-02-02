@@ -1197,8 +1197,7 @@ const MetricPage: FC = () => {
                       </li>
                       <li>
                         <span className="text-gray">
-                          {` -
-                        Require conversions to happen within `}
+                          {`Require conversions to happen within `}
                         </span>
                         <strong>
                           {metric.windowSettings.windowValue}{" "}
@@ -1211,7 +1210,6 @@ const MetricPage: FC = () => {
                             ? " plus the conversion delay"
                             : ""
                         }`}</span>
-                        .
                       </li>
                     </>
                   ) : metric.windowSettings.type === "lookback" ? (
@@ -1227,7 +1225,7 @@ const MetricPage: FC = () => {
                           {metric.windowSettings.windowValue}{" "}
                           {metric.windowSettings.windowUnit}
                         </strong>
-                        <span className="text-gray"> of the experiment.</span>
+                        <span className="text-gray"> of the experiment</span>
                       </li>
                     </>
                   ) : (
