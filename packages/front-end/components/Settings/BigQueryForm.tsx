@@ -160,6 +160,9 @@ const BigQueryForm: FC<{
                 testConnectionResults?.status !== "success" ? (
                   <Button
                     color="primary"
+                    className={
+                      testConnectionResults?.status !== "success" ? "mb-2" : ""
+                    }
                     onClick={async () => {
                       testConnection();
                     }}
