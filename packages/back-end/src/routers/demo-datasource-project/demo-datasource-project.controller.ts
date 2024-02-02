@@ -28,6 +28,7 @@ import { ExperimentSnapshotAnalysisSettings } from "../../../types/experiment-sn
 import { getMetricMap } from "../../models/MetricModel";
 import { createFeature } from "../../models/FeatureModel";
 import { getFactTableMap } from "../../models/FactTableModel";
+import { MetricWindowSettings } from "../../../types/fact-table";
 
 // region Constants for Demo Datasource
 
@@ -63,16 +64,16 @@ const ASSET_OWNER = "";
 const DEMO_TAGS = ["growthbook-demo"];
 
 // Metric constants
+const CONVERSION_WINDOW_SETTINGS: MetricWindowSettings = {
+  type: "conversion",
+  windowUnit: "hours",
+  windowValue: 72,
+  delayHours: 0,
+};
 const DENOMINATOR_METRIC_NAME = "Purchases - Number of Orders (72 hour window)";
 const DEMO_METRICS: Pick<
   MetricInterface,
-  | "name"
-  | "description"
-  | "type"
-  | "sql"
-  | "conversionWindowHours"
-  | "conversionDelayHours"
-  | "aggregation"
+  "name" | "description" | "type" | "sql" | "windowSettings" | "aggregation"
 >[] = [
   {
     name: "Purchases - Total Revenue (72 hour window)",
@@ -80,12 +81,14 @@ const DEMO_METRICS: Pick<
     type: "revenue",
     sql:
       "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value\nFROM orders",
+    windowSettings: CONVERSION_WINDOW_SETTINGS,
   },
   {
     name: "Purchases - Any Order (72 hour window)",
     description: "Whether the user places any order or not (0/1)",
     type: "binomial",
     sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp\nFROM orders",
+    windowSettings: CONVERSION_WINDOW_SETTINGS,
   },
   {
     name: DENOMINATOR_METRIC_NAME,
@@ -93,14 +96,19 @@ const DEMO_METRICS: Pick<
     type: "count",
     sql:
       "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\n1 AS value\nFROM orders",
+    windowSettings: CONVERSION_WINDOW_SETTINGS,
   },
   {
     name: "Retention - [1, 14) Days",
     description:
       "Whether the user logged in 1-14 days after experiment exposure",
     type: "binomial",
-    conversionDelayHours: 24,
-    conversionWindowHours: 144 + 168,
+    windowSettings: {
+      type: "conversion",
+      delayHours: 24,
+      windowUnit: "days",
+      windowValue: 13,
+    },
     sql:
       "SELECT\nuserId AS user_id,\ntimestamp AS timestamp\nFROM pages WHERE path = '/'",
   },
@@ -109,7 +117,12 @@ const DEMO_METRICS: Pick<
     description:
       "Count of times the user was active in the next 7 days after exposure",
     type: "count",
-    conversionWindowHours: 168,
+    windowSettings: {
+      type: "conversion",
+      delayHours: 0,
+      windowUnit: "days",
+      windowValue: 7,
+    },
     aggregation: "COUNT(DISTINCT value)",
     sql:
       "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\nDATE_TRUNC('day', timestamp) AS value\nFROM pages WHERE path = '/'",
