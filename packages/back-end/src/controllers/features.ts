@@ -897,6 +897,9 @@ export async function postFeatureSync(
     rules: {},
     defaultValue: data.defaultValue ?? feature.defaultValue,
   };
+
+  let needsNewRevision = !isEqual(feature.defaultValue, updates.defaultValue);
+
   environments.forEach((env) => {
     // Revision Changes
     changes.rules[env] =
@@ -910,11 +913,17 @@ export async function postFeatureSync(
       enabled: feature.environmentSettings?.[env]?.enabled ?? false,
       rules: changes.rules[env],
     };
-  });
 
-  const needsNewRevision =
-    !isEqual(updates.environmentSettings, feature.environmentSettings) ||
-    !isEqual(feature.defaultValue, updates.defaultValue);
+    if (
+      data.environmentSettings?.[env] &&
+      !isEqual(
+        data.environmentSettings[env].rules || [],
+        feature.environmentSettings?.[env]?.rules || []
+      )
+    ) {
+      needsNewRevision = true;
+    }
+  });
 
   if (needsNewRevision) {
     const revision = await createRevision({
