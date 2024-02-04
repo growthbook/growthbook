@@ -1,8 +1,11 @@
 import { FeatureInterface } from "back-end/types/feature";
-import { useState, useMemo } from "react";
+import { useState, useMemo, ChangeEvent } from "react";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { autoMerge, mergeResultHasChanges } from "shared/util";
 import { Callout, Flex, RadioGroup, TextArea, Text } from "@radix-ui/themes";
+import { useForm } from "react-hook-form";
+import { ReviewSubmittedType } from "@/../back-end/src/models/FeatureRevisionModel";
+
 import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
@@ -55,7 +58,14 @@ export default function RequestReviewModal({
   }, [revision, baseRevision, liveRevision, environments]);
 
   const [comment, setComment] = useState(revision?.comment || "");
-
+  const submitReviewform = useForm<{
+    reviewStatus: ReviewSubmittedType;
+    comment: string;
+  }>({
+    defaultValues: {
+      reviewStatus: "Comment",
+    },
+  });
   const submitButton = async () => {
     if (!isPendingReview) {
       try {
@@ -72,7 +82,6 @@ export default function RequestReviewModal({
       }
       await mutate();
     } else if (canReview) {
-      console.log("setting it to false");
       setShowSumbmitReview(true);
     }
   };
@@ -122,10 +131,6 @@ export default function RequestReviewModal({
   );
 
   const hasChanges = mergeResultHasChanges(mergeResult);
-
-  const submitReview = () => {
-    return;
-  };
 
   const renderRequestAndViewModal = () => {
     return (
@@ -221,28 +226,94 @@ export default function RequestReviewModal({
         header={"Review Draft Changes"}
         cta={"submit"}
         size="max"
-        submit={submitReview}
+        includeCloseCta={false}
+        submit={submitReviewform.handleSubmit(async (data) => {
+          console.log("we are here", data.reviewStatus, comment);
+          try {
+            await apiCall(
+              `/feature/${feature.id}/${revision?.version}/submit-review`,
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  comment: data.comment,
+                  review: data.reviewStatus,
+                }),
+              }
+            );
+          } catch (e) {
+            mutate();
+            throw e;
+          }
+          await mutate();
+        })}
+        secondaryCTA={
+          <LegacyButton
+            color="outline"
+            onClick={async () => setShowSumbmitReview(false)}
+          >
+            Back
+          </LegacyButton>
+        }
       >
-        <TextArea placeholder="leave a commen" />
-        <RadioGroup.Root defaultValue="1">
-          <Flex gap="2" direction="column">
-            <Text as="label" size="2">
+        <div style={{ padding: "0 30px" }}>
+          <Text weight="bold">
+            Leave a Comment
+            <TextArea
+              placeholder="leave a comment"
+              mb="5"
+              {...submitReviewform.register("comment")}
+            />
+          </Text>
+          <RadioGroup.Root
+            defaultValue="Comment"
+            size="3"
+            onChange={(e: ChangeEvent<HTMLInputElement>) => {
+              if (e.target.checked) {
+                console.log(e.target.value, "target-value");
+                submitReviewform.setValue(
+                  "reviewStatus",
+                  e.target.value as ReviewSubmittedType
+                );
+              }
+            }}
+          >
+            <Flex gap="2" direction="column">
               <Flex gap="2">
-                <RadioGroup.Item value="1" /> Comment
+                <RadioGroup.Item value="Comment" />
+                <div>
+                  <Text as="div" size="3" weight="bold">
+                    Comment
+                  </Text>
+                  <Text as="div" size="2">
+                    Submit general feedback without explicit approval.
+                  </Text>
+                </div>
               </Flex>
-            </Text>
-            <Text as="label" size="2">
               <Flex gap="2">
-                <RadioGroup.Item value="2" /> Request Changes
+                <RadioGroup.Item value="Requested Changes" />
+                <div>
+                  <Text as="div" size="3" weight="bold">
+                    Request Changes
+                  </Text>
+                  <Text as="div" size="2">
+                    Submit feedback that must be addressed before publishing.
+                  </Text>
+                </div>
               </Flex>
-            </Text>
-            <Text as="label" size="2">
               <Flex gap="2">
-                <RadioGroup.Item value="3" /> Approve
+                <RadioGroup.Item value="Approved" />
+                <div>
+                  <Text as="div" size="3" weight="bold">
+                    Approve
+                  </Text>
+                  <Text as="div" size="2">
+                    Submit feedback and approve for publishing.
+                  </Text>
+                </div>
               </Flex>
-            </Text>
-          </Flex>
-        </RadioGroup.Root>
+            </Flex>
+          </RadioGroup.Root>
+        </div>
       </Modal>
     );
   };

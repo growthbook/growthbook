@@ -90,7 +90,6 @@ function App({
         <title>GrowthBook</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
-      <div className="guy-testing"></div>
       {ready ? (
         preAuth ? (
           <Theme accentColor="violet" panelBackground="solid" radius="small">

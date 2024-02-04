@@ -546,7 +546,7 @@ export async function postFeatureRequestReview(
   });
 }
 
-export async function postFeaturetReviewOrComment(
+export async function postFeatureReviewOrComment(
   req: AuthRequest<
     {
       comment: string;
@@ -568,8 +568,8 @@ export async function postFeaturetReviewOrComment(
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
-  if (revision.status !== "draft") {
-    throw new Error("Can only request review if is a draft");
+  if (revision.status === "draft") {
+    throw new Error("Can only review if review is requested");
   }
   await submitReviewAndComments(
     revision,
@@ -596,9 +596,6 @@ export async function postFeaturePublish(
   const { comment, mergeResultSerialized } = req.body;
   const { id, version } = req.params;
   const feature = await getFeature(org.id, id);
-  if (org.settings?.requireReviews && !req.superAdmin) {
-    throw new Error("review Required before publishing");
-  }
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -606,8 +603,15 @@ export async function postFeaturePublish(
   req.checkPermissions("manageFeatures", feature.project);
 
   const revision = await getRevision(org.id, feature.id, parseInt(version));
+
   if (!revision) {
     throw new Error("Could not find feature revision");
+  }
+  if (
+    (org.settings?.requireReviews && !req.superAdmin) ||
+    revision.status === "approved"
+  ) {
+    throw new Error("review Required before publishing");
   }
   if (revision.status !== "draft") {
     throw new Error("Can only publish Draft revisions");

@@ -172,7 +172,9 @@ export default function FeaturePage() {
     }
 
     // If there's an active draft, show that by default, otherwise show the live version
-    const draft = data.revisions.find((r) => r.status === "draft");
+    const draft = data.revisions.find(
+      (r) => r.status === "draft" || r.status === "approved"
+    );
     setVersion(draft ? draft.version : data.feature.version);
   }, [data, version, router.query]);
 
@@ -252,8 +254,11 @@ export default function FeaturePage() {
   );
 
   const isDraft = revision?.status === "draft";
-  const isPendingReview = revision?.status === "pending-review";
-  console.log(isPendingReview, "isPending Review");
+  const isPendingReview =
+    revision?.status === "pending-review" ||
+    revision?.status === "changes-requested" ||
+    "approved";
+  const approved = revision?.status === "approved";
   const isLive = revision?.version === feature.version;
   const isArchived = feature.archived;
 
@@ -286,13 +291,14 @@ export default function FeaturePage() {
   const schemaDescriptionItems = [...schemaDescription.keys()];
 
   const hasDraftPublishPermission =
-    isDraft &&
-    permissions.check(
-      "publishFeatures",
-      projectId,
-      getAffectedRevisionEnvs(data.feature, revision, environments)
-    ) &&
-    !requireReviews;
+    approved ||
+    (isDraft &&
+      !requireReviews &&
+      permissions.check(
+        "publishFeatures",
+        projectId,
+        getAffectedRevisionEnvs(data.feature, revision, environments)
+      ));
 
   const drafts = data.revisions.filter(
     (r) => r.status === "draft" || r.status === "pending-review"
@@ -1042,7 +1048,7 @@ export default function FeaturePage() {
                 )}
               </div>
             </div>
-          ) : isDraft || isPendingReview ? (
+          ) : isDraft || isPendingReview || approved ? (
             <div
               className="px-3 py-2 alert alert-warning mb-0"
               style={{
@@ -1060,7 +1066,7 @@ export default function FeaturePage() {
                     : "Make changes below and publish when you are ready"}
                 </div>
                 <div className="ml-auto"></div>
-                {mergeResult?.success && requireReviews && (
+                {mergeResult?.success && requireReviews && !approved && (
                   <div>
                     <Tooltip
                       body={
@@ -1082,7 +1088,8 @@ export default function FeaturePage() {
                       >
                         {isPendingReview ? (
                           <>
-                            <BsClock /> Awaiting Approval
+                            <BsClock />
+                            Awaiting Approval
                           </>
                         ) : (
                           <>
@@ -1093,7 +1100,7 @@ export default function FeaturePage() {
                     </Tooltip>
                   </div>
                 )}
-                {mergeResult?.success && !requireReviews && (
+                {mergeResult?.success && (!requireReviews || approved) && (
                   <div>
                     <Tooltip
                       body={

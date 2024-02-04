@@ -43,7 +43,6 @@ function RevisionLogRow({
   } catch (e) {
     // Ignore
   }
-  const showCommentInTitle = log.action === "comment" && !!comment;
   const openContent = () => {
     if (commentsOnly && !!comment) {
       return <div>{comment}</div>;
@@ -52,7 +51,7 @@ function RevisionLogRow({
     }
   };
   console.log(commentsOnly);
-  const openClickClassNames = clsx("mb-2", "d-flex", {
+  const openClickClassNames = clsx("mb-2", {
     "cursor-pointer": !commentsOnly,
   });
   return (
@@ -67,19 +66,18 @@ function RevisionLogRow({
         }}
       >
         <h3 className="mb-0">
-          {showCommentInTitle ? (
-            comment
-          ) : (
-            <>
-              {log.action} {log.subject}
-            </>
-          )}
+          <>
+            {log.action} {log.subject}
+          </>
         </h3>
-        {commentsOnly && !!comment && (
+        {commentsOnly ? (
+          <div>{openContent()}</div>
+        ) : (
           <div className="ml-auto">
             {open ? <FaAngleDown /> : <FaAngleRight />}
           </div>
         )}
+        {}
       </div>
       {open && openContent()}
       <div className="d-flex">

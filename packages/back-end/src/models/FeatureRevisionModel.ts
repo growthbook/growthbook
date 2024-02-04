@@ -7,11 +7,7 @@ import {
 } from "../../types/feature-revision";
 import { EventAuditUser, EventAuditUserLoggedIn } from "../events/event-types";
 
-export enum ReviewSubmittedType {
-  COMMENT = "Comment",
-  APPROVED = "Approved",
-  REQUESTED_CHANGES = "Requested Changes",
-}
+export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
 const featureRevisionSchema = new mongoose.Schema({
   organization: String,
@@ -367,10 +363,10 @@ export async function submitReviewAndComments(
   const action = reviewSubmittedType;
   let status = "pending-review";
   switch (reviewSubmittedType) {
-    case ReviewSubmittedType.APPROVED:
+    case "Approved":
       status = "approved";
       break;
-    case ReviewSubmittedType.REQUESTED_CHANGES:
+    case "Requested Changes":
       status = "changes-requested";
       break;
     default:
