@@ -35,6 +35,9 @@ jobs:
       - name: Debug flags path
         run: |
           cat flags.json
+      - name: Add .gbignore to avoid scanning flags.json
+        run: |
+          echo "flags.json" >> .gbignore
       - name: GrowthBook Code References
         uses: growthbook/coderefs-github-action@2.11.5-10
         with:
