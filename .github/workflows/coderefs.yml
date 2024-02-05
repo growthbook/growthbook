@@ -47,9 +47,13 @@ jobs:
         run: |
           if test -f "coderefs.json"; then
             cat coderefs.json
+          else
+            echo "No coderefs.json file found."
           fi
       - name: Upload coderefs.json
         run: |
           if test -f "coderefs.json"; then
             curl -XPOST -H "Authorization: Bearer secret_admin_gnsQheHRYbBPwh16GBFtGNn6ofwzMtv1FgM7jfDyTww" -H "Content-Type: application/json" -d @coderefs.json "https://growthbook-3100-pr-2066-bttf.growthbook.okteto.dev/api/v1/code-refs"
+          else
+            echo "No coderefs.json file found."
           fi
