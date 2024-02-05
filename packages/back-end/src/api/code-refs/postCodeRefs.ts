@@ -9,9 +9,8 @@ import {
 
 export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
   async (req): Promise<PostCodeRefsResponse> => {
-    const { repo, branch, platform } = req.query;
-
-    const refsByFeature = groupBy(req.body, "flagKey");
+    const { branch, repoName: repo } = req.body;
+    const refsByFeature = groupBy(req.body.refs, "flagKey");
 
     await Promise.all(
       values(refsByFeature).map(async (refs) => {
@@ -19,7 +18,6 @@ export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
           feature: refs[0].flagKey,
           repo,
           branch,
-          platform,
           codeRefs: refs,
           organization: req.context.org,
         });

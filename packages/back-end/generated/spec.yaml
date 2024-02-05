@@ -3134,10 +3134,6 @@ paths:
                     type: integer
   /code-refs:
     post:
-      parameters:
-        - $ref: '#/components/parameters/repo'
-        - $ref: '#/components/parameters/branch'
-        - $ref: '#/components/parameters/platform'
       tags:
         - code-references
       summary: Submit list of code references
@@ -3153,26 +3149,37 @@ paths:
         content:
           application/json:
             schema:
-              type: array
-              items:
-                type: object
-                required:
-                  - filePath
-                  - startingLineNumber
-                  - lines
-                  - flagKey
-                  - contentHash
-                properties:
-                  filePath:
-                    type: string
-                  startingLineNumber:
-                    type: integer
-                  lines:
-                    type: string
-                  flagKey:
-                    type: string
-                  contentHash:
-                    type: string
+              type: object
+              required:
+                - branch
+                - repoName
+                - refs
+              properties:
+                branch:
+                  type: string
+                repoName:
+                  type: string
+                refs:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - filePath
+                      - startingLineNumber
+                      - lines
+                      - flagKey
+                      - contentHash
+                    properties:
+                      filePath:
+                        type: string
+                      startingLineNumber:
+                        type: integer
+                      lines:
+                        type: string
+                      flagKey:
+                        type: string
+                      kontentHash:
+                        type: string
       responses:
         '200':
           content:

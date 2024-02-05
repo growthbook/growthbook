@@ -337,7 +337,7 @@ export const postBulkImportFactsValidator = {
 };
 
 export const postCodeRefsValidator = {
-  bodySchema: z.array(z.object({"filePath":z.string(),"startingLineNumber":z.number().int(),"lines":z.string(),"flagKey":z.string(),"contentHash":z.string()})),
-  querySchema: z.object({"repo":z.string(),"branch":z.string(),"platform":z.enum(["github","gitlab","bitbucket"]).optional()}).strict(),
+  bodySchema: z.object({"branch":z.string(),"repoName":z.string(),"refs":z.array(z.object({"filePath":z.string(),"startingLineNumber":z.number().int(),"lines":z.string(),"flagKey":z.string(),"kontentHash":z.string().optional()}))}).strict(),
+  querySchema: z.never(),
   paramsSchema: z.never(),
 };
