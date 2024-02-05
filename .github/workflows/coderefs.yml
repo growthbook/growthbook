@@ -11,6 +11,7 @@ jobs:
     steps:
       - name: Fetch Data
         run: |
+          echo "${{ secrets.GB_API_HOST }}/api/v1/feature-keys"
           curl -H "Authorization: Bearer ${{ secrets.GB_API_TOKEN }}" "${{ secrets.GB_API_HOST }}/api/v1/feature-keys" -o flags.json
       - name: Upload flags.json
         uses: actions/upload-artifact@v3
