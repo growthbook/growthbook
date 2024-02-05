@@ -45,7 +45,11 @@ jobs:
           repoName: ${{ github.repository }}
       - name: Debug coderefs.json
         run: |
-          [ -f "coderefs.json" ] && cat "coderefs.json"
+          if test -f "coderefs.json"; then
+            cat coderefs.json
+          fi
       - name: Upload coderefs.json
         run: |
-          [ -f "coderefs.json" ] && curl -XPOST -H "Authorization: Bearer secret_admin_gnsQheHRYbBPwh16GBFtGNn6ofwzMtv1FgM7jfDyTww" -H "Content-Type: application/json" -d @coderefs.json "https://growthbook-3100-pr-2066-bttf.growthbook.okteto.dev/api/v1/code-refs"
+          if test -f "coderefs.json"; then
+            curl -XPOST -H "Authorization: Bearer secret_admin_gnsQheHRYbBPwh16GBFtGNn6ofwzMtv1FgM7jfDyTww" -H "Content-Type: application/json" -d @coderefs.json "https://growthbook-3100-pr-2066-bttf.growthbook.okteto.dev/api/v1/code-refs"
+          fi
