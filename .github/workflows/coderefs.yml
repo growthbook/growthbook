@@ -33,15 +33,16 @@ jobs:
         with:
           name: flags-json
       - name: GrowthBook Code References
-        uses: growthbook/coderefs-github-action@2.11.5-8
+        uses: growthbook/coderefs-github-action@2.11.5-10
         with:
           flagsPath: flags.json
           dir: ${{ github.workspace }}
           # head_ref only available on pull request eventss, ref_name for push events
           branch: ${{ github.head_ref || github.ref_name }} 
+          repoName: ${{ github.repository }}
       - name: Debug coderefs.json
         run: |
           cat coderefs.json
       - name: Upload coderefs.json
         run: |
-          curl -XPOST -H "Authorization: Bearer secret_admin_CRZwgOBCa4wUeN4yWiWaYvn3b70jLKAs1MidMNf3Z1w" -H "Content-Type: application/json" -d @coderefs.json --data-urlencode "repo=${{ github.repository }}" --data-urlencode "branch=${{ github.head_ref || github.ref_name }}" "https://growthbook-3100-pr-2066-bttf.growthbook.okteto.dev/api/v1/code-refs"
+          curl -XPOST -H "Authorization: Bearer secret_admin_CRZwgOBCa4wUeN4yWiWaYvn3b70jLKAs1MidMNf3Z1w" -H "Content-Type: application/json" -d @coderefs.json "https://growthbook-3100-pr-2066-bttf.growthbook.okteto.dev/api/v1/code-refs"
