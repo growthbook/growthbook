@@ -11,7 +11,7 @@ jobs:
     steps:
       - name: Fetch Data
         run: |
-          curl -H "Authorization: Bearer secret_admin_CRZwgOBCa4wUeN4yWiWaYvn3b70jLKAs1MidMNf3Z1w" "https://growthbook-3100-pr-2066-bttf.growthbook.okteto.dev/api/v1/feature-keys" -o flags.json
+          curl -H "Authorization: Bearer secret_admin_gnsQheHRYbBPwh16GBFtGNn6ofwzMtv1FgM7jfDyTww" "https://growthbook-3100-pr-2066-bttf.growthbook.okteto.dev/api/v1/feature-keys" -o flags.json
       - name: Upload flags.json
         uses: actions/upload-artifact@v3
         with:
@@ -48,4 +48,4 @@ jobs:
           cat coderefs.json
       - name: Upload coderefs.json
         run: |
-          curl -XPOST -H "Authorization: Bearer secret_admin_CRZwgOBCa4wUeN4yWiWaYvn3b70jLKAs1MidMNf3Z1w" -H "Content-Type: application/json" -d @coderefs.json "https://growthbook-3100-pr-2066-bttf.growthbook.okteto.dev/api/v1/code-refs"
+          curl -XPOST -H "Authorization: Bearer secret_admin_gnsQheHRYbBPwh16GBFtGNn6ofwzMtv1FgM7jfDyTww" -H "Content-Type: application/json" -d @coderefs.json "https://growthbook-3100-pr-2066-bttf.growthbook.okteto.dev/api/v1/code-refs"
