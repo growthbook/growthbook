@@ -11,7 +11,6 @@ jobs:
     steps:
       - name: Fetch Data
         run: |
-          echo "${{ secrets.GB_API_HOST }}/api/v1/feature-keys"
           curl -H "Authorization: Bearer ${{ secrets.GB_API_TOKEN }}" "${{ secrets.GB_API_HOST }}/api/v1/feature-keys" -o flags.json
       - name: Upload flags.json
         uses: actions/upload-artifact@v3
@@ -33,9 +32,6 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: flags-json
-      - name: Debug flags path
-        run: |
-          cat flags.json
       - name: Add .gbignore to avoid scanning flags.json
         run: |
           echo "flags.json" >> .gbignore
@@ -47,13 +43,6 @@ jobs:
           # head_ref only available on pull request eventss, ref_name for push events
           branch: ${{ github.head_ref || github.ref_name }} 
           repoName: ${{ github.repository }}
-      - name: Debug coderefs.json
-        run: |
-          if test -f "coderefs.json"; then
-            cat coderefs.json
-          else
-            echo "No coderefs.json file found."
-          fi
       - name: Upload coderefs.json
         run: |
           if test -f "coderefs.json"; then
