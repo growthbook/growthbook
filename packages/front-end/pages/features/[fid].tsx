@@ -80,7 +80,7 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
-import CompareRulesModal from "@/components/Features/CompareRulesModal";
+import CompareRuleDiffModal from "@/components/Features/CompareRuleDiffModal";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -313,14 +313,23 @@ export default function FeaturePage() {
         />
       )}
       {showCompareView && (
-        <CompareRulesModal
+        // <CompareRulesModal
+        //   close={() => setShowCompareView(false)}
+        //   feature={feature}
+        //   mutate={mutate}
+        //   version={currentVersion}
+        //   setVersion={setVersion}
+        //   setRuleModal={setRuleModal}
+        //   experimentsMap={experimentsMap}
+        // />
+        <CompareRuleDiffModal
           close={() => setShowCompareView(false)}
           feature={feature}
-          mutate={mutate}
-          version={currentVersion}
-          setVersion={setVersion}
-          setRuleModal={setRuleModal}
-          experimentsMap={experimentsMap}
+          // mutate={mutate}
+          // version={currentVersion}
+          // setVersion={setVersion}
+          // setRuleModal={setRuleModal}
+          // experimentsMap={experimentsMap}
         />
       )}
       {editOwnerModal && (
