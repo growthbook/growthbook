@@ -1,7 +1,7 @@
+import { validateCondition } from "shared/util";
 import { PostSavedGroupResponse } from "../../../types/openapi";
 import {
   createSavedGroup,
-  getRuntimeSavedGroup,
   toSavedGroupApiInterface,
 } from "../../models/SavedGroupModel";
 import { createApiRequestHandler } from "../../util/handler";
@@ -9,31 +9,57 @@ import { postSavedGroupValidator } from "../../validators/openapi";
 
 export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
   async (req): Promise<PostSavedGroupResponse> => {
-    const { name, attributeKey, values, source } = req.body;
-    let { owner } = req.body;
+    req.checkPermissions("manageSavedGroups");
 
-    if (!owner) {
-      owner = "";
-    }
+    const { name, attributeKey, values, condition, owner } = req.body;
+    let { type } = req.body;
 
-    // If this is a runtime saved group, make sure the attributeKey is unique
-    if (source === "runtime") {
-      const existing = await getRuntimeSavedGroup(
-        attributeKey,
-        req.organization.id
-      );
-      if (existing) {
-        throw new Error("A runtime saved group with that key already exists");
+    // Infer type from arguments if not specified
+    if (!type) {
+      if (condition) {
+        type = "condition";
+      } else if (attributeKey && values) {
+        type = "list";
       }
     }
 
-    const savedGroup = await createSavedGroup({
-      source: source || "inline",
+    // If this is a condition group, make sure the condition is valid and not empty
+    if (type === "condition") {
+      if (attributeKey || values) {
+        throw new Error(
+          "Cannot specify attributeKey or values for condition groups"
+        );
+      }
+
+      const conditionRes = validateCondition(condition);
+      if (!conditionRes.success) {
+        throw new Error(conditionRes.error);
+      }
+      if (conditionRes.empty) {
+        throw new Error("Condition cannot be empty");
+      }
+    }
+    // If this is a list group, make sure the attributeKey is specified
+    else if (type === "list") {
+      if (!attributeKey || !values) {
+        throw new Error(
+          "Must specify an attributeKey and values for list groups"
+        );
+      }
+      if (condition) {
+        throw new Error("Cannot specify a condition for list groups");
+      }
+    } else {
+      throw new Error("Must specify a saved group type");
+    }
+
+    const savedGroup = await createSavedGroup(req.organization.id, {
+      type: type,
       values: values || [],
       groupName: name,
-      owner,
+      owner: owner || "",
+      condition: condition || "",
       attributeKey,
-      organization: req.organization.id,
     });
 
     return {

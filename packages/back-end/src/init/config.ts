@@ -2,6 +2,7 @@ import { readFileSync, existsSync, statSync } from "fs";
 import path from "path";
 import { env } from "string-env-interpolation";
 import yaml from "js-yaml";
+import { hasReadAccess } from "shared/permissions";
 import {
   EMAIL_ENABLED,
   ENVIRONMENT,
@@ -20,10 +21,11 @@ import {
 import { MetricInterface } from "../../types/metric";
 import { DimensionInterface } from "../../types/dimension";
 import { encryptParams } from "../services/datasource";
-import { OrganizationSettings } from "../../types/organization";
+import { OrganizationSettings, ReqContext } from "../../types/organization";
 import { upgradeMetricDoc, upgradeDatasourceObject } from "../util/migrations";
 import { logger } from "../util/logger";
 import { SegmentInterface } from "../../types/segment";
+import { ApiReqContext } from "../../types/api";
 
 export type ConfigFile = {
   organization?: {
@@ -174,26 +176,31 @@ export function getConfigDatasources(
   });
 }
 
-export function getConfigMetrics(organization: string): MetricInterface[] {
+export function getConfigMetrics(
+  context: ReqContext | ApiReqContext
+): MetricInterface[] {
   reloadConfigIfNeeded();
   if (!config || !config.metrics) return [];
   const metrics = config.metrics;
 
-  return Object.keys(metrics).map((id) => {
-    const m = metrics[id];
+  return Object.keys(metrics)
+    .map((id) => {
+      const m = metrics[id];
 
-    return upgradeMetricDoc({
-      tags: [],
-      id,
-      ...m,
-      description: m?.description || "",
-      organization,
-      dateCreated: null,
-      dateUpdated: null,
-      queries: [],
-      runStarted: null,
-    });
-  });
+      return upgradeMetricDoc({
+        tags: [],
+        id,
+        ...m,
+        description: m?.description || "",
+        organization: context.org.id,
+        dateCreated: null,
+        dateUpdated: null,
+        queries: [],
+        runStarted: null,
+        managedBy: "config",
+      });
+    })
+    .filter((m) => hasReadAccess(context.readAccessFilter, m.projects || []));
 }
 
 export function getConfigDimensions(

@@ -1,0 +1,34 @@
+summary: Get all fact metrics
+tags:
+  - fact-metrics
+parameters:
+  - $ref: "../parameters.yaml#/limit"
+  - $ref: "../parameters.yaml#/offset"
+  - $ref: "../parameters.yaml#/datasourceId"
+  - $ref: "../parameters.yaml#/projectId"
+  - name: factTableId
+    in: query
+    description: Filter by Fact Table Id (for ratio metrics, we only look at the numerator)
+    schema:
+      type: string
+operationId: listFactMetrics
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl https://api.growthbook.io/api/v1/fact-metrics \
+        -u secret_abc123DEF456:
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          allOf:
+            - type: object
+              required:
+                - factMetrics
+              properties:
+                factMetrics:
+                  type: array
+                  items:
+                    $ref: "../schemas/FactMetric.yaml"
+            - $ref: "../schemas/PaginationFields.yaml"

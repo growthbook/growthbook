@@ -7,17 +7,25 @@ import {
   EXPOSURE_DATE_DIMENSION_NAME,
 } from "shared/constants";
 import { putBaselineVariationFirst } from "shared/util";
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  isBinomialMetric,
+  isFactMetric,
+  isRatioMetric,
+  isRegressionAdjusted,
+} from "shared/experiments";
 import { hoursBetween } from "shared/dates";
 import { ExperimentMetricAnalysis } from "../../types/stats";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
+  ExperimentFactMetricsQueryResponseRows,
   ExperimentMetricQueryResponseRows,
   ExperimentResults,
 } from "../types/Integration";
 import {
   ExperimentReportResultDimension,
   ExperimentReportResults,
+  ExperimentReportVariation,
 } from "../../types/report";
 import { checkSrm } from "../util/stats";
 import { logger } from "../util/logger";
@@ -32,9 +40,10 @@ import {
 import { QueryMap } from "../queryRunners/QueryRunner";
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "../integrations/SqlIntegration";
 
-// These same type definitions exist in gbstats.py
+// Keep these interfaces in sync with gbstats
 export interface AnalysisSettingsForStatsEngine {
   var_names: string[];
+  var_ids: string[];
   weights: number[];
   baseline_index: number;
   dimension: string;
@@ -46,16 +55,29 @@ export interface AnalysisSettingsForStatsEngine {
   alpha: number;
   max_dimensions: number;
 }
-export interface MetricDataForStatsEngine {
-  metric: string;
-  rows: ExperimentMetricQueryResponseRows;
+
+export interface MetricSettingsForStatsEngine {
+  id: string;
+  name: string;
   inverse: boolean;
-  multiple_exposures: number;
+  statistic_type: "mean" | "ratio" | "mean_ra";
+  main_metric_type: "count" | "binomial";
+  denominator_metric_type?: "count" | "binomial";
+  covariate_metric_type?: "count" | "binomial";
 }
+
+export interface QueryResultsForStatsEngine {
+  rows:
+    | ExperimentMetricQueryResponseRows
+    | ExperimentFactMetricsQueryResponseRows;
+  metrics: (string | null)[];
+  sql?: string;
+}
+
 export interface DataForStatsEngine {
-  var_id_map: { [key: string]: number };
   analyses: AnalysisSettingsForStatsEngine[];
-  metrics: MetricDataForStatsEngine[];
+  metrics: Record<string, MetricSettingsForStatsEngine>;
+  query_results: QueryResultsForStatsEngine[];
 }
 
 export const MAX_DIMENSIONS = 20;
@@ -79,82 +101,67 @@ export function getAvgCPU(pre: os.CpuInfo[], post: os.CpuInfo[]) {
   return { user: user / total, system: system / total };
 }
 
+export function getAnalysisSettingsForStatsEngine(
+  settings: ExperimentSnapshotAnalysisSettings,
+  variations: ExperimentReportVariation[],
+  coverage: number,
+  phaseLengthDays: number
+) {
+  const sortedVariations = putBaselineVariationFirst(
+    variations,
+    settings.baselineVariationIndex ?? 0
+  );
+
+  const sequentialTestingTuningParameterNumber =
+    Number(settings.sequentialTestingTuningParameter) ||
+    DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+  const pValueThresholdNumber =
+    Number(settings.pValueThreshold) || DEFAULT_P_VALUE_THRESHOLD;
+
+  const analysisData: AnalysisSettingsForStatsEngine = {
+    var_names: sortedVariations.map((v) => v.name),
+    var_ids: sortedVariations.map((v) => v.id),
+    weights: sortedVariations.map((v) => v.weight * coverage),
+    baseline_index: settings.baselineVariationIndex ?? 0,
+    dimension: settings.dimensions[0] || "",
+    stats_engine: settings.statsEngine,
+    sequential_testing_enabled: settings.sequentialTesting ?? false,
+    sequential_tuning_parameter: sequentialTestingTuningParameterNumber,
+    difference_type: settings.differenceType,
+    phase_length_days: phaseLengthDays,
+    alpha: pValueThresholdNumber,
+    max_dimensions:
+      settings.dimensions[0]?.substring(0, 8) === "pre:date"
+        ? 9999
+        : MAX_DIMENSIONS,
+  };
+  return analysisData;
+}
+
 export async function analyzeExperimentMetric(
   params: ExperimentMetricAnalysisParams
 ): Promise<ExperimentMetricAnalysis> {
-  const { variations, metrics, phaseLengthHours, coverage, analyses } = params;
+  const {
+    variations,
+    metrics,
+    phaseLengthHours,
+    coverage,
+    analyses,
+    queryResults,
+  } = params;
 
   const phaseLengthDays = Number(phaseLengthHours / 24);
-  const variationIdMap: { [key: string]: number } = {};
-  variations.forEach((v, i) => {
-    variationIdMap[v.id] = i;
-  });
-
-  function isMetricData(
-    data: MetricDataForStatsEngine | null
-  ): data is MetricDataForStatsEngine {
-    return !!data;
-  }
-
-  const metricData: MetricDataForStatsEngine[] = metrics
-    .map((m): MetricDataForStatsEngine | null => {
-      if (!m) return null;
-
-      const { metric, rows } = m;
-
-      const data: MetricDataForStatsEngine = {
-        metric: metric.id,
-        rows,
-        inverse: !!metric.inverse,
-        multiple_exposures:
-          rows.filter((r) => r.variation === "__multiple__")?.[0]?.users || 0,
-      };
-      return data;
-    })
-    .filter(isMetricData);
 
   const statsData: DataForStatsEngine = {
-    var_id_map: variationIdMap,
-    metrics: metricData,
-    analyses: analyses.map(
-      ({
-        dimensions,
-        baselineVariationIndex,
-        differenceType,
-        statsEngine,
-        sequentialTesting,
-        sequentialTestingTuningParameter,
-        pValueThreshold,
-      }) => {
-        const sortedVariations = putBaselineVariationFirst(
-          variations,
-          baselineVariationIndex ?? 0
-        );
-
-        const sequentialTestingTuningParameterNumber =
-          Number(sequentialTestingTuningParameter) ||
-          DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
-        const pValueThresholdNumber =
-          Number(pValueThreshold) || DEFAULT_P_VALUE_THRESHOLD;
-
-        const analysisData: AnalysisSettingsForStatsEngine = {
-          var_names: sortedVariations.map((v) => v.name),
-          weights: sortedVariations.map((v) => v.weight * coverage),
-          baseline_index: baselineVariationIndex ?? 0,
-          dimension: dimensions[0] || "",
-          stats_engine: statsEngine,
-          sequential_testing_enabled: sequentialTesting ?? false,
-          sequential_tuning_parameter: sequentialTestingTuningParameterNumber,
-          difference_type: differenceType,
-          phase_length_days: phaseLengthDays,
-          alpha: pValueThresholdNumber,
-          max_dimensions:
-            dimensions[0]?.substring(0, 8) === "pre:date"
-              ? 9999
-              : MAX_DIMENSIONS,
-        };
-        return analysisData;
-      }
+    metrics: metrics,
+    query_results: queryResults,
+    analyses: analyses.map((a) =>
+      getAnalysisSettingsForStatsEngine(
+        a,
+        variations,
+        coverage,
+        phaseLengthDays
+      )
     ),
   };
 
@@ -202,27 +209,51 @@ print(json.dumps({
   }
 }
 
-export async function analyzeExperimentResults({
-  queryData,
-  analysisSettings,
-  snapshotSettings,
-  variationNames,
-  metricMap,
-}: {
-  queryData: QueryMap;
-  analysisSettings: ExperimentSnapshotAnalysisSettings[];
-  snapshotSettings: ExperimentSnapshotSettings;
-  variationNames: string[];
-  metricMap: Map<string, ExperimentMetricInterface>;
-}): Promise<ExperimentReportResults[]> {
-  const metricRows: {
-    metric: string;
-    rows: ExperimentMetricQueryResponseRows;
-  }[] = [];
+export function getMetricSettingsForStatsEngine(
+  metric: ExperimentMetricInterface,
+  metricMap: Map<string, ExperimentMetricInterface>,
+  regressionAdjustmentEnabled: boolean
+): MetricSettingsForStatsEngine {
+  let denominator =
+    metric.denominator && !isFactMetric(metric)
+      ? metricMap.get(metric.denominator)
+      : undefined;
+  const ratioMetric = isRatioMetric(metric, denominator);
+  const regressionAdjusted =
+    regressionAdjustmentEnabled && isRegressionAdjusted(metric, denominator);
+  const mainMetricType = isBinomialMetric(metric) ? "binomial" : "count";
+  // Fact ratio metrics contain denominator
+  if (isFactMetric(metric) && ratioMetric) {
+    denominator = metric;
+  }
+  return {
+    id: metric.id,
+    name: metric.name,
+    inverse: !!metric.inverse,
+    statistic_type: ratioMetric
+      ? "ratio"
+      : regressionAdjusted
+      ? "mean_ra"
+      : "mean",
+    main_metric_type: mainMetricType,
+    ...(denominator && {
+      denominator_metric_type: isBinomialMetric(denominator)
+        ? "binomial"
+        : "count",
+    }),
+    ...(regressionAdjusted && { covariate_metric_type: mainMetricType }),
+  };
+}
 
+export function getMetricsAndQueryDataForStatsEngine(
+  queryData: QueryMap,
+  metricMap: Map<string, ExperimentMetricInterface>,
+  variations: (SnapshotSettingsVariation | ExperimentReportVariation)[],
+  regressionAdjustmentEnabled: boolean
+) {
+  const queryResults: QueryResultsForStatsEngine[] = [];
+  const metricSettings: Record<string, MetricSettingsForStatsEngine> = {};
   let unknownVariations: string[] = [];
-  let multipleExposures = 0;
-
   // Everything done in a single query (Mixpanel, Google Analytics)
   // Need to convert to the same format as SQL rows
   if (queryData.has("results")) {
@@ -237,14 +268,20 @@ export async function analyzeExperimentResults({
         Object.keys(v.metrics).forEach((metric) => {
           const stats = v.metrics[metric];
           byMetric[metric] = byMetric[metric] || [];
+          const metricInterface = metricMap.get(metric);
+          if (!metricInterface) {
+            return;
+          }
+          metricSettings[metric] = getMetricSettingsForStatsEngine(
+            metricInterface,
+            metricMap,
+            regressionAdjustmentEnabled
+          );
           byMetric[metric].push({
             dimension: row.dimension,
-            variation:
-              snapshotSettings.variations[v.variation]?.id || v.variation + "",
+            variation: variations[v.variation]?.id || v.variation + "",
             users: stats.count,
             count: stats.count,
-            statistic_type: "mean", // no ratio in mixpanel or GA
-            main_metric_type: stats.metric_type,
             main_sum: stats.main_sum,
             main_sum_squares: stats.main_sum_squares,
           });
@@ -253,24 +290,89 @@ export async function analyzeExperimentResults({
     });
 
     Object.keys(byMetric).forEach((metric) => {
-      metricRows.push({
-        metric,
+      queryResults.push({
+        metrics: [metric],
         rows: byMetric[metric],
       });
     });
   }
-  // One query for each metric, can just use the rows directly from the query
+  // One query for each metric (or group of metrics)
   else {
     queryData.forEach((query, key) => {
+      // Multi-metric query
+      if (key.match(/group_/)) {
+        const rows = query.result as ExperimentFactMetricsQueryResponseRows;
+        const metricIds: (string | null)[] = [];
+        for (let i = 0; i < 100; i++) {
+          const prefix = `m${i}_`;
+          if (!rows[0]?.[prefix + "id"]) break;
+
+          const metricId = rows[0][prefix + "id"] as string;
+
+          const metric = metricMap.get(metricId);
+          // skip any metrics somehow missing from map
+          if (metric) {
+            metricIds.push(metricId);
+            metricSettings[metricId] = getMetricSettingsForStatsEngine(
+              metric,
+              metricMap,
+              regressionAdjustmentEnabled
+            );
+          } else {
+            metricIds.push(null);
+          }
+        }
+        queryResults.push({
+          metrics: metricIds,
+          rows: rows,
+          sql: query.query,
+        });
+        return;
+      }
+
+      // Single metric query, just return rows as-is
       const metric = metricMap.get(key);
       if (!metric) return;
-
-      metricRows.push({
-        metric: key,
-        rows: query.result as ExperimentMetricQueryResponseRows,
+      metricSettings[key] = getMetricSettingsForStatsEngine(
+        metric,
+        metricMap,
+        regressionAdjustmentEnabled
+      );
+      queryResults.push({
+        metrics: [key],
+        rows: (query.result ?? []) as ExperimentMetricQueryResponseRows,
+        sql: query.query,
       });
     });
   }
+  return {
+    queryResults,
+    metricSettings,
+    unknownVariations,
+  };
+}
+
+export async function analyzeExperimentResults({
+  queryData,
+  analysisSettings,
+  snapshotSettings,
+  variationNames,
+  metricMap,
+}: {
+  queryData: QueryMap;
+  analysisSettings: ExperimentSnapshotAnalysisSettings[];
+  snapshotSettings: ExperimentSnapshotSettings;
+  variationNames: string[];
+  metricMap: Map<string, ExperimentMetricInterface>;
+}): Promise<ExperimentReportResults[]> {
+  const mdat = getMetricsAndQueryDataForStatsEngine(
+    queryData,
+    metricMap,
+    snapshotSettings.variations,
+    snapshotSettings.regressionAdjustmentEnabled
+  );
+  const { queryResults, metricSettings } = mdat;
+  let { unknownVariations } = mdat;
 
   const results = await analyzeExperimentMetric({
     coverage: snapshotSettings.coverage ?? 1,
@@ -283,18 +385,19 @@ export async function analyzeExperimentResults({
       name: variationNames[i] || v.id,
     })),
     analyses: analysisSettings,
-    metrics: metricRows.map((data) => {
-      const metric = metricMap.get(data.metric);
-      if (!metric) return null;
-      return {
-        metric,
-        rows: data.rows,
-      };
-    }),
+    queryResults: queryResults,
+    metrics: metricSettings,
   });
 
-  const ret: ExperimentReportResults[] = [];
+  // TODO fix for dimension slices and move to health query
+  const multipleExposures = Math.max(
+    ...queryResults.map(
+      (q) =>
+        q.rows.filter((r) => r.variation === "__multiple__")?.[0]?.users || 0
+    )
+  );
 
+  const ret: ExperimentReportResults[] = [];
   analysisSettings.forEach((_, i) => {
     const dimensionMap: Map<
       string,
@@ -306,7 +409,6 @@ export async function analyzeExperimentResults({
       if (!result) return;
 
       unknownVariations = unknownVariations.concat(result.unknownVariations);
-      multipleExposures = Math.max(multipleExposures, result.multipleExposures);
 
       result.dimensions.forEach((row) => {
         const dim = dimensionMap.get(row.dimension) || {

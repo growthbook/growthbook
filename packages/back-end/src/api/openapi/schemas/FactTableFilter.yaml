@@ -1,0 +1,30 @@
+type: object
+required:
+  - id
+  - name
+  - description
+  - value
+  - managedBy
+  - dateCreated
+  - dateUpdated
+properties:
+  id:
+    type: string
+  name:
+    type: string
+  description:
+    type: string
+  value:
+    type: string
+  managedBy:
+    type: string
+    description: Where this fact table filter must be managed from. If not set (empty string), it can be managed from anywhere.
+    enum:
+      - ""
+      - api
+  dateCreated:
+    type: string
+    format: date-time
+  dateUpdated:
+    type: string
+    format: date-time

@@ -6,6 +6,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import { useSearch } from "@/services/search";
+import usePermissions from "@/hooks/usePermissions";
 import Dropdown from "../Dropdown/Dropdown";
 import DropdownLink from "../Dropdown/DropdownLink";
 import LetterAvatar from "./LetterAvatar";
@@ -86,6 +87,7 @@ export default function ProjectSelector() {
   const { projects, project, getProjectById, setProject } = useDefinitions();
   const { orgId } = useAuth();
   const current = getProjectById(project);
+  const permissions = usePermissions();
 
   const currentProjectIsDemoProject = isDemoDatasourceProject({
     projectId: current?.id || "",
@@ -100,6 +102,35 @@ export default function ProjectSelector() {
   });
 
   if (!projects.length) return null;
+
+  // If globalRole doesn't give readAccess & user can only access 1 project, don't show dropdown
+  if (projects.length === 1 && !permissions.check("readData")) {
+    setProject(projects[0].id);
+    return (
+      <li
+        style={{
+          marginTop: 0,
+          marginBottom: "20px",
+          textTransform: "none",
+          maxWidth: 240,
+        }}
+      >
+        <ProjectName
+          caret={false}
+          avatarName={projects[0].name}
+          display={projects[0].name}
+          badge={
+            isDemoDatasourceProject({
+              projectId: projects[0].id,
+              organizationId: orgId || "",
+            })
+              ? demoBadge
+              : null
+          }
+        />
+      </li>
+    );
+  }
 
   return (
     <li

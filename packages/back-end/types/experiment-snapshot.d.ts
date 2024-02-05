@@ -1,5 +1,7 @@
-import { ExperimentMetricInterface } from "shared/experiments";
-import { ExperimentMetricQueryResponseRows } from "../src/types/Integration";
+import {
+  MetricSettingsForStatsEngine,
+  QueryResultsForStatsEngine,
+} from "../src/services/stats";
 import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
 import { DifferenceType, StatsEngine } from "./stats";
@@ -11,6 +13,7 @@ import {
 } from "./report";
 import { DimensionInterface } from "./dimension";
 import { AttributionModel } from "./experiment";
+import { MetricWindowSettings } from "./fact-table";
 
 export interface SnapshotMetric {
   value: number;
@@ -70,8 +73,7 @@ export interface MetricForSnapshot {
     | "datasource"
     | "aggregation"
     | "sql"
-    | "capping"
-    | "capValue"
+    | "cappingSettings"
     | "denominator"
     | "userIdTypes"
     | "type"
@@ -82,8 +84,7 @@ export interface MetricForSnapshot {
     regressionAdjustmentAvailable: boolean;
     regressionAdjustmentDays: number;
     regressionAdjustmentReason: string;
-    conversionWindowHours: number;
-    conversionDelayHours: number;
+    windowSettings: MetricWindowSettings;
   };
 }
 
@@ -197,8 +198,6 @@ export interface ExperimentMetricAnalysisParams {
 
   analyses: ExperimentSnapshotAnalysisSettings[];
 
-  metrics: ({
-    metric: ExperimentMetricInterface;
-    rows: ExperimentMetricQueryResponseRows;
-  } | null)[];
+  queryResults: QueryResultsForStatsEngine[];
+  metrics: Record<string, MetricSettingsForStatsEngine>;
 }

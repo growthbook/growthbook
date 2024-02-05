@@ -1,11 +1,7 @@
 import { promisify } from "util";
 import { PythonShell } from "python-shell";
-import {
-  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-  DEFAULT_STATS_ENGINE,
-} from "shared/constants";
 import { getSnapshotAnalysis } from "shared/util";
-import { isBinomialMetric } from "shared/experiments";
+import { hoursBetween } from "shared/dates";
 import { APP_ORIGIN } from "../util/secrets";
 import { findSnapshotById } from "../models/ExperimentSnapshotModel";
 import { getExperimentById } from "../models/ExperimentModel";
@@ -16,7 +12,17 @@ import { getReportById } from "../models/ReportModel";
 import { Queries } from "../../types/query";
 import { QueryMap } from "../queryRunners/QueryRunner";
 import { getQueriesByIds } from "../models/QueryModel";
-import { reportArgsFromSnapshot } from "./reports";
+import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "../../types/api";
+import {
+  getAnalysisSettingsFromReportArgs,
+  reportArgsFromSnapshot,
+} from "./reports";
+import {
+  DataForStatsEngine,
+  getAnalysisSettingsForStatsEngine,
+  getMetricsAndQueryDataForStatsEngine,
+} from "./stats";
 
 async function getQueryData(
   queries: Queries,
@@ -39,16 +45,16 @@ async function getQueryData(
 }
 
 export async function generateReportNotebook(
-  reportId: string,
-  organization: string
+  context: ReqContext | ApiReqContext,
+  reportId: string
 ): Promise<string> {
-  const report = await getReportById(organization, reportId);
+  const report = await getReportById(context.org.id, reportId);
   if (!report) {
     throw new Error("Could not find report");
   }
 
   return generateNotebook(
-    organization,
+    context,
     report.queries,
     report.args,
     `/report/${report.id}`,
@@ -59,10 +65,10 @@ export async function generateReportNotebook(
 
 export async function generateExperimentNotebook(
   snapshotId: string,
-  organization: string
+  context: ReqContext
 ): Promise<string> {
   // Get snapshot
-  const snapshot = await findSnapshotById(organization, snapshotId);
+  const snapshot = await findSnapshotById(context.org.id, snapshotId);
   if (!snapshot) {
     throw new Error("Cannot find snapshot");
   }
@@ -76,7 +82,7 @@ export async function generateExperimentNotebook(
   }
 
   // Get experiment
-  const experiment = await getExperimentById(organization, snapshot.experiment);
+  const experiment = await getExperimentById(context, snapshot.experiment);
   if (!experiment) {
     throw new Error("Cannot find snapshot");
   }
@@ -85,7 +91,7 @@ export async function generateExperimentNotebook(
   }
 
   return generateNotebook(
-    organization,
+    context,
     snapshot.queries,
     reportArgsFromSnapshot(experiment, snapshot, analysis.settings),
     `/experiment/${experiment.id}`,
@@ -95,7 +101,7 @@ export async function generateExperimentNotebook(
 }
 
 export async function generateNotebook(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   queryPointers: Queries,
   args: ExperimentReportArgs,
   url: string,
@@ -103,7 +109,7 @@ export async function generateNotebook(
   description: string
 ) {
   // Get datasource
-  const datasource = await getDataSourceById(args.datasource, organization);
+  const datasource = await getDataSourceById(context, args.datasource);
   if (!datasource) {
     throw new Error("Cannot find datasource");
   }
@@ -114,100 +120,65 @@ export async function generateNotebook(
   }
 
   // Get metrics
-  const metricMap = await getMetricMap(organization);
+  const metricMap = await getMetricMap(context);
 
   // Get queries
-  const queries = await getQueryData(queryPointers, organization);
+  const queries = await getQueryData(queryPointers, context.org.id);
 
-  const var_id_map: Record<string, number> = {};
-  args.variations.forEach((v, i) => {
-    var_id_map[v.id] = i;
+  // use min query run date as end date if missing (legacy reports)
+  let createdAt = new Date();
+  queries.forEach((q) => {
+    if (q.createdAt < createdAt) {
+      createdAt = q.createdAt;
+    }
   });
+  args.endDate = args.endDate || createdAt;
 
-  const data = JSON.stringify({
-    metrics: args.metrics
-      .map((m) => {
-        const q = queries.get(m);
-        const metric = metricMap.get(m);
-        if (!q || !metric) return null;
-        return {
-          rows: q.rawResult,
-          name: metric.name,
-          sql: q.query,
-          inverse: !!metric.inverse,
-          ignore_nulls: "ignoreNulls" in metric && !!metric.ignoreNulls,
-          type: isBinomialMetric(metric) ? "binomial" : "count",
-        };
-      })
-      .filter(Boolean),
+  const phaseLengthDays =
+    Math.max(hoursBetween(args.startDate, args.endDate), 1) / 24;
+
+  const { queryResults, metricSettings } = getMetricsAndQueryDataForStatsEngine(
+    queries,
+    metricMap,
+    args.variations,
+    args.regressionAdjustmentEnabled ?? false
+  );
+
+  const data: DataForStatsEngine = {
+    analyses: [
+      getAnalysisSettingsForStatsEngine(
+        getAnalysisSettingsFromReportArgs(args),
+        args.variations,
+        args.coverage ?? 1,
+        phaseLengthDays
+      ),
+    ],
+    metrics: metricSettings,
+    query_results: queryResults,
+  };
+  const datajson = JSON.stringify({
+    data: data,
     url: `${APP_ORIGIN}${url}`,
     hypothesis: description,
-    dimension: args.dimension ?? "",
     name,
-    var_id_map,
-    var_names: args.variations.map((v) => v.name),
-    weights: args.variations.map((v) => v.weight),
     run_query: datasource.settings.notebookRunQuery,
   }).replace(/\\/g, "\\\\");
 
-  const statsEngine = args.statsEngine || DEFAULT_STATS_ENGINE;
-  const configStrings: string[] = [];
-
-  if (
-    statsEngine === "frequentist" &&
-    (args.sequentialTestingEnabled ?? false)
-  ) {
-    configStrings.push(`'sequential': True`);
-    configStrings.push(
-      `'sequential_tuning_parameter': ${Number(
-        args.sequentialTestingTuningParameter ??
-          DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
-      )}`
-    );
-  }
-  if (statsEngine === "frequentist" && args.pValueThreshold !== undefined) {
-    configStrings.push(`'alpha': ${Number(args.pValueThreshold)}`);
-  }
-  const configString = `{${
-    configStrings.length ? configStrings.join(", ") : ""
-  }}`;
-
   const result = await promisify(PythonShell.runString)(
     `
-from gbstats.gen_notebook import create_notebook
-from gbstats.shared.constants import StatsEngine
-import pandas as pd
+from gbstats.gen_notebook import create_notebook, NotebookParams
+from gbstats.gbstats import process_data_dict
 import json
 
-data = json.loads("""${data}""", strict=False)
-
-metrics=[]
-for metric in data['metrics']:
-    metrics.append({
-        'rows': pd.DataFrame(metric['rows']),
-        'name': metric['name'],
-        'sql': metric['sql'],
-        'inverse': metric['inverse'],
-        'ignore_nulls': metric['ignore_nulls'],
-        'type': metric['type']
-    })
-
+data = json.loads("""${datajson}""", strict=False)
 print(create_notebook(
-    metrics=metrics,
-    url=data['url'],
-    hypothesis=data['hypothesis'],
-    dimension=data['dimension'],
-    name=data['name'],
-    var_id_map=data['var_id_map'],
-    var_names=data['var_names'],
-    weights=data['weights'],
-    run_query=data['run_query'],
-    stats_engine=${
-      statsEngine === "frequentist"
-        ? "StatsEngine.FREQUENTIST"
-        : "StatsEngine.BAYESIAN"
-    },
-    engine_config=${configString}
+    data=process_data_dict(data['data']),
+    params=NotebookParams(
+      url=data['url'],
+      hypothesis=data['hypothesis'],
+      name=data['name'],
+      run_query=data['run_query'],
+    ),
 ))`,
     {}
   );

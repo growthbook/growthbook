@@ -1,5 +1,5 @@
 import { Response, NextFunction } from "express";
-import { getAccountPlan } from "enterprise";
+import { orgHasPremiumFeature } from "enterprise";
 import { AuthRequest } from "../../types/AuthRequest";
 import { usingOpenId } from "../../services/auth";
 import { ScimError } from "../../../types/scim";
@@ -34,7 +34,7 @@ export default function scimMiddleware(
     });
   }
 
-  if (getAccountPlan(req.organization) !== "enterprise") {
+  if (!orgHasPremiumFeature(req.organization, "scim")) {
     return res.status(403).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       status: "403",

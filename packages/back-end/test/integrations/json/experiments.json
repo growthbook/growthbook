@@ -4,6 +4,11 @@
     "attributionModel": "firstExposure"
   },
   {
+    "id": "skipPartialData",
+    "attributionModel": "firstExposure",
+    "skipPartialData": true
+  },
+  {
     "id": "base_allExposures",
     "attributionModel": "experimentDuration"
   },
@@ -27,8 +32,8 @@
     "metricOverrides": [
       {
         "id": "OVERRWITTENINSCRIPT",
-        "conversionWindowHours": 48,
-        "conversionDelayHours": -24
+        "windowHours": 48,
+        "delayHours": -24
       }
     ],
     "attributionModel": "firstExposure"
@@ -38,8 +43,8 @@
     "metricOverrides": [
       {
         "id": "OVERRWITTENINSCRIPT",
-        "conversionWindowHours": 48,
-        "conversionDelayHours": -24
+        "windowHours": 48,
+        "delayHours": -24
       }
     ],
     "attributionModel": "experimentDuration"
@@ -49,8 +54,8 @@
     "metricOverrides": [
       {
         "id": "OVERRWITTENINSCRIPT",
-        "conversionWindowHours": 48,
-        "conversionDelayHours": -24
+        "windowHours": 48,
+        "delayHours": -24
       }
     ],
     "activationMetric": "cart_loaded",
@@ -61,8 +66,8 @@
     "metricOverrides": [
       {
         "id": "OVERRWITTENINSCRIPT",
-        "conversionWindowHours": 48,
-        "conversionDelayHours": -24
+        "windowHours": 48,
+        "delayHours": -24
       }
     ],
     "activationMetric": "cart_loaded",
@@ -73,19 +78,56 @@
     "metricOverrides": [
       {
         "id": "OVERRWITTENINSCRIPT",
-        "conversionWindowHours": 48,
-        "conversionDelayHours": 24
+        "windowHours": 48,
+        "delayHours": 24
       }
     ],
     "attributionModel": "firstExposure"
+  },
+  {
+    "id": "lookback",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "windowType": "lookback",
+        "windowHours": 48,
+        "delayHours": 24
+      }
+    ],
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "lookback_allExposures",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "windowType": "lookback",
+        "windowHours": 48,
+        "delayHours": 24
+      }
+    ],
+    "attributionModel": "experimentDuration"
+  },
+  {
+    "id": "lookback_skipPartial",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "windowType": "lookback",
+        "windowHours": 48,
+        "delayHours": 24
+      }
+    ],
+    "attributionModel": "experimentDuration",
+    "skipPartialData": true
   },
   {
     "id": "base_allExposures_positiveconversion",
     "metricOverrides": [
       {
         "id": "OVERRWITTENINSCRIPT",
-        "conversionWindowHours": 48,
-        "conversionDelayHours": 24
+        "windowHours": 48,
+        "delayHours": 24
       }
     ],
     "attributionModel": "experimentDuration"
@@ -95,8 +137,8 @@
     "metricOverrides": [
       {
         "id": "OVERRWITTENINSCRIPT",
-        "conversionWindowHours": 48,
-        "conversionDelayHours": 24
+        "windowHours": 48,
+        "delayHours": 24
       }
     ],
     "activationMetric": "cart_loaded",
@@ -107,8 +149,8 @@
     "metricOverrides": [
       {
         "id": "OVERRWITTENINSCRIPT",
-        "conversionWindowHours": 48,
-        "conversionDelayHours": 24
+        "windowHours": 48,
+        "delayHours": 24
       }
     ],
     "activationMetric": "cart_loaded",
@@ -117,11 +159,6 @@
   {
     "id": "dimension_date",
     "dimensionType": "date",
-    "attributionModel": "firstExposure"
-  },
-  {
-    "id": "dimension_datecumulative",
-    "dimensionType": "datecumulative",
     "attributionModel": "firstExposure"
   },
   {
@@ -141,11 +178,6 @@
     "activationMetric": "cart_loaded",
     "attributionModel": "firstExposure",
     "dimensionType": "activation"
-  },
-  {
-    "id": "filter_sql",
-    "attributionModel": "firstExposure",
-    "queryFilter": "browser = 'Chrome'"
   },
   {
     "id": "filter_segment",

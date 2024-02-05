@@ -41,3 +41,10 @@ visualChangeId:
   description: Specify a specific visual change
   schema:
     type: string
+factTableId:
+  name: factTableId
+  in: path
+  required: true
+  description: Specify a specific fact table
+  schema:
+    type: string

@@ -3,7 +3,7 @@ import uniqid from "uniqid";
 import { FilterQuery } from "mongoose";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
-import { getOrgFromReq } from "../../services/organizations";
+import { getContextFromReq } from "../../services/organizations";
 import {
   createSegment,
   deleteSegmentById,
@@ -16,7 +16,7 @@ import { getIdeasByQuery } from "../../services/ideas";
 import { IdeaDocument, IdeaModel } from "../../models/IdeasModel";
 import {
   getMetricsUsingSegment,
-  updateMetricsByQuery,
+  removeSegmentFromAllMetrics,
 } from "../../models/MetricModel";
 import {
   deleteExperimentSegment,
@@ -46,7 +46,7 @@ export const getSegments = async (
   req: GetSegmentsRequest,
   res: Response<GetSegmentsResponse, EventAuditUserForResponseLocals>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const segments = await findSegmentsByOrganization(org.id);
   res.status(200).json({
     status: 200,
@@ -83,7 +83,8 @@ export const getSegmentUsage = async (
   res: Response<GetSegmentUsageResponse, EventAuditUserForResponseLocals>
 ) => {
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
   const segment = await findSegmentById(id, org.id);
 
@@ -100,10 +101,10 @@ export const getSegmentUsage = async (
   const ideas = await getIdeasByQuery(query);
 
   // metricSchema
-  const metrics = await getMetricsUsingSegment(id, org.id);
+  const metrics = await getMetricsUsingSegment(context, id);
 
   // experiments:
-  const experiments = await getExperimentsUsingSegment(id, org.id);
+  const experiments = await getExperimentsUsingSegment(id, context);
 
   res.status(200).json({
     ideas,
@@ -148,9 +149,10 @@ export const postSegment = async (
 
   const { datasource, name, sql, userIdType, description } = req.body;
 
-  const { org, userName } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userName } = context;
 
-  const datasourceDoc = await getDataSourceById(datasource, org.id);
+  const datasourceDoc = await getDataSourceById(context, datasource);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
@@ -210,7 +212,8 @@ export const putSegment = async (
   req.checkPermissions("createSegments");
 
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
   const segment = await findSegmentById(id, org.id);
 
@@ -223,7 +226,7 @@ export const putSegment = async (
 
   const { datasource, name, sql, userIdType, owner, description } = req.body;
 
-  const datasourceDoc = await getDataSourceById(datasource, org.id);
+  const datasourceDoc = await getDataSourceById(context, datasource);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
@@ -266,7 +269,8 @@ export const deleteSegment = async (
   req.checkPermissions("createSegments");
 
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const segment = await findSegmentById(id, org.id);
 
   if (!segment) {
@@ -291,17 +295,9 @@ export const deleteSegment = async (
   }
 
   // metrics
-  const metrics = await getMetricsUsingSegment(id, org.id);
-  if (metrics.length > 0) {
-    // as update metric query will fail if they are using a config file,
-    // we want to allow for deleting if there are no metrics with this segment.
-    await updateMetricsByQuery(
-      { organization: org.id, segment: id },
-      { segment: "" }
-    );
-  }
+  await removeSegmentFromAllMetrics(org.id, id);
 
-  await deleteExperimentSegment(org, res.locals.eventAudit, id);
+  await deleteExperimentSegment(context, res.locals.eventAudit, id);
 
   res.status(200).json({
     status: 200,

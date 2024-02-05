@@ -1,17 +1,16 @@
 """This file tests statistic variances for two reasons:
 1. Demonstrating of the expected inputs
 2. Demonstrating equivalence to numpy methods that take raw data"""
-from functools import partial
 from unittest import TestCase, main as unittest_main
 
 import numpy as np
 
-from gbstats.shared.models import (
-    compute_theta,
-    SampleMeanStatistic,
+from gbstats.models.statistics import (
     ProportionStatistic,
     RatioStatistic,
     RegressionAdjustedStatistic,
+    SampleMeanStatistic,
+    compute_theta,
 )
 
 N = 4
@@ -157,10 +156,10 @@ class TestComputeTheta(TestCase):
             theta=999,
         )
         self.assertEqual(round(compute_theta(ra_stat_a, ra_stat_b), 5), 0.01864)
-        ra_stat_a.pre_statistic.sum = 0
-        ra_stat_a.pre_statistic.sum_squares = 0
-        ra_stat_b.pre_statistic.sum = 0
-        ra_stat_b.pre_statistic.sum_squares = 0
+        pre_stat_a.sum = 0
+        pre_stat_a.sum_squares = 0
+        pre_stat_b.sum = 0
+        pre_stat_b.sum_squares = 0
         self.assertEqual(compute_theta(ra_stat_a, ra_stat_b), 0)
 
 

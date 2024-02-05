@@ -1,3 +1,4 @@
+import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceProperties,
   DataSourceSettings,
@@ -29,6 +30,7 @@ import {
 } from "../util/mixpanel";
 import { compileSqlTemplate } from "../util/sql";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
+import { applyMetricOverrides } from "../util/integration";
 
 export default class Mixpanel implements SourceIntegrationInterface {
   type!: DataSourceType;
@@ -92,8 +94,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
     ${destVar} = !${destVar}.length ? 0 : (
       (values => ${this.getMetricAggregationExpression(metric)})(${destVar})
     );${
-      metric.capping === "absolute" && metric.capValue
-        ? `\n${destVar} = ${destVar} && Math.min(${destVar}, ${metric.capValue});`
+      metric.cappingSettings.type === "absolute" && metric.cappingSettings.value
+        ? `\n${destVar} = ${destVar} && Math.min(${destVar}, ${metric.cappingSettings.value});`
         : ""
     }
     `;
@@ -101,13 +103,22 @@ export default class Mixpanel implements SourceIntegrationInterface {
 
   getExperimentResultsQuery(
     snapshotSettings: ExperimentSnapshotSettings,
-    metrics: MetricInterface[],
-    activationMetric: MetricInterface,
+    metricDocs: MetricInterface[],
+    activationMetricDoc: MetricInterface,
     dimension: DimensionInterface
   ): string {
+    const activationMetric = cloneDeep<MetricInterface>(activationMetricDoc);
+    applyMetricOverrides(activationMetric, snapshotSettings);
+
+    const metrics = metricDocs.map((m) => {
+      const mCopy = cloneDeep<MetricInterface>(m);
+      applyMetricOverrides(mCopy, snapshotSettings);
+      return mCopy;
+    });
+
     const hasEarlyStartMetrics =
       metrics.filter(
-        (m) => m.conversionDelayHours && m.conversionDelayHours < 0
+        (m) => m.windowSettings.delayHours && m.windowSettings.delayHours < 0
       ).length > 0;
 
     const onActivate = `
@@ -118,11 +129,14 @@ export default class Mixpanel implements SourceIntegrationInterface {
             ? ` // Process queued values
         state.queuedEvents.forEach((event) => {
           ${metrics
-            .filter((m) => m.conversionDelayHours && m.conversionDelayHours < 0)
+            .filter(
+              (m) =>
+                m.windowSettings.delayHours && m.windowSettings.delayHours < 0
+            )
             .map(
               (metric, i) => `// Metric - ${metric.name}
           if(isMetric${i}(event) && event.time - state.start > ${
-                (metric.conversionDelayHours || 0) * 60 * 60 * 1000
+                (metric.windowSettings.delayHours || 0) * 60 * 60 * 1000
               }) {
             state.m${i}.push(${this.getMetricValueExpression(metric.column)});
           }`
@@ -638,10 +652,10 @@ function is${name}(event) {
     conversionWindowStart: string = ""
   ) {
     const checks: string[] = [];
-    const start = (metric.conversionDelayHours || 0) * 60 * 60 * 1000;
+    const start = (metric.windowSettings.delayHours || 0) * 60 * 60 * 1000;
     const end =
       start +
-      (metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) *
+      (metric.windowSettings.windowValue || DEFAULT_CONVERSION_WINDOW_HOURS) *
         60 *
         60 *
         1000;

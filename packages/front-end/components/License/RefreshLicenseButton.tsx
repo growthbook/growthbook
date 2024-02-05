@@ -7,7 +7,7 @@ import Button from "../Button";
 
 const RefreshLicenseButton: FC = () => {
   const { apiCall } = useAuth();
-  const { updateUser } = useUser();
+  const { updateUser, refreshOrganization } = useUser();
 
   const refresh = async () => {
     const res = await apiCall<{ status: number; license: LicenseInterface }>(
@@ -21,6 +21,7 @@ const RefreshLicenseButton: FC = () => {
       throw new Error("There was an error fetching the license");
     }
     updateUser();
+    refreshOrganization();
   };
 
   return (
