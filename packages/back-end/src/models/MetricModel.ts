@@ -37,11 +37,18 @@ const metricSchema = new mongoose.Schema({
   earlyStart: Boolean,
   inverse: Boolean,
   ignoreNulls: Boolean,
-  capping: String,
-  capValue: Number,
+  cappingSettings: {
+    type: { type: String },
+    value: Number,
+    ignoreZeros: Boolean,
+  },
+  windowSettings: {
+    type: { type: String },
+    delayHours: Number,
+    windowValue: Number,
+    windowUnit: String,
+  },
   denominator: String,
-  conversionWindowHours: Number,
-  conversionDelayHours: Number,
   winRisk: Number,
   loseRisk: Number,
   maxPercentChange: Number,
@@ -102,6 +109,12 @@ const metricSchema = new mongoose.Schema({
         c: Number,
       },
     ],
+
+    // deprecated fields
+    capping: String,
+    capValue: Number,
+    conversionWindowHours: Number,
+    conversionDelayHours: Number,
   },
 });
 metricSchema.index({ id: 1, organization: 1 }, { unique: true });
@@ -143,7 +156,7 @@ export async function insertMetrics(
 }
 
 export async function deleteMetricById(
-  metric: MetricInterface,
+  metric: LegacyMetricInterface | MetricInterface,
   context: ReqContext | ApiReqContext
 ) {
   if (metric.managedBy === "config") {

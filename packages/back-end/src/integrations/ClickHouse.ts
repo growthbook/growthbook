@@ -91,6 +91,7 @@ export default class ClickHouse extends SqlIntegration {
       valueCol: string;
       outputCol: string;
       percentile: number;
+      ignoreZeros: boolean;
     }[],
     metricTable: string,
     where: string = ""
@@ -98,9 +99,12 @@ export default class ClickHouse extends SqlIntegration {
     return `
     SELECT
       ${values
-        .map(
-          (v) => `quantile(${v.percentile})(${v.valueCol}) AS ${v.outputCol}`
-        )
+        .map((v) => {
+          const value = v.ignoreZeros
+            ? this.ifElse(`${v.valueCol} = 0`, "NULL", v.valueCol)
+            : v.valueCol;
+          return `quantile(${v.percentile})(${value}) AS ${v.outputCol}`;
+        })
         .join(",\n")}
       FROM ${metricTable}
       ${where}

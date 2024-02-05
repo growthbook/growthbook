@@ -7,6 +7,14 @@ import { createPatch } from "diff";
 import { html } from "diff2html";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
+import {
+  MetricCappingSettings,
+  MetricWindowSettings,
+} from "back-end/types/fact-table";
+import {
+  DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+  DEFAULT_METRIC_WINDOW_HOURS,
+} from "shared/constants";
 import { useAuth } from "@/services/auth";
 import { useConfigJson } from "@/services/config";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -116,12 +124,45 @@ export default function RestoreConfigYamlButton({
             if (n.cap) {
               throw new Error(`
                 \`cap\` is a deprecated field in metric definitions.
-                Instead use \`capping: 'absolute'\` and \`capValue: ${n.cap}\``);
+                Instead use \`cappingSettings\` with sub properties 
+                \`capping: 'absolute'\` and \`value: ${n.cap}\``);
+            }
+            // backwards compatibility for settings
+            if ((n.capping || n.capValue) && n.cappingSettings === undefined) {
+              const cappingSetting: MetricCappingSettings = {
+                type: n.capping ?? "absolute",
+                value: n.capValue ?? 0,
+              };
+              n.cappingSettings = cappingSetting;
+              delete n.capping;
+              delete n.capValue;
+            }
+            if (
+              (n.conversionDelayHours || n.conversionWindowHours) &&
+              n.windowSettings === undefined
+            ) {
+              const windowSetting: MetricWindowSettings = {
+                type: "conversion",
+                delayHours:
+                  n.conversionDelayHours ?? DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+                windowValue:
+                  n.conversionWindowHours ?? DEFAULT_METRIC_WINDOW_HOURS,
+                windowUnit: "hours",
+              };
+              n.windowSettings = windowSetting;
+              delete n.conversionWindowDelay;
+              delete n.conversionDelayHours;
             }
             if (n.userIdType || n.anonymousIdType) {
               throw new Error(`
                 \`userIdType\` and \`anonymousIdType\` have been deprecated. 
                 Please use \`userIdTypes\` instead.`);
+            }
+            if (
+              n.regressionAdjustmentDays !== undefined ||
+              n.regressionAdjustmentEnabled !== undefined
+            ) {
+              n.regressionAdjustmentOverride = true;
             }
 
             newConfig.metrics[k] = {
