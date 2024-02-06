@@ -313,23 +313,12 @@ export default function FeaturePage() {
         />
       )}
       {showCompareView && (
-        // <CompareRulesModal
-        //   close={() => setShowCompareView(false)}
-        //   feature={feature}
-        //   mutate={mutate}
-        //   version={currentVersion}
-        //   setVersion={setVersion}
-        //   setRuleModal={setRuleModal}
-        //   experimentsMap={experimentsMap}
-        // />
         <CompareRuleDiffModal
           close={() => setShowCompareView(false)}
           feature={feature}
-          // mutate={mutate}
-          // version={currentVersion}
-          // setVersion={setVersion}
-          // setRuleModal={setRuleModal}
-          // experimentsMap={experimentsMap}
+          version={currentVersion}
+          setVersion={setVersion}
+          mutate={mutate}
         />
       )}
       {editOwnerModal && (
@@ -1218,7 +1207,6 @@ export default function FeaturePage() {
             buttonsClassName="px-3 py-2 h4"
           >
             {environments.map((e) => {
-              console.log("e", e);
               const rules = getRules(feature, e.id);
               return (
                 <Tab
