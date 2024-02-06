@@ -158,13 +158,6 @@ export default function RestoreConfigYamlButton({
                 \`userIdType\` and \`anonymousIdType\` have been deprecated. 
                 Please use \`userIdTypes\` instead.`);
             }
-            if (
-              n.regressionAdjustmentDays !== undefined ||
-              n.regressionAdjustmentEnabled !== undefined
-            ) {
-              n.regressionAdjustmentOverride = true;
-            }
-
             newConfig.metrics[k] = {
               ...o,
               ...n,

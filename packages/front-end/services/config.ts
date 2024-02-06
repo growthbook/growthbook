@@ -76,6 +76,7 @@ export function useConfigJson({
         "inverse",
         "cappingSettings",
         "windowSettings",
+        "regressionAdjustmentOverride",
         "regressionAdjustmentEnabled",
         "regressionAdjustmentDays",
         "loseRisk",
