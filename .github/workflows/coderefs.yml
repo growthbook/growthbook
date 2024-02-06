@@ -4,21 +4,7 @@ on:
     branches:
       - main
 jobs:
-  fetchFlags:
-    runs-on: ubuntu-latest
-    outputs:
-      json-path: ${{ steps.set-path.outputs.json-path }}
-    steps:
-      - name: Fetch Data
-        run: |
-          curl -H "Authorization: Bearer ${{ secrets.GB_API_TOKEN }}" "${{ secrets.GB_API_HOST }}/api/v1/feature-keys" -o flags.json
-      - name: Upload flags.json
-        uses: actions/upload-artifact@v3
-        with:
-          name: flags-json
-          path: flags.json
   codeRefs:
-    needs: fetchFlags
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -28,25 +14,8 @@ jobs:
           # defined for find-code-refs. Read more: 
           # https://github.com/growthbook/gb-find-code-refs#searching-for-unused-flags-extinctions
           fetch-depth: 11 
-      - name: Download JSON file
-        uses: actions/download-artifact@v3
-        with:
-          name: flags-json
-      - name: Add .gbignore to avoid scanning flags.json
-        run: |
-          echo "flags.json" >> .gbignore
       - name: GrowthBook Code References
-        uses: growthbook/coderefs-github-action@2.11.5-10
+        uses: growthbook/coderefs-action@2.11.5-11
         with:
-          flagsPath: flags.json
-          dir: ${{ github.workspace }}
-          # head_ref only available on pull request eventss, ref_name for push events
-          branch: ${{ github.head_ref || github.ref_name }} 
-          repoName: ${{ github.repository }}
-      - name: Upload coderefs.json
-        run: |
-          if test -f "coderefs.json"; then
-            curl -XPOST -H "Authorization: Bearer ${{ secrets.GB_API_TOKEN }}" -H "Content-Type: application/json" -d @coderefs.json "${{ secrets.GB_API_HOST }}/api/v1/code-refs"
-          else
-            echo "No coderefs.json file found."
-          fi
+          apiKey: ${{ secrets.GB_API_TOKEN }}
+          apiHost: ${{ secrets.GB_API_HOST }}
