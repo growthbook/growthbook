@@ -15,7 +15,7 @@ jobs:
           # https://github.com/growthbook/gb-find-code-refs#searching-for-unused-flags-extinctions
           fetch-depth: 11 
       - name: GrowthBook Code References
-        uses: growthbook/coderefs-action@2.11.5-11
+        uses: growthbook/coderefs-action@2.11.5-12
         with:
           apiKey: ${{ secrets.GB_API_TOKEN }}
           apiHost: ${{ secrets.GB_API_HOST }}
