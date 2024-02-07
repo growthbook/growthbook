@@ -254,7 +254,7 @@ export const startExperimentResultQueries = async (
       ["query_parent_id", queryParentId],
       ["organization", organization.id],
       ["datasource", integration.datasource],
-      ["query_type", "experimentUnits"],
+      ["query_type", "experimentUnits".toLowerCase()],
     ]);
     unitQuery = await startQuery({
       name: queryParentId,
@@ -302,9 +302,9 @@ export const startExperimentResultQueries = async (
     const queryLabels = new Map<string, string>([
       ["organization", organization.id],
       ["datasource", integration.datasource],
-      ["metric_id", m.id],
-      ["metric_name", m.name],
-      ["query_type", "experimentMetric"],
+      ["metric_id", m.id.toLowerCase()],
+      ["metric_name", m.name.toLowerCase()],
+      ["query_type", "experimentMetric".toLowerCase()],
     ]);
     queries.push(
       await startQuery({
@@ -342,9 +342,7 @@ export const startExperimentResultQueries = async (
     const groupQueryLabels = new Map<string, string>([
       ["organization", organization.id],
       ["datasource", integration.datasource],
-      ["query_type", "experimentMultiMetric"],
-      ["query_parent_id", queryParentId],
-      ["group_id", `${i}`],
+      ["query_type", "experimentMultiMetric".toLowerCase()],
     ]);
     queries.push(
       await startQuery({
@@ -370,9 +368,7 @@ export const startExperimentResultQueries = async (
     const trafficQueryLabels = new Map<string, string>([
       ["organization", organization.id],
       ["datasource", integration.datasource],
-      ["query_type", "experimentTraffic"],
-      ["query_parent_id", queryParentId],
-      ["query_name", TRAFFIC_QUERY_NAME],
+      ["query_type", "experimentTraffic".toLowerCase()],
     ]);
     const trafficQuery = await startQuery({
       name: TRAFFIC_QUERY_NAME,
@@ -542,8 +538,8 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       ["organization", this.context.org.id],
       ["datasource", this.integration.datasource],
       ["query_type", "experimentResults"],
-      ["model_id", this.model.id],
-      ["experiment_id", this.model.settings.experimentId],
+      ["model_id", this.model.id.toLowerCase()],
+      ["experiment_id", this.model.settings.experimentId.toLowerCase()],
     ]);
     return [
       await this.startQuery({

@@ -70,6 +70,9 @@ export default class BigQuery extends SqlIntegration {
   ): Promise<QueryResponse> {
     const client = this.getClient();
 
+    if (labels === undefined) {
+      labels = new Map<string, string>();
+    }
     labels.set("integration", "growthbook");
     labels.set("sql_integration", "bigquery");
     const [job] = await client.createQueryJob({
