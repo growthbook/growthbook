@@ -15,10 +15,11 @@ import { cancellableFetch } from "../util/http.util";
 import { logger } from "../util/logger";
 import { ApiReqContext } from "../../types/api";
 import { ReqContext } from "../../types/organization";
+import { getContextForAgendaJobByOrgId } from "../services/organizations";
 
 const PROXY_UPDATE_JOB_NAME = "proxyUpdate";
 type ProxyUpdateJob = Job<{
-  context: ReqContext | ApiReqContext;
+  orgId: string;
   connectionId: string;
   useCloudProxy: boolean;
   retryCount: number;
@@ -31,7 +32,7 @@ export default function addProxyUpdateJob(ag: Agenda) {
   // Fire webhooks
   agenda.define(PROXY_UPDATE_JOB_NAME, async (job: ProxyUpdateJob) => {
     const connectionId = job.attrs.data?.connectionId;
-    const context = job.attrs.data?.context;
+    const orgId = job.attrs.data?.orgId;
     const useCloudProxy = job.attrs.data?.useCloudProxy;
     if (!connectionId) {
       logger.error(
@@ -41,13 +42,15 @@ export default function addProxyUpdateJob(ag: Agenda) {
       return;
     }
 
-    if (!context) {
-      logger.error("proxyUpdate: No context provided for proxy update job", {
+    if (!orgId) {
+      logger.error("proxyUpdate: No orgId provided for proxy update job", {
         connectionId,
         useCloudProxy,
       });
       return;
     }
+
+    const context = await getContextForAgendaJobByOrgId(orgId);
 
     const connection = await findSDKConnectionById(context, connectionId);
     if (!connection) {
@@ -123,14 +126,14 @@ export default function addProxyUpdateJob(ag: Agenda) {
 }
 
 export async function queueSingleProxyUpdate(
-  context: ReqContext | ApiReqContext,
+  orgId: string,
   connection: SDKConnectionInterface,
   useCloudProxy: boolean = false
 ) {
   if (!connectionSupportsProxyUpdate(connection, useCloudProxy)) return;
 
   const job = agenda.create(PROXY_UPDATE_JOB_NAME, {
-    context,
+    orgId,
     connectionId: connection.id,
     retryCount: 0,
     useCloudProxy,
@@ -171,10 +174,10 @@ export async function queueProxyUpdate(
 
     if (IS_CLOUD) {
       // Always fire webhook to GB Cloud Proxy for cloud users
-      await queueSingleProxyUpdate(context, connection, true);
+      await queueSingleProxyUpdate(context.org.id, connection, true);
     }
     // If connection (cloud or self-hosted) specifies an (additional) proxy host, fire webhook
-    await queueSingleProxyUpdate(context, connection, false);
+    await queueSingleProxyUpdate(context.org.id, connection, false);
   }
 }
 
