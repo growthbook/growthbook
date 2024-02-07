@@ -2,6 +2,7 @@ import fs from "fs";
 import dotenv from "dotenv";
 import trimEnd from "lodash/trimEnd";
 import { stringToBoolean } from "shared/util";
+import { DEFAULT_METRIC_WINDOW_HOURS } from "shared/constants";
 
 export const ENVIRONMENT = process.env.NODE_ENV;
 const prod = ENVIRONMENT === "production";
@@ -130,7 +131,8 @@ export const EXPERIMENT_REFRESH_FREQUENCY =
   parseInt(process.env.EXPERIMENT_REFRESH_FREQUENCY || "") || 6;
 
 export const DEFAULT_CONVERSION_WINDOW_HOURS =
-  parseInt(process.env.DEFAULT_CONVERSION_WINDOW_HOURS || "") || 72;
+  parseInt(process.env.DEFAULT_CONVERSION_WINDOW_HOURS || "") ||
+  DEFAULT_METRIC_WINDOW_HOURS;
 
 // Update metrics every X hours
 export const METRIC_REFRESH_FREQUENCY =
