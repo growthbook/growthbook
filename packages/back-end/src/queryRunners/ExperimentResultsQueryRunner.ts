@@ -255,6 +255,7 @@ export const startExperimentResultQueries = async (
       ["organization", organization.id],
       ["datasource", integration.datasource],
       ["query_type", "experimentUnits".toLowerCase()],
+      ["experiment_id", snapshotSettings.experimentId.toLowerCase()],
     ]);
     unitQuery = await startQuery({
       name: queryParentId,
@@ -305,6 +306,7 @@ export const startExperimentResultQueries = async (
       ["metric_id", m.id.toLowerCase()],
       ["metric_name", m.name.toLowerCase()],
       ["query_type", "experimentMetric".toLowerCase()],
+      ["experiment_id", snapshotSettings.experimentId.toLowerCase()],
     ]);
     queries.push(
       await startQuery({
@@ -343,6 +345,7 @@ export const startExperimentResultQueries = async (
       ["organization", organization.id],
       ["datasource", integration.datasource],
       ["query_type", "experimentMultiMetric".toLowerCase()],
+      ["experiment_id", snapshotSettings.experimentId.toLowerCase()],
     ]);
     queries.push(
       await startQuery({
@@ -369,6 +372,7 @@ export const startExperimentResultQueries = async (
       ["organization", organization.id],
       ["datasource", integration.datasource],
       ["query_type", "experimentTraffic".toLowerCase()],
+      ["experiment_id", snapshotSettings.experimentId.toLowerCase()],
     ]);
     const trafficQuery = await startQuery({
       name: TRAFFIC_QUERY_NAME,
