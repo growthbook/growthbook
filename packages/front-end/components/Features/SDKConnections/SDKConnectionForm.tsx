@@ -183,10 +183,14 @@ export default function SDKConnectionForm({
   }, [languageEnvironment, setSelectedSecurityTab]);
 
   useEffect(() => {
-    if (!showVisualEditorSettings) {
+    if (!edit) {
+      form.setValue("includeVisualExperiments", showVisualEditorSettings);
+      form.setValue("includeDraftExperiments", showVisualEditorSettings);
+    } else if (!showVisualEditorSettings) {
       form.setValue("includeVisualExperiments", false);
+      form.setValue("includeDraftExperiments", false);
     }
-  }, [showVisualEditorSettings, form]);
+  }, [showVisualEditorSettings, form, edit]);
 
   // complex setter for clicking a "SDK Payload Security" button
   useEffect(() => {
