@@ -11,7 +11,6 @@ import {
   VisualChangesetInterface,
   VisualChangesetURLPattern,
 } from "../../types/visual-changeset";
-import { EventAuditUser } from "../events/event-types";
 import { refreshSDKPayloadCache } from "../services/features";
 import { visualChangesetsHaveChanges } from "../services/experiments";
 import { ApiReqContext } from "../../types/api";

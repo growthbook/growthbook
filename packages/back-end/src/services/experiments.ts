@@ -92,7 +92,6 @@ import {
   putMetricValidator,
   updateExperimentValidator,
 } from "../validators/openapi";
-import { EventAuditUser } from "../events/event-types";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { findProjectById } from "../models/ProjectModel";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";

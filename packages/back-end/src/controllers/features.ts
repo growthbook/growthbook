@@ -70,10 +70,7 @@ import {
 } from "../models/SdkConnectionModel";
 import { logger } from "../util/logger";
 import { addTagsDiff } from "../models/TagModel";
-import {
-  EventAuditUser,
-  EventAuditUserForResponseLocals,
-} from "../events/event-types";
+import { EventAuditUserForResponseLocals } from "../events/event-types";
 import {
   FASTLY_SERVICE_ID,
   CACHE_CONTROL_MAX_AGE,

@@ -27,7 +27,6 @@ import { logger } from "../util/logger";
 import { upgradeExperimentDoc } from "../util/migrations";
 import { refreshSDKPayloadCache, VisualExperiment } from "../services/features";
 import { SDKPayloadKey } from "../../types/sdk-payload";
-import { EventAuditUser } from "../events/event-types";
 import { FeatureInterface } from "../../types/feature";
 import { getAffectedSDKPayloadKeys } from "../util/features";
 import { getEnvironmentIdsFromOrg } from "../services/organizations";
