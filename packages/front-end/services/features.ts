@@ -564,6 +564,7 @@ export function jsonToConds(
 
   try {
     const parsed = JSON.parse(json);
+    // console.log("parsed", parsed);
     if (parsed["$not"]) return null;
 
     const conds: Condition[] = [];
@@ -598,12 +599,15 @@ export function jsonToConds(
       }
       Object.keys(value).forEach((operator) => {
         const v = value[operator];
+        // console.log("v", v);
 
         if (operator === "$in" || operator === "$nin") {
+          // console.log("conds before", conds);
+          // console.log("v.join(", ") before", v.join(", "));
           return conds.push({
             field,
             operator,
-            value: v.join(", "),
+            value: v.join(", "), //TODO: This is one change
           });
         }
 
@@ -775,8 +779,9 @@ export function condToJson(
     } else if (operator === "$notEmpty") {
       obj[field]["$size"] = { $gt: 0 };
     } else if (operator === "$in" || operator === "$nin") {
+      // console.log("obj[field][operator]", obj[field][operator]);
       obj[field][operator] = value
-        .split(",")
+        .split(", ") // I think this is where it's happening
         .map((x) => x.trim())
         .map((x) => parseValue(x, attributes.get(field)?.datatype));
     } else if (operator === "$inGroup" || operator === "$notInGroup") {

@@ -47,7 +47,10 @@ export default function ConditionInput(props: Props) {
 
   useEffect(() => {
     if (advanced) return;
+    console.log("about to call setValue from inside the useEffect here");
+    console.log("value before", value);
     setValue(condToJson(conds, attributes));
+    console.log("value after", value);
   }, [advanced, conds]);
 
   useEffect(() => {
@@ -171,15 +174,22 @@ export default function ConditionInput(props: Props) {
             const handleFieldChange = (
               e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>
             ) => {
+              console.log("e.target.name", e.target.name);
               const name = e.target.name;
               const value: string | number = e.target.value;
+              console.log("value", value);
 
               handleCondsChange(value, name);
             };
 
             const handleListChange = (values: string[]) => {
+              console.log("values", values);
               const name = "value";
-              const value: string | number = values.join(",");
+              const value: string | number = values.join(", "); //TODO: Update logic here
+              console.log(
+                "handleCondsChange(value, name)",
+                handleCondsChange(value, name)
+              );
               handleCondsChange(value, name);
             };
 
@@ -275,6 +285,24 @@ export default function ConditionInput(props: Props) {
                   ]
                 : [];
 
+            function handleValueChange(): string[] {
+              // console.log("handleValueChange was called");
+              // console.log("value", value);
+              // Figure out if the value contains a ", or a ', and split on that
+
+              // If not, just split on the comma
+              // if (value.includes("'") || value.includes('"')) {
+              //   // console.log("splitting the new way");
+              //   // return value.split(/['",]/);
+              //   return value.match(/"([^"]*)"/g) || [];
+              // } else return value.split(", ");
+              console.log("value", value);
+              console.log("typeof value", typeof value);
+              const updatedValue = value + ", ";
+              return value.split(", ");
+              // return updatedValue.split(", "); //TODO: This is the other change
+            }
+
             return (
               <li key={i} className={styles.listitem}>
                 <div className={`row ${styles.listrow}`}>
@@ -345,6 +373,7 @@ export default function ConditionInput(props: Props) {
                       required
                     />
                   ) : ["$in", "$nin"].includes(operator) ? (
+                    // TODO: Look here
                     <div className="d-flex align-items-end flex-column col-sm-12 col-md mb-1">
                       {rawTextMode ? (
                         <Field
@@ -360,7 +389,10 @@ export default function ConditionInput(props: Props) {
                       ) : (
                         <StringArrayField
                           containerClassName="w-100"
-                          value={value ? value.trim().split(",") : []}
+                          // value={value ? value.trim().split(",") : []} //TODO: Add logic here to handle strings with commas,
+                          // value={() => handleValueChange()}
+                          value={value ? handleValueChange() : []}
+                          // value={value ? value.split('",') : []}
                           onChange={handleListChange}
                           placeholder="Enter some values..."
                           delimiters={["Enter", "Tab"]}
