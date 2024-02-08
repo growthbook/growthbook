@@ -62,7 +62,6 @@ export const updateExperiment = createApiRequestHandler(
     const updatedExperiment = await updateExperimentToDb({
       context: req.context,
       experiment: experiment,
-      user: req.eventAudit,
       changes: updateExperimentApiPayloadToInterface(req.body, experiment),
     });
 

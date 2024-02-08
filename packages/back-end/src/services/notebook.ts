@@ -64,8 +64,8 @@ export async function generateReportNotebook(
 }
 
 export async function generateExperimentNotebook(
-  snapshotId: string,
-  context: ReqContext
+  context: ReqContext,
+  snapshotId: string
 ): Promise<string> {
   // Get snapshot
   const snapshot = await findSnapshotById(context.org.id, snapshotId);

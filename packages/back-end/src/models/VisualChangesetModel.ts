@@ -257,14 +257,12 @@ export const createVisualChangeset = async ({
   urlPatterns,
   editorUrl,
   visualChanges,
-  user,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
   urlPatterns: VisualChangesetURLPattern[];
   editorUrl: VisualChangesetInterface["editorUrl"];
   visualChanges?: VisualChange[];
-  user: EventAuditUser;
 }): Promise<VisualChangesetInterface> => {
   const visualChangeset = toInterface(
     await VisualChangesetModel.create({
@@ -284,7 +282,6 @@ export const createVisualChangeset = async ({
       context,
       experiment,
       changes: { hasVisualChangesets: true },
-      user,
       bypassWebhooks: true,
     });
   }
@@ -312,14 +309,12 @@ export const updateVisualChangeset = async ({
   context,
   updates,
   bypassWebhooks,
-  user,
 }: {
   visualChangeset: VisualChangesetInterface;
   experiment: ExperimentInterface | null;
   context: ReqContext | ApiReqContext;
   updates: Partial<VisualChangesetInterface>;
   bypassWebhooks?: boolean;
-  user: EventAuditUser;
 }) => {
   const isUpdatingVisualChanges = _isUpdatingVisualChanges(updates);
 
@@ -349,7 +344,6 @@ export const updateVisualChangeset = async ({
     await updateExperiment({
       context,
       experiment,
-      user,
       changes: { hasVisualChangesets: true },
       bypassWebhooks: true,
     });
@@ -442,12 +436,10 @@ export const syncVisualChangesWithVariations = async ({
   experiment,
   context,
   visualChangeset,
-  user,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
   visualChangeset: VisualChangesetInterface;
-  user: EventAuditUser;
 }) => {
   const { variations } = experiment;
   const { visualChanges } = visualChangeset;
@@ -464,7 +456,6 @@ export const syncVisualChangesWithVariations = async ({
     updates: { visualChanges: newVisualChanges },
     // bypass webhooks since we are only creating new (empty) visual changes
     bypassWebhooks: true,
-    user,
   });
 };
 
@@ -472,12 +463,10 @@ export const deleteVisualChangesetById = async ({
   visualChangeset,
   experiment,
   context,
-  user,
 }: {
   visualChangeset: VisualChangesetInterface;
   experiment: ExperimentInterface | null;
   context: ReqContext | ApiReqContext;
-  user: EventAuditUser;
 }) => {
   await VisualChangesetModel.deleteOne({
     id: visualChangeset.id,
@@ -496,7 +485,6 @@ export const deleteVisualChangesetById = async ({
         experiment,
         changes: { hasVisualChangesets: false },
         bypassWebhooks: true,
-        user,
       });
     }
   }

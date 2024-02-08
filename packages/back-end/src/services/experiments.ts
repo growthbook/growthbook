@@ -175,9 +175,9 @@ export async function refreshMetric(
     to.setDate(to.getDate() + 1);
 
     const queryRunner = new MetricAnalysisQueryRunner(
+      context,
       metric,
-      integration,
-      context
+      integration
     );
     await queryRunner.startAnalysis({
       from,
@@ -542,7 +542,6 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
 export async function createSnapshot({
   experiment,
   context,
-  user = null,
   phaseIndex,
   useCache = false,
   defaultAnalysisSettings,
@@ -553,7 +552,6 @@ export async function createSnapshot({
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
-  user?: EventAuditUser;
   phaseIndex: number;
   useCache?: boolean;
   defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings;
@@ -615,7 +613,6 @@ export async function createSnapshot({
   await updateExperiment({
     context,
     experiment,
-    user,
     changes: {
       lastSnapshotAttempt: new Date(),
       nextSnapshotAttempt: nextUpdate,
@@ -632,9 +629,9 @@ export async function createSnapshot({
   );
 
   const queryRunner = new ExperimentResultsQueryRunner(
+    context,
     snapshot,
     integration,
-    context,
     useCache
   );
   await queryRunner.startAnalysis({

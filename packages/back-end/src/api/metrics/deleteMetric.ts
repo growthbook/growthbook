@@ -13,7 +13,7 @@ export const deleteMetricHandler = createApiRequestHandler(getMetricValidator)(
       throw new Error("Could not find metric with that id");
     }
 
-    await deleteMetricById(metric, req.context);
+    await deleteMetricById(req.context, metric);
 
     return {
       deletedId: req.params.id,

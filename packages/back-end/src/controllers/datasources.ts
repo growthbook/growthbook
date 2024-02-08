@@ -215,7 +215,6 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
     await createExperiment({
       data: experiment,
       context,
-      user: res.locals.eventAudit,
     });
 
     const metricMap = await getMetricMap(context);
@@ -823,9 +822,9 @@ export async function postDimensionSlices(
   });
 
   const queryRunner = new DimensionSlicesQueryRunner(
+    context,
     model,
-    integration,
-    context
+    integration
   );
   const outputmodel = await queryRunner.startAnalysis({
     exposureQueryId: queryId,
@@ -864,9 +863,9 @@ export async function cancelDimensionSlices(
   const integration = getSourceIntegrationObject(datasource, true);
 
   const queryRunner = new DimensionSlicesQueryRunner(
+    context,
     dimensionSlices,
-    integration,
-    context
+    integration
   );
   await queryRunner.cancelQueries();
 
