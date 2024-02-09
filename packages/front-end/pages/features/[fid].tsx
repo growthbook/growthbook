@@ -1,5 +1,6 @@
 import { useRouter } from "next/router";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -137,6 +138,7 @@ export default function FeaturePage() {
     feature: FeatureInterface;
     revisions: FeatureRevisionInterface[];
     experiments: ExperimentInterfaceStringDates[];
+    codeRefs: FeatureCodeRefsInterface[];
   }>(`/feature/${fid}${extraQueryString}`);
   const firstFeature = router?.query && "first" in router.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
@@ -300,6 +302,7 @@ export default function FeaturePage() {
   );
 
   const { stale, reason } = isFeatureStale(feature, data.experiments);
+  const { codeRefs } = data;
 
   return (
     <div className="contents container-fluid pagecontents">
@@ -787,12 +790,12 @@ export default function FeaturePage() {
                   <div className="mx-2">{codeRef.repo} </div>
                   <div className="mr-2">•</div>
                   <div>
-                    {codeRef.codeRefs.length} reference(s) found in{" "}
+                    {codeRef.refs.length} reference(s) found in{" "}
                     <code>{codeRef.branch}</code> branch.
                   </div>
                 </div>
                 <div className="d-flex flex-column ">
-                  {codeRef.codeRefs.map((ref, i) => (
+                  {codeRef.refs.map((ref, i) => (
                     <div key={i} className="appbox my-2 p-2">
                       <div className="px-1">
                         <a href="#">
