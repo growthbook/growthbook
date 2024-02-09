@@ -47,9 +47,7 @@ export const postBulkImportFacts = createApiRequestHandler(
       allFactMetrics.map((m) => [m.id, m])
     );
 
-    const allDataSources = await getDataSourcesByOrganization(
-      req.organization.id
-    );
+    const allDataSources = await getDataSourcesByOrganization(req.context);
     const dataSourceMap = new Map<string, DataSourceInterface>(
       allDataSources.map((s) => [s.id, s])
     );
@@ -213,7 +211,7 @@ export const postBulkImportFacts = createApiRequestHandler(
           checkFactMetricPermission(existing);
           if (data.projects) checkFactMetricPermission(data);
 
-          const changes = getUpdateFactMetricPropsFromBody(data);
+          const changes = getUpdateFactMetricPropsFromBody(data, existing);
           await validateFactMetric(
             { ...existing, ...changes },
             async (id) => factTableMap.get(id) || null

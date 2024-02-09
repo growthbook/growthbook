@@ -1,6 +1,11 @@
 import z from "zod";
 import { getScopedSettings } from "shared/settings";
 import {
+  DEFAULT_FACT_METRIC_WINDOW,
+  DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+  DEFAULT_METRIC_WINDOW_HOURS,
+} from "shared/constants";
+import {
   CreateFactMetricProps,
   FactMetricInterface,
   FactTableInterface,
@@ -110,16 +115,22 @@ export async function getCreateMetricPropsFromBody(
     projects: [],
     tags: [],
     inverse: false,
-    capping: "",
-    capValue: 0,
+    windowSettings: {
+      type: scopedSettings.windowType.value ?? DEFAULT_FACT_METRIC_WINDOW,
+      delayHours:
+        scopedSettings.delayHours.value ?? DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+      windowValue:
+        scopedSettings.windowHours.value ?? DEFAULT_METRIC_WINDOW_HOURS,
+      windowUnit: "hours",
+    },
+    cappingSettings: {
+      type: "",
+      value: 0,
+    },
     regressionAdjustmentOverride: false,
     regressionAdjustmentDays:
       scopedSettings.regressionAdjustmentDays.value || 0,
     regressionAdjustmentEnabled: !!scopedSettings.regressionAdjustmentEnabled,
-    conversionDelayHours: scopedSettings.conversionDelayHours.value || 0,
-    conversionWindowValue: scopedSettings.conversionWindowHours.value || 72,
-    conversionWindowUnit: "hours",
-    hasConversionWindow: false,
     numerator: cleanedNumerator,
     denominator: null,
     ...otherFields,
@@ -134,19 +145,19 @@ export async function getCreateMetricPropsFromBody(
   }
 
   if (cappingSettings?.type && cappingSettings?.type !== "none") {
-    data.capping = cappingSettings.type;
-    data.capValue = cappingSettings.value || 0;
+    data.cappingSettings.type = cappingSettings.type;
+    data.cappingSettings.value = cappingSettings.value || 0;
   }
   if (windowSettings?.type && windowSettings?.type !== "none") {
-    data.hasConversionWindow = true;
+    data.windowSettings.type = windowSettings.type;
     if (windowSettings.delayHours) {
-      data.conversionDelayHours = windowSettings.delayHours;
+      data.windowSettings.delayHours = windowSettings.delayHours;
     }
     if (windowSettings.windowValue) {
-      data.conversionWindowValue = windowSettings.windowValue;
+      data.windowSettings.windowValue = windowSettings.windowValue;
     }
     if (windowSettings.windowUnit) {
-      data.conversionWindowUnit = windowSettings.windowUnit;
+      data.windowSettings.windowUnit = windowSettings.windowUnit;
     }
   }
 

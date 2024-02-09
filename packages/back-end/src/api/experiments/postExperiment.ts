@@ -19,10 +19,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
 
     const { datasourceId, owner } = req.body;
 
-    const datasource = await getDataSourceById(
-      datasourceId,
-      req.organization.id
-    );
+    const datasource = await getDataSourceById(req.context, datasourceId);
 
     if (!datasource) {
       throw new Error(`Invalid data source: ${datasourceId}`);
@@ -71,7 +68,6 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     const experiment = await createExperiment({
       data: newExperiment,
       context: req.context,
-      user: req.eventAudit,
     });
 
     // add owner as watcher

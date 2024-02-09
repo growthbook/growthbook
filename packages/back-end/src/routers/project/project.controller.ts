@@ -221,7 +221,6 @@ export const deleteProject = async (
       await deleteAllFeaturesForAProject({
         projectId: id,
         context,
-        user: res.locals.eventAudit,
       });
     } catch (e) {
       return res.json({
@@ -230,7 +229,7 @@ export const deleteProject = async (
       });
     }
   } else {
-    await removeProjectFromFeatures(id, context, res.locals.eventAudit);
+    await removeProjectFromFeatures(context, id);
   }
 
   // Clean up experiments
@@ -241,7 +240,6 @@ export const deleteProject = async (
       await deleteAllExperimentsForAProject({
         projectId: id,
         context,
-        user: res.locals.eventAudit,
       });
     } catch (e) {
       return res.json({
@@ -250,7 +248,7 @@ export const deleteProject = async (
       });
     }
   } else {
-    await removeProjectFromExperiments(id, context, res.locals.eventAudit);
+    await removeProjectFromExperiments(context, id);
   }
 
   // Clean up Slack integrations

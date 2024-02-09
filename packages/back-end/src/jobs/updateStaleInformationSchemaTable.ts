@@ -9,6 +9,7 @@ import {
 } from "../models/InformationSchemaTablesModel";
 import { Column } from "../types/Integration";
 import { getPath } from "../util/informationSchemas";
+import { getContextForAgendaJobByOrgId } from "../services/organizations";
 
 const UPDATE_STALE_INFORMATION_SCHEMA_TABLE_JOB_NAME =
   "updateStaleInformationSchemaTable";
@@ -42,9 +43,11 @@ export default function (ag: Agenda) {
         return;
       }
 
+      const context = await getContextForAgendaJobByOrgId(organization);
+
       const datasource = await getDataSourceById(
-        informationSchemaTable.datasourceId,
-        organization
+        context,
+        informationSchemaTable.datasourceId
       );
 
       const informationSchema = await getInformationSchemaById(

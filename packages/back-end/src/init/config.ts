@@ -200,7 +200,7 @@ export function getConfigMetrics(
         managedBy: "config",
       });
     })
-    .filter((m) => hasReadAccess(context.readAccessFilter, m.projects));
+    .filter((m) => hasReadAccess(context.readAccessFilter, m.projects || []));
 }
 
 export function getConfigDimensions(

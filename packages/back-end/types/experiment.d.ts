@@ -1,3 +1,4 @@
+import { MetricWindowSettings } from "./fact-table";
 import {
   ExperimentRefVariation,
   FeatureInterface,
@@ -78,8 +79,11 @@ export type ExperimentResultsType = "dnf" | "won" | "lost" | "inconclusive";
 
 export type MetricOverride = {
   id: string;
-  conversionWindowHours?: number;
-  conversionDelayHours?: number;
+
+  windowType?: MetricWindowSettings["type"];
+  windowHours?: number;
+  delayHours?: number;
+
   winRisk?: number;
   loseRisk?: number;
   regressionAdjustmentOverride?: boolean;
@@ -87,15 +91,25 @@ export type MetricOverride = {
   regressionAdjustmentDays?: number;
 };
 
+export type LegacyMetricOverride = MetricOverride & {
+  conversionWindowHours?: number;
+  conversionDelayHours?: number;
+};
+
 export interface LegacyExperimentInterface
   extends Omit<
     ExperimentInterface,
-    "phases" | "variations" | "attributionModel" | "releasedVariationId"
+    | "phases"
+    | "variations"
+    | "attributionModel"
+    | "releasedVariationId"
+    | "metricOverrides"
   > {
   /**
    * @deprecated
    */
   observations?: string;
+  metricOverrides?: LegacyMetricOverride[];
   attributionModel: ExperimentInterface["attributionModel"] | "allExposures";
   variations: LegacyVariation[];
   phases: LegacyExperimentPhase[];

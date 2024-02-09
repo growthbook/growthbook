@@ -7,6 +7,7 @@ import {
   FactMetricInterface,
   UpdateFactMetricProps,
 } from "../../types/fact-table";
+import { upgradeFactMetricDoc } from "../util/migrations";
 import { ApiFactMetric } from "../../types/openapi";
 import { ApiReqContext } from "../../types/api";
 import { ReqContext } from "../../types/organization";
@@ -35,8 +36,19 @@ const factTableSchema = new mongoose.Schema({
     column: String,
     filters: [String],
   },
-  capping: String,
-  capValue: Number,
+
+  cappingSettings: {
+    type: { type: String },
+    value: Number,
+    ignoreZeros: Boolean,
+  },
+  windowSettings: {
+    type: { type: String },
+    delayHours: Number,
+    windowValue: Number,
+    windowUnit: String,
+  },
+
   maxPercentChange: Number,
   minPercentChange: Number,
   minSampleSize: Number,
@@ -47,6 +59,9 @@ const factTableSchema = new mongoose.Schema({
   regressionAdjustmentEnabled: Boolean,
   regressionAdjustmentDays: Number,
 
+  // deprecated fields
+  capping: String,
+  capValue: Number,
   conversionDelayHours: Number,
   hasConversionWindow: Boolean,
   conversionWindowValue: Number,
@@ -64,7 +79,7 @@ const FactMetricModel = mongoose.model<FactMetricInterface>(
 
 function toInterface(doc: FactMetricDocument): FactMetricInterface {
   const ret = doc.toJSON<FactMetricDocument>();
-  return omit(ret, ["__v", "_id"]);
+  return upgradeFactMetricDoc(omit(ret, ["__v", "_id"]));
 }
 
 export async function getAllFactMetricsForOrganization(
@@ -73,7 +88,7 @@ export async function getAllFactMetricsForOrganization(
   const docs = await FactMetricModel.find({ organization: context.org.id });
   return docs
     .map((doc) => toInterface(doc))
-    .filter((f) => hasReadAccess(context.readAccessFilter, f.projects));
+    .filter((f) => hasReadAccess(context.readAccessFilter, f.projects || []));
 }
 
 export async function getFactMetric(
@@ -88,7 +103,7 @@ export async function getFactMetric(
   if (!doc) return null;
 
   const factMetric = toInterface(doc);
-  if (!hasReadAccess(context.readAccessFilter, factMetric.projects)) {
+  if (!hasReadAccess(context.readAccessFilter, factMetric.projects || [])) {
     return null;
   }
 
@@ -157,12 +172,8 @@ export function toFactMetricApiInterface(
   factMetric: FactMetricInterface
 ): ApiFactMetric {
   const {
-    capValue,
-    capping,
-    conversionDelayHours,
-    conversionWindowUnit,
-    conversionWindowValue,
-    hasConversionWindow,
+    cappingSettings,
+    windowSettings,
     regressionAdjustmentDays,
     regressionAdjustmentEnabled,
     regressionAdjustmentOverride,
@@ -177,18 +188,14 @@ export function toFactMetricApiInterface(
     managedBy: factMetric.managedBy || "",
     denominator: denominator || undefined,
     cappingSettings: {
-      type: capping || "none",
-      value: capValue || 0,
+      type: cappingSettings.type || "none",
+      value: cappingSettings.value,
     },
     windowSettings: {
-      type: hasConversionWindow ? "conversion" : "none",
-      delayHours: conversionDelayHours || 0,
-      ...(hasConversionWindow
-        ? {
-            windowValue: conversionWindowValue || 0,
-            windowUnit: conversionWindowUnit || "hours",
-          }
-        : null),
+      type: windowSettings.type || "none",
+      delayHours: windowSettings.delayHours,
+      windowValue: windowSettings.windowValue,
+      windowUnit: windowSettings.windowUnit,
     },
     regressionAdjustmentSettings: {
       override: regressionAdjustmentOverride || false,

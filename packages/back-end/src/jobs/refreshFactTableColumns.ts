@@ -97,10 +97,7 @@ export default function (ag: Agenda) {
     const factTable = await getFactTable(context, factTableId);
     if (!factTable) return;
 
-    const datasource = await getDataSourceById(
-      factTable.datasource,
-      factTable.organization
-    );
+    const datasource = await getDataSourceById(context, factTable.datasource);
     if (!datasource) return;
 
     const updates: Partial<

@@ -47,8 +47,24 @@
       "column": "amount",
       "filters": []
     },
-    "capping": "percentile",
-    "capValue": 0.9
+    "cappingSettings": {
+      "type": "percentile",
+      "value": 0.9
+    }
+  },
+  {
+    "id": "fact_nonbinom_null__purchased_value_pctilecapignorezeros",
+    "metricType": "mean",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "amount",
+      "filters": []
+    },
+    "cappingSettings": {
+      "type": "percentile",
+      "value": 0.9,
+      "ignoreZeros": true
+    }
   },
   {
     "id": "fact_binomial__any_item_in_cart",

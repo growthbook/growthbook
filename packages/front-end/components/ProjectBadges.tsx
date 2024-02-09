@@ -1,14 +1,18 @@
 import clsx from "clsx";
+import { FaInfoCircle } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/components/Badge";
+import Tooltip from "./Tooltip/Tooltip";
 
 export interface Props {
+  resourceType: "metric" | "data source" | "member" | "team" | "fact table";
   projectIds?: string[];
   sort?: boolean;
   className?: string;
 }
 
 export default function ProjectBadges({
+  resourceType,
   projectIds,
   sort = true,
   className = "badge-ellipsis short",
@@ -41,6 +45,8 @@ export default function ProjectBadges({
     });
   }
 
+  const showMissingProjectErr = filteredProjects.some((p) => !p);
+
   return (
     <>
       {filteredProjects.map((p) => {
@@ -50,12 +56,21 @@ export default function ProjectBadges({
             content={p.name}
             key={p.name}
             className={clsx(
-              project === p.id ? "badge-primary bg-purple" : "badge-gray",
+              project === p?.id ? "badge-primary bg-purple" : "badge-gray",
               className
             )}
           />
         );
       })}
+      {showMissingProjectErr ? (
+        <Tooltip
+          body={`This ${resourceType} is associated with a project that has been deleted or that you do not have access to.`}
+          key="Unknown Project"
+          className="pl-2"
+        >
+          <FaInfoCircle />
+        </Tooltip>
+      ) : null}
     </>
   );
 }

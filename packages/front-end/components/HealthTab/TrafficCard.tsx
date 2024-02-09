@@ -10,6 +10,7 @@ import { useUser } from "@/services/UserContext";
 import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import track from "@/services/track";
 import { formatTrafficSplit } from "@/services/utils";
+import { formatNumber } from "@/services/metrics";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "../Experiment/ExperimentDateGraph";
@@ -234,7 +235,7 @@ export default function TrafficCard({
             variationNames={variations.map((v) => v.name)}
             label="Users"
             datapoints={usersPerDate}
-            tickFormat={(v) => numberFormatter.format(v)}
+            formatter={formatNumber}
           />
         </div>
       )}
