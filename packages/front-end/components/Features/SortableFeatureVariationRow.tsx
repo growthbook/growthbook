@@ -16,6 +16,7 @@ import {
 } from "@/services/features";
 import MoreMenu from "../Dropdown/MoreMenu";
 import Field from "../Forms/Field";
+import Tooltip from "../Tooltip/Tooltip";
 import FeatureValueField from "./FeatureValueField";
 import styles from "./VariationsInput.module.scss";
 
@@ -181,33 +182,38 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             )}
             {setVariations && (
               <div className="col-auto">
-                <MoreMenu>
-                  <button
-                    disabled={variations.length <= 2}
-                    className={clsx(
-                      "dropdown-item",
-                      variations.length > 2 && "text-danger"
-                    )}
-                    onClick={(e) => {
-                      e.preventDefault();
-
-                      const newValues = [...variations];
-                      newValues.splice(i, 1);
-
-                      const newWeights = distributeWeights(
-                        newValues.map((v) => v.weight),
-                        customSplit
-                      );
-
-                      newValues.forEach((v, j) => {
-                        v.weight = newWeights[j] || 0;
-                      });
-                      setVariations(newValues);
-                    }}
-                    type="button"
+                <MoreMenu zIndex={1000000}>
+                  <Tooltip
+                    body="Experiments must have atleast two variations"
+                    shouldDisplay={variations.length <= 2}
                   >
-                    remove
-                  </button>
+                    <button
+                      disabled={variations.length <= 2}
+                      className={clsx(
+                        "dropdown-item",
+                        variations.length > 2 && "text-danger"
+                      )}
+                      onClick={(e) => {
+                        e.preventDefault();
+
+                        const newValues = [...variations];
+                        newValues.splice(i, 1);
+
+                        const newWeights = distributeWeights(
+                          newValues.map((v) => v.weight),
+                          customSplit
+                        );
+
+                        newValues.forEach((v, j) => {
+                          v.weight = newWeights[j] || 0;
+                        });
+                        setVariations(newValues);
+                      }}
+                      type="button"
+                    >
+                      remove
+                    </button>
+                  </Tooltip>
                 </MoreMenu>
               </div>
             )}
