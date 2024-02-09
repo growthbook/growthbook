@@ -24,16 +24,7 @@ export interface EditMetricsFormInterface {
   metrics: string[];
   guardrails: string[];
   activationMetric: string;
-  metricOverrides: {
-    id: string;
-    conversionWindowHours?: number;
-    conversionDelayHours?: number;
-    winRisk?: number;
-    loseRisk?: number;
-    regressionAdjustmentOverride?: boolean;
-    regressionAdjustmentEnabled?: boolean;
-    regressionAdjustmentDays?: number;
-  }[];
+  metricOverrides: MetricOverride[];
 }
 
 export function getDefaultMetricOverridesFormValue(
@@ -79,7 +70,7 @@ export function fixMetricOverridesBeforeSaving(overrides: MetricOverride[]) {
       if (key === "id") continue;
       const v = overrides[i][key];
       // remove nullish values from payload
-      if (v === undefined || v === null || isNaN(v)) {
+      if (v === undefined || v === null || (key !== "windowType" && isNaN(v))) {
         delete overrides[i][key];
         continue;
       }
@@ -149,7 +140,7 @@ const EditMetricsForm: FC<{
       ctaEnabled={!hasMetricOverrideRiskError}
       submit={form.handleSubmit(async (value) => {
         const payload = cloneDeep<EditMetricsFormInterface>(value);
-        fixMetricOverridesBeforeSaving(payload.metricOverrides);
+        fixMetricOverridesBeforeSaving(value.metricOverrides || []);
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify(payload),

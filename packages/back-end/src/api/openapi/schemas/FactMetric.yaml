@@ -13,6 +13,7 @@ required:
   - cappingSettings
   - windowSettings
   - regressionAdjustmentSettings
+  - managedBy
   - dateCreated
   - dateUpdated
 properties:
@@ -90,18 +91,21 @@ properties:
       value:
         type: number
         description: When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).
+      ignoreZeros:
+        type: boolean
+        description: If true and capping is `percentile`, zeros will be ignored when calculating the percentile.
   windowSettings:
     type: object
     description: Controls the conversion window for the metric
     required:
       - type
-      - delayHours
     properties:
       type:
         type: string
         enum:
           - "none"
           - "conversion"
+          - "lookback"
       delayHours:
         type: number
         description: Wait this many hours after experiment exposure before counting conversions
@@ -128,6 +132,12 @@ properties:
       days:
         type: number
         description: Number of pre-exposure days to use for the regression adjustment
+  managedBy:
+    type: string
+    description: Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere.
+    enum:
+      - ""
+      - api
   dateCreated:
     type: string
     format: date-time

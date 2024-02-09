@@ -4,7 +4,8 @@
     "metricType": "mean",
     "numerator": {
       "factTableId": "orders",
-      "column": "qty"
+      "column": "qty",
+      "filters": []
     }
   },
   {
@@ -12,7 +13,8 @@
     "metricType": "mean",
     "numerator": {
       "factTableId": "orders",
-      "column": "qty"
+      "column": "qty",
+      "filters": []
     },
     "regressionAdjustmentDays": 4,
     "regressionAdjustmentEnabled": true
@@ -45,8 +47,24 @@
       "column": "amount",
       "filters": []
     },
-    "capping": "percentile",
-    "capValue": 0.9
+    "cappingSettings": {
+      "type": "percentile",
+      "value": 0.9
+    }
+  },
+  {
+    "id": "fact_nonbinom_null__purchased_value_pctilecapignorezeros",
+    "metricType": "mean",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "amount",
+      "filters": []
+    },
+    "cappingSettings": {
+      "type": "percentile",
+      "value": 0.9,
+      "ignoreZeros": true
+    }
   },
   {
     "id": "fact_binomial__any_item_in_cart",
@@ -73,7 +91,8 @@
     "metricType": "ratio",
     "numerator": {
       "factTableId": "orders",
-      "column": "$$count"
+      "column": "$$count",
+      "filters": []
     },
     "denominator": {
       "factTableId": "events",
@@ -100,7 +119,8 @@
     "metricType": "ratio",
     "numerator": {
       "factTableId": "orders",
-      "column": "amount"
+      "column": "amount",
+      "filters": []
     },
     "denominator": {
       "factTableId": "orders",

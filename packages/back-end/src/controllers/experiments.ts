@@ -280,7 +280,7 @@ export async function getExperiment(
     org.id
   );
 
-  const linkedFeatures = await getLinkedFeatureInfo(org, experiment);
+  const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
 
   res.status(200).json({
     status: 200,
@@ -361,7 +361,7 @@ export async function postSnapshotNotebook(
   const context = getContextFromReq(req);
   const { id } = req.params;
 
-  const notebook = await generateExperimentNotebook(id, context);
+  const notebook = await generateExperimentNotebook(context, id);
 
   res.status(200).json({
     status: 200,
@@ -444,7 +444,7 @@ export async function postExperiments(
   req.checkPermissions("createAnalyses", data.project);
 
   if (data.datasource) {
-    const datasource = await getDataSourceById(data.datasource, org.id);
+    const datasource = await getDataSourceById(context, data.datasource);
     if (!datasource) {
       res.status(403).json({
         status: 403,
@@ -457,10 +457,7 @@ export async function postExperiments(
   // Validate that specified metrics exist and belong to the organization
   if (data.metrics && data.metrics.length) {
     for (let i = 0; i < data.metrics.length; i++) {
-      const metric = await getExperimentMetricById(
-        data.metrics[i],
-        data.organization
-      );
+      const metric = await getExperimentMetricById(context, data.metrics[i]);
 
       if (metric) {
         // Make sure it is tied to the same datasource as the experiment
@@ -562,7 +559,6 @@ export async function postExperiments(
     const experiment = await createExperiment({
       data: obj,
       context,
-      user: res.locals.eventAudit,
     });
 
     if (req.query.originalId) {
@@ -577,7 +573,6 @@ export async function postExperiments(
           editorUrl: visualChangeset.editorUrl,
           context,
           visualChanges: visualChangeset.visualChanges,
-          user: res.locals.eventAudit,
         });
       }
     }
@@ -656,7 +651,7 @@ export async function postExperiment(
   req.checkPermissions("createAnalyses", experiment.project);
 
   if (data.datasource) {
-    const datasource = await getDataSourceById(data.datasource, org.id);
+    const datasource = await getDataSourceById(context, data.datasource);
     if (!datasource) {
       res.status(403).json({
         status: 403,
@@ -668,7 +663,7 @@ export async function postExperiment(
 
   if (data.metrics && data.metrics.length) {
     for (let i = 0; i < data.metrics.length; i++) {
-      const metric = await getExperimentMetricById(data.metrics[i], org.id);
+      const metric = await getExperimentMetricById(context, data.metrics[i]);
 
       if (metric) {
         // Make sure it is tied to the same datasource as the experiment
@@ -810,7 +805,6 @@ export async function postExperiment(
   const updated = await updateExperiment({
     context,
     experiment,
-    user: res.locals.eventAudit,
     changes,
   });
 
@@ -828,7 +822,6 @@ export async function postExperiment(
             visualChangeset: vc,
             experiment: updated,
             context,
-            user: res.locals.eventAudit,
           })
         )
       );
@@ -902,7 +895,6 @@ export async function postExperimentArchive(
     await updateExperiment({
       context,
       experiment,
-      user: res.locals.eventAudit,
       changes,
     });
 
@@ -961,7 +953,6 @@ export async function postExperimentUnarchive(
     await updateExperiment({
       context,
       experiment,
-      user: res.locals.eventAudit,
       changes,
     });
 
@@ -1062,7 +1053,6 @@ export async function postExperimentStatus(
   const updated = await updateExperiment({
     context,
     experiment,
-    user: res.locals.eventAudit,
     changes,
   });
 
@@ -1155,7 +1145,6 @@ export async function postExperimentStop(
     const updated = await updateExperiment({
       context,
       experiment,
-      user: res.locals.eventAudit,
       changes,
     });
 
@@ -1228,7 +1217,6 @@ export async function deleteExperimentPhase(
   const updated = await updateExperiment({
     context,
     experiment,
-    user: res.locals.eventAudit,
     changes,
   });
 
@@ -1299,7 +1287,6 @@ export async function putExperimentPhase(
   const updated = await updateExperiment({
     context,
     experiment,
-    user: res.locals.eventAudit,
     changes,
   });
 
@@ -1409,7 +1396,6 @@ export async function postExperimentTargeting(
     const updated = await updateExperiment({
       context,
       experiment,
-      user: res.locals.eventAudit,
       changes,
     });
 
@@ -1508,7 +1494,6 @@ export async function postExperimentPhase(
     const updated = await updateExperiment({
       context,
       experiment,
-      user: res.locals.eventAudit,
       changes,
     });
 
@@ -1593,11 +1578,7 @@ export async function deleteExperiment(
   await Promise.all([
     // note: we might want to change this to change the status to
     // 'deleted' instead of actually deleting the document.
-    deleteExperimentByIdForOrganization(
-      experiment,
-      context,
-      res.locals.eventAudit
-    ),
+    deleteExperimentByIdForOrganization(context, experiment),
     removeExperimentFromPresentations(experiment.id),
   ]);
 
@@ -1642,13 +1623,13 @@ export async function cancelSnapshot(
   req.checkPermissions("runQueries", experiment.project || "");
 
   const integration = await getIntegrationFromDatasourceId(
-    snapshot.organization,
+    context,
     snapshot.settings.datasourceId
   );
   const queryRunner = new ExperimentResultsQueryRunner(
+    context,
     snapshot,
-    integration,
-    org
+    integration
   );
   await queryRunner.cancelQueries();
   await deleteSnapshotById(org.id, snapshot.id);
@@ -1701,7 +1682,7 @@ export async function postSnapshot(
     ...(experiment.guardrails ?? []),
   ]);
   const allExperimentMetrics = await Promise.all(
-    allExperimentMetricIds.map((m) => getExperimentMetricById(m, org.id))
+    allExperimentMetricIds.map((m) => getExperimentMetricById(context, m))
   );
   const denominatorMetricIds = uniq<string>(
     allExperimentMetrics
@@ -1709,9 +1690,11 @@ export async function postSnapshot(
       .filter((d) => d && typeof d === "string") as string[]
   );
   const denominatorMetrics = (
-    await Promise.all(denominatorMetricIds.map((m) => getMetricById(m, org.id)))
+    await Promise.all(
+      denominatorMetricIds.map((m) => getMetricById(context, m))
+    )
   ).filter(Boolean) as MetricInterface[];
-  const datasource = await getDataSourceById(experiment.datasource, org.id);
+  const datasource = await getDataSourceById(context, experiment.datasource);
 
   const {
     metricRegressionAdjustmentStatuses,
@@ -1750,8 +1733,8 @@ export async function postSnapshot(
     dimension
   );
 
-  const metricMap = await getMetricMap(org.id);
-  const factTableMap = await getFactTableMap(org.id);
+  const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
 
   // Manual snapshot
   if (!experiment.datasource) {
@@ -1810,7 +1793,6 @@ export async function postSnapshot(
     const queryRunner = await createSnapshot({
       experiment,
       context,
-      user: res.locals.eventAudit,
       phaseIndex: phase,
       useCache,
       defaultAnalysisSettings: analysisSettings,
@@ -1892,7 +1874,7 @@ export async function postSnapshotAnalysis(
     await updateSnapshot(org.id, id, { settings: snapshot.settings });
   }
 
-  const metricMap = await getMetricMap(org.id);
+  const metricMap = await getMetricMap(context);
 
   try {
     await createSnapshotAnalysis({
@@ -1961,7 +1943,6 @@ export async function deleteScreenshot(
   const updated = await updateExperiment({
     context,
     experiment,
-    user: res.locals.eventAudit,
     changes,
   });
 
@@ -2037,7 +2018,6 @@ export async function addScreenshot(
   await updateExperiment({
     context,
     experiment,
-    user: res.locals.eventAudit,
     changes,
   });
 
@@ -2077,7 +2057,8 @@ export async function cancelPastExperiments(
   // Passing in an empty string for "project" since pastExperiments don't have projects
   req.checkPermissions("runQueries", "");
 
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.params;
   const pastExperiments = await getPastExperimentsById(org.id, id);
   if (!pastExperiments) {
@@ -2085,13 +2066,13 @@ export async function cancelPastExperiments(
   }
 
   const integration = await getIntegrationFromDatasourceId(
-    pastExperiments.organization,
+    context,
     pastExperiments.datasource
   );
   const queryRunner = new PastExperimentsQueryRunner(
+    context,
     pastExperiments,
-    integration,
-    org
+    integration
   );
   await queryRunner.cancelQueries();
 
@@ -2141,10 +2122,11 @@ export async function postPastExperiments(
   req: AuthRequest<{ datasource: string; force: boolean }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { datasource, force } = req.body;
 
-  const datasourceObj = await getDataSourceById(datasource, org.id);
+  const datasourceObj = await getDataSourceById(context, datasource);
   if (!datasourceObj) {
     throw new Error("Could not find datasource");
   }
@@ -2187,9 +2169,9 @@ export async function postPastExperiments(
 
   if (needsRun) {
     const queryRunner = new PastExperimentsQueryRunner(
+      context,
       pastExperiments,
-      integration,
-      org
+      integration
     );
     pastExperiments = await queryRunner.startAnalysis({
       from: start,
@@ -2243,7 +2225,6 @@ export async function postVisualChangeset(
     urlPatterns: req.body.urlPatterns,
     editorUrl: req.body.editorUrl,
     context,
-    user: res.locals.eventAudit,
   });
 
   res.status(200).json({
@@ -2277,7 +2258,6 @@ export async function putVisualChangeset(
     experiment,
     context,
     updates: req.body,
-    user: res.locals.eventAudit,
   });
 
   res.status(200).json({
@@ -2314,7 +2294,6 @@ export async function deleteVisualChangeset(
     visualChangeset,
     experiment,
     context,
-    user: res.locals.eventAudit,
   });
 
   res.status(200).json({

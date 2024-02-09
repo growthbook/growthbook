@@ -10,11 +10,12 @@ on:
       - "yarn.lock"
       - "Dockerfile"
       - ".dockerignore"
+    types: [opened, synchronize, reopened, ready_for_review]
 
 jobs:
   preview:
     runs-on: ubuntu-latest
-    if: ${{ github.repository == 'growthbook/growthbook' }}
+    if: ${{ github.repository == 'growthbook/growthbook' && github.event.pull_request.draft == false }}
     steps:
     - name: Context
       uses: okteto/context@latest

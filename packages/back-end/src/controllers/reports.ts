@@ -218,15 +218,20 @@ export async function refreshReport(
       ? !!report.args?.regressionAdjustmentEnabled
       : false;
 
-  const metricMap = await getMetricMap(org.id);
-  const factTableMap = await getFactTableMap(org.id);
+  const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
 
   const integration = await getIntegrationFromDatasourceId(
-    org.id,
+    context,
     report.args.datasource,
     true
   );
-  const queryRunner = new ReportQueryRunner(report, integration, org, useCache);
+  const queryRunner = new ReportQueryRunner(
+    context,
+    report,
+    integration,
+    useCache
+  );
 
   const updatedReport = await queryRunner.startAnalysis({
     metricMap,
@@ -298,15 +303,19 @@ export async function putReport(
     ...updates,
   };
   if (needsRun) {
-    const metricMap = await getMetricMap(org.id);
-    const factTableMap = await getFactTableMap(org.id);
+    const metricMap = await getMetricMap(context);
+    const factTableMap = await getFactTableMap(context);
 
     const integration = await getIntegrationFromDatasourceId(
-      org.id,
+      context,
       updatedReport.args.datasource,
       true
     );
-    const queryRunner = new ReportQueryRunner(updatedReport, integration, org);
+    const queryRunner = new ReportQueryRunner(
+      context,
+      updatedReport,
+      integration
+    );
 
     await queryRunner.startAnalysis({
       metricMap,
@@ -340,10 +349,10 @@ export async function cancelReport(
   req.checkPermissions("runQueries", experiment?.project || "");
 
   const integration = await getIntegrationFromDatasourceId(
-    org.id,
+    context,
     report.args.datasource
   );
-  const queryRunner = new ReportQueryRunner(report, integration, org);
+  const queryRunner = new ReportQueryRunner(context, report, integration);
   await queryRunner.cancelQueries();
 
   res.status(200).json({ status: 200 });
@@ -353,10 +362,10 @@ export async function postNotebook(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { id } = req.params;
 
-  const notebook = await generateReportNotebook(id, org.id);
+  const notebook = await generateReportNotebook(context, id);
 
   res.status(200).json({
     status: 200,

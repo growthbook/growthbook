@@ -45,6 +45,7 @@ export const createFactTablePropsValidator = z
     sql: z.string(),
     eventName: z.string(),
     columns: z.array(createColumnPropsValidator),
+    managedBy: z.enum(["", "api"]).optional(),
   })
   .strict();
 
@@ -59,6 +60,7 @@ export const updateFactTablePropsValidator = z
     sql: z.string().optional(),
     eventName: z.string().optional(),
     columns: z.array(createColumnPropsValidator).optional(),
+    managedBy: z.enum(["", "api"]).optional(),
     columnsError: z.string().nullable().optional(),
   })
   .strict();
@@ -71,9 +73,25 @@ export const columnRefValidator = z
   })
   .strict();
 
-export const metricTypeValidator = z.enum(["ratio", "mean", "proportion"]);
-export const cappingValidator = z.enum(["absolute", "percentile", ""]);
+export const cappingTypeValidator = z.enum(["absolute", "percentile", ""]);
 export const conversionWindowUnitValidator = z.enum(["weeks", "days", "hours"]);
+export const windowTypeValidator = z.enum(["conversion", "lookback", ""]);
+export const cappingSettingsValidator = z
+  .object({
+    type: cappingTypeValidator,
+    value: z.number(),
+    ignoreZeros: z.boolean().optional(),
+  })
+  .strict();
+
+export const windowSettingsValidator = z.object({
+  type: windowTypeValidator,
+  delayHours: z.coerce.number(),
+  windowValue: z.number(),
+  windowUnit: conversionWindowUnitValidator,
+});
+
+export const metricTypeValidator = z.enum(["ratio", "mean", "proportion"]);
 
 export const createFactMetricPropsValidator = z.object({
   id: z.string().optional(),
@@ -83,14 +101,16 @@ export const createFactMetricPropsValidator = z.object({
   description: z.string(),
   tags: z.array(z.string()),
   projects: z.array(z.string()),
+  managedBy: z.enum(["", "api"]).optional(),
 
   metricType: metricTypeValidator,
   numerator: columnRefValidator,
   denominator: columnRefValidator.nullable(),
 
-  capping: cappingValidator,
-  capValue: z.number(),
   inverse: z.boolean(),
+
+  cappingSettings: cappingSettingsValidator,
+  windowSettings: windowSettingsValidator,
 
   maxPercentChange: z.number(),
   minPercentChange: z.number(),
@@ -101,11 +121,6 @@ export const createFactMetricPropsValidator = z.object({
   regressionAdjustmentOverride: z.boolean(),
   regressionAdjustmentEnabled: z.boolean(),
   regressionAdjustmentDays: z.number(),
-
-  conversionDelayHours: z.number(),
-  hasConversionWindow: z.boolean(),
-  conversionWindowValue: z.number(),
-  conversionWindowUnit: conversionWindowUnitValidator,
 });
 
 export const updateFactMetricPropsValidator = z.object({
@@ -114,14 +129,16 @@ export const updateFactMetricPropsValidator = z.object({
   description: z.string().optional(),
   tags: z.array(z.string()).optional(),
   projects: z.array(z.string()).optional(),
+  managedBy: z.enum(["", "api"]).optional(),
 
   metricType: metricTypeValidator.optional(),
   numerator: columnRefValidator.optional(),
   denominator: columnRefValidator.nullable().optional(),
 
-  capping: cappingValidator.optional(),
-  capValue: z.number().optional(),
   inverse: z.boolean().optional(),
+
+  cappingSettings: cappingSettingsValidator.optional(),
+  windowSettings: windowSettingsValidator.optional(),
 
   maxPercentChange: z.number().optional(),
   minPercentChange: z.number().optional(),
@@ -132,11 +149,6 @@ export const updateFactMetricPropsValidator = z.object({
   regressionAdjustmentOverride: z.boolean().optional(),
   regressionAdjustmentEnabled: z.boolean().optional(),
   regressionAdjustmentDays: z.number().optional(),
-
-  conversionDelayHours: z.number().optional(),
-  hasConversionWindow: z.boolean().optional(),
-  conversionWindowValue: z.number().optional(),
-  conversionWindowUnit: conversionWindowUnitValidator.optional(),
 });
 
 export const createFactFilterPropsValidator = z
@@ -145,6 +157,7 @@ export const createFactFilterPropsValidator = z
     name: z.string(),
     description: z.string(),
     value: z.string(),
+    managedBy: z.enum(["", "api"]).optional(),
   })
   .strict();
 
@@ -153,6 +166,7 @@ export const updateFactFilterPropsValidator = z
     name: z.string().optional(),
     description: z.string().optional(),
     value: z.string().optional(),
+    managedBy: z.enum(["", "api"]).optional(),
   })
   .strict();
 

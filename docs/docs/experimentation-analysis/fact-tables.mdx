@@ -111,14 +111,38 @@ For example, to create a **Session Duration** metric, you would do the following
 - Numerator: `SUM(duration)` from a `Sessions` fact table
 - Denominator: `COUNT(*)` from a `Sessions` fact table
 
-### Conversion Windows
+### Metric Windows
 
-When used in an experiment, we only consider rows in a Fact Table where the timestamp is greater than or equal to the first time the user was exposed to the experiment. In other words, if someone purchases something before seeing your experiment, it won't be included in the analysis. This behavior is ideal for the vast majority of metrics, but you can change it with the Conversion Delay setting if desired (see Advanced Settings below).
+When used in an experiment, we only consider rows of a Metric where the timestamp is greater than or equal to the first time the user was exposed to the experiment. In other words, if someone purchases something before seeing your experiment, it won't be included in the analysis. This behavior is ideal for the vast majority of metrics, but you can change it with the Metric Delay setting if desired (see below).
 
-The first exposure date sets the lower bound on the rows that are included. There are 2 options for setting the upper bound:
+There are three window settings one can use to configure the metric date window. Each of them defines the lower and upper date range of the metric to use for each user:
 
-- No conversion window (default) - use the experiment end date as the upper bound
-- Specific conversion window (e.g. `3 days`) - only include rows within the specified time range of the first exposure event
+- **None** (default)
+  - Lower bound: user's first exposure plus the metric delay
+  - Upper bound: experiment end date
+- **Conversion Window**
+  - Lower bound: user's first exposure plus the metric delay
+  - Upper bound: the lower bound + the length of the conversion window
+- **Lookback Window**
+  - Lower bound: the experiment end date minus the lookback window OR the user's first exposure plus the metric delay, whichever is later
+  - Upper bound: experiment end date
+
+Here's a graphical representation of these three window types:
+![Metric Windows](/images/metric-windows.png)
+
+Why might you choose one window over another?
+
+**None** - The simplest. Use all data available. This is useful for using as much data associated with users in your experiment and will combine any behavior that is right after experiment exposure as well as long run behavior within the experiment time frame.
+
+**Conversion window** - Conversion windows allow you to only look at events that are tied to the first exposure to an experiment. This can help if, for example, you are tracking purchases and you only want to measure the effect of an experiment in a checkout flow on purchases made soon after seeing that checkout flow. Using a conversion window can reduce the noise from user behavior not related to an experiment. However, if you set the window too short, you may not capture users that return a few days later and were influenced by the experiment.
+
+**Lookback window** - Lookback windows are good for capturing long run impacts of an experiment on regular behavior like user log ins or page views. They have two main advantages:
+
+(1) You can mitigate the novelty effect of an experiment; if you are testing a new recommendation algorithm, at first users may react a certain way to the experiment, but eventually they may adjust and so may their behavior. In these cases, you may just want to look at the last 14 days of an experiment.
+
+(2) Lookback windows help you focus on the long run effects of an experiment. Much of experimentation is about building a better product; by focusing on impact of an experiment after it has been live for a week or two, you may get a better picture of the long run impact of launching the experiment.
+
+Larger companies who measure long run logged in behavior want to ensure their experiments have lasting effects and often rely on lookback windows to make shipping decisions However, lookback windows may not be right if you are testing a feature on logged-out or anonymous users and are measuring simple purchase conversions or something similar. In these cases, you might end up with many logged-out users who, in the long run, simply have no metric data associated with them.
 
 ### Advanced Settings
 
@@ -140,22 +164,24 @@ There are two ways to cap metric values in GrowthBook:
 
 **2. Percentile capping** - when this is set to between 0 and 1, it uses that percentile to select a cap based on the data in your experiment so far. This cap is therefore specific to each experiment and specific to each analysis run in that experiment if new data has come in. It works like so: after we calculate the unit-level aggregate values for all units (e.g. users) during an experiment analysis, we find the specified percentile of these unit-level aggregates and then cap these aggregated values at this percentile. Using the above example, if you were to specify percentile capping with a value of `0.95`, then we find the 95th percentile of total revenue per users (say this turns out to be $135). We then cap those user-level aggregates at $135.
 
+You can additionally choose to ignore zeros, which will compute the percentile without including any user aggregated zero values. This is useful if you have a lot of zero values and you don't want to have to fine tune the percentile to avoid setting the cap too low.
+
 Because the percentile cap depends on the data in your experiment, it can be different from experiment to experiment, or even analysis to analysis. To find out what value was actually used for capping you can do the following: on the Experiment Results tab, click the three dot menu in the top right and select "View Queries". Each percentile capped metric will have a column with the `main_cap_value` that was used to cap that metric and represents the computed percentile of unit-level aggregate values.
 
-#### Conversion Delay
+#### Metric Delay
 
-Conversions within the first X hours of being put into an experiment are ignored (default = `0`). This is useful for metrics like "day 2 retention". In that case, if your underlying table reports whether a user is retained on any given day, you could set a conversion delay to `24` hours.
+Conversions within the first X hours of being put into an experiment are ignored (default = `0`). This is useful for metrics like "day 2 retention". In that case, if your underlying table reports whether a user is retained on any given day, you could set a metric delay to `24` hours.
 
-##### Negative conversion delays
+##### Negative metric delays
 
-The conversion delay can also be negative to include some conversions **before** a user is put into an experiment. For example, a value of `-2` would mean conversions up to 2 hours before will be included. You might be wondering when this would ever be useful.
+The metric delay can also be negative to include some conversions **before** a user is put into an experiment. For example, a value of `-2` would mean conversions up to 2 hours before will be included. You might be wondering when this would ever be useful.
 
 Imagine the average person stays on your site for 60 seconds and your experiment can trigger at any time.
 
 If you just look at the average time spent after the experiment, the numbers will lose a lot of meaning. A value of `20 seconds` might be horrible if it happened to someone after only 5 seconds on your site since they are staying a lot less time than average. But, that same `20 seconds` might be great if it happened to someone after 55 seconds since their visit is a lot longer than usual.
 Over time, these things will average out and you can eventually see patterns, but you need an enormous amount of data to get to that point.
 
-If you set the conversion delay to something negative, say `-0.5` (30 minutes), you can reduce the amount of data you need to see patterns. For example, you may see your average go from 60 seconds to 65 seconds.
+If you set the metric delay to something negative, say `-0.5` (30 minutes), you can reduce the amount of data you need to see patterns. For example, you may see your average go from 60 seconds to 65 seconds.
 
 Keep in mind, these two things are answering slightly different questions.
 `How much longer do people stay after viewing the experiment?` vs `How much longer is an average session that includes the experiment?`.
@@ -170,7 +196,7 @@ If multiple metrics from the same Fact Table are added to an experiment, they wi
 There are some restrictions that limit when this optimization can be performed:
 
 - Ratio metrics where the numerator and denominator are part of different Fact Tables are always excluded from this optimization
-- If `Ignore In-Progress Conversions` is set for an experiment, optimization is disabled for all metrics
+- If `Exclude In-Progress Conversions` is set for an experiment, optimization is disabled for all metrics
 - If you are using MySQL and a metric has percentile capping, it will be excluded from optimization
 
 In all other cases, this optimization is enabled by default for all Enterprise customers. It can be disabled under **Settings -> General -> Experiment Settings**. When disabled, a separate SQL query will always be run for every individual metric.
@@ -213,10 +239,4 @@ Ratio metrics are now self-contained. Previously, the denominator would just be 
 
 During analysis, Ratio metrics used to behave like a Funnel - the denominator had to happen first before the numerator. This was unintuitive for many people, so With Fact Tables, we changed them to act like true ratios - we calculate the numerator and denominator independently and then divide them. We plan to add a dedicated Funnel metric type in the future to support this use case.
 
-Lastly, Ratio metrics now have a single conversion window and capping behavior. Previously, this would be controlled separately for the numerator and denominator. Because of this change, only "percentile" capping is allowed for ratio metrics.
-
-### Attribution Model and Conversion Windows
-
-The Attribution Model is now controlled on a per-metric basis. If you disable conversion windows for a metric, it will force the experiment to always use the **Experiment Duration** attribution model for that metric during analysis.
-
-This means an experiment can now have a mix of some metrics with conversion windows and some without. There is no longer a single setting at the experiment level.
+Lastly, Ratio metrics now have a single metric window and capping behavior. Previously, this would be controlled separately for the numerator and denominator. Because of this change, only "percentile" capping is allowed for ratio metrics.

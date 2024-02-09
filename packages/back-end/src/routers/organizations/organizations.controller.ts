@@ -136,15 +136,15 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     factTables,
     factMetrics,
   ] = await Promise.all([
-    getMetricsByOrganization(orgId),
-    getDataSourcesByOrganization(orgId),
+    getMetricsByOrganization(context),
+    getDataSourcesByOrganization(context),
     findDimensionsByOrganization(orgId),
     findSegmentsByOrganization(orgId),
     getAllTags(orgId),
     getAllSavedGroups(orgId),
     findAllProjectsByOrganization(context),
-    getAllFactTablesForOrganization(orgId),
-    getAllFactMetricsForOrganization(orgId),
+    getAllFactTablesForOrganization(context),
+    getAllFactMetricsForOrganization(context),
   ]);
 
   return res.status(200).json({
@@ -695,12 +695,12 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
     });
   }
   const context = getContextFromReq(req);
-  const { org, environments } = context;
+  const { environments } = context;
 
   const namespaces: NamespaceUsage = {};
 
   // Get all of the active experiments that are tied to a namespace
-  const allFeatures = await getAllFeatures(org.id);
+  const allFeatures = await getAllFeatures(context);
   allFeatures.forEach((f) => {
     environments.forEach((env) => {
       if (!f.environmentSettings?.[env]?.enabled) return;
@@ -1694,7 +1694,7 @@ export async function postImportConfig(
 ) {
   req.checkPermissions("organizationSettings");
 
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { contents } = req.body;
 
   const config: ConfigFile = JSON.parse(contents);
@@ -1702,7 +1702,7 @@ export async function postImportConfig(
     throw new Error("Failed to parse config.yml file contents.");
   }
 
-  await importConfig(config, org);
+  await importConfig(context, config);
 
   res.status(200).json({
     status: 200,

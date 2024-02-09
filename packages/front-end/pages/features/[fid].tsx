@@ -1,5 +1,4 @@
 import { useRouter } from "next/router";
-import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import React, { useEffect, useMemo, useState } from "react";
@@ -138,7 +137,6 @@ export default function FeaturePage() {
     feature: FeatureInterface;
     revisions: FeatureRevisionInterface[];
     experiments: ExperimentInterfaceStringDates[];
-    codeRefs: FeatureCodeRefsInterface[];
   }>(`/feature/${fid}${extraQueryString}`);
   const firstFeature = router?.query && "first" in router.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
@@ -302,8 +300,6 @@ export default function FeaturePage() {
   );
 
   const { stale, reason } = isFeatureStale(feature, data.experiments);
-
-  const codeRefs = data.codeRefs;
 
   return (
     <div className="contents container-fluid pagecontents">

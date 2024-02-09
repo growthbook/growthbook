@@ -16,7 +16,7 @@ export const updateFactTable = createApiRequestHandler(
   updateFactTableValidator
 )(
   async (req): Promise<UpdateFactTableResponse> => {
-    const factTable = await getFactTable(req.organization.id, req.params.id);
+    const factTable = await getFactTable(req.context, req.params.id);
     if (!factTable) {
       throw new Error("Could not find factTable with that id");
     }
@@ -39,8 +39,8 @@ export const updateFactTable = createApiRequestHandler(
     // Validate userIdTypes
     if (req.body.userIdTypes) {
       const datasource = await getDataSourceById(
-        factTable.datasource,
-        req.organization.id
+        req.context,
+        factTable.datasource
       );
       if (!datasource) {
         throw new Error("Could not find datasource for this fact table");
@@ -58,7 +58,7 @@ export const updateFactTable = createApiRequestHandler(
 
     const data: UpdateFactTableProps = { ...req.body };
 
-    await updateFactTableInDb(factTable, data);
+    await updateFactTableInDb(req.context, factTable, data);
     await queueFactTableColumnsRefresh(factTable);
 
     if (data.tags) {

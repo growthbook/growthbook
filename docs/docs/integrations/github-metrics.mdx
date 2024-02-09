@@ -1,0 +1,176 @@
+---
+title: GitHub (Metric Definitions)
+description: Store metric definitions in GitHub and automatically sync them to GrowthBook
+---
+
+# Use GitHub to Version Control Metric Definitions
+
+This guide walks through how to make GitHub the source-of-truth of your metric definitions in GrowthBook.
+
+## Setting Up GrowthBook
+
+For this guide, you can either use GrowthBook Cloud at https://app.growthbook.io or your own self-hosted deployment.
+
+### Connect to a Data Source
+
+The easiest way to start is to use the built-in sample data in GrowthBook. Go to **Experiments** and in the Setup Steps, select the **View Sample Experiment** option. This will connect to a sample Postgres database and create a few sample metrics and an experiment.
+
+If you have your own data warehouse, you can use that instead, but you will have to change the SQL queries further in this guide to match your specific data structure.
+
+After connecting, you will need to find the data source id. The easiest way to find this is to go to **Metrics and Data** -> **Data Sources**, click into the data source and copy the id from the last part of the URL. It will start with `ds_`, for example `ds_abc123`. Keep note of this id since you will need it later.
+
+### Create an API Key
+
+Go to **Settings** -> **API Keys** and click to create a new Secret Key. Make sure to select the "Admin" role since we will need to use it to create metrics.
+
+Keep note of this key (it will start with `secret_admin_`), you will need it later.
+
+## Setting up GitHub
+
+First, create an empty GitHub repository. This is where we will define our metrics.
+
+### Create a `metrics.yml` File
+
+To keep things simple, we will store all of our metric definitions in a single YAML file.
+
+We're going to use Fact Tables to define our metrics. This lets us write SQL once and re-use that across multiple metric definitions. We will create a single Fact Table for `orders` and 2 metrics - `purchased` and `revenue`.
+
+:::note
+
+The format we're using below exactly matches what the GrowthBook API expects. If you want to store metrics in a different format, you will need to transform it first before sending to GrowthBook.
+
+:::
+
+Create a new file in your GitHub repository called `metrics.yml` with the following contents. Replace `ds_abc123` with the id of your actual data source that you noted earlier.
+
+```yml
+factTables:
+  - id: orders
+    data:
+      name: Orders
+      datasource: ds_abc123
+      userIdTypes:
+        - user_id
+      sql: >
+        SELECT
+          userId as user_id,
+          amount,
+          received_at as timestamp
+        FROM orders
+factMetrics:
+  - id: purchased
+    data:
+      name: Purchased
+      metricType: proportion
+      numerator:
+        factTableId: orders
+  - id: revenue
+    data:
+      name: Revenue
+      metricType: mean
+      numerator:
+        factTableId: orders
+        column: amount
+```
+
+### Creating a Helper Script
+
+Create a file named `growthbook_sync.mjs` in your repo with the following contents (make sure to use the `mjs` extension). If you are self-hosting GrowthBook, replace `https://api.growthbook.io` with your self-hosted API host.
+
+```js
+import { parse } from "yaml";
+import fs from "fs";
+
+// Edit these constants as needed
+const FILE_NAME = 'metrics.yml';
+const API_HOST = 'https://api.growthbook.io';
+const GB_API_KEY = process.env.GB_API_KEY;
+
+// Parse the yaml file
+const file = fs.readFileSync(FILE_NAME, 'utf8');
+const json = parse(file);
+
+// Send to GrowthBook
+const res = await fetch(`${API_HOST}/api/v1/bulk-import/facts`, {
+  method: "POST",
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${GB_API_KEY}`
+  },
+  body: JSON.stringify(json)
+});
+
+// Handle errors and print the response
+const resJson = await res.json();
+if (!res.ok) throw new Error(resJson?.message || "Error syncing");
+console.log("Success!", resJson);
+```
+
+This script does 3 things:
+
+1. Parse the `metrics.yml` file into JSON
+2. Send this payload to the GrowthBook API's `/bulk-import/facts` endpoint
+3. Handle errors and print the response for easier debugging if things go wrong
+
+### Create a GitHub Secret
+
+The script above follows best practices by using environment variables to store secrets. For this to work, you need to add a secret to GitHub.
+
+In your GitHub repository settings, create a new secret called `GB_API_KEY` and for the value, use the API Key you noted earlier (starting with `secret_admin_`).
+
+### Set up GitHub Actions
+
+We want the script above to run every time the `metrics.yml` file changes. We can do this using GitHub Actions.
+
+Create a file in your repository named `.github/workflows/growthbook_sync.yml` with the following contents:
+
+```yml
+name: Sync to GrowthBook
+on:
+  push:
+    branches:
+      - main
+jobs:
+  growthbook_sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18.x
+      - name: Sync to GrowthBook
+        run: |
+          npm install yaml
+          GB_API_KEY="${{secrets.GB_API_KEY}}" node growthbook_sync.mjs
+```
+
+## Testing it Out
+
+After comitting the above files to your GitHub repo, it should run automatically and you should see your new Orders fact table and 2 new metrics within your GrowthBook account. If it didn't work, look at the output of your GitHub Action to see if there are any error messages.
+
+### Making Changes
+
+Fact Tables and Metrics created via this `bulk-import` endpoint are marked as "Official" by default. This means they cannot be edited from within the GrowthBook UI and must be changed within GitHub instead. This helps avoid things getting out-of-sync.
+
+:::note
+
+You can still use the GrowthBook UI to create or edit other fact tables and metrics. Only "Official" ones created through this `bulk-import` endpoint will be locked down.
+
+:::
+
+Let's try updating the `metrics.yml` file, maybe by adding a description to the Purchased metric:
+
+```yml
+# ...
+    data:
+      name: Purchased
+      description: Percent of people who purchased something
+      metricType: proportion
+# ...
+```
+
+Commit this change to your `main` branch and GrowthBook's copy of this metric will be updated to match, usually within 30 seconds!
+
+## Next Steps
+
+Read the API Docs on the [bulk-import/facts endpoint](/api#tag/fact-tables/operation/postBulkImportFacts) to see all of the options and fields you can use in your `metrics.yml` file.
