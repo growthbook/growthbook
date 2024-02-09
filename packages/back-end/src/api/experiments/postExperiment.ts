@@ -68,7 +68,6 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     const experiment = await createExperiment({
       data: newExperiment,
       context: req.context,
-      user: req.eventAudit,
     });
 
     // add owner as watcher

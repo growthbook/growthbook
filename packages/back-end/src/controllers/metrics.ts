@@ -99,7 +99,7 @@ export async function deleteMetric(
   );
 
   // now remove the metric itself:
-  await deleteMetricById(metric, context);
+  await deleteMetricById(context, metric);
 
   await req.audit({
     event: "metric.delete",
@@ -194,9 +194,9 @@ export async function cancelMetricAnalysis(
     metric.datasource
   );
   const queryRunner = new MetricAnalysisQueryRunner(
+    context,
     metric,
-    integration,
-    context
+    integration
   );
   await queryRunner.cancelQueries();
 
