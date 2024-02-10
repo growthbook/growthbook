@@ -2,7 +2,7 @@ import type { Response } from "express";
 import uniqid from "uniqid";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
-import { getOrgFromReq } from "../../services/organizations";
+import { getContextFromReq } from "../../services/organizations";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
@@ -67,7 +67,7 @@ export const postCustomField = async (
   req: CreateCustomFieldRequest,
   res: Response<CreateCustomFieldResponse>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const {
     name,
     description,
@@ -183,7 +183,7 @@ export const postReorderCustomFields = async (
   req: ReorderCustomFieldsRequest,
   res: Response<ReorderCustomFieldsResponse>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { oldId, newId } = req.body;
 
   req.checkPermissions("manageCustomFields");
@@ -262,7 +262,7 @@ export const putCustomField = async (
   req: PutCustomFieldRequest,
   res: Response<PutCustomFieldResponse | ApiErrorResponse>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const {
     name,
     description,
@@ -350,7 +350,7 @@ export const deleteCustomField = async (
   req.checkPermissions("manageCustomFields");
 
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const customFields = await getCustomFieldById(id, org.id);
 

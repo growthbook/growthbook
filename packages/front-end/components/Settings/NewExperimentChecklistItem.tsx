@@ -8,7 +8,7 @@ type AutoChecklistOption = {
   value: string;
   label: string;
   customFieldId?: string;
-  propertyKey:
+  propertyKey?:
     | "hypothesis"
     | "screenshots"
     | "description"
@@ -76,6 +76,15 @@ export default function NewExperimentChecklistItem({
     ...customChecklistOptions,
   ];
 
+  const newTaskValues: AutoChecklistOption | undefined = newTaskInput.task
+    ? {
+        label: newTaskInput.task,
+        value: newTaskInput.task,
+        customFieldId: newTaskInput?.customFieldId ?? "",
+        propertyKey: newTaskInput.propertyKey ?? undefined,
+      }
+    : undefined;
+
   return (
     <div className="pt-5 pb-2">
       <h4>New Task</h4>
@@ -106,16 +115,7 @@ export default function NewExperimentChecklistItem({
           noOptionsMessage={() =>
             "No more pre-defined tasks available. Start typing to create a new task"
           }
-          value={
-            newTaskInput.task
-              ? {
-                  label: newTaskInput.task,
-                  value: newTaskInput.task,
-                  customFieldId: newTaskInput?.customFieldId ?? "",
-                  propertyKey: newTaskInput.propertyKey,
-                }
-              : null
-          }
+          value={newTaskValues}
           {...ReactSelectProps}
         />
         {newTaskInput.task && newTaskInput.completionType === "manual" ? (
