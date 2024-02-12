@@ -39,8 +39,9 @@ export default function InstallationCodeSnippet({
   if (language === "nocode-webflow") {
     return (
       <>
-        Go into your site&apos;s settings, click on the &quot;Custom Code&quot;,
-        and paste the following into the <strong>Head code</strong> section.
+        Go into your site&apos;s settings, click on the &quot;Custom Code&quot;
+        tab, and paste the following into the <strong>Head code</strong>{" "}
+        section.
         <Code language="html" code={nocodeSnippet} />
       </>
     );
