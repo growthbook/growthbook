@@ -53,12 +53,14 @@ export default function SDKConnectionForm({
   close,
   mutate,
   autoCloseOnSubmit = true,
+  cta = "Save",
 }: {
   initialValue?: Partial<SDKConnectionInterface>;
   edit: boolean;
   close?: () => void;
   mutate: () => void;
   autoCloseOnSubmit?: boolean;
+  cta?: string;
 }) {
   const environments = useEnvironments();
   const { project, projects, getProjectById } = useDefinitions();
@@ -305,7 +307,7 @@ export default function SDKConnectionForm({
       }}
       close={close}
       open={true}
-      cta="Save"
+      cta={cta}
     >
       <div className="px-2">
         <Field label="Name" {...form.register("name")} required />

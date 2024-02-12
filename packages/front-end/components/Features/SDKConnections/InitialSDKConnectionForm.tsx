@@ -71,6 +71,7 @@ export default function InitialSDKConnectionForm({
       close={close}
       edit={false}
       mutate={mutate}
+      cta={"Continue"}
       autoCloseOnSubmit={false}
     />
   );
