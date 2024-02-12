@@ -181,22 +181,21 @@ const drawChange = ({
                   >
                     <div className="d-flex justify-content-between mx-2">
                       <div>
-                        {canEditVisualChangesets &&
-                          experiment.status === "draft" && (
-                            <a
-                              href="#"
-                              className="mr-2"
-                              onClick={() =>
-                                setEditingVisualChange({
-                                  visualChange: changes,
-                                  visualChangeIndex: j,
-                                  visualChangeset: vc,
-                                })
-                              }
-                            >
-                              <FaPencilAlt />
-                            </a>
-                          )}
+                        {canEditVisualChangesets && (
+                          <a
+                            href="#"
+                            className="mr-2"
+                            onClick={() =>
+                              setEditingVisualChange({
+                                visualChange: changes,
+                                visualChangeIndex: j,
+                                visualChangeset: vc,
+                              })
+                            }
+                          >
+                            <FaPencilAlt />
+                          </a>
+                        )}
                         {numChanges} visual change
                         {numChanges === 1 ? "" : "s"}
                       </div>
@@ -410,6 +409,7 @@ export const VisualChangesetTable: FC<Props> = ({
 
       {editingVisualChange ? (
         <EditDOMMutatonsModal
+          experiment={experiment}
           visualChange={editingVisualChange.visualChange}
           close={() => setEditingVisualChange(null)}
           onSave={(newVisualChange) =>

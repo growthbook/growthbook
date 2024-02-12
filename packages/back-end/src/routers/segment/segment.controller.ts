@@ -104,7 +104,7 @@ export const getSegmentUsage = async (
   const metrics = await getMetricsUsingSegment(context, id);
 
   // experiments:
-  const experiments = await getExperimentsUsingSegment(id, context);
+  const experiments = await getExperimentsUsingSegment(context, id);
 
   res.status(200).json({
     ideas,
@@ -297,7 +297,7 @@ export const deleteSegment = async (
   // metrics
   await removeSegmentFromAllMetrics(org.id, id);
 
-  await deleteExperimentSegment(context, res.locals.eventAudit, id);
+  await deleteExperimentSegment(context, id);
 
   res.status(200).json({
     status: 200,

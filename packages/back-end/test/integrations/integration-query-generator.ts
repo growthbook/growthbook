@@ -26,6 +26,7 @@ import {
   ColumnInterface,
   FactMetricInterface,
   FactTableInterface,
+  MetricCappingSettings,
 } from "../../types/fact-table";
 
 const currentDate = new Date();
@@ -151,6 +152,7 @@ type TestMetricConfig = {
   type: MetricType;
   ignoreNulls: boolean;
   sql: string;
+  cappingSettings?: MetricCappingSettings;
   denominator?: string;
 };
 import metricConfigData from "./json/metrics.json";
@@ -165,8 +167,16 @@ const baseMetric: Omit<
   owner: "",
   datasource: "",
   name: "",
-  conversionWindowHours: 72,
-  conversionDelayHours: 0,
+  windowSettings: {
+    type: "conversion",
+    delayHours: 0,
+    windowValue: 72,
+    windowUnit: "hours",
+  },
+  cappingSettings: {
+    type: "",
+    value: 0,
+  },
   description: "",
   inverse: false,
   dateCreated: null,
@@ -269,17 +279,21 @@ const baseFactMetric: Omit<
   // defaults that can be overriden in fact-metrics.json
   denominator: null,
 
-  conversionDelayHours: 0,
-  hasConversionWindow: true,
-  conversionWindowValue: 72,
-  conversionWindowUnit: "hours",
+  windowSettings: {
+    type: "conversion",
+    delayHours: 0,
+    windowValue: 72,
+    windowUnit: "hours",
+  },
+
+  cappingSettings: {
+    type: "",
+    value: 0,
+  },
 
   regressionAdjustmentDays: 14,
   regressionAdjustmentEnabled: false,
   regressionAdjustmentOverride: false,
-
-  capValue: 0,
-  capping: "",
 };
 
 const analysisFactMetrics: FactMetricInterface[] = factMetricConfigs.map(
@@ -349,6 +363,7 @@ type TestExperimentConfig = {
   queryFilter?: string;
   removeMultiplxposures?: boolean;
   metricOverrides?: MetricOverride[];
+  skippartialData?: boolean;
   guardrails?: string[];
 };
 const experimentConfigs = experimentConfigData as TestExperimentConfig[];
@@ -430,14 +445,28 @@ engines.forEach((engine) => {
   const factTableMap = new Map(factTablesCopy.map((f) => [f.id, f]));
 
   experimentConfigs.forEach((experimentConfig) => {
-    const experiment: ExperimentInterface = {
-      ...baseExperiment,
-      ...experimentConfig,
-    };
     const jointMetrics: ExperimentMetricInterface[] = [
       ...analysisMetrics,
       ...analysisFactMetrics,
     ];
+
+    const metricOverrides: MetricOverride[] = [];
+    if (experimentConfig.metricOverrides) {
+      // apply override to all metrics
+      jointMetrics.forEach((metric) => {
+        metricOverrides.push({
+          ...(experimentConfig.metricOverrides?.[0] ?? {}),
+          id: metric.id,
+        });
+      });
+    }
+
+    const experiment: ExperimentInterface = {
+      ...baseExperiment,
+      ...experimentConfig,
+      metricOverrides: metricOverrides,
+      metrics: jointMetrics.map((m) => m.id),
+    };
 
     let activationMetric: MetricInterface | null = null;
     if (experiment.activationMetric) {
@@ -482,7 +511,7 @@ engines.forEach((engine) => {
     analysisFactMetrics.forEach((m) => {
       // Skip grouping metrics with percentile caps if there's not an efficient implementation
       if (
-        m.capping === "percentile" &&
+        m.cappingSettings.type === "percentile" &&
         !integration.getSourceProperties().hasEfficientPercentiles
       ) {
         return;
@@ -568,13 +597,9 @@ engines.forEach((engine) => {
 
     // RUN FACT AND NON-FACT METRICS AS SINGLES
     jointMetrics.forEach((metric) => {
-      experiment.metrics = [metric.id];
       // if override in experiment config, have to set it to the right id
       let denominatorMetrics: MetricInterface[] = [];
 
-      if (experiment.metricOverrides) {
-        experiment.metricOverrides[0].id = metric.id;
-      }
       if (!isFactMetric(metric) && metric.denominator) {
         denominatorMetrics.push(
           ...expandDenominatorMetrics(metric.denominator, baseMetricMap)
@@ -605,6 +630,11 @@ engines.forEach((engine) => {
         engine: engine,
         sql: sql,
       });
+      if (metric.id === "nonbinom_null__purchased_value") {
+        console.log("===============================");
+        console.log(experiment.id);
+        console.dir(queryParams, { depth: null });
+      }
 
       // pipeline version
       if (pipelineEnabled) {

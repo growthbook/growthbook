@@ -13,8 +13,9 @@ import useGlobalMenu from "@/services/useGlobalMenu";
 const MoreMenu: FC<{
   autoCloseOnClick?: boolean;
   className?: string;
+  zIndex?: number;
   children: ReactNode;
-}> = ({ children, autoCloseOnClick = true, className = "" }) => {
+}> = ({ children, autoCloseOnClick = true, className = "", zIndex = 1020 }) => {
   const [open, setOpen] = useState(false);
   const [id] = useState(() => uniqId("more_menu_"));
   useGlobalMenu(`#${id}`, () => setOpen(false));
@@ -58,7 +59,7 @@ const MoreMenu: FC<{
             }
           }}
           ref={refs.setFloating}
-          style={{ ...floatingStyles, zIndex: 1020, width: "max-content" }}
+          style={{ ...floatingStyles, zIndex, width: "max-content" }}
         >
           {children}
         </div>
