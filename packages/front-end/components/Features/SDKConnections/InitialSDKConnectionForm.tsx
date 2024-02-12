@@ -71,7 +71,6 @@ export default function InitialSDKConnectionForm({
       close={close}
       edit={false}
       mutate={mutate}
-      initialValue={{}}
       autoCloseOnSubmit={false}
     />
   );
