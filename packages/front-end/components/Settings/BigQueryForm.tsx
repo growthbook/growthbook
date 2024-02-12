@@ -156,20 +156,6 @@ const BigQueryForm: FC<{
                     <strong>Private Key:</strong> *****
                   </li>
                 </ul>
-                {!testConnectionResults ||
-                testConnectionResults?.status !== "success" ? (
-                  <Button
-                    color="primary"
-                    className={
-                      testConnectionResults?.status !== "success" ? "mb-2" : ""
-                    }
-                    onClick={async () => {
-                      testConnection();
-                    }}
-                  >
-                    {loadingDatasetOptions ? "Loading..." : "Test Connection"}
-                  </Button>
-                ) : null}
                 {testConnectionResults?.message ? (
                   <div
                     className={`alert alert-${testConnectionResults.status}`}
@@ -184,6 +170,18 @@ const BigQueryForm: FC<{
                 JSON key file.
               </div>
             )}
+            <Button
+              disabled={
+                !params.projectId || !params.clientEmail || !params.privateKey
+              }
+              color="primary"
+              className="mt-2"
+              onClick={async () => {
+                testConnection();
+              }}
+            >
+              {loadingDatasetOptions ? "Loading..." : "Test Connection"}
+            </Button>
           </div>
         </>
       )}
@@ -229,7 +227,11 @@ const BigQueryForm: FC<{
             value={params.defaultDataset || ""}
             onChange={onParamChange}
             placeholder=""
-            helpText="Use the 'Test Connection' button to fetch a list of datasets from your BigQuery project."
+            helpText={
+              params.authType !== "auto"
+                ? "Use the 'Test Connection' button to fetch a list of datasets from your BigQuery project."
+                : ""
+            }
             required
           />
         )}
