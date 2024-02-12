@@ -147,6 +147,33 @@ To work on the SDKs, `cd` into the desired directory and the following commands 
 - `yarn build` - Run the rollup build process
 - `yarn size` - Get the gzip size of the bundle (must run `yarn build` first)
 
+#### Releasing SDK Updates
+
+Releasing SDK updates is a very manual process right now. It requires bumping versions in many different files, updating changelogs, and adding metadata to shared packages.
+
+1. Create a branch from the latest main
+2. Bump version of the Javascript SDK
+   - Bump version in `packages/sdk-js/package.json`
+   - Bump dependency version in `packages/back-end/package.json`
+   - Bump dependency version in `package/shared/package.json`
+   - Bump dependency version in `packages/sdk-react/package.json`
+   - Add new entry to `packages/sdk-js/CHANGELOG.md`
+   - Add new entry to `packages/shared/src/sdk-versioning/sdk-versions/javascript.json`
+   - Add new entry to `packages/shared/src/sdk-versioning/sdk-versions/nodejs.json`
+3. Bump versions of the React SDK
+   - Bump version in `packages/sdk-react/package.json`
+   - Bump dependency version in `package/front-end/package.json`
+   - Add new entry to `packages/shared/src/sdk-versioning/sdk-versions/react.json`
+4. Do a global search for the old version strings for both Javascript and React to make sure nothing was missed. Update these instructions if needed.
+5. Create a PR and let CI complete successfully
+6. Publish the Javascript SDK
+   - `yarn build`
+   - `npm publish`
+7. Publish the React SDK
+   - `yarn build`
+   - `npm publish`
+8. Merge the PR
+
 ### Working on the stats engine
 
 Ensure you have run `yarn setup` first to install the poetry virtual environment before working in the stats engine. Otherwise, pre-commit hooks and the following commands will error.

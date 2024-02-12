@@ -2,6 +2,8 @@ import { useForm } from "react-hook-form";
 import { FaTimes } from "react-icons/fa";
 import { useEffect, useState } from "react";
 import {
+  DEFAULT_FACT_METRIC_WINDOW,
+  DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
 } from "shared/constants";
@@ -38,7 +40,10 @@ import PremiumTooltip from "../Marketing/PremiumTooltip";
 import { GBAddCircle, GBArrowLeft, GBCuped } from "../Icons";
 import { getNewExperimentDatasourceDefaults } from "../Experiment/NewExperimentForm";
 import ButtonSelectField from "../Forms/ButtonSelectField";
+import { MetricWindowSettingsForm } from "../Metrics/MetricForm/MetricWindowSettingsForm";
+import { MetricCappingSettingsForm } from "../Metrics/MetricForm/MetricCappingSettingsForm";
 import { OfficialBadge } from "../Metrics/MetricName";
+import { MetricDelayHours } from "../Metrics/MetricForm/MetricDelayHours";
 
 export interface Props {
   close?: () => void;
@@ -270,13 +275,17 @@ export default function FactMetricModal({
             ? { datasource: getFactTableById(initialFactTable)?.datasource }
             : {}
         ).datasource,
-      capping: existing?.capping || "",
-      capValue: existing?.capValue || 0,
       inverse: existing?.inverse || false,
-      hasConversionWindow: existing?.hasConversionWindow || false,
-      conversionWindowValue: existing?.conversionWindowValue || 3,
-      conversionWindowUnit: existing?.conversionWindowUnit || "days",
-      conversionDelayHours: existing?.conversionDelayHours || 0,
+      cappingSettings: existing?.cappingSettings || {
+        type: "",
+        value: 0,
+      },
+      windowSettings: existing?.windowSettings || {
+        type: DEFAULT_FACT_METRIC_WINDOW,
+        delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+        windowUnit: "days",
+        windowValue: 3,
+      },
       winRisk: (existing?.winRisk || defaultWinRiskThreshold) * 100,
       loseRisk: (existing?.loseRisk || defaultLoseRiskThreshold) * 100,
       minPercentChange:
@@ -379,9 +388,9 @@ export default function FactMetricModal({
         const trackProps = {
           type: values.metricType,
           source,
-          capping: values.capping,
-          conversion_window: values.hasConversionWindow
-            ? `${values.conversionWindowValue} ${values.conversionWindowUnit}`
+          capping: values.cappingSettings.type,
+          conversion_window: values.windowSettings.type
+            ? `${values.windowSettings.windowValue} ${values.windowSettings.windowUnit}`
             : "none",
           numerator_agg:
             values.numerator.column === "$$count"
@@ -529,8 +538,11 @@ export default function FactMetricModal({
               }
 
               // When switching to ratio and using `absolute` capping, turn it off (only percentile supported)
-              if (type === "ratio" && form.watch("capping") === "absolute") {
-                form.setValue("capping", "");
+              if (
+                type === "ratio" &&
+                form.watch("cappingSettings.type") === "absolute"
+              ) {
+                form.setValue("cappingSettings.type", "");
               }
             }}
             options={[
@@ -617,71 +629,7 @@ export default function FactMetricModal({
             <p>Select a metric type above</p>
           )}
 
-          <div className="mb-3 mt-4">
-            <div className="form-group mb-1">
-              <Toggle
-                value={form.watch("hasConversionWindow")}
-                setValue={(value) =>
-                  form.setValue("hasConversionWindow", value)
-                }
-                id="enableConversionWindow"
-                label={"Add Conversion Window"}
-              />
-              <label htmlFor="enableConversionWindow">
-                Enable Conversion Window{" "}
-                <Tooltip body="Require conversions (as defined above) to happen within a specified amount of time from when the user first sees the experiment." />
-              </label>
-            </div>
-
-            {form.watch("hasConversionWindow") && (
-              <div className="appbox p-3 bg-light">
-                <div className="row align-items-center">
-                  <div className="col-auto">Must happen within</div>
-                  <div className="col-auto">
-                    <Field
-                      {...form.register("conversionWindowValue", {
-                        valueAsNumber: true,
-                      })}
-                      type="number"
-                      min={1}
-                      max={999}
-                      step={1}
-                      style={{ width: 70 }}
-                      required
-                      autoFocus
-                    />
-                  </div>
-                  <div className="col-auto">
-                    <SelectField
-                      value={form.watch("conversionWindowUnit")}
-                      onChange={(value) => {
-                        form.setValue(
-                          "conversionWindowUnit",
-                          value as "days" | "hours"
-                        );
-                      }}
-                      sort={false}
-                      options={[
-                        {
-                          label: "Hours",
-                          value: "hours",
-                        },
-                        {
-                          label: "Days",
-                          value: "days",
-                        },
-                        {
-                          label: "Weeks",
-                          value: "weeks",
-                        },
-                      ]}
-                    />
-                  </div>
-                  <div className="col-auto">of first experiment exposure</div>
-                </div>
-              </div>
-            )}
-          </div>
+          <MetricWindowSettingsForm form={form} />
 
           {!advancedOpen && (
             <a
@@ -716,68 +664,12 @@ export default function FactMetricModal({
               }
             >
               <Tab id="query" display="Query Settings">
-                <SelectField
-                  label="Cap User Values?"
-                  value={form.watch("capping")}
-                  onChange={(v: "" | "absolute" | "percentile") => {
-                    form.setValue("capping", v);
-                  }}
-                  sort={false}
-                  options={[
-                    {
-                      value: "",
-                      label: "No",
-                    },
-                    ...(type === "ratio"
-                      ? []
-                      : [
-                          {
-                            value: "absolute",
-                            label: "Absolute capping",
-                          },
-                        ]),
-                    {
-                      value: "percentile",
-                      label: "Percentile capping",
-                    },
-                  ]}
-                  helpText="Capping (winsorization) can reduce variance by capping aggregated
-              user values."
+                <MetricDelayHours form={form} />
+                <MetricCappingSettingsForm
+                  form={form}
+                  datasourceType={selectedDataSource.type}
+                  metricType={type}
                 />
-                {form.watch("capping") ? (
-                  <div className="appbox bg-light px-3 pt-3">
-                    <Field
-                      label="Capped Value"
-                      type="number"
-                      step="any"
-                      min="0"
-                      max={form.watch("capping") === "percentile" ? "1" : ""}
-                      {...form.register("capValue", { valueAsNumber: true })}
-                      helpText={
-                        form.watch("capping") === "absolute"
-                          ? `
-              Absolute capping: if greater than zero, aggregated user values will be capped at this value.`
-                          : `Percentile capping: if greater than zero, we use all metric data in the experiment to compute the percentiles of the user aggregated values. Then, we get the value at the percentile provided and cap all users at this value. Enter a number between 0 and 0.99999`
-                      }
-                    />
-                  </div>
-                ) : null}
-                <div className="form-group">
-                  <label>Conversion Delay (hours)</label>
-                  <input
-                    type="number"
-                    step="any"
-                    className="form-control"
-                    placeholder={"0"}
-                    {...form.register("conversionDelayHours", {
-                      valueAsNumber: true,
-                    })}
-                  />
-                  <small className="text-muted">
-                    Ignore all conversions within the first X hours of being put
-                    into an experiment.
-                  </small>
-                </div>
                 <PremiumTooltip commercialFeature="regression-adjustment">
                   <label className="mb-1">
                     <GBCuped /> Regression Adjustment (CUPED)

@@ -137,7 +137,6 @@ export async function putManualLaunchChecklist(
   await updateExperiment({
     context,
     experiment,
-    user: res.locals.eventAudit,
     changes: { manualLaunchChecklist: checklist },
   });
 

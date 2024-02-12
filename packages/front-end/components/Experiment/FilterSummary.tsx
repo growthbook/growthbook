@@ -141,14 +141,14 @@ const FilterSummary: FC<{
             <div className="col-5">
               <strong className="text-gray">
                 <AttributionModelTooltip>
-                  Attribution Model <FaQuestionCircle />
+                  Conversion Window Override <FaQuestionCircle />
                 </AttributionModelTooltip>
               </strong>
             </div>
             <div className="col">
               {experiment.attributionModel === "experimentDuration"
-                ? "Experiment Duration"
-                : "First Exposure"}
+                ? "Ignore Conversion Windows"
+                : "Respect Conversion Windows"}
             </div>
           </div>
           {datasource?.properties?.queryLanguage === "sql" && (

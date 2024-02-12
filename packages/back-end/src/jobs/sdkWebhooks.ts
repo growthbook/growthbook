@@ -81,12 +81,12 @@ export async function queueSingleWebhookJob(sdk: SDKConnectionInterface) {
   }
 }
 export async function queueWebhookUpdate(
-  orgId: string,
+  context: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[]
 ) {
   if (!CRON_ENABLED) return;
   if (!payloadKeys.length) return;
-  const connections = await findSDKConnectionsByOrganization(orgId);
+  const connections = await findSDKConnectionsByOrganization(context);
 
   if (!connections) return;
   const sdkKeys: string[] = [];
@@ -293,7 +293,7 @@ export async function queueGlobalWebhooks(
     } = webhook;
     if (!payloadKeys.length) return;
 
-    const connections = await findSDKConnectionsByOrganization(context.org.id);
+    const connections = await findSDKConnectionsByOrganization(context);
 
     if (!connections) return;
     for (let i = 0; i < connections.length; i++) {

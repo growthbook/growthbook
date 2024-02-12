@@ -759,7 +759,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     <SelectField
                       label={
                         <AttributionModelTooltip>
-                          Default Attribution Model <FaQuestionCircle />
+                          Default Conversion Window Override{" "}
+                          <FaQuestionCircle />
                         </AttributionModelTooltip>
                       }
                       className="ml-2"
@@ -773,11 +774,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       }}
                       options={[
                         {
-                          label: "First Exposure",
+                          label: "Respect Conversion Windows",
                           value: "firstExposure",
                         },
                         {
-                          label: "Experiment Duration",
+                          label: "Ignore Conversion Windows",
                           value: "experimentDuration",
                         },
                       ]}

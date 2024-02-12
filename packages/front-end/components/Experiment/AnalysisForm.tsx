@@ -453,14 +453,14 @@ const AnalysisForm: FC<{
               value: "strict",
             },
           ]}
-          helpText="How to treat users who have not had the full time to convert yet"
+          helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
         />
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
         <SelectField
           label={
             <AttributionModelTooltip>
-              <strong>Attribution Model</strong> <FaQuestionCircle />
+              <strong>Conversion Window Override</strong> <FaQuestionCircle />
             </AttributionModelTooltip>
           }
           value={form.watch("attributionModel")}
@@ -470,11 +470,11 @@ const AnalysisForm: FC<{
           }}
           options={[
             {
-              label: "First Exposure",
+              label: "Respect Conversion Windows",
               value: "firstExposure",
             },
             {
-              label: "Experiment Duration",
+              label: "Ignore Conversion Windows",
               value: "experimentDuration",
             },
           ]}
