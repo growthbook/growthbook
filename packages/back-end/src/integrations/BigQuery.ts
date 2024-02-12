@@ -155,6 +155,7 @@ export default class BigQuery extends SqlIntegration {
       valueCol: string;
       outputCol: string;
       percentile: number;
+      ignoreZeros: boolean;
     }[],
     metricTable: string,
     where: string = ""
@@ -162,12 +163,14 @@ export default class BigQuery extends SqlIntegration {
     return `
     SELECT
       ${values
-        .map(
-          (v) =>
-            `APPROX_QUANTILES(${v.valueCol}, 100000)[OFFSET(${Math.trunc(
-              100000 * v.percentile
-            )})] AS ${v.outputCol}`
-        )
+        .map((v) => {
+          const value = v.ignoreZeros
+            ? this.ifElse(`${v.valueCol} = 0`, "NULL", v.valueCol)
+            : v.valueCol;
+          return `APPROX_QUANTILES(${value}, 100000 IGNORE NULLS)[OFFSET(${Math.trunc(
+            100000 * v.percentile
+          )})] AS ${v.outputCol}`;
+        })
         .join(",\n")}
       FROM ${metricTable}
       ${where}

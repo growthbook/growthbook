@@ -280,21 +280,18 @@ export function applyMetricOverrides<T extends ExperimentMetricInterface>(
   const overrideFields: string[] = [];
   const metricOverride = metricOverrides.find((mo) => mo.id === newMetric.id);
   if (metricOverride) {
-    if (!isNil(metricOverride?.conversionWindowHours)) {
-      if ("conversionWindowValue" in newMetric) {
-        // Fact metrics
-        newMetric.conversionWindowUnit = "hours";
-        newMetric.conversionWindowValue = metricOverride.conversionWindowHours;
-      } else {
-        // Old metrics
-        newMetric.conversionWindowHours = metricOverride.conversionWindowHours;
-      }
-
-      overrideFields.push("conversionWindowHours");
+    if (!isNil(metricOverride?.windowType)) {
+      newMetric.windowSettings.type = metricOverride.windowType;
+      overrideFields.push("windowType");
     }
-    if (!isNil(metricOverride?.conversionDelayHours)) {
-      newMetric.conversionDelayHours = metricOverride.conversionDelayHours;
-      overrideFields.push("conversionDelayHours");
+    if (!isNil(metricOverride?.windowHours)) {
+      newMetric.windowSettings.windowUnit = "hours";
+      newMetric.windowSettings.windowValue = metricOverride.windowHours;
+      overrideFields.push("windowHours");
+    }
+    if (!isNil(metricOverride?.delayHours)) {
+      newMetric.windowSettings.delayHours = metricOverride.delayHours;
+      overrideFields.push("delayHours");
     }
     if (!isNil(metricOverride?.winRisk)) {
       newMetric.winRisk = metricOverride.winRisk;

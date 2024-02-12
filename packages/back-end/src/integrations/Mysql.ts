@@ -76,6 +76,7 @@ export default class Mysql extends SqlIntegration {
       valueCol: string;
       outputCol: string;
       percentile: number;
+      ignoreZeros: boolean;
     }[],
     metricTable: string,
     where: string = ""
@@ -84,6 +85,13 @@ export default class Mysql extends SqlIntegration {
       throw new Error(
         "MySQL only supports one percentile capped metric at a time"
       );
+    }
+
+    let whereClause = where;
+    if (values[0].ignoreZeros) {
+      whereClause = whereClause
+        ? `${whereClause} AND ${values[0].valueCol} != 0`
+        : `WHERE ${values[0].valueCol} != 0`;
     }
 
     return `
@@ -95,7 +103,7 @@ export default class Mysql extends SqlIntegration {
         ${values[0].valueCol},
         PERCENT_RANK() OVER (ORDER BY ${values[0].valueCol}) p
       FROM ${metricTable}
-      ${where}
+      ${whereClause}
     ) t`;
   }
   hasEfficientPercentile(): boolean {

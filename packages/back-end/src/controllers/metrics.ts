@@ -47,11 +47,9 @@ export const UPDATEABLE_FIELDS: (keyof MetricInterface)[] = [
   "type",
   "inverse",
   "ignoreNulls",
-  "capping",
-  "capValue",
   "denominator",
-  "conversionWindowHours",
-  "conversionDelayHours",
+  "cappingSettings",
+  "windowSettings",
   "sql",
   "aggregation",
   "queryFormat",
@@ -101,7 +99,7 @@ export async function deleteMetric(
   );
 
   // now remove the metric itself:
-  await deleteMetricById(metric, context);
+  await deleteMetricById(context, metric);
 
   await req.audit({
     event: "metric.delete",
@@ -196,9 +194,9 @@ export async function cancelMetricAnalysis(
     metric.datasource
   );
   const queryRunner = new MetricAnalysisQueryRunner(
+    context,
     metric,
-    integration,
-    context
+    integration
   );
   await queryRunner.cancelQueries();
 
@@ -420,11 +418,9 @@ export async function postMetrics(
     column,
     inverse,
     ignoreNulls,
-    capping,
-    capValue,
     denominator,
-    conversionWindowHours,
-    conversionDelayHours,
+    cappingSettings,
+    windowSettings,
     sql,
     aggregation,
     queryFormat,
@@ -472,11 +468,9 @@ export async function postMetrics(
     column,
     inverse,
     ignoreNulls,
-    capping,
-    capValue,
     denominator,
-    conversionWindowHours,
-    conversionDelayHours,
+    cappingSettings,
+    windowSettings,
     userIdTypes,
     sql,
     aggregation,

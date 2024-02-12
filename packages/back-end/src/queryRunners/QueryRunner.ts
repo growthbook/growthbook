@@ -105,9 +105,9 @@ export abstract class QueryRunner<
   private useCache: boolean;
 
   public constructor(
+    context: ReqContext | ApiReqContext,
     model: Model,
     integration: SourceIntegrationInterface,
-    context: ReqContext | ApiReqContext,
     useCache = true
   ) {
     this.model = model;
