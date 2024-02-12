@@ -316,7 +316,13 @@ export default function CodeSnippetModal({
               </h4>
               {installationOpen && (
                 <div className="appbox bg-light p-3">
-                  <InstallationCodeSnippet language={language} />
+                  <InstallationCodeSnippet
+                    language={language}
+                    apiHost={apiHost}
+                    apiKey={clientKey}
+                    encryptionKey={encryptionKey}
+                    remoteEvalEnabled={remoteEvalEnabled}
+                  />
                 </div>
               )}
             </div>
@@ -360,11 +366,6 @@ export default function CodeSnippetModal({
               </h4>
               {attributesOpen && (
                 <div className="appbox bg-light p-3">
-                  <span>
-                    Replace the placeholders with your real targeting attribute
-                    values. This enables you to target feature flags based on
-                    user attributes.
-                  </span>
                   <TargetingAttributeCodeSnippet
                     language={language}
                     hashSecureAttributes={hashSecureAttributes}

@@ -46,6 +46,8 @@ const docSections = {
   autoMetrics: "/app/metrics/#auto-generate-metrics",
   targetingChanges:
     "/app/experiment-configuration#making-changes-while-running",
+  shopify: "/integrations/shopify",
+  webflow: "/integrations/webflow",
 };
 
 export type DocSection = keyof typeof docSections;

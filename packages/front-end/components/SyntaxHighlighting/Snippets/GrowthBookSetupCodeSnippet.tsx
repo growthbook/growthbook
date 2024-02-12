@@ -18,6 +18,35 @@ export default function GrowthBookSetupCodeSnippet({
   const featuresEndpoint = apiHost + "/api/features/" + apiKey;
   const trackingComment = "TODO: Use your real analytics tracking system";
 
+  if (language.match(/^nocode/)) {
+    return (
+      <>
+        <p>No additional configuration is required for most websites.</p>
+        <p>
+          If you do NOT use either Segment.io or Google Analytics for event
+          tracking, you will need to specify your own custom experiment tracking
+          callback:
+        </p>
+        <Code
+          language="html"
+          code={`
+<script>
+// Only required if NOT using Segment or GA4
+window.growthbook_config = {
+  trackingCallback: (experiment, result) => {
+    customEventTracker("Viewed Experiment", {
+      experiment_id: experiment.key,
+      variation_id: result.key
+    })
+  }
+};
+</script>
+          `.trim()}
+        />
+      </>
+    );
+  }
+
   if (language === "javascript") {
     return (
       <>

@@ -43,6 +43,10 @@ export type CreateSDKConnectionParams = {
 };
 
 export type SDKLanguage =
+  | "nocode-webflow"
+  | "nocode-wordpress"
+  | "nocode-shopify"
+  | "nocode-other"
   | "javascript"
   | "nodejs"
   | "react"

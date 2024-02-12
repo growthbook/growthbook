@@ -3,9 +3,67 @@ import Code from "../Code";
 
 export default function InstallationCodeSnippet({
   language,
+  apiKey,
+  apiHost,
+  encryptionKey,
+  remoteEvalEnabled,
 }: {
   language: SDKLanguage;
+  apiKey: string;
+  apiHost: string;
+  encryptionKey?: string;
+  remoteEvalEnabled: boolean;
 }) {
+  const nocodeSnippet = `
+<script async
+  data-api-host=${JSON.stringify(apiHost)}
+  data-client-key=${JSON.stringify(apiKey)}${
+    encryptionKey
+      ? `\n  data-decryption-key=${JSON.stringify(encryptionKey)}`
+      : ""
+  }${remoteEvalEnabled ? `\n  data-remote-eval="true"` : ""}
+  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
+></script>
+            `.trim();
+
+  if (language === "nocode-shopify") {
+    return (
+      <>
+        Add the GrowthBook snippet right before the closing{" "}
+        <code>&lt;/head&gt;</code> tag in your theme&apos;s{" "}
+        <code>theme.liquid</code> file.
+        <Code language="html" code={nocodeSnippet} />
+      </>
+    );
+  }
+  if (language === "nocode-webflow") {
+    return (
+      <>
+        Go into your site&apos;s settings, click on the &quot;Custom Code&quot;,
+        and paste the following into the <strong>Head code</strong> section.
+        <Code language="html" code={nocodeSnippet} />
+      </>
+    );
+  }
+  if (language === "nocode-wordpress") {
+    return (
+      <>
+        Insert the following right before the closing <code>&lt;/head&gt;</code>{" "}
+        tag in your site&apos;s HTML. We recommend using a plugin like WPCode to
+        make this easier.
+        <Code language="html" code={nocodeSnippet} />
+      </>
+    );
+  }
+  if (language === "nocode-other") {
+    return (
+      <>
+        Insert the following right before the closing <code>&lt;/head&gt;</code>{" "}
+        tag in your site&apos;s HTML.
+        <Code language="html" code={nocodeSnippet} />
+      </>
+    );
+  }
   if (language === "javascript") {
     return (
       <Code

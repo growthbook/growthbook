@@ -95,6 +95,12 @@ export default function SDKLanguageSelector({
     "go",
   ]);
   const mobile = filterLanguages(["ios", "android", "flutter"]);
+  const nocode = filterLanguages([
+    "nocode-webflow",
+    "nocode-shopify",
+    "nocode-wordpress",
+    "nocode-other",
+  ]);
 
   return (
     <div>
@@ -142,6 +148,24 @@ export default function SDKLanguageSelector({
             </small>
             <div className="d-flex">
               {mobile.map((l) => (
+                <LanguageOption
+                  key={l}
+                  language={l}
+                  setValue={setValue}
+                  selected={selected}
+                  multiple={multiple}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+        {nocode.length > 0 && (
+          <div className="col-auto">
+            <small>
+              <strong>No/Low Code Platform</strong>
+            </small>
+            <div className="d-flex">
+              {nocode.map((l) => (
                 <LanguageOption
                   key={l}
                   language={l}

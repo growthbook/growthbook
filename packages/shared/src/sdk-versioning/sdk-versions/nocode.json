@@ -1,0 +1,19 @@
+{
+  "versions": [
+    {
+      "version": "0.0.0",
+      "capabilities": [
+        "looseUnmarshalling",
+        "streaming",
+        "encryption",
+        "bucketingV2",
+        "semverTargeting",
+        "stickyBucketing",
+        "visualEditor",
+        "visualEditorJS",
+        "visualEditorDragDrop",
+        "remoteEval"
+      ]
+    }
+  ]
+}
