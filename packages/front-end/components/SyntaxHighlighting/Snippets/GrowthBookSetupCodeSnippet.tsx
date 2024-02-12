@@ -1,5 +1,7 @@
 import { SDKLanguage } from "back-end/types/sdk-connection";
+import { useState } from "react";
 import { DocLink } from "@/components/DocLink";
+import SelectField from "@/components/Forms/SelectField";
 import Code from "../Code";
 
 export default function GrowthBookSetupCodeSnippet({
@@ -18,20 +20,34 @@ export default function GrowthBookSetupCodeSnippet({
   const featuresEndpoint = apiHost + "/api/features/" + apiKey;
   const trackingComment = "TODO: Use your real analytics tracking system";
 
+  const [eventTracker, setEventTracker] = useState("GA4");
+
   if (language.match(/^nocode/)) {
     return (
       <>
-        <p>No additional configuration is required for most websites.</p>
-        <p>
-          If you do NOT use either Segment.io or Google Analytics for event
-          tracking, you will need to specify your own custom experiment tracking
-          callback:
-        </p>
-        <Code
-          language="html"
-          code={`
+        <div className="form-inline mb-3">
+          <SelectField
+            label="Event Tracking System"
+            labelClassName="mr-2"
+            options={[
+              { label: "Google Analytics 4", value: "GA4" },
+              { label: "Segment.io", value: "segment" },
+              { label: "Other", value: "other" },
+            ]}
+            sort={false}
+            value={eventTracker}
+            onChange={(value) => setEventTracker(value)}
+          />
+        </div>
+
+        {eventTracker === "other" ? (
+          <>
+            You will need to add your own custom experiment tracking callback
+            BEFORE the GrowthBook snippet above:
+            <Code
+              language="html"
+              code={`
 <script>
-// Only required if NOT using Segment or GA4
 window.growthbook_config = {
   trackingCallback: (experiment, result) => {
     customEventTracker("Viewed Experiment", {
@@ -42,7 +58,14 @@ window.growthbook_config = {
 };
 </script>
           `.trim()}
-        />
+            />
+          </>
+        ) : (
+          <div>
+            Events are tracked in {eventTracker} automatically. No configuration
+            needed.
+          </div>
+        )}
       </>
     );
   }
