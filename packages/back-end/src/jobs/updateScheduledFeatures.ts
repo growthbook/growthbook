@@ -79,7 +79,7 @@ async function updateSingleFeature(job: UpdateSingleFeatureJob) {
     );
 
     // Update the feature in Mongo
-    await updateFeature(context, null, feature, {
+    await updateFeature(context, feature, {
       nextScheduledUpdate: nextScheduledUpdate,
     });
   } catch (e) {

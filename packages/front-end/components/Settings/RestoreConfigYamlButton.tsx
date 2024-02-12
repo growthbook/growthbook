@@ -158,7 +158,6 @@ export default function RestoreConfigYamlButton({
                 \`userIdType\` and \`anonymousIdType\` have been deprecated. 
                 Please use \`userIdTypes\` instead.`);
             }
-
             newConfig.metrics[k] = {
               ...o,
               ...n,

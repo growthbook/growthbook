@@ -326,7 +326,6 @@ spacing and headings.`,
     const createdExperiment = await createExperiment({
       data: experimentToCreate,
       context,
-      user: res.locals.eventAudit,
     });
 
     // Create feature
@@ -389,7 +388,7 @@ spacing and headings.`,
       });
     });
 
-    await createFeature(context, res.locals.eventAudit, featureToCreate);
+    await createFeature(context, featureToCreate);
 
     const analysisSettings: ExperimentSnapshotAnalysisSettings = {
       statsEngine: org.settings?.statsEngine || DEFAULT_STATS_ENGINE,

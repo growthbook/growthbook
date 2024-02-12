@@ -156,8 +156,8 @@ export async function insertMetrics(
 }
 
 export async function deleteMetricById(
-  metric: LegacyMetricInterface | MetricInterface,
-  context: ReqContext | ApiReqContext
+  context: ReqContext | ApiReqContext,
+  metric: LegacyMetricInterface | MetricInterface
 ) {
   if (metric.managedBy === "config") {
     throw new Error("Cannot delete a metric managed by config.yml");
@@ -177,7 +177,7 @@ export async function deleteMetricById(
   );
 
   // Experiments
-  await removeMetricFromExperiments(metric.id, context);
+  await removeMetricFromExperiments(context, metric.id);
 
   await MetricModel.deleteOne({
     id: metric.id,
@@ -204,7 +204,7 @@ export async function deleteAllMetricsForAProject({
   });
 
   for (const metric of metricsToDelete) {
-    await deleteMetricById(metric, context);
+    await deleteMetricById(context, metric);
   }
 }
 
