@@ -128,12 +128,10 @@ export default function TargetingAttributeCodeSnippet({
             language="html"
             code={`
 <script>
-window.growthbook_config = {
-  attributes: ${indentLines(
-    stringify(Object.fromEntries(additionalAttributes)),
-    2
-  )}
-};
+window.growthbook_config = window.growthbook_config || {};
+window.growthbook_config.attributes = ${stringify(
+              Object.fromEntries(additionalAttributes)
+            )};
 </script>
           `}
           />

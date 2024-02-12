@@ -48,13 +48,12 @@ export default function GrowthBookSetupCodeSnippet({
               language="html"
               code={`
 <script>
-window.growthbook_config = {
-  trackingCallback: (experiment, result) => {
-    customEventTracker("Viewed Experiment", {
-      experiment_id: experiment.key,
-      variation_id: result.key
-    })
-  }
+window.growthbook_config = window.growthbook_config || {};
+window.growthbook_config.trackingCallback = (experiment, result) => {
+  customEventTracker("Viewed Experiment", {
+    experiment_id: experiment.key,
+    variation_id: result.key
+  })
 };
 </script>
           `.trim()}
