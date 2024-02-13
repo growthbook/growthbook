@@ -18,7 +18,6 @@ const BigQueryForm: FC<{
     message: string;
     datasetOptions: string[];
   } | null>(null);
-  const [loadingDatasetOptions, setLoadingDatasetOptions] = useState(false);
   const { apiCall } = useAuth();
 
   async function testConnection() {
@@ -35,7 +34,6 @@ const BigQueryForm: FC<{
           }),
         }
       );
-
       if (!datasets.length) {
         setTestConnectionResults({
           status: "warning",
@@ -50,7 +48,10 @@ const BigQueryForm: FC<{
         datasetOptions: datasets,
         message: `Connected to ${params.projectId} successfully!`,
       });
-      //TODO: Intelligently select a default dataset based on the datasource type (manual, ga4, segment, etc)
+      const analyticsDataset = datasets.find((d) => d.match(/^analytics_/));
+      if (analyticsDataset) {
+        setParams({ ["defaultDataset"]: analyticsDataset });
+      }
     } catch (e) {
       setTestConnectionResults({
         status: "danger",
@@ -58,7 +59,6 @@ const BigQueryForm: FC<{
         datasetOptions: [],
       });
     }
-    setLoadingDatasetOptions(false);
   }
 
   return (
@@ -177,10 +177,10 @@ const BigQueryForm: FC<{
               color="primary"
               className="mt-2"
               onClick={async () => {
-                testConnection();
+                await testConnection();
               }}
             >
-              {loadingDatasetOptions ? "Loading..." : "Test Connection"}
+              Test Connection
             </Button>
           </div>
         </>
