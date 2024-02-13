@@ -322,7 +322,7 @@ export default function SDKConnectionForm({
             ) : null}
             <div className="flex-1" />
             {form.watch("languages")?.length === 1 &&
-              form.watch("languages")[0] !== "other" && (
+              !form.watch("languages")[0].match(/^(other|nocode-.*)$/) && (
                 <div className="text-right position-relative">
                   <div className="d-inline-flex align-items-center">
                     <label className="mb-0 mr-2">SDK ver.</label>

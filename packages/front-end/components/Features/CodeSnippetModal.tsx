@@ -233,75 +233,87 @@ export default function CodeSnippetModal({
               more details.
             </p>
           )}
-          <div className="mb-3">
-            <h4
-              className="cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                setConfigOpen(!configOpen);
-              }}
-            >
-              {label} Config Settings{" "}
-              {configOpen ? <FaAngleDown /> : <FaAngleRight />}
-            </h4>
-            {configOpen && (
-              <div className="appbox bg-light p-3">
-                <table className="gbtable table table-bordered table-sm">
-                  <tbody>
-                    <tr>
-                      <th className="pl-3" style={{ verticalAlign: "middle" }}>
-                        Full API Endpoint
-                        {hasProxy ? (
-                          <>
-                            {" "}
-                            <small>(proxied)</small>
-                          </>
-                        ) : null}
-                      </th>
-                      <td>
-                        <ClickToCopy>{featuresEndpoint}</ClickToCopy>
-                      </td>
-                    </tr>
-                    <tr>
-                      <th className="pl-3" style={{ verticalAlign: "middle" }}>
-                        API Host
-                        {hasProxy ? (
-                          <>
-                            {" "}
-                            <small>(proxied)</small>
-                          </>
-                        ) : null}
-                      </th>
-                      <td>
-                        <ClickToCopy>{apiHost}</ClickToCopy>
-                      </td>
-                    </tr>
-                    <tr>
-                      <th className="pl-3" style={{ verticalAlign: "middle" }}>
-                        Client Key
-                      </th>
-                      <td>
-                        <ClickToCopy>{clientKey}</ClickToCopy>
-                      </td>
-                    </tr>
-                    {encryptionKey && (
+          {!language.match(/^nocode/) && (
+            <div className="mb-3">
+              <h4
+                className="cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setConfigOpen(!configOpen);
+                }}
+              >
+                {label} Config Settings{" "}
+                {configOpen ? <FaAngleDown /> : <FaAngleRight />}
+              </h4>
+              {configOpen && (
+                <div className="appbox bg-light p-3">
+                  <table className="gbtable table table-bordered table-sm">
+                    <tbody>
                       <tr>
                         <th
                           className="pl-3"
                           style={{ verticalAlign: "middle" }}
                         >
-                          Decryption Key
+                          Full API Endpoint
+                          {hasProxy ? (
+                            <>
+                              {" "}
+                              <small>(proxied)</small>
+                            </>
+                          ) : null}
                         </th>
                         <td>
-                          <ClickToCopy>{encryptionKey}</ClickToCopy>
+                          <ClickToCopy>{featuresEndpoint}</ClickToCopy>
                         </td>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+                      <tr>
+                        <th
+                          className="pl-3"
+                          style={{ verticalAlign: "middle" }}
+                        >
+                          API Host
+                          {hasProxy ? (
+                            <>
+                              {" "}
+                              <small>(proxied)</small>
+                            </>
+                          ) : null}
+                        </th>
+                        <td>
+                          <ClickToCopy>{apiHost}</ClickToCopy>
+                        </td>
+                      </tr>
+                      <tr>
+                        <th
+                          className="pl-3"
+                          style={{ verticalAlign: "middle" }}
+                        >
+                          Client Key
+                        </th>
+                        <td>
+                          <ClickToCopy>{clientKey}</ClickToCopy>
+                        </td>
+                      </tr>
+                      {encryptionKey && (
+                        <tr>
+                          <th
+                            className="pl-3"
+                            style={{ verticalAlign: "middle" }}
+                          >
+                            Decryption Key
+                          </th>
+                          <td>
+                            <ClickToCopy>{encryptionKey}</ClickToCopy>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
           {language !== "other" && (
             <div className="mb-3">
               <h4
@@ -316,7 +328,13 @@ export default function CodeSnippetModal({
               </h4>
               {installationOpen && (
                 <div className="appbox bg-light p-3">
-                  <InstallationCodeSnippet language={language} />
+                  <InstallationCodeSnippet
+                    language={language}
+                    apiHost={apiHost}
+                    apiKey={clientKey}
+                    encryptionKey={encryptionKey}
+                    remoteEvalEnabled={remoteEvalEnabled}
+                  />
                 </div>
               )}
             </div>
@@ -360,11 +378,6 @@ export default function CodeSnippetModal({
               </h4>
               {attributesOpen && (
                 <div className="appbox bg-light p-3">
-                  <span>
-                    Replace the placeholders with your real targeting attribute
-                    values. This enables you to target feature flags based on
-                    user attributes.
-                  </span>
                   <TargetingAttributeCodeSnippet
                     language={language}
                     hashSecureAttributes={hashSecureAttributes}
