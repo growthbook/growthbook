@@ -10,6 +10,7 @@ import { GBAddCircle, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import StatusCircle from "@/components/Helpers/StatusCircle";
+import ProjectBadges from "@/components/ProjectBadges";
 import Tooltip from "../../Tooltip/Tooltip";
 import SDKLanguageLogo from "./SDKLanguageLogo";
 import SDKConnectionForm from "./SDKConnectionForm";
@@ -19,7 +20,7 @@ export default function SDKConnectionsList() {
 
   const [modalOpen, setModalOpen] = useState(false);
 
-  const { getProjectById, projects } = useDefinitions();
+  const { projects } = useDefinitions();
 
   const router = useRouter();
   const permissions = usePermissions();
@@ -113,34 +114,15 @@ export default function SDKConnectionsList() {
                     </Link>
                   </td>
                   {projects.length > 0 && (
-                    <td>
-                      {connection.projects.map((p) => {
-                        const proj = getProjectById(p);
-                        if (!proj) {
-                          return (
-                            <Tooltip
-                              body={
-                                <>
-                                  Project <code>{p}</code> not found
-                                </>
-                              }
-                            >
-                              <span className="badge badge-danger mr-1">
-                                Invalid project
-                              </span>
-                            </Tooltip>
-                          );
-                        } else {
-                          return (
-                            <span className="badge badge-secondary mr-1">
-                              {proj.name}
-                            </span>
-                          );
+                    <td className="d-flex align-items-center">
+                      <ProjectBadges
+                        projectIds={
+                          connection.projects.length
+                            ? connection.projects
+                            : undefined
                         }
-                      })}
-                      {connection.projects.length === 0 && (
-                        <em>All Projects</em>
-                      )}
+                        resourceType="sdk connection"
+                      />
                     </td>
                   )}
                   <td>{connection.environment}</td>
