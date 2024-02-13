@@ -33,6 +33,7 @@ export async function getUser(req: AuthRequest, res: Response) {
   if (!req.userId && usingOpenId()) {
     const user = await createUser(req.name || "", req.email, "", req.verified);
     req.userId = user.id;
+    req.currentUser = user;
   }
 
   if (!req.userId) {

@@ -8,6 +8,7 @@ import {
 import { AuditInterface } from "../../types/audit";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 import { TeamInterface } from "../../types/team";
+import { UserInterface } from "../../types/user";
 
 export type PermissionFunctions = {
   checkPermissions(permission: GlobalPermission): void;
@@ -28,6 +29,10 @@ export type AuthRequest<
   Params = unknown,
   QueryParams = unknown
 > = Request<Params, unknown, Body, QueryParams> & {
+  currentUser: Pick<
+    UserInterface,
+    "email" | "id" | "name" | "verified" | "superAdmin"
+  >;
   email: string;
   verified?: boolean;
   userId?: string;

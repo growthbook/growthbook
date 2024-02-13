@@ -598,7 +598,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     });
   }
   const context = getContextFromReq(req);
-  const { org, userId } = context;
+  const { org } = context;
   const {
     invites,
     members,
@@ -653,10 +653,9 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   });
 
   const currentUserPermissions = getUserPermissions(
-    userId,
+    req.currentUser,
     org,
-    teams || [],
-    req.superAdmin
+    teams || []
   );
 
   return res.status(200).json({

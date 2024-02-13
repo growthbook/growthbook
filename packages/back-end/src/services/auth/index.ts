@@ -86,6 +86,13 @@ export async function processJWT(
   req.name = name || "";
   req.verified = verified || false;
   req.teams = [];
+  req.currentUser = {
+    id: "",
+    email: email || "",
+    superAdmin: false,
+    verified: verified || false,
+    name: name || "",
+  };
 
   const userHasPermission = (
     permission: Permission,
@@ -99,10 +106,9 @@ export async function processJWT(
 
     // Generate full list of permissions for the user
     const userPermissions = getUserPermissions(
-      req.userId,
+      req.currentUser,
       req.organization,
-      teams,
-      req.superAdmin
+      teams
     );
 
     // Check if the user has the permission
@@ -138,6 +144,7 @@ export async function processJWT(
   const user = await getUserFromJWT(req.user);
 
   if (user) {
+    req.currentUser = user;
     req.email = user.email;
     req.userId = user.id;
     req.name = user.name;

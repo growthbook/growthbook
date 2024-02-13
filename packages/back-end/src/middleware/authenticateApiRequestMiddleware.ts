@@ -134,14 +134,9 @@ export default function authenticateApiRequestMiddleware(
         email: req.user?.email,
         environments: getEnvironmentIdsFromOrg(org),
         userName: req.user?.name,
-        readAccessFilter: userId
+        readAccessFilter: req.user
           ? getReadAccessFilter(
-              getUserPermissions(
-                userId,
-                req.organization,
-                teams,
-                req.user?.superAdmin
-              )
+              getUserPermissions(req.user, req.organization, teams)
             )
           : getApiKeyReadAccessFilter(role),
         auditUser: eventAudit,
@@ -219,7 +214,11 @@ function doesUserHavePermission(
     }
 
     // Generate full list of permissions for the user
-    const userPermissions = getUserPermissions(userId, org, teams, superAdmin);
+    const userPermissions = getUserPermissions(
+      { id: userId, superAdmin },
+      org,
+      teams
+    );
 
     // Check if the user has the permission
     return hasPermission(userPermissions, permission, project, envs);

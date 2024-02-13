@@ -271,15 +271,14 @@ function getUserPermission(
 }
 
 export function getUserPermissions(
-  userId: string,
+  user: { id: string; superAdmin?: boolean },
   org: OrganizationInterface,
-  teams: TeamInterface[],
-  superAdmin?: boolean | undefined
+  teams: TeamInterface[]
 ): UserPermissions {
-  const memberInfo = org.members.find((m) => m.id === userId);
+  const memberInfo = org.members.find((m) => m.id === user.id);
 
   // If the user is a super admin, they have at least readonly access to everything
-  if (!memberInfo && superAdmin) {
+  if (!memberInfo && user.superAdmin) {
     return {
       global: getUserPermission({ role: "readonly" }, org),
       projects: {},
