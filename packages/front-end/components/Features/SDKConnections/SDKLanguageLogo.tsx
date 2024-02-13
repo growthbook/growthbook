@@ -51,7 +51,7 @@ export const languageMapping: Record<
     Icon: SiWordpress,
     color: "#00749C",
     label: "Wordpress",
-    docs: "visual_editor",
+    docs: "wordpress",
     environment: "frontend",
     hideVersion: true,
   },

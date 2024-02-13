@@ -173,6 +173,21 @@ export async function createOrganization({
           defaultState: true,
         },
       ],
+      // Default to the same attributes as the auto-wrapper for the Javascript SDK
+      attributeSchema: [
+        { property: "id", datatype: "string", hashAttribute: true },
+        { property: "url", datatype: "string" },
+        { property: "path", datatype: "string" },
+        { property: "host", datatype: "string" },
+        { property: "query", datatype: "string" },
+        { property: "deviceType", datatype: "string" },
+        { property: "browser", datatype: "string" },
+        { property: "utmSource", datatype: "string" },
+        { property: "utmMedium", datatype: "string" },
+        { property: "utmCampaign", datatype: "string" },
+        { property: "utmTerm", datatype: "string" },
+        { property: "utmContent", datatype: "string" },
+      ],
     },
   });
   return toInterface(doc);

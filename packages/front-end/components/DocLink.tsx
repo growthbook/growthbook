@@ -48,6 +48,7 @@ const docSections = {
     "/app/experiment-configuration#making-changes-while-running",
   shopify: "/integrations/shopify",
   webflow: "/integrations/webflow",
+  wordpress: "/integrations/wordpress",
 };
 
 export type DocSection = keyof typeof docSections;
