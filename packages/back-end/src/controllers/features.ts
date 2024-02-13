@@ -1766,7 +1766,7 @@ export async function postPrerequisite(
   };
   changes.prerequisites.push(prerequisite);
 
-  await updateFeature(context, res.locals.eventAudit, feature, changes);
+  await updateFeature(context, feature, changes);
 
   res.status(200).json({
     status: 200,
@@ -1800,7 +1800,7 @@ export async function putPrerequisite(
   }
   changes.prerequisites[i] = prerequisite;
 
-  await updateFeature(context, res.locals.eventAudit, feature, changes);
+  await updateFeature(context, feature, changes);
 
   res.status(200).json({
     status: 200,
@@ -1831,7 +1831,7 @@ export async function deletePrerequisite(
   }
   changes.prerequisites.splice(i, 1);
 
-  await updateFeature(context, res.locals.eventAudit, feature, changes);
+  await updateFeature(context, feature, changes);
 
   res.status(200).json({
     status: 200,

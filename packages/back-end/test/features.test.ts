@@ -11,7 +11,7 @@ import {
 } from "../src/util/features";
 import { getCurrentEnabledState } from "../src/util/scheduleRules";
 import { FeatureInterface, ScheduleRule } from "../types/feature";
-import { hashStrings } from "../src/services/features";
+import { generateFeaturesPayload, hashStrings } from "../src/services/features";
 import { SDKAttributeSchema } from "../types/organization";
 import { ExperimentInterface } from "../types/experiment";
 import { GroupMap } from "../types/saved-group";
@@ -1392,6 +1392,149 @@ describe("SDK Payloads", () => {
           weights: [0.7, 0.3],
           key: "testing",
         },
+      ],
+    });
+  });
+
+  it("Reduces feature definitions based on top level prerequisites", () => {
+    const childFeature: FeatureInterface = {
+      id: "child1",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      valueType: "boolean" as const,
+      defaultValue: "true",
+      organization: "123",
+      project: "",
+      owner: "",
+      version: 1,
+      prerequisites: [
+        {
+          id: "parent1",
+          condition: `{"value": true}`,
+        },
+      ],
+      environmentSettings: {
+        production: {
+          enabled: true,
+          rules: [],
+        },
+      },
+    };
+    const parentFeature: FeatureInterface = {
+      id: "parent1",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      valueType: "boolean" as const,
+      defaultValue: "true",
+      organization: "123",
+      project: "",
+      owner: "",
+      version: 1,
+      environmentSettings: {
+        production: {
+          enabled: true,
+          rules: [],
+        },
+      },
+    };
+
+    // 1: No blocking:
+    const features1: FeatureInterface[] = [
+      cloneDeep(childFeature),
+      cloneDeep(parentFeature),
+    ];
+    const payload1 = generateFeaturesPayload({
+      features: features1,
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+    });
+    expect(payload1).toHaveProperty("parent1");
+    expect(payload1).toHaveProperty("child1");
+    // Prereq rules should be stripped from the child because parent is unambiguously "on"
+    expect(payload1.child1).not.toHaveProperty("rules");
+
+    // 2: Blocking based on parent default value:
+    const features2: FeatureInterface[] = [
+      cloneDeep(childFeature),
+      {
+        ...cloneDeep(parentFeature),
+        ...{
+          defaultValue: "false",
+        },
+      },
+    ];
+    const payload2 = generateFeaturesPayload({
+      features: features2,
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+    });
+    expect(payload2).toHaveProperty("parent1");
+    expect(payload2).not.toHaveProperty("child1");
+
+    // 3: Blocking based on parent toggled off:
+    const features3: FeatureInterface[] = [
+      cloneDeep(childFeature),
+      {
+        ...cloneDeep(parentFeature),
+        ...{
+          environmentSettings: {
+            production: {
+              enabled: false,
+              rules: [],
+            },
+          },
+        },
+      },
+    ];
+    const payload3 = generateFeaturesPayload({
+      features: features3,
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+    });
+    // both parent and child should be scrubbed
+    expect(payload3).not.toHaveProperty("parent1");
+    expect(payload3).not.toHaveProperty("child1");
+
+    // 4: Conditional prerequisite state, no blocking, prereq rule generated on child:
+    const features4: FeatureInterface[] = [
+      cloneDeep(childFeature),
+      {
+        ...cloneDeep(parentFeature),
+        ...{
+          defaultValue: "false",
+          environmentSettings: {
+            production: {
+              enabled: true,
+              rules: [
+                {
+                  type: "force",
+                  description: "",
+                  id: "1",
+                  value: "true",
+                  condition: `{"country": "US"}`,
+                  enabled: true,
+                },
+              ],
+            },
+          },
+        },
+      },
+    ];
+    const payload4 = generateFeaturesPayload({
+      features: features4,
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+    });
+    expect(payload4).toHaveProperty("parent1");
+    expect(payload4).toHaveProperty("child1");
+    // Prereq rules should be generated on the child because parent state is "conditional"
+    expect(payload4.child1.rules[0]).toStrictEqual({
+      parentConditions: [
+        { condition: { value: true }, gate: true, id: "parent1" },
       ],
     });
   });

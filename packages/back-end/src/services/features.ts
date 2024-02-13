@@ -71,7 +71,7 @@ import { getEnvironmentIdsFromOrg, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
 
-function generateFeaturesPayload({
+export function generateFeaturesPayload({
   features,
   experimentMap,
   environment,
@@ -104,7 +104,7 @@ export type VisualExperiment = {
   visualChangeset: VisualChangesetInterface;
 };
 
-function generateVisualExperimentsPayload({
+export function generateVisualExperimentsPayload({
   visualExperiments,
   groupMap,
   features,
@@ -1135,9 +1135,20 @@ export const reduceFeaturesWithPrerequisites = (
     const newPrerequisites: FeaturePrerequisite[] = [];
     for (const prereq of newFeature.prerequisites || []) {
       const prereqFeature = features.find((f) => f.id === prereq.id);
-      const state = prereqFeature
+      let state = prereqFeature
         ? evaluatePrerequisiteState(prereqFeature, features, environment)
         : "off";
+
+      // reduce "on" states based on defaultValue when possible (similar to getInlinePrerequisitesReductionInfo)
+      if (state === "on") {
+        if (
+          prereqFeature?.valueType === "boolean" &&
+          prereqFeature?.defaultValue === "false"
+        ) {
+          state = "off";
+        }
+      }
+
       switch (state) {
         case "on":
           // keep the feature, remove the prerequisite

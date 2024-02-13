@@ -4,7 +4,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { FeatureInterface } from "back-end/types/feature";
 import { RxInfoCircled, RxLoop } from "react-icons/rx";
-import {isPrerequisiteConditionOperatorConditional, PrerequisiteState} from "shared/util";
+import {
+  isPrerequisiteConditionOperatorConditional,
+  PrerequisiteState,
+} from "shared/util";
 import { FaRegCircleQuestion } from "react-icons/fa6";
 import { condToJson, jsonToConds } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -18,7 +21,7 @@ interface Props {
   defaultValue: string;
   onChange: (value: string) => void;
   parentFeature?: FeatureInterface;
-  prereqStates?: Record<string, PrerequisiteState> | null
+  prereqStates?: Record<string, PrerequisiteState> | null;
 }
 
 export default function PrerequisiteInput(props: Props) {
@@ -50,9 +53,9 @@ export default function PrerequisiteInput(props: Props) {
   );
   const [rawTextMode, setRawTextMode] = useState(false);
 
-  const hasConditionalState = props.prereqStates ? Object.values(props.prereqStates).some(
-    (s) => s === "conditional"
-  ) : true;
+  const hasConditionalState = props.prereqStates
+    ? Object.values(props.prereqStates).some((s) => s === "conditional")
+    : true;
 
   useEffect(() => {
     if (advanced) return;
@@ -231,7 +234,8 @@ export default function PrerequisiteInput(props: Props) {
                     handleCondsChange(v, "operator");
                   }}
                   formatOptionLabel={({ value, label }) => {
-                    const def = attribute.datatype === "boolean" ? "$true" : "$exists";
+                    const def =
+                      attribute.datatype === "boolean" ? "$true" : "$exists";
                     const conditional = isPrerequisiteConditionOperatorConditional(
                       value,
                       hasConditionalState ? "conditional" : "on"
@@ -241,8 +245,8 @@ export default function PrerequisiteInput(props: Props) {
                         {label}
                         {value === def && (
                           <span
-                            className="badge badge-muted-info badge-pill ml-2"
-                            style={{ fontSize: "10px" }}
+                            className="text-muted uppercase-title float-right position-relative"
+                            style={{ top: 3 }}
                           >
                             default
                           </span>

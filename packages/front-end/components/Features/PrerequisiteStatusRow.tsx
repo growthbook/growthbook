@@ -139,6 +139,9 @@ export function PrerequisiteStatesCols({
   envs: string[];
   isSummaryRow?: boolean;
 }) {
+  const featureLabel = isSummaryRow
+    ? "The current feature"
+    : "This prerequisite";
   return (
     <>
       {envs.map((env) => (
@@ -150,30 +153,35 @@ export function PrerequisiteStatesCols({
               body={
                 <>
                   <div>
-                    {isSummaryRow
-                      ? "The current feature"
-                      : "This prerequisite feature"}{" "}
-                    is{" "}
-                    <span className="text-success font-weight-bold">live</span>{" "}
-                    in this environment.
+                    {defaultValues?.[env] === undefined && (
+                      <>
+                        {featureLabel} is{" "}
+                        <span className="text-success font-weight-bold">
+                          live
+                        </span>{" "}
+                        in this environment.
+                      </>
+                    )}
                     {defaultValues?.[env] === "true" && (
-                      <div className="mt-2">
-                        This prerequisite serves{" "}
+                      <>
+                        {featureLabel} is{" "}
+                        <span className="text-success font-weight-bold">
+                          live
+                        </span>{" "}
+                        and currently serving{" "}
                         <span className="rounded px-1 bg-light">
                           <ValueDisplay value={"true"} type="boolean" />
                         </span>{" "}
-                        by default.
-                      </div>
+                        in this environment.
+                      </>
                     )}
                     {defaultValues?.[env] === "false" && (
                       <>
-                        {" "}
-                        However, this prerequisite serves{" "}
+                        {featureLabel} is currently serving{" "}
                         <span className="rounded px-1 bg-light">
                           <ValueDisplay value={"false"} type="boolean" />
                         </span>{" "}
-                        by default. Therefore, it will block the current feature
-                        from being live in this environment.
+                        in this environment.
                       </>
                     )}
                   </div>
@@ -194,10 +202,7 @@ export function PrerequisiteStatesCols({
               body={
                 <>
                   <div>
-                    {isSummaryRow
-                      ? "The current feature"
-                      : "This prerequisite feature"}{" "}
-                    is{" "}
+                    {featureLabel} is{" "}
                     <span className="text-gray font-weight-bold">not live</span>{" "}
                     in this environment.
                     {isSummaryRow && (
@@ -220,31 +225,23 @@ export function PrerequisiteStatesCols({
               body={
                 isSummaryRow ? (
                   <>
-                    <div>
-                      The current feature is in a{" "}
-                      <span className="text-purple font-weight-bold">
-                        Schrödinger state
-                      </span>{" "}
-                      in this environment. We can&apos;t know whether it is live
-                      or not until its prerequisites are evaluated at runtime in
-                      the SDK.
-                    </div>
-                    {isSummaryRow && (
-                      <div className="mt-2">
-                        If any prerequisites do not pass at runtime, this
-                        feature will evaluate to <code>null</code>.
-                      </div>
-                    )}
+                    {featureLabel} is in a{" "}
+                    <span className="text-purple font-weight-bold">
+                      Schrödinger state
+                    </span>{" "}
+                    in this environment. We can&apos;t know whether it is live
+                    or not until its prerequisites are evaluated at runtime in
+                    the SDK. It may evaluate to <code>null</code> at runtime.
                   </>
                 ) : (
-                  <div>
-                    This prerequisite is in a{" "}
+                  <>
+                    {featureLabel} is in a{" "}
                     <span className="text-purple font-weight-bold">
                       Schrödinger state
                     </span>{" "}
                     in this environment. We can&apos;t know its value until it
                     is evaluated at runtime in the SDK.
-                  </div>
+                  </>
                 )
               }
             >

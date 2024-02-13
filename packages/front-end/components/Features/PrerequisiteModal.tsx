@@ -66,7 +66,11 @@ export default function PrerequisiteModal({
 
   const featureOptions = features
     .filter((f) => f.id !== feature.id)
-    .filter((f) => !prerequisites.map((p) => p.id).includes(f.id) || f.id === prerequisite?.id)
+    .filter(
+      (f) =>
+        !prerequisites.map((p) => p.id).includes(f.id) ||
+        f.id === prerequisite?.id
+    )
     .filter((f) => (f.project || "") === (feature.project || ""))
     .filter((f) => f.valueType === "boolean")
     .map((f) => ({ label: f.id, value: f.id }));
@@ -149,8 +153,11 @@ export default function PrerequisiteModal({
       })}
     >
       <div className="alert alert-info mt-2 mb-3">
-        Prerequisite features must evaluate to <span className="rounded px-1 bg-light"><ValueDisplay value={"true"} type="boolean" /></span> for this
-        feature to be enabled.{" "}
+        Prerequisite features must evaluate to{" "}
+        <span className="rounded px-1 bg-light">
+          <ValueDisplay value={"true"} type="boolean" />
+        </span>{" "}
+        for this feature to be enabled.{" "}
         <Tooltip
           body={
             <>
