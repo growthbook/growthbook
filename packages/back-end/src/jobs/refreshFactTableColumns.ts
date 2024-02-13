@@ -10,6 +10,7 @@ import { determineColumnTypes } from "../util/sql";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { DataSourceInterface } from "../../types/datasource";
 import { getContextForAgendaJobByOrgId } from "../services/organizations";
+import { trackJob } from "../services/otel";
 
 const JOB_NAME = "refreshFactTableColumns";
 type RefreshFactTableColumnsJob = Job<{
@@ -83,11 +84,9 @@ export async function runRefreshColumnsQuery(
   return columns;
 }
 
-let agenda: Agenda;
-export default function (ag: Agenda) {
-  agenda = ag;
-
-  agenda.define(JOB_NAME, async (job: RefreshFactTableColumnsJob) => {
+const refreshFactTableColumns = trackJob(
+  JOB_NAME,
+  async (job: RefreshFactTableColumnsJob) => {
     const { organization, factTableId } = job.attrs.data;
 
     if (!factTableId || !organization) return;
@@ -113,7 +112,13 @@ export default function (ag: Agenda) {
     }
 
     await updateFactTableColumns(factTable, updates);
-  });
+  }
+);
+
+let agenda: Agenda;
+export default function (ag: Agenda) {
+  agenda = ag;
+  agenda.define(JOB_NAME, refreshFactTableColumns);
 }
 
 export async function queueFactTableColumnsRefresh(
