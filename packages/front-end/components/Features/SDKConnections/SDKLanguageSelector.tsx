@@ -96,9 +96,9 @@ export default function SDKLanguageSelector({
   ]);
   const mobile = filterLanguages(["ios", "android", "flutter"]);
   const nocode = filterLanguages([
-    "nocode-webflow",
     "nocode-shopify",
     "nocode-wordpress",
+    "nocode-webflow",
     "nocode-other",
   ]);
 

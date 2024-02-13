@@ -31,14 +31,6 @@ export const languageMapping: Record<
     hideVersion?: boolean;
   }
 > = {
-  "nocode-webflow": {
-    Icon: SiWebflow,
-    color: "#146EF5",
-    label: "Webflow",
-    docs: "webflow",
-    environment: "frontend",
-    hideVersion: true,
-  },
   "nocode-shopify": {
     Icon: SiShopify,
     color: "#95BF47",
@@ -52,6 +44,14 @@ export const languageMapping: Record<
     color: "#00749C",
     label: "Wordpress",
     docs: "wordpress",
+    environment: "frontend",
+    hideVersion: true,
+  },
+  "nocode-webflow": {
+    Icon: SiWebflow,
+    color: "#146EF5",
+    label: "Webflow",
+    docs: "webflow",
     environment: "frontend",
     hideVersion: true,
   },
