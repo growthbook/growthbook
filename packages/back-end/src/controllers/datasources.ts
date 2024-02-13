@@ -2,6 +2,7 @@ import { Response } from "express";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import * as bq from "@google-cloud/bigquery";
 import { AuthRequest } from "../types/AuthRequest";
 import { getContextFromReq } from "../services/organizations";
 import {
@@ -872,4 +873,31 @@ export async function cancelDimensionSlices(
   res.status(200).json({
     status: 200,
   });
+}
+
+export async function fetchBigQueryDatasets(
+  req: AuthRequest<{
+    projectId: string;
+    client_email: string;
+    private_key: string;
+  }>,
+  res: Response
+) {
+  const { projectId, client_email, private_key } = req.body;
+
+  try {
+    const client = new bq.BigQuery({
+      projectId,
+      credentials: { client_email, private_key },
+    });
+
+    const [datasets] = await client.getDatasets();
+
+    res.status(200).json({
+      status: 200,
+      datasets: datasets.map((dataset) => dataset.id).filter(Boolean),
+    });
+  } catch (e) {
+    throw new Error(e.message);
+  }
 }
