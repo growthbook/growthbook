@@ -12,6 +12,7 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import usePermissions from "@/hooks/usePermissions";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import ValueDisplay from "@/components/Features/ValueDisplay";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import MoreMenu from "../Dropdown/MoreMenu";
 
@@ -42,13 +43,15 @@ export default function PrerequisiteStatusRow({
 
   const envs = environments.map((e) => e.id);
 
-  const prereqStates = useMemo(() => {
+  const prereqStatesAndDefaults = useMemo(() => {
     if (!parentFeature) return null;
     const states: Record<string, PrerequisiteState> = {};
+    const defaultValues: Record<string, string> = {};
     envs.forEach((env) => {
       states[env] = evaluatePrerequisiteState(parentFeature, features, env);
+      defaultValues[env] = parentFeature.defaultValue;
     });
-    return states;
+    return { states, defaultValues };
   }, [parentFeature, features, envs]);
 
   return (
@@ -116,7 +119,8 @@ export default function PrerequisiteStatusRow({
         </div>
       </td>
       <PrerequisiteStatesCols
-        prereqStates={prereqStates ?? undefined}
+        prereqStates={prereqStatesAndDefaults?.states}
+        defaultValues={prereqStatesAndDefaults?.defaultValues}
         envs={envs}
       />
       <td />
@@ -126,10 +130,12 @@ export default function PrerequisiteStatusRow({
 
 export function PrerequisiteStatesCols({
   prereqStates,
+  defaultValues, // "true" | "false" defaultValues will override the UI for the "live" state
   envs,
-  isSummaryRow,
+  isSummaryRow = false,
 }: {
   prereqStates?: Record<string, PrerequisiteState>;
+  defaultValues?: Record<string, string>;
   envs: string[];
   isSummaryRow?: boolean;
 }) {
@@ -150,11 +156,35 @@ export function PrerequisiteStatesCols({
                     is{" "}
                     <span className="text-success font-weight-bold">live</span>{" "}
                     in this environment.
+                    {defaultValues?.[env] === "true" && (
+                      <div className="mt-2">
+                        This prerequisite serves{" "}
+                        <span className="rounded px-1 bg-light">
+                          <ValueDisplay value={"true"} type="boolean" />
+                        </span>{" "}
+                        by default.
+                      </div>
+                    )}
+                    {defaultValues?.[env] === "false" && (
+                      <>
+                        {" "}
+                        However, this prerequisite serves{" "}
+                        <span className="rounded px-1 bg-light">
+                          <ValueDisplay value={"false"} type="boolean" />
+                        </span>{" "}
+                        by default. Therefore, it will block the current feature
+                        from being live in this environment.
+                      </>
+                    )}
                   </div>
                 </>
               }
             >
-              <FaRegCircleCheck className="text-success" size={24} />
+              {defaultValues?.[env] === "false" ? (
+                <FaRegCircleXmark className="text-muted" size={24} />
+              ) : (
+                <FaRegCircleCheck className="text-success" size={24} />
+              )}
             </Tooltip>
           )}
           {prereqStates?.[env] === "off" && (
@@ -195,13 +225,14 @@ export function PrerequisiteStatesCols({
                       <span className="text-purple font-weight-bold">
                         Schrödinger state
                       </span>{" "}
-                      in this environment. We can&apos;t know whether it is live or not until
-                      its prerequisites are evaluated at runtime in the SDK.
+                      in this environment. We can&apos;t know whether it is live
+                      or not until its prerequisites are evaluated at runtime in
+                      the SDK.
                     </div>
                     {isSummaryRow && (
                       <div className="mt-2">
-                        If any prerequisites do not pass at runtime, this feature will evaluate to{" "}
-                        <code>null</code>.
+                        If any prerequisites do not pass at runtime, this
+                        feature will evaluate to <code>null</code>.
                       </div>
                     )}
                   </>
@@ -211,8 +242,8 @@ export function PrerequisiteStatesCols({
                     <span className="text-purple font-weight-bold">
                       Schrödinger state
                     </span>{" "}
-                    in this environment. We can&apos;t know its value until it is evaluated
-                    at runtime in the SDK.
+                    in this environment. We can&apos;t know its value until it
+                    is evaluated at runtime in the SDK.
                   </div>
                 )
               }

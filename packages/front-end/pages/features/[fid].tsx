@@ -893,13 +893,21 @@ export default function FeaturePage() {
                 <PremiumTooltip
                   commercialFeature={"prerequisites"}
                   body={
-                    <>
-                      Prerequisite features must evaluate to <span className="rounded px-1 bg-light"><ValueDisplay value={"true"} type="boolean" /></span>{" "}
-                      in order for this feature to be enabled.
-                    </>
+                    prerequisites.length > 0 ? (
+                      <>
+                        Prerequisite features must evaluate to{" "}
+                        <span className="rounded px-1 bg-light">
+                          <ValueDisplay value={"true"} type="boolean" />
+                        </span>{" "}
+                        in order for this feature to be enabled.
+                      </>
+                    ) : null
                   }
                 >
-                  Prerequisite Features <FaQuestionCircle />
+                  Prerequisite Features
+                  {prerequisites.length > 0 && (
+                    <FaQuestionCircle className="ml-1" />
+                  )}
                 </PremiumTooltip>
               </td>
               <td colSpan={envs.length} className="py-2">

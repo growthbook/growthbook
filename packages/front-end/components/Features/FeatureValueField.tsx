@@ -37,7 +37,7 @@ export default function FeatureValueField({
             type="featureValue"
           />
           <span className="text-muted pl-2">
-            <strong>{value === "true" ? "on" : "off"}</strong>
+            <strong>{value === "true" ? "TRUE" : "FALSE"}</strong>
           </span>
         </div>
         {helpText && <small className="text-muted">{helpText}</small>}

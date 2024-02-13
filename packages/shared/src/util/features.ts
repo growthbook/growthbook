@@ -479,26 +479,36 @@ export function getDefaultPrerequisiteCondition(
   return `{"value": {"$exists": true}}`;
 }
 
-export function isPrerequisiteConditionConditional(condition: string, prerequisiteState: PrerequisiteState) {
-  if ([
-    `{"value": {"$exists": false}}`,
-    `{"value": {"$exists": true}}`,
-  ].includes(condition)) {
+export function isPrerequisiteConditionConditional(
+  condition: string,
+  prerequisiteState: PrerequisiteState
+) {
+  if (
+    [`{"value": {"$exists": false}}`, `{"value": {"$exists": true}}`].includes(
+      condition
+    )
+  ) {
     return false;
   }
-  if (["on", "off"].includes(prerequisiteState) && [
-    `{"value": true}`,
-    `{"value": false}`,
-  ].includes(condition)) {
+  if (
+    ["on", "off"].includes(prerequisiteState) &&
+    [`{"value": true}`, `{"value": false}`].includes(condition)
+  ) {
     return false;
   }
   return true;
 }
-export function isPrerequisiteConditionOperatorConditional(condition: string, prerequisiteState: PrerequisiteState) {
+export function isPrerequisiteConditionOperatorConditional(
+  condition: string,
+  prerequisiteState: PrerequisiteState
+) {
   if (["$exists", "$notExists"].includes(condition)) {
     return false;
   }
-  if (["on", "off"].includes(prerequisiteState) && ["$true", "$false"].includes(condition)) {
+  if (
+    ["on", "off"].includes(prerequisiteState) &&
+    ["$true", "$false"].includes(condition)
+  ) {
     return false;
   }
   return true;
@@ -554,27 +564,42 @@ export function evaluatePrerequisiteState(
   feature: FeatureInterface,
   features: FeatureInterface[],
   env: string,
-  skipRootConditions?: boolean
+  skipRootConditions: boolean = false
 ): PrerequisiteState {
   let isTopLevel = true;
   if (isFeatureCyclic(feature, features)[0]) return "cyclic";
 
   const visit = (feature: FeatureInterface): PrerequisiteState => {
+    // 1. Current environment toggles take priority
     if (!feature.environmentSettings[env]) {
       return "off";
     }
     if (!feature.environmentSettings[env].enabled) {
       return "off";
     }
-    let state: PrerequisiteState = "on";
-    if (!skipRootConditions || (skipRootConditions && !isTopLevel)) {
-      if (feature.environmentSettings[env].rules?.filter(r => !!r.enabled)?.length) {
+
+    // 2. Determine default feature state
+    //   - start with "on" | "off" from defaultValue
+    //   - force "conditional" if there are rules
+    const defaultIsOn =
+      feature.valueType !== "boolean" || feature.defaultValue === "true";
+    let state: PrerequisiteState = defaultIsOn ? "on" : "off";
+    if (isTopLevel) {
+      state = "on";
+    }
+    if (!skipRootConditions || !isTopLevel) {
+      if (
+        feature.environmentSettings[env].rules?.filter((r) => !!r.enabled)
+          ?.length
+      ) {
         state = "conditional";
       }
     }
-    isTopLevel = false;
 
-    // traverse all nodes
+    // 3. If the feature has prerequisites, traverse all nodes (may override default state)
+    //  - if any are "off", the feature is "off"
+    //  - if any are "conditional", the feature is "conditional"
+    isTopLevel = false;
     const prerequisites = feature.prerequisites || [];
     for (const prerequisite of prerequisites) {
       const prerequisiteFeature = features.find(
@@ -585,17 +610,15 @@ export function evaluatePrerequisiteState(
         state = "off";
         break;
       }
-      const result = visit(prerequisiteFeature);
-      if (result === "off") {
+      const prerequisiteState = visit(prerequisiteFeature);
+      if (prerequisiteState === "off") {
+        // any "off" prereq state overrides feature's default state (#2)
         state = "off";
-      } else if (result === "conditional") {
-        // don't need to check if state === "off" because off returns early
+        break;
+      } else if (prerequisiteState === "conditional") {
+        // if no "off" prereqs, then any "conditional" prereq state overrides feature's default state (#2)
         state = "conditional";
-      } else {
-        state = state !== "conditional" ? "on" : state;
       }
-      // todo: if we want to continue traversal to collect more info, don't break
-      if (state === "off") break;
     }
 
     return state;
