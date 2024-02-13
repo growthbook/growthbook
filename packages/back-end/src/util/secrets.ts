@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import trimEnd from "lodash/trimEnd";
 import { stringToBoolean } from "shared/util";
 import { DEFAULT_METRIC_WINDOW_HOURS } from "shared/constants";
+import { MemberRole } from "../../types/organization";
 
 export const ENVIRONMENT = process.env.NODE_ENV;
 const prod = ENVIRONMENT === "production";
@@ -243,3 +244,6 @@ export const USE_PROXY =
   !!process.env.http_proxy ||
   !!process.env.https_proxy ||
   !!process.env.HTTPS_PROXY;
+
+export const SUPERADMIN_DEFAULT_ROLE = (process.env.SUPERADMIN_DEFAULT_ROLE ??
+  "readonly") as MemberRole;

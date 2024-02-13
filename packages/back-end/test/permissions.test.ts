@@ -7,6 +7,7 @@ import { OrganizationInterface } from "../types/organization";
 import { TeamInterface } from "../types/team";
 import { FeatureInterface } from "../types/feature";
 import { MetricInterface } from "../types/metric";
+import { SUPERADMIN_DEFAULT_ROLE } from "../src/util/secrets";
 
 describe("Build base user permissions", () => {
   const testOrg: OrganizationInterface = {
@@ -42,7 +43,7 @@ describe("Build base user permissions", () => {
     ).rejects.toThrow("User is not a member of this organization");
   });
 
-  it("should default to readonly access when superAdmin is not in the org", async () => {
+  it("should default to a role when superAdmin is not in the org", async () => {
     expect(
       getUserPermissions(
         { id: "base_user_not_in_org", superAdmin: true },
@@ -53,13 +54,13 @@ describe("Build base user permissions", () => {
       global: {
         environments: [],
         limitAccessByEnvironment: false,
-        permissions: roleToPermissionMap("readonly", testOrg),
+        permissions: roleToPermissionMap(SUPERADMIN_DEFAULT_ROLE, testOrg),
       },
       projects: {},
     });
   });
 
-  it("should not overwrite a superAdmins permissions to readonly if they are in the org", async () => {
+  it("should not overwrite a superAdmins permissions if they are in the org", async () => {
     const userPermissions = getUserPermissions(
       { id: "base_user_123", superAdmin: true },
       {

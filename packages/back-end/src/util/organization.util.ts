@@ -12,6 +12,7 @@ import {
   UserPermissions,
 } from "../../types/organization";
 import { TeamInterface } from "../../types/team";
+import { SUPERADMIN_DEFAULT_ROLE } from "./secrets";
 
 export const ENV_SCOPED_PERMISSIONS = [
   "publishFeatures",
@@ -277,10 +278,10 @@ export function getUserPermissions(
 ): UserPermissions {
   const memberInfo = org.members.find((m) => m.id === user.id);
 
-  // If the user is a super admin, they have at least readonly access to everything
-  if (!memberInfo && user.superAdmin) {
+  // If the user is a super admin, fall back to a default role if they aren't in the org
+  if (!memberInfo && user.superAdmin && SUPERADMIN_DEFAULT_ROLE) {
     return {
-      global: getUserPermission({ role: "readonly" }, org),
+      global: getUserPermission({ role: SUPERADMIN_DEFAULT_ROLE }, org),
       projects: {},
     };
   }

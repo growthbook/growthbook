@@ -234,11 +234,6 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     };
   }
 
-  const role =
-    user?.role ||
-    (data?.superAdmin && "readonly") ||
-    currentOrg?.organization?.settings?.defaultRole?.role;
-
   // Build out permissions object for backwards-compatible `permissions.manageTeams` style usage
   const permissionsObj: Record<GlobalPermission, boolean> = {
     ...DEFAULT_PERMISSIONS,
@@ -255,9 +250,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     currentUser = {
       org: orgId || "",
       id: data?.userId || "",
-      role: role || "",
+      role: user?.role || "",
     };
-  }, [orgId, data?.userId, role]);
+  }, [orgId, data?.userId, user?.role]);
 
   // Refresh organization data when switching orgs
   useEffect(() => {
