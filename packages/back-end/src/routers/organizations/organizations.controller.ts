@@ -652,7 +652,12 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     };
   });
 
-  const currentUserPermissions = getUserPermissions(userId, org, teams || []);
+  const currentUserPermissions = getUserPermissions(
+    userId,
+    org,
+    teams || [],
+    req.superAdmin
+  );
 
   return res.status(200).json({
     status: 200,

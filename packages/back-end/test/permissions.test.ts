@@ -42,6 +42,39 @@ describe("Build base user permissions", () => {
     ).rejects.toThrow("User is not a member of this organization");
   });
 
+  it("should default to readonly access when superAdmin is not in the org", async () => {
+    expect(
+      getUserPermissions("base_user_not_in_org", testOrg, [], true)
+    ).toEqual({
+      global: {
+        environments: [],
+        limitAccessByEnvironment: false,
+        permissions: roleToPermissionMap("readonly", testOrg),
+      },
+      projects: {},
+    });
+  });
+
+  it("should not overwrite a superAdmins permissions to readonly if they are in the org", async () => {
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [{ ...testOrg.members[0], role: "collaborator" }],
+      },
+      [],
+      true
+    );
+    expect(userPermissions).toEqual({
+      global: {
+        environments: [],
+        limitAccessByEnvironment: false,
+        permissions: roleToPermissionMap("collaborator", testOrg),
+      },
+      projects: {},
+    });
+  });
+
   it("should build permissions for a basic noaccess user with no project-level permissions or teams correctly", async () => {
     const userPermissions = getUserPermissions(
       "base_user_123",

@@ -229,14 +229,15 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       environments: [],
       limitAccessByEnvironment: false,
       name: data.userName,
-      role: data.superAdmin ? "admin" : "readonly",
+      role: "readonly",
       projectRoles: [],
     };
   }
 
   const role =
-    (data?.superAdmin && "admin") ||
-    (user?.role ?? currentOrg?.organization?.settings?.defaultRole?.role);
+    user?.role ||
+    (data?.superAdmin && "readonly") ||
+    currentOrg?.organization?.settings?.defaultRole?.role;
 
   // Build out permissions object for backwards-compatible `permissions.manageTeams` style usage
   const permissionsObj: Record<GlobalPermission, boolean> = {

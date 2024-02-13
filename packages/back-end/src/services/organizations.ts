@@ -117,7 +117,12 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
     environments: getEnvironmentIdsFromOrg(req.organization),
     userName: req.name || "",
     readAccessFilter: getReadAccessFilter(
-      getUserPermissions(req.userId, req.organization, req.teams)
+      getUserPermissions(
+        req.userId,
+        req.organization,
+        req.teams,
+        req.superAdmin
+      )
     ),
     auditUser: {
       type: "dashboard",
