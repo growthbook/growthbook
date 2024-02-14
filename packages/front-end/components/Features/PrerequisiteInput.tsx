@@ -253,7 +253,7 @@ export default function PrerequisiteInput(props: Props) {
                         )}
                         {conditional && (
                           <span className="ml-2 small">
-                            <FaRegCircleQuestion className="text-purple" />
+                            <FaRegCircleQuestion className="text-warning-orange" />
                           </span>
                         )}
                       </span>
@@ -261,7 +261,7 @@ export default function PrerequisiteInput(props: Props) {
                   }}
                 />
                 {operatorIsConditional && (
-                  <div className="text-purple small mt-1 ml-1">
+                  <div className="text-warning-orange small mt-1 ml-1">
                     <FaRegCircleQuestion /> Schrödinger{" "}
                     <span className="text-muted">
                       targeting will be evaluated in the SDK

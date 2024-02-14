@@ -10,7 +10,6 @@ import {
   FaLink,
   FaList,
   FaLock,
-  FaQuestionCircle,
   FaTimes,
 } from "react-icons/fa";
 import { ago, date, datetime } from "shared/dates";
@@ -95,7 +94,6 @@ import PrerequisiteStatusRow, {
 } from "@/components/Features/PrerequisiteStatusRow";
 import { useExperiments } from "@/hooks/useExperiments";
 import { PrerequisiteAlerts } from "@/components/Features/PrerequisiteTargetingField";
-import ValueDisplay from "@/components/Features/ValueDisplay";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -427,26 +425,13 @@ export default function FeaturePage() {
           mutate={mutate}
           method="PUT"
           current={feature.project}
-          ctaEnabled={dependents === 0}
           additionalMessage={
-            <>
-              {dependents > 0 ? (
-                <div className="alert alert-info">
-                  <ImBlocked className="text-danger" /> This feature has{" "}
-                  <strong>
-                    {dependents} dependent{dependents !== 1 && "s"}
-                  </strong>
-                  . The project cannot be changed until{" "}
-                  {dependents === 1 ? "it has" : "they have"} been removed.
-                </div>
-              ) : undefined}
-              {feature.linkedExperiments?.length ? (
-                <div className="alert alert-danger">
-                  Changing the project may prevent your linked Experiments from
-                  being sent to users.
-                </div>
-              ) : null}
-            </>
+            feature.linkedExperiments?.length ? (
+              <div className="alert alert-danger">
+                Changing the project may prevent your linked Experiments from
+                being sent to users.
+              </div>
+            ) : null
           }
         />
       )}
@@ -641,82 +626,88 @@ export default function FeaturePage() {
               )}
             {canEdit &&
               permissions.check("publishFeatures", projectId, enabledEnvs) && (
-                <DeleteButton
-                  useIcon={false}
-                  displayName="Feature"
-                  onClick={async () => {
-                    await apiCall(`/feature/${feature.id}`, {
-                      method: "DELETE",
-                    });
-                    router.push("/features");
-                  }}
-                  className="dropdown-item"
-                  text="Delete feature"
-                  canDelete={dependents === 0}
-                  additionalMessage={
-                    dependents > 0 ? (
-                      <div className="alert alert-info">
-                        <ImBlocked className="text-danger" /> This feature has{" "}
-                        <strong>
-                          {dependents} dependent{dependents !== 1 && "s"}
-                        </strong>{" "}
-                        and cannot be deleted until{" "}
-                        {dependents === 1 ? "it has" : "they have"} been removed
-                      </div>
-                    ) : undefined
+                <Tooltip
+                  shouldDisplay={dependents > 0}
+                  usePortal={true}
+                  body={
+                    <>
+                      <ImBlocked className="text-danger" /> This feature has{" "}
+                      <strong>
+                        {dependents} dependent{dependents !== 1 && "s"}
+                      </strong>
+                      . This feature cannot be deleted until{" "}
+                      {dependents === 1 ? "it has" : "they have"} been removed.
+                    </>
                   }
-                />
+                >
+                  <DeleteButton
+                    useIcon={false}
+                    displayName="Feature"
+                    onClick={async () => {
+                      await apiCall(`/feature/${feature.id}`, {
+                        method: "DELETE",
+                      });
+                      router.push("/features");
+                    }}
+                    className="dropdown-item"
+                    text="Delete feature"
+                    disabled={dependents > 0}
+                  />
+                </Tooltip>
               )}
             {canEdit &&
               permissions.check("publishFeatures", projectId, enabledEnvs) && (
-                <ConfirmButton
-                  onClick={async () => {
-                    await apiCall(`/feature/${feature.id}/archive`, {
-                      method: "POST",
-                    });
-                    mutate();
-                  }}
-                  modalHeader={
-                    isArchived ? "Unarchive Feature" : "Archive Feature"
-                  }
-                  confirmationText={
-                    isArchived ? (
-                      <>
-                        <p>
-                          Are you sure you want to continue? This will make the
-                          current feature active again.
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <p>
-                          Are you sure you want to continue? This will make the
-                          current feature inactive. It will not be included in
-                          API responses or Webhook payloads.
-                        </p>
-                      </>
-                    )
-                  }
-                  cta={isArchived ? "Unarchive" : "Archive"}
-                  ctaColor="danger"
-                  ctaEnabled={dependents === 0}
-                  additionalMessage={
-                    dependents > 0 ? (
-                      <div className="alert alert-info">
-                        <ImBlocked className="text-danger" /> This feature has{" "}
-                        <strong>
-                          {dependents} dependent{dependents !== 1 && "s"}
-                        </strong>{" "}
-                        and cannot be archived until{" "}
-                        {dependents === 1 ? "it has" : "they have"} been removed
-                      </div>
-                    ) : undefined
+                <Tooltip
+                  shouldDisplay={dependents > 0}
+                  usePortal={true}
+                  body={
+                    <>
+                      <ImBlocked className="text-danger" /> This feature has{" "}
+                      <strong>
+                        {dependents} dependent{dependents !== 1 && "s"}
+                      </strong>
+                      . This feature cannot be archived until{" "}
+                      {dependents === 1 ? "it has" : "they have"} been removed.
+                    </>
                   }
                 >
-                  <button className="dropdown-item">
-                    {isArchived ? "Unarchive" : "Archive"} feature
-                  </button>
-                </ConfirmButton>
+                  <ConfirmButton
+                    onClick={async () => {
+                      await apiCall(`/feature/${feature.id}/archive`, {
+                        method: "POST",
+                      });
+                      mutate();
+                    }}
+                    modalHeader={
+                      isArchived ? "Unarchive Feature" : "Archive Feature"
+                    }
+                    confirmationText={
+                      isArchived ? (
+                        <>
+                          <p>
+                            Are you sure you want to continue? This will make
+                            the current feature active again.
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p>
+                            Are you sure you want to continue? This will make
+                            the current feature inactive. It will not be
+                            included in API responses or Webhook payloads.
+                          </p>
+                        </>
+                      )
+                    }
+                    cta={isArchived ? "Unarchive" : "Archive"}
+                    ctaColor="danger"
+                    disabled={dependents > 0}
+                  >
+                    <button className="dropdown-item">
+                      {isArchived ? "Unarchive" : "Archive"} feature
+                    </button>
+                  </ConfirmButton>
+                </Tooltip>
               )}
             {canEdit && (
               <a
@@ -777,12 +768,28 @@ export default function FeaturePage() {
             )}
             {canEdit &&
               permissions.check("publishFeatures", projectId, enabledEnvs) && (
-                <a
-                  className="ml-2 cursor-pointer"
-                  onClick={() => setEditProjectModal(true)}
+                <Tooltip
+                  shouldDisplay={dependents > 0}
+                  body={
+                    <>
+                      <ImBlocked className="text-danger" /> This feature has{" "}
+                      <strong>
+                        {dependents} dependent{dependents !== 1 && "s"}
+                      </strong>
+                      . The project cannot be changed until{" "}
+                      {dependents === 1 ? "it has" : "they have"} been removed.
+                    </>
+                  }
                 >
-                  <GBEdit />
-                </a>
+                  <a
+                    className="ml-2 cursor-pointer"
+                    onClick={() => {
+                      dependents === 0 && setEditProjectModal(true);
+                    }}
+                  >
+                    <GBEdit />
+                  </a>
+                </Tooltip>
               )}
           </div>
         )}
@@ -849,113 +856,111 @@ export default function FeaturePage() {
         </div>
       </div>
 
-      <h3 className="mt-4 mb-3">Requirements and Dependents</h3>
+      <h3 className="mt-4 mb-3">Enabled Environments</h3>
 
-      <div className="appbox mt-2 mb-4 px-4 pt-4 pb-3">
-        <h4>Top-level Requirements</h4>
+      <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
         <div className="mb-2">
           When disabled, this feature will evaluate to <code>null</code>. The
           default value and override rules will be ignored.
         </div>
-        <table className="table border bg-white mb-2 w-100">
-          <tbody>
-            <tr className="bg-light">
-              <td
-                className="pl-3 align-bottom font-weight-bold border-right"
-                style={{ minWidth: 350 }}
-              >
-                Kill Switch
-              </td>
-              {envs.map((env) => (
+        {prerequisites.length > 0 ? (
+          <table className="table border bg-white mb-2 w-100">
+            <thead>
+              <tr className="bg-light">
+                <th
+                  className="pl-3 align-bottom font-weight-bold border-right"
+                  style={{ minWidth: 350 }}
+                />
+                {envs.map((env) => (
+                  <th
+                    key={env}
+                    className="text-center align-bottom font-weight-bolder"
+                    style={{ minWidth: 120 }}
+                  >
+                    {env}
+                  </th>
+                ))}
+                <th className="w-100" />
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
                 <td
-                  key={env}
-                  className="text-center align-bottom"
-                  style={{ minWidth: 120 }}
+                  className="pl-3 align-bottom font-weight-bold border-right"
+                  style={{ minWidth: 350 }}
                 >
-                  <div className="font-weight-bolder text-dark mb-2">{env}</div>
-                  <EnvironmentToggle
-                    feature={feature}
-                    environment={env}
-                    mutate={() => {
-                      mutate();
-                    }}
-                    id={`${env}_toggle`}
-                    className="mr-0"
-                  />
+                  Kill Switch
                 </td>
-              ))}
-              <td className="w-100" />
-            </tr>
-          </tbody>
-          <tbody>
-            <tr className="bg-light">
-              <td className="pl-3 py-2 border-right font-weight-bold">
-                <PremiumTooltip
-                  commercialFeature={"prerequisites"}
-                  body={
-                    prerequisites.length > 0 ? (
-                      <>
-                        Prerequisite features must evaluate to{" "}
-                        <span className="rounded px-1 bg-light">
-                          <ValueDisplay value={"true"} type="boolean" />
-                        </span>{" "}
-                        in order for this feature to be enabled.
-                      </>
-                    ) : null
-                  }
-                >
-                  Prerequisite Features
-                  {prerequisites.length > 0 && (
-                    <FaQuestionCircle className="ml-1" />
-                  )}
-                </PremiumTooltip>
-              </td>
-              <td colSpan={envs.length} className="py-2">
-                {!prerequisites.length && (
-                  <em className="text-muted">
-                    No prerequisite features have been added
-                  </em>
-                )}
-              </td>
-              <td />
-            </tr>
-          </tbody>
-          {prerequisites.length > 0 && (
-            <>
-              <tbody>
-                {prerequisites.map(({ ...item }, i) => {
-                  const parentFeature = features.find((f) => f.id === item.id);
-                  return (
-                    <PrerequisiteStatusRow
-                      key={i}
-                      i={i}
+                {envs.map((env) => (
+                  <td
+                    key={env}
+                    className="text-center align-bottom"
+                    style={{ minWidth: 120 }}
+                  >
+                    <EnvironmentToggle
                       feature={feature}
-                      features={features}
-                      parentFeature={parentFeature}
-                      prerequisite={item}
-                      environments={environments}
-                      mutate={mutate}
-                      setPrerequisiteModal={setPrerequisiteModal}
+                      environment={env}
+                      mutate={() => {
+                        mutate();
+                      }}
+                      id={`${env}_toggle`}
+                      className="mr-0"
                     />
-                  );
-                })}
-              </tbody>
-              <tbody>
-                <tr>
-                  <td className="pl-3 font-weight-bold border-right">
-                    Feature Status
                   </td>
-                  <PrerequisiteStatesCols
-                    prereqStates={prereqStates ?? undefined}
-                    envs={envs}
-                    isSummaryRow={true}
+                ))}
+                <td className="w-100" />
+              </tr>
+              {prerequisites.map(({ ...item }, i) => {
+                const parentFeature = features.find((f) => f.id === item.id);
+                return (
+                  <PrerequisiteStatusRow
+                    key={i}
+                    i={i}
+                    feature={feature}
+                    features={features}
+                    parentFeature={parentFeature}
+                    prerequisite={item}
+                    environments={environments}
+                    mutate={mutate}
+                    setPrerequisiteModal={setPrerequisiteModal}
                   />
-                  <td />
-                </tr>
-              </tbody>
-            </>
-          )}
-        </table>
+                );
+              })}
+            </tbody>
+            <tbody>
+              <tr className="bg-light">
+                <td className="pl-3 font-weight-bold border-right">Summary</td>
+                <PrerequisiteStatesCols
+                  prereqStates={prereqStates ?? undefined}
+                  envs={envs}
+                  isSummaryRow={true}
+                />
+                <td />
+              </tr>
+            </tbody>
+          </table>
+        ) : (
+          <div className="row mt-3">
+            {environments.map((en) => (
+              <div className="col-auto" key={en.id}>
+                <label
+                  className="font-weight-bold mr-2 mb-0"
+                  htmlFor={`${en.id}_toggle`}
+                >
+                  {en.id}:{" "}
+                </label>
+                <EnvironmentToggle
+                  feature={feature}
+                  environment={en.id}
+                  mutate={() => {
+                    mutate();
+                  }}
+                  id={`${en.id}_toggle`}
+                />
+              </div>
+            ))}
+          </div>
+        )}
 
         {hasConditionalState && (
           <PrerequisiteAlerts

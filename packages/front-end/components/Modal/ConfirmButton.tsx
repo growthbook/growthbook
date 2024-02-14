@@ -1,24 +1,22 @@
-import { ReactNode, FC, useState, ReactElement, isValidElement } from "react";
+import { ReactNode, FC, useState, ReactElement } from "react";
 import Modal from "../Modal";
 
 const ConfirmButton: FC<{
   onClick: () => Promise<void>;
   modalHeader: string;
-  confirmationText?: ReactElement | null | string;
-  additionalMessage?: ReactElement | null | string;
+  confirmationText?: string | ReactElement;
   ctaColor?: string;
   cta?: string;
-  ctaEnabled?: boolean;
   children: ReactNode;
+  disabled?: boolean;
 }> = ({
   onClick,
   modalHeader,
   confirmationText = "Are you sure?",
-  additionalMessage = "",
-  ctaColor = "primary",
   cta = "Yes",
-  ctaEnabled = true,
+  ctaColor = "primary",
   children,
+  disabled = false,
 }) => {
   const [confirming, setConfirming] = useState(false);
   return (
@@ -29,17 +27,10 @@ const ConfirmButton: FC<{
           close={() => setConfirming(false)}
           open={true}
           cta={cta}
-          ctaEnabled={ctaEnabled}
           submitColor={ctaColor}
           submit={onClick}
         >
           <div>{confirmationText}</div>
-          {additionalMessage &&
-            (isValidElement(additionalMessage) ? (
-              additionalMessage
-            ) : (
-              <p>{additionalMessage}</p>
-            ))}
         </Modal>
       ) : (
         ""
@@ -47,7 +38,7 @@ const ConfirmButton: FC<{
       <span
         onClick={(e) => {
           e.preventDefault();
-          setConfirming(true);
+          !disabled && setConfirming(true);
         }}
       >
         {children}

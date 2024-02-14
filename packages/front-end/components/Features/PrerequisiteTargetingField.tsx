@@ -400,7 +400,7 @@ export const PrerequisiteAlerts = ({
   return (
     <div
       className={`mt-2 mb-3 alert ${
-        hasSDKWithPrerequisites ? "text-warning-orange py-0" : "alert-danger"
+        hasSDKWithPrerequisites ? "alert-warning" : "alert-danger"
       }`}
     >
       <div>
@@ -408,7 +408,7 @@ export const PrerequisiteAlerts = ({
         {issue === "conditional-prerequisite" && (
           <>
             This {type} is in a{" "}
-            <span className="text-purple font-weight-bold">
+            <span className="text-warning-orange font-weight-bold">
               Schrödinger state
             </span>{" "}
             {environments.length > 1
@@ -421,7 +421,7 @@ export const PrerequisiteAlerts = ({
         {issue === "conditional-targeting" && (
           <>
             The selected targeting condition gives this prerequisite a{" "}
-            <span className="text-purple font-weight-bold">
+            <span className="text-warning-orange font-weight-bold">
               Schrödinger state
             </span>
             . This means that we can&apos;t know if it passes or not until
@@ -439,7 +439,7 @@ export const PrerequisiteAlerts = ({
         ) : (
           <>
             However, none of your{" "}
-            <a href="/sdks" target="_blank">
+            <a href="/sdks" className="text-normal" target="_blank">
               SDK Connections <FaExternalLinkAlt />
             </a>{" "}
             support prerequisite evaluation. Either upgrade your SDKs

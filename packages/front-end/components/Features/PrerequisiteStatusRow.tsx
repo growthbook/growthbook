@@ -61,6 +61,7 @@ export default function PrerequisiteStatusRow({
           <div className="d-flex flex-1 align-items-center mr-2">
             {parentFeature?.id ? (
               <>
+                <span className="uppercase-title text-muted mr-2">Prereq</span>
                 <a
                   className="d-flex align-items-center"
                   href={`/features/${parentFeature.id}`}
@@ -69,7 +70,7 @@ export default function PrerequisiteStatusRow({
                 >
                   <span
                     className="d-inline-block text-ellipsis"
-                    style={{ maxWidth: 290 }}
+                    style={{maxWidth: 240}}
                   >
                     {parentFeature.id}
                   </span>
@@ -189,9 +190,9 @@ export function PrerequisiteStatesCols({
               }
             >
               {defaultValues?.[env] === "false" ? (
-                <FaRegCircleXmark className="text-muted" size={24} />
+                <FaRegCircleXmark className="text-muted" size={20} />
               ) : (
-                <FaRegCircleCheck className="text-success" size={24} />
+                <FaRegCircleCheck className="text-success" size={20} />
               )}
             </Tooltip>
           )}
@@ -215,7 +216,7 @@ export function PrerequisiteStatesCols({
                 </>
               }
             >
-              <FaRegCircleXmark className="text-muted" size={24} />
+              <FaRegCircleXmark className="text-muted" size={20} />
             </Tooltip>
           )}
           {prereqStates?.[env] === "conditional" && (
@@ -226,7 +227,7 @@ export function PrerequisiteStatesCols({
                 isSummaryRow ? (
                   <>
                     {featureLabel} is in a{" "}
-                    <span className="text-purple font-weight-bold">
+                    <span className="text-warning-orange font-weight-bold">
                       Schrödinger state
                     </span>{" "}
                     in this environment. We can&apos;t know whether it is live
@@ -236,7 +237,7 @@ export function PrerequisiteStatesCols({
                 ) : (
                   <>
                     {featureLabel} is in a{" "}
-                    <span className="text-purple font-weight-bold">
+                    <span className="text-warning-orange font-weight-bold">
                       Schrödinger state
                     </span>{" "}
                     in this environment. We can&apos;t know its value until it
@@ -245,7 +246,7 @@ export function PrerequisiteStatesCols({
                 )
               }
             >
-              <FaRegCircleQuestion className="text-purple" size={24} />
+              <FaRegCircleQuestion className="text-warning-orange" size={20} />
             </Tooltip>
           )}
           {prereqStates?.[env] === "cyclic" && (
@@ -254,7 +255,7 @@ export function PrerequisiteStatesCols({
               popperClassName="text-left"
               body={<div>Circular dependency detected. Please fix.</div>}
             >
-              <FaExclamationCircle className="text-warning-orange" size={24} />
+              <FaExclamationCircle className="text-warning-orange" size={20} />
             </Tooltip>
           )}
         </td>
