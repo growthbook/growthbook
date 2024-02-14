@@ -2225,7 +2225,6 @@ export async function postVisualChangeset(
     urlPatterns: req.body.urlPatterns,
     urlRedirects: req.body.urlRedirects,
     editorUrl: req.body.editorUrl,
-    user: res.locals.eventAudit,
     persistQueryString: req.body.persistQueryString,
     context,
   });
