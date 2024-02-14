@@ -227,7 +227,6 @@ const SelectField: FC<SelectFieldProps> = ({
                   onChange(val);
                 }}
                 noOptionsMessage={() => null}
-                isValidNewOption={() => false}
                 value={selected}
                 formatOptionLabel={formatOptionLabel}
                 formatGroupLabel={formatGroupLabel}

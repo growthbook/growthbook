@@ -23,7 +23,7 @@ export const listSdkConnections = createApiRequestHandler(
       await validateIsSuperUserRequest(req);
       connections = await findAllSDKConnections();
     } else {
-      connections = await findSDKConnectionsByOrganization(req.organization.id);
+      connections = await findSDKConnectionsByOrganization(req.context);
     }
 
     const { filtered, returnFields } = applyPagination(
