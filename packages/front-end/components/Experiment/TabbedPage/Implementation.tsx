@@ -160,21 +160,6 @@ export default function Implementation({
           </div>
         )}
       </div>
-
-      {experiment.status === "draft" && (
-        <div className="mt-1">
-          <StartExperimentBanner
-            experiment={experiment}
-            mutateExperiment={mutate}
-            linkedFeatures={linkedFeatures}
-            visualChangesets={visualChangesets}
-            onStart={() => setTab("results")}
-            editTargeting={editTargeting}
-            connections={connections}
-            className="appbox p-4"
-          />
-        </div>
-      )}
     </div>
   );
 }

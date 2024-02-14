@@ -308,6 +308,11 @@ export default function TabbedPage({
             safeToEdit={safeToEdit}
             editVariations={!viewingOldPhase ? editVariations : undefined}
             disableEditing={viewingOldPhase}
+            linkedFeatures={linkedFeatures}
+            visualChangesets={visualChangesets}
+            setTab={setTabAndScroll}
+            editTargeting={editTargeting}
+            connections={connections}
           />
           <Implementation
             experiment={experiment}

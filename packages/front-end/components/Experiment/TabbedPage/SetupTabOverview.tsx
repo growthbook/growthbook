@@ -1,23 +1,40 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "back-end/types/experiment";
+import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import VariationsTable from "../VariationsTable";
+import { PreLaunchChecklist } from "../PreLaunchChecklist";
+import { ExperimentTab } from ".";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  visualChangesets: VisualChangesetInterface[];
   mutate: () => void;
   safeToEdit: boolean;
+  editTargeting?: (() => void) | null;
+  setTab: (tab: ExperimentTab) => void;
   editVariations?: (() => void) | null;
+  linkedFeatures: LinkedFeatureInfo[];
+  connections: SDKConnectionInterface[];
   disableEditing?: boolean;
 }
 
 export default function SetupTabOverview({
   experiment,
+  visualChangesets,
   mutate,
+  setTab,
+  editTargeting,
   safeToEdit,
   editVariations,
+  linkedFeatures,
+  connections,
   disableEditing,
 }: Props) {
   const { apiCall } = useAuth();
@@ -31,11 +48,19 @@ export default function SetupTabOverview({
 
   return (
     <div>
-      <div className="pl-1 mb-3">
-        <h2>About this test</h2>
-      </div>
-
-      <div className="appbox bg-white mb-4 p-3">
+      <h2>Overview</h2>
+      {experiment.status === "draft" ? (
+        <PreLaunchChecklist
+          experiment={experiment}
+          mutateExperiment={mutate}
+          linkedFeatures={linkedFeatures}
+          visualChangesets={visualChangesets}
+          onStart={() => setTab("results")}
+          editTargeting={editTargeting}
+          connections={connections}
+        />
+      ) : null}
+      <div className="appbox bg-white my-2 mb-4 p-3">
         <div>
           <MarkdownInlineEdit
             value={experiment.description ?? ""}

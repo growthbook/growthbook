@@ -196,17 +196,6 @@ export default function ResultsTab({
                 Your experiment is still in a <strong>draft</strong> state. You
                 must start the experiment first before seeing results.
               </div>
-
-              <StartExperimentBanner
-                experiment={experiment}
-                mutateExperiment={mutate}
-                linkedFeatures={linkedFeatures}
-                visualChangesets={visualChangesets}
-                editTargeting={editTargeting}
-                connections={connections}
-                openSetupTab={() => setTab("overview")}
-                newPhase={newPhase}
-              />
             </div>
           ) : (
             <>
