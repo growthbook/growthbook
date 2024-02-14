@@ -278,6 +278,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const hasCustomChecklistFeature = hasCommercialFeature(
     "custom-launch-checklist"
   );
+  const hasCodeReferencesFeature = hasCommercialFeature("code-references");
 
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithStickyBucketing = getConnectionsSDKCapabilities(
@@ -335,6 +336,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       defaultDataSource: settings.defaultDataSource || "",
       useStickyBucketing: false,
       useFallbackAttributes: false,
+      codeReferencesEnabled: false,
     },
   });
   const { apiCall } = useAuth();
@@ -375,6 +377,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     defaultDataSource: form.watch("defaultDataSource"),
     useStickyBucketing: form.watch("useStickyBucketing"),
     useFallbackAttributes: form.watch("useFallbackAttributes"),
+    codeReferencesEnabled: form.watch("codeReferencesEnabled"),
   };
 
   const [cronString, setCronString] = useState("");
@@ -1575,7 +1578,32 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     setValue={(value) => {
                       form.setValue("killswitchConfirmation", value);
                     }}
+                    disabled={!hasCodeReferencesFeature}
                   />
+                </div>
+                <div className="my-3">
+                  <PremiumTooltip commercialFeature={"code-references"}>
+                    <h4>Configure Code References</h4>
+                  </PremiumTooltip>
+                  <div className="my-2">
+                    <Toggle
+                      id={"toggle-codeReferences"}
+                      value={!!form.watch("codeReferencesEnabled")}
+                      setValue={(value) => {
+                        form.setValue("codeReferencesEnabled", value);
+                      }}
+                    />
+                  </div>
+                  {form.watch("codeReferencesEnabled") ? (
+                    <div className="my-4">
+                      <div className="appbox my-4 p-2">
+                        <strong>For GitHub Users</strong>
+                      </div>
+                      <div className="appbox my-4 p-2">
+                        <strong>For Non-GitHub Users</strong>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>

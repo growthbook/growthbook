@@ -191,6 +191,7 @@ export interface OrganizationSettings {
   disableMultiMetricQueries?: boolean;
   useStickyBucketing?: boolean;
   useFallbackAttributes?: boolean;
+  codeReferencesEnabled?: boolean;
 }
 
 export interface SubscriptionQuote {
