@@ -4,12 +4,30 @@ import {
   MemberRole,
 } from "back-end/types/organization";
 
+const AllProjectAllowedPermissions: Partial<Permission>[] = ["runQueries"];
+
 export function hasPermission(
   userPermissions: UserPermissions | undefined,
   permissionToCheck: Permission,
   project?: string | undefined,
   envs?: string[]
 ): boolean {
+  if (
+    // For resources that have a "Projects" array, if empty, that means it is in "All Projects"
+    // and there are some permissions where the user only has to have the permission in atleast 1 project, in order to have permission
+    project === undefined &&
+    AllProjectAllowedPermissions.includes(permissionToCheck)
+  ) {
+    let hasPermission = false;
+    for (const project in userPermissions?.projects) {
+      if (userPermissions?.projects[project]?.permissions[permissionToCheck]) {
+        hasPermission = true;
+        break;
+      }
+    }
+    return hasPermission;
+  }
+
   const usersPermissionsToCheck =
     (project && userPermissions?.projects[project]) || userPermissions?.global;
 
