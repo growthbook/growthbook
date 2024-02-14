@@ -47,16 +47,16 @@ export const trackJob = (
 
   // wrap up metrics function, to be called at the end of the job
   const wrapUpMetrics = () => {
+    try {
+      histogram?.record(new Date().getTime() - startTime);
+    } catch (e) {
+      logger.error(`error recording duration metric for job: ${jobName}: ${e}`);
+    }
     if (!hasMetricsStarted) return;
     try {
       counter.add(-1);
     } catch (e) {
       logger.error(`error decrementing count metric for job: ${jobName}: ${e}`);
-    }
-    try {
-      histogram?.record(new Date().getTime() - startTime);
-    } catch (e) {
-      logger.error(`error recording duration metric for job: ${jobName}: ${e}`);
     }
   };
 
