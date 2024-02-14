@@ -22,6 +22,8 @@ import Mysql from "../integrations/Mysql";
 import Mssql from "../integrations/Mssql";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { TemplateVariables } from "../../types/sql";
+import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "../../types/api";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string
@@ -89,11 +91,11 @@ function getIntegrationObj(
 }
 
 export async function getIntegrationFromDatasourceId(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   id: string,
   throwOnDecryptionError: boolean = false
 ) {
-  const datasource = await getDataSourceById(id, organization);
+  const datasource = await getDataSourceById(context, id);
   if (!datasource) {
     throw new Error("Could not load data source");
   }

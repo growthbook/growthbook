@@ -49,7 +49,6 @@ export async function updateSubscriptionInDb(
   await stripe.paymentMethods
     .list({
       customer: org.stripeCustomerId,
-      type: "card",
     })
     .then((paymentMethodsResponse) => {
       hasPaymentMethod = paymentMethodsResponse.data.length > 0;

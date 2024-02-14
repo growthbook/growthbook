@@ -8,6 +8,10 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_METRIC_CAPPING,
+  DEFAULT_METRIC_CAPPING_VALUE,
+  DEFAULT_METRIC_WINDOW,
+  DEFAULT_METRIC_WINDOW_DELAY_HOURS,
 } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import {
@@ -71,6 +75,7 @@ import {
 import {
   ExperimentUpdateSchedule,
   OrganizationInterface,
+  ReqContext,
 } from "../../types/organization";
 import { logger } from "../util/logger";
 import { DataSourceInterface } from "../../types/datasource";
@@ -87,7 +92,6 @@ import {
   putMetricValidator,
   updateExperimentValidator,
 } from "../validators/openapi";
-import { EventAuditUser } from "../events/event-types";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { findProjectById } from "../models/ProjectModel";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
@@ -99,6 +103,7 @@ import { StatsEngine } from "../../types/stats";
 import { getFeaturesByIds } from "../models/FeatureModel";
 import { getFeatureRevisionsByFeatureIds } from "../models/FeatureRevisionModel";
 import { ExperimentRefRule, FeatureRule } from "../../types/feature";
+import { ApiReqContext } from "../../types/api";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import {
@@ -128,30 +133,31 @@ export async function createMetric(data: Partial<MetricInterface>) {
 }
 
 export async function getExperimentMetricById(
-  metricId: string,
-  orgId: string
+  context: ReqContext | ApiReqContext,
+  metricId: string
 ): Promise<ExperimentMetricInterface | null> {
   if (isFactMetricId(metricId)) {
-    return getFactMetric(orgId, metricId);
+    return getFactMetric(context, metricId);
   }
-  return getMetricById(metricId, orgId);
+  return getMetricById(context, metricId);
 }
 
 export async function refreshMetric(
+  context: ReqContext | ApiReqContext,
   metric: MetricInterface,
-  org: OrganizationInterface,
   metricAnalysisDays: number = DEFAULT_METRIC_ANALYSIS_DAYS
 ) {
   if (metric.datasource) {
     const integration = await getIntegrationFromDatasourceId(
-      metric.organization,
+      context,
       metric.datasource,
       true
     );
 
     let segment: SegmentInterface | undefined = undefined;
     if (metric.segment) {
-      segment = (await findSegmentById(metric.segment, org.id)) || undefined;
+      segment =
+        (await findSegmentById(metric.segment, context.org.id)) || undefined;
       if (!segment || segment.datasource !== metric.datasource) {
         throw new Error("Invalid user segment chosen");
       }
@@ -167,7 +173,11 @@ export async function refreshMetric(
     const to = new Date();
     to.setDate(to.getDate() + 1);
 
-    const queryRunner = new MetricAnalysisQueryRunner(metric, integration, org);
+    const queryRunner = new MetricAnalysisQueryRunner(
+      context,
+      metric,
+      integration
+    );
     await queryRunner.startAnalysis({
       from,
       to,
@@ -232,7 +242,7 @@ export async function getManualSnapshotData(
     if (!metric) return null;
 
     metricSettings[m] = {
-      ...getMetricSettingsForStatsEngine(metric, metricMap),
+      ...getMetricSettingsForStatsEngine(metric, metricMap, false),
       // no ratio or regression adjustment for manual snapshots
       statistic_type: "mean",
     };
@@ -530,8 +540,7 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
 
 export async function createSnapshot({
   experiment,
-  organization,
-  user = null,
+  context,
   phaseIndex,
   useCache = false,
   defaultAnalysisSettings,
@@ -541,8 +550,7 @@ export async function createSnapshot({
   factTableMap,
 }: {
   experiment: ExperimentInterface;
-  organization: OrganizationInterface;
-  user?: EventAuditUser;
+  context: ReqContext | ApiReqContext;
   phaseIndex: number;
   useCache?: boolean;
   defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings;
@@ -551,6 +559,7 @@ export async function createSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
 }): Promise<ExperimentResultsQueryRunner> {
+  const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
 
   const snapshotSettings = getSnapshotSettings({
@@ -601,9 +610,8 @@ export async function createSnapshot({
     undefined;
 
   await updateExperiment({
-    organization,
+    context,
     experiment,
-    user,
     changes: {
       lastSnapshotAttempt: new Date(),
       nextSnapshotAttempt: nextUpdate,
@@ -614,15 +622,15 @@ export async function createSnapshot({
   const snapshot = await createExperimentSnapshotModel(data);
 
   const integration = await getIntegrationFromDatasourceId(
-    experiment.organization,
+    context,
     experiment.datasource,
     true
   );
 
   const queryRunner = new ExperimentResultsQueryRunner(
+    context,
     snapshot,
     integration,
-    organization,
     useCache
   );
   await queryRunner.startAnalysis({
@@ -701,12 +709,11 @@ function getExperimentMetric(
     overrides: {},
   };
 
-  if (overrides?.conversionDelayHours) {
-    ret.overrides.conversionWindowStart = overrides.conversionDelayHours;
+  if (overrides?.delayHours) {
+    ret.overrides.delayHours = overrides.delayHours;
   }
-  if (overrides?.conversionWindowHours) {
-    ret.overrides.conversionWindowEnd =
-      overrides.conversionWindowHours + (overrides?.conversionDelayHours || 0);
+  if (overrides?.windowHours) {
+    ret.overrides.windowHours = overrides.windowHours;
   }
   if (overrides?.winRisk) {
     ret.overrides.winRiskThreshold = overrides.winRisk;
@@ -719,12 +726,13 @@ function getExperimentMetric(
 }
 
 export async function toExperimentApiInterface(
-  organization: OrganizationInterface,
+  context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface
 ): Promise<ApiExperiment> {
   let project = null;
+  const organization = context.org;
   if (experiment.project) {
-    project = await findProjectById(experiment.project, organization.id);
+    project = await findProjectById(context, experiment.project);
   }
   const { settings: scopedSettings } = getScopedSettings({
     organization,
@@ -1025,18 +1033,22 @@ export function postMetricApiPayloadIsValid(
     }
 
     // Check capping args + capping values
-    const { capping, capValue } = behavior;
+    const { cappingSettings } = behavior;
 
-    const cappingExists = typeof capping !== "undefined" && capping !== null;
-    const capValueExists = typeof capValue !== "undefined";
+    const cappingExists =
+      typeof cappingSettings !== "undefined" && !!cappingSettings.type;
+    const capValueExists = typeof cappingSettings?.value !== "undefined";
     if (cappingExists !== capValueExists) {
       return {
         valid: false,
         error:
-          "Must specify both `behavior.capping` (as non-null) and `behavior.capValue` or neither.",
+          "Must specify both `behavior.cappingSettings.type` (as non-null) and `behavior.cappingSettings.value` or neither.",
       };
     }
-    if (capping === "percentile" && (capValue || 0) > 1) {
+    if (
+      cappingSettings?.type === "percentile" &&
+      (cappingSettings?.value || 0) > 1
+    ) {
       return {
         valid: false,
         error:
@@ -1264,11 +1276,13 @@ export function postMetricApiPayloadToMetricInterface(
     mixpanel,
     tags = [],
     projects = [],
+    managedBy = "",
   } = payload;
 
   const metric: Omit<MetricInterface, "dateCreated" | "dateUpdated" | "id"> = {
     datasource: datasourceId,
     description,
+    managedBy,
     name,
     organization: organization.id,
     owner,
@@ -1278,6 +1292,16 @@ export function postMetricApiPayloadToMetricInterface(
     ignoreNulls: false,
     queries: [],
     runStarted: null,
+    cappingSettings: {
+      type: DEFAULT_METRIC_CAPPING,
+      value: DEFAULT_METRIC_CAPPING_VALUE,
+    },
+    windowSettings: {
+      type: DEFAULT_METRIC_WINDOW,
+      delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+      windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
+      windowUnit: "hours",
+    },
     type,
     userIdColumns: (sqlBuilder?.identifierTypeColumns || []).reduce<
       Record<string, string>
@@ -1289,31 +1313,51 @@ export function postMetricApiPayloadToMetricInterface(
 
   // Assign all undefined behavior fields to the metric
   if (behavior) {
-    if (typeof behavior.capping !== "undefined") {
-      metric.capping = behavior.capping;
-      metric.capValue = behavior.capValue;
-    }
-    // handle old post requests
-    else if (typeof behavior.cap !== "undefined" && behavior.cap) {
-      metric.capping = "absolute";
-      metric.capValue = behavior.cap;
+    if (typeof behavior.cappingSettings !== "undefined") {
+      metric.cappingSettings = {
+        type:
+          behavior.cappingSettings.type === "none"
+            ? ""
+            : behavior.cappingSettings.type ?? "",
+        value: behavior.cappingSettings.value ?? DEFAULT_METRIC_CAPPING_VALUE,
+        ignoreZeros: behavior.cappingSettings.ignoreZeros,
+      };
+      // handle old post requests
+    } else if (typeof behavior.capping !== "undefined") {
+      metric.cappingSettings.type = behavior.capping ?? "";
+      metric.cappingSettings.value =
+        behavior.capValue ?? DEFAULT_METRIC_CAPPING_VALUE;
+    } else if (typeof behavior.cap !== "undefined" && behavior.cap) {
+      metric.cappingSettings.type = "absolute";
+      metric.cappingSettings.value = behavior.cap;
     }
 
-    if (typeof behavior.conversionWindowStart !== "undefined") {
+    if (typeof behavior.windowSettings !== "undefined") {
+      metric.windowSettings = {
+        type:
+          behavior.windowSettings.type === "none"
+            ? ""
+            : behavior?.windowSettings?.type ?? DEFAULT_METRIC_WINDOW,
+        delayHours:
+          behavior.windowSettings.delayHours ??
+          DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+        windowUnit: behavior.windowSettings.windowUnit ?? "hours",
+        windowValue:
+          behavior.windowSettings.windowValue ??
+          DEFAULT_CONVERSION_WINDOW_HOURS,
+      };
+    } else if (typeof behavior.conversionWindowStart !== "undefined") {
       // The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the Conversion Delay
-      metric.conversionDelayHours = behavior.conversionWindowStart;
-    }
+      metric.windowSettings.delayHours = behavior.conversionWindowStart;
 
-    if (
-      typeof behavior.conversionWindowEnd !== "undefined" &&
-      typeof behavior.conversionWindowStart !== "undefined"
-    ) {
       // The end of a Conversion Window relative to the exposure date, in hours.
       // This is equivalent to the Conversion Delay + Conversion Window Hours settings in the UI. In other words,
       // if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and
       // conversionWindowEnd to 72 (24+48).
-      metric.conversionWindowHours =
-        behavior.conversionWindowEnd - behavior.conversionWindowStart;
+      if (typeof behavior.conversionWindowEnd !== "undefined") {
+        metric.windowSettings.windowValue =
+          behavior.conversionWindowEnd - behavior.conversionWindowStart;
+      }
     }
 
     if (typeof behavior.maxPercentChange !== "undefined") {
@@ -1398,6 +1442,7 @@ export function putMetricApiPayloadToMetricInterface(
     tags,
     projects,
     type,
+    managedBy,
   } = payload;
 
   const metric: Partial<MetricInterface> = {
@@ -1415,28 +1460,40 @@ export function putMetricApiPayloadToMetricInterface(
       metric.inverse = behavior.goal === "decrease";
     }
 
-    if (typeof behavior.capping !== "undefined") {
-      metric.capping = behavior.capping;
-      if (behavior.capping !== null) {
-        metric.capValue = behavior.capValue;
-      }
+    if (typeof behavior.cappingSettings !== "undefined") {
+      metric.cappingSettings = {
+        ...behavior.cappingSettings,
+        type:
+          behavior.cappingSettings.type === "none"
+            ? ""
+            : behavior.cappingSettings.type ?? "",
+        value: behavior.cappingSettings.value ?? DEFAULT_METRIC_CAPPING_VALUE,
+        ignoreZeros: behavior.cappingSettings.ignoreZeros,
+      };
+    } else if (typeof behavior.capping !== "undefined") {
+      metric.cappingSettings = {
+        type: behavior.capping ?? DEFAULT_METRIC_CAPPING,
+        value: behavior.capValue ?? DEFAULT_METRIC_CAPPING_VALUE,
+      };
     }
 
     if (typeof behavior.conversionWindowStart !== "undefined") {
       // The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the Conversion Delay
-      metric.conversionDelayHours = behavior.conversionWindowStart;
-    }
+      metric.windowSettings = {
+        type: DEFAULT_METRIC_WINDOW,
+        delayHours: behavior.conversionWindowStart,
+        windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
+        windowUnit: "hours",
+      };
 
-    if (
-      typeof behavior.conversionWindowEnd !== "undefined" &&
-      typeof behavior.conversionWindowStart !== "undefined"
-    ) {
       // The end of a Conversion Window relative to the exposure date, in hours.
       // This is equivalent to the Conversion Delay + Conversion Window Hours settings in the UI. In other words,
       // if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and
       // conversionWindowEnd to 72 (24+48).
-      metric.conversionWindowHours =
-        behavior.conversionWindowEnd - behavior.conversionWindowStart;
+      if (typeof behavior.conversionWindowEnd !== "undefined") {
+        metric.windowSettings.windowValue =
+          behavior.conversionWindowEnd - behavior.conversionWindowStart;
+      }
     }
 
     if (typeof behavior.maxPercentChange !== "undefined") {
@@ -1526,6 +1583,10 @@ export function putMetricApiPayloadToMetricInterface(
     }
   }
 
+  if (managedBy !== undefined) {
+    metric.managedBy = managedBy;
+  }
+
   return metric;
 }
 
@@ -1536,16 +1597,9 @@ export function toMetricApiInterface(
 ): ApiMetric {
   const metricDefaults = organization.settings?.metricDefaults;
 
-  let conversionStart = metric.conversionDelayHours || 0;
-  const conversionEnd =
-    conversionStart +
-    (metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS);
-  if (!conversionStart && metric.earlyStart) {
-    conversionStart = -0.5;
-  }
-
   const obj: ApiMetric = {
     id: metric.id,
+    managedBy: metric.managedBy || "",
     name: metric.name,
     description: metric.description || "",
     dateCreated: metric.dateCreated?.toISOString() || "",
@@ -1558,8 +1612,15 @@ export function toMetricApiInterface(
     type: metric.type,
     behavior: {
       goal: metric.inverse ? "decrease" : "increase",
-      capping: metric.capping,
-      capValue: metric.capValue || 0,
+      cappingSettings: metric.cappingSettings
+        ? {
+            ...metric.cappingSettings,
+            type: metric.cappingSettings.type || "none",
+          }
+        : {
+            type: DEFAULT_METRIC_CAPPING || "none",
+            value: DEFAULT_METRIC_CAPPING_VALUE,
+          },
       minPercentChange:
         metric.minPercentChange ?? metricDefaults?.minPercentageChange ?? 0.005,
       maxPercentChange:
@@ -1568,8 +1629,24 @@ export function toMetricApiInterface(
         metric.minSampleSize ?? metricDefaults?.minimumSampleSize ?? 150,
       riskThresholdDanger: metric.loseRisk ?? 0.0125,
       riskThresholdSuccess: metric.winRisk ?? 0.0025,
-      conversionWindowStart: conversionStart,
-      conversionWindowEnd: conversionEnd,
+      windowSettings: metric.windowSettings
+        ? {
+            ...metric.windowSettings,
+            type: metric.windowSettings.type || "none",
+          }
+        : metricDefaults?.windowSettings
+        ? {
+            ...metricDefaults.windowSettings,
+            type: metricDefaults.windowSettings.type || "none",
+          }
+        : {
+            type: DEFAULT_METRIC_WINDOW || "none",
+            delayHours: metric.earlyStart
+              ? -0.5
+              : DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+            windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
+            windowUnit: "hours",
+          },
     },
   };
 
@@ -1820,8 +1897,8 @@ export function updateExperimentApiPayloadToInterface(
 }
 
 export async function getRegressionAdjustmentInfo(
-  experiment: ExperimentInterface,
-  organization: OrganizationInterface
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface
 ): Promise<{
   regressionAdjustmentEnabled: boolean;
   metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
@@ -1833,7 +1910,7 @@ export async function getRegressionAdjustmentInfo(
     return { regressionAdjustmentEnabled, metricRegressionAdjustmentStatuses };
   }
 
-  const metricMap = await getMetricMap(organization.id);
+  const metricMap = await getMetricMap(context);
 
   const allExperimentMetricIds = uniq([
     ...experiment.metrics,
@@ -1860,7 +1937,7 @@ export async function getRegressionAdjustmentInfo(
       experimentRegressionAdjustmentEnabled:
         experiment.regressionAdjustmentEnabled ??
         DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-      organizationSettings: organization.settings,
+      organizationSettings: context.org.settings,
       metricOverrides: experiment.metricOverrides,
     });
     if (metricRegressionAdjustmentStatus.regressionAdjustmentEnabled) {
@@ -1904,20 +1981,20 @@ export function visualChangesetsHaveChanges({
 }
 
 export async function getLinkedFeatureInfo(
-  org: OrganizationInterface,
+  context: ReqContext,
   experiment: ExperimentInterface
 ) {
   const linkedFeatures = experiment.linkedFeatures || [];
   if (!linkedFeatures.length) return [];
 
-  const features = await getFeaturesByIds(org.id, linkedFeatures);
+  const features = await getFeaturesByIds(context, linkedFeatures);
 
   const revisionsByFeatureId = await getFeatureRevisionsByFeatureIds(
-    org.id,
+    context.org.id,
     linkedFeatures
   );
 
-  const environments = getEnvironmentIdsFromOrg(org);
+  const environments = getEnvironmentIdsFromOrg(context.org);
 
   const filter = (rule: FeatureRule) =>
     rule.type === "experiment-ref" && rule.experimentId === experiment.id;

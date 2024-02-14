@@ -11,6 +11,7 @@ import {
   InformationSchemaError,
   MissingDatasourceParamsError,
 } from "../types/Integration";
+import { getContextForAgendaJobByOrgId } from "../services/organizations";
 
 const UPDATE_INFORMATION_SCHEMA_JOB_NAME = "updateInformationSchema";
 type UpdateInformationSchemaJob = Job<{
@@ -34,7 +35,9 @@ export default function (ag: Agenda) {
 
       if (!datasourceId || !organization) return;
 
-      const datasource = await getDataSourceById(datasourceId, organization);
+      const context = await getContextForAgendaJobByOrgId(organization);
+
+      const datasource = await getDataSourceById(context, datasourceId);
 
       const informationSchema = await getInformationSchemaById(
         organization,

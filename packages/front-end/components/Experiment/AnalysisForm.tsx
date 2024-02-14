@@ -29,7 +29,7 @@ import UpgradeMessage from "../Marketing/UpgradeMessage";
 import UpgradeModal from "../Settings/UpgradeModal";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
-import MetricsSelector from "./MetricsSelector";
+import MetricsSelector, { MetricsSelectorTooltip } from "./MetricsSelector";
 import {
   EditMetricsFormInterface,
   fixMetricOverridesBeforeSaving,
@@ -321,6 +321,19 @@ const AnalysisForm: FC<{
               value: q.id,
             };
           })}
+          helpText={
+            <>
+              <div>
+                Should correspond to the Identifier Type used to randomize units
+                for this experiment
+              </div>
+              {exposureQuery?.userIdType ? (
+                <>
+                  Identifier Type: <code>{exposureQuery?.userIdType}</code>
+                </>
+              ) : null}
+            </>
+          }
         />
       )}
       {datasource && (
@@ -392,10 +405,15 @@ const AnalysisForm: FC<{
       {datasource && (
         <MetricSelector
           datasource={form.watch("datasource")}
+          exposureQueryId={exposureQueryId}
           project={experiment.project}
           includeFacts={true}
           labelClassName="font-weight-bold"
-          label="Activation Metric"
+          label={
+            <>
+              Activation Metric <MetricsSelectorTooltip onlyBinomial={true} />
+            </>
+          }
           initialOption="None"
           onlyBinomial
           value={form.watch("activationMetric")}
@@ -435,14 +453,14 @@ const AnalysisForm: FC<{
               value: "strict",
             },
           ]}
-          helpText="How to treat users who have not had the full time to convert yet"
+          helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
         />
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
         <SelectField
           label={
             <AttributionModelTooltip>
-              <strong>Attribution Model</strong> <FaQuestionCircle />
+              <strong>Conversion Window Override</strong> <FaQuestionCircle />
             </AttributionModelTooltip>
           }
           value={form.watch("attributionModel")}
@@ -452,11 +470,11 @@ const AnalysisForm: FC<{
           }}
           options={[
             {
-              label: "First Exposure",
+              label: "Respect Conversion Windows",
               value: "firstExposure",
             },
             {
-              label: "Experiment Duration",
+              label: "Ignore Conversion Windows",
               value: "experimentDuration",
             },
           ]}
@@ -588,13 +606,17 @@ const AnalysisForm: FC<{
         <>
           <div className="form-group mt-3">
             <label className="font-weight-bold mb-1">Goal Metrics</label>
-            <div className="mb-1 font-italic">
-              Metrics you are trying to improve with this experiment.
+            <div className="mb-1">
+              <span className="font-italic">
+                Metrics you are trying to improve with this experiment.{" "}
+              </span>
+              <MetricsSelectorTooltip />
             </div>
             <MetricsSelector
               selected={form.watch("metrics")}
               onChange={(metrics) => form.setValue("metrics", metrics)}
               datasource={form.watch("datasource")}
+              exposureQueryId={exposureQueryId}
               project={experiment.project}
               autoFocus={true}
               includeFacts={true}
@@ -603,14 +625,18 @@ const AnalysisForm: FC<{
 
           <div className="form-group">
             <label className="font-weight-bold mb-1">Guardrail Metrics</label>
-            <div className="mb-1 font-italic">
-              Metrics you want to monitor, but are NOT specifically trying to
-              improve.
+            <div className="mb-1">
+              <span className="font-italic">
+                Metrics you want to monitor, but are NOT specifically trying to
+                improve.{" "}
+              </span>
+              <MetricsSelectorTooltip />
             </div>
             <MetricsSelector
               selected={form.watch("guardrails")}
               onChange={(metrics) => form.setValue("guardrails", metrics)}
               datasource={form.watch("datasource")}
+              exposureQueryId={exposureQueryId}
               project={experiment.project}
               includeFacts={true}
             />

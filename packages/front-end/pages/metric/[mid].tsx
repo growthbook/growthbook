@@ -44,7 +44,6 @@ import InlineForm from "@/components/Forms/InlineForm";
 import EditableH1 from "@/components/Forms/EditableH1";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Code from "@/components/SyntaxHighlighting/Code";
-import { getDefaultConversionWindowHours, hasFileConfig } from "@/services/env";
 import PickSegmentModal from "@/components/Segments/PickSegmentModal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/components/Button";
@@ -62,6 +61,8 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
+import { capitalizeFirstLetter } from "@/services/utils";
+import MetricName from "@/components/Metrics/MetricName";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -134,9 +135,9 @@ const MetricPage: FC = () => {
 
   const metric = data.metric;
   const canEditMetric =
-    checkMetricProjectPermissions(metric, permissions) && !hasFileConfig();
+    checkMetricProjectPermissions(metric, permissions) && !metric.managedBy;
   const canEditProjects =
-    permissions.check("createMetrics", "") && !hasFileConfig();
+    permissions.check("createMetrics", "") && !metric.managedBy;
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
@@ -414,7 +415,9 @@ const MetricPage: FC = () => {
       )}
 
       <div className="row align-items-center mb-2">
-        <h1 className="col-auto">{metric.name}</h1>
+        <h1 className="col-auto">
+          <MetricName id={metric.id} />
+        </h1>
         <div style={{ flex: 1 }} />
         {canEditMetric && (
           <div className="col-auto">
@@ -464,11 +467,15 @@ const MetricPage: FC = () => {
           {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
           {metric?.projects?.length > 0 ? (
             <ProjectBadges
+              resourceType="metric"
               projectIds={metric.projects}
               className="badge-ellipsis align-middle"
             />
           ) : (
-            <ProjectBadges className="badge-ellipsis align-middle" />
+            <ProjectBadges
+              resourceType="metric"
+              className="badge-ellipsis align-middle"
+            />
           )}
           {canEditProjects && (
             <a
@@ -976,11 +983,15 @@ const MetricPage: FC = () => {
                 {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                 {metric?.projects?.length > 0 ? (
                   <ProjectBadges
+                    resourceType="metric"
                     projectIds={metric.projects}
                     className="badge-ellipsis align-middle"
                   />
                 ) : (
-                  <ProjectBadges className="badge-ellipsis align-middle" />
+                  <ProjectBadges
+                    resourceType="metric"
+                    className="badge-ellipsis align-middle"
+                  />
                 )}
               </RightRailSectionGroup>
             </RightRailSection>
@@ -1137,18 +1148,31 @@ const MetricPage: FC = () => {
                       <span className="font-weight-bold">Inverse</span>
                     </li>
                   )}
-                  {metric.capping && metric.capValue && (
-                    <li className="mb-2">
-                      <span className="text-gray">
-                        Cap value ({metric.capping}):{" "}
-                      </span>
-                      <span className="font-weight-bold">
-                        {metric.capValue}{" "}
-                        {metric.capping === "percentile"
-                          ? `(${100 * metric.capValue} pctile)`
-                          : ""}{" "}
-                      </span>
-                    </li>
+                  {metric.cappingSettings.type && metric.cappingSettings.value && (
+                    <>
+                      <li className="mb-2">
+                        <span className="uppercase-title lg">
+                          {capitalizeFirstLetter(metric.cappingSettings.type)}
+                          {" capping"}
+                        </span>
+                      </li>
+                      <li>
+                        <span className="font-weight-bold">
+                          {metric.cappingSettings.value}
+                        </span>{" "}
+                        {metric.cappingSettings.type === "percentile" ? (
+                          <span className="text-gray">{`(${
+                            100 * metric.cappingSettings.value
+                          } pctile${
+                            metric.cappingSettings.ignoreZeros
+                              ? ", ignoring zeros"
+                              : ""
+                          })`}</span>
+                        ) : (
+                          ""
+                        )}{" "}
+                      </li>
+                    </>
                   )}
                   {metric.ignoreNulls && (
                     <li className="mb-2">
@@ -1159,28 +1183,80 @@ const MetricPage: FC = () => {
                 </ul>
               </RightRailSectionGroup>
 
-              {datasource?.properties?.metricCaps && (
-                <RightRailSectionGroup type="custom" empty="">
-                  <ul className="right-rail-subsection list-unstyled mb-4">
-                    <li className="mt-3 mb-1">
-                      <span className="uppercase-title lg">
-                        Conversion Window
-                      </span>
-                    </li>
-                    <li>
-                      <span className="font-weight-bold">
-                        {metric.conversionDelayHours
-                          ? metric.conversionDelayHours + " to "
-                          : ""}
-                        {(metric.conversionDelayHours || 0) +
-                          (metric.conversionWindowHours ||
-                            getDefaultConversionWindowHours())}{" "}
-                        hours
-                      </span>
-                    </li>
-                  </ul>
-                </RightRailSectionGroup>
-              )}
+              <RightRailSectionGroup type="custom" empty="">
+                <ul className="right-rail-subsection list-unstyled mb-4">
+                  <li className="mt-3 mb-1">
+                    <span className="uppercase-title lg">Metric Window</span>
+                  </li>
+                  {metric.windowSettings.type === "conversion" ? (
+                    <>
+                      <li>
+                        <span className="font-weight-bold">
+                          Conversion Window
+                        </span>
+                      </li>
+                      <li>
+                        <span className="text-gray">
+                          {`Require conversions to happen within `}
+                        </span>
+                        <strong>
+                          {metric.windowSettings.windowValue}{" "}
+                          {metric.windowSettings.windowUnit}
+                        </strong>
+                        <span className="text-gray">{` 
+                        of first experiment exposure
+                        ${
+                          metric.windowSettings.delayHours
+                            ? " plus the conversion delay"
+                            : ""
+                        }`}</span>
+                      </li>
+                    </>
+                  ) : metric.windowSettings.type === "lookback" ? (
+                    <>
+                      <li>
+                        <span className="font-weight-bold">
+                          Lookback Window
+                        </span>
+                      </li>
+                      <li>
+                        <span className="text-gray">{`Require metric data to be in latest `}</span>
+                        <strong>
+                          {metric.windowSettings.windowValue}{" "}
+                          {metric.windowSettings.windowUnit}
+                        </strong>
+                        <span className="text-gray"> of the experiment</span>
+                      </li>
+                    </>
+                  ) : (
+                    <>
+                      <li>
+                        <span className="font-weight-bold">Disabled</span>
+                      </li>
+                      <li>
+                        <span className="text-gray">{`Include all metric data after first experiment exposure
+                      ${
+                        metric.windowSettings.delayHours
+                          ? " plus the conversion delay"
+                          : ""
+                      }`}</span>
+                      </li>
+                    </>
+                  )}
+                  {metric.windowSettings.delayHours ? (
+                    <>
+                      <li className="mt-3 mb-1">
+                        <span className="uppercase-title lg">Metric Delay</span>
+                      </li>
+                      <li className="mt-1">
+                        <span className="font-weight-bold">
+                          {metric.windowSettings.delayHours} hours
+                        </span>
+                      </li>
+                    </>
+                  ) : null}
+                </ul>
+              </RightRailSectionGroup>
 
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-4">

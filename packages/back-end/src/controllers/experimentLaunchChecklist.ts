@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { orgHasPremiumFeature } from "enterprise";
-import { getOrgFromReq } from "../services/organizations";
+import { getContextFromReq } from "../services/organizations";
 import { AuthRequest } from "../types/AuthRequest";
 import {
   createExperimentLaunchChecklist,
@@ -17,7 +17,7 @@ export async function postExperimentLaunchChecklist(
   req: AuthRequest<{ tasks: ChecklistTask[]; projectId?: string }>,
   res: Response
 ) {
-  const { org, userId } = getOrgFromReq(req);
+  const { org, userId } = getContextFromReq(req);
 
   const { tasks, projectId } = req.body;
 
@@ -60,7 +60,7 @@ export async function getExperimentCheckListByOrg(
   req: AuthRequest,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   if (!orgHasPremiumFeature(org, "custom-launch-checklist")) {
     return res.status(200).json({
@@ -83,7 +83,7 @@ export async function putExperimentLaunchChecklist(
   req: AuthRequest<{ tasks: ChecklistTask[] }, { id: string }>,
   res: Response
 ) {
-  const { org, userId } = getOrgFromReq(req);
+  const { org, userId } = getContextFromReq(req);
   const { tasks } = req.body;
 
   const { id } = req.params;
@@ -119,12 +119,12 @@ export async function putManualLaunchChecklist(
   >,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
 
   const { id } = req.params;
   const { checklist } = req.body;
 
-  const experiment = await getExperimentById(org.id, id);
+  const experiment = await getExperimentById(context, id);
 
   if (!experiment) {
     throw new Error("Could not find experiment");
@@ -135,9 +135,8 @@ export async function putManualLaunchChecklist(
   req.checkPermissions("runExperiments", experiment?.project || "", envs);
 
   await updateExperiment({
-    organization: org,
+    context,
     experiment,
-    user: res.locals.eventAudit,
     changes: { manualLaunchChecklist: checklist },
   });
 

@@ -3,7 +3,7 @@ import * as Event from "../../models/EventModel";
 import { AuthRequest } from "../../types/AuthRequest";
 import { EventInterface } from "../../../types/event";
 import { ApiErrorResponse } from "../../../types/api";
-import { getOrgFromReq } from "../../services/organizations";
+import { getContextFromReq } from "../../services/organizations";
 
 type GetEventsRequest = AuthRequest;
 
@@ -17,7 +17,7 @@ export const getEvents = async (
 ) => {
   req.checkPermissions("viewEvents");
 
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const events = await Event.getLatestEventsForOrganization(org.id, 50);
 
@@ -36,7 +36,7 @@ export const getEventById = async (
 ) => {
   req.checkPermissions("viewEvents");
 
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const event = await Event.getEventForOrganization(req.params.id, org.id);
   if (!event) {

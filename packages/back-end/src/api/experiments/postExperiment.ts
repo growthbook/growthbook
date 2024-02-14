@@ -19,10 +19,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
 
     const { datasourceId, owner } = req.body;
 
-    const datasource = await getDataSourceById(
-      datasourceId,
-      req.organization.id
-    );
+    const datasource = await getDataSourceById(req.context, datasourceId);
 
     if (!datasource) {
       throw new Error(`Invalid data source: ${datasourceId}`);
@@ -41,7 +38,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
 
     // check if tracking key is unique
     const existingByTrackingKey = await getExperimentByTrackingKey(
-      req.organization.id,
+      req.context,
       req.body.trackingKey
     );
     if (existingByTrackingKey) {
@@ -70,8 +67,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
 
     const experiment = await createExperiment({
       data: newExperiment,
-      organization: req.organization,
-      user: req.eventAudit,
+      context: req.context,
     });
 
     // add owner as watcher
@@ -83,7 +79,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     });
 
     const apiExperiment = await toExperimentApiInterface(
-      req.organization,
+      req.context,
       experiment
     );
     return {

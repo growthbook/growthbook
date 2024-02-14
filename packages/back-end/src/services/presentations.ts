@@ -9,6 +9,8 @@ import { ExperimentInterface } from "../../types/experiment";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
 import { AuthRequest } from "../types/AuthRequest";
+import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "../../types/api";
 import { userHasAccess } from "./organizations";
 
 //import {query} from "../config/postgres";
@@ -26,11 +28,11 @@ export function getPresentationById(id: string) {
 }
 
 export async function getPresentationSnapshots(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   expIds: string[],
   req: AuthRequest
 ) {
-  const experiments = await getExperimentsByIds(organization, expIds);
+  const experiments = await getExperimentsByIds(context, expIds);
 
   const withSnapshots: {
     experiment: ExperimentInterface;
