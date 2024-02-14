@@ -25,9 +25,9 @@ export const triggerWebhookJobs = async (
   isProxyEnabled: boolean,
   isFeature = true
 ) => {
-  queueWebhookUpdate(context.org.id, payloadKeys);
+  queueWebhookUpdate(context, payloadKeys);
   queueGlobalWebhooks(context, payloadKeys);
-  if (isProxyEnabled) queueProxyUpdate(context.org.id, payloadKeys);
+  if (isProxyEnabled) queueProxyUpdate(context, payloadKeys);
   queueWebhook(context.org.id, payloadKeys, isFeature);
   const surrogateKeys = getSurrogateKeysFromEnvironments(context.org.id, [
     ...environments,
@@ -36,6 +36,7 @@ export const triggerWebhookJobs = async (
 };
 
 export const triggerSingleSDKWebhookJobs = async (
+  orgId: string,
   connection: SDKConnectionInterface,
   otherChanges: Partial<SDKConnectionInterface>,
   newProxy: ProxyConnection,
@@ -50,7 +51,7 @@ export const triggerSingleSDKWebhookJobs = async (
         proxy: newProxy,
       } as SDKConnectionInterface;
 
-      queueSingleProxyUpdate(newConnection, IS_CLOUD);
+      queueSingleProxyUpdate(orgId, newConnection, IS_CLOUD);
     }
   }
 

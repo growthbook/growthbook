@@ -426,7 +426,7 @@ export function upgradeOrganizationDoc(
     };
   }
 
-  // Default attribute schema
+  // Default attribute schema for backwards compatibility
   if (!org.settings.attributeSchema) {
     org.settings.attributeSchema = [
       { property: "id", datatype: "string", hashAttribute: true },
