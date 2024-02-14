@@ -501,7 +501,9 @@ export class GrowthBook<
     // Apply new changes
     if (result.inExperiment) {
       if (result.value.urlRedirect) {
-        const url = result.value.urlRedirect;
+        const url = experiment.persistQueryString
+          ? result.value.urlRedirect + window.location.search
+          : result.value.urlRedirect;
         if (
           experiment.urlPatterns &&
           isURLTargeted(url, [experiment.urlPatterns[0]])
