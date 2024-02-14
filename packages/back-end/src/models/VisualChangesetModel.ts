@@ -26,7 +26,7 @@ const visualChangesetURLPatternSchema = new mongoose.Schema<VisualChangesetURLPa
     include: Boolean,
     type: {
       type: String,
-      enum: ["simple", "regex", "exact"],
+      enum: ["simple", "regex"],
       required: true,
     },
     pattern: {
