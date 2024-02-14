@@ -16,6 +16,7 @@ import { logger } from "../util/logger";
 import { ApiReqContext } from "../../types/api";
 import { ReqContext } from "../../types/organization";
 import { getContextForAgendaJobByOrgId } from "../services/organizations";
+import { trackJob } from "../services/otel";
 
 const PROXY_UPDATE_JOB_NAME = "proxyUpdate";
 type ProxyUpdateJob = Job<{
@@ -25,12 +26,9 @@ type ProxyUpdateJob = Job<{
   retryCount: number;
 }>;
 
-let agenda: Agenda;
-export default function addProxyUpdateJob(ag: Agenda) {
-  agenda = ag;
-
-  // Fire webhooks
-  agenda.define(PROXY_UPDATE_JOB_NAME, async (job: ProxyUpdateJob) => {
+const proxyUpdate = trackJob(
+  PROXY_UPDATE_JOB_NAME,
+  async (job: ProxyUpdateJob) => {
     const connectionId = job.attrs.data?.connectionId;
     const orgId = job.attrs.data?.orgId;
     const useCloudProxy = job.attrs.data?.useCloudProxy;
@@ -100,7 +98,15 @@ export default function addProxyUpdateJob(ag: Agenda) {
     }
 
     await clearProxyError(connection);
-  });
+  }
+);
+
+let agenda: Agenda;
+export default function addProxyUpdateJob(ag: Agenda) {
+  agenda = ag;
+
+  // Fire webhooks
+  agenda.define(PROXY_UPDATE_JOB_NAME, proxyUpdate);
   agenda.on(
     "fail:" + PROXY_UPDATE_JOB_NAME,
     async (error: Error, job: ProxyUpdateJob) => {
