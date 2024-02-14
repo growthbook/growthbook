@@ -603,12 +603,12 @@ export async function postFeaturePublish(
   req.checkPermissions("manageFeatures", feature.project);
 
   const revision = await getRevision(org.id, feature.id, parseInt(version));
-
+  const isAdmin = org.settings?.defaultRole?.role === "admin";
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
   if (
-    (org.settings?.requireReviews && !req.superAdmin) ||
+    (org.settings?.requireReviews && !isAdmin) ||
     revision.status === "approved"
   ) {
     throw new Error("review Required before publishing");
