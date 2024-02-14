@@ -28,7 +28,6 @@ import VisualChangesetModal from "../VisualChangesetModal";
 import EditExperimentNameForm from "../EditExperimentNameForm";
 import { useSnapshot } from "../SnapshotProvider";
 import { ResultsMetricFilters } from "../Results";
-import UrlRedirectModal from "../UrlRedirectModal";
 import ExperimentHeader from "./ExperimentHeader";
 import ProjectTagBar from "./ProjectTagBar";
 import SetupTabOverview from "./SetupTabOverview";
@@ -89,7 +88,6 @@ export default function TabbedPage({
   const [watchersModal, setWatchersModal] = useState(false);
   const [visualEditorModal, setVisualEditorModal] = useState(false);
   const [featureModal, setFeatureModal] = useState(false);
-  const [urlRedirectModal, setUrlRedirectModal] = useState(false);
   const [healthNotificationCount, setHealthNotificationCount] = useState(0);
 
   // Results tab filters
@@ -210,15 +208,6 @@ export default function TabbedPage({
           cta="Open Visual Editor"
         />
       )}
-      {urlRedirectModal && (
-        <UrlRedirectModal
-          mode="add"
-          experiment={experiment}
-          mutate={mutate}
-          close={() => setUrlRedirectModal(false)}
-          cta="Add Redirect"
-        />
-      )}
       {statusModal && (
         <EditStatusModal
           experiment={experiment}
@@ -313,24 +302,23 @@ export default function TabbedPage({
             editTags={!viewingOldPhase ? editTags : undefined}
             idea={idea}
           />
-          <Implementation
-            experiment={experiment}
-            mutate={mutate}
-            setFeatureModal={setFeatureModal}
-            setVisualEditorModal={setVisualEditorModal}
-            setUrlRedirectModal={setUrlRedirectModal}
-            visualChangesets={visualChangesets}
-            editTargeting={!viewingOldPhase ? editTargeting : undefined}
-            linkedFeatures={linkedFeatures}
-            connections={connections}
-            setTab={setTabAndScroll}
-          />
           <SetupTabOverview
             experiment={experiment}
             mutate={mutate}
             safeToEdit={safeToEdit}
             editVariations={!viewingOldPhase ? editVariations : undefined}
             disableEditing={viewingOldPhase}
+          />
+          <Implementation
+            experiment={experiment}
+            mutate={mutate}
+            setFeatureModal={setFeatureModal}
+            setVisualEditorModal={setVisualEditorModal}
+            visualChangesets={visualChangesets}
+            editTargeting={!viewingOldPhase ? editTargeting : undefined}
+            linkedFeatures={linkedFeatures}
+            connections={connections}
+            setTab={setTabAndScroll}
           />
           {experiment.status !== "draft" && (
             <div className="mt-3 mb-2 text-center d-print-none">
