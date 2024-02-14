@@ -1313,6 +1313,7 @@ export const getInlinePrerequisitesReductionInfo = (
             prereqFeature?.defaultValue === "false")
         ) {
           // condition fails: remove the rule
+          removeRule = true;
           continue;
         }
         // otherwise, keep the rule and prerequisite

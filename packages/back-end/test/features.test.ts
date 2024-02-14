@@ -1537,5 +1537,233 @@ describe("SDK Payloads", () => {
         { condition: { value: true }, gate: true, id: "parent1" },
       ],
     });
+
+    // 5: Blocking based on parent's parent toggled off:
+    const features5: FeatureInterface[] = [
+      cloneDeep(childFeature),
+      {
+        ...cloneDeep(parentFeature),
+        ...{
+          prerequisites: [
+            {
+              id: "parent2",
+              condition: `{"value": true}`,
+            },
+          ],
+        },
+      },
+      {
+        ...cloneDeep(parentFeature),
+        ...{
+          id: "parent2",
+          environmentSettings: {
+            production: {
+              enabled: false,
+              rules: [],
+            },
+          },
+        },
+      },
+    ];
+    const payload5 = generateFeaturesPayload({
+      features: features5,
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+    });
+    expect(payload5).not.toHaveProperty("parent2");
+    expect(payload5).not.toHaveProperty("parent1");
+    expect(payload5).not.toHaveProperty("child1");
+
+    // 6: Blocking based on multiple adjacent parents, one being off:
+    const features6: FeatureInterface[] = [
+      {
+        ...cloneDeep(childFeature),
+        ...{
+          prerequisites: [
+            {
+              id: "parent1",
+              condition: `{"value": true}`,
+            },
+            {
+              id: "parent2",
+              condition: `{"value": true}`,
+            },
+          ],
+        },
+      },
+      cloneDeep(parentFeature),
+      {
+        ...cloneDeep(parentFeature),
+        ...{
+          id: "parent2",
+          environmentSettings: {
+            production: {
+              enabled: false,
+              rules: [],
+            },
+          },
+        },
+      },
+    ];
+    const payload6 = generateFeaturesPayload({
+      features: features6,
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+    });
+    expect(payload6).not.toHaveProperty("parent2");
+    expect(payload6).toHaveProperty("parent1");
+    expect(payload6).not.toHaveProperty("child1");
+
+    // 7. Rule scrubbing
+    const features7: FeatureInterface[] = [
+      {
+        ...cloneDeep(childFeature),
+        ...{
+          prerequisites: [],
+          environmentSettings: {
+            production: {
+              enabled: true,
+              rules: [
+                {
+                  type: "force",
+                  description: "should keep, no prereqs",
+                  id: "1",
+                  value: "true",
+                  condition: `{"country": "US-1"}`,
+                  enabled: true,
+                },
+                {
+                  type: "force",
+                  description: "should remove, true !== false",
+                  id: "2",
+                  value: "true",
+                  condition: `{"country": "US-2"}`,
+                  prerequisites: [
+                    {
+                      id: "parent1",
+                      condition: `{"value": true}`,
+                    },
+                  ],
+                  enabled: true,
+                },
+                {
+                  type: "force",
+                  description: "should keep, false === false",
+                  id: "3",
+                  value: "true",
+                  condition: `{"country": "US-3"}`,
+                  prerequisites: [
+                    {
+                      id: "parent1",
+                      condition: `{"value": false}`,
+                    },
+                  ],
+                  enabled: true,
+                },
+                {
+                  type: "force",
+                  description: "should keep, feature exists",
+                  id: "4",
+                  value: "true",
+                  condition: `{"country": "US-4"}`,
+                  prerequisites: [
+                    {
+                      id: "parent1",
+                      condition: `{"value": {"$exists": true}}`,
+                    },
+                  ],
+                  enabled: true,
+                },
+                {
+                  type: "force",
+                  description:
+                    "should remove, feature exists but checking not exists",
+                  id: "5",
+                  value: "true",
+                  condition: `{"country": "US-5"}`,
+                  prerequisites: [
+                    {
+                      id: "parent1",
+                      condition: `{"value": {"$exists": false}}`,
+                    },
+                  ],
+                  enabled: true,
+                },
+                {
+                  type: "force",
+                  description: "should remove, a prereq (parent2) is missing",
+                  id: "6",
+                  value: "true",
+                  condition: `{"country": "US-6"}`,
+                  prerequisites: [
+                    {
+                      id: "parent1",
+                      condition: `{"value": false}`,
+                    },
+                    {
+                      id: "parent2",
+                      condition: `{"value": {"$exists": true}}`,
+                    },
+                  ],
+                  enabled: true,
+                },
+                {
+                  type: "force",
+                  description: "should keep, condition is non-deterministic",
+                  id: "7",
+                  value: "true",
+                  condition: `{"country": "US-7"}`,
+                  prerequisites: [
+                    {
+                      id: "parent1",
+                      condition: `{"value": {"$or": [true, false]}}`,
+                    },
+                  ],
+                  enabled: true,
+                },
+              ],
+            },
+          },
+        },
+      },
+      {
+        ...cloneDeep(parentFeature),
+        ...{
+          defaultValue: "false",
+        },
+      },
+    ];
+    const payload7 = generateFeaturesPayload({
+      features: features7,
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+    });
+    expect(payload7.child1.rules).toStrictEqual([
+      {
+        condition: { country: "US-1" },
+        force: true,
+      },
+      {
+        condition: { country: "US-3" },
+        force: true,
+      },
+      {
+        condition: { country: "US-4" },
+        force: true,
+      },
+      {
+        condition: { country: "US-7" },
+        parentConditions: [
+          {
+            id: "parent1",
+            condition: { value: { $or: [true, false] } },
+          },
+        ],
+        force: true,
+      },
+    ]);
   });
 });

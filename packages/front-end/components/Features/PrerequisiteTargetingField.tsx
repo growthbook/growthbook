@@ -414,7 +414,8 @@ export const PrerequisiteAlerts = ({
             {environments.length > 1
               ? "in some environments"
               : "in this environment"}{" "}
-            and must be evaluated at runtime in the SDK.{" "}
+            and {type === "feature" && "its prerequisites "}must be evaluated at
+            runtime in the SDK.{" "}
           </>
         )}
         {issue === "conditional-targeting" && (
