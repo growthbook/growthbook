@@ -101,6 +101,7 @@ export type Experiment<T> = {
   bucketVersion?: number;
   minBucketVersion?: number;
   active?: boolean;
+  persistQueryString?: boolean;
   /** @deprecated */
   status?: ExperimentStatus;
   /** @deprecated */
@@ -202,6 +203,7 @@ export interface Context {
   remoteEval?: boolean;
   navigate?: (url: string) => void;
   navigateDelay?: number;
+  antiFlicker?: boolean;
 }
 
 export type SubscriptionFunction = (

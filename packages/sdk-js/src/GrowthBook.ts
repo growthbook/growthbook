@@ -149,6 +149,12 @@ export class GrowthBook<
     if (context.experiments) {
       this.ready = true;
       this._updateAllAutoExperiments();
+    } else if (context.antiFlicker) {
+      this._setAntiFlicker();
+      // Fallback if GrowthBook fails to load in 3.5 seconds
+      setTimeout(() => {
+        document.body.classList.remove("gb-anti-flicker");
+      }, 3500);
     }
 
     if (context.clientKey && !context.remoteEval) {
@@ -496,12 +502,24 @@ export class GrowthBook<
     if (result.inExperiment) {
       if (result.value.urlRedirect) {
         const url = result.value.urlRedirect;
+        if (
+          experiment.urlPatterns &&
+          isURLTargeted(url, [experiment.urlPatterns[0]])
+        ) {
+          // log or throw error when redirect URL matches URL pattern?
+          return result;
+        }
         this._redirectedUrl = url;
         const navigate = this._getNavigateFunction();
         if (navigate) {
-          window.setTimeout(() => {
+          this._setAntiFlicker();
+          if (isBrowser) {
+            window.setTimeout(() => {
+              navigate(url);
+            }, this._ctx.navigateDelay ?? 100);
+          } else {
             navigate(url);
-          }, this._ctx.navigateDelay ?? 100);
+          }
         }
       } else {
         const undo = this._applyDOMChanges(result.value);
@@ -538,8 +556,10 @@ export class GrowthBook<
     });
 
     // Re-run all new/updated experiments
-    experiments.forEach((exp) => {
+    experiments.some((exp) => {
       this._runAutoExperiment(exp, forceRerun);
+      // Break if we encounter an experiment that is redirecting
+      return exp.variations.some((v) => !!v.urlRedirect);
     });
   }
 
@@ -1336,6 +1356,14 @@ export class GrowthBook<
       };
     }
     return null;
+  }
+
+  private _setAntiFlicker() {
+    if (!this._ctx.antiFlicker || !isBrowser) return;
+    const styleTag = document.createElement("style");
+    styleTag.innerHTML = ".gb-anti-flicker { opacity: 0 !important; }";
+    document.head.appendChild(styleTag);
+    document.body.classList.add("gb-anti-flicker");
   }
 
   private _applyDOMChanges(changes: AutoExperimentVariation) {

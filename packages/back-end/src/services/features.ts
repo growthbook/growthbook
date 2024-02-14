@@ -107,8 +107,9 @@ function generateVisualExperimentsPayload({
   const isValidSDKExperiment = (
     e: AutoExperimentWithProject | null
   ): e is AutoExperimentWithProject => !!e;
-  const sdkExperiments: Array<AutoExperimentWithProject | null> = visualExperiments.map(
-    ({ experiment: e, visualChangeset: v }) => {
+  const sdkExperiments: Array<AutoExperimentWithProject | null> = visualExperiments
+    .sort((_a, b) => (b.visualChangeset.urlRedirects.length ? 1 : -1))
+    .map(({ experiment: e, visualChangeset: v }) => {
       if (e.status === "stopped" && e.excludeFromPayload) return null;
 
       const phase: ExperimentPhase | null = e.phases.slice(-1)?.[0] ?? null;
@@ -127,7 +128,6 @@ function generateVisualExperimentsPayload({
 
       if (!phase) return null;
 
-      // add in URL redirects (not sure if the variation name is needed)
       const exp: AutoExperimentWithProject = {
         key: e.trackingKey,
         status: e.status,
@@ -138,6 +138,7 @@ function generateVisualExperimentsPayload({
           domMutations: vc.domMutations,
           urlRedirect: urlRedirects[i]?.url,
         })) as AutoExperimentWithProject["variations"],
+        persistQueryString: v.persistQueryString,
         hashVersion: e.hashVersion,
         hashAttribute: e.hashAttribute,
         fallbackAttribute: e.fallbackAttribute,
@@ -168,8 +169,7 @@ function generateVisualExperimentsPayload({
       };
 
       return exp;
-    }
-  );
+    });
   return sdkExperiments.filter(isValidSDKExperiment);
 }
 
