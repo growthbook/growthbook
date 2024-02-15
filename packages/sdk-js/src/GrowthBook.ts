@@ -511,7 +511,7 @@ export class GrowthBook<
           : result.value.urlRedirect;
         if (
           experiment.urlPatterns &&
-          isURLTargeted(url, [experiment.urlPatterns[0]])
+          isURLTargeted(url, experiment.urlPatterns)
         ) {
           this.log(
             "Skipping redirect because original URL matches redirect URL",
@@ -567,11 +567,17 @@ export class GrowthBook<
       }
     });
 
+    console.log({ experiments });
+
     // Re-run all new/updated experiments
     experiments.some((exp) => {
-      this._runAutoExperiment(exp, forceRerun);
-      // Break if we encounter an experiment that is redirecting
-      return exp.variations.some((v) => !!v.urlRedirect);
+      const result = this._runAutoExperiment(exp, forceRerun);
+      // Break if we encounter a URL Redirect experiment that is targetting the current URL and redirecting
+      return (
+        result?.value.urlRedirect &&
+        exp.urlPatterns &&
+        isURLTargeted(this._getContextUrl(), exp.urlPatterns)
+      );
     });
   }
 
