@@ -31,7 +31,7 @@ import {
 } from "react";
 import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
-import { hasPermission } from "shared/permissions";
+import { doesUserHavePermission } from "shared/permissions";
 import { isCloud, isMultiOrg, isSentryEnabled } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
@@ -329,27 +329,40 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       projects?: string[] | string,
       envs?: string[]
     ): boolean => {
+      if (!data?.userId || !currentOrg?.organization) return false;
       let checkProjects: (string | undefined)[];
       if (Array.isArray(projects)) {
         checkProjects = projects.length > 0 ? projects : [undefined];
       } else {
         checkProjects = [projects];
       }
-      for (const p of checkProjects) {
-        if (
-          !hasPermission(
-            currentOrg?.currentUserPermissions,
-            permission,
-            p,
-            envs
-          )
-        ) {
-          return false;
-        }
-      }
-      return true;
+      //TODO: Move this so that it can be access on the frontend
+      // const userPermissions = getUserPermissions(
+      //   data.userId,
+      //   currentOrg.organization,
+      //   currentOrg.teams
+      // );
+      return doesUserHavePermission(
+        currentOrg?.currentUserPermissions,
+        permission,
+        checkProjects,
+        envs ? [...envs] : undefined
+      );
+      // for (const p of checkProjects) {
+      //   if (
+      //     !hasPermission(
+      //       currentOrg?.currentUserPermissions,
+      //       permission,
+      //       p,
+      //       envs
+      //     )
+      //   ) {
+      //     return false;
+      //   }
+      // }
+      // return true;
     },
-    [currentOrg?.currentUserPermissions]
+    [currentOrg?.currentUserPermissions, currentOrg?.organization, data?.userId]
   );
 
   return (

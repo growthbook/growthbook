@@ -4,12 +4,10 @@ import {
   MemberRole,
 } from "back-end/types/organization";
 
-const AllProjectAllowedPermissions: Partial<Permission>[] = ["runQueries"];
+// const AllProjectAllowedPermissions: Partial<Permission>[] = ["runQueries"];
 
-const permissionsThatRequireOnlyOneProject: Partial<Permission>[] = [
-  "runQueries",
-  "readData",
-];
+// const permissionsThatRequireOnlyOneProject: Partial<Permission>[] = [
+const permissionsThatRequireOnlyOneProject: any[] = ["runQueries", "readData"];
 
 export function doesUserHavePermission(
   userPermissions: UserPermissions | undefined,
@@ -79,45 +77,45 @@ export function doesUserHavePermission(
   return hasPermission;
 }
 
-export function hasPermission(
-  userPermissions: UserPermissions | undefined,
-  permissionToCheck: Permission,
-  project?: string | undefined,
-  envs?: string[]
-): boolean {
-  if (
-    // For resources that have a "Projects" array, if empty, that means it is in "All Projects"
-    // and there are some permissions where the user only has to have the permission in atleast 1 project, in order to have permission
-    project === undefined &&
-    AllProjectAllowedPermissions.includes(permissionToCheck)
-  ) {
-    let hasPermission = false;
-    for (const project in userPermissions?.projects) {
-      if (userPermissions?.projects[project]?.permissions[permissionToCheck]) {
-        hasPermission = true;
-        break;
-      }
-    }
-    return hasPermission;
-  }
+// export function hasPermission(
+//   userPermissions: UserPermissions | undefined,
+//   permissionToCheck: Permission,
+//   project?: string | undefined,
+//   envs?: string[]
+// ): boolean {
+//   if (
+//     // For resources that have a "Projects" array, if empty, that means it is in "All Projects"
+//     // and there are some permissions where the user only has to have the permission in atleast 1 project, in order to have permission
+//     project === undefined &&
+//     AllProjectAllowedPermissions.includes(permissionToCheck)
+//   ) {
+//     let hasPermission = false;
+//     for (const project in userPermissions?.projects) {
+//       if (userPermissions?.projects[project]?.permissions[permissionToCheck]) {
+//         hasPermission = true;
+//         break;
+//       }
+//     }
+//     return hasPermission;
+//   }
 
-  const usersPermissionsToCheck =
-    (project && userPermissions?.projects[project]) || userPermissions?.global;
+//   const usersPermissionsToCheck =
+//     (project && userPermissions?.projects[project]) || userPermissions?.global;
 
-  if (
-    !usersPermissionsToCheck ||
-    !usersPermissionsToCheck.permissions[permissionToCheck]
-  ) {
-    return false;
-  }
+//   if (
+//     !usersPermissionsToCheck ||
+//     !usersPermissionsToCheck.permissions[permissionToCheck]
+//   ) {
+//     return false;
+//   }
 
-  if (!envs || !usersPermissionsToCheck.limitAccessByEnvironment) {
-    return true;
-  }
-  return envs.every((env) =>
-    usersPermissionsToCheck.environments.includes(env)
-  );
-}
+//   if (!envs || !usersPermissionsToCheck.limitAccessByEnvironment) {
+//     return true;
+//   }
+//   return envs.every((env) =>
+//     usersPermissionsToCheck.environments.includes(env)
+//   );
+// }
 
 export function hasReadAccess(
   filter: ReadAccessFilter,
