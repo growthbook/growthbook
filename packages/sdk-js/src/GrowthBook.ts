@@ -40,6 +40,7 @@ import {
   isIncluded,
   isURLTargeted,
   loadSDKVersion,
+  mergeUrlParams,
   toString,
 } from "./util";
 import { evalCondition } from "./mongrule";
@@ -501,21 +502,30 @@ export class GrowthBook<
     // Apply new changes
     if (result.inExperiment) {
       if (result.value.urlRedirect) {
+        const currUrl = new URL(this._getContextUrl());
+        const redirectUrl = new URL(result.value.urlRedirect);
+        mergeUrlParams(currUrl.searchParams, redirectUrl.searchParams);
+
         const url = experiment.persistQueryString
-          ? result.value.urlRedirect + window.location.search
+          ? redirectUrl.toString()
           : result.value.urlRedirect;
         if (
           experiment.urlPatterns &&
           isURLTargeted(url, [experiment.urlPatterns[0]])
         ) {
-          // log or throw error when redirect URL matches URL pattern?
+          this.log(
+            "Skipping redirect because original URL matches redirect URL",
+            {
+              id: experiment.key,
+            }
+          );
           return result;
         }
         this._redirectedUrl = url;
         const navigate = this._getNavigateFunction();
         if (navigate) {
-          this._setAntiFlicker();
           if (isBrowser) {
+            this._setAntiFlicker();
             window.setTimeout(() => {
               navigate(url);
             }, this._ctx.navigateDelay ?? 100);

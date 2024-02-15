@@ -328,3 +328,13 @@ export function loadSDKVersion(): string {
   }
   return version;
 }
+
+export function mergeUrlParams(
+  oldParams: URLSearchParams,
+  newParams: URLSearchParams
+): string {
+  oldParams.forEach((value, key) => {
+    newParams.append(key, value);
+  });
+  return newParams.toString();
+}
