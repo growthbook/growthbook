@@ -92,7 +92,6 @@ export async function processJWT(
   const userHasPermission = (
     userPermissions: UserPermissions,
     permission: Permission,
-    teams: TeamInterface[],
     projects: (string | undefined)[],
     envs?: string[]
   ): boolean => {
@@ -133,7 +132,11 @@ export async function processJWT(
     let checkProjects: (string | undefined)[];
     if (Array.isArray(project)) {
       checkProjects =
-        project.length > 0 ? project : Object.keys(userPermissions.projects);
+        project.length > 0
+          ? project
+          : Object.keys(userPermissions.projects).length
+          ? Object.keys(userPermissions.projects)
+          : [undefined];
     } else {
       checkProjects = [project];
     }
@@ -142,7 +145,6 @@ export async function processJWT(
       !userHasPermission(
         userPermissions,
         permission,
-        req.teams,
         checkProjects,
         envs ? [...envs] : undefined
       )
