@@ -336,7 +336,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         checkProjects =
           projects.length > 0
             ? projects
-            : Object.keys(currentOrg.currentUserPermissions.projects);
+            : Object.keys(currentOrg.currentUserPermissions.projects).length
+            ? Object.keys(currentOrg.currentUserPermissions.projects)
+            : [undefined];
       } else {
         checkProjects = [projects];
       }
