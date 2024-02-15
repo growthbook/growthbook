@@ -255,6 +255,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const [statsEngineTab, setStatsEngineTab] = useState<string>(
     settings.statsEngine || DEFAULT_STATS_ENGINE
   );
+  const [
+    codeRefsBranchesToFilterStr,
+    setCodeRefsBranchesToFilterStr,
+  ] = useState<string>("");
   const displayCurrency = useCurrency();
   const growthbook = useGrowthBook<AppFeatures>();
   const { datasources } = useDefinitions();
@@ -337,6 +341,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       useStickyBucketing: false,
       useFallbackAttributes: false,
       codeReferencesEnabled: false,
+      codeRefsBranchesToFilter: [],
+      codeRefsPlatformUrl: "",
     },
   });
   const { apiCall } = useAuth();
@@ -378,6 +384,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
     useStickyBucketing: form.watch("useStickyBucketing"),
     useFallbackAttributes: form.watch("useFallbackAttributes"),
     codeReferencesEnabled: form.watch("codeReferencesEnabled"),
+    codeRefsBranchesToFilter: form.watch("codeRefsBranchesToFilter"),
+    codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
   };
 
   const [cronString, setCronString] = useState("");
@@ -434,8 +442,23 @@ const GeneralSettingsPage = (): React.ReactElement => {
       form.reset(newVal);
       setOriginalValue(newVal);
       updateCronString(newVal.updateSchedule?.cron || "");
+      if (newVal.codeRefsBranchesToFilter) {
+        setCodeRefsBranchesToFilterStr(
+          newVal.codeRefsBranchesToFilter.join(", ")
+        );
+      }
     }
   }, [settings]);
+
+  useEffect(() => {
+    form.setValue(
+      "codeRefsBranchesToFilter",
+      codeRefsBranchesToFilterStr
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    );
+  }, [codeRefsBranchesToFilterStr]);
 
   const ctaEnabled = hasChanges(value, originalValue);
 
@@ -1595,14 +1618,63 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     />
                   </div>
                   {form.watch("codeReferencesEnabled") ? (
-                    <div className="my-4">
-                      <div className="appbox my-4 p-2">
-                        <strong>For GitHub Users</strong>
+                    <>
+                      <div className="my-4">
+                        <strong>
+                          Only show code refs from following
+                          branches(comma-separated, optional):
+                        </strong>
+                        <Field
+                          className="my-2"
+                          type="text"
+                          placeholder="main, qa, dev"
+                          value={codeRefsBranchesToFilterStr}
+                          onChange={(v) => {
+                            const branches = v.currentTarget.value;
+                            setCodeRefsBranchesToFilterStr(branches);
+                          }}
+                        />
                       </div>
-                      <div className="appbox my-4 p-2">
-                        <strong>For Non-GitHub Users</strong>
+                      <div className="my-4">
+                        <div className="appbox my-4 p-3">
+                          <div className="row">
+                            <div className="col-sm-9">
+                              <strong>For GitHub Users</strong>
+                              <p className="my-2">
+                                Use our all-in-one GitHub Action to integrate
+                                GrowthBook into your CI workflow.
+                              </p>
+                            </div>
+                            <div className="col-sm-3 text-right">Setup</div>
+                          </div>
+                        </div>
+                        <div className="appbox my-4 p-3">
+                          <div className="row">
+                            <div className="col-sm-9">
+                              <strong>For Non-GitHub Users</strong>
+                              <p className="my-2">
+                                Use our CLI utility that takes in a list of
+                                feature keys and scans your codebase to provide
+                                a JSON output of code references, which you can
+                                supply to our code references REST API endpoint.
+                              </p>
+                              <div>
+                                <strong>URL to platform</strong>
+                                <Field
+                                  className="my-2"
+                                  type="text"
+                                  placeholder="https://gitlab.com"
+                                  {...form.register("codeRefsPlatformUrl")}
+                                />
+                              </div>
+                            </div>
+                            <div className="col-sm-3 text-right">
+                              CLI Utility | Docker Image
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    </>
                   ) : null}
                 </div>
               </div>

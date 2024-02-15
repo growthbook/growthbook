@@ -192,6 +192,8 @@ export interface OrganizationSettings {
   useStickyBucketing?: boolean;
   useFallbackAttributes?: boolean;
   codeReferencesEnabled?: boolean;
+  codeRefsBranchesToFilter?: string[];
+  codeRefsPlatformUrl?: string;
 }
 
 export interface SubscriptionQuote {
