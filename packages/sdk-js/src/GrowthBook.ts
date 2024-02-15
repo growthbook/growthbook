@@ -21,6 +21,8 @@ import type {
   StickyAttributeKey,
   StickyExperimentKey,
   SubscriptionFunction,
+  TrackingCallback,
+  TrackingData,
   VariationMeta,
   VariationRange,
   WidenPrimitives,
@@ -38,6 +40,7 @@ import {
   isIncluded,
   isURLTargeted,
   loadSDKVersion,
+  mergeUrlSearchParams,
   toString,
 } from "./util";
 import { evalCondition } from "./mongrule";
@@ -62,6 +65,7 @@ export class GrowthBook<
   // Properties and methods that start with "_" are mangled by Terser (saves ~150 bytes)
   private _ctx: Context;
   private _renderer: null | (() => void);
+  private _redirectedUrl: string;
   private _trackedExperiments: Set<unknown>;
   private _trackedFeatures: Record<string, string>;
   private _subscriptions: Set<SubscriptionFunction>;
@@ -85,6 +89,7 @@ export class GrowthBook<
   >;
   private _triggeredExpKeys: Set<string>;
   private _loadFeaturesCalled: boolean;
+  private _deferredTrackingCalls: TrackingData[];
 
   constructor(context?: Context) {
     context = context || {};
@@ -106,6 +111,8 @@ export class GrowthBook<
     this._activeAutoExperiments = new Map();
     this._triggeredExpKeys = new Set();
     this._loadFeaturesCalled = false;
+    this._redirectedUrl = "";
+    this._deferredTrackingCalls = [];
 
     if (context.remoteEval) {
       if (context.decryptionKey) {
@@ -143,6 +150,12 @@ export class GrowthBook<
     if (context.experiments) {
       this.ready = true;
       this._updateAllAutoExperiments();
+    } else if (context.antiFlicker) {
+      this._setAntiFlicker();
+      // Fallback if GrowthBook fails to load in 3.5 seconds
+      setTimeout(() => {
+        document.body.classList.remove("gb-anti-flicker");
+      }, 3500);
     }
 
     if (context.clientKey && !context.remoteEval) {
@@ -488,12 +501,46 @@ export class GrowthBook<
 
     // Apply new changes
     if (result.inExperiment) {
-      const undo = this._applyDOMChanges(result.value);
-      if (undo) {
-        this._activeAutoExperiments.set(experiment, {
-          undo,
-          valueHash,
-        });
+      if (result.value.urlRedirect) {
+        const currUrl = new URL(this._getContextUrl());
+        const redirectUrl = new URL(result.value.urlRedirect);
+        mergeUrlSearchParams(currUrl.searchParams, redirectUrl.searchParams);
+
+        const url = experiment.persistQueryString
+          ? redirectUrl.toString()
+          : result.value.urlRedirect;
+        if (
+          experiment.urlPatterns &&
+          isURLTargeted(url, [experiment.urlPatterns[0]])
+        ) {
+          this.log(
+            "Skipping redirect because original URL matches redirect URL",
+            {
+              id: experiment.key,
+            }
+          );
+          return result;
+        }
+        this._redirectedUrl = url;
+        const navigate = this._getNavigateFunction();
+        if (navigate) {
+          if (isBrowser) {
+            this._setAntiFlicker();
+            window.setTimeout(() => {
+              navigate(url);
+            }, this._ctx.navigateDelay ?? 100);
+          } else {
+            navigate(url);
+          }
+        }
+      } else {
+        const undo = this._applyDOMChanges(result.value);
+        if (undo) {
+          this._activeAutoExperiments.set(experiment, {
+            undo,
+            valueHash,
+          });
+        }
       }
     }
 
@@ -521,8 +568,10 @@ export class GrowthBook<
     });
 
     // Re-run all new/updated experiments
-    experiments.forEach((exp) => {
+    experiments.some((exp) => {
       this._runAutoExperiment(exp, forceRerun);
+      // Break if we encounter an experiment that is redirecting
+      return exp.variations.some((v) => !!v.urlRedirect);
     });
   }
 
@@ -1146,8 +1195,34 @@ export class GrowthBook<
     else console.log(msg, ctx);
   }
 
+  public getDeferredTrackingCalls() {
+    return btoa(JSON.stringify(this._deferredTrackingCalls));
+  }
+
+  public fireDeferredTrackingCalls(data: string) {
+    const calls = JSON.parse(atob(data));
+    if (!Array.isArray(calls)) throw new Error("Invalid tracking data");
+    calls.forEach((call: TrackingData) => {
+      if (!call || !call.experiment || !call.result) {
+        throw new Error("Invalid tracking data");
+      }
+      this._track(call.experiment, call.result);
+    });
+  }
+
+  public setTrackingCallback(callback: TrackingCallback) {
+    this._ctx.trackingCallback = callback;
+    this._deferredTrackingCalls.forEach((call) => {
+      this._track(call.experiment, call.result);
+    });
+    this._deferredTrackingCalls = [];
+  }
+
   private _track<T>(experiment: Experiment<T>, result: Result<T>) {
-    if (!this._ctx.trackingCallback) return;
+    if (!this._ctx.trackingCallback) {
+      this._deferredTrackingCalls.push({ experiment, result });
+      return;
+    }
 
     const key = experiment.key;
 
@@ -1276,6 +1351,31 @@ export class GrowthBook<
       if (groups[expGroups[i]]) return true;
     }
     return false;
+  }
+
+  public getRedirectUrl(): string {
+    return this._redirectedUrl;
+  }
+
+  private _getNavigateFunction():
+    | null
+    | ((url: string) => void | Promise<void>) {
+    if (this._ctx.navigate) {
+      return this._ctx.navigate;
+    } else if (isBrowser) {
+      return (url: string) => {
+        window.location.href = url;
+      };
+    }
+    return null;
+  }
+
+  private _setAntiFlicker() {
+    if (!this._ctx.antiFlicker || !isBrowser) return;
+    const styleTag = document.createElement("style");
+    styleTag.innerHTML = ".gb-anti-flicker { opacity: 0 !important; }";
+    document.head.appendChild(styleTag);
+    document.body.classList.add("gb-anti-flicker");
   }
 
   private _applyDOMChanges(changes: AutoExperimentVariation) {

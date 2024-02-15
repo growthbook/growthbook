@@ -101,6 +101,7 @@ export type Experiment<T> = {
   bucketVersion?: number;
   minBucketVersion?: number;
   active?: boolean;
+  persistQueryString?: boolean;
   /** @deprecated */
   status?: ExperimentStatus;
   /** @deprecated */
@@ -148,6 +149,16 @@ export type RealtimeUsageData = {
   on: boolean;
 };
 
+export interface TrackingData {
+  experiment: Experiment<any>;
+  result: Result<any>;
+}
+
+export type TrackingCallback = (
+  experiment: Experiment<any>,
+  result: Result<any>
+) => void;
+
 export interface Context {
   enabled?: boolean;
   attributes?: Attributes;
@@ -168,7 +179,7 @@ export interface Context {
   enableDevMode?: boolean;
   /* @deprecated */
   disableDevTools?: boolean;
-  trackingCallback?: (experiment: Experiment<any>, result: Result<any>) => void;
+  trackingCallback?: TrackingCallback;
   onFeatureUsage?: (key: string, result: FeatureResult<any>) => void;
   realtimeKey?: string;
   realtimeInterval?: number;
@@ -190,6 +201,9 @@ export interface Context {
   clientKey?: string;
   decryptionKey?: string;
   remoteEval?: boolean;
+  navigate?: (url: string) => void;
+  navigateDelay?: number;
+  antiFlicker?: boolean;
 }
 
 export type SubscriptionFunction = (
@@ -229,6 +243,7 @@ export type AutoExperimentVariation = {
   domMutations?: DOMMutation[];
   css?: string;
   js?: string;
+  urlRedirect?: string;
 };
 
 export type FeatureDefinitions = Record<string, FeatureDefinition>;

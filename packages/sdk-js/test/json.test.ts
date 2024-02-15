@@ -11,6 +11,7 @@ import {
 } from "../src";
 import { evalCondition } from "../src/mongrule";
 import {
+  AutoExperiment,
   StickyAssignmentsDocument,
   StickyAttributeKey,
   VariationRange,
@@ -67,6 +68,8 @@ type Cases = {
     gt: [string, string, boolean][];
     eq: [string, string, boolean][];
   };
+  // name, context, experiment, url, result
+  urlRedirect: [string, Context, AutoExperiment, string, string];
 };
 
 const round = (n: number) => Math.floor(n * 1e8) / 1e8;

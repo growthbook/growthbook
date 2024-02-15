@@ -4,6 +4,7 @@ required:
   - editorUrl
   - experiment
   - visualChanges
+  - urlRedirects
 properties:
   id:
     type: string
@@ -63,3 +64,14 @@ properties:
                 type: string
               insertBeforeSelector:
                 type: string
+  urlRedirects:
+    type: array
+    items:
+      type: object
+      properties:
+        url:
+          type: string
+        variation:
+          type: string
+  persistQueryString:
+    type: boolean

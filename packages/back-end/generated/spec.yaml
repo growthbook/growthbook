@@ -4500,6 +4500,7 @@ components:
         - editorUrl
         - experiment
         - visualChanges
+        - urlRedirects
       properties:
         id:
           type: string
@@ -4564,6 +4565,17 @@ components:
                       type: string
                     insertBeforeSelector:
                       type: string
+        urlRedirects:
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+              variation:
+                type: string
+        persistQueryString:
+          type: boolean
     VisualChange:
       type: object
       required:
