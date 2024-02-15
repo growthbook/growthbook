@@ -329,25 +329,30 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       projects?: string[] | string,
       envs?: string[]
     ): boolean => {
+      if (!currentOrg?.currentUserPermissions) return false;
+
       let checkProjects: (string | undefined)[];
       if (Array.isArray(projects)) {
-        checkProjects = projects.length > 0 ? projects : [undefined];
+        checkProjects =
+          projects.length > 0
+            ? projects
+            : Object.keys(currentOrg.currentUserPermissions.projects);
       } else {
         checkProjects = [projects];
       }
-      for (const p of checkProjects) {
-        if (
-          !hasPermission(
-            currentOrg?.currentUserPermissions,
-            permission,
-            p,
-            envs
-          )
-        ) {
-          return false;
-        }
+
+      //TODO: The READ_ONLY_PERMISSIONS array isn't in the shared folder
+      if (["readOnly", "runQueries", "viewEvents"].includes(permission)) {
+        // Read only type permissions grant permission if the user has the permission globally or in atleast 1 project
+        return checkProjects.some((p) =>
+          hasPermission(currentOrg.currentUserPermissions, permission, p, envs)
+        );
+      } else {
+        // All other permissions require the user to have the permission globally or the user must have the permission in every project they have specific permissions for
+        return checkProjects.every((p) =>
+          hasPermission(currentOrg.currentUserPermissions, permission, p, envs)
+        );
       }
-      return true;
     },
     [currentOrg?.currentUserPermissions]
   );

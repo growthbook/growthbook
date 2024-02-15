@@ -5,7 +5,7 @@ import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
 import { markUserAsVerified, UserModel } from "../../models/UserModel";
 import { getOrganizationById, validateLoginMethod } from "../organizations";
-import { Permission } from "../../../types/organization";
+import { Permission, UserPermissions } from "../../../types/organization";
 import { UserInterface } from "../../../types/user";
 import { AuditInterface } from "../../../types/audit";
 import { getUserByEmail } from "../users";
@@ -16,7 +16,10 @@ import {
   RefreshTokenCookie,
   SSOConnectionIdCookie,
 } from "../../util/cookie";
-import { getUserPermissions } from "../../util/organization.util";
+import {
+  READ_ONLY_PERMISSIONS,
+  getUserPermissions,
+} from "../../util/organization.util";
 import {
   EventAuditUserForResponseLocals,
   EventAuditUserLoggedIn,
@@ -74,7 +77,6 @@ function getInitialDataFromJWT(user: IdToken): JWTInfo {
 }
 
 export async function processJWT(
-  // eslint-disable-next-line
   req: AuthRequest & { user: IdToken },
   res: Response<unknown, EventAuditUserForResponseLocals>,
   next: NextFunction
@@ -88,9 +90,10 @@ export async function processJWT(
   req.teams = [];
 
   const userHasPermission = (
+    userPermissions: UserPermissions,
     permission: Permission,
     teams: TeamInterface[],
-    project?: string,
+    projects: (string | undefined)[],
     envs?: string[]
   ): boolean => {
     if (!req.organization || !req.userId) {
@@ -101,15 +104,17 @@ export async function processJWT(
       return true;
     }
 
-    // Generate full list of permissions for the user
-    const userPermissions = getUserPermissions(
-      req.userId,
-      req.organization,
-      teams
-    );
-
-    // Check if the user has the permission
-    return hasPermission(userPermissions, permission, project, envs);
+    if (READ_ONLY_PERMISSIONS.includes(permission)) {
+      // Read only type permissions grant permission if the user has the permission globally or in atleast 1 project
+      return projects.some((p) =>
+        hasPermission(userPermissions, permission, p, envs)
+      );
+    } else {
+      // All other permissions require the user to have the permission globally or the user must have the permission in every project they have specific permissions for
+      return projects.every((p) =>
+        hasPermission(userPermissions, permission, p, envs)
+      );
+    }
   };
 
   // Throw error if permissions don't pass
@@ -118,23 +123,31 @@ export async function processJWT(
     project?: string | (string | undefined)[] | undefined,
     envs?: string[] | Set<string>
   ) => {
+    if (!req.userId || !req.organization) return false;
+
+    const userPermissions = getUserPermissions(
+      req.userId,
+      req.organization,
+      req.teams
+    );
     let checkProjects: (string | undefined)[];
     if (Array.isArray(project)) {
-      checkProjects = project.length > 0 ? project : [undefined];
+      checkProjects =
+        project.length > 0 ? project : Object.keys(userPermissions.projects);
     } else {
       checkProjects = [project];
     }
-    for (const p of checkProjects) {
-      if (
-        !userHasPermission(
-          permission,
-          req.teams,
-          p,
-          envs ? [...envs] : undefined
-        )
-      ) {
-        throw new Error("You do not have permission to complete that action.");
-      }
+
+    if (
+      !userHasPermission(
+        userPermissions,
+        permission,
+        req.teams,
+        checkProjects,
+        envs ? [...envs] : undefined
+      )
+    ) {
+      throw new Error("You do not have permission to complete that action.");
     }
   };
 

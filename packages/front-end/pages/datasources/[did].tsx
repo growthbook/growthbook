@@ -18,7 +18,6 @@ import { DataSourceInlineEditIdentityJoins } from "@/components/Settings/EditDat
 import { ExperimentAssignmentQueries } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries";
 import { DataSourceViewEditExperimentProperties } from "@/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceViewEditExperimentProperties";
 import { DataSourceJupyterNotebookQuery } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/DataSourceJupyterNotebookQuery";
-import { checkDatasourceProjectPermissions } from "@/services/datasources";
 import ProjectBadges from "@/components/ProjectBadges";
 import usePermissions from "@/hooks/usePermissions";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -59,7 +58,7 @@ const DataSourcePage: FC = () => {
 
   const canEdit =
     (d &&
-      checkDatasourceProjectPermissions(d, permissions, "createDatasources") &&
+      permissions.check("editDatasourceSettings", d.projects) &&
       !hasFileConfig()) ||
     false;
 
