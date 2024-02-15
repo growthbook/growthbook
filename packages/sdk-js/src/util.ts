@@ -329,7 +329,7 @@ export function loadSDKVersion(): string {
   return version;
 }
 
-export function mergeUrlParams(
+export function mergeUrlSearchParams(
   oldParams: URLSearchParams,
   newParams: URLSearchParams
 ): string {

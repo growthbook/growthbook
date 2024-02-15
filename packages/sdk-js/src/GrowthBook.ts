@@ -40,7 +40,7 @@ import {
   isIncluded,
   isURLTargeted,
   loadSDKVersion,
-  mergeUrlParams,
+  mergeUrlSearchParams,
   toString,
 } from "./util";
 import { evalCondition } from "./mongrule";
@@ -504,7 +504,7 @@ export class GrowthBook<
       if (result.value.urlRedirect) {
         const currUrl = new URL(this._getContextUrl());
         const redirectUrl = new URL(result.value.urlRedirect);
-        mergeUrlParams(currUrl.searchParams, redirectUrl.searchParams);
+        mergeUrlSearchParams(currUrl.searchParams, redirectUrl.searchParams);
 
         const url = experiment.persistQueryString
           ? redirectUrl.toString()
