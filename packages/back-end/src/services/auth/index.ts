@@ -103,6 +103,14 @@ export async function processJWT(
     }
 
     if (READ_ONLY_PERMISSIONS.includes(permission)) {
+      if (
+        projects.length === 1 &&
+        projects[0] === undefined &&
+        Object.keys(userPermissions.projects).length
+      ) {
+        // check to see if the user has permission globally or via any of their project specific permissions
+        projects.push(...Object.keys(userPermissions.projects));
+      }
       // Read only type permissions grant permission if the user has the permission globally or in atleast 1 project
       return projects.some((p) =>
         hasPermission(userPermissions, permission, p, envs)
@@ -130,12 +138,7 @@ export async function processJWT(
     );
     let checkProjects: (string | undefined)[];
     if (Array.isArray(project)) {
-      checkProjects =
-        project.length > 0
-          ? project
-          : Object.keys(userPermissions.projects).length
-          ? Object.keys(userPermissions.projects)
-          : [undefined];
+      checkProjects = project.length > 0 ? project : [undefined];
     } else {
       checkProjects = [project];
     }
