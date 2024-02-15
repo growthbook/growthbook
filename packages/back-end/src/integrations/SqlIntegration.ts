@@ -227,16 +227,8 @@ export default abstract class SqlIntegration
   formatDateTimeString(col: string): string {
     return this.castToString(col);
   }
-  limit({
-    select = "*",
-    from,
-    limit,
-  }: {
-    select?: string;
-    from: string;
-    limit: number;
-  }) {
-    return `SELECT ${select} FROM ${from} LIMIT ${limit}`;
+  selectStarLimit(table: string, limit: number): string {
+    return `SELECT * FROM ${table} LIMIT ${limit}`;
   }
 
   hasEfficientPercentile(): boolean {
@@ -350,17 +342,20 @@ export default abstract class SqlIntegration
         GROUP BY
           d.exposure_query, d.experiment_id, d.variation_id
       )
-    ${this.limit({
-      from: `__variations
-      WHERE
-          -- Skip experiments at start of date range since it's likely missing data
-          ${this.dateDiff(
-            this.castUserDateCol(this.toTimestamp(params.from)),
-            "start_date"
-          )} > 2
-      ORDER BY start_date DESC, experiment_id ASC, variation_id ASC`,
-      limit: MAX_ROWS_PAST_EXPERIMENTS_QUERY,
-    })}`,
+    ${this.selectStarLimit(
+      `
+      __variations
+    WHERE
+      -- Skip experiments at start of date range since it's likely missing data
+      ${this.dateDiff(
+        this.castUserDateCol(this.toTimestamp(params.from)),
+        "start_date"
+      )} > 2
+    ORDER BY
+      start_date DESC, experiment_id ASC, variation_id ASC
+      `,
+      MAX_ROWS_PAST_EXPERIMENTS_QUERY
+    )}`,
       this.getFormatDialect()
     );
   }
@@ -674,10 +669,7 @@ export default abstract class SqlIntegration
       `WITH __table as (
         ${query}
       )
-      ${this.limit({
-        from: "__table",
-        limit,
-      })}`,
+      ${this.selectStarLimit("__table", limit)}`,
       {
         startDate,
         templateVariables,
@@ -1330,10 +1322,10 @@ export default abstract class SqlIntegration
           )
           .join("\nUNION ALL\n")}
       )
-      ${this.limit({
-        from: "__unitsByDimension",
-        limit: MAX_ROWS_UNIT_AGGREGATE_QUERY,
-      })}
+      ${this.selectStarLimit(
+        "__unitsByDimension",
+        MAX_ROWS_UNIT_AGGREGATE_QUERY
+      )}
     `,
       this.getFormatDialect()
     );
