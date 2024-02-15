@@ -74,6 +74,7 @@ import {
 import { applyMetricOverrides } from "../util/integration";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
+export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -226,9 +227,18 @@ export default abstract class SqlIntegration
   formatDateTimeString(col: string): string {
     return this.castToString(col);
   }
-  selectSampleRows(table: string, limit: number): string {
-    return `SELECT * FROM ${table} LIMIT ${limit}`;
+  limit({
+    select = "*",
+    from,
+    limit,
+  }: {
+    select?: string;
+    from: string;
+    limit: number;
+  }) {
+    return `SELECT ${select} FROM ${from} LIMIT ${limit}`;
   }
+
   hasEfficientPercentile(): boolean {
     return true;
   }
@@ -340,18 +350,17 @@ export default abstract class SqlIntegration
         GROUP BY
           d.exposure_query, d.experiment_id, d.variation_id
       )
-    SELECT
-      *
-    FROM
-      __variations
-    WHERE
-      -- Skip experiments at start of date range since it's likely missing data
-      ${this.dateDiff(
-        this.castUserDateCol(this.toTimestamp(params.from)),
-        "start_date"
-      )} > 2
-    ORDER BY
-      experiment_id ASC, variation_id ASC`,
+    ${this.limit({
+      from: `__variations
+      WHERE
+          -- Skip experiments at start of date range since it's likely missing data
+          ${this.dateDiff(
+            this.castUserDateCol(this.toTimestamp(params.from)),
+            "start_date"
+          )} > 2
+      ORDER BY start_date DESC, experiment_id ASC, variation_id ASC`,
+      limit: MAX_ROWS_PAST_EXPERIMENTS_QUERY,
+    })}`,
       this.getFormatDialect()
     );
   }
@@ -665,7 +674,10 @@ export default abstract class SqlIntegration
       `WITH __table as (
         ${query}
       )
-      ${this.selectSampleRows("__table", limit)}`,
+      ${this.limit({
+        from: "__table",
+        limit,
+      })}`,
       {
         startDate,
         templateVariables,
@@ -1318,9 +1330,10 @@ export default abstract class SqlIntegration
           )
           .join("\nUNION ALL\n")}
       )
-      SELECT *
-      FROM __unitsByDimension
-      LIMIT ${MAX_ROWS_UNIT_AGGREGATE_QUERY}
+      ${this.limit({
+        from: "__unitsByDimension",
+        limit: MAX_ROWS_UNIT_AGGREGATE_QUERY,
+      })}
     `,
       this.getFormatDialect()
     );
