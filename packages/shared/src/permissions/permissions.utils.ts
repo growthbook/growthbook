@@ -4,10 +4,10 @@ import {
   MemberRole,
 } from "back-end/types/organization";
 
-// const AllProjectAllowedPermissions: Partial<Permission>[] = ["runQueries"];
-
-// const permissionsThatRequireOnlyOneProject: Partial<Permission>[] = [
-const permissionsThatRequireOnlyOneProject: any[] = ["runQueries", "readData"];
+const permissionsThatRequireOnlyOneProject: Partial<Permission>[] = [
+  "runQueries",
+  "readData",
+];
 
 export function doesUserHavePermission(
   userPermissions: UserPermissions | undefined,
@@ -20,13 +20,14 @@ export function doesUserHavePermission(
     let hasPermission = false;
 
     for (const project of projects) {
-      // This project is in ALL PROJECTS so check the user's global and all project permissions
+      // This project is in ALL PROJECTS so check the user's global permissions and every project they have specific permissions for
       if (project === undefined) {
-        // Look through global and all project permissions in UserPermissions - if any of of them are true, the user has access
+        // Check their global permissions first
         if (userPermissions?.global.permissions[permissionToCheck]) {
           hasPermission = true;
           break;
         }
+        // if their global permissions don't give them permission, check every project they have specific permissions for & see if any of those grant permission
         for (const project in userPermissions?.projects) {
           if (
             userPermissions?.projects[project]?.permissions[permissionToCheck]
@@ -38,6 +39,8 @@ export function doesUserHavePermission(
         break;
       }
 
+      // Otherwise, the resource has a project, so check the user's global role and the project's specific role
+      // if either of those grant access, then the user has access
       if (
         userPermissions?.projects[project]?.permissions[permissionToCheck] ||
         userPermissions?.global.permissions[permissionToCheck]
@@ -49,7 +52,6 @@ export function doesUserHavePermission(
     return hasPermission;
   }
   // Other permissions require that the user have the permission in EVERY project
-  //TODO: Figure out how to do this loop so that if 1 loop returns false, the whole thing returns false
   let hasPermission = true;
   for (const project of projects) {
     const usersPermissionsToCheck =
@@ -76,46 +78,6 @@ export function doesUserHavePermission(
   }
   return hasPermission;
 }
-
-// export function hasPermission(
-//   userPermissions: UserPermissions | undefined,
-//   permissionToCheck: Permission,
-//   project?: string | undefined,
-//   envs?: string[]
-// ): boolean {
-//   if (
-//     // For resources that have a "Projects" array, if empty, that means it is in "All Projects"
-//     // and there are some permissions where the user only has to have the permission in atleast 1 project, in order to have permission
-//     project === undefined &&
-//     AllProjectAllowedPermissions.includes(permissionToCheck)
-//   ) {
-//     let hasPermission = false;
-//     for (const project in userPermissions?.projects) {
-//       if (userPermissions?.projects[project]?.permissions[permissionToCheck]) {
-//         hasPermission = true;
-//         break;
-//       }
-//     }
-//     return hasPermission;
-//   }
-
-//   const usersPermissionsToCheck =
-//     (project && userPermissions?.projects[project]) || userPermissions?.global;
-
-//   if (
-//     !usersPermissionsToCheck ||
-//     !usersPermissionsToCheck.permissions[permissionToCheck]
-//   ) {
-//     return false;
-//   }
-
-//   if (!envs || !usersPermissionsToCheck.limitAccessByEnvironment) {
-//     return true;
-//   }
-//   return envs.every((env) =>
-//     usersPermissionsToCheck.environments.includes(env)
-//   );
-// }
 
 export function hasReadAccess(
   filter: ReadAccessFilter,

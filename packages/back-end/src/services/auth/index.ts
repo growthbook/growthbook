@@ -73,7 +73,6 @@ function getInitialDataFromJWT(user: IdToken): JWTInfo {
 }
 
 export async function processJWT(
-  // eslint-disable-next-line
   req: AuthRequest & { user: IdToken },
   res: Response<unknown, EventAuditUserForResponseLocals>,
   next: NextFunction
@@ -85,31 +84,6 @@ export async function processJWT(
   req.name = name || "";
   req.verified = verified || false;
   req.teams = [];
-
-  // const userHasPermission = (
-  //   permission: Permission,
-  //   teams: TeamInterface[],
-  //   project?: string,
-  //   envs?: string[]
-  // ): boolean => {
-  //   if (!req.organization || !req.userId) {
-  //     return false;
-  //   }
-
-  //   if (req.superAdmin) {
-  //     return true;
-  //   }
-
-  //   // Generate full list of permissions for the user
-  //   const userPermissions = getUserPermissions(
-  //     req.userId,
-  //     req.organization,
-  //     teams
-  //   );
-
-  //   // Check if the user has the permission
-  //   return hasPermission(userPermissions, permission, project, envs);
-  // };
 
   // Throw error if permissions don't pass
   req.checkPermissions = (
@@ -138,18 +112,6 @@ export async function processJWT(
       checkProjects,
       envs ? [...envs] : undefined
     );
-    // for (const p of checkProjects) {
-    //   if (
-    //     !userHasPermission(
-    //       permission,
-    //       req.teams,
-    //       p,
-    //       envs ? [...envs] : undefined
-    //     )
-    //   ) {
-    //     throw new Error("You do not have permission to complete that action.");
-    //   }
-    // }
   };
 
   const user = await getUserFromJWT(req.user);

@@ -336,31 +336,12 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       } else {
         checkProjects = [projects];
       }
-      //TODO: Move this so that it can be access on the frontend
-      // const userPermissions = getUserPermissions(
-      //   data.userId,
-      //   currentOrg.organization,
-      //   currentOrg.teams
-      // );
       return doesUserHavePermission(
         currentOrg?.currentUserPermissions,
         permission,
         checkProjects,
         envs ? [...envs] : undefined
       );
-      // for (const p of checkProjects) {
-      //   if (
-      //     !hasPermission(
-      //       currentOrg?.currentUserPermissions,
-      //       permission,
-      //       p,
-      //       envs
-      //     )
-      //   ) {
-      //     return false;
-      //   }
-      // }
-      // return true;
     },
     [currentOrg?.currentUserPermissions, currentOrg?.organization, data?.userId]
   );
