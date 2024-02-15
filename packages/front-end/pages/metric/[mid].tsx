@@ -25,7 +25,6 @@ import { useAuth } from "@/services/auth";
 import {
   defaultWinRiskThreshold,
   defaultLoseRiskThreshold,
-  checkMetricProjectPermissions,
   getMetricFormatter,
 } from "@/services/metrics";
 import MetricForm from "@/components/Metrics/MetricForm";
@@ -134,10 +133,9 @@ const MetricPage: FC = () => {
   }
 
   const metric = data.metric;
-  const canEditMetric =
-    checkMetricProjectPermissions(metric, permissions) && !metric.managedBy;
+  const canEditMetric = permissions.check("createMetrics", metric.projects);
   const canEditProjects =
-    permissions.check("createMetrics", "") && !metric.managedBy;
+    permissions.check("createMetrics", metric.projects) && !metric.managedBy;
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
