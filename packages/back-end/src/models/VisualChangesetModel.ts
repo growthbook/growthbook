@@ -60,7 +60,6 @@ const visualChangesetSchema = new mongoose.Schema<VisualChangesetInterface>({
   },
   editorUrl: {
     type: String,
-    // required: true,
   },
   experiment: {
     type: String,
