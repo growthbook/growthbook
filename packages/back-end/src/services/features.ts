@@ -104,9 +104,21 @@ function generateVisualExperimentsPayload({
   const isValidSDKExperiment = (
     e: AutoExperimentWithProject | null
   ): e is AutoExperimentWithProject => !!e;
-  const sdkExperiments: Array<AutoExperimentWithProject | null> = visualExperiments
-    .sort((_a, b) => (b.visualChangeset.urlRedirects.length ? 1 : -1))
-    .map(({ experiment: e, visualChangeset: v }) => {
+
+  const urlRedirectExperiments = visualExperiments.filter(
+    (e) => e.visualChangeset.urlRedirects.length > 0
+  );
+
+  const visualEditorExperiments = visualExperiments.filter(
+    (e) => e.visualChangeset.urlRedirects.length === 0
+  );
+
+  const sortedVisualExperiments = urlRedirectExperiments.concat(
+    visualEditorExperiments
+  );
+
+  const sdkExperiments: Array<AutoExperimentWithProject | null> = sortedVisualExperiments.map(
+    ({ experiment: e, visualChangeset: v }) => {
       if (e.status === "stopped" && e.excludeFromPayload) return null;
 
       const phase: ExperimentPhase | null = e.phases.slice(-1)?.[0] ?? null;
@@ -166,7 +178,8 @@ function generateVisualExperimentsPayload({
       };
 
       return exp;
-    });
+    }
+  );
   return sdkExperiments.filter(isValidSDKExperiment);
 }
 
