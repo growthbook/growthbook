@@ -42,11 +42,11 @@ For GrowthBook, we selected a method that would work for the wide variety of exp
 
 Specifically, GrowthBook's confidence sequences, which take the place of confidence intervals, become:
 
-$$\left(\hat{\mu} \pm \hat{\sigma}^2*N * \sqrt{\frac{2(N\rho^2 + 1)}{N^2\rho^2}\log\left(\frac{\sqrt{N\rho^2 + 1}}{\alpha}\right)}\right)$$
+$$\left(\hat{\mu} \pm \hat{\sigma}*N * \sqrt{\frac{2(N\rho^2 + 1)}{N^2\rho^2}\log\left(\frac{\sqrt{N\rho^2 + 1}}{\alpha}\right)}\right)$$
 
 $$\rho = \sqrt{\frac{-2\text{log}(\alpha) + \text{log}(-2 \text{log}(\alpha) + 1)}{N^*}}$$
 
-In the above, $\hat{\mu}$ is our estimated uplift, $\hat{\sigma}^2$ is the estimated variance of the uplift, $\alpha$ is our significance level (defaults to 0.05), and $N$ is the sum of the two variation's sample sizes.
+In the above, $\hat{\mu}$ is our estimated uplift, $\hat{\sigma}$ is the estimated variance of the uplift, $\alpha$ is our significance level (defaults to 0.05), and $N$ is the sum of the two variation's sample sizes.
 
 In the above $N^*$ is a tuning parameter that lets us control how tight these confidence sequences are relative to the standard, fixed-time confidence intervals. It can be thought of as an "estimated sample size." You want to set $N^*$ to be the number of observations at which you tend to make decisions, because it is at that sample size that the loss in experiment power from using sequential testing will be smallest relative to the traditional confidence intervals.
 
