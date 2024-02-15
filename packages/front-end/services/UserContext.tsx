@@ -330,6 +330,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       envs?: string[]
     ): boolean => {
       if (!data?.userId || !currentOrg?.organization) return false;
+      if (data?.superAdmin) return true;
       let checkProjects: (string | undefined)[];
       if (Array.isArray(projects)) {
         checkProjects = projects.length > 0 ? projects : [undefined];
@@ -343,7 +344,12 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         envs ? [...envs] : undefined
       );
     },
-    [currentOrg?.currentUserPermissions, currentOrg?.organization, data?.userId]
+    [
+      currentOrg?.currentUserPermissions,
+      currentOrg?.organization,
+      data?.superAdmin,
+      data?.userId,
+    ]
   );
 
   return (

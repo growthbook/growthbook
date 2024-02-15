@@ -93,6 +93,8 @@ export async function processJWT(
   ) => {
     if (!req.userId || !req.organization) return false;
 
+    if (req.superAdmin) return true;
+
     let checkProjects: (string | undefined)[];
     if (Array.isArray(project)) {
       checkProjects = project.length > 0 ? project : [undefined];
