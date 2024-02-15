@@ -63,6 +63,7 @@ import {
   sendPendingMemberEmail,
   sendNewOrgEmail,
   sendPendingMemberApprovalEmail,
+  sendOwnerEmailChangeEmail,
 } from "../../services/email";
 import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
 import { getAllSavedGroups } from "../../models/SavedGroupModel";
@@ -1134,11 +1135,11 @@ export async function putOrganization(
   res: Response
 ) {
   const { org } = getContextFromReq(req);
-  const { name, settings, connections, externalId } = req.body;
+  const { name, ownerEmail, settings, connections, externalId } = req.body;
 
   const deletedEnvIds: string[] = [];
 
-  if (connections || name) {
+  if (connections || name || ownerEmail) {
     req.checkPermissions("organizationSettings");
   }
   if (settings) {
@@ -1196,6 +1197,28 @@ export async function putOrganization(
     if (name) {
       updates.name = name;
       orig.name = org.name;
+    }
+    if (ownerEmail && ownerEmail !== org.ownerEmail) {
+      const newDomain = ownerEmail.trim().split("@")[1];
+      const oldDomain = org.ownerEmail.split("@")[1];
+      if (newDomain !== oldDomain) {
+        throw Error(
+          "Cannot change domains of the owner email. Please contact support or your account admin"
+        );
+      }
+      updates.ownerEmail = ownerEmail;
+      orig.ownerEmail = org.ownerEmail;
+      // send email to original owner and new owner alerting them of the change:
+      try {
+        await sendOwnerEmailChangeEmail(
+          req.email,
+          org.name,
+          org.ownerEmail,
+          ownerEmail
+        );
+      } catch (e) {
+        req.log.error(e, "Failed to send owner email change email");
+      }
     }
     if (externalId !== undefined) {
       updates.externalId = externalId;
