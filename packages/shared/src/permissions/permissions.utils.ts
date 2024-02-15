@@ -4,19 +4,14 @@ import {
   MemberRole,
 } from "back-end/types/organization";
 
-const permissionsThatRequireOnlyOneProject: Partial<Permission>[] = [
-  "runQueries",
-  "readData",
-];
-
 export function doesUserHavePermission(
   userPermissions: UserPermissions | undefined,
   permissionToCheck: Permission,
   projects: (string | undefined)[],
   envs?: string[]
 ): boolean {
-  // Some permissions require that the user have the permission in atleast 1 project
-  if (permissionsThatRequireOnlyOneProject.includes(permissionToCheck)) {
+  // Some permissions only require the user to have the permission in 1 project (or globally) in order to have access
+  if (["runQueries", "readData"].includes(permissionToCheck)) {
     let hasPermission = false;
 
     for (const project of projects) {
@@ -51,7 +46,7 @@ export function doesUserHavePermission(
     }
     return hasPermission;
   }
-  // Other permissions require that the user have the permission in EVERY project
+  // Other permissions require that the user have the permission in EVERY project (or have it globally) in order to access
   let hasPermission = true;
   for (const project of projects) {
     const usersPermissionsToCheck =
