@@ -79,39 +79,6 @@ export function doesUserHavePermission(
   return hasPermission;
 }
 
-export function hasReadAccess(
-  filter: ReadAccessFilter,
-  projects: string | string[] | undefined
-): boolean {
-  // If the resource is available to all projects (an empty array), then everyone should have read access
-  if (Array.isArray(projects) && !projects?.length) {
-    return true;
-  }
-
-  const hasGlobaReadAccess = filter.globalReadAccess;
-
-  // if the user doesn't have project specific roles or resource doesn't have a project (project is an empty string), fallback to user's global role
-  if (!filter.projects.length || !projects) {
-    return hasGlobaReadAccess;
-  }
-
-  const resourceProjects = Array.isArray(projects) ? projects : [projects];
-
-  // if the user doesn't have global read access, but they do have read access for atleast one of the resource's projects, allow read access to resource
-  if (!hasGlobaReadAccess) {
-    return resourceProjects.some((project) => {
-      return filter.projects.some((p) => p.id === project && p.readAccess);
-    });
-  }
-
-  // otherwise, don't allow read access only if the user's project-specific roles restrict read access for all of the resource's projects
-  const everyProjectRestrictsReadAccess = resourceProjects.every((project) => {
-    return filter.projects.some((p) => p.id === project && !p.readAccess);
-  });
-
-  return everyProjectRestrictsReadAccess ? false : true;
-}
-
 export function roleSupportsEnvLimit(role: MemberRole): boolean {
   return ["engineer", "experimenter"].includes(role);
 }
@@ -160,35 +127,36 @@ export function getReadAccessFilter(userPermissions: UserPermissions) {
 
   return readAccess;
 }
-// export function hasReadAccess(
-//   filter: ReadAccessFilter,
-//   projects: string | string[] | undefined
-// ): boolean {
-//   // If the resource is available to all projects (an empty array), then everyone should have read access
-//   if (Array.isArray(projects) && !projects?.length) {
-//     return true;
-//   }
 
-//   const hasGlobaReadAccess = filter.globalReadAccess;
+export function hasReadAccess(
+  filter: ReadAccessFilter,
+  projects: string | string[] | undefined
+): boolean {
+  // If the resource is available to all projects (an empty array), then everyone should have read access
+  if (Array.isArray(projects) && !projects?.length) {
+    return true;
+  }
 
-//   // if the user doesn't have project specific roles or resource doesn't have a project (project is an empty string), fallback to user's global role
-//   if (!filter.projects.length || !projects) {
-//     return hasGlobaReadAccess;
-//   }
+  const hasGlobaReadAccess = filter.globalReadAccess;
 
-//   const resourceProjects = Array.isArray(projects) ? projects : [projects];
+  // if the user doesn't have project specific roles or resource doesn't have a project (project is an empty string), fallback to user's global role
+  if (!filter.projects.length || !projects) {
+    return hasGlobaReadAccess;
+  }
 
-//   // if the user doesn't have global read access, but they do have read access for atleast one of the resource's projects, allow read access to resource
-//   if (!hasGlobaReadAccess) {
-//     return resourceProjects.some((project) => {
-//       return filter.projects.some((p) => p.id === project && p.readAccess);
-//     });
-//   }
+  const resourceProjects = Array.isArray(projects) ? projects : [projects];
 
-//   // otherwise, don't allow read access only if the user's project-specific roles restrict read access for all of the resource's projects
-//   const everyProjectRestrictsReadAccess = resourceProjects.every((project) => {
-//     return filter.projects.some((p) => p.id === project && !p.readAccess);
-//   });
+  // if the user doesn't have global read access, but they do have read access for atleast one of the resource's projects, allow read access to resource
+  if (!hasGlobaReadAccess) {
+    return resourceProjects.some((project) => {
+      return filter.projects.some((p) => p.id === project && p.readAccess);
+    });
+  }
 
-//   return everyProjectRestrictsReadAccess ? false : true;
-// }
+  // otherwise, don't allow read access only if the user's project-specific roles restrict read access for all of the resource's projects
+  const everyProjectRestrictsReadAccess = resourceProjects.every((project) => {
+    return filter.projects.some((p) => p.id === project && !p.readAccess);
+  });
+
+  return everyProjectRestrictsReadAccess ? false : true;
+}
