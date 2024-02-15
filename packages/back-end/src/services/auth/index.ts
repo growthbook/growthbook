@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { SSO_CONFIG } from "enterprise";
-import { hasPermission } from "shared/permissions";
+import { doesUserHavePermission, hasPermission } from "shared/permissions";
 import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
 import { markUserAsVerified, UserModel } from "../../models/UserModel";
@@ -118,12 +118,27 @@ export async function processJWT(
     project?: string | (string | undefined)[] | undefined,
     envs?: string[] | Set<string>
   ) => {
+    if (!req.userId || !req.organization) return false;
+
     let checkProjects: (string | undefined)[];
     if (Array.isArray(project)) {
       checkProjects = project.length > 0 ? project : [undefined];
     } else {
       checkProjects = [project];
     }
+
+    const userPermissions = getUserPermissions(
+      req.userId,
+      req.organization,
+      req.teams
+    );
+
+    return doesUserHavePermission(
+      userPermissions,
+      permission,
+      checkProjects,
+      envs ? [...envs] : undefined
+    );
     for (const p of checkProjects) {
       if (
         !userHasPermission(
