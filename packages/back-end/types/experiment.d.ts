@@ -6,6 +6,7 @@ import {
   SavedGroupTargeting,
 } from "./feature";
 import { StatsEngine } from "./stats";
+import { CustomFieldValues } from "./custom-fields";
 
 export type ImplementationType = "visual" | "code" | "configuration" | "custom";
 
@@ -175,6 +176,7 @@ export interface ExperimentInterface {
   sequentialTestingTuningParameter?: number;
   statsEngine?: StatsEngine;
   manualLaunchChecklist?: { key: string; status: "complete" | "incomplete" }[];
+  customFields?: CustomFieldValues;
 }
 
 export type ExperimentInterfaceStringDates = Omit<

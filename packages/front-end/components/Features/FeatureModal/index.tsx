@@ -21,6 +21,12 @@ import { useWatching } from "@/services/WatchProvider";
 import usePermissions from "@/hooks/usePermissions";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
+import {
+  filterCustomFieldsForSectionAndProject,
+  useCustomFields,
+} from "@/hooks/useCustomFields";
+import { useUser } from "@/services/UserContext";
 import FeatureValueField from "../FeatureValueField";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
@@ -144,6 +150,7 @@ export default function FeatureModal({
   const environments = useEnvironments();
   const permissions = usePermissions();
   const { refreshWatching } = useWatching();
+  const { hasCommercialFeature } = useUser();
 
   const defaultValues = genFormDefaultValues({
     environments,
@@ -153,6 +160,12 @@ export default function FeatureModal({
   });
 
   const form = useForm({ defaultValues });
+
+  const customFields = filterCustomFieldsForSectionAndProject(
+    useCustomFields(),
+    "feature",
+    project
+  );
 
   const [showTags, setShowTags] = useState(!!featureToDuplicate?.tags?.length);
   const [showDescription, setShowDescription] = useState(
@@ -197,7 +210,7 @@ export default function FeatureModal({
         const passedFeature = feature as FeatureInterface;
         const newDefaultValue = validateFeatureValue(
           passedFeature,
-          defaultValue,
+          defaultValue ?? "",
           "Value"
         );
         let hasChanges = false;
@@ -214,7 +227,7 @@ export default function FeatureModal({
 
         const body = {
           ...feature,
-          defaultValue: parseDefaultValue(defaultValue, valueType),
+          defaultValue: parseDefaultValue(defaultValue ?? "", valueType),
         };
 
         const res = await apiCall<{ feature: FeatureInterface }>(`/feature`, {
@@ -292,13 +305,15 @@ export default function FeatureModal({
         />
       )}
 
-      <EnvironmentSelect
-        environmentSettings={environmentSettings}
-        setValue={(env, on) => {
-          environmentSettings[env.id].enabled = on;
-          form.setValue("environmentSettings", environmentSettings);
-        }}
-      />
+      {environmentSettings && (
+        <EnvironmentSelect
+          environmentSettings={environmentSettings}
+          setValue={(env, on) => {
+            environmentSettings[env.id].enabled = on;
+            form.setValue("environmentSettings", environmentSettings);
+          }}
+        />
+      )}
 
       {/*
           We hide rule configuration when duplicating a feature since the
@@ -306,22 +321,32 @@ export default function FeatureModal({
           modal is not deterministic.
       */}
       {!featureToDuplicate && (
-        <>
-          <FeatureValueField
-            label={"Default Value when Enabled"}
-            id="defaultValue"
-            value={form.watch("defaultValue")}
-            setValue={(v) => form.setValue("defaultValue", v)}
-            valueType={valueType}
-          />
-
-          <div className="alert alert-info">
-            After creating your feature, you will be able to add targeted rules
-            such as <strong>A/B Tests</strong> and{" "}
-            <strong>Percentage Rollouts</strong> to control exactly how it gets
-            released to users.
+        <FeatureValueField
+          label={"Default Value when Enabled"}
+          id="defaultValue"
+          value={form.watch("defaultValue") ?? ""}
+          setValue={(v) => form.setValue("defaultValue", v)}
+          valueType={valueType}
+        />
+      )}
+      {hasCommercialFeature("custom-exp-metadata") &&
+        customFields &&
+        customFields?.length > 0 && (
+          <div className="appbox p-3 bg-light">
+            <CustomFieldInput
+              customFields={customFields}
+              form={form}
+              section={"feature"}
+            />
           </div>
-        </>
+        )}
+      {!featureToDuplicate && (
+        <div className="alert alert-info">
+          After creating your feature, you will be able to add targeted rules
+          such as <strong>A/B Tests</strong> and{" "}
+          <strong>Percentage Rollouts</strong> to control exactly how it gets
+          released to users.
+        </div>
       )}
     </Modal>
   );

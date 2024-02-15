@@ -3,6 +3,7 @@
 import type { FeatureDefinition, FeatureResult } from "@growthbook/growthbook";
 import { UserRef } from "./user";
 import { FeatureRevisionInterface } from "./feature-revision";
+import { CustomFieldValues } from "./custom-fields";
 
 export type FeatureValueType = "boolean" | "string" | "number" | "json";
 
@@ -54,6 +55,7 @@ export interface FeatureInterface {
     date: Date;
     enabled: boolean;
   };
+  customFields?: CustomFieldValues;
 
   /** @deprecated */
   legacyDraft?: FeatureRevisionInterface | null;

@@ -55,6 +55,7 @@ import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
 import track from "@/services/track";
 import { formatTrafficSplit } from "@/services/utils";
 import Results_old from "@/components/Experiment/Results_old";
+import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";
@@ -888,6 +889,12 @@ export default function SinglePage({
                 headerClassName="h3"
                 className="mb-4"
                 containerClassName="mb-1"
+              />
+              <CustomFieldDisplay
+                target={experiment}
+                canEdit={canEditExperiment}
+                mutate={mutate}
+                section={"experiment"}
               />
             </div>
 

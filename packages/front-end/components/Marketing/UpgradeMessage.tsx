@@ -10,11 +10,13 @@ export default function UpgradeMessage({
   commercialFeature,
   upgradeMessage,
   className,
+  isEnterprise,
 }: {
   showUpgradeModal: () => void;
   commercialFeature: CommercialFeature;
   upgradeMessage?: string;
   className?: string;
+  isEnterprise?: boolean;
 }) {
   if (!upgradeMessage) {
     upgradeMessage = "use this feature";
@@ -25,8 +27,10 @@ export default function UpgradeMessage({
 
   const headerMessage = isCloud() ? (
     <>Upgrade your plan to {upgradeMessage}</>
+  ) : isEnterprise ? (
+    <>Try out Enterprise for free to {upgradeMessage}</>
   ) : (
-    <>Purchase a commercial license to {upgradeMessage}.</>
+    <>Get a license to {upgradeMessage}.</>
   );
 
   return (
@@ -42,7 +46,10 @@ export default function UpgradeMessage({
         <div className={`${styles.headerMessage} text-dark mb-2`}>
           {headerMessage}
         </div>
-        <div className="btn btn-md btn-premium" style={{ minWidth: 145 }}>
+        <div
+          className="btn btn-md btn-premium btn-light"
+          style={{ minWidth: 145 }}
+        >
           Learn more <GBPremiumBadge />
         </div>
       </div>

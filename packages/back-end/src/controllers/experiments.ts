@@ -536,6 +536,7 @@ export async function postExperiments(
       org?.settings?.sequentialTestingTuningParameter ??
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     statsEngine: data.statsEngine,
+    customFields: data.customFields || undefined,
   };
 
   try {
@@ -732,6 +733,7 @@ export async function postExperiment(
     "sequentialTestingEnabled",
     "sequentialTestingTuningParameter",
     "statsEngine",
+    "customFields",
   ];
   const existing: ExperimentInterface = experiment;
   const changes: Changeset = {};
@@ -746,7 +748,8 @@ export async function postExperiment(
     if (
       key === "metrics" ||
       key === "metricOverrides" ||
-      key === "variations"
+      key === "variations" ||
+      key === "customFields"
     ) {
       hasChanges = JSON.stringify(data[key]) !== JSON.stringify(existing[key]);
     }

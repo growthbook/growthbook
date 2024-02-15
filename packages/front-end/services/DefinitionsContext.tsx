@@ -18,6 +18,7 @@ import {
   FactTableInterface,
 } from "back-end/types/fact-table";
 import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
+import { CustomField } from "back-end/types/custom-fields";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 
@@ -28,6 +29,7 @@ type Definitions = {
   segments: SegmentInterface[];
   projects: ProjectInterface[];
   savedGroups: SavedGroupInterface[];
+  customFields: CustomField[];
   tags: TagInterface[];
   factTables: FactTableInterface[];
   factMetrics: FactMetricInterface[];
@@ -70,6 +72,7 @@ const defaultValue: DefinitionContextValue = {
   segments: [],
   tags: [],
   savedGroups: [],
+  customFields: [],
   projects: [],
   factTables: [],
   factMetrics: [],
@@ -169,6 +172,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       segments: data.segments,
       tags: data.tags,
       savedGroups: data.savedGroups,
+      customFields: data.customFields,
       projects: data.projects,
       project: filteredProject,
       factTables: data.factTables,

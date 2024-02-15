@@ -118,6 +118,7 @@ import { getAllFactMetricsForOrganization } from "../../models/FactMetricModel";
 import { TeamInterface } from "../../../types/team";
 import { queueSingleWebhookById } from "../../jobs/sdkWebhooks";
 import { initializeLicense } from "../../services/licenseData";
+import { getCustomFields } from "../../models/CustomFieldModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -133,6 +134,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     segments,
     tags,
     savedGroups,
+    customFields,
     projects,
     factTables,
     factMetrics,
@@ -143,6 +145,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     findSegmentsByOrganization(orgId),
     getAllTags(orgId),
     getAllSavedGroups(orgId),
+    getCustomFields(orgId),
     findAllProjectsByOrganization(context),
     getAllFactTablesForOrganization(context),
     getAllFactMetricsForOrganization(context),
@@ -171,6 +174,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     segments,
     tags,
     savedGroups,
+    customFields: customFields?.fields ?? [],
     projects,
     factTables,
     factMetrics,

@@ -49,6 +49,9 @@ export type EventType =
   | "archetype.created"
   | "archetype.deleted"
   | "archetype.updated"
+  | "customField.created"
+  | "customField.deleted"
+  | "customField.updated"
   | "team.create"
   | "team.delete"
   | "team.update";

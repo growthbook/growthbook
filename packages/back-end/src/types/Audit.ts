@@ -8,6 +8,7 @@ export const EntityType = [
   "organization",
   "savedGroup",
   "archetype",
+  "customField",
   "team",
 ] as const;
 

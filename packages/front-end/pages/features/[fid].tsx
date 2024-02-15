@@ -80,6 +80,7 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
+import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -741,6 +742,14 @@ export default function FeaturePage() {
             }}
           />
         </div>
+      </div>
+      <div>
+        <CustomFieldDisplay
+          target={data.feature}
+          canEdit={permissions.check("manageFeatures", projectId)}
+          mutate={mutate}
+          section={"feature"}
+        />
       </div>
 
       <h3>Enabled Environments</h3>

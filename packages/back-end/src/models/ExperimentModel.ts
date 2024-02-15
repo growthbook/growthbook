@@ -186,6 +186,7 @@ const experimentSchema = new mongoose.Schema({
       },
     },
   ],
+  customFields: {},
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;

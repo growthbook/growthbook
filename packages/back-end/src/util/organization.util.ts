@@ -53,6 +53,7 @@ export const GLOBAL_PERMISSIONS = [
   "manageNamespaces",
   "manageSavedGroups",
   "manageArchetype",
+  "manageCustomFields",
   "viewEvents",
 ] as const;
 
@@ -404,6 +405,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageNamespaces",
         "manageSavedGroups",
         "manageArchetype",
+        "manageCustomFields",
         "manageTags",
         "runExperiments",
         "createAnalyses",

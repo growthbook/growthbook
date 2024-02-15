@@ -175,6 +175,11 @@ const navlinks: SidebarLinkProps[] = [
         permissions: ["manageProjects"],
       },
       {
+        name: "Custom Fields",
+        href: "/settings/customfields",
+        path: /^settings\/customfields/,
+      },
+      {
         name: "API Keys",
         href: "/settings/keys",
         path: /^settings\/keys/,
