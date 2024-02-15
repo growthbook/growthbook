@@ -1608,6 +1608,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   <PremiumTooltip commercialFeature={"code-references"}>
                     <h4>Configure Code References</h4>
                   </PremiumTooltip>
+                  <div>
+                    <label className="mr-1" htmlFor="toggle-codeReferences">
+                      Enable displaying code references for feature flags in the
+                      GrowthBook UI
+                    </label>
+                  </div>
                   <div className="my-2">
                     <Toggle
                       id={"toggle-codeReferences"}
@@ -1621,8 +1627,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     <>
                       <div className="my-4">
                         <strong>
-                          Only show code refs from following
-                          branches(comma-separated, optional):
+                          Only show code refs from the following branches
+                          (comma-separated, optional):
                         </strong>
                         <Field
                           className="my-2"
@@ -1645,7 +1651,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
                                 GrowthBook into your CI workflow.
                               </p>
                             </div>
-                            <div className="col-sm-3 text-right">Setup</div>
+                            <div className="col-sm-3 text-right">
+                              <a
+                                href="https://github.com/marketplace/actions/growthbook-code-references"
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                Setup
+                              </a>
+                            </div>
                           </div>
                         </div>
                         <div className="appbox my-4 p-3">
@@ -1656,10 +1670,20 @@ const GeneralSettingsPage = (): React.ReactElement => {
                                 Use our CLI utility that takes in a list of
                                 feature keys and scans your codebase to provide
                                 a JSON output of code references, which you can
-                                supply to our code references REST API endpoint.
+                                supply to our code references{" "}
+                                <a
+                                  href="https://docs.growthbook.io/api#tag/code-references"
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  REST API endpoint
+                                </a>
+                                .
                               </p>
                               <div>
-                                <strong>URL to platform</strong>
+                                <strong>
+                                  Platform host URL for code reference links:
+                                </strong>
                                 <Field
                                   className="my-2"
                                   type="text"
@@ -1669,7 +1693,21 @@ const GeneralSettingsPage = (): React.ReactElement => {
                               </div>
                             </div>
                             <div className="col-sm-3 text-right">
-                              CLI Utility | Docker Image
+                              <a
+                                href="https://github.com/growthbook/gb-find-code-refs"
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                CLI Utility
+                              </a>{" "}
+                              |{" "}
+                              <a
+                                href="https://hub.docker.com/repository/docker/growthbook/gb-find-code-refs/general"
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                Docker Image
+                              </a>
                             </div>
                           </div>
                         </div>
