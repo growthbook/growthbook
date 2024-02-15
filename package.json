@@ -20,7 +20,6 @@
     "setup": "yarn build:deps && wsrun -p 'stats' -c setup",
     "prepare": "husky install",
     "plop": "plop",
-    "jupyter-notebook": "yarn workspace stats jupyter-notebook",
     "migrate-encryption-key": "yarn workspace back-end migrate-encryption-key",
     "generate-api-types": "yarn workspace back-end generate-api-types",
     "ci": "yarn lint:ci && yarn run type-check && yarn run test"

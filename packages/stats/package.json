@@ -9,6 +9,6 @@
     "setup": "poetry install",
     "build:export": "poetry export -f requirements.txt --output requirements.txt && poetry export --dev -f requirements.txt --output dev-requirements.txt",
     "build": "poetry build && yarn build:export",
-    "jupyter-notebook": ". $(poetry env info --path)/bin/activate && jupyter notebook"
+    "notebook": ". $(poetry env info --path)/bin/activate && jupyter notebook"
   }
 }

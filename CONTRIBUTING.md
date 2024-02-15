@@ -181,7 +181,7 @@ Ensure you have run `yarn setup` first to install the poetry virtual environment
 - `yarn workspace stats test` - Run pytest
 - `yarn workspace stats lint` - Run flake8, black, and pyright
 - `yarn workspace stats build` - Run the build process
-- `yarn jupyter-notebook` - Spin up a Jupyter Notebook with `gbstats` and other dependencies in the kernel
+- `yarn workspace stats notebook` - Spin up a Jupyter Notebook with `gbstats` and other dependencies in the kernel
 
 You can also just run `yarn *` where \* is test, lint, build if you `cd` to the `packages/stats` directory first.
 
