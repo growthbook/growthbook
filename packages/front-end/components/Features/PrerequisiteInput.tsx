@@ -6,7 +6,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import { RxInfoCircled, RxLoop } from "react-icons/rx";
 import {
   isPrerequisiteConditionOperatorConditional,
-  PrerequisiteState,
+  PrerequisiteStateResult,
 } from "shared/util";
 import { FaRegCircleQuestion } from "react-icons/fa6";
 import { condToJson, jsonToConds } from "@/services/features";
@@ -21,7 +21,7 @@ interface Props {
   defaultValue: string;
   onChange: (value: string) => void;
   parentFeature?: FeatureInterface;
-  prereqStates?: Record<string, PrerequisiteState> | null;
+  prereqStates?: Record<string, PrerequisiteStateResult> | null;
 }
 
 export default function PrerequisiteInput(props: Props) {
@@ -54,7 +54,7 @@ export default function PrerequisiteInput(props: Props) {
   const [rawTextMode, setRawTextMode] = useState(false);
 
   const hasConditionalState = props.prereqStates
-    ? Object.values(props.prereqStates).some((s) => s === "conditional")
+    ? Object.values(props.prereqStates).some((s) => s.state === "conditional")
     : true;
 
   useEffect(() => {
@@ -208,7 +208,7 @@ export default function PrerequisiteInput(props: Props) {
 
         const operatorIsConditional = isPrerequisiteConditionOperatorConditional(
           operator,
-          hasConditionalState ? "conditional" : "on"
+          hasConditionalState ? "conditional" : "deterministic"
         );
 
         return (
@@ -238,7 +238,7 @@ export default function PrerequisiteInput(props: Props) {
                       attribute.datatype === "boolean" ? "$true" : "$exists";
                     const conditional = isPrerequisiteConditionOperatorConditional(
                       value,
-                      hasConditionalState ? "conditional" : "on"
+                      hasConditionalState ? "conditional" : "deterministic"
                     );
                     return (
                       <span>

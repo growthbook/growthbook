@@ -22,7 +22,7 @@ import {
   isFeatureStale,
   mergeResultHasChanges,
   mergeRevision,
-  PrerequisiteState,
+  PrerequisiteStateResult,
 } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { MdHistory, MdRocketLaunch } from "react-icons/md";
@@ -237,12 +237,13 @@ export default function FeaturePage() {
   const prerequisites = feature?.prerequisites || [];
   const prereqStates = useMemo(() => {
     if (!feature) return null;
-    const states: Record<string, PrerequisiteState> = {};
+    const states: Record<string, PrerequisiteStateResult> = {};
     envs.forEach((env) => {
       states[env] = evaluatePrerequisiteState(feature, features, env, true);
     });
     return states;
   }, [feature, features, envs]);
+  console.log({ prereqStates });
 
   const dependentFeatures = useMemo(() => {
     if (!feature || !features) return [];
@@ -258,7 +259,7 @@ export default function FeaturePage() {
 
   const hasConditionalState =
     prereqStates &&
-    Object.values(prereqStates).some((s) => s === "conditional");
+    Object.values(prereqStates).some((s) => s.state === "conditional");
 
   const hasPrerequisitesCommercialFeature = hasCommercialFeature(
     "prerequisites"

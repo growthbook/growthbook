@@ -19,7 +19,7 @@ import {
   getDefaultPrerequisiteCondition,
   isFeatureCyclic,
   isPrerequisiteConditionConditional,
-  PrerequisiteState,
+  PrerequisiteStateResult,
 } from "shared/util";
 import { BiHide, BiShow } from "react-icons/bi";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
@@ -97,12 +97,12 @@ export default function PrerequisiteTargetingField({
 
   const prereqStatesArr: (Record<
     string,
-    PrerequisiteState
+    PrerequisiteStateResult
   > | null)[] = useMemo(() => {
     return value.map((v) => {
       const parentFeature = features.find((f) => f.id === v.id);
       if (!parentFeature) return null;
-      const states: Record<string, PrerequisiteState> = {};
+      const states: Record<string, PrerequisiteStateResult> = {};
       environments.forEach((env) => {
         states[env] = evaluatePrerequisiteState(parentFeature, features, env);
       });
@@ -113,12 +113,12 @@ export default function PrerequisiteTargetingField({
   const [featuresStates, wouldBeCyclicStates] = useMemo(() => {
     const featuresStates: Record<
       string,
-      Record<string, PrerequisiteState>
+      Record<string, PrerequisiteStateResult>
     > = {};
     const wouldBeCyclicStates: Record<string, boolean> = {};
     for (const f of features) {
       // get current states:
-      const states: Record<string, PrerequisiteState> = {};
+      const states: Record<string, PrerequisiteStateResult> = {};
       environments.forEach((env) => {
         states[env] = evaluatePrerequisiteState(f, features, env);
       });
@@ -167,11 +167,11 @@ export default function PrerequisiteTargetingField({
       const prereqStates = prereqStatesArr[i];
       if (!prereqStates) continue;
       const hasConditionalState = Object.values(prereqStates).some(
-        (s) => s === "conditional"
+        (s) => s.state === "conditional"
       );
       const hasNonStandardTargeting = isPrerequisiteConditionConditional(
         parentCondition,
-        hasConditionalState ? "conditional" : "on"
+        hasConditionalState ? "conditional" : "deterministic"
       );
       if (
         !hasSDKWithPrerequisites &&
@@ -192,10 +192,10 @@ export default function PrerequisiteTargetingField({
     .filter((f) => (f.project || "") === (feature?.project || ""))
     .map((f) => {
       const conditional = Object.values(featuresStates[f.id]).some(
-        (s) => s === "conditional"
+        (s) => s.state === "conditional"
       );
       const cyclic = Object.values(featuresStates[f.id]).some(
-        (s) => s === "cyclic"
+        (s) => s.state === "cyclic"
       );
       const wouldBeCyclic = wouldBeCyclicStates[f.id];
       const disabled =
@@ -224,11 +224,11 @@ export default function PrerequisiteTargetingField({
             const parentCondition = value[i].condition;
             const prereqStates = prereqStatesArr[i];
             const hasConditionalState = Object.values(prereqStates || {}).some(
-              (s) => s === "conditional"
+              (s) => s.state === "conditional"
             );
             const hasConditionalTargeting = isPrerequisiteConditionConditional(
               parentCondition,
-              hasConditionalState ? "conditional" : "on"
+              hasConditionalState ? "conditional" : "deterministic"
             );
 
             return (
@@ -447,7 +447,7 @@ function PrereqStatesRows({
   environments,
 }: {
   parentFeature?: FeatureInterface;
-  prereqStates: Record<string, PrerequisiteState> | null;
+  prereqStates: Record<string, PrerequisiteStateResult> | null;
   environments: string[];
 }) {
   const [showDetails, setShowDetails] = useState(true);

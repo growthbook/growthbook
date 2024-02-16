@@ -5,7 +5,7 @@ import {
   evaluatePrerequisiteState,
   getDefaultPrerequisiteCondition,
   isFeatureCyclic,
-  PrerequisiteState,
+  PrerequisiteStateResult,
 } from "shared/util";
 import {
   FaExclamationCircle,
@@ -100,12 +100,12 @@ export default function PrerequisiteModal({
   const [featuresStates, wouldBeCyclicStates] = useMemo(() => {
     const featuresStates: Record<
       string,
-      Record<string, PrerequisiteState>
+      Record<string, PrerequisiteStateResult>
     > = {};
     const wouldBeCyclicStates: Record<string, boolean> = {};
     for (const f of features) {
       // get current states:
-      const states: Record<string, PrerequisiteState> = {};
+      const states: Record<string, PrerequisiteStateResult> = {};
       envs.forEach((env) => {
         states[env] = evaluatePrerequisiteState(f, features, env);
       });
@@ -133,7 +133,7 @@ export default function PrerequisiteModal({
 
   const hasConditionalState =
     prereqStates &&
-    Object.values(prereqStates).some((s) => s === "conditional");
+    Object.values(prereqStates).some((s) => s.state === "conditional");
 
   const canSubmit =
     !isCyclic &&
@@ -152,10 +152,10 @@ export default function PrerequisiteModal({
     .filter((f) => f.valueType === "boolean")
     .map((f) => {
       const conditional = Object.values(featuresStates[f.id]).some(
-        (s) => s === "conditional"
+        (s) => s.state === "conditional"
       );
       const cyclic = Object.values(featuresStates[f.id]).some(
-        (s) => s === "cyclic"
+        (s) => s.state === "cyclic"
       );
       const wouldBeCyclic = wouldBeCyclicStates[f.id];
       const disabled =

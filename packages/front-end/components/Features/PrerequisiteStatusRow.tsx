@@ -1,6 +1,9 @@
 import { FeatureInterface, FeaturePrerequisite } from "back-end/types/feature";
 import { FaExclamationCircle } from "react-icons/fa";
-import { evaluatePrerequisiteState, PrerequisiteState } from "shared/util";
+import {
+  evaluatePrerequisiteState,
+  PrerequisiteStateResult,
+} from "shared/util";
 import { Environment } from "back-end/types/organization";
 import React, { useMemo } from "react";
 import {
@@ -45,7 +48,7 @@ export default function PrerequisiteStatusRow({
 
   const prereqStatesAndDefaults = useMemo(() => {
     if (!parentFeature) return null;
-    const states: Record<string, PrerequisiteState> = {};
+    const states: Record<string, PrerequisiteStateResult> = {};
     const defaultValues: Record<string, string> = {};
     envs.forEach((env) => {
       states[env] = evaluatePrerequisiteState(parentFeature, features, env);
@@ -135,7 +138,7 @@ export function PrerequisiteStatesCols({
   envs,
   isSummaryRow = false,
 }: {
-  prereqStates?: Record<string, PrerequisiteState>;
+  prereqStates?: Record<string, PrerequisiteStateResult>;
   defaultValues?: Record<string, string>;
   envs: string[];
   isSummaryRow?: boolean;
@@ -147,79 +150,83 @@ export function PrerequisiteStatesCols({
     <>
       {envs.map((env) => (
         <td key={env} className="text-center">
-          {prereqStates?.[env] === "on" && (
-            <Tooltip
-              className="cursor-pointer"
-              popperClassName="text-left"
-              body={
-                <>
-                  <div>
-                    {defaultValues?.[env] === undefined && (
-                      <>
-                        {featureLabel} is{" "}
-                        <span className="text-success font-weight-bold">
-                          live
-                        </span>{" "}
-                        in this environment.
-                      </>
-                    )}
-                    {defaultValues?.[env] === "true" && (
-                      <>
-                        {featureLabel} is{" "}
-                        <span className="text-success font-weight-bold">
-                          live
-                        </span>{" "}
-                        and currently serving{" "}
-                        <span className="rounded px-1 bg-light">
-                          <ValueDisplay value={"true"} type="boolean" />
-                        </span>{" "}
-                        in this environment.
-                      </>
-                    )}
-                    {defaultValues?.[env] === "false" && (
-                      <>
-                        {featureLabel} is currently serving{" "}
-                        <span className="rounded px-1 bg-light">
-                          <ValueDisplay value={"false"} type="boolean" />
-                        </span>{" "}
-                        in this environment.
-                      </>
-                    )}
-                  </div>
-                </>
-              }
-            >
-              {defaultValues?.[env] === "false" ? (
+          {prereqStates?.[env]?.state === "deterministic" &&
+            prereqStates?.[env]?.value !== null && (
+              <Tooltip
+                className="cursor-pointer"
+                popperClassName="text-left"
+                body={
+                  <>
+                    <div>
+                      {defaultValues?.[env] === undefined && (
+                        <>
+                          {featureLabel} is{" "}
+                          <span className="text-success font-weight-bold">
+                            live
+                          </span>{" "}
+                          in this environment.
+                        </>
+                      )}
+                      {defaultValues?.[env] === "true" && (
+                        <>
+                          {featureLabel} is{" "}
+                          <span className="text-success font-weight-bold">
+                            live
+                          </span>{" "}
+                          and currently serving{" "}
+                          <span className="rounded px-1 bg-light">
+                            <ValueDisplay value={"true"} type="boolean" />
+                          </span>{" "}
+                          in this environment.
+                        </>
+                      )}
+                      {defaultValues?.[env] === "false" && (
+                        <>
+                          {featureLabel} is currently serving{" "}
+                          <span className="rounded px-1 bg-light">
+                            <ValueDisplay value={"false"} type="boolean" />
+                          </span>{" "}
+                          in this environment.
+                        </>
+                      )}
+                    </div>
+                  </>
+                }
+              >
+                {defaultValues?.[env] === "false" ? (
+                  <FaRegCircleXmark className="text-muted" size={20} />
+                ) : (
+                  <FaRegCircleCheck className="text-success" size={20} />
+                )}
+              </Tooltip>
+            )}
+          {prereqStates?.[env]?.state === "deterministic" &&
+            prereqStates?.[env]?.value === null && (
+              <Tooltip
+                className="cursor-pointer"
+                popperClassName="text-left"
+                body={
+                  <>
+                    <div>
+                      {featureLabel} is{" "}
+                      <span className="text-gray font-weight-bold">
+                        not live
+                      </span>{" "}
+                      in this environment.
+                      {isSummaryRow && (
+                        <>
+                          {" "}
+                          It will evaluate to <code>null</code>.
+                        </>
+                      )}
+                    </div>
+                  </>
+                }
+              >
                 <FaRegCircleXmark className="text-muted" size={20} />
-              ) : (
-                <FaRegCircleCheck className="text-success" size={20} />
-              )}
-            </Tooltip>
-          )}
-          {prereqStates?.[env] === "off" && (
-            <Tooltip
-              className="cursor-pointer"
-              popperClassName="text-left"
-              body={
-                <>
-                  <div>
-                    {featureLabel} is{" "}
-                    <span className="text-gray font-weight-bold">not live</span>{" "}
-                    in this environment.
-                    {isSummaryRow && (
-                      <>
-                        {" "}
-                        It will evaluate to <code>null</code>.
-                      </>
-                    )}
-                  </div>
-                </>
-              }
-            >
-              <FaRegCircleXmark className="text-muted" size={20} />
-            </Tooltip>
-          )}
-          {prereqStates?.[env] === "conditional" && (
+              </Tooltip>
+            )}
+          {prereqStates?.[env]?.state === "conditional" && (
             <Tooltip
               className="cursor-pointer"
               popperClassName="text-left"
@@ -249,7 +256,7 @@ export function PrerequisiteStatesCols({
               <FaRegCircleQuestion className="text-warning-orange" size={20} />
             </Tooltip>
           )}
-          {prereqStates?.[env] === "cyclic" && (
+          {prereqStates?.[env]?.state === "cyclic" && (
             <Tooltip
               className="cursor-pointer"
               popperClassName="text-left"

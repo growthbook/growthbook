@@ -491,7 +491,7 @@ export function isPrerequisiteConditionConditional(
     return false;
   }
   if (
-    ["on", "off"].includes(prerequisiteState) &&
+    prerequisiteState === "deterministic" &&
     [`{"value": true}`, `{"value": false}`].includes(condition)
   ) {
     return false;
@@ -506,7 +506,7 @@ export function isPrerequisiteConditionOperatorConditional(
     return false;
   }
   if (
-    ["on", "off"].includes(prerequisiteState) &&
+    prerequisiteState === "deterministic" &&
     ["$true", "$false"].includes(condition)
   ) {
     return false;
@@ -559,43 +559,46 @@ export function isFeatureCyclic(
   return visit(newFeature);
 }
 
-export type PrerequisiteState = "on" | "off" | "conditional" | "cyclic";
+type PrerequisiteState = "deterministic" | "conditional" | "cyclic";
+type PrerequisiteValue = string | null | undefined;
+export type PrerequisiteStateResult = {
+  state: PrerequisiteState;
+  value: PrerequisiteValue;
+};
 export function evaluatePrerequisiteState(
   feature: FeatureInterface,
   features: FeatureInterface[],
   env: string,
   skipRootConditions: boolean = false,
   skipCyclicCheck: boolean = false
-): PrerequisiteState {
+): PrerequisiteStateResult {
   let isTopLevel = true;
   if (!skipCyclicCheck) {
-    if (isFeatureCyclic(feature, features)[0]) return "cyclic";
+    if (isFeatureCyclic(feature, features)[0])
+      return { state: "cyclic", value: null };
   }
 
-  const visit = (feature: FeatureInterface): PrerequisiteState => {
+  const visit = (feature: FeatureInterface): PrerequisiteStateResult => {
     // 1. Current environment toggles take priority
     if (!feature.environmentSettings[env]) {
-      return "off";
+      return { state: "deterministic", value: null };
     }
     if (!feature.environmentSettings[env].enabled) {
-      return "off";
+      return { state: "deterministic", value: null };
     }
 
     // 2. Determine default feature state
-    //   - start with "on" | "off" from defaultValue
+    //   - start with "deterministic" / defaultValue
     //   - force "conditional" if there are rules
-    const defaultIsOn =
-      feature.valueType !== "boolean" || feature.defaultValue === "true";
-    let state: PrerequisiteState = defaultIsOn ? "on" : "off";
-    if (isTopLevel) {
-      state = "on";
-    }
+    let state: PrerequisiteState = "deterministic";
+    let value: PrerequisiteValue = feature.defaultValue;
     if (!skipRootConditions || !isTopLevel) {
       if (
         feature.environmentSettings[env].rules?.filter((r) => !!r.enabled)
           ?.length
       ) {
         state = "conditional";
+        value = undefined;
       }
     }
 
@@ -610,21 +613,35 @@ export function evaluatePrerequisiteState(
       );
       if (!prerequisiteFeature) {
         // todo: consider returning info about missing feature
-        state = "off";
+        state = "deterministic";
+        value = null;
         break;
       }
-      const prerequisiteState = visit(prerequisiteFeature);
-      if (prerequisiteState === "off") {
-        // any "off" prereq state overrides feature's default state (#2)
-        state = "off";
+      const { state: prerequisiteState, value: prerequisiteValue } = visit(
+        prerequisiteFeature
+      );
+      if (prerequisiteState === "deterministic" && prerequisiteValue === null) {
+        // "off" by null. Any "off" prereq state overrides feature's default state (#2)
+        state = "deterministic";
+        value = null;
+        break;
+      } else if (
+        prerequisiteState === "deterministic" &&
+        prerequisiteFeature.valueType === "boolean" &&
+        prerequisiteValue === "false"
+      ) {
+        // "off" by false. Any "off" prereq state overrides feature's default state (#2)
+        state = "deterministic";
+        value = null;
         break;
       } else if (prerequisiteState === "conditional") {
         // if no "off" prereqs, then any "conditional" prereq state overrides feature's default state (#2)
         state = "conditional";
+        value = undefined;
       }
     }
 
-    return state;
+    return { state, value };
   };
   return visit(feature);
 }

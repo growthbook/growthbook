@@ -12,6 +12,7 @@ import {
 } from "@growthbook/growthbook";
 import {
   evaluatePrerequisiteState,
+  PrerequisiteStateResult,
   validateCondition,
   validateFeatureValue,
 } from "shared/util";
@@ -1135,7 +1136,7 @@ export const reduceFeaturesWithPrerequisites = (
     const newPrerequisites: FeaturePrerequisite[] = [];
     for (const prereq of newFeature.prerequisites || []) {
       const prereqFeature = features.find((f) => f.id === prereq.id);
-      let state = prereqFeature
+      const state = prereqFeature
         ? evaluatePrerequisiteState(
             prereqFeature,
             features,
@@ -1143,31 +1144,26 @@ export const reduceFeaturesWithPrerequisites = (
             undefined,
             true
           )
-        : "off";
+        : { state: "deterministic", value: null };
 
-      // reduce "on" states based on defaultValue when possible (similar to getInlinePrerequisitesReductionInfo)
-      if (state === "on") {
-        if (
-          prereqFeature?.valueType === "boolean" &&
-          prereqFeature?.defaultValue === "false"
-        ) {
-          state = "off";
-        }
-      }
-
-      switch (state) {
-        case "on":
-          // keep the feature, remove the prerequisite
-          break;
+      switch (state.state) {
         case "conditional":
           // keep the feature and the prerequisite
           newPrerequisites.push(prereq);
           break;
         case "cyclic":
-        case "off":
-          // remove the feature
           removeFeature = true;
           break;
+        case "deterministic":
+          // todo: this makes the assumption that top-level prereqs are always boolean / true checks
+          if (state.value === null || state.value === "false") {
+            // remove the feature
+            removeFeature = true;
+            break;
+          } else {
+            // keep the feature, remove the prerequisite
+            break;
+          }
       }
     }
     if (!removeFeature) {
@@ -1251,7 +1247,7 @@ export const getInlinePrerequisitesReductionInfo = (
 
   for (const pc of prerequisites) {
     const prereqFeature = features.find((f) => f.id === pc.id);
-    const state = prereqFeature
+    const state: PrerequisiteStateResult = prereqFeature
       ? evaluatePrerequisiteState(
           prereqFeature,
           features,
@@ -1259,9 +1255,9 @@ export const getInlinePrerequisitesReductionInfo = (
           undefined,
           true
         )
-      : "off";
+      : { state: "deterministic", value: null };
 
-    switch (state) {
+    switch (state.state) {
       case "conditional":
         // keep the rule and prerequisite
         break;
@@ -1269,67 +1265,67 @@ export const getInlinePrerequisitesReductionInfo = (
         // remove the rule
         removeRule = true;
         continue;
-      case "off":
-        // "value" will be null
-        // try to reduce the rule or feature
-        if (pc.condition === `{"value": {"$exists": false}}`) {
-          // condition passes: keep the rule, remove the prerequisite
-          continue;
+      case "deterministic":
+        if (state.value === null) {
+          // try to reduce the rule or feature
+          if (pc.condition === `{"value": {"$exists": false}}`) {
+            // condition passes: keep the rule, remove the prerequisite
+            continue;
+          }
+          if (pc.condition === `{"value": {"$exists": true}}`) {
+            // condition fails: remove the rule
+            removeRule = true;
+            continue;
+          }
+          if (pc.condition === `{"value": true}`) {
+            // condition fails: remove the rule
+            removeRule = true;
+            continue;
+          }
+          if (pc.condition === `{"value": false}`) {
+            // condition fails (null !== false): remove the rule
+            removeRule = true;
+            continue;
+          }
+          // otherwise, keep the rule and prerequisite
+          break;
+        } else {
+          // try to reduce the rule or feature
+          if (pc.condition === `{"value": {"$exists": false}}`) {
+            // condition fails: remove the rule
+            removeRule = true;
+            continue;
+          }
+          if (pc.condition === `{"value": {"$exists": true}}`) {
+            // condition passes: keep the rule, remove the prerequisite
+            continue;
+          }
+          if (
+            (pc.condition === `{"value": true}` &&
+              prereqFeature?.valueType === "boolean" &&
+              state.value === "true") ||
+            (pc.condition === `{"value": false}` &&
+              prereqFeature?.valueType === "boolean" &&
+              state.value === "false")
+          ) {
+            // condition passes: keep the rule, remove the prerequisite
+            continue;
+          }
+          if (
+            (pc.condition === `{"value": false}` &&
+              prereqFeature?.valueType === "boolean" &&
+              state.value === "true") ||
+            (pc.condition === `{"value": true}` &&
+              prereqFeature?.valueType === "boolean" &&
+              state.value === "false")
+          ) {
+            // condition fails: remove the rule
+            removeRule = true;
+            continue;
+          }
+          // otherwise, keep the rule and prerequisite
+          break;
         }
-        if (pc.condition === `{"value": {"$exists": true}}`) {
-          // condition fails: remove the rule
-          removeRule = true;
-          continue;
-        }
-        if (pc.condition === `{"value": true}`) {
-          // condition fails: remove the rule
-          removeRule = true;
-          continue;
-        }
-        if (pc.condition === `{"value": false}`) {
-          // condition fails (null !== false): remove the rule
-          removeRule = true;
-          continue;
-        }
-        // otherwise, keep the rule and prerequisite
-        break;
-      case "on":
-        // "value" will be null
-        // try to reduce the rule or feature
-        if (pc.condition === `{"value": {"$exists": false}}`) {
-          // condition fails: remove the rule
-          removeRule = true;
-          continue;
-        }
-        if (pc.condition === `{"value": {"$exists": true}}`) {
-          // condition passes: keep the rule, remove the prerequisite
-          continue;
-        }
-        if (
-          (pc.condition === `{"value": true}` &&
-            prereqFeature?.valueType === "boolean" &&
-            prereqFeature?.defaultValue === "true") ||
-          (pc.condition === `{"value": false}` &&
-            prereqFeature?.valueType === "boolean" &&
-            prereqFeature?.defaultValue === "false")
-        ) {
-          // condition passes: keep the rule, remove the prerequisite
-          continue;
-        }
-        if (
-          (pc.condition === `{"value": false}` &&
-            prereqFeature?.valueType === "boolean" &&
-            prereqFeature?.defaultValue === "true") ||
-          (pc.condition === `{"value": true}` &&
-            prereqFeature?.valueType === "boolean" &&
-            prereqFeature?.defaultValue === "false")
-        ) {
-          // condition fails: remove the rule
-          removeRule = true;
-          continue;
-        }
-        // otherwise, keep the rule and prerequisite
-        break;
     }
 
     // only keep the prerequisite if switch logic hasn't prevented it
