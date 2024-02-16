@@ -6,6 +6,7 @@ import {
   RevisionLog,
 } from "../../types/feature-revision";
 import { EventAuditUser, EventAuditUserLoggedIn } from "../events/event-types";
+import { migrateToApproved, migrateToPendingReview } from "./FeatureModel";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
@@ -101,6 +102,21 @@ export async function hasDraft(
     organization,
     featureId: feature.id,
     status: "draft",
+    version: { $nin: excludeVersions },
+  });
+
+  return doc ? true : false;
+}
+
+export async function pendingReview(
+  organization: string,
+  feature: FeatureInterface,
+  excludeVersions: number[] = []
+): Promise<boolean> {
+  const doc = await FeatureRevisionModel.findOne({
+    organization,
+    featureId: feature.id,
+    status: { $in: ["pending-review", "changes-requested"] },
     version: { $nin: excludeVersions },
   });
 
@@ -332,7 +348,7 @@ export async function markRevisionAsReviewRequested(
     user,
     value: JSON.stringify(comment ? { comment } : {}),
   };
-
+  migrateToPendingReview(revision.organization, revision.featureId);
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -379,6 +395,9 @@ export async function submitReviewAndComments(
     user,
     value: JSON.stringify(comment ? { comment } : {}),
   };
+  if (status === "approved") {
+    await migrateToApproved(revision.organization, revision.featureId);
+  }
 
   await FeatureRevisionModel.updateOne(
     {

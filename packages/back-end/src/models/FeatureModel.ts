@@ -46,6 +46,7 @@ import {
   deleteAllRevisionsForFeature,
   hasDraft,
   markRevisionAsPublished,
+  pendingReview,
   updateRevision,
 } from "./FeatureRevisionModel";
 
@@ -117,6 +118,7 @@ const featureSchema = new mongoose.Schema({
   draft: {},
   legacyDraftMigrated: Boolean,
   hasDrafts: Boolean,
+  pendingReview: Boolean,
   revision: {},
   linkedExperiments: [String],
   jsonSchema: {},
@@ -211,6 +213,42 @@ export async function migrateDraft(feature: FeatureInterface) {
     return draft;
   } catch (e) {
     logger.error(e, "Error migrating old feature draft");
+  }
+  return null;
+}
+
+export async function migrateToApproved(orgId: string, featureId: string) {
+  try {
+    await FeatureModel.updateOne(
+      {
+        organization: orgId,
+        id: featureId,
+      },
+      {
+        $set: {
+          pendingReview: false,
+        },
+      }
+    );
+  } catch (e) {
+    logger.error(e, "Error migrating feature out of review state");
+  }
+  return null;
+}
+
+export async function migrateToPendingReview(orgId: string, featureId: string) {
+  try {
+    await FeatureModel.updateOne(
+      {
+        organization: orgId,
+        id: featureId,
+      },
+      {
+        $set: { pendingReview: true },
+      }
+    );
+  } catch (e) {
+    logger.error(e, "Error migrating feature to peinding review state");
   }
   return null;
 }
@@ -798,6 +836,10 @@ export async function applyRevisionChanges(
 
   // Update the `hasDrafts` field
   changes.hasDrafts = await hasDraft(organization.id, feature, [
+    revision.version,
+  ]);
+
+  changes.pendingReview = await pendingReview(organization.id, feature, [
     revision.version,
   ]);
 

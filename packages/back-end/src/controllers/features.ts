@@ -62,6 +62,7 @@ import {
   hasDraft,
   markRevisionAsPublished,
   markRevisionAsReviewRequested,
+  pendingReview,
   submitReviewAndComments,
   updateRevision,
 } from "../models/FeatureRevisionModel";
@@ -394,6 +395,7 @@ export async function postFeatures(
     archived: false,
     version: 1,
     hasDrafts: false,
+    pendingReview: false,
     jsonSchema: {
       schema: "",
       date: new Date(),
@@ -839,9 +841,19 @@ export async function postFeatureDiscard(
   await discardRevision(revision, res.locals.eventAudit);
 
   const hasDrafts = await hasDraft(org.id, feature, [revision.version]);
+
   if (!hasDrafts) {
     await updateFeature(org, res.locals.eventAudit, feature, {
       hasDrafts: false,
+    });
+  }
+
+  const hasPendingReview = await pendingReview(org.id, feature, [
+    revision.version,
+  ]);
+  if (!hasPendingReview) {
+    await updateFeature(org, res.locals.eventAudit, feature, {
+      pendingReview: false,
     });
   }
 

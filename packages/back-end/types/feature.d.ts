@@ -46,6 +46,7 @@ export interface FeatureInterface {
   defaultValue: string;
   version: number;
   hasDrafts?: boolean;
+  pendingReview?: boolean;
   tags?: string[];
   environmentSettings: Record<string, FeatureEnvironment>;
   linkedExperiments?: string[];
