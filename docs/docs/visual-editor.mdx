@@ -264,9 +264,9 @@ If you have the `script-src` directive defined in your website's CSP, you'll nee
 Content-Security-Policy: script-src 'self' 'unsafe-inline' 'unsafe-eval';
 ```
 
-## Drafts and QA
+## Previewing Drafts
 
-While the experiment is still a draft, you can preview variations by adding a querystring to your URL.
+While the experiment is still in a draft state, there are two ways to preview the variations. Until an experiment is moved out of the "draft" state and started, these are the only two ways you can preview the variations.
 
 :::note
 
@@ -274,13 +274,23 @@ This requires turning on the "Include Drafts" toggle for your SDK Connection in 
 
 :::
 
+### Click the "Preview" link in the GrowthBook dashboard
+
+On the Experiment's detail page, scroll down to the "Implementation" section. Click on each variation's "Preview" link as shown in the screenshot below.
+
+![Preview link in Experiment detail page](/images/preview-link-for-visual-editor-changes.png)
+
+### Add a querystring to the target URL
+
 To build the QA preview URL, you'll need the **Experiment Id** (viewable on the right side of the experiment page under Settings). You'll also need the variation number you want to preview. `0` is the control, `1` is the 1st variation, etc..
 
 Now, just join these together with an equals sign (e.g. `my-experiment-id=1`). This needs to go in the Querystring part of the URL (after a question mark). Here's a full example:
 
 `https://www.example.com/pricing?my-experiment-id=1`
 
-Until an experiment is moved out of the "draft" phase and started, this is the only way to view it on your site.
+### Why is the Preview not working?
+
+If you are unable to see the Preview as expected, follow the troubleshooting steps provided in the Knowledge Base article called [Why is the Preview feature not working for the Visual Editor?](https://docs.growthbook.io/kb/visual-editor#preview-links-not-working).
 
 ## Stopping an Experiment
 
