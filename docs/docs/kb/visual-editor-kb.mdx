@@ -1,0 +1,83 @@
+import Collapse from '@site/src/components/Collapse';
+
+
+# Visual Editor Knowledge Base
+
+<Collapse title="Why is the Preview feature not working for the Visual Editor?">
+
+There are a number of configurations that are required for the Preview feature to work. Ensure that all of the following steps are complete.
+
+### Visual Experiments and Drafts are enabled on the SDK Connection
+
+The SDK Connection must have both the "visual experiments" and the "draft experiments" toggles turned on. Confirm this by following these steps:
+
+1. Navigate to the SDK Connection's detail page in the GrowthBook dashboard.
+2. Click the "Edit" button in the upper right corner. A modal will appear on the screen.
+3. Scroll to the bottom of the modal and make sure the "Include visual experiments" toggle is enabled.
+4. Once the Visual Experiments toggle is enabled, the toggle for allowing drafts will appear. Enable this one also.
+
+### The SDK connection uses a project filter if the Experiment is assigned to a project
+
+Fluff
+
+### An experiment was created in GrowthBook
+
+There must be an Experiment configured in GrowthBook before you can successfully use the Preview feature. You can confirm this by: (fill in).
+
+If you are having issues creating an experiment in GrowthBook, check that you are signed in as the correct user and that you have at least collaborator-level user permissions.
+
+### The GrowthBook Chrome Extension is installed properly
+
+You can verify this by (fill in)
+
+### The GrowthBook SDK is installed and is configured on the target web page
+
+This can be accomplished by either:
+
+1. Using the pre-built `<script>` tag, done most commonly when running a website on Shopify, Webflow, and other website builders.
+2. Inserting the SDK code directly into your application code, done most commonly when serving custom websites.
+
+### A visual change was added to the Experiment using the Visual Editor
+
+You can verify this by (fill in)
+
+Errors that occur as a result of using the Visual Editor should surface within the Visual Editor itself.
+
+### The URL of the Preview link matches the Experiment’s URL Target(s)
+
+Compare these two URLs carefully to make sure they match, especially if you are using regular expressions (regex) to define them.
+
+### The SDK Connection is sending Experiment metadata
+
+There are two ways to verify that the SDK Connection is configured correctly and is sending an Experiment's metadata.
+
+1. Open Chrome's Developer Tools (which keys to press) and navigate to the GrowthBook tab. You should see Experiment metadata.
+
+  (screenshot)
+
+2. Navigate to the CDN URL in your browser to view the SDK payload directly. The URL is in the format https://cdn.growthbook.io/api/features/sdk-xxxxxxxxxxxxxx where `sdk-xxxxxxxxxxxxxx` is the SDK Connection's `client_key`, found on the SDK Connection's detail page in the GrowthBook dashboard. The Experiment's metadata should be included in the payload.
+
+  (screenshot)
+
+### The API credentials are set correctly
+  
+If the prerequisite steps described above have been completed properly but you are still unable to view Preview links, the culprit is usually API credentials that are improperly configured.
+
+GrowthBook automatically sets the API credentials when the Visual Editor is launched from the GrowthBook dashboard. Try launching the Visual Editor again from the GrowthBook dashboard in order to reset the `API_HOST` and `API_KEY` values.
+
+Sometimes Internet browsers are slow or aren’t able to set the `API_HOST` or `API_KEY` values automatically. In this case, you will have to set the API credentials manually.
+
+The `API_KEY` is found in the “API Keys” section of your GrowthBook dashboard.
+
+The `API_HOST` value should be your API host's URL and not the CDN's URL. For users of the cloud-hosted version of GrowthBook — not self-hosted users — the `API_HOST` value should be https://api.growthbook.io.
+
+The API credentials can be set manually by navigating to the Options section of the GrowthBook Chrome extension’s menu.
+
+:::note
+
+If the above steps have been addressed but there are still no experiments in the payload, it’s possible there is a bug related to refreshing the SDK payload. Please contact GrowthBook's Support team in the Community Slack workspace (all plans), in-app chat (paid plans), or by emailing support (at) growthbook (dot) io.
+
+:::
+
+</Collapse>
+
