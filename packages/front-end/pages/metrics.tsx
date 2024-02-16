@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { ReactElement, useCallback, useState } from "react";
 import { FaArchive, FaPlus, FaRegCopy } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { useRouter } from "next/router";
@@ -372,12 +372,48 @@ const MetricsPage = (): React.ReactElement => {
         </thead>
         <tbody>
           {items.map((metric) => {
-            const showMoreMenu: boolean =
-              (metric.onDuplicate && editMetricsPermissions[metric.id]) ||
-              (!metric.managedBy &&
-                metric.onArchive &&
-                editMetricsPermissions[metric.id]) ||
-              false;
+            const moreMenuLinks: ReactElement[] = [];
+
+            if (
+              metric.onDuplicate &&
+              editMetricsPermissions[metric.id] &&
+              permissions.check("createMetrics", project) &&
+              canCreateMetrics()
+            ) {
+              moreMenuLinks.push(
+                <button
+                  className="btn dropdown-item py-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    metric.onDuplicate && metric.onDuplicate();
+                  }}
+                >
+                  <FaRegCopy /> Duplicate
+                </button>
+              );
+            }
+
+            if (
+              !metric.managedBy &&
+              metric.onArchive &&
+              editMetricsPermissions[metric.id]
+            ) {
+              moreMenuLinks.push(
+                <button
+                  className="btn dropdown-item py-2"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    metric.onArchive &&
+                      (await metric.onArchive(!metric.archived));
+                    mutateDefinitions({});
+                  }}
+                >
+                  <FaArchive /> {metric.archived ? "Unarchive" : "Archive"}
+                </button>
+              );
+            }
+
             return (
               <tr
                 key={metric.id}
@@ -459,38 +495,9 @@ const MetricsPage = (): React.ReactElement => {
                     e.preventDefault();
                   }}
                 >
-                  {canCreateMetrics() && showMoreMenu && (
-                    <MoreMenu>
-                      {metric.onDuplicate && editMetricsPermissions[metric.id] && (
-                        <button
-                          className="btn dropdown-item py-2"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            metric.onDuplicate && metric.onDuplicate();
-                          }}
-                        >
-                          <FaRegCopy /> Duplicate
-                        </button>
-                      )}
-                      {!metric.managedBy &&
-                        metric.onArchive &&
-                        editMetricsPermissions[metric.id] && (
-                          <button
-                            className="btn dropdown-item py-2"
-                            onClick={async (e) => {
-                              e.preventDefault();
-                              metric.onArchive &&
-                                (await metric.onArchive(!metric.archived));
-                              mutateDefinitions({});
-                            }}
-                          >
-                            <FaArchive />{" "}
-                            {metric.archived ? "Unarchive" : "Archive"}
-                          </button>
-                        )}
-                    </MoreMenu>
-                  )}
+                  {moreMenuLinks.length ? (
+                    <MoreMenu>{moreMenuLinks}</MoreMenu>
+                  ) : null}
                 </td>
               </tr>
             );
