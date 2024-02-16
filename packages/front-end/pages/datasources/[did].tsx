@@ -62,6 +62,12 @@ const DataSourcePage: FC = () => {
       !hasFileConfig()) ||
     false;
 
+  const canEditAndDelete =
+    (d &&
+      permissions.check("createDatasources", d.projects || []) &&
+      !hasFileConfig()) ||
+    false;
+
   const pipelineEnabled =
     useFeatureIsOn("datasource-pipeline-mode") &&
     hasCommercialFeature("pipeline-mode");
@@ -192,16 +198,17 @@ const DataSourcePage: FC = () => {
             {canEdit && (
               <div className="d-md-flex w-100 justify-content-between">
                 <div>
-                  <button
-                    className="btn btn-outline-primary mr-2 mt-1 font-weight-bold"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setEditConn(true);
-                    }}
-                  >
-                    <FaKey /> Edit Connection Info
-                  </button>
-
+                  {canEditAndDelete ? (
+                    <button
+                      className="btn btn-outline-primary mr-2 mt-1 font-weight-bold"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setEditConn(true);
+                      }}
+                    >
+                      <FaKey /> Edit Connection Info
+                    </button>
+                  ) : null}
                   <DocLink
                     className="btn btn-outline-secondary mr-2 mt-1 font-weight-bold"
                     docSection={d.type as DocSection}
@@ -223,7 +230,7 @@ const DataSourcePage: FC = () => {
                 </div>
 
                 <div>
-                  {canEdit && (
+                  {canEditAndDelete && (
                     <DeleteButton
                       displayName={d.name}
                       className="font-weight-bold mt-1"

@@ -514,9 +514,12 @@ export async function putDataSource(
     return;
   }
 
+  const permissionLevel = params
+    ? "createDatasources"
+    : "editDatasourceSettings";
   req.checkPermissions(
-    "editDatasourceSettings",
-    datasource?.projects?.length ? datasource.projects : []
+    permissionLevel,
+    datasource?.projects?.length ? datasource.projects : ""
   );
 
   if (type && type !== datasource.type) {
@@ -570,7 +573,7 @@ export async function putDataSource(
     }
 
     if (updates?.projects?.length) {
-      req.checkPermissions("editDatasourceSettings", updates.projects);
+      req.checkPermissions(permissionLevel, updates.projects);
     }
 
     // If the connection params changed, re-validate the connection
