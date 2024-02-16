@@ -471,6 +471,18 @@ const sidebars = {
         },
       ],
     },
+    {
+      type: "category",
+      label: "Knowledge Base",
+      collapsed: true,
+      items: [
+        {
+          type: "doc",
+          id: "kb/visual-editor",
+          label: "Visual Editor",
+        },
+      ],
+    },
   ],
 };
 
