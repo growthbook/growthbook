@@ -8,7 +8,6 @@ import {
   SavedGroupInterface,
   UpdateSavedGroupProps,
 } from "../../types/saved-group";
-import { usingFileConfig } from "../init/config";
 import { migrateSavedGroup } from "../util/migrations";
 
 const savedGroupSchema = new mongoose.Schema({
