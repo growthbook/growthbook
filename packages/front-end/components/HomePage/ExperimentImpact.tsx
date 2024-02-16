@@ -19,6 +19,12 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { formatNumber, getExperimentMetricFormatter } from "@/services/metrics";
 import ResultsIndicator from "../Experiment/ResultsIndicator";
 import ExperimentStatusIndicator from "../Experiment/TabbedPage/ExperimentStatusIndicator";
+import { Group } from "@visx/group";
+import { Circle } from "@visx/shape";
+import { scaleLinear } from "@visx/scale";
+import { ParentSizeModern } from "@visx/responsive";
+import { GridColumns } from "@visx/grid";
+import { AxisBottom } from "@visx/axis";
 
 type group = "project" | "tag";
 
@@ -75,9 +81,10 @@ export default function ExperimentImpact({
     return <>Loading</>;
   }
   type ExperimentImpact = {
-    totalUnits: number;
+    controlUnits: number;
     scaledImpact: number[];
     scaledImpactSE: number[];
+    units: number[];
     selected: boolean[];
   };
   type OverallImpact = {
@@ -85,6 +92,7 @@ export default function ExperimentImpact({
     experiments: string[];
     effects: number[];
     ses: number[];
+    units: number[];
     selected: boolean[];
   };
   type ImpactAnalysis = {
@@ -102,6 +110,7 @@ export default function ExperimentImpact({
       experiments: [],
       effects: [],
       ses: [],
+      units: [],
       selected: [],
     },
     groups: new Map<string, OverallImpact>(),
@@ -112,10 +121,11 @@ export default function ExperimentImpact({
       const s = snapshots.find((s) => s.experiment === e.id);
 
       const obj: ExperimentImpact = {
-        totalUnits: 0,
+        controlUnits: 0,
         scaledImpact: [],
         scaledImpactSE: [],
         selected: [],
+        units: []
       };
       if (s) {
         const defaultSettings = getSnapshotAnalysis(s)?.settings;
@@ -130,13 +140,16 @@ export default function ExperimentImpact({
           // no dim so always one row:
           const res = scaledAnalysis.results[0];
           res.variations.forEach((v, i) => {
-            obj.totalUnits += v.users;
+            if (i === 0) {
+              obj.controlUnits = v.users;
+            }
             // TODO what if control is winner?
-            if (i !== 0) {
+            else {
               // TODO effect of adding all branches?
               obj.scaledImpact.push(v?.metrics[metric]?.expected ?? 0);
               obj.scaledImpactSE.push(v?.metrics[metric]?.uplift?.stddev ?? 0);
               obj.selected.push(e.winner === i);
+              obj.units.push(v.users);
             }
           });
         }
@@ -156,6 +169,9 @@ export default function ExperimentImpact({
         impactAnalyses.all.ses = impactAnalyses.all.ses.concat(
           obj.scaledImpactSE
         );
+        impactAnalyses.all.units = impactAnalyses.all.units.concat(
+          obj.units.map((u) => u + obj.controlUnits)
+        )
         impactAnalyses.all.selected = impactAnalyses.all.selected.concat(
           obj.selected
         );
@@ -175,6 +191,7 @@ export default function ExperimentImpact({
               experiments: Array(obj.scaledImpact.length).fill(e.id),
               effects: obj.scaledImpact,
               ses: obj.scaledImpactSE,
+              units: obj.units.map((u) => u + obj.controlUnits),
               selected: obj.selected,
             });
           }
@@ -185,19 +202,23 @@ export default function ExperimentImpact({
   }
   const impacts: React.ReactElement[] = [];
   impactAnalyses.groups.forEach((value, key) => {
-    let selected = 0;
-    let impact = 0;
-    let bias = 0;
-    value.effects.forEach((e, i) => {
-      const se = value.ses[i];
-      selected += Number(value.selected[i]);
-      impact += value.selected[i] ? e : 0;
-      console.log("numbers")
-      console.log(se);
-      console.log(e);
-      console.log((se * 0.6744897501960817 - e) / se);
-      bias += (se === 0 ? 0 : se * normal.pdf((se * 0.6744897501960817 - e) / se, 0, 1));
-    });
+    // let selected = 0;
+    // let impact = 0;
+    // let bias = 0;
+    // TODO just get SE above
+    const se = value.ses[value.units.indexOf(Math.max(...value.units)) ?? 0]
+    const adj = (value.effects.length  - 2) * Math.pow(se, 2) / value.effects.reduce((a, b) => a + Math.pow(b, 2), 0);
+    const adjEstimates = value.effects.map((e) => e * adj);
+    const selected = value.selected.filter((s) => s).length;
+    const impact = value.effects.filter((_, i) => value.selected[i]).reduce((a, b) => a + b, 0);
+    const adjImpact = adjEstimates.filter((_, i) => value.selected[i]).reduce((a, b) => a + b, 0);
+    //value.effects.forEach((e, i) => {
+      // console.log("numbers")
+      // console.log(se);
+      // console.log(e);
+      // console.log((se * 0.6744897501960817 - e) / se);
+      // bias += (se === 0 ? 0 : se * normal.pdf((se * 0.6744897501960817 - e) / se, 0, 1));
+    //});
     //     <div className="px-3 py-3 row  text-dark">
     // <div className="col-auto d-flex align-items-center  text-dark">
     // <div>{key},</div>
@@ -208,13 +229,23 @@ export default function ExperimentImpact({
     //   <FaAngleRight className="chevron" />
     //   </div>
     //   </div>
-    impacts.push(
+
+    const min = Math.min(...value.effects);
+    const max = Math.max(...value.effects);
+    const data1 = value.effects.map((e, i) => {
+      return { x: e, y: Math.random() / 10 };
+    });
+
+    const accessors = {
+      xAccessor: (d) => d.x,
+      yAccessor: (d) => d.y,
+    };
+    impacts.push(<>
       <div className="border bg-light my-2">
-      <Collapsible
-        trigger={
         <div className="px-3 py-3 row align-items-center">
                   <div className="w-20">{group.toLocaleUpperCase()}: {key}</div>
                   <div className="w-25 align-items-center">
+                    <div className="text-center">Total Experiments:</div>
                     <div className="text-center">Experiments</div>
                     <div className="text-center">Completed: {value.uniqueExperiments.length} Launched: {selected}</div>
                   </div>
@@ -224,93 +255,65 @@ export default function ExperimentImpact({
                   </div>
                   <div className="w-25 align-items-center">
                     <div className="text-center">Adjusted Scaled Impact</div>
-                    <div className="text-center">{formatter(impact - bias, formatterOptions)}</div>
+                    <div className="text-center">{formatter(adjImpact, formatterOptions)}</div>
                   </div>
                   
-            <div className=""><FaPlus /></div>
             </div>
-        }
-      >
-      <div className="px-3 py-3">
-        <table className="appbox table experiment-table gbtable responsive-table">
-          <thead>
-            <tr>
-              <th className="w-100">Experiment</th>
-              <th>Tags</th>
-              <th>Owner</th>
-              <th>Status</th>
-              <th>Date</th>
-              <th>Summary</th>
-              <th>Scaled Impact</th>
-            </tr>
-          </thead>
-          <tbody>
-            {value.uniqueExperiments.map((eid) => {
-              const ei = experimentImpacts.get(eid);
-              const e = ei?.experiment;
-              if (!e) return;
-              const phase = e.phases?.[e.phases.length - 1];
-              return (
-                <tr key={e.id} className="hover-highlight">
-                  <td
-                    onClick={() => {
-                      router.push(`/experiment/${e.id}`);
-                    }}
-                    className="cursor-pointer"
-                    data-title="Experiment name:"
-                  >
-                    <div className="d-flex flex-column">
-                      <div className="d-flex">
-                        <Link href={`/experiment/${e.id}`}>
-                          <a className="testname">{e.name}</a>
-                        </Link>
-                      </div>
-                      <span
-                        className="testid text-muted small"
-                        title="Experiment Id"
-                      >
-                        {e.trackingKey}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="nowrap" data-title="Tags:">
-                    <SortedTags tags={Object.values(e.tags)} />
-                  </td>
-                  <td className="nowrap" data-title="Owner:">
-                    {getUserDisplay(e.owner, false) || ""}
-                  </td>
-                  <td className="nowrap" data-title="Status:">
-                    {e.archived ? (
-                      <span className="badge badge-secondary">archived</span>
-                    ) : (
-                      <ExperimentStatusIndicator status={e.status} />
-                    )}
-                  </td>
-                  <td className="nowrap">
-                    {date(e.phases?.[e.phases?.length - 1]?.dateStarted ?? "")}{" "}
-                    - {date(e.phases?.[e.phases?.length - 1]?.dateEnded ?? "")}
-                  </td>
-                  <td className="nowrap" data-title="Summary:">
-                    {e.archived ? (
-                      ""
-                    ) : e.status === "running" && phase ? (
-                      phaseSummary(phase)
-                    ) : e.status === "stopped" && e.results ? (
-                      <ResultsIndicator results={e.results} />
-                    ) : (
-                      ""
-                    )}
-                  </td> {/* TODO handle winner undefined better */}
-                  <td className="nowrap">{formatter(ei.impact.scaledImpact[e.winner ?? 0], formatterOptions)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        </div>
-      </Collapsible>
-</div>
-    );
+            <ParentSizeModern style={{ position: "relative" }}>
+        {({ width }) => {
+          const height = 50;
+          const yMax = height;
+          const xMax = width;
+          const graphHeight = yMax;
+          const margin = [-20, -30, -30, -30];
+
+          // TODO always include 0
+          const xScale = scaleLinear({
+            domain: [min, max],
+            range: [0, xMax],
+            round: true,
+          });
+          const yScale = scaleLinear<number>({
+            domain: [-0.1, 1.2],
+            range: [graphHeight, 0],
+            round: true,
+          });
+
+
+          const numXTicks = 10;
+
+          return (
+            <>
+              <svg width={width} height={height}>
+              <Group left={margin[3]} top={margin[0]}>
+                <GridColumns
+                  scale={xScale}
+                  numTicks={numXTicks}
+                  stroke="var(--border-color-200)"
+                  height={yMax}
+                />
+                {data1.map((d, i) => <Circle key={i} cx={xScale(d.x)} cy={yScale(d.y)} r={5} fill="black" />)}
+                <AxisBottom
+                  top={yMax}
+                  scale={xScale}
+                  tickLength={5}
+                  tickLabelProps={() => ({
+                    fill: "var(--text-color-table)",
+                    fontSize: 11,
+                    textAnchor: "middle",
+                  })}
+                  label={"Scaled Impact"}
+                  labelClassName="h5"
+                />
+              </Group>
+              </svg>
+            </>
+          );
+        }}
+      </ParentSizeModern>
+
+          </div>
+</>);
   });
   return (
     <div>
