@@ -7,7 +7,7 @@ x-codeSamples:
   - lang: 'cURL'
     source: |
       curl -X POST https://api.growthbook.io/api/v1/experiments \
-        -d '{ name: "test_experiment", "owner": "weijie.ou@example.com" ... }'
+        -d '{"name": "test_experiment", "owner": "weijie.ou@example.com", ...}'
         -u secret_abc123DEF456:
 requestBody:
   required: true
