@@ -243,7 +243,6 @@ export default function FeaturePage() {
     });
     return states;
   }, [feature, features, envs]);
-  console.log({ prereqStates });
 
   const dependentFeatures = useMemo(() => {
     if (!feature || !features) return [];
