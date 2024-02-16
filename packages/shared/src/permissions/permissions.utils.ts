@@ -4,6 +4,57 @@ import {
   MemberRole,
 } from "back-end/types/organization";
 
+export const ENV_SCOPED_PERMISSIONS = [
+  "publishFeatures",
+  "manageEnvironments",
+  "runExperiments",
+] as const;
+
+export const PROJECT_SCOPED_PERMISSIONS = [
+  "readData",
+  "addComments",
+  "createFeatureDrafts",
+  "manageFeatures",
+  "manageProjects",
+  "createAnalyses",
+  "createIdeas",
+  "createMetrics",
+  "manageFactTables",
+  "createDatasources",
+  "editDatasourceSettings",
+  "runQueries",
+  "manageVisualChanges",
+] as const;
+
+export const GLOBAL_PERMISSIONS = [
+  "readData",
+  "createPresentations",
+  "createDimensions",
+  "createSegments",
+  "organizationSettings",
+  "superDelete",
+  "manageTeam",
+  "manageTags",
+  "manageApiKeys",
+  "manageIntegrations",
+  "manageWebhooks",
+  "manageBilling",
+  "manageNorthStarMetric",
+  "manageTargetingAttributes",
+  "manageNamespaces",
+  "manageSavedGroups",
+  "manageArchetype",
+  "viewEvents",
+] as const;
+
+export const ALL_PERMISSIONS = [
+  ...GLOBAL_PERMISSIONS,
+  ...PROJECT_SCOPED_PERMISSIONS,
+  ...ENV_SCOPED_PERMISSIONS,
+];
+
+export const READ_ONLY_PERMISSIONS = ["readData", "viewEvents", "runQueries"];
+
 export function hasPermission(
   userPermissions: UserPermissions | undefined,
   permissionToCheck: Permission,
@@ -46,7 +97,7 @@ export const userHasPermission = (
     checkProjects = [project];
   }
 
-  if (["readData", "viewEvents", "runQueries"].includes(permission)) {
+  if (READ_ONLY_PERMISSIONS.includes(permission)) {
     if (
       checkProjects.length === 1 &&
       checkProjects[0] === undefined &&
