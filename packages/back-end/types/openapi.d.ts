@@ -3020,7 +3020,7 @@ export interface operations {
           metrics?: (string)[];
           guardrailMetrics?: (string)[];
           /** @description Email of the person who owns this experiment */
-          owner: string;
+          owner?: string;
           archived?: boolean;
           /** @enum {string} */
           status?: "draft" | "running" | "stopped";
