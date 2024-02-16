@@ -1,11 +1,11 @@
 import { NextFunction, Request, Response } from "express";
 import { SSO_CONFIG } from "enterprise";
-import { hasPermission } from "shared/permissions";
+import { userHasPermission } from "shared/permissions";
 import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
 import { markUserAsVerified, UserModel } from "../../models/UserModel";
 import { getOrganizationById, validateLoginMethod } from "../organizations";
-import { Permission, UserPermissions } from "../../../types/organization";
+import { Permission } from "../../../types/organization";
 import { UserInterface } from "../../../types/user";
 import { AuditInterface } from "../../../types/audit";
 import { getUserByEmail } from "../users";
@@ -16,10 +16,7 @@ import {
   RefreshTokenCookie,
   SSOConnectionIdCookie,
 } from "../../util/cookie";
-import {
-  READ_ONLY_PERMISSIONS,
-  getUserPermissions,
-} from "../../util/organization.util";
+import { getUserPermissions } from "../../util/organization.util";
 import {
   EventAuditUserForResponseLocals,
   EventAuditUserLoggedIn,
@@ -88,45 +85,10 @@ export async function processJWT(
   req.verified = verified || false;
   req.teams = [];
 
-  const userHasPermission = (
-    userPermissions: UserPermissions,
-    permission: Permission,
-    projects: (string | undefined)[],
-    envs?: string[]
-  ): boolean => {
-    if (!req.organization || !req.userId) {
-      return false;
-    }
-
-    if (req.superAdmin) {
-      return true;
-    }
-
-    if (READ_ONLY_PERMISSIONS.includes(permission)) {
-      if (
-        projects.length === 1 &&
-        projects[0] === undefined &&
-        Object.keys(userPermissions.projects).length
-      ) {
-        // check to see if the user has permission globally or via any of their project specific permissions
-        projects.push(...Object.keys(userPermissions.projects));
-      }
-      // Read only type permissions grant permission if the user has the permission globally or in atleast 1 project
-      return projects.some((p) =>
-        hasPermission(userPermissions, permission, p, envs)
-      );
-    } else {
-      // All other permissions require the user to have the permission globally or the user must have the permission in every project they have specific permissions for
-      return projects.every((p) =>
-        hasPermission(userPermissions, permission, p, envs)
-      );
-    }
-  };
-
   // Throw error if permissions don't pass
   req.checkPermissions = (
     permission: Permission,
-    project?: string | (string | undefined)[] | undefined,
+    project?: string | string[],
     envs?: string[] | Set<string>
   ) => {
     if (!req.userId || !req.organization) return false;
@@ -136,18 +98,13 @@ export async function processJWT(
       req.organization,
       req.teams
     );
-    let checkProjects: (string | undefined)[];
-    if (Array.isArray(project)) {
-      checkProjects = project.length > 0 ? project : [undefined];
-    } else {
-      checkProjects = [project];
-    }
 
     if (
       !userHasPermission(
+        req.superAdmin || false,
         userPermissions,
         permission,
-        checkProjects,
+        project,
         envs ? [...envs] : undefined
       )
     ) {

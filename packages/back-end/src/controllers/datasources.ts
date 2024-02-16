@@ -513,14 +513,8 @@ export async function putDataSource(
     });
     return;
   }
-  // Require higher permissions to change connection settings vs updating query settings
-  const permissionLevel = params
-    ? "createDatasources"
-    : "editDatasourceSettings";
-  req.checkPermissions(
-    permissionLevel,
-    datasource?.projects?.length ? datasource.projects : ""
-  );
+
+  req.checkPermissions("editDatasourceSettings", datasource.projects);
 
   if (type && type !== datasource.type) {
     res.status(400).json({
@@ -573,7 +567,7 @@ export async function putDataSource(
     }
 
     if (updates?.projects?.length) {
-      req.checkPermissions(permissionLevel, updates.projects);
+      req.checkPermissions("editDatasourceSettings", updates.projects);
     }
 
     // If the connection params changed, re-validate the connection

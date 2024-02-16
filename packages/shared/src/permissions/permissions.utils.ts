@@ -5,18 +5,15 @@ import {
 } from "back-end/types/organization";
 
 export function hasPermission(
-  userPermissions: UserPermissions | undefined,
+  userPermissions: UserPermissions,
   permissionToCheck: Permission,
   project?: string | undefined,
   envs?: string[]
 ): boolean {
   const usersPermissionsToCheck =
-    (project && userPermissions?.projects[project]) || userPermissions?.global;
+    (project && userPermissions.projects[project]) || userPermissions.global;
 
-  if (
-    !usersPermissionsToCheck ||
-    !usersPermissionsToCheck.permissions[permissionToCheck]
-  ) {
+  if (!usersPermissionsToCheck.permissions[permissionToCheck]) {
     return false;
   }
 
@@ -27,6 +24,45 @@ export function hasPermission(
     usersPermissionsToCheck.environments.includes(env)
   );
 }
+
+export const userHasPermission = (
+  superAdmin: boolean,
+  userPermissions: UserPermissions,
+  permission: Permission,
+  project?: string | string[],
+  envs?: string[]
+): boolean => {
+  if (superAdmin) {
+    return true;
+  }
+
+  let checkProjects: (string | undefined)[];
+  if (Array.isArray(project)) {
+    checkProjects = project.length > 0 ? project : [undefined];
+  } else {
+    checkProjects = [project];
+  }
+
+  if (["readData", "viewEvents", "runQueries"].includes(permission)) {
+    if (
+      checkProjects.length === 1 &&
+      checkProjects[0] === undefined &&
+      Object.keys(userPermissions.projects).length
+    ) {
+      // add all of the projects the user has project-level roles for
+      checkProjects.push(...Object.keys(userPermissions.projects));
+    }
+    // Read only type permissions grant permission if the user has the permission globally or in atleast 1 project
+    return checkProjects.some((p) =>
+      hasPermission(userPermissions, permission, p, envs)
+    );
+  } else {
+    // All other permissions require the user to have the permission globally or the user must have the permission in every project they have specific permissions for
+    return checkProjects.every((p) =>
+      hasPermission(userPermissions, permission, p, envs)
+    );
+  }
+};
 
 export function roleSupportsEnvLimit(role: MemberRole): boolean {
   return ["engineer", "experimenter"].includes(role);

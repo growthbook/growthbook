@@ -31,7 +31,7 @@ import {
 } from "react";
 import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
-import { hasPermission } from "shared/permissions";
+import { userHasPermission } from "shared/permissions";
 import { isCloud, isMultiOrg, isSentryEnabled } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
@@ -326,42 +326,21 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   const permissionsCheck = useCallback(
     (
       permission: Permission,
-      projects?: string[] | string,
+      project?: string[] | string,
       envs?: string[]
     ): boolean => {
-      if (!currentOrg?.currentUserPermissions) return false;
+      if (!currentOrg?.currentUserPermissions || !currentOrg || !data?.userId)
+        return false;
 
-      let checkProjects: (string | undefined)[];
-      if (Array.isArray(projects)) {
-        checkProjects = projects.length > 0 ? projects : [undefined];
-      } else {
-        checkProjects = [projects];
-      }
-      // Read only type permissions grant permission if the user has the permission globally or in atleast 1 project
-      if (["readOnly", "runQueries", "viewEvents"].includes(permission)) {
-        // if the resource is in "ALL PROJECTS", & the user has project-specific permissions, add those to the checkProjects array
-        // so we look at the user's global permissions, as well as all of their project-specific permissions
-        if (
-          checkProjects.length === 1 &&
-          checkProjects[0] === undefined &&
-          Object.keys(currentOrg.currentUserPermissions.projects).length
-        ) {
-          checkProjects.push(
-            ...Object.keys(currentOrg.currentUserPermissions.projects)
-          );
-        }
-        // if the user has permission globally, or via at least 1 of their project-specific roles, they have permission
-        return checkProjects.some((p) =>
-          hasPermission(currentOrg.currentUserPermissions, permission, p, envs)
-        );
-      } else {
-        // All other permissions require the user to have the permission globally or the user must have the permission in every project they have specific permissions for
-        return checkProjects.every((p) =>
-          hasPermission(currentOrg.currentUserPermissions, permission, p, envs)
-        );
-      }
+      return userHasPermission(
+        data.superAdmin || false,
+        currentOrg.currentUserPermissions,
+        permission,
+        project,
+        envs ? [...envs] : undefined
+      );
     },
-    [currentOrg?.currentUserPermissions]
+    [currentOrg, data?.superAdmin, data?.userId]
   );
 
   return (
