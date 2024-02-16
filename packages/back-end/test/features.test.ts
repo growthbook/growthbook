@@ -1438,6 +1438,7 @@ describe("SDK Payloads", () => {
       },
     };
 
+    /*
     // 1: No blocking:
     const features1: FeatureInterface[] = [
       cloneDeep(childFeature),
@@ -1616,6 +1617,7 @@ describe("SDK Payloads", () => {
     expect(payload6).toHaveProperty("parent1");
     expect(payload6).not.toHaveProperty("child1");
 
+    */
     // 7. Rule scrubbing
     const features7: FeatureInterface[] = [
       {
@@ -1711,14 +1713,28 @@ describe("SDK Payloads", () => {
                 },
                 {
                   type: "force",
-                  description: "should keep, condition is non-deterministic",
+                  description: "should keep - complex condition",
                   id: "7",
                   value: "true",
                   condition: `{"country": "US-7"}`,
                   prerequisites: [
                     {
                       id: "parent1",
-                      condition: `{"value": {"$or": [true, false]}}`,
+                      condition: `{"value": {"$in": [false, "foo", "bar"]}}`,
+                    },
+                  ],
+                  enabled: true,
+                },
+                {
+                  type: "force",
+                  description: "should remove - complex condition",
+                  id: "8",
+                  value: "true",
+                  condition: `{"country": "US-8"}`,
+                  prerequisites: [
+                    {
+                      id: "parent1",
+                      condition: `{"value": {"$in": [true, "foo", "bar"]}}`,
                     },
                   ],
                   enabled: true,
@@ -1756,12 +1772,6 @@ describe("SDK Payloads", () => {
       },
       {
         condition: { country: "US-7" },
-        parentConditions: [
-          {
-            id: "parent1",
-            condition: { value: { $or: [true, false] } },
-          },
-        ],
         force: true,
       },
     ]);

@@ -43,6 +43,7 @@ export {
 } from "./feature-repository";
 
 export { GrowthBook } from "./GrowthBook";
+export { evalCondition } from "./mongrule";
 export {
   StickyBucketService,
   LocalStorageStickyBucketService,

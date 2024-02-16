@@ -11,6 +11,7 @@ import {
   ParentConditionsInterface,
 } from "@growthbook/growthbook";
 import {
+  evalDeterministicValue,
   evaluatePrerequisiteState,
   PrerequisiteStateResult,
   validateCondition,
@@ -1199,16 +1200,16 @@ export const reduceFeaturesWithPrerequisites = (
         case "cyclic":
           removeFeature = true;
           break;
-        case "deterministic":
-          // todo: this makes the assumption that top-level prereqs are always boolean / true checks
-          if (state.value === null || state.value === "false") {
-            // remove the feature
+        case "deterministic": {
+          const evaled = evalDeterministicValue(
+            state.value ?? null,
+            prereq.condition
+          );
+          if (evaled === "fail") {
             removeFeature = true;
-            break;
-          } else {
-            // keep the feature, remove the prerequisite
-            break;
           }
+          break;
+        }
       }
     }
     if (!removeFeature) {
@@ -1331,67 +1332,17 @@ export const getInlinePrerequisitesReductionInfo = (
         // remove the rule
         removeRule = true;
         continue;
-      case "deterministic":
-        if (state.value === null) {
-          // try to reduce the rule or feature
-          if (pc.condition === `{"value": {"$exists": false}}`) {
-            // condition passes: keep the rule, remove the prerequisite
-            continue;
-          }
-          if (pc.condition === `{"value": {"$exists": true}}`) {
-            // condition fails: remove the rule
-            removeRule = true;
-            continue;
-          }
-          if (pc.condition === `{"value": true}`) {
-            // condition fails: remove the rule
-            removeRule = true;
-            continue;
-          }
-          if (pc.condition === `{"value": false}`) {
-            // condition fails (null !== false): remove the rule
-            removeRule = true;
-            continue;
-          }
-          // otherwise, keep the rule and prerequisite
-          break;
-        } else {
-          // try to reduce the rule or feature
-          if (pc.condition === `{"value": {"$exists": false}}`) {
-            // condition fails: remove the rule
-            removeRule = true;
-            continue;
-          }
-          if (pc.condition === `{"value": {"$exists": true}}`) {
-            // condition passes: keep the rule, remove the prerequisite
-            continue;
-          }
-          if (
-            (pc.condition === `{"value": true}` &&
-              prereqFeature?.valueType === "boolean" &&
-              state.value === "true") ||
-            (pc.condition === `{"value": false}` &&
-              prereqFeature?.valueType === "boolean" &&
-              state.value === "false")
-          ) {
-            // condition passes: keep the rule, remove the prerequisite
-            continue;
-          }
-          if (
-            (pc.condition === `{"value": false}` &&
-              prereqFeature?.valueType === "boolean" &&
-              state.value === "true") ||
-            (pc.condition === `{"value": true}` &&
-              prereqFeature?.valueType === "boolean" &&
-              state.value === "false")
-          ) {
-            // condition fails: remove the rule
-            removeRule = true;
-            continue;
-          }
-          // otherwise, keep the rule and prerequisite
-          break;
+      case "deterministic": {
+        const evaled = evalDeterministicValue(
+          state.value ?? null,
+          pc.condition
+        );
+        if (evaled === "fail") {
+          // remove the rule
+          removeRule = true;
         }
+        continue;
+      }
     }
 
     // only keep the prerequisite if switch logic hasn't prevented it

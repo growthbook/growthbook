@@ -29,7 +29,6 @@ export interface FeatureDraftChanges {
   dateUpdated?: Date;
   defaultValue?: string;
   rules?: Record<string, FeatureRule[]>;
-  prerequisites?: FeaturePrerequisite[];
   comment?: string;
 }
 
