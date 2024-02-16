@@ -478,7 +478,7 @@ const sidebars = {
       items: [
         {
           type: "doc",
-          id: "kb/visual-editor",
+          id: "kb/visual-editor-kb",
           label: "Visual Editor",
         },
       ],
