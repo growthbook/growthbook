@@ -513,7 +513,7 @@ export async function putDataSource(
     });
     return;
   }
-
+  // Require higher permissions to change connection settings vs updating query settings
   const permissionLevel = params
     ? "createDatasources"
     : "editDatasourceSettings";
