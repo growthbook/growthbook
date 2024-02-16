@@ -564,10 +564,13 @@ export function evaluatePrerequisiteState(
   feature: FeatureInterface,
   features: FeatureInterface[],
   env: string,
-  skipRootConditions: boolean = false
+  skipRootConditions: boolean = false,
+  skipCyclicCheck: boolean = false
 ): PrerequisiteState {
   let isTopLevel = true;
-  if (isFeatureCyclic(feature, features)[0]) return "cyclic";
+  if (!skipCyclicCheck) {
+    if (isFeatureCyclic(feature, features)[0]) return "cyclic";
+  }
 
   const visit = (feature: FeatureInterface): PrerequisiteState => {
     // 1. Current environment toggles take priority

@@ -70,7 +70,7 @@ export default function PrerequisiteStatusRow({
                 >
                   <span
                     className="d-inline-block text-ellipsis"
-                    style={{maxWidth: 240}}
+                    style={{ maxWidth: 240 }}
                   >
                     {parentFeature.id}
                   </span>
@@ -255,7 +255,7 @@ export function PrerequisiteStatesCols({
               popperClassName="text-left"
               body={<div>Circular dependency detected. Please fix.</div>}
             >
-              <FaExclamationCircle className="text-warning-orange" size={20} />
+              <FaExclamationCircle className="text-danger" size={20} />
             </Tooltip>
           )}
         </td>

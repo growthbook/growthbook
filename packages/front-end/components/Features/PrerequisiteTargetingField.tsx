@@ -1,24 +1,32 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
-import { FeatureInterface, FeaturePrerequisite } from "back-end/types/feature";
 import {
+  FeatureInterface,
+  FeaturePrerequisite,
+  ForceRule,
+} from "back-end/types/feature";
+import {
+  FaExclamationCircle,
   FaExclamationTriangle,
   FaExternalLinkAlt,
   FaMinusCircle,
   FaPlusCircle,
+  FaRecycle,
 } from "react-icons/fa";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   evaluatePrerequisiteState,
   getDefaultPrerequisiteCondition,
+  isFeatureCyclic,
   isPrerequisiteConditionConditional,
   PrerequisiteState,
 } from "shared/util";
 import { BiHide, BiShow } from "react-icons/bi";
-import {
-  getConnectionSDKCapabilities,
-  getConnectionsSDKCapabilities,
-} from "shared/sdk-versioning";
+import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
+import { FaRegCircleQuestion } from "react-icons/fa6";
+import clsx from "clsx";
+import cloneDeep from "lodash/cloneDeep";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { getFeatureDefaultValue, useFeaturesList } from "@/services/features";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
@@ -35,6 +43,8 @@ export interface Props {
   value: FeaturePrerequisite[];
   setValue: (prerequisites: FeaturePrerequisite[]) => void;
   feature?: FeatureInterface;
+  revisions?: FeatureRevisionInterface[];
+  version?: number;
   environments: string[];
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
 }
@@ -43,22 +53,20 @@ export default function PrerequisiteTargetingField({
   value,
   setValue,
   feature,
+  revisions,
+  version,
   environments,
   setPrerequisiteTargetingSdkIssues,
 }: Props) {
-  const { features } = useFeaturesList();
-  const featureOptions = features
-    .filter((f) => f.id !== feature?.id)
-    .filter((f) => (f.project || "") === (feature?.project || ""))
-    .map((f) => ({ label: f.id, value: f.id }));
+  const { features } = useFeaturesList(false);
 
   const [conditionKeys, forceConditionRender] = useArrayIncrementer();
 
   const { data: sdkConnectionsData } = useSDKConnections();
-
-  const hasSDKWithPrerequisites = getConnectionsSDKCapabilities(
-    sdkConnectionsData?.connections || []
-  ).includes("prerequisites");
+  const hasSDKWithPrerequisites = getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+    project: feature?.project ?? "",
+  }).includes("prerequisites");
 
   const { hasCommercialFeature } = useUser();
   const hasPrerequisitesCommercialFeature = hasCommercialFeature(
@@ -102,6 +110,57 @@ export default function PrerequisiteTargetingField({
     });
   }, [value, features, environments]);
 
+  const [featuresStates, wouldBeCyclicStates] = useMemo(() => {
+    const featuresStates: Record<
+      string,
+      Record<string, PrerequisiteState>
+    > = {};
+    const wouldBeCyclicStates: Record<string, boolean> = {};
+    for (const f of features) {
+      // get current states:
+      const states: Record<string, PrerequisiteState> = {};
+      environments.forEach((env) => {
+        states[env] = evaluatePrerequisiteState(f, features, env);
+      });
+      featuresStates[f.id] = states;
+
+      // check if selecting this would be cyclic:
+      let wouldBeCyclic = false;
+      if (feature?.environmentSettings?.[environments?.[0]]?.rules) {
+        const newFeature = cloneDeep(feature);
+        const newFeatures = cloneDeep(features);
+        const revision = revisions?.find((r) => r.version === version);
+        const newRevision = cloneDeep(revision);
+        const fakeRule: ForceRule = {
+          type: "force",
+          description: "fake rule",
+          id: "fake-rule",
+          value: "true",
+          prerequisites: [
+            {
+              id: f.id,
+              condition: getDefaultPrerequisiteCondition(),
+            },
+          ],
+          enabled: true,
+        };
+        if (newRevision) {
+          newRevision.rules[environments[0]].push(fakeRule);
+        } else {
+          newFeature.environmentSettings[environments[0]].rules.push(fakeRule);
+        }
+
+        wouldBeCyclic = isFeatureCyclic(
+          newFeature,
+          newFeatures,
+          newRevision
+        )[0];
+      }
+      wouldBeCyclicStates[f.id] = wouldBeCyclic;
+    }
+    return [featuresStates, wouldBeCyclicStates];
+  }, [features, environments]);
+
   const blockedBySdkLimitations = useMemo(() => {
     for (let i = 0; i < prereqStatesArr.length; i++) {
       const parentCondition = value[i].condition;
@@ -127,6 +186,30 @@ export default function PrerequisiteTargetingField({
   useEffect(() => {
     setPrerequisiteTargetingSdkIssues(blockedBySdkLimitations);
   }, [blockedBySdkLimitations, setPrerequisiteTargetingSdkIssues]);
+
+  const featureOptions = features
+    .filter((f) => f.id !== feature?.id)
+    .filter((f) => (f.project || "") === (feature?.project || ""))
+    .map((f) => {
+      const conditional = Object.values(featuresStates[f.id]).some(
+        (s) => s === "conditional"
+      );
+      const cyclic = Object.values(featuresStates[f.id]).some(
+        (s) => s === "cyclic"
+      );
+      const wouldBeCyclic = wouldBeCyclicStates[f.id];
+      const disabled =
+        (!hasSDKWithPrerequisites && conditional) || cyclic || wouldBeCyclic;
+      return {
+        label: f.id,
+        value: f.id,
+        meta: { cyclic, conditional, wouldBeCyclic, disabled },
+      };
+    })
+    .sort((a, b) => {
+      if (b.meta?.disabled) return -1;
+      return 0;
+    });
 
   return (
     <div className="form-group my-4">
@@ -174,9 +257,15 @@ export default function PrerequisiteTargetingField({
                   <div className="col">
                     <SelectField
                       placeholder="Select feature"
-                      options={featureOptions}
+                      options={featureOptions.map((o) => ({
+                        label: o.label,
+                        value: o.value,
+                      }))}
                       value={v.id}
                       onChange={(v) => {
+                        const meta = featureOptions.find((o) => o.value === v)
+                          ?.meta;
+                        if (meta?.disabled) return;
                         setValue([
                           ...value.slice(0, i),
                           {
@@ -188,6 +277,74 @@ export default function PrerequisiteTargetingField({
                       }}
                       key={`parentId-${i}`}
                       sort={false}
+                      formatOptionLabel={({ value, label }) => {
+                        const meta = featureOptions.find(
+                          (o) => o.value === value
+                        )?.meta;
+                        return (
+                          <div
+                            className={clsx({
+                              "cursor-disabled": !!meta?.disabled,
+                            })}
+                          >
+                            <span
+                              className="mr-2"
+                              style={{ opacity: meta?.disabled ? 0.5 : 1 }}
+                            >
+                              {label}
+                            </span>
+                            {meta?.wouldBeCyclic && (
+                              <Tooltip
+                                body="Selecting this feature would create a cyclic dependency."
+                                className="mr-2"
+                              >
+                                <FaRecycle
+                                  className="text-muted position-relative"
+                                  style={{ zIndex: 1 }}
+                                />
+                              </Tooltip>
+                            )}
+                            {meta?.cyclic && (
+                              <Tooltip
+                                body="This feature has a cyclic dependency."
+                                className="mr-2"
+                              >
+                                <FaExclamationCircle
+                                  className="text-danger position-relative"
+                                  style={{ zIndex: 1 }}
+                                />
+                              </Tooltip>
+                            )}
+                            {meta?.conditional && (
+                              <Tooltip
+                                body={
+                                  <>
+                                    This feature is in a{" "}
+                                    <span className="text-warning-orange font-weight-bold">
+                                      Schrödinger state
+                                    </span>
+                                    .
+                                    {!hasSDKWithPrerequisites && (
+                                      <>
+                                        {" "}
+                                        None of your SDK Connections in this
+                                        project support evaluating Schrödinger
+                                        states.
+                                      </>
+                                    )}
+                                  </>
+                                }
+                                className="mr-2"
+                              >
+                                <FaRegCircleQuestion
+                                  className="text-warning-orange position-relative"
+                                  style={{ zIndex: 1 }}
+                                />
+                              </Tooltip>
+                            )}
+                          </div>
+                        );
+                      }}
                     />
                   </div>
                 </div>
@@ -202,6 +359,7 @@ export default function PrerequisiteTargetingField({
                   <PrerequisiteAlerts
                     issue="conditional-prerequisite"
                     environments={environments}
+                    project={parentFeature.project || ""}
                   />
                 ) : null}
 
@@ -230,6 +388,7 @@ export default function PrerequisiteTargetingField({
                   <PrerequisiteAlerts
                     issue="conditional-targeting"
                     environments={environments}
+                    project={parentFeature.project || ""}
                   />
                 ) : null}
               </div>
@@ -378,20 +537,23 @@ export const PrerequisiteAlerts = ({
   issue,
   environments,
   type = "prerequisite",
+  project,
 }: {
   issue: "conditional-prerequisite" | "conditional-targeting";
   environments: string[];
   type?: "feature" | "prerequisite";
+  project: string;
 }) => {
   const { data: sdkConnectionsData } = useSDKConnections();
-
-  const hasSDKWithPrerequisites = getConnectionsSDKCapabilities(
-    sdkConnectionsData?.connections || []
-  ).includes("prerequisites");
-
-  const hasSDKWithNoPrerequisites = (sdkConnectionsData?.connections || [])
-    .map((sdk) => getConnectionSDKCapabilities(sdk))
-    .some((c) => !c.includes("prerequisites"));
+  const hasSDKWithPrerequisites = getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+    project,
+  }).includes("prerequisites");
+  const hasSDKWithNoPrerequisites = !getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+    mustMatchAllConnections: true,
+    project,
+  }).includes("prerequisites");
 
   if (!hasSDKWithNoPrerequisites) {
     return null;
@@ -434,7 +596,7 @@ export const PrerequisiteAlerts = ({
             <a href="/sdks" target="_blank">
               SDK Connections <FaExternalLinkAlt />
             </a>{" "}
-            may not support prerequisite evaluation.
+            in this project may not support prerequisite evaluation.
           </>
         ) : (
           <>
@@ -442,7 +604,8 @@ export const PrerequisiteAlerts = ({
             <a href="/sdks" className="text-normal" target="_blank">
               SDK Connections <FaExternalLinkAlt />
             </a>{" "}
-            support prerequisite evaluation. Either upgrade your SDKs
+            in this project support prerequisite evaluation. Either upgrade your
+            SDKs
             {issue === "conditional-targeting"
               ? ", change the targeting condition, "
               : ""}{" "}

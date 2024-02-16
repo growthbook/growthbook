@@ -798,6 +798,8 @@ export default function RuleModal({
               form.setValue("prerequisites", prerequisites)
             }
             feature={feature}
+            revisions={revisions}
+            version={version}
             environments={[environment]}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues

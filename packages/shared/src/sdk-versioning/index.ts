@@ -163,17 +163,36 @@ export const getConnectionSDKCapabilities = (
   return uniq(capabilities);
 };
 
-export const getConnectionsSDKCapabilities = (
-  connections: Partial<SDKConnectionInterface>[],
-  strategy:
-    | "min-ver-intersection"
-    | "max-ver-intersection" = "min-ver-intersection"
-) => {
+export const getConnectionsSDKCapabilities = ({
+  connections,
+  strategy = "min-ver-intersection",
+  mustMatchAllConnections = false,
+  project,
+}: {
+  connections: Partial<SDKConnectionInterface>[];
+  strategy?: "min-ver-intersection" | "max-ver-intersection";
+  mustMatchAllConnections?: boolean;
+  project?: string;
+}) => {
   let capabilities: SDKCapability[] = [];
-  for (const connection of connections) {
-    capabilities = capabilities.concat(
-      getConnectionSDKCapabilities(connection, strategy)
+  const filteredConnections = connections.filter((c) => {
+    if (project === undefined) return true;
+    return c.projects?.includes(project) || (c.projects ?? [])?.length === 0;
+  });
+  for (let i = 0; i < filteredConnections.length; i++) {
+    const connection = filteredConnections[i];
+    const connectionCapabilities = getConnectionSDKCapabilities(
+      connection,
+      strategy
     );
+    if (!mustMatchAllConnections || i === 0) {
+      capabilities = capabilities.concat(connectionCapabilities);
+    }
+    if (mustMatchAllConnections && i > 0) {
+      capabilities = capabilities.filter((c) =>
+        connectionCapabilities.includes(c)
+      );
+    }
   }
   return uniq(capabilities);
 };

@@ -37,9 +37,9 @@ export default function FallbackAttributeSelector({ form }: Props) {
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
 
   const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithStickyBucketing = getConnectionsSDKCapabilities(
-    sdkConnectionsData?.connections || []
-  ).includes("stickyBucketing");
+  const hasSDKWithStickyBucketing = getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections || [],
+  }).includes("stickyBucketing");
 
   const attributeSchema = useAttributeSchema();
   const hasHashAttributes =

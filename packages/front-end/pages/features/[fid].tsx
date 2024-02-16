@@ -158,7 +158,7 @@ export default function FeaturePage() {
 
   const [showDependents, setShowDependents] = useState(false);
 
-  const { features } = useFeaturesList();
+  const { features } = useFeaturesList(false);
   const { experiments } = useExperiments();
   const environments = useEnvironments();
   const envs = environments.map((e) => e.id);
@@ -967,6 +967,7 @@ export default function FeaturePage() {
             issue="conditional-prerequisite"
             environments={envs}
             type="feature"
+            project={projectId ?? ""}
           />
         )}
 

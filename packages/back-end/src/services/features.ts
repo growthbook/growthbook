@@ -1136,7 +1136,13 @@ export const reduceFeaturesWithPrerequisites = (
     for (const prereq of newFeature.prerequisites || []) {
       const prereqFeature = features.find((f) => f.id === prereq.id);
       let state = prereqFeature
-        ? evaluatePrerequisiteState(prereqFeature, features, environment)
+        ? evaluatePrerequisiteState(
+            prereqFeature,
+            features,
+            environment,
+            undefined,
+            true
+          )
         : "off";
 
       // reduce "on" states based on defaultValue when possible (similar to getInlinePrerequisitesReductionInfo)
@@ -1246,7 +1252,13 @@ export const getInlinePrerequisitesReductionInfo = (
   for (const pc of prerequisites) {
     const prereqFeature = features.find((f) => f.id === pc.id);
     const state = prereqFeature
-      ? evaluatePrerequisiteState(prereqFeature, features, environment)
+      ? evaluatePrerequisiteState(
+          prereqFeature,
+          features,
+          environment,
+          undefined,
+          true
+        )
       : "off";
 
     switch (state) {

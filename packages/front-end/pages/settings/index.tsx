@@ -280,9 +280,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
   );
 
   const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithStickyBucketing = getConnectionsSDKCapabilities(
-    sdkConnectionsData?.connections || []
-  ).includes("stickyBucketing");
+  const hasSDKWithStickyBucketing = getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+  }).includes("stickyBucketing");
 
   const { metricDefaults } = useOrganizationMetricDefaults();
 

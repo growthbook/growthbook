@@ -7,15 +7,22 @@ import {
   isFeatureCyclic,
   PrerequisiteState,
 } from "shared/util";
-import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
+import {
+  FaExclamationCircle,
+  FaExclamationTriangle,
+  FaExternalLinkAlt,
+  FaRecycle,
+} from "react-icons/fa";
 import cloneDeep from "lodash/cloneDeep";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
+import clsx from "clsx";
+import { FaRegCircleQuestion } from "react-icons/fa6";
 import {
   getFeatureDefaultValue,
+  getPrerequisites,
   useEnvironments,
   useFeaturesList,
-  getPrerequisites,
 } from "@/services/features";
 import track from "@/services/track";
 import ValueDisplay from "@/components/Features/ValueDisplay";
@@ -44,12 +51,18 @@ export default function PrerequisiteModal({
   revisions,
   version,
 }: Props) {
-  const { features } = useFeaturesList();
+  const { features } = useFeaturesList(false);
   const prerequisites = getPrerequisites(feature);
   const prerequisite = prerequisites[i] ?? null;
   const environments = useEnvironments();
   const envs = environments.map((e) => e.id);
+  const { apiCall } = useAuth();
+
   const { data: sdkConnectionsData } = useSDKConnections();
+  const hasSDKWithPrerequisites = getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+    project: feature?.project ?? "",
+  }).includes("prerequisites");
 
   const defaultValues = {
     id: "",
@@ -62,18 +75,6 @@ export default function PrerequisiteModal({
       condition: prerequisite?.condition ?? defaultValues.condition,
     },
   });
-  const { apiCall } = useAuth();
-
-  const featureOptions = features
-    .filter((f) => f.id !== feature.id)
-    .filter(
-      (f) =>
-        !prerequisites.map((p) => p.id).includes(f.id) ||
-        f.id === prerequisite?.id
-    )
-    .filter((f) => (f.project || "") === (feature.project || ""))
-    .filter((f) => f.valueType === "boolean")
-    .map((f) => ({ label: f.id, value: f.id }));
 
   const parentFeature = features.find((f) => f.id === form.watch("id"));
   const parentFeatureId = parentFeature?.id;
@@ -96,28 +97,79 @@ export default function PrerequisiteModal({
     i,
   ]);
 
-  const prereqStates = useMemo(() => {
-    if (!parentFeature) return null;
-    const states: Record<string, PrerequisiteState> = {};
-    envs.forEach((env) => {
-      states[env] = evaluatePrerequisiteState(parentFeature, features, env);
-    });
-    return states;
-  }, [parentFeature, features, envs]);
+  const [featuresStates, wouldBeCyclicStates] = useMemo(() => {
+    const featuresStates: Record<
+      string,
+      Record<string, PrerequisiteState>
+    > = {};
+    const wouldBeCyclicStates: Record<string, boolean> = {};
+    for (const f of features) {
+      // get current states:
+      const states: Record<string, PrerequisiteState> = {};
+      envs.forEach((env) => {
+        states[env] = evaluatePrerequisiteState(f, features, env);
+      });
+      featuresStates[f.id] = states;
+
+      // check if selecting this would be cyclic:
+      const newFeature = cloneDeep(feature);
+      const newFeatures = cloneDeep(features);
+      const revision = revisions?.find((r) => r.version === version);
+      newFeature.prerequisites = [...prerequisites];
+      newFeature.prerequisites[i] = {
+        id: f.id,
+        condition: getDefaultPrerequisiteCondition(),
+      };
+      wouldBeCyclicStates[f.id] = isFeatureCyclic(
+        newFeature,
+        newFeatures,
+        revision
+      )[0];
+    }
+    return [featuresStates, wouldBeCyclicStates];
+  }, [feature, features, envs, i, prerequisites, revisions, version]);
+
+  const prereqStates = featuresStates?.[form.watch("id")];
 
   const hasConditionalState =
     prereqStates &&
     Object.values(prereqStates).some((s) => s === "conditional");
-
-  const hasSDKWithPrerequisites = getConnectionsSDKCapabilities(
-    sdkConnectionsData?.connections || []
-  ).includes("prerequisites");
 
   const canSubmit =
     !isCyclic &&
     !!parentFeature &&
     !!form.watch("id") &&
     (!hasConditionalState || hasSDKWithPrerequisites);
+
+  const featureOptions = features
+    .filter((f) => f.id !== feature?.id)
+    .filter(
+      (f) =>
+        !prerequisites.map((p) => p.id).includes(f.id) ||
+        f.id === prerequisite?.id
+    )
+    .filter((f) => (f.project || "") === (feature?.project || ""))
+    .filter((f) => f.valueType === "boolean")
+    .map((f) => {
+      const conditional = Object.values(featuresStates[f.id]).some(
+        (s) => s === "conditional"
+      );
+      const cyclic = Object.values(featuresStates[f.id]).some(
+        (s) => s === "cyclic"
+      );
+      const wouldBeCyclic = wouldBeCyclicStates[f.id];
+      const disabled =
+        (!hasSDKWithPrerequisites && conditional) || cyclic || wouldBeCyclic;
+      return {
+        label: f.id,
+        value: f.id,
+        meta: { cyclic, conditional, wouldBeCyclic, disabled },
+      };
+    })
+    .sort((a, b) => {
+      if (b.meta?.disabled) return -1;
+      return 0;
+    });
 
   return (
     <Modal
@@ -173,13 +225,83 @@ export default function PrerequisiteModal({
       <SelectField
         label="Select from boolean features"
         placeholder="Select feature"
-        options={featureOptions}
+        options={featureOptions.map((o) => ({
+          label: o.label,
+          value: o.value,
+        }))}
         value={form.watch("id")}
         onChange={(v) => {
+          const meta = featureOptions.find((o) => o.value === v)?.meta;
+          if (meta?.disabled) return;
           form.setValue("id", v);
           form.setValue("condition", "");
         }}
         sort={false}
+        formatOptionLabel={({ value, label }) => {
+          const meta = featureOptions.find((o) => o.value === value)?.meta;
+          return (
+            <div
+              className={clsx({
+                "cursor-disabled": !!meta?.disabled,
+              })}
+            >
+              <span
+                className="mr-2"
+                style={{ opacity: meta?.disabled ? 0.5 : 1 }}
+              >
+                {label}
+              </span>
+              {meta?.wouldBeCyclic && (
+                <Tooltip
+                  body="Selecting this feature would create a cyclic dependency."
+                  className="mr-2"
+                >
+                  <FaRecycle
+                    className="text-muted position-relative"
+                    style={{ zIndex: 1 }}
+                  />
+                </Tooltip>
+              )}
+              {meta?.cyclic && (
+                <Tooltip
+                  body="This feature has a cyclic dependency."
+                  className="mr-2"
+                >
+                  <FaExclamationCircle
+                    className="text-danger position-relative"
+                    style={{ zIndex: 1 }}
+                  />
+                </Tooltip>
+              )}
+              {meta?.conditional && (
+                <Tooltip
+                  body={
+                    <>
+                      This feature is in a{" "}
+                      <span className="text-warning-orange font-weight-bold">
+                        Schrödinger state
+                      </span>
+                      .
+                      {!hasSDKWithPrerequisites && (
+                        <>
+                          {" "}
+                          None of your SDK Connections in this project support
+                          evaluating Schrödinger states.
+                        </>
+                      )}
+                    </>
+                  }
+                  className="mr-2"
+                >
+                  <FaRegCircleQuestion
+                    className="text-warning-orange position-relative"
+                    style={{ zIndex: 1 }}
+                  />
+                </Tooltip>
+              )}
+            </div>
+          );
+        }}
       />
 
       {parentFeature ? (
@@ -247,6 +369,7 @@ export default function PrerequisiteModal({
       {hasConditionalState && (
         <PrerequisiteAlerts
           issue="conditional-prerequisite"
+          project={feature.project || ""}
           environments={envs}
         />
       )}
