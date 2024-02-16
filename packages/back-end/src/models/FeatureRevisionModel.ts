@@ -405,8 +405,8 @@ export async function discardRevision(
   revision: FeatureRevisionInterface,
   user: EventAuditUser
 ) {
-  if (revision.status !== "draft") {
-    throw new Error("Can only discard draft revisions");
+  if (revision.status === "published" || revision.status === "discarded") {
+    throw new Error(`Can not discard ${revision.status} revisions`);
   }
 
   const log: RevisionLog = {

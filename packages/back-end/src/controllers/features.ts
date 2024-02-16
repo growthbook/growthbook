@@ -592,7 +592,7 @@ export async function postFeaturePublish(
   >,
   res: Response
 ) {
-  const { org, environments } = getContextFromReq(req);
+  const { org, environments, userId } = getContextFromReq(req);
   const { comment, mergeResultSerialized } = req.body;
   const { id, version } = req.params;
   const feature = await getFeature(org.id, id);
@@ -603,7 +603,8 @@ export async function postFeaturePublish(
   req.checkPermissions("manageFeatures", feature.project);
 
   const revision = await getRevision(org.id, feature.id, parseInt(version));
-  const isAdmin = org.settings?.defaultRole?.role === "admin";
+  const user = org.members.find((member) => member.id === userId);
+  const isAdmin = user?.role === "admin";
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
@@ -828,8 +829,8 @@ export async function postFeatureDiscard(
     throw new Error("Could not find feature revision");
   }
 
-  if (revision.status !== "draft") {
-    throw new Error("Can only discard draft revisions");
+  if (revision.status === "published" || revision.status === "discarded") {
+    throw new Error(`Can not discard ${revision.status} revisions`);
   }
 
   req.checkPermissions("manageFeatures", feature.project);

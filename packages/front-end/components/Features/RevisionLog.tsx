@@ -50,7 +50,6 @@ function RevisionLogRow({
       return <Code language="json" code={value} />;
     }
   };
-  console.log(commentsOnly);
   const openClickClassNames = clsx("mb-2", {
     "cursor-pointer": !commentsOnly,
   });

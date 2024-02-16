@@ -122,11 +122,11 @@ export default function FeaturePage() {
   } = useDefinitions();
 
   const { apiCall } = useAuth();
-  const { hasCommercialFeature, organization, superAdmin } = useUser();
+  const { hasCommercialFeature, organization } = useUser();
 
   const [version, setVersion] = useState<number | null>(null);
   const settings = useOrgSettings();
-  const requireReviews = !!settings?.requireReviews && !superAdmin;
+  const requireReviews = !!settings?.requireReviews;
 
   let extraQueryString = "";
   // Version being forced via querystring
@@ -256,8 +256,7 @@ export default function FeaturePage() {
   const isDraft = revision?.status === "draft";
   const isPendingReview =
     revision?.status === "pending-review" ||
-    revision?.status === "changes-requested" ||
-    "approved";
+    revision?.status === "changes-requested";
   const approved = revision?.status === "approved";
   const isLive = revision?.version === feature.version;
   const isArchived = feature.archived;
@@ -1066,7 +1065,7 @@ export default function FeaturePage() {
                     : "Make changes below and publish when you are ready"}
                 </div>
                 <div className="ml-auto"></div>
-                {mergeResult?.success && requireReviews && !approved && (
+                {mergeResult?.success && requireReviews && (
                   <div>
                     <Tooltip
                       body={
@@ -1088,8 +1087,7 @@ export default function FeaturePage() {
                       >
                         {isPendingReview ? (
                           <>
-                            <BsClock />
-                            Awaiting Approval
+                            <BsClock /> Awaiting Approval
                           </>
                         ) : (
                           <>

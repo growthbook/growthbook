@@ -2,14 +2,21 @@ import { FeatureInterface } from "back-end/types/feature";
 import { useState, useMemo, ChangeEvent } from "react";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { autoMerge, mergeResultHasChanges } from "shared/util";
-import { Callout, Flex, RadioGroup, TextArea, Text } from "@radix-ui/themes";
+import {
+  Callout,
+  Flex,
+  RadioGroup,
+  TextArea,
+  Text,
+  Checkbox,
+} from "@radix-ui/themes";
 import { useForm } from "react-hook-form";
 import { ReviewSubmittedType } from "@/../back-end/src/models/FeatureRevisionModel";
 
 import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
-import { useUser } from "@/services/UserContext";
+import { getCurrentUser } from "@/services/UserContext";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import LegacyButton from "../Button";
@@ -36,11 +43,16 @@ export default function RequestReviewModal({
   const environments = useEnvironments();
   const permissions = usePermissions();
   const [showSubmitReview, setShowSumbmitReview] = useState(false);
+  const [adminPublish, setAdminPublish] = useState(false);
   const { apiCall } = useAuth();
-  const user = useUser();
+  const user = getCurrentUser();
+  const isAdmin = user?.role === "admin";
   const revision = revisions.find((r) => r.version === version);
-  const isPendingReview = revision?.status === "pending-review";
-  const canReview = isPendingReview && revision?.createdBy?.id !== user.userId;
+  const isPendingReview =
+    revision?.status === "pending-review" ||
+    revision?.status === "changes-requested";
+  const canReview = isPendingReview && revision?.createdBy?.id !== user?.id;
+  const approved = revision?.status === "approved" || adminPublish;
   const baseRevision = revisions.find(
     (r) => r.version === revision?.baseVersion
   );
@@ -67,7 +79,7 @@ export default function RequestReviewModal({
     },
   });
   const submitButton = async () => {
-    if (!isPendingReview) {
+    if (!isPendingReview && !approved) {
       try {
         await apiCall(`/feature/${feature.id}/${revision?.version}/request`, {
           method: "POST",
@@ -83,6 +95,20 @@ export default function RequestReviewModal({
       await mutate();
     } else if (canReview) {
       setShowSumbmitReview(true);
+    } else if (approved) {
+      try {
+        await apiCall(`/feature/${feature.id}/${revision?.version}/publish`, {
+          method: "POST",
+          body: JSON.stringify({
+            mergeResultSerialized: JSON.stringify(mergeResult),
+            comment,
+          }),
+        });
+      } catch (e) {
+        mutate();
+        throw e;
+      }
+      await mutate();
     }
   };
 
@@ -131,18 +157,25 @@ export default function RequestReviewModal({
   );
 
   const hasChanges = mergeResultHasChanges(mergeResult);
-
+  let ctaCopy = "Request Review";
+  if (approved) {
+    ctaCopy = "Publish";
+  } else if (canReview) {
+    ctaCopy = "Next";
+  }
   const renderRequestAndViewModal = () => {
     return (
       <Modal
         open={true}
         header={"Review Draft Changes"}
-        cta={canReview ? "Next" : "Request Review"}
+        cta={ctaCopy}
         close={close}
         autoCloseOnSubmit={canReview ? false : true}
         closeCta="Cancel"
         size="max"
-        submit={!isPendingReview || canReview ? submitButton : undefined}
+        submit={
+          !isPendingReview || canReview || approved ? submitButton : undefined
+        }
         secondaryCTA={
           isPendingReview && !canReview ? (
             <LegacyButton
@@ -190,7 +223,21 @@ export default function RequestReviewModal({
                 Publishing to the prod environment requires approval.
               </Callout.Text>
             </Callout.Root>
-
+            {isAdmin && (
+              <Text as="label" size="2" className="mt-2">
+                <Flex gap="2">
+                  <Checkbox
+                    onCheckedChange={(checkedState) => {
+                      checkedState === "indeterminate"
+                        ? setAdminPublish(false)
+                        : setAdminPublish(checkedState);
+                    }}
+                  />
+                  Bypass approval requirement to publish (optional for Admins
+                  only)
+                </Flex>
+              </Text>
+            )}
             <div className="list-group mb-4 mt-4">
               {resultDiffs.map((diff) => (
                 <ExpandableDiff {...diff} key={diff.title} />
