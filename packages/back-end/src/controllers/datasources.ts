@@ -514,7 +514,10 @@ export async function putDataSource(
     return;
   }
 
-  req.checkPermissions("editDatasourceSettings", datasource.projects);
+  req.checkPermissions(
+    "editDatasourceSettings",
+    datasource?.projects?.length ? datasource.projects : []
+  );
 
   if (type && type !== datasource.type) {
     res.status(400).json({

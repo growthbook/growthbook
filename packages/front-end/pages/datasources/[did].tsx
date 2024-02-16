@@ -58,7 +58,7 @@ const DataSourcePage: FC = () => {
 
   const canEdit =
     (d &&
-      permissions.check("editDatasourceSettings", d.projects) &&
+      permissions.check("editDatasourceSettings", d.projects || []) &&
       !hasFileConfig()) ||
     false;
 

@@ -221,7 +221,10 @@ export async function postMetricAnalysis(
     });
   }
 
-  req.checkPermissions("runQueries", metric.projects);
+  req.checkPermissions(
+    "runQueries",
+    metric.projects?.length ? metric.projects : []
+  );
 
   try {
     await refreshMetric(

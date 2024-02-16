@@ -2130,7 +2130,10 @@ export async function postPastExperiments(
   if (!datasourceObj) {
     throw new Error("Could not find datasource");
   }
-  req.checkPermissions("runQueries", datasourceObj.projects);
+  req.checkPermissions(
+    "runQueries",
+    datasourceObj?.projects?.length ? datasourceObj.projects : []
+  );
 
   const integration = getSourceIntegrationObject(datasourceObj, true);
 

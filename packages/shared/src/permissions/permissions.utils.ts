@@ -5,15 +5,18 @@ import {
 } from "back-end/types/organization";
 
 export function hasPermission(
-  userPermissions: UserPermissions,
+  userPermissions: UserPermissions | undefined,
   permissionToCheck: Permission,
   project?: string | undefined,
   envs?: string[]
 ): boolean {
   const usersPermissionsToCheck =
-    (project && userPermissions.projects[project]) || userPermissions.global;
+    (project && userPermissions?.projects[project]) || userPermissions?.global;
 
-  if (!usersPermissionsToCheck.permissions[permissionToCheck]) {
+  if (
+    !usersPermissionsToCheck ||
+    !usersPermissionsToCheck.permissions[permissionToCheck]
+  ) {
     return false;
   }
 
