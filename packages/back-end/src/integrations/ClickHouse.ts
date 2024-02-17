@@ -87,13 +87,27 @@ export default class ClickHouse extends SqlIntegration {
     return `toFloat64(${col})`;
   }
   percentileCapSelectClause(
-    capPercentile: number,
-    metricTable: string
+    values: {
+      valueCol: string;
+      outputCol: string;
+      percentile: number;
+      ignoreZeros: boolean;
+    }[],
+    metricTable: string,
+    where: string = ""
   ): string {
     return `
-      SELECT quantile(${capPercentile})(value) AS cap_value
+    SELECT
+      ${values
+        .map((v) => {
+          const value = v.ignoreZeros
+            ? this.ifElse(`${v.valueCol} = 0`, "NULL", v.valueCol)
+            : v.valueCol;
+          return `quantile(${v.percentile})(${value}) AS ${v.outputCol}`;
+        })
+        .join(",\n")}
       FROM ${metricTable}
-      WHERE value IS NOT NULL
+      ${where}
     `;
   }
   getInformationSchemaWhereClause(): string {

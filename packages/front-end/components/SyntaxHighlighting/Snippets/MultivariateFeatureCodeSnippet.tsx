@@ -35,6 +35,22 @@ export default function MultivariateFeatureCodeSnippet({
   featureId?: string;
   valueType?: FeatureValueType;
 }) {
+  if (language.match(/^nocode/)) {
+    return (
+      <Code
+        language="html"
+        code={`
+<script>
+const value = window._growthbook?.getFeatureValue(
+  ${JSON.stringify(featureId)},
+  ${getDefaultValue(valueType)}
+);
+console.log(value);
+</script>
+`.trim()}
+      />
+    );
+  }
   if (language === "javascript") {
     return (
       <Code

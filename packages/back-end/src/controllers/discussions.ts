@@ -6,7 +6,7 @@ import {
   getDiscussionByParent,
   getLastNDiscussions,
 } from "../services/discussions";
-import { getOrgFromReq } from "../services/organizations";
+import { getContextFromReq } from "../services/organizations";
 
 export async function postDiscussions(
   req: AuthRequest<
@@ -17,7 +17,7 @@ export async function postDiscussions(
 ) {
   req.checkPermissions("addComments", "");
 
-  const { org, userId, email, userName } = getOrgFromReq(req);
+  const { org, userId, email, userName } = getContextFromReq(req);
   const { parentId, parentType } = req.params;
   const { comment } = req.body;
 
@@ -55,7 +55,7 @@ export async function deleteComment(
 ) {
   req.checkPermissions("addComments", "");
 
-  const { org, userId } = getOrgFromReq(req);
+  const { org, userId } = getContextFromReq(req);
   const { parentId, parentType, index } = req.params;
 
   const i = parseInt(index);
@@ -105,7 +105,7 @@ export async function putComment(
 ) {
   req.checkPermissions("addComments", "");
 
-  const { org, userId } = getOrgFromReq(req);
+  const { org, userId } = getContextFromReq(req);
   const { parentId, parentType, index } = req.params;
   const { comment } = req.body;
 
@@ -152,7 +152,7 @@ export async function getDiscussion(
   >,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { parentId, parentType } = req.params;
 
   try {
@@ -177,7 +177,7 @@ export async function getRecentDiscussions(
   req: AuthRequest<null, { num: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { num } = req.params;
   let intNum = parseInt(num);
   if (intNum > 100) intNum = 100;

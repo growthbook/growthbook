@@ -43,6 +43,14 @@ export {
 } from "./feature-repository";
 
 export { GrowthBook } from "./GrowthBook";
+export {
+  StickyBucketService,
+  LocalStorageStickyBucketService,
+  ExpressCookieStickyBucketService,
+  BrowserCookieStickyBucketService,
+  RedisStickyBucketService,
+} from "./sticky-bucket-service";
+
 export { evalCondition } from "./mongrule";
 
 export { isURLTargeted } from "./util";

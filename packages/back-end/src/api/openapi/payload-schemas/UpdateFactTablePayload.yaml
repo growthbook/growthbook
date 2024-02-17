@@ -1,0 +1,34 @@
+type: object
+properties:
+  name:
+    type: string
+  description:
+    type: string
+    description: Description of the fact table
+  owner:
+    type: string
+    description: The person who is responsible for this fact table
+  projects:
+    type: array
+    items:
+      type: string
+    description: List of associated project ids
+  tags:
+    type: array
+    items:
+      type: string
+    description: List of associated tags
+  userIdTypes:
+    type: array
+    items:
+      type: string
+    description: List of identifier columns in this table. For example, "id" or "anonymous_id"
+  sql:
+    type: string
+    description: The SQL query for this fact table
+  managedBy:
+    type: string
+    description: Set this to "api" to disable editing in the GrowthBook UI
+    enum:
+      - ""
+      - api

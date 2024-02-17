@@ -23,6 +23,7 @@ export type SelectFieldProps = Omit<
     value: SingleValue,
     meta: FormatOptionLabelMeta<SingleValue>
   ) => ReactNode;
+  formatGroupLabel?: (value: GroupedValue) => ReactNode;
   isSearchable?: boolean;
   isClearable?: boolean;
 };
@@ -130,6 +131,7 @@ const SelectField: FC<SelectFieldProps> = ({
   className,
   createable = false,
   formatOptionLabel,
+  formatGroupLabel,
   isSearchable = true,
   isClearable = false,
   ...otherProps
@@ -225,9 +227,9 @@ const SelectField: FC<SelectFieldProps> = ({
                   onChange(val);
                 }}
                 noOptionsMessage={() => null}
-                isValidNewOption={() => false}
                 value={selected}
                 formatOptionLabel={formatOptionLabel}
+                formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
               />
             ) : (
@@ -246,6 +248,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 value={selected}
                 placeholder={initialOption ?? placeholder}
                 formatOptionLabel={formatOptionLabel}
+                formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
               />
             )}

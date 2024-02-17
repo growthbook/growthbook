@@ -52,11 +52,15 @@ export default function SDKConnectionForm({
   edit,
   close,
   mutate,
+  autoCloseOnSubmit = true,
+  cta = "Save",
 }: {
   initialValue?: Partial<SDKConnectionInterface>;
   edit: boolean;
-  close: () => void;
+  close?: () => void;
   mutate: () => void;
+  autoCloseOnSubmit?: boolean;
+  cta?: string;
 }) {
   const environments = useEnvironments();
   const { project, projects, getProjectById } = useDefinitions();
@@ -147,7 +151,10 @@ export default function SDKConnectionForm({
     form.getValues(),
     "max-ver-intersection"
   );
-  const currentSdkCapabilities = getConnectionSDKCapabilities(form.getValues());
+  const currentSdkCapabilities = getConnectionSDKCapabilities(
+    form.getValues(),
+    "min-ver-intersection"
+  );
 
   const enableRemoteEval =
     hasRemoteEvaluationFeature && !!gb?.isOn("remote-evaluation");
@@ -180,10 +187,14 @@ export default function SDKConnectionForm({
   }, [languageEnvironment, setSelectedSecurityTab]);
 
   useEffect(() => {
-    if (!showVisualEditorSettings) {
+    if (!edit) {
+      form.setValue("includeVisualExperiments", showVisualEditorSettings);
+      form.setValue("includeDraftExperiments", showVisualEditorSettings);
+    } else if (!showVisualEditorSettings) {
       form.setValue("includeVisualExperiments", false);
+      form.setValue("includeDraftExperiments", false);
     }
-  }, [showVisualEditorSettings, form]);
+  }, [showVisualEditorSettings, form, edit]);
 
   // complex setter for clicking a "SDK Payload Security" button
   useEffect(() => {
@@ -235,6 +246,7 @@ export default function SDKConnectionForm({
     <Modal
       header={edit ? "Edit SDK Connection" : "New SDK Connection"}
       size={"lg"}
+      autoCloseOnSubmit={autoCloseOnSubmit}
       error={form.formState.errors.languages?.message}
       submit={form.handleSubmit(async (value) => {
         // filter for visual experiments
@@ -278,7 +290,9 @@ export default function SDKConnectionForm({
             proxyEnabled: value.proxyEnabled,
           });
           mutate();
-          await router.push(`/sdks/${res.connection.id}`);
+          if (autoCloseOnSubmit) {
+            await router.push(`/sdks/${res.connection.id}`);
+          }
         }
       })}
       customValidation={() => {
@@ -293,7 +307,7 @@ export default function SDKConnectionForm({
       }}
       close={close}
       open={true}
-      cta="Save"
+      cta={cta}
     >
       <div className="px-2">
         <Field label="Name" {...form.register("name")} required />
@@ -308,7 +322,7 @@ export default function SDKConnectionForm({
             ) : null}
             <div className="flex-1" />
             {form.watch("languages")?.length === 1 &&
-              form.watch("languages")[0] !== "other" && (
+              !form.watch("languages")[0].match(/^(other|nocode-.*)$/) && (
                 <div className="text-right position-relative">
                   <div className="d-inline-flex align-items-center">
                     <label className="mb-0 mr-2">SDK ver.</label>
@@ -432,7 +446,7 @@ export default function SDKConnectionForm({
                         }
                       >
                         <div className="subtitle">
-                          High cacheable, but may leak sensitive info to users
+                          Highly cacheable, but may leak sensitive info to users
                           <FaInfoCircle className="ml-1" />
                         </div>
                       </Tooltip>

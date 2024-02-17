@@ -14,7 +14,9 @@ import {
 
 export function isRoleValid(role: MemberRole) {
   const validRoles: Record<MemberRole, boolean> = {
+    noaccess: true,
     readonly: true,
+    visualEditor: true,
     collaborator: true,
     designer: true,
     analyst: true,

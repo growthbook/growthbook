@@ -6,6 +6,7 @@ const docSections = {
   features: "/app/features",
   experimentConfiguration: "/app/experiment-configuration",
   experimentResults: "/app/experiment-results",
+  stickyBucketing: "/app/sticky-bucketing",
   metrics: "/app/metrics",
   dimensions: "/app/dimensions",
   datasources: "/app/datasources",
@@ -45,6 +46,9 @@ const docSections = {
   autoMetrics: "/app/metrics/#auto-generate-metrics",
   targetingChanges:
     "/app/experiment-configuration#making-changes-while-running",
+  shopify: "/integrations/shopify",
+  webflow: "/integrations/webflow",
+  wordpress: "/integrations/wordpress",
 };
 
 export type DocSection = keyof typeof docSections;
@@ -71,7 +75,7 @@ const docsOrigin = "https://docs.growthbook.io";
 /*
 Checks for key, value matches in docSections. Starts with full url path then
 removes a subdirectory every iteration and checks for a match again.
- 
+
 url=http://localhost:3000/metric/a/b
 1./metric/a/b
 2./metric/a

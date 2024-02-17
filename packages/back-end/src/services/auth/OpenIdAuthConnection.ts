@@ -209,7 +209,7 @@ export class OpenIdAuthConnection implements AuthConnection {
       code_challenge,
       code_challenge_method: "S256",
       state,
-      audience: (ssoConnection.metadata?.audience ||
+      audience: (ssoConnection.metadata?.audience ??
         ssoConnection.clientId) as string,
     });
 

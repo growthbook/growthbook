@@ -1,7 +1,6 @@
 import React, { FC, ReactElement, useEffect, useMemo, useState } from "react";
 import {
   Condition,
-  MetricCappingType,
   MetricInterface,
   MetricType,
   Operator,
@@ -18,7 +17,6 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
-import { getDefaultConversionWindowHours } from "@/services/env";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
@@ -48,6 +46,9 @@ import { useCurrency } from "@/hooks/useCurrency";
 import ConfirmModal from "@/components/ConfirmModal";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
+import { MetricWindowSettingsForm } from "./MetricWindowSettingsForm";
+import { MetricCappingSettingsForm } from "./MetricCappingSettingsForm";
+import { MetricDelayHours } from "./MetricDelayHours";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -190,12 +191,6 @@ function getAggregateSQLPreview({ type, column }: Partial<MetricInterface>) {
   return `MAX(value)`;
 }
 
-const toMetricCappingType = (cappingType: string | null): MetricCappingType => {
-  if (cappingType === "percentile") return "percentile";
-  if (cappingType === "absolute") return "absolute";
-  return null;
-};
-
 const MetricForm: FC<MetricFormProps> = ({
   current,
   edit,
@@ -321,11 +316,9 @@ const MetricForm: FC<MetricFormProps> = ({
       inverse: !!current.inverse,
       ignoreNulls: !!current.ignoreNulls,
       queryFormat: current.queryFormat || (current.sql ? "sql" : "builder"),
-      capping: current.capping || "",
-      capValue: current.capValue || 0,
-      conversionWindowHours:
-        current.conversionWindowHours || getDefaultConversionWindowHours(),
-      conversionDelayHours: current.conversionDelayHours || 0,
+      cappingSettings:
+        current.cappingSettings || metricDefaults.cappingSettings,
+      windowSettings: current.windowSettings || metricDefaults.windowSettings,
       sql: current.sql || "",
       eventName: current.templateVariables?.eventName || "",
       valueColumn: current.templateVariables?.valueColumn || "",
@@ -435,24 +428,6 @@ const MetricForm: FC<MetricFormProps> = ({
     selectedDataSource?.properties?.hasSettings || false;
 
   const capSupported = selectedDataSource?.properties?.metricCaps || false;
-  const cappingOptions = [
-    {
-      value: "",
-      label: "No",
-    },
-    {
-      value: "absolute",
-      label: "Absolute capping",
-    },
-    ...(datasourceType !== "mixpanel"
-      ? [
-          {
-            value: "percentile",
-            label: "Percentile capping",
-          },
-        ]
-      : []),
-  ];
 
   // TODO: eventually make each of these their own independent properties
   const conditionsSupported = capSupported;
@@ -525,7 +500,6 @@ const MetricForm: FC<MetricFormProps> = ({
       loseRisk,
       maxPercentChange,
       minPercentChange,
-      capping,
       eventName,
       valueColumn,
       ...otherValues
@@ -538,7 +512,6 @@ const MetricForm: FC<MetricFormProps> = ({
       loseRisk: loseRisk / 100,
       maxPercentChange: maxPercentChange / 100,
       minPercentChange: minPercentChange / 100,
-      capping: toMetricCappingType(capping),
     };
 
     if (value.loseRisk < value.winRisk) return;
@@ -1217,84 +1190,15 @@ const MetricForm: FC<MetricFormProps> = ({
 
           {capSupported &&
             ["count", "duration", "revenue"].includes(value.type) && (
-              <div className="form-group">
-                <SelectField
-                  label="Cap User Values?"
-                  value={form.watch("capping")}
-                  onChange={(v: string) => {
-                    form.setValue("capping", v);
-                  }}
-                  sort={false}
-                  options={cappingOptions}
-                />
-                <small className="text-muted">
-                  Capping (winsorization) can reduce variance by capping
-                  aggregated user values.
-                </small>
-                <div
-                  style={{
-                    display: form.watch("capping") ? "block" : "none",
-                  }}
-                  className="px-3 py-2 pb-0 mb-4 border rounded"
-                >
-                  <label>Capped Value</label>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0"
-                    max={form.watch("capping") === "percentile" ? "1" : ""}
-                    className="form-control"
-                    {...form.register("capValue", { valueAsNumber: true })}
-                  />
-                  <small className="text-muted">
-                    {form.watch("capping") === "absolute"
-                      ? `
-                Absolute capping: if greater than zero, aggregated user values will be capped at this value.`
-                      : `Percentile capping: if greater than zero, we use all metric data in the experiment to compute the percentiles of the user aggregated values. Then, we get the value at the percentile provided and cap all users at this value. Enter a number between 0 and 0.99999`}
-                  </small>
-                </div>
-              </div>
+              <MetricCappingSettingsForm
+                form={form}
+                datasourceType={datasourceType}
+                metricType={value.type}
+              />
             )}
 
           {conversionWindowSupported && (
-            <>
-              <label>Conversion Window</label>
-              <div className="px-3 py-2 pb-0 mb-4 border rounded">
-                <div className="form-group">
-                  <label>Conversion Delay (hours)</label>
-                  <input
-                    type="number"
-                    step="any"
-                    className="form-control"
-                    placeholder={"0"}
-                    {...form.register("conversionDelayHours", {
-                      valueAsNumber: true,
-                    })}
-                  />
-                  <small className="text-muted">
-                    Ignore all conversions within the first X hours of being put
-                    into an experiment.
-                  </small>
-                </div>
-                <div className="form-group mb-0">
-                  <label>Conversion Window (hours)</label>
-                  <input
-                    type="number"
-                    step="any"
-                    min={0.125}
-                    className="form-control"
-                    placeholder={getDefaultConversionWindowHours() + ""}
-                    {...form.register("conversionWindowHours", {
-                      valueAsNumber: true,
-                    })}
-                  />
-                  <small className="text-muted">
-                    After the conversion delay (if any), wait this many hours
-                    for a conversion event.
-                  </small>
-                </div>
-              </div>
-            </>
+            <MetricWindowSettingsForm form={form} />
           )}
 
           {!showAdvanced ? (
@@ -1310,6 +1214,7 @@ const MetricForm: FC<MetricFormProps> = ({
             </a>
           ) : (
             <>
+              <MetricDelayHours form={form} />
               {ignoreNullsSupported && value.type !== "binomial" && (
                 <div className="form-group">
                   <SelectField

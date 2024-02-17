@@ -78,7 +78,10 @@ export async function getRevisions(
   const docs: FeatureRevisionDocument[] = await FeatureRevisionModel.find({
     organization,
     featureId,
-  });
+  })
+    .sort({ version: -1 })
+    .limit(25);
+
   // Remove the log when fetching all revisions since it can be large to send over the network
   return docs.map(toInterface).map((d) => {
     delete d.log;

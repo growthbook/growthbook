@@ -1,5 +1,5 @@
 {
-  "specVersion": "0.5.2",
+  "specVersion": "0.5.3",
   "evalCondition": [
     [
       "$not - pass",
@@ -2550,7 +2550,8 @@
           "hashAttribute": "id",
           "hashValue": "123",
           "bucket": 0.863,
-          "key": "2"
+          "key": "2",
+          "stickyBucketUsed": false
         },
         "source": "experiment"
       }
@@ -2589,7 +2590,8 @@
           "hashAttribute": "id",
           "hashValue": "456",
           "bucket": 0.178,
-          "key": "0"
+          "key": "0",
+          "stickyBucketUsed": false
         },
         "source": "experiment"
       }
@@ -2628,7 +2630,8 @@
           "hashAttribute": "id",
           "hashValue": "fds",
           "bucket": 0.514,
-          "key": "1"
+          "key": "1",
+          "stickyBucketUsed": false
         },
         "source": "experiment"
       }
@@ -2718,7 +2721,8 @@
           "namespace": ["pricing", 0, 1],
           "key": "hello",
           "variations": [true, false],
-          "weights": [0.1, 0.9]
+          "weights": [0.1, 0.9],
+          "condition": { "premium": true }
         },
         "experimentResult": {
           "featureId": "feature",
@@ -2730,7 +2734,8 @@
           "hashValue": "123",
           "bucket": 0.5231,
           "key": "v1",
-          "name": "variation 1"
+          "name": "variation 1",
+          "stickyBucketUsed": false
         }
       }
     ],
@@ -2924,7 +2929,8 @@
           "value": 1,
           "variationId": 1,
           "key": "1",
-          "bucket": 0.863
+          "bucket": 0.863,
+          "stickyBucketUsed": false
         }
       }
     ],
@@ -2994,7 +3000,8 @@
           "hashUsed": false,
           "hashAttribute": "id",
           "hashValue": "123",
-          "key": "1"
+          "key": "1",
+          "stickyBucketUsed": false
         }
       }
     ],
@@ -3199,7 +3206,8 @@
           "key": "0",
           "value": 3,
           "variationId": 0,
-          "bucket": 0.4413
+          "bucket": 0.4413,
+          "stickyBucketUsed": false
         }
       }
     ],
@@ -3271,7 +3279,8 @@
           "key": "0",
           "value": 1,
           "variationId": 0,
-          "bucket": 0.8043
+          "bucket": 0.8043,
+          "stickyBucketUsed": false
         }
       }
     ],
@@ -4679,6 +4688,469 @@
       "fsa*(&(SF*&F&SF^SD&*FS&*6fsdkajfd",
       "Zvwv/+uhpFDznZ6SX28Yjg==",
       null
+    ]
+  ],
+  "stickyBucket": [
+    [
+      "use fallbackAttribute when missing hashAttribute",
+      {
+        "attributes": { "anonymousId": "123" },
+        "features": {
+          "feature": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "variations": [0, 1, 2, 3],
+                "hashAttribute": "id",
+                "fallbackAttribute": "anonymousId"
+              }
+            ]
+          }
+        }
+      },
+      "feature",
+      {
+        "bucket": 0.863,
+        "featureId": "feature",
+        "hashAttribute": "anonymousId",
+        "hashUsed": true,
+        "hashValue": "123",
+        "inExperiment": true,
+        "key": "3",
+        "stickyBucketUsed": false,
+        "value": 3,
+        "variationId": 3
+      },
+      {
+        "anonymousId||123": {
+          "assignments": { "feature__0": "3" },
+          "attributeName": "anonymousId",
+          "attributeValue": "123"
+        }
+      }
+    ],
+    [
+      "performs evaluation without sticky bucket",
+      {
+        "attributes": {
+          "deviceId": "d123",
+          "anonymousId": "ses123",
+          "foo": "bar",
+          "country": "USA"
+        },
+        "features": {
+          "exp1": {
+            "defaultValue": "control",
+            "rules": [
+              {
+                "key": "feature-exp",
+                "seed": "feature-exp",
+                "hashAttribute": "id",
+                "fallbackAttribute": "deviceId",
+                "hashVersion": 2,
+                "bucketVersion": 0,
+                "condition": { "country": "USA" },
+                "variations": ["control", "red", "blue"],
+                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "coverage": 1,
+                "weights": [0.3334, 0.3333, 0.3333],
+                "phase": "0"
+              }
+            ]
+          }
+        },
+        "stickyBucketAssignmentDocs": {}
+      },
+      "exp1",
+      {
+        "bucket": 0.6468,
+        "featureId": "exp1",
+        "hashAttribute": "deviceId",
+        "hashUsed": true,
+        "hashValue": "d123",
+        "inExperiment": true,
+        "key": "1",
+        "stickyBucketUsed": false,
+        "value": "red",
+        "variationId": 1
+      },
+      {
+        "deviceId||d123": {
+          "assignments": { "feature-exp__0": "1" },
+          "attributeName": "deviceId",
+          "attributeValue": "d123"
+        }
+      }
+    ],
+    [
+      "evaluates based on stored sticky bucket",
+      {
+        "attributes": {
+          "deviceId": "d123",
+          "anonymousId": "ses123",
+          "foo": "bar",
+          "country": "USA"
+        },
+        "features": {
+          "exp1": {
+            "defaultValue": "control",
+            "rules": [
+              {
+                "key": "feature-exp",
+                "seed": "feature-exp",
+                "hashAttribute": "id",
+                "fallbackAttribute": "deviceId",
+                "hashVersion": 2,
+                "bucketVersion": 0,
+                "condition": { "country": "USA" },
+                "variations": ["control", "red", "blue"],
+                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "coverage": 1,
+                "weights": [0.3334, 0.3333, 0.3333],
+                "phase": "0"
+              }
+            ]
+          }
+        },
+        "stickyBucketAssignmentDocs": {
+          "deviceId||d123": {
+            "attributeName": "deviceId",
+            "attributeValue": "d123",
+            "assignments": {
+              "feature-exp__0": "2"
+            }
+          }
+        }
+      },
+      "exp1",
+      {
+        "bucket": 0.6468,
+        "featureId": "exp1",
+        "hashAttribute": "deviceId",
+        "hashUsed": true,
+        "hashValue": "d123",
+        "inExperiment": true,
+        "key": "2",
+        "stickyBucketUsed": true,
+        "value": "blue",
+        "variationId": 2
+      },
+      {
+        "deviceId||d123": {
+          "assignments": { "feature-exp__0": "2" },
+          "attributeName": "deviceId",
+          "attributeValue": "d123"
+        }
+      }
+    ],
+    [
+      "upgrades a sticky bucket doc from a fallbackAttribute to a hashAttribute",
+      {
+        "attributes": {
+          "id": "i123",
+          "anonymousId": "ses123",
+          "foo": "bar",
+          "country": "USA"
+        },
+        "features": {
+          "exp1": {
+            "defaultValue": "control",
+            "rules": [
+              {
+                "key": "feature-exp",
+                "seed": "feature-exp",
+                "hashAttribute": "id",
+                "fallbackAttribute": "deviceId",
+                "hashVersion": 2,
+                "bucketVersion": 0,
+                "condition": { "country": "USA" },
+                "variations": ["control", "red", "blue"],
+                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "coverage": 1,
+                "weights": [0.3334, 0.3333, 0.3333],
+                "phase": "0"
+              }
+            ]
+          }
+        },
+        "stickyBucketAssignmentDocs": {
+          "anonymousId||123": {
+            "attributeName": "anonymousId",
+            "attributeValue": "123",
+            "assignments": {
+              "feature-exp__0": "2"
+            }
+          }
+        }
+      },
+      "exp1",
+      {
+        "bucket": 0.9943,
+        "featureId": "exp1",
+        "hashAttribute": "id",
+        "hashUsed": true,
+        "hashValue": "i123",
+        "inExperiment": true,
+        "key": "2",
+        "stickyBucketUsed": true,
+        "value": "blue",
+        "variationId": 2
+      },
+      {
+        "anonymousId||123": {
+          "assignments": { "feature-exp__0": "2" },
+          "attributeName": "anonymousId",
+          "attributeValue": "123"
+        },
+        "id||i123": {
+          "assignments": { "feature-exp__0": "2" },
+          "attributeName": "id",
+          "attributeValue": "i123"
+        }
+      }
+    ],
+    [
+      "favors a sticky bucket doc based on hashAttribute over fallbackAttribute",
+      {
+        "attributes": {
+          "id": "i123",
+          "anonymousId": "ses123",
+          "foo": "bar",
+          "country": "USA"
+        },
+        "features": {
+          "exp1": {
+            "defaultValue": "control",
+            "rules": [
+              {
+                "key": "feature-exp",
+                "seed": "feature-exp",
+                "hashAttribute": "id",
+                "fallbackAttribute": "deviceId",
+                "hashVersion": 2,
+                "bucketVersion": 0,
+                "condition": { "country": "USA" },
+                "variations": ["control", "red", "blue"],
+                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "coverage": 1,
+                "weights": [0.3334, 0.3333, 0.3333],
+                "phase": "0"
+              }
+            ]
+          }
+        },
+        "stickyBucketAssignmentDocs": {
+          "anonymousId||123": {
+            "attributeName": "anonymousId",
+            "attributeValue": "123",
+            "assignments": {
+              "feature-exp__0": "2"
+            }
+          },
+          "id||i123": {
+            "attributeName": "id",
+            "attributeValue": "i123",
+            "assignments": {
+              "feature-exp__0": "1"
+            }
+          }
+        }
+      },
+      "exp1",
+      {
+        "bucket": 0.9943,
+        "featureId": "exp1",
+        "hashAttribute": "id",
+        "hashUsed": true,
+        "hashValue": "i123",
+        "inExperiment": true,
+        "key": "1",
+        "stickyBucketUsed": true,
+        "value": "red",
+        "variationId": 1
+      },
+      {
+        "anonymousId||123": {
+          "assignments": { "feature-exp__0": "2" },
+          "attributeName": "anonymousId",
+          "attributeValue": "123"
+        },
+        "id||i123": {
+          "assignments": { "feature-exp__0": "1" },
+          "attributeName": "id",
+          "attributeValue": "i123"
+        }
+      }
+    ],
+    [
+      "resets sticky bucketing when the bucketVersion changes",
+      {
+        "attributes": {
+          "id": "i123",
+          "foo": "bar",
+          "country": "USA"
+        },
+        "features": {
+          "exp1": {
+            "defaultValue": "control",
+            "rules": [
+              {
+                "key": "feature-exp",
+                "seed": "feature-exp",
+                "hashAttribute": "id",
+                "fallbackAttribute": "deviceId",
+                "hashVersion": 2,
+                "bucketVersion": 3,
+                "condition": { "country": "USA" },
+                "variations": ["control", "red", "blue"],
+                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "coverage": 1,
+                "weights": [0.3334, 0.3333, 0.3333],
+                "phase": "0"
+              }
+            ]
+          }
+        },
+        "stickyBucketAssignmentDocs": {
+          "id||i123": {
+            "assignments": { "feature-exp__0": "1" },
+            "attributeName": "id",
+            "attributeValue": "i123"
+          }
+        }
+      },
+      "exp1",
+      {
+        "bucket": 0.9943,
+        "featureId": "exp1",
+        "hashAttribute": "id",
+        "hashUsed": true,
+        "hashValue": "i123",
+        "inExperiment": true,
+        "key": "2",
+        "stickyBucketUsed": false,
+        "value": "blue",
+        "variationId": 2
+      },
+      {
+        "id||i123": {
+          "assignments": {
+            "feature-exp__0": "1",
+            "feature-exp__3": "2"
+          },
+          "attributeName": "id",
+          "attributeValue": "i123"
+        }
+      }
+    ],
+    [
+      "stops test enrollment when and existing sticky bucket is blocked by version",
+      {
+        "attributes": {
+          "id": "i123",
+          "foo": "bar",
+          "country": "USA"
+        },
+        "features": {
+          "exp1": {
+            "defaultValue": "control",
+            "rules": [
+              {
+                "key": "feature-exp",
+                "seed": "feature-exp",
+                "hashAttribute": "id",
+                "fallbackAttribute": "deviceId",
+                "hashVersion": 2,
+                "bucketVersion": 3,
+                "minBucketVersion": 3,
+                "condition": { "country": "USA" },
+                "variations": ["control", "red", "blue"],
+                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "coverage": 1,
+                "weights": [0.3334, 0.3333, 0.3333],
+                "phase": "0"
+              }
+            ]
+          }
+        },
+        "stickyBucketAssignmentDocs": {
+          "id||i123": {
+            "assignments": { "feature-exp__0": "1" },
+            "attributeName": "id",
+            "attributeValue": "i123"
+          }
+        }
+      },
+      "exp1",
+      null,
+      {
+        "id||i123": {
+          "assignments": {
+            "feature-exp__0": "1"
+          },
+          "attributeName": "id",
+          "attributeValue": "i123"
+        }
+      }
+    ],
+    [
+      "disables sticky bucketing when disabled by experiment",
+      {
+        "attributes": {
+          "id": "i123",
+          "foo": "bar",
+          "country": "USA"
+        },
+        "features": {
+          "exp1": {
+            "defaultValue": "control",
+            "rules": [
+              {
+                "key": "feature-exp",
+                "seed": "feature-exp",
+                "hashAttribute": "id",
+                "fallbackAttribute": "deviceId",
+                "hashVersion": 2,
+                "bucketVersion": 1,
+                "disableStickyBucketing": true,
+                "condition": { "country": "USA" },
+                "variations": ["control", "red", "blue"],
+                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "coverage": 1,
+                "weights": [0.3334, 0.3333, 0.3333],
+                "phase": "0"
+              }
+            ]
+          }
+        },
+        "stickyBucketAssignmentDocs": {
+          "id||i123": {
+            "attributeName": "id",
+            "attributeValue": "i123",
+            "assignments": { "feature-exp__0": "1" }
+          }
+        }
+      },
+      "exp1",
+      {
+        "bucket": 0.9943,
+        "featureId": "exp1",
+        "hashAttribute": "id",
+        "hashUsed": true,
+        "hashValue": "i123",
+        "inExperiment": true,
+        "key": "2",
+        "stickyBucketUsed": false,
+        "value": "blue",
+        "variationId": 2
+      },
+      {
+        "id||i123": {
+          "attributeName": "id",
+          "attributeValue": "i123",
+          "assignments": { "feature-exp__0": "1" }
+        }
+      }
     ]
   ]
 }

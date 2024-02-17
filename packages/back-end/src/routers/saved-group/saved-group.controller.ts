@@ -3,7 +3,7 @@ import { isEqual } from "lodash";
 import { validateCondition } from "shared/util";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
-import { getOrgFromReq } from "../../services/organizations";
+import { getContextFromReq } from "../../services/organizations";
 import {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
@@ -41,7 +41,7 @@ export const postSavedGroup = async (
   req: CreateSavedGroupRequest,
   res: Response<CreateSavedGroupResponse>
 ) => {
-  const { org, userName } = getOrgFromReq(req);
+  const { org, userName } = getContextFromReq(req);
   const { groupName, owner, attributeKey, values, type, condition } = req.body;
 
   req.checkPermissions("manageSavedGroups");
@@ -108,7 +108,8 @@ export const putSavedGroup = async (
   req: PutSavedGroupRequest,
   res: Response<PutSavedGroupResponse | ApiErrorResponse>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { groupName, owner, values, condition } = req.body;
   const { id } = req.params;
 
@@ -179,7 +180,7 @@ export const putSavedGroup = async (
 
   // If the values or condition change, we need to invalidate cached feature rules
   if (fieldsToUpdate.condition || fieldsToUpdate.values) {
-    savedGroupUpdated(org, savedGroup.id);
+    savedGroupUpdated(context, savedGroup.id);
   }
 
   return res.status(200).json({
@@ -219,7 +220,7 @@ export const deleteSavedGroup = async (
   req.checkPermissions("manageSavedGroups");
 
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const savedGroup = await getSavedGroupById(id, org.id);
 

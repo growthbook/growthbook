@@ -30,7 +30,7 @@ import RunQueriesButton, {
 import RefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton";
 import usePermissions from "@/hooks/usePermissions";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
-import FactBadge from "@/components/FactTables/FactBadge";
+import MetricName from "@/components/Metrics/MetricName";
 import AnalysisForm from "../AnalysisForm";
 import OverflowText from "./OverflowText";
 
@@ -168,12 +168,7 @@ export default function AnalysisSettingsSummary({
   }
   if (activationMetric) {
     items.push({
-      value: (
-        <>
-          {activationMetric.name}
-          <FactBadge metricId={activationMetric.id} />
-        </>
-      ),
+      value: <MetricName id={activationMetric.id} />,
       icon: <HiCursorClick className="mr-1" />,
       tooltip: "Activation Metric",
     });

@@ -147,13 +147,43 @@ To work on the SDKs, `cd` into the desired directory and the following commands 
 - `yarn build` - Run the rollup build process
 - `yarn size` - Get the gzip size of the bundle (must run `yarn build` first)
 
+#### Releasing SDK Updates
+
+Releasing SDK updates is a very manual process right now. It requires bumping versions in many different files, updating changelogs, and adding metadata to shared packages.
+
+1. Create a branch from the latest main
+2. Bump version of the Javascript SDK
+   - Bump version in `packages/sdk-js/package.json`
+   - Bump dependency version in `packages/back-end/package.json`
+   - Bump dependency version in `package/shared/package.json`
+   - Bump dependency version in `packages/sdk-react/package.json`
+   - Add new entry to `packages/sdk-js/CHANGELOG.md`
+   - Add new entry to `packages/shared/src/sdk-versioning/sdk-versions/javascript.json`
+   - Add new entry to `packages/shared/src/sdk-versioning/sdk-versions/nodejs.json`
+3. Bump versions of the React SDK
+   - Bump version in `packages/sdk-react/package.json`
+   - Bump dependency version in `package/front-end/package.json`
+   - Add new entry to `packages/shared/src/sdk-versioning/sdk-versions/react.json`
+4. Do a global search for the old version strings for both Javascript and React to make sure nothing was missed. Update these instructions if needed.
+5. Create a PR and let CI complete successfully
+6. Publish the Javascript SDK
+   - `yarn build`
+   - `npm publish`
+7. Publish the React SDK
+   - `yarn build`
+   - `npm publish`
+8. Merge the PR
+
 ### Working on the stats engine
 
-- `yarn workspace stats test` - Run pytest
-- `yarn workspace stats lint` - Run flake8, black, and mypy
-- `yarn workspace stats build` - Run the build process
+Ensure you have run `yarn setup` first to install the poetry virtual environment before working in the stats engine. Otherwise, pre-commit hooks and the following commands will error.
 
-You can also just run `yarn *` where \* is test, lint, build if `cd` to the `packages/stats` directory first.
+- `yarn workspace stats test` - Run pytest
+- `yarn workspace stats lint` - Run flake8, black, and pyright
+- `yarn workspace stats build` - Run the build process
+- `yarn workspace stats notebook` - Spin up a Jupyter Notebook with `gbstats` and other dependencies in the kernel
+
+You can also just run `yarn *` where \* is test, lint, build if you `cd` to the `packages/stats` directory first.
 
 ## Code Quality
 
@@ -162,7 +192,7 @@ There are a few repo-wide code quality tools:
 - `yarn test` - Run the full test suite on all packages
 - `yarn type-check` - Typescript type checking
 - `yarn lint` - Typescript code linting
-- `yarn workspace stats lint` - Python code linting (need to `pip install flake8 black mypy` first)
+- `yarn workspace stats lint` - Python code linting (ensure you have run `yarn setup` first to install the poetry virtual environment)
 
 There is a pre-commit hook that runs `yarn lint` automatically, so you shouldn't need to run that yourself.
 
@@ -176,11 +206,11 @@ There is a pre-commit hook that runs `yarn lint` automatically, so you shouldn't
 
 ## Troubleshooting
 
-### `black` not found
+### `/bin/activate: No such file or directory`
 
-If you experience issues with `black` when committing during the pre-commit hook stage, it's possible your virtual environment is not enabled. Run the following from the project root: `. $(cd packages/stats && poetry env info --path)/bin/activate` (you could also just install all the python linting dependencies, but these exist in the poetry venv that will be activated by this command).
+If you see this warning, it is likely because you ran `yarn setup` from within a Python virtual environment, and Poetry currently does not create a custom environment for the stats library from within another virtual environment (see: https://github.com/python-poetry/poetry/issues/4055).
 
-If you get the error that `poetry env info --path` is not defined, try re-running `yarn setup` from the project root.
+To resolve this, ensure you are not using a Python virtual environment and re-run `yarn setup` from the project root.
 
 ## Getting Help
 

@@ -27,6 +27,8 @@ type ScopedChannel = {
 const cacheSettings: CacheSettings = {
   // Consider a fetch stale after 1 minute
   staleTTL: 1000 * 60,
+  // Max time to keep a fetch in cache (24 hours default)
+  maxAge: 1000 * 60 * 60 * 24,
   cacheKey: "gbFeaturesCache",
   backgroundSync: true,
   maxEntries: 10,
@@ -195,9 +197,19 @@ async function fetchFeaturesWithCache(
   const key = getKey(instance);
   const cacheKey = getCacheKey(instance);
   const now = new Date();
+
+  const minStaleAt = new Date(
+    now.getTime() - cacheSettings.maxAge + cacheSettings.staleTTL
+  );
+
   await initializeCache();
   const existing = cache.get(cacheKey);
-  if (existing && !skipCache && (allowStale || existing.staleAt > now)) {
+  if (
+    existing &&
+    !skipCache &&
+    (allowStale || existing.staleAt > now) &&
+    existing.staleAt > minStaleAt
+  ) {
     // Restore from cache whether SSE is supported
     if (existing.sse) supportsSSE.add(key);
 
@@ -355,21 +367,11 @@ async function refreshInstance(
   instance: GrowthBook,
   data: FeatureApiResponse
 ): Promise<void> {
-  await (data.encryptedExperiments
-    ? instance.setEncryptedExperiments(
-        data.encryptedExperiments,
-        undefined,
-        polyfills.SubtleCrypto
-      )
-    : instance.setExperiments(data.experiments || instance.getExperiments()));
+  data = await instance.decryptPayload(data, undefined, polyfills.SubtleCrypto);
 
-  await (data.encryptedFeatures
-    ? instance.setEncryptedFeatures(
-        data.encryptedFeatures,
-        undefined,
-        polyfills.SubtleCrypto
-      )
-    : instance.setFeatures(data.features || instance.getFeatures()));
+  await instance.refreshStickyBuckets(data);
+  instance.setExperiments(data.experiments || instance.getExperiments());
+  instance.setFeatures(data.features || instance.getFeatures());
 }
 
 async function fetchFeatures(

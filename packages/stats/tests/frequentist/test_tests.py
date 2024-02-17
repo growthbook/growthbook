@@ -7,18 +7,17 @@ import numpy as np
 from gbstats.messages import ZERO_NEGATIVE_VARIANCE_MESSAGE
 from gbstats.frequentist.tests import (
     FrequentistConfig,
+    FrequentistTestResult,
     SequentialConfig,
     SequentialTwoSidedTTest,
     TwoSidedTTest,
 )
-from gbstats.shared.constants import DifferenceType
-from gbstats.shared.models import (
-    FrequentistTestResult,
+from gbstats.models.statistics import (
     ProportionStatistic,
     RegressionAdjustedStatistic,
     SampleMeanStatistic,
-    Uplift,
 )
+from gbstats.models.tests import Uplift
 
 DECIMALS = 5
 round_ = partial(np.round, decimals=DECIMALS)
@@ -61,7 +60,7 @@ class TestTwoSidedTTest(TestCase):
             TwoSidedTTest(
                 stat_a,
                 stat_b,
-                FrequentistConfig(difference_type=DifferenceType.ABSOLUTE),
+                FrequentistConfig(difference_type="absolute"),
             ).compute_result()
         )
         expected_rounded_dict = asdict(
@@ -143,24 +142,24 @@ class TestSequentialTTest(TestCase):
             n=3000,
             post_statistic=stat_a_post,
             pre_statistic=stat_a_pre,
-            post_pre_sum_of_products=12525,
-            theta=0.5,
+            post_pre_sum_of_products=1,
+            theta=0,
         )
         stat_b_ra = RegressionAdjustedStatistic(
             n=3461,
             post_statistic=stat_b_post,
             pre_statistic=stat_b_pre,
-            post_pre_sum_of_products=3333,
-            theta=0.5,
+            post_pre_sum_of_products=1,
+            theta=0,
         )
         result_dict = asdict(
             SequentialTwoSidedTTest(stat_a_ra, stat_b_ra).compute_result()
         )
         expected_dict = asdict(
             FrequentistTestResult(
-                expected=0.50236,
-                ci=[-0.43745, 1.44217],
-                uplift=Uplift("normal", 0.50236, 0.3093),
+                expected=0.50338,
+                ci=[-0.50969, 1.51646],
+                uplift=Uplift("normal", 0.50338, 0.33341),
                 p_value=1,
             )
         )

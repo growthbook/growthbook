@@ -254,7 +254,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
       const response = await fetch(getApiHost() + url, init);
 
-      const responseData = await response.json();
+      const contentType = response.headers.get("Content-Type");
+
+      let responseData;
+
+      if (contentType && contentType.startsWith("image/")) {
+        responseData = await response.blob();
+      } else {
+        responseData = await response.json();
+      }
+
       return responseData;
     },
     [orgId]

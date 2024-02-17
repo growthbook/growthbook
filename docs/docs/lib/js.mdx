@@ -203,6 +203,35 @@ const gb = new GrowthBook({
 });
 ```
 
+#### Customize the Cache Settings
+
+The JavaScript SDK has a built-in caching layer using a browser's localStorage by default. This localStorage implementation can be polyfilled for mobile or back-end use cases.
+
+There are a number of cache settings you can configure within GrowthBook. This must be done BEFORE creating a GrowthBook instance.
+
+Below are all of the default values. You can call `configureCache` with a subset of these fields and the rest will keep their default values.
+
+```ts
+import { configureCache } from "@growthbook/growthbook";
+
+configureCache({
+  // The localStorage key the cache will be stored under
+  cacheKey: "gbFeaturesCache",
+  // Consider features stale after this much time (60 seconds default)
+  staleTTL: 1000 * 60,
+  // Cached features older than this will be ignored (24 hours default)
+  maxAge: 1000 * 60 * 60 * 24,
+  // For Remote Eval only - limit the number of cache entries (~1 entry per user)
+  maxEntries: 10,
+  // Set to `false` to disable SSE streaming
+  backgroundSync: true,
+  // When `false`, we add a `visibilitychange` listener to disable SSE when the page is idle
+  disableIdleStreams: false,
+  // Consider a page "idle" when it is hidden for this long (default 20 seconds)
+  idleStreamInterval: 20000,
+})
+```
+
 ### Custom Integration
 
 If you prefer to handle the network and caching logic yourself, you can instead pass in a features JSON object directly. For example, you might store features in Postgres and send it down to your front-end as part of your app's initial bootstrap API call.
@@ -277,6 +306,37 @@ If you are using this SDK in a Single Page App (SPA), you will need to let the G
 function onRouteChange() {
   gb.setURL(window.location.href);
 }
+```
+
+### Sticky Bucketing
+
+Sticky bucketing ensures that users see the same experiment variant, even when user session, user login status, or experiment parameters change. See the [Sticky Bucketing docs](/app/sticky-bucketing) for more information. If your organization and experiment supports sticky bucketing, you must implement an instance of the `StickyBucketService` to use Sticky Bucketing. The JS SDK exports several implementations of this service for common use cases, or you may build your own:
+
+- `LocalStorageStickyBucketService` —
+  For simple bucket persistence using the browser's LocalStorage (can be polyfilled for other environments).
+
+- `BrowserCookieStickyBucketService` — For simple bucket persistence using browser cookies, which are transportable to the back end. Assumes `js-cookie` is implemented (can be polyfilled). Cookie attributes can also be configured.
+
+- `ExpressCookieStickyBucketService` — For NodeJS/Express controller-level bucket persistence using browser cookies; intended to be interoperable with `BrowserCookieStickyBucketService`. Assumes `cookie-parser` is implemented (can be polyfilled). Cookie attributes can also be configured.
+
+- `RedisStickyBucketService` — For NodeJS Redis-based bucket persistence. Requires an `ioredis` Redis client instance to be passed in.
+
+- Build your own — Implement the abstract `StickyBucketService` class and connect to your own data store, or custom wrap multiple service implementations (ex: read/write to both cookies and Redis).
+
+Implementing most StickyBucketService implementations is straightforward and works with minimal setup. For instance, to use the `BrowserCookieStickyBucketService`:
+
+```js
+import { BrowserCookieStickyBucketService } from "@growthbook/growthbook";
+import Cookies from 'js-cookie';
+
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  stickyBucketService: new BrowserCookieStickyBucketService({
+    jsCookie: Cookies,
+  }),
+  // ...
+});
 ```
 
 ## TypeScript

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import json
 from decimal import Decimal
 import time
+from typing import Optional
 
 import clickhouse_connect
 from databricks import sql as databricks_sql
@@ -38,7 +39,7 @@ print(CONFIG)
 @dataclass
 class QueryResult:
     rows: list[dict]
-    stats: list[dict] = None
+    stats: Optional[list[dict]] = None
 
 
 class DecimalEncoder(json.JSONEncoder):
@@ -311,14 +312,13 @@ def get_sql_runner(engine) -> sqlRunner:
         elif engine == "postgres":
             return postgresRunner()
         elif engine == "bigquery":
-            print("here")
             return bigqueryRunner()
         elif engine == "snowflake":
             return snowflakeRunner()
         elif engine == "presto":
             return prestoRunner()
-        # elif engine == "databricks":
-        #    return databricksRunner()
+        elif engine == "databricks":
+            return databricksRunner()
         elif engine == "mssql":
             return mssqlRunner()
         elif engine == "clickhouse":
@@ -393,7 +393,8 @@ def main(engines, filters, branch, skip_cache):
 
     # presto, redshift, athena have problems with leading __ so excluded for now
     # mssql is not in sqlfluff
-    nonlinted_engines = ["presto", "redshift", "athena", "mssql"]
+    # databricks has problems with window metrics in the linter
+    nonlinted_engines = ["presto", "redshift", "athena", "mssql", "databricks", "clickhouse", 'mysql']
 
     for test_case in test_cases:
         engine = test_case["engine"]
