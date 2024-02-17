@@ -18,7 +18,6 @@ import {
   evaluatePrerequisiteState,
   getDefaultPrerequisiteCondition,
   isFeatureCyclic,
-  isPrerequisiteConditionConditional,
   PrerequisiteStateResult,
 } from "shared/util";
 import { BiHide, BiShow } from "react-icons/bi";
@@ -163,20 +162,12 @@ export default function PrerequisiteTargetingField({
 
   const blockedBySdkLimitations = useMemo(() => {
     for (let i = 0; i < prereqStatesArr.length; i++) {
-      const parentCondition = value[i].condition;
       const prereqStates = prereqStatesArr[i];
       if (!prereqStates) continue;
       const hasConditionalState = Object.values(prereqStates).some(
         (s) => s.state === "conditional"
       );
-      const hasNonStandardTargeting = isPrerequisiteConditionConditional(
-        parentCondition,
-        hasConditionalState ? "conditional" : "deterministic"
-      );
-      if (
-        !hasSDKWithPrerequisites &&
-        (hasConditionalState || hasNonStandardTargeting)
-      ) {
+      if (!hasSDKWithPrerequisites && hasConditionalState) {
         return true;
       }
     }
@@ -221,14 +212,9 @@ export default function PrerequisiteTargetingField({
           {value.map((v, i) => {
             const parentFeature = features.find((f) => f.id === v.id);
 
-            const parentCondition = value[i].condition;
             const prereqStates = prereqStatesArr[i];
             const hasConditionalState = Object.values(prereqStates || {}).some(
               (s) => s.state === "conditional"
-            );
-            const hasConditionalTargeting = isPrerequisiteConditionConditional(
-              parentCondition,
-              hasConditionalState ? "conditional" : "deterministic"
             );
 
             return (
@@ -357,7 +343,6 @@ export default function PrerequisiteTargetingField({
 
                 {parentFeature && hasConditionalState ? (
                   <PrerequisiteAlerts
-                    issue="conditional-prerequisite"
                     environments={environments}
                     project={parentFeature.project || ""}
                   />
@@ -383,14 +368,6 @@ export default function PrerequisiteTargetingField({
                     />
                   ) : null}
                 </div>
-
-                {parentFeature && hasConditionalTargeting ? (
-                  <PrerequisiteAlerts
-                    issue="conditional-targeting"
-                    environments={environments}
-                    project={parentFeature.project || ""}
-                  />
-                ) : null}
               </div>
             );
           })}
@@ -534,12 +511,10 @@ function PrereqStatesRows({
 }
 
 export const PrerequisiteAlerts = ({
-  issue,
   environments,
   type = "prerequisite",
   project,
 }: {
-  issue: "conditional-prerequisite" | "conditional-targeting";
   environments: string[];
   type?: "feature" | "prerequisite";
   project: string;
@@ -567,29 +542,15 @@ export const PrerequisiteAlerts = ({
     >
       <div>
         <FaExclamationTriangle className="mr-1" />
-        {issue === "conditional-prerequisite" && (
-          <>
-            This {type} is in a{" "}
-            <span className="text-warning-orange font-weight-bold">
-              Schrödinger state
-            </span>{" "}
-            {environments.length > 1
-              ? "in some environments"
-              : "in this environment"}{" "}
-            and {type === "feature" && "its prerequisites "}must be evaluated at
-            runtime in the SDK.{" "}
-          </>
-        )}
-        {issue === "conditional-targeting" && (
-          <>
-            The selected targeting condition gives this prerequisite a{" "}
-            <span className="text-warning-orange font-weight-bold">
-              Schrödinger state
-            </span>
-            . This means that we can&apos;t know if it passes or not until
-            it&apos;s evaluated at runtime in the SDK.{" "}
-          </>
-        )}
+        This {type} is in a{" "}
+        <span className="text-warning-orange font-weight-bold">
+          Schrödinger state
+        </span>{" "}
+        {environments.length > 1
+          ? "in some environments"
+          : "in this environment"}{" "}
+        and {type === "feature" && "its prerequisites "}must be evaluated at
+        runtime in the SDK.{" "}
         {hasSDKWithPrerequisites ? (
           <>
             However, some of your{" "}
@@ -605,11 +566,7 @@ export const PrerequisiteAlerts = ({
               SDK Connections <FaExternalLinkAlt />
             </a>{" "}
             in this project support prerequisite evaluation. Either upgrade your
-            SDKs
-            {issue === "conditional-targeting"
-              ? ", change the targeting condition, "
-              : ""}{" "}
-            or{" "}
+            SDKs or{" "}
             {type === "prerequisite"
               ? "remove this prerequisite"
               : "remove Schrödinger prerequisites"}

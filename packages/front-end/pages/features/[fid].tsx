@@ -964,7 +964,6 @@ export default function FeaturePage() {
 
         {hasConditionalState && (
           <PrerequisiteAlerts
-            issue="conditional-prerequisite"
             environments={envs}
             type="feature"
             project={projectId ?? ""}

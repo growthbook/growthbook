@@ -480,41 +480,6 @@ export function getDefaultPrerequisiteCondition(
   return `{"value": {"$exists": true}}`;
 }
 
-export function isPrerequisiteConditionConditional(
-  condition: string,
-  prerequisiteState: PrerequisiteState
-) {
-  if (
-    [`{"value": {"$exists": false}}`, `{"value": {"$exists": true}}`].includes(
-      condition
-    )
-  ) {
-    return false;
-  }
-  if (
-    prerequisiteState === "deterministic" &&
-    [`{"value": true}`, `{"value": false}`].includes(condition)
-  ) {
-    return false;
-  }
-  return true;
-}
-export function isPrerequisiteConditionOperatorConditional(
-  condition: string,
-  prerequisiteState: PrerequisiteState
-) {
-  if (["$exists", "$notExists"].includes(condition)) {
-    return false;
-  }
-  if (
-    prerequisiteState === "deterministic" &&
-    ["$true", "$false"].includes(condition)
-  ) {
-    return false;
-  }
-  return true;
-}
-
 export function isFeatureCyclic(
   feature: FeatureInterface,
   features: FeatureInterface[],

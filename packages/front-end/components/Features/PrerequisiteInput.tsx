@@ -4,11 +4,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { FeatureInterface } from "back-end/types/feature";
 import { RxInfoCircled, RxLoop } from "react-icons/rx";
-import {
-  isPrerequisiteConditionOperatorConditional,
-  PrerequisiteStateResult,
-} from "shared/util";
-import { FaRegCircleQuestion } from "react-icons/fa6";
+import { PrerequisiteStateResult } from "shared/util";
 import { condToJson, jsonToConds } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "../Forms/Field";
@@ -52,10 +48,6 @@ export default function PrerequisiteInput(props: Props) {
     () => jsonToConds(props.defaultValue, parentValueMap) || []
   );
   const [rawTextMode, setRawTextMode] = useState(false);
-
-  const hasConditionalState = props.prereqStates
-    ? Object.values(props.prereqStates).some((s) => s.state === "conditional")
-    : true;
 
   useEffect(() => {
     if (advanced) return;
@@ -206,11 +198,6 @@ export default function PrerequisiteInput(props: Props) {
               ]
             : [];
 
-        const operatorIsConditional = isPrerequisiteConditionOperatorConditional(
-          operator,
-          hasConditionalState ? "conditional" : "deterministic"
-        );
-
         return (
           <div key={i}>
             <div className="d-flex align-items-center mb-2">
@@ -236,10 +223,6 @@ export default function PrerequisiteInput(props: Props) {
                   formatOptionLabel={({ value, label }) => {
                     const def =
                       attribute.datatype === "boolean" ? "$true" : "$exists";
-                    const conditional = isPrerequisiteConditionOperatorConditional(
-                      value,
-                      hasConditionalState ? "conditional" : "deterministic"
-                    );
                     return (
                       <span>
                         {label}
@@ -251,23 +234,10 @@ export default function PrerequisiteInput(props: Props) {
                             default
                           </span>
                         )}
-                        {conditional && (
-                          <span className="ml-2 small">
-                            <FaRegCircleQuestion className="text-warning-orange" />
-                          </span>
-                        )}
                       </span>
                     );
                   }}
                 />
-                {operatorIsConditional && (
-                  <div className="text-warning-orange small mt-1 ml-1">
-                    <FaRegCircleQuestion /> Schrödinger{" "}
-                    <span className="text-muted">
-                      targeting will be evaluated in the SDK
-                    </span>
-                  </div>
-                )}
               </div>
               {[
                 "$exists",

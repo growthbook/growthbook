@@ -368,7 +368,6 @@ export default function PrerequisiteModal({
 
       {hasConditionalState && (
         <PrerequisiteAlerts
-          issue="conditional-prerequisite"
           project={feature.project || ""}
           environments={envs}
         />
