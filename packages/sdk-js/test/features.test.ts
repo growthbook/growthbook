@@ -937,7 +937,7 @@ describe("features", () => {
     growthbook.destroy();
   });
 
-  it("throws when hitting a prerequisite cycle", async () => {
+  it("returns null when hitting a prerequisite cycle", async () => {
     const growthbook = new GrowthBook({
       attributes: {
         id: "123",
@@ -988,9 +988,9 @@ describe("features", () => {
       },
     });
 
-    expect(() => {
-      growthbook.evalFeature("childFlag");
-    }).toThrow();
+    const result = growthbook.evalFeature("childFlag");
+    expect(result.value).toEqual(null);
+    expect(result.source).toEqual("cyclicPrerequisite");
 
     growthbook.destroy();
   });

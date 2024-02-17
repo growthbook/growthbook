@@ -43,5 +43,6 @@ export {
 } from "./feature-repository";
 
 export { GrowthBook } from "./GrowthBook";
+export { evalCondition } from "./mongrule";
 
 export { isURLTargeted } from "./util";

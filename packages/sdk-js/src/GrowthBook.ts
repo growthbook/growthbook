@@ -611,6 +611,13 @@ export class GrowthBook<
   public evalFeature<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string
+  >(id: K): FeatureResult<V | null> {
+    return this._evalFeature(id);
+  }
+
+  private _evalFeature<
+    V extends AppFeatures[K],
+    K extends string & keyof AppFeatures = string
   >(
     id: K,
     evalCtx: FeatureEvalContext = {
@@ -618,9 +625,12 @@ export class GrowthBook<
     }
   ): FeatureResult<V | null> {
     if (evalCtx.evaluatedFeatures.has(id)) {
-      throw new Error(
-        `evalFeature: circular dependency detected: ${evalCtx.id} -> ${id}`
-      );
+      process.env.NODE_ENV !== "production" &&
+        this.log(
+          `evalFeature: circular dependency detected: ${evalCtx.id} -> ${id}`,
+          { from: evalCtx.id, to: id }
+        );
+      return this._getFeatureResult(id, null, "cyclicPrerequisite");
     }
     evalCtx.evaluatedFeatures.add(id);
     evalCtx.id = id;
@@ -655,7 +665,12 @@ export class GrowthBook<
         // There are prerequisite flag(s), evaluate them
         if (rule.parentConditions) {
           for (const parentCondition of rule.parentConditions) {
-            const parentResult = this.evalFeature(parentCondition.id, evalCtx);
+            const parentResult = this._evalFeature(parentCondition.id, evalCtx);
+            // break out for cyclic prerequisites
+            if (parentResult.source === "cyclicPrerequisite") {
+              return this._getFeatureResult(id, null, "cyclicPrerequisite");
+            }
+
             const evalObj = { value: parentResult.value };
             const evaled = evalCondition(
               evalObj,
@@ -938,7 +953,12 @@ export class GrowthBook<
     // 8.01. Exclude if prerequisites are not met
     if (experiment.parentConditions) {
       for (const parentCondition of experiment.parentConditions) {
-        const parentResult = this.evalFeature(parentCondition.id);
+        const parentResult = this._evalFeature(parentCondition.id);
+        // break out for cyclic prerequisites
+        if (parentResult.source === "cyclicPrerequisite") {
+          return this._getResult(experiment, -1, false, featureId);
+        }
+
         const evalObj = { value: parentResult.value };
         if (!evalCondition(evalObj, parentCondition.condition || {})) {
           process.env.NODE_ENV !== "production" &&

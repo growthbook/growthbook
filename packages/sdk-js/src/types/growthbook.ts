@@ -52,7 +52,8 @@ export type FeatureResultSource =
   | "force"
   | "override"
   | "experiment"
-  | "prerequisite";
+  | "prerequisite"
+  | "cyclicPrerequisite";
 
 export interface FeatureResult<T = any> {
   value: T | null;
