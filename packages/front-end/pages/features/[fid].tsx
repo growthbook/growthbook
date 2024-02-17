@@ -992,7 +992,7 @@ export default function FeaturePage() {
       </div>
 
       {dependents > 0 && (
-        <div className="appbox mt-2 mb-4 px-4 pt-4 pb-3">
+        <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
           <h4>
             Dependents
             <div
@@ -1021,9 +1021,9 @@ export default function FeaturePage() {
                     : "experiments"
                 } depend on this feature as a prerequisite. Modifying the current feature may affect their behavior.`}
           </div>
-          <hr />
+          <hr className="mb-2" />
           {showDependents ? (
-            <>
+            <div className="mt-3">
               {dependentFeatures.length > 0 && (
                 <>
                   <label>Dependent Features</label>
@@ -1067,7 +1067,7 @@ export default function FeaturePage() {
               >
                 <BiHide /> Hide details
               </a>
-            </>
+            </div>
           ) : (
             <>
               <a

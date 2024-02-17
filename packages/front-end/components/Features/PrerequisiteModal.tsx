@@ -163,7 +163,7 @@ export default function PrerequisiteModal({
       return {
         label: f.id,
         value: f.id,
-        meta: { cyclic, conditional, wouldBeCyclic, disabled },
+        meta: { conditional, cyclic, wouldBeCyclic, disabled },
       };
     })
     .sort((a, b) => {
@@ -262,17 +262,6 @@ export default function PrerequisiteModal({
                   />
                 </Tooltip>
               )}
-              {meta?.cyclic && (
-                <Tooltip
-                  body="This feature has a cyclic dependency."
-                  className="mr-2"
-                >
-                  <FaExclamationCircle
-                    className="text-danger position-relative"
-                    style={{ zIndex: 1 }}
-                  />
-                </Tooltip>
-              )}
               {meta?.conditional && (
                 <Tooltip
                   body={
@@ -281,7 +270,7 @@ export default function PrerequisiteModal({
                       <span className="text-warning-orange font-weight-bold">
                         Schrödinger state
                       </span>
-                      .
+                      {environments.length > 1 && " in some environments"}.
                       {!hasSDKWithPrerequisites && (
                         <>
                           {" "}
@@ -295,6 +284,17 @@ export default function PrerequisiteModal({
                 >
                   <FaRegCircleQuestion
                     className="text-warning-orange position-relative"
+                    style={{ zIndex: 1 }}
+                  />
+                </Tooltip>
+              )}
+              {meta?.cyclic && (
+                <Tooltip
+                  body="This feature has a cyclic dependency."
+                  className="mr-2"
+                >
+                  <FaExclamationCircle
+                    className="text-danger position-relative"
                     style={{ zIndex: 1 }}
                   />
                 </Tooltip>

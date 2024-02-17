@@ -86,9 +86,7 @@ export function generateFeaturesPayload({
   groupMap: GroupMap;
   prereqStateCache?: Record<string, Record<string, PrerequisiteStateResult>>;
 }): Record<string, FeatureDefinition> {
-  if (!prereqStateCache[environment]) {
-    prereqStateCache[environment] = {};
-  }
+  prereqStateCache[environment] = prereqStateCache[environment] || {};
 
   const defs: Record<string, FeatureDefinition> = {};
   const newFeatures = reduceFeaturesWithPrerequisites(
@@ -129,9 +127,7 @@ export function generateVisualExperimentsPayload({
   environment: string;
   prereqStateCache?: Record<string, Record<string, PrerequisiteStateResult>>;
 }): AutoExperimentWithProject[] {
-  if (!prereqStateCache[environment]) {
-    prereqStateCache[environment] = {};
-  }
+  prereqStateCache[environment] = prereqStateCache[environment] || {};
 
   const isValidSDKExperiment = (
     e: AutoExperimentWithProject | null
@@ -1159,9 +1155,7 @@ export const reduceFeaturesWithPrerequisites = (
   environment: string,
   prereqStateCache: Record<string, Record<string, PrerequisiteStateResult>> = {}
 ): FeatureInterface[] => {
-  if (!prereqStateCache[environment]) {
-    prereqStateCache[environment] = {};
-  }
+  prereqStateCache[environment] = prereqStateCache[environment] || {};
 
   const newFeatures: FeatureInterface[] = [];
 
@@ -1256,9 +1250,7 @@ export const reduceExperimentsWithPrerequisites = (
   environment: string,
   prereqStateCache: Record<string, Record<string, PrerequisiteStateResult>> = {}
 ): VisualExperiment[] => {
-  if (!prereqStateCache[environment]) {
-    prereqStateCache[environment] = {};
-  }
+  prereqStateCache[environment] = prereqStateCache[environment] || {};
 
   const newVisualExperiments: VisualExperiment[] = [];
   for (const visualExperiment of visualExperiments) {

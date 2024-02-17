@@ -194,7 +194,7 @@ export default function PrerequisiteTargetingField({
       return {
         label: f.id,
         value: f.id,
-        meta: { cyclic, conditional, wouldBeCyclic, disabled },
+        meta: { conditional, cyclic, wouldBeCyclic, disabled },
       };
     })
     .sort((a, b) => {
@@ -290,17 +290,6 @@ export default function PrerequisiteTargetingField({
                                 />
                               </Tooltip>
                             )}
-                            {meta?.cyclic && (
-                              <Tooltip
-                                body="This feature has a cyclic dependency."
-                                className="mr-2"
-                              >
-                                <FaExclamationCircle
-                                  className="text-danger position-relative"
-                                  style={{ zIndex: 1 }}
-                                />
-                              </Tooltip>
-                            )}
                             {meta?.conditional && (
                               <Tooltip
                                 body={
@@ -309,6 +298,8 @@ export default function PrerequisiteTargetingField({
                                     <span className="text-warning-orange font-weight-bold">
                                       Schrödinger state
                                     </span>
+                                    {environments.length > 1 &&
+                                      " in some environments"}
                                     .
                                     {!hasSDKWithPrerequisites && (
                                       <>
@@ -324,6 +315,17 @@ export default function PrerequisiteTargetingField({
                               >
                                 <FaRegCircleQuestion
                                   className="text-warning-orange position-relative"
+                                  style={{ zIndex: 1 }}
+                                />
+                              </Tooltip>
+                            )}
+                            {meta?.cyclic && (
+                              <Tooltip
+                                body="This feature has a cyclic dependency."
+                                className="mr-2"
+                              >
+                                <FaExclamationCircle
+                                  className="text-danger position-relative"
                                   style={{ zIndex: 1 }}
                                 />
                               </Tooltip>
