@@ -894,7 +894,7 @@ export default function FeaturePage() {
                 {envs.map((env) => (
                   <td
                     key={env}
-                    className="text-center align-bottom"
+                    className="text-center align-bottom pb-2"
                     style={{ minWidth: 120 }}
                   >
                     <EnvironmentToggle
