@@ -3116,3 +3116,9 @@ input:disabled {
 }
 @import "./components/react-select.scss";
 @import "./components/demo-datasource-banner";
+
+.main.features {
+  .features-header {
+    margin: -4px -8px 0;
+  }
+}

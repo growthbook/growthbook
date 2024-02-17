@@ -1,0 +1,349 @@
+import { useRouter } from "next/router";
+import { FeatureInterface } from "back-end/types/feature";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { isFeatureStale } from "shared/util";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { FaHome, FaExclamationTriangle } from "react-icons/fa";
+import { useUser } from "@/services/UserContext";
+import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
+import StaleFeatureIcon from "@/components/StaleFeatureIcon";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import ConfirmButton from "@/components/Modal/ConfirmButton";
+import usePermissions from "@/hooks/usePermissions";
+import { getEnabledEnvironments, useEnvironments } from "@/services/features";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { GBEdit } from "@/components/Icons";
+import SortedTags from "@/components/Tags/SortedTags";
+import WatchButton from "@/components/WatchButton";
+import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
+import track from "@/services/track";
+import TabButtons from "@/components/Tabs/TabButtons";
+import TabButton from "@/components/Tabs/TabButton";
+import { FeatureTab } from "@/pages/features/[fid]";
+import MoreMenu from "../Dropdown/MoreMenu";
+
+export default function FeaturesHeader({
+  feature,
+  experiments,
+  setShowStaleFFModal,
+  setShowImplementation,
+  setDuplicateModal,
+  mutate,
+  setEditProjectModal,
+  setEditTagsModal,
+  setEditOwnerModal,
+  setAuditModal,
+  tab,
+  setTab,
+}: {
+  feature: FeatureInterface;
+  experiments: ExperimentInterfaceStringDates[];
+  setShowStaleFFModal: (show: boolean) => void;
+  setShowImplementation: (show: boolean) => void;
+  setDuplicateModal: (show: boolean) => void;
+  mutate: () => void;
+  setEditProjectModal: (show: boolean) => void;
+  setEditTagsModal: (show: boolean) => void;
+  setEditOwnerModal: (show: boolean) => void;
+  setAuditModal: (show: boolean) => void;
+  tab: FeatureTab;
+  setTab: (tab: FeatureTab) => void;
+}) {
+  const router = useRouter();
+  const projectId = feature.project;
+  const { organization } = useUser();
+  const { stale, reason } = isFeatureStale(feature, experiments);
+  const permissions = usePermissions();
+  const environments = useEnvironments();
+  const { apiCall } = useAuth();
+  const {
+    getProjectById,
+    project: currentProject,
+    projects,
+  } = useDefinitions();
+
+  const project = getProjectById(projectId || "");
+  const projectName = project?.name || null;
+  const projectIsDeReferenced = projectId && !projectName;
+
+  const canEdit = permissions.check("manageFeatures", projectId);
+  const enabledEnvs = getEnabledEnvironments(feature, environments);
+  const isArchived = feature.archived;
+
+  return (
+    <div className="features-header bg-white pt-3 pb-1 px-4">
+      <div className="pagecontents mx-auto px-3">
+        {projectId ===
+          getDemoDatasourceProjectIdForOrganization(organization.id) && (
+          <div className="alert alert-info mb-3 d-flex align-items-center">
+            <div className="flex-1">
+              This feature is part of our sample dataset and shows how Feature
+              Flags and Experiments can be linked together. You can delete this
+              once you are done exploring.
+            </div>
+            <div style={{ width: 180 }} className="ml-2">
+              <DeleteDemoDatasourceButton
+                onDelete={() => router.push("/features")}
+                source="feature"
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="row align-items-center mb-2">
+          <div className="col-auto d-flex align-items-center">
+            <h1 className="mb-0">{feature.id}</h1>
+            {stale && (
+              <div className="ml-2">
+                <StaleFeatureIcon
+                  staleReason={reason}
+                  onClick={() => setShowStaleFFModal(true)}
+                />
+              </div>
+            )}
+          </div>
+          <div style={{ flex: 1 }} />
+          <div className="col-auto">
+            <MoreMenu>
+              <a
+                className="dropdown-item"
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowImplementation(true);
+                }}
+              >
+                Show implementation
+              </a>
+              {canEdit &&
+                permissions.check(
+                  "publishFeatures",
+                  projectId,
+                  enabledEnvs
+                ) && (
+                  <a
+                    className="dropdown-item"
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setDuplicateModal(true);
+                    }}
+                  >
+                    Duplicate feature
+                  </a>
+                )}
+              {canEdit &&
+                permissions.check(
+                  "publishFeatures",
+                  projectId,
+                  enabledEnvs
+                ) && (
+                  <DeleteButton
+                    useIcon={false}
+                    displayName="Feature"
+                    onClick={async () => {
+                      await apiCall(`/feature/${feature.id}`, {
+                        method: "DELETE",
+                      });
+                      router.push("/features");
+                    }}
+                    className="dropdown-item"
+                    text="Delete feature"
+                  />
+                )}
+              {canEdit &&
+                permissions.check(
+                  "publishFeatures",
+                  projectId,
+                  enabledEnvs
+                ) && (
+                  <ConfirmButton
+                    onClick={async () => {
+                      await apiCall(`/feature/${feature.id}/archive`, {
+                        method: "POST",
+                      });
+                      mutate();
+                    }}
+                    modalHeader={
+                      isArchived ? "Unarchive Feature" : "Archive Feature"
+                    }
+                    confirmationText={
+                      isArchived ? (
+                        <>
+                          <p>
+                            Are you sure you want to continue? This will make
+                            the current feature active again.
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p>
+                            Are you sure you want to continue? This will make
+                            the current feature inactive. It will not be
+                            included in API responses or Webhook payloads.
+                          </p>
+                        </>
+                      )
+                    }
+                    cta={isArchived ? "Unarchive" : "Archive"}
+                    ctaColor="danger"
+                  >
+                    <button className="dropdown-item">
+                      {isArchived ? "Unarchive" : "Archive"} feature
+                    </button>
+                  </ConfirmButton>
+                )}
+              {canEdit && (
+                <a
+                  className="dropdown-item"
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowStaleFFModal(true);
+                  }}
+                >
+                  {feature.neverStale
+                    ? "Enable stale detection"
+                    : "Disable stale detection"}
+                </a>
+              )}
+            </MoreMenu>
+          </div>
+        </div>
+        <div className="mb-2 row">
+          {(projects.length > 0 || projectIsDeReferenced) && (
+            <div className="col-auto">
+              Project:{" "}
+              {projectIsDeReferenced ? (
+                <Tooltip
+                  body={
+                    <>
+                      Project <code>{projectId}</code> not found
+                    </>
+                  }
+                >
+                  <span className="text-danger">
+                    <FaExclamationTriangle /> Invalid project
+                  </span>
+                </Tooltip>
+              ) : currentProject && currentProject !== feature.project ? (
+                <Tooltip
+                  body={<>This feature is not in your current project.</>}
+                >
+                  {projectId ? (
+                    <strong>{projectName}</strong>
+                  ) : (
+                    <em className="text-muted">None</em>
+                  )}{" "}
+                  <FaExclamationTriangle className="text-warning" />
+                </Tooltip>
+              ) : projectId ? (
+                <strong>{projectName}</strong>
+              ) : (
+                <em className="text-muted">None</em>
+              )}
+              {canEdit &&
+                permissions.check(
+                  "publishFeatures",
+                  projectId,
+                  enabledEnvs
+                ) && (
+                  <a
+                    className="ml-2 cursor-pointer"
+                    onClick={() => setEditProjectModal(true)}
+                  >
+                    <GBEdit />
+                  </a>
+                )}
+            </div>
+          )}
+
+          <div className="col-auto">
+            Tags: <SortedTags tags={feature.tags || []} />
+            {canEdit && (
+              <a
+                className="ml-1 cursor-pointer"
+                onClick={() => setEditTagsModal(true)}
+              >
+                <GBEdit />
+              </a>
+            )}
+          </div>
+
+          <div className="col-auto">Type: {feature.valueType || "unknown"}</div>
+
+          <div className="col-auto">
+            Owner: {feature.owner ? feature.owner : "None"}
+            {canEdit && (
+              <a
+                className="ml-1 cursor-pointer"
+                onClick={() => setEditOwnerModal(true)}
+              >
+                <GBEdit />
+              </a>
+            )}
+          </div>
+
+          <div className="col-auto ml-auto">
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setAuditModal(true);
+              }}
+            >
+              View Audit Log
+            </a>
+          </div>
+          <div className="col-auto">
+            <WatchButton item={feature.id} itemType="feature" type="link" />
+          </div>
+        </div>
+        <div>
+          {isArchived && (
+            <div className="alert alert-secondary mb-2">
+              <strong>This feature is archived.</strong> It will not be included
+              in SDK Endpoints or Webhook payloads.
+            </div>
+          )}
+        </div>
+
+        <div className="mb-3">
+          <div className={feature.description ? "appbox mb-4 p-3" : ""}>
+            <MarkdownInlineEdit
+              value={feature.description || ""}
+              canEdit={canEdit}
+              canCreate={canEdit}
+              save={async (description) => {
+                await apiCall(`/feature/${feature.id}`, {
+                  method: "PUT",
+                  body: JSON.stringify({
+                    description,
+                  }),
+                });
+                track("Update Feature Description");
+                mutate();
+              }}
+            />
+          </div>
+        </div>
+        <TabButtons className="mb-0 pb-0">
+          <TabButton
+            active={tab === "overview"}
+            display={
+              <>
+                <FaHome /> Overview
+              </>
+            }
+            anchor="overview"
+            onClick={() => setTab("overview")}
+            newStyle={false}
+            activeClassName="active-tab"
+          />
+        </TabButtons>
+      </div>
+    </div>
+  );
+}
