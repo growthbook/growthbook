@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import type { GrowthBook, StickyBucketService } from "..";
-import { ConditionInterface, ParentConditionsInterface } from "./mongrule";
+import { ConditionInterface, ParentConditionInterface } from "./mongrule";
 
 declare global {
   interface Window {
@@ -18,8 +18,8 @@ export type VariationMeta = {
 export type FeatureRule<T = any> = {
   id?: string;
   condition?: ConditionInterface;
+  parentConditions?: ParentConditionInterface[];
   force?: T;
-  parentConditions?: ParentConditionsInterface[];
   variations?: T[];
   weights?: number[];
   key?: string;
@@ -92,7 +92,7 @@ export type Experiment<T> = {
   urlPatterns?: UrlTarget[];
   weights?: number[];
   condition?: ConditionInterface;
-  parentConditions?: ParentConditionsInterface[];
+  parentConditions?: ParentConditionInterface[];
   coverage?: number;
   include?: () => boolean;
   /** @deprecated */

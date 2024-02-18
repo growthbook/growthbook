@@ -30,7 +30,7 @@ export type {
 
 export type {
   ConditionInterface,
-  ParentConditionsInterface,
+  ParentConditionInterface,
 } from "./types/mongrule";
 
 export {

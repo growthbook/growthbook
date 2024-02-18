@@ -80,7 +80,7 @@ export type ConditionInterface =
   | NotCondition
   | OperatorCondition;
 
-export type ParentConditionsInterface = {
+export type ParentConditionInterface = {
   id: string;
   condition: ConditionInterface;
   gate?: boolean;
