@@ -11,7 +11,7 @@ import {
   ParentConditionsInterface,
 } from "@growthbook/growthbook";
 import {
-  evalDeterministicValue,
+  evalDeterministicPrereqValue,
   evaluatePrerequisiteState,
   PrerequisiteStateResult,
   validateCondition,
@@ -695,7 +695,7 @@ export function evaluateFeature({
               if (skipRulesWithPrerequisites) {
                 msg = "Skip rule with prerequisite targeting";
               } else {
-                msg += " (skipped prerequisite evaluation)";
+                msg += " (prerequisite targeting passed)";
               }
             }
             log.push([msg, ctx]);
@@ -1195,7 +1195,7 @@ export const reduceFeaturesWithPrerequisites = (
           removeFeature = true;
           break;
         case "deterministic": {
-          const evaled = evalDeterministicValue(
+          const evaled = evalDeterministicPrereqValue(
             state.value ?? null,
             prereq.condition
           );
@@ -1288,9 +1288,7 @@ export const getInlinePrerequisitesReductionInfo = (
   removeRule: boolean;
   newPrerequisites: FeaturePrerequisite[];
 } => {
-  if (!prereqStateCache[environment]) {
-    prereqStateCache[environment] = {};
-  }
+  prereqStateCache[environment] = prereqStateCache[environment] || {};
 
   let removeRule = false;
   const newPrerequisites: FeaturePrerequisite[] = [];
@@ -1325,7 +1323,7 @@ export const getInlinePrerequisitesReductionInfo = (
         removeRule = true;
         continue;
       case "deterministic": {
-        const evaled = evalDeterministicValue(
+        const evaled = evalDeterministicPrereqValue(
           state.value ?? null,
           pc.condition
         );

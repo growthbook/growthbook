@@ -1514,7 +1514,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   <Field
                     label={
                       <PremiumTooltip
-                        commercialFeature={"hash-secure-attributes"}
+                        commercialFeature="hash-secure-attributes"
                         body={
                           <>
                             <p>

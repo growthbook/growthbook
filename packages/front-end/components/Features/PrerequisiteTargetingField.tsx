@@ -69,7 +69,7 @@ export default function PrerequisiteTargetingField({
 
   const { hasCommercialFeature } = useUser();
   const hasPrerequisitesCommercialFeature = hasCommercialFeature(
-    "prerequisites"
+    "prerequisite-targeting"
   );
 
   useEffect(() => {
@@ -204,7 +204,10 @@ export default function PrerequisiteTargetingField({
 
   return (
     <div className="form-group my-4">
-      <PremiumTooltip commercialFeature={"prerequisite-targeting"}>
+      <PremiumTooltip
+        commercialFeature="prerequisite-targeting"
+        premiumText="Prerequisite targeting is available for Enterprise customers"
+      >
         <label>Target by Prerequisite Features</label>
       </PremiumTooltip>
       {value.length > 0 ? (

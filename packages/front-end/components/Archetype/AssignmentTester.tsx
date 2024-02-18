@@ -323,22 +323,28 @@ export default function AssignmentTester({ feature, version }: Props) {
               <hr />
               {hasPrerequisites && (
                 <div
-                  className="d-flex justify-content-end"
-                  style={{ marginTop: -10, marginBottom: -15 }}
+                  className="d-flex justify-content-end position-relative"
+                  style={{ marginTop: -10, marginBottom: -25, zIndex: 1 }}
                 >
                   <div>
+                    <div className="text-gray mb-1">
+                      Top-level prerequisites will{" "}
+                      <span className="text-success">pass</span>.
+                    </div>
                     <div className="text-gray">
-                      Prerequisites are assumed to be{" "}
-                      <span className="text-success font-weight-bold">
-                        live
-                      </span>{" "}
-                      by default
+                      Prerequisite targeting in rules will{" "}
+                      {skipRulesWithPrerequisites ? (
+                        <span className="text-danger">fail</span>
+                      ) : (
+                        <span className="text-success">pass</span>
+                      )}
+                      .
                     </div>
                     <label
                       className="mt-2 mr-2 small"
                       htmlFor="skipRulesWithPrerequisites"
                     >
-                      Skip any rules with prerequisite targeting
+                      Skip rules with prerequisite targeting
                     </label>
                     <Toggle
                       id="skipRulesWithPrerequisites"

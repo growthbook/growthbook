@@ -30,7 +30,7 @@ export default function ValueDisplay({
   if (type === "boolean") {
     const on = !(value === "false" || !value);
     return (
-      <span>
+      <span className="text-gray font-weight-bold">
         <div
           style={{
             display: "inline-block",

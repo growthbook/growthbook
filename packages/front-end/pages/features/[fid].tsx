@@ -971,23 +971,28 @@ export default function FeaturePage() {
         )}
 
         {canEdit && (
-          <button
-            className="btn d-inline-block mt-3 font-weight-bold link-purple"
-            disabled={!hasPrerequisitesCommercialFeature}
-            onClick={() => {
-              setPrerequisiteModal({
-                i: getPrerequisites(feature).length,
-              });
-              track("Viewed prerequisite feature modal", {
-                source: "add-prerequisite",
-              });
-            }}
+          <PremiumTooltip
+            commercialFeature="prerequisites"
+            className="d-inline-flex align-items-center mt-3"
           >
-            <span className="h4 pr-2 m-0 d-inline-block align-top">
-              <GBAddCircle />
-            </span>
-            Add Prerequisite Feature
-          </button>
+            <button
+              className="btn d-inline-block px-1 font-weight-bold link-purple"
+              disabled={!hasPrerequisitesCommercialFeature}
+              onClick={() => {
+                setPrerequisiteModal({
+                  i: getPrerequisites(feature).length,
+                });
+                track("Viewed prerequisite feature modal", {
+                  source: "add-prerequisite",
+                });
+              }}
+            >
+              <span className="h4 pr-2 m-0 d-inline-block align-top">
+                <GBAddCircle />
+              </span>
+              Add Prerequisite Feature
+            </button>
+          </PremiumTooltip>
         )}
       </div>
 

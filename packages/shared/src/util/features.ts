@@ -601,7 +601,7 @@ export function evaluatePrerequisiteState(
         prerequisiteFeature
       );
       if (prerequisiteState === "deterministic") {
-        const evaled = evalDeterministicValue(
+        const evaled = evalDeterministicPrereqValue(
           prerequisiteValue ?? null,
           prerequisite.condition
         );
@@ -620,7 +620,7 @@ export function evaluatePrerequisiteState(
   return visit(feature);
 }
 
-export function evalDeterministicValue(
+export function evalDeterministicPrereqValue(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any,
   condition: string
