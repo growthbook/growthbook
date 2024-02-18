@@ -3608,6 +3608,51 @@
         "off": false,
         "source": "force"
       }
+    ],
+    [
+      "Prerequisite cycle detected, break",
+      {
+        "attributes": {
+          "id": "123"
+        },
+        "features": {
+          "flag1": {
+            "defaultValue": true,
+            "rules": [
+              {
+                "parentConditions": [
+                  {
+                    "id": "flag2",
+                    "condition": { "value": true },
+                    "gate": true
+                  }
+                ]
+              }
+            ]
+          },
+          "flag2": {
+            "defaultValue": true,
+            "rules": [
+              {
+                "parentConditions": [
+                  {
+                    "id": "flag1",
+                    "condition": { "value": true },
+                    "gate": true
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "flag1",
+      {
+        "value": null,
+        "on": false,
+        "off": true,
+        "source": "cyclicPrerequisite"
+      }
     ]
   ],
   "run": [
@@ -4438,6 +4483,58 @@
       1,
       true,
       true
+    ],
+    [
+      "Prerequisite condition passes",
+      {
+        "attributes": { "id": "1" },
+        "features": {
+          "parentFlag": {
+            "defaultValue": true
+          }
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1],
+        "parentConditions": [
+          {
+            "id": "parentFlag",
+            "condition": {
+              "value": true
+            }
+          }
+        ]
+      },
+      1,
+      true,
+      true
+    ],
+    [
+      "Prerequisite condition fails",
+      {
+        "attributes": { "id": "1" },
+        "features": {
+          "parentFlag": {
+            "defaultValue": false
+          }
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1],
+        "parentConditions": [
+          {
+            "id": "parentFlag",
+            "condition": {
+              "value": true
+            }
+          }
+        ]
+      },
+      0,
+      false,
+      false
     ]
   ],
   "chooseVariation": [
