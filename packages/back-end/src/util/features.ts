@@ -1,7 +1,7 @@
 import isEqual from "lodash/isEqual";
 import {
   ConditionInterface,
-  ParentConditionsInterface,
+  ParentConditionInterface,
   FeatureRule as FeatureDefinitionRule,
 } from "@growthbook/growthbook";
 import { includeExperimentInPayload } from "shared/util";
@@ -470,7 +470,7 @@ export function getFeatureDefinition({
               condition,
             };
           })
-          .filter(Boolean) as ParentConditionsInterface[];
+          .filter(Boolean) as ParentConditionInterface[];
         if (prerequisites?.length) {
           rule.parentConditions = prerequisites;
         }

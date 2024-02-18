@@ -8,7 +8,7 @@ import {
   FeatureRule as FeatureDefinitionRule,
   AutoExperiment,
   GrowthBook,
-  ParentConditionsInterface,
+  ParentConditionInterface,
 } from "@growthbook/growthbook";
 import {
   evalDeterministicPrereqValue,
@@ -164,7 +164,7 @@ export function generateVisualExperimentsPayload({
             condition,
           };
         })
-        .filter(Boolean) as ParentConditionsInterface[];
+        .filter(Boolean) as ParentConditionInterface[];
 
       if (!phase) return null;
 
