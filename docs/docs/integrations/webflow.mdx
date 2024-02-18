@@ -1,4 +1,4 @@
-# Elevate Your Webflow Website with GrowthBook Experiments in Just 3 Simple Steps!
+# Webflow Integration
 
 Unleash the power of experimentation with GrowthBook to supercharge your Webflow site—no coding skills required!
 
@@ -12,26 +12,19 @@ This guide walks you through creating experiments using the GrowthBook Visual Ed
 
 ### Step 1: Create a GrowthBook SDK Connection
 
-To connect your GrowthBook account to Webflow, you'll need to create a new SDK Connection and select `Javascript` as the language. Before saving, confirm that you've enabled the toggles for `Include visual experiments in endpoint's response?` and `Include draft experiments`.
+To connect your GrowthBook account to Webflow, you'll need to create a new SDK Connection and select the `Webflow` option. Before saving, confirm that you've enabled the toggles for `Include visual experiments in endpoint's response?` and `Include draft experiments`.
 
-![](../../static/images/integrations/webflow/growthbook-webflow-sdk-connection.png)
+![](../../static/images/integrations/webflow/webflow-sdk-connection.png)
 
 ### Step 2: Add GrowthBook to Your Webflow Site
 
-Once the SDK Connection is created, you'll want to locate the `Client Key` from the <strong>Implementation Instructions</strong> section.
+Once the SDK Connection is created, you should see a code snippet that you need to add to your site.
 
-Then, log into your Webflow account, navigate to your site's settings tab, before selecting the `Custom Code` tab.
+In a new window, log into your Webflow account, navigate to your site's settings, and select the `Custom Code` tab.
+
+Find the "Head Code" section, and paste in the code snippet from GrowthBook. It should look something like this:
 
 ![](../../static/images/integrations/webflow/growthbook-webflow-edit-code.png)
-
-Then, find the "Head Code" section, and paste in the following snippet. Be sure to replace the `data-client-key` with the `Client Key` you located above.
-
-```js
-    <script async
-      data-client-key="ADD_YOUR_CLIENT_KEY_HERE"
-      src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
-    ></script>
-```
 
 :::info Note
 

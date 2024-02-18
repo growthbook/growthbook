@@ -583,6 +583,10 @@ app.put(
   "/datasource/:datasourceId/exposureQuery/:exposureQueryId",
   datasourcesController.updateExposureQuery
 );
+app.post(
+  "/datasources/fetch-bigquery-datasets",
+  datasourcesController.fetchBigQueryDatasets
+);
 
 // Information Schemas
 app.get(

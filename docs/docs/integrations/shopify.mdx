@@ -1,4 +1,4 @@
-# Elevate Your Shopify Store with GrowthBook Experiments in Just 3 Simple Steps!
+# Shopify Integration
 
 Unleash the power of experimentation with GrowthBook to supercharge your Shopify store—no coding skills required!
 
@@ -12,30 +12,25 @@ This guide walks you through creating experiments using the GrowthBook Visual Ed
 
 ### Step 1: Create a GrowthBook SDK Connection
 
-To connect your GrowthBook account to Shopify, you'll need to create a new SDK Connection and select `Javascript` as the language. Before saving, confirm that you've enabled the toggles for `Include visual experiments in endpoint's response?` and `Include draft experiments`.
+To connect your GrowthBook account to Shopify, you'll need to create a new SDK Connection and select the `Shopify` option. Before saving, confirm that you've enabled the toggles for `Include visual experiments in endpoint's response?` and `Include draft experiments`.
 
-![](../../static/images/integrations/shopify/growthbook-shopify-sdk-connection.png)
+![](../../static/images/integrations/shopify/shopify-sdk-connection.png)
 
 ### Step 2: Add GrowthBook to Your Shopify Theme
 
-Once the SDK Connection is created, you'll want to locate the `Client Key` from the <strong>Implementation Instructions</strong> section.
+Once the SDK Connection is created, you should see a code snippet that you need to add to your store.
 
-Then, log into your Shopify account, navigate to your online store, and edit your store's code.
+Log into your Shopify account, navigate to your online store, and edit your store's code.
 
 ![](../../static/images/integrations/shopify/growthbook-shopify-edit-code.png)
 
-Once you're in the code editor, locate the `theme.liquid` file and add the following snippet to the file just before the closing `</head>` tag. Be sure to replace the `data-client-key` with the `Client Key` you located above.
+Once you're in the code editor, locate the `theme.liquid` file and add the snippet exactly as shown just before the closing `</head>` tag. Here's an example of how it should look:
 
-```js
-    <script async
-      data-client-key="ADD_YOUR_CLIENT_KEY_HERE"
-      src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
-    ></script>
-```
+![](../../static/images/integrations/shopify/shopify-theme-editor.png)
 
 :::info Note
 
-When a user views an experiment, the code above will fire an event that tracks which variation the user saw. If you have Google Analytics 4 (GA4) or Segment installed on your store, you don't have to do any additional configuration. If, however, you need to use a different analytics provider, you can follow our guide [here](https://docs.growthbook.io/app/visual#option-2-pre-built-script-tag-best-for-shopify-webflow).
+When a user views an experiment, this script will fire an event that tracks which variation the user saw. If you have Google Analytics 4 (GA4) or Segment installed on your store, you don't have to do any additional configuration. If, however, you need to use a different analytics provider, you can follow our guide [here](https://docs.growthbook.io/app/visual#option-2-pre-built-script-tag-best-for-shopify-webflow).
 
 :::
 
