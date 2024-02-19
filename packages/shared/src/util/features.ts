@@ -636,19 +636,18 @@ export function evalDeterministicPrereqValue(
 
 export function getDependentFeatures(
   feature: FeatureInterface,
-  features: FeatureInterface[]
+  features: FeatureInterface[],
+  environments: string[]
 ): string[] {
   const dependentFeatures = features.filter((f) => {
     const prerequisites = f.prerequisites || [];
-    const envs = Object.keys(f.environmentSettings || {});
-    const matchingRules = getMatchingRules(f, () => true, envs);
-    const rules = matchingRules
-      .filter((r) => r.rule.enabled && r.environmentEnabled)
-      .map((r) => r.rule);
-    return (
-      prerequisites.some((p) => p.id === feature.id) ||
-      rules.some((r) => r.prerequisites?.some((p) => p.id === feature.id))
+    const rules = getMatchingRules(
+      f,
+      (r) => !!r.enabled && (r.prerequisites || []).some((p) => p.id === feature.id),
+      environments
     );
+
+    return prerequisites.some((p) => p.id === feature.id) || rules.length > 0
   });
   return dependentFeatures.map((f) => f.id);
 }

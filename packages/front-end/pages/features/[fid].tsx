@@ -246,8 +246,8 @@ export default function FeaturePage() {
 
   const dependentFeatures = useMemo(() => {
     if (!feature || !features) return [];
-    return getDependentFeatures(feature, features);
-  }, [feature, features]);
+    return getDependentFeatures(feature, features, envs);
+  }, [feature, features, envs]);
 
   const dependentExperiments = useMemo(() => {
     if (!feature || !experiments) return [];
