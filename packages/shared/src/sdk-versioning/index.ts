@@ -196,8 +196,7 @@ export const getConnectionsSDKCapabilities = ({
     );
     if (!mustMatchAllConnections || i === 0) {
       capabilities = capabilities.concat(connectionCapabilities);
-    }
-    if (mustMatchAllConnections && i > 0) {
+    } else {
       capabilities = capabilities.filter((c) =>
         connectionCapabilities.includes(c)
       );

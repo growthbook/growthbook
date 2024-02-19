@@ -12,7 +12,7 @@ import {
 } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { ConditionInterface, evalCondition } from "@growthbook/growthbook";
+import { evalCondition } from "@growthbook/growthbook";
 import { getValidDate } from "../dates";
 import { getMatchingRules, includeExperimentInPayload } from ".";
 
@@ -561,7 +561,7 @@ export function evaluatePrerequisiteState(
     let value: PrerequisiteValue = feature.defaultValue;
     // cast value to correct format for evaluation
     if (feature.valueType === "boolean") {
-      value = feature.defaultValue === "true";
+      value = feature.defaultValue !== "false";
     } else if (feature.valueType === "number") {
       value = parseFloat(feature.defaultValue);
     } else if (feature.valueType === "json") {
@@ -606,7 +606,9 @@ export function evaluatePrerequisiteState(
           prerequisite.condition
         );
         if (evaled === "fail") {
+          state = "deterministic";
           value = null;
+          break;
         }
       } else if (prerequisiteState === "conditional") {
         // if no "off" prereqs, then any "conditional" prereq state overrides feature's default state (#2)
@@ -663,23 +665,13 @@ export function getDependentExperiments(
 
 // Simplified version of getParsedCondition() from: back-end/src/util/features.ts
 export function getParsedPrereqCondition(condition: string) {
-  const conditions: ConditionInterface[] = [];
   if (condition && condition !== "{}") {
     try {
       const cond = JSON.parse(condition);
-      if (cond) conditions.push(cond);
+      if (cond) return cond;
     } catch (e) {
       // ignore condition parse errors here
     }
   }
-  // No conditions
-  if (!conditions.length) return undefined;
-  // Exactly one condition, return it
-  if (conditions.length === 1) {
-    return conditions[0];
-  }
-  // Multiple conditions, AND them together
-  return {
-    $and: conditions,
-  };
+  return undefined;
 }

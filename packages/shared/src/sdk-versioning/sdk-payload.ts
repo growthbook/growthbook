@@ -50,6 +50,8 @@ export const scrubFeatures = (
     allowedFeatureRuleKeys.push(...prerequisiteKeys);
   }
 
+  features = { ...features };
+
   // Remove features that have any gating parentConditions & any rules that have parentConditions
   // Note: Reduction of features and rules is already performed in the back-end
   //   see: reduceFeaturesWithPrerequisites()
@@ -74,8 +76,6 @@ export const scrubFeatures = (
   if (capabilities.includes("looseUnmarshalling")) {
     return features;
   }
-
-  features = { ...features };
 
   for (const k in features) {
     features[k] = pick(
