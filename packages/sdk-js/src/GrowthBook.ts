@@ -663,12 +663,9 @@ export class GrowthBook<
   private _evalFeature<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string
-  >(
-    id: K,
-    evalCtx: FeatureEvalContext = {
-      evaluatedFeatures: new Set(),
-    }
-  ): FeatureResult<V | null> {
+  >(id: K, evalCtx?: FeatureEvalContext): FeatureResult<V | null> {
+    evalCtx = evalCtx || { evaluatedFeatures: new Set() };
+
     if (evalCtx.evaluatedFeatures.has(id)) {
       process.env.NODE_ENV !== "production" &&
         this.log(
@@ -721,15 +718,14 @@ export class GrowthBook<
               evalObj,
               parentCondition.condition || {}
             );
-            if (parentCondition.gate && !evaled) {
-              process.env.NODE_ENV !== "production" &&
-                this.log("Feature blocked by prerequisite", {
-                  id,
-                  rule,
-                });
-              return this._getFeatureResult(id, null, "prerequisite");
-            }
             if (!evaled) {
+              // blocking prerequisite eval failed: feature evaluation fails
+              if (parentCondition.gate) {
+                process.env.NODE_ENV !== "production" &&
+                  this.log("Feature blocked by prerequisite", { id, rule });
+                return this._getFeatureResult(id, null, "prerequisite");
+              }
+              // non-blocking prerequisite eval failed: break out of parentConditions loop, jump to the next rule
               process.env.NODE_ENV !== "production" &&
                 this.log("Skip rule because prerequisite evaluation fails", {
                   id,
