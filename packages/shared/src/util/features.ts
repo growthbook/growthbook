@@ -643,11 +643,12 @@ export function getDependentFeatures(
     const prerequisites = f.prerequisites || [];
     const rules = getMatchingRules(
       f,
-      (r) => !!r.enabled && (r.prerequisites || []).some((p) => p.id === feature.id),
+      (r) =>
+        !!r.enabled && (r.prerequisites || []).some((p) => p.id === feature.id),
       environments
     );
 
-    return prerequisites.some((p) => p.id === feature.id) || rules.length > 0
+    return prerequisites.some((p) => p.id === feature.id) || rules.length > 0;
   });
   return dependentFeatures.map((f) => f.id);
 }
