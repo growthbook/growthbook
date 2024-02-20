@@ -52,6 +52,7 @@ export const AuthContext = React.createContext<AuthContextValue>({
     return x;
   },
 });
+
 export const useAuth = (): AuthContextValue => useContext(AuthContext);
 
 // Only run one refresh operation at a time
@@ -96,6 +97,23 @@ async function refreshToken() {
 }
 
 const isLocal = (url: string) => url.includes("localhost");
+
+const isUnregisteredCloudUser = () => {
+  if (!isCloud()) return false;
+
+  try {
+    const currentProject = window.localStorage.getItem("gb_current_project");
+    return currentProject === null;
+  } catch (_) {
+    return true;
+  }
+};
+
+const addCloudRegisterParam = (uri: string) => {
+  const url = new URL(uri);
+  url.searchParams.append("screen_hint", "signup");
+  return url.toString();
+};
 
 function getDetailedError(error: string): string | ReactElement {
   const curUrl = window.location.origin;
@@ -150,8 +168,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState("");
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
-  const [orgId, setOrgId] = useState<string>(null);
+  const [orgId, setOrgId] = useState<string | undefined>();
   const [organizations, setOrganizations] = useState<UserOrganizations>([]);
   const [
     specialOrg,
@@ -198,8 +215,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         } catch (e) {
           // ignore
         }
+
         // Don't need to confirm, just redirect immediately
-        window.location.href = resp.redirectURI;
+        if (isUnregisteredCloudUser()) {
+          window.location.href = addCloudRegisterParam(resp.redirectURI);
+        } else {
+          window.location.href = resp.redirectURI;
+        }
       }
     } else if ("showLogin" in resp) {
       setLoading(false);
