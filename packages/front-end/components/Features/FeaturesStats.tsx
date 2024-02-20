@@ -128,7 +128,6 @@ export default function FeaturesStats({
                     language="tsx"
                     code={ref.lines}
                     expandable={true}
-                    highlightLine={ref.startingLineNumber + 2}
                     startingLineNumber={ref.startingLineNumber}
                   />
                 </div>
