@@ -20,7 +20,6 @@ export type FeatureRule<T = any> = {
   condition?: ConditionInterface;
   parentConditions?: ParentConditionInterface[];
   force?: T;
-  parentConditions?: ParentConditionInterface[];
   variations?: T[];
   weights?: number[];
   key?: string;
