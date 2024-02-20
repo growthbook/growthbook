@@ -11,12 +11,14 @@ import FeaturesHeader from "@/components/Features/FeaturesHeader";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeaturesOverview from "@/components/Features/FeaturesOverview";
 import FeaturesStats from "@/components/Features/FeaturesStats";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 const featureTabs = ["overview", "stats"] as const;
 export type FeatureTab = typeof featureTabs[number];
 
 export default function FeaturePage() {
   const router = useRouter();
+  const orgSettings = useOrgSettings();
   const { fid } = router.query;
   const [editProjectModal, setEditProjectModal] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
@@ -113,7 +115,9 @@ export default function FeaturePage() {
         />
       )}
 
-      {tab === "stats" && <FeaturesStats codeRefs={data.codeRefs} />}
+      {tab === "stats" && (
+        <FeaturesStats orgSettings={orgSettings} codeRefs={data.codeRefs} />
+      )}
     </>
   );
 }

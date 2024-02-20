@@ -1601,12 +1601,16 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     setValue={(value) => {
                       form.setValue("killswitchConfirmation", value);
                     }}
-                    disabled={!hasCodeReferencesFeature}
                   />
                 </div>
                 <div className="my-3">
                   <PremiumTooltip commercialFeature={"code-references"}>
-                    <h4>Configure Code References</h4>
+                    <div
+                      className="d-inline-block h4 mt-4 mb-0"
+                      id="configure-code-refs"
+                    >
+                      Configure Code References
+                    </div>
                   </PremiumTooltip>
                   <div>
                     <label className="mr-1" htmlFor="toggle-codeReferences">
@@ -1621,6 +1625,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       setValue={(value) => {
                         form.setValue("codeReferencesEnabled", value);
                       }}
+                      disabled={!hasCodeReferencesFeature}
                     />
                   </div>
                   {form.watch("codeReferencesEnabled") ? (

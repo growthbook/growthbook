@@ -1,55 +1,143 @@
+import { useRouter } from "next/router";
+import { useMemo } from "react";
 import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
-import { FaGithub, FaExternalLinkAlt } from "react-icons/fa";
+import { OrganizationSettings } from "back-end/types/organization";
+import { FaGitAlt, FaExternalLinkAlt } from "react-icons/fa";
 import Code from "@/components/SyntaxHighlighting/Code";
+import { useUser } from "@/services/UserContext";
+import Button from "../Button";
+import PremiumTooltip from "../Marketing/PremiumTooltip";
+
+const generatePlatformUrl = (
+  platformUrl: string,
+  repo: string,
+  branch: string,
+  filePath: string,
+  lineNumber: number
+) => {
+  return `${platformUrl}/${repo}/blob/${branch}/${filePath}#L${lineNumber}`;
+};
 
 export default function FeaturesStats({
-  codeRefs,
+  orgSettings,
+  codeRefs: allCodeRefs,
 }: {
+  orgSettings: OrganizationSettings;
   codeRefs: FeatureCodeRefsInterface[];
 }) {
+  const router = useRouter();
+  const {
+    codeReferencesEnabled,
+    codeRefsPlatformUrl,
+    codeRefsBranchesToFilter,
+  } = orgSettings;
+  const { hasCommercialFeature } = useUser();
+  const hasFeature = hasCommercialFeature("code-references");
+
+  const codeRefs = useMemo(() => {
+    if (!codeRefsBranchesToFilter || codeRefsBranchesToFilter.length === 0) {
+      return allCodeRefs;
+    }
+    return allCodeRefs.filter((codeRef) =>
+      codeRefsBranchesToFilter.includes(codeRef.branch)
+    );
+  }, [allCodeRefs, codeRefsBranchesToFilter]);
+
+  if (!codeReferencesEnabled) {
+    return (
+      <div className="contents container-fluid pagecontents">
+        <div
+          className="appbox bg-white"
+          style={{
+            height: "18rem",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <h2>Enable Code References</h2>
+          <p style={{ width: "32rem" }}>
+            Quickly see instances of feature flags being leveraged in your
+            codebase, with direct links from GrowthBook to the platform of your
+            choice.
+          </p>
+          {hasFeature ? (
+            <Button
+              onClick={async () => {
+                router.push("/settings#configure-code-refs");
+              }}
+            >
+              Go to settings
+            </Button>
+          ) : (
+            <PremiumTooltip commercialFeature="code-references">
+              <Button
+                color="warning"
+                onClick={async () => {
+                  router.push("/settings");
+                }}
+              >
+                Upgrade to Pro
+              </Button>
+            </PremiumTooltip>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="contents container-fluid pagecontents">
-      {codeRefs.length > 0 && (
-        <>
-          <h3>Code References</h3>
-          <div className="mb-1">
-            References to this feature flag found in your codebase.
-          </div>
-          <div className="appbox mb-4 p-3">
-            {codeRefs.map((codeRef, i) => (
-              <div key={i}>
-                <div className="row mx-1 d-flex align-items-center" style={{}}>
-                  <FaGithub />
-                  <div className="mx-2">{codeRef.repo} </div>
-                  <div className="mr-2">•</div>
-                  <div>
-                    {codeRef.refs.length} reference(s) found in{" "}
-                    <code>{codeRef.branch}</code> branch.
-                  </div>
-                </div>
-                <div className="d-flex flex-column ">
-                  {codeRef.refs.map((ref, i) => (
-                    <div key={i} className="appbox my-2 p-2">
-                      <div className="px-1">
-                        <a href="#">
-                          <FaExternalLinkAlt className="mr-2 cursor-pointer" />
-                        </a>
-                        <code>{ref.filePath}</code>
-                      </div>
-                      <Code
-                        language="tsx"
-                        code={ref.lines}
-                        expandable={true}
-                        highlightLine={ref.startingLineNumber + 2}
-                        startingLineNumber={ref.startingLineNumber}
-                      />
-                    </div>
-                  ))}
-                </div>
+      <h3>Code References</h3>
+      <div className="mb-1">
+        References to this feature flag found in your codebase.
+      </div>
+      {codeRefs.length > 0 ? (
+        codeRefs.map((codeRef, i) => (
+          <div key={i} className="appbox mb-4 p-3">
+            <div className="row mx-1 d-flex align-items-center">
+              <FaGitAlt />
+              <div className="mx-2">{codeRef.repo} </div>
+              <div className="mr-2">•</div>
+              <div>
+                {codeRef.refs.length} reference(s) found in{" "}
+                <code>{codeRef.branch}</code> branch.
               </div>
-            ))}
+            </div>
+            <div className="d-flex flex-column">
+              {codeRef.refs.map((ref, i) => (
+                <div key={i} className="my-2 p-2">
+                  <div className="px-1">
+                    {codeRefsPlatformUrl && (
+                      <a
+                        href={generatePlatformUrl(
+                          codeRefsPlatformUrl,
+                          codeRef.repo,
+                          codeRef.branch,
+                          ref.filePath,
+                          ref.startingLineNumber + 2
+                        )}
+                      >
+                        <FaExternalLinkAlt className="mr-2 cursor-pointer" />
+                      </a>
+                    )}
+                    <code>{ref.filePath}</code>
+                  </div>
+                  <Code
+                    language="tsx"
+                    code={ref.lines}
+                    expandable={true}
+                    highlightLine={ref.startingLineNumber + 2}
+                    startingLineNumber={ref.startingLineNumber}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
-        </>
+        ))
+      ) : (
+        <div className="appbox p-3">No code references found.</div>
       )}
     </div>
   );
