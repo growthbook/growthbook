@@ -203,9 +203,12 @@ export function generateVisualExperimentsPayload({
           ? e.variations.indexOf(forcedVariation)
           : undefined,
         condition,
-        parentConditions: prerequisites,
         coverage: phase.coverage,
       };
+
+      if (prerequisites.length) {
+        exp.parentConditions = prerequisites;
+      }
 
       return exp;
     }
