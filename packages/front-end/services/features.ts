@@ -600,7 +600,7 @@ export function jsonToConds(
         const v = value[operator];
 
         if (operator === "$in" || operator === "$nin") {
-          if (v.some((str) => str.includes(","))) {
+          if (v.some((str) => typeof str === "string" && str.includes(","))) {
             valid = false;
             return;
           }
