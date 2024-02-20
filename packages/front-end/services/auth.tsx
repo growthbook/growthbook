@@ -32,7 +32,7 @@ export interface AuthContextValue {
   loading: boolean;
   logout: () => Promise<void>;
   apiCall: <T>(url: string | null, options?: RequestInit) => Promise<T>;
-  orgId?: string;
+  orgId: string | null;
   setOrgId?: (orgId: string) => void;
   organizations?: UserOrganizations;
   setOrganizations?: (orgs: UserOrganizations) => void;
@@ -52,6 +52,7 @@ export const AuthContext = React.createContext<AuthContextValue>({
     let x: any;
     return x;
   },
+  orgId: null,
 });
 
 export const useAuth = (): AuthContextValue => useContext(AuthContext);
@@ -171,7 +172,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState("");
-  const [orgId, setOrgId] = useState<string | undefined>();
+  const [orgId, setOrgId] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<UserOrganizations>([]);
   const [
     specialOrg,
@@ -427,7 +428,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
             method: "POST",
             credentials: "include",
           });
-          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
           setOrgId(null);
           setOrganizations([]);
           setSpecialOrg(null);
