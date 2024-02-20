@@ -278,6 +278,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const hasCustomChecklistFeature = hasCommercialFeature(
     "custom-launch-checklist"
   );
+  const hasRequireApprovals = hasCommercialFeature("require-approvals");
 
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithStickyBucketing = getConnectionsSDKCapabilities(
@@ -1577,20 +1578,24 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     }}
                   />
                 </div>
-                <div>
-                  <label className="mr-1" htmlFor="toggle-require-reviews">
-                    Require approval to publish changes:
-                  </label>
-                </div>
-                <div>
-                  <Toggle
-                    id={"toggle-require-reviews"}
-                    value={!!form.watch("requireReviews")}
-                    setValue={(value) => {
-                      form.setValue("requireReviews", value);
-                    }}
-                  />
-                </div>
+                {hasRequireApprovals && (
+                  <>
+                    <div>
+                      <label className="mr-1" htmlFor="toggle-require-reviews">
+                        Require approval to publish changes:
+                      </label>
+                    </div>
+                    <div>
+                      <Toggle
+                        id={"toggle-require-reviews"}
+                        value={!!form.watch("requireReviews")}
+                        setValue={(value) => {
+                          form.setValue("requireReviews", value);
+                        }}
+                      />
+                    </div>
+                  </>
+                )}
               </div>
             </div>
             <div className="divider border-bottom mb-3 mt-3" />

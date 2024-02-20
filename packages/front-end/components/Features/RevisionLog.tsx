@@ -51,7 +51,7 @@ function RevisionLogRow({
     }
   };
   const openClickClassNames = clsx("mb-2", {
-    "cursor-pointer": !commentsOnly,
+    "cursor-pointer": !(commentsOnly && !!comment),
   });
   return (
     <div className={`appbox p-2 mb-0 ${first ? "" : "mt-3"}`}>
@@ -59,7 +59,7 @@ function RevisionLogRow({
         className={openClickClassNames}
         onClick={(e) => {
           e.preventDefault();
-          if (!commentsOnly) {
+          if (!(commentsOnly && !!comment)) {
             setOpen(!open);
           }
         }}
@@ -69,7 +69,7 @@ function RevisionLogRow({
             {log.action} {log.subject}
           </>
         </h3>
-        {commentsOnly ? (
+        {commentsOnly && !!comment ? (
           <div>{openContent()}</div>
         ) : (
           <div className="ml-auto">

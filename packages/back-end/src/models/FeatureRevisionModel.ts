@@ -243,11 +243,11 @@ export async function createRevision({
     version: newVersion,
     dateCreated: new Date(),
     dateUpdated: new Date(),
-    datePublished: publish && requiresReview ? new Date() : null,
+    datePublished: status === "published" ? new Date() : null,
     createdBy: user,
     baseVersion: baseVersion || feature.version,
     status,
-    publishedBy: publish && requiresReview ? user : null,
+    publishedBy: status === "published" ? user : null,
     comment: comment || "",
     defaultValue,
     rules,
@@ -325,7 +325,6 @@ export async function markRevisionAsPublished(
         publishedBy: user,
         datePublished: new Date(),
         dateUpdated: new Date(),
-        comment: comment ?? revision.comment,
       },
       $push: {
         log,
@@ -359,9 +358,8 @@ export async function markRevisionAsReviewRequested(
       $set: {
         status: "pending-review",
         publishedBy: user,
-        datePublished: new Date(),
-        dateUpdated: new Date(),
-        comment: comment ?? revision.comment,
+        datePublished: null,
+        dateUpdated: null,
       },
       $push: {
         log,
@@ -409,8 +407,8 @@ export async function submitReviewAndComments(
       $set: {
         status,
         publishedBy: user,
-        datePublished: new Date(),
-        dateUpdated: new Date(),
+        datePublished: null,
+        dateUpdated: null,
         comment: comment ?? revision.comment,
       },
       $push: {

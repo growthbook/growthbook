@@ -39,7 +39,8 @@ export type CommercialFeature =
   | "multi-metric-queries"
   | "no-access-role"
   | "teams"
-  | "sticky-bucketing";
+  | "sticky-bucketing"
+  | "require-approvals";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface LicenseInterface {
@@ -150,6 +151,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "custom-launch-checklist",
     "no-access-role",
     "sticky-bucketing",
+    "require-approvals",
   ]),
 };
 

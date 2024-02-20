@@ -53,6 +53,8 @@ export const GLOBAL_PERMISSIONS = [
   "manageSavedGroups",
   "manageArchetype",
   "viewEvents",
+  "bypassApprovalChecks",
+  "canReview",
 ] as const;
 
 export const ALL_PERMISSIONS = [
@@ -360,6 +362,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageSavedGroups",
         "manageArchetype",
         "runExperiments",
+        "canReview",
       ],
     },
     {
@@ -405,6 +408,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageFactTables",
         "runQueries",
         "editDatasourceSettings",
+        "canReview",
       ],
     },
     {

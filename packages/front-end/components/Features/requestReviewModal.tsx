@@ -41,12 +41,13 @@ export default function RequestReviewModal({
   onDiscard,
 }: Props) {
   const environments = useEnvironments();
-  const permissions = usePermissions();
   const [showSubmitReview, setShowSumbmitReview] = useState(false);
   const [adminPublish, setAdminPublish] = useState(false);
   const { apiCall } = useAuth();
   const user = getCurrentUser();
-  const isAdmin = user?.role === "admin";
+  const permissions = usePermissions();
+
+  const canPublish = permissions.check("bypassApprovalChecks");
   const revision = revisions.find((r) => r.version === version);
   const isPendingReview =
     revision?.status === "pending-review" ||
@@ -102,6 +103,7 @@ export default function RequestReviewModal({
           body: JSON.stringify({
             mergeResultSerialized: JSON.stringify(mergeResult),
             comment,
+            adminOverride: adminPublish,
           }),
         });
       } catch (e) {
@@ -172,7 +174,7 @@ export default function RequestReviewModal({
         close={close}
         autoCloseOnSubmit={canReview ? false : true}
         closeCta="Cancel"
-        size="max"
+        size="md"
         submit={
           !isPendingReview || canReview || approved ? submitButton : undefined
         }
@@ -223,7 +225,7 @@ export default function RequestReviewModal({
                 Publishing to the prod environment requires approval.
               </Callout.Text>
             </Callout.Root>
-            {isAdmin && (
+            {canPublish && (
               <Text as="label" size="2" className="mt-2">
                 <Flex gap="2">
                   <Checkbox
@@ -272,10 +274,9 @@ export default function RequestReviewModal({
         close={close}
         header={"Review Draft Changes"}
         cta={"submit"}
-        size="max"
+        size="md"
         includeCloseCta={false}
         submit={submitReviewform.handleSubmit(async (data) => {
-          console.log("we are here", data.reviewStatus, comment);
           try {
             await apiCall(
               `/feature/${feature.id}/${revision?.version}/submit-review`,
@@ -316,7 +317,6 @@ export default function RequestReviewModal({
             size="3"
             onChange={(e: ChangeEvent<HTMLInputElement>) => {
               if (e.target.checked) {
-                console.log(e.target.value, "target-value");
                 submitReviewform.setValue(
                   "reviewStatus",
                   e.target.value as ReviewSubmittedType

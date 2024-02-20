@@ -570,7 +570,11 @@ export async function postFeatureReviewOrComment(
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
-  if (revision.status === "draft") {
+  if (
+    revision.status === "changes-requested" ||
+    revision.status === "pending-review" ||
+    revision.status === "approved"
+  ) {
     throw new Error("Can only review if review is requested");
   }
   await submitReviewAndComments(
@@ -589,13 +593,14 @@ export async function postFeaturePublish(
     {
       comment: string;
       mergeResultSerialized: string;
+      adminOverride?: boolean;
     },
     { id: string; version: string }
   >,
   res: Response
 ) {
-  const { org, environments, userId } = getContextFromReq(req);
-  const { comment, mergeResultSerialized } = req.body;
+  const { org, environments } = getContextFromReq(req);
+  const { comment, mergeResultSerialized, adminOverride } = req.body;
   const { id, version } = req.params;
   const feature = await getFeature(org.id, id);
 
@@ -605,14 +610,16 @@ export async function postFeaturePublish(
   req.checkPermissions("manageFeatures", feature.project);
 
   const revision = await getRevision(org.id, feature.id, parseInt(version));
-  const user = org.members.find((member) => member.id === userId);
-  const isAdmin = user?.role === "admin";
+
+  if (adminOverride && org.settings?.requireReviews) {
+    req.checkPermissions("bypassApprovalChecks");
+  }
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
   if (
-    (org.settings?.requireReviews && !isAdmin) ||
-    revision.status === "approved"
+    (!adminOverride && org.settings?.requireReviews) ||
+    revision.status !== "approved"
   ) {
     throw new Error("review Required before publishing");
   }
@@ -801,7 +808,7 @@ export async function postFeatureFork(
     baseVersion: revision.version,
     changes: revision,
     environments,
-    requiresReview: !!org.settings?.requireReviews && !!req.superAdmin,
+    requiresReview: !!org.settings?.requireReviews,
   });
   await updateFeature(org, res.locals.eventAudit, feature, {
     hasDrafts: true,
@@ -842,18 +849,14 @@ export async function postFeatureDiscard(
 
   const hasDrafts = await hasDraft(org.id, feature, [revision.version]);
 
-  if (!hasDrafts) {
-    await updateFeature(org, res.locals.eventAudit, feature, {
-      hasDrafts: false,
-    });
-  }
-
   const hasPendingReview = await pendingReview(org.id, feature, [
     revision.version,
   ]);
-  if (!hasPendingReview) {
+
+  if (!hasDrafts || !hasPendingReview) {
     await updateFeature(org, res.locals.eventAudit, feature, {
-      pendingReview: false,
+      hasDrafts,
+      pendingReview: hasPendingReview,
     });
   }
 
@@ -1067,7 +1070,8 @@ async function getDraftRevision(
     !(
       revision.status === "draft" ||
       revision.status === "pending-review" ||
-      revision.status === "reviewed"
+      revision.status === "changes-requested" ||
+      revision.status === "approved"
     )
   ) {
     throw new Error("Can only make changes to draft revisions");
