@@ -2210,12 +2210,15 @@ export async function postVisualChangeset(
 
   const experiment = await getExperimentById(context, req.params.id);
 
-  // TODO: Check that variation IDs exist before creating URL redirects
-  // if (req.body.urlRedirects) {
-  //   req.body.urlRedirects.every((r) => {
-  //     experiment?.variations;
-  //   });
-  // }
+  if (req.body.urlRedirects) {
+    const variationIds = experiment?.variations.map((v) => v.id);
+    const areValidVariations = req.body.urlRedirects.every((r) => {
+      variationIds?.includes(r.variation);
+    });
+    if (!areValidVariations) {
+      throw new Error("Invalid variation IDs for urlRedirects");
+    }
+  }
 
   if (!experiment) {
     throw new Error("Could not find experiment");

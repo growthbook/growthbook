@@ -101,7 +101,6 @@ const visualChangesetSchema = new mongoose.Schema<VisualChangesetInterface>({
         ],
       },
     ],
-    required: true,
   },
   urlRedirects: [
     {
@@ -288,7 +287,9 @@ export const createVisualChangeset = async ({
       urlPatterns,
       editorUrl,
       visualChanges:
-        visualChanges || experiment.variations.map(genNewVisualChange),
+        visualChanges || !urlRedirects
+          ? experiment.variations.map(genNewVisualChange)
+          : undefined,
       urlRedirects,
       persistQueryString,
     })
