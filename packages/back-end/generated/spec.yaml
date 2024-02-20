@@ -215,7 +215,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/features \
-              -d '{ id: "test-01", description: "A cool feature", ... }'
+              -d '{ "id": "test-01", "description": "A cool feature", ... }'
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -460,7 +460,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/features/test-01 \
-              -d '{ description: "A cool feature flag", ... }'
+              -d '{ "description": "A cool feature flag", ... }'
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -516,9 +516,8 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/features/my-feature/toggle \
-              -u secret_abc123DEF456: \
-              -d "environments[production]"=false \
-              -d reason="Kill switch activated"
+              -d '{ "reason": "Kill switch activated", "environments": { "production": false } }' \
+              -u secret_abc123DEF456:
       requestBody:
         required: true
         content:
@@ -877,7 +876,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/experiments \
-              -d '{ name: "test_experiment", "owner": "weijie.ou@example.com" ... }'
+              -d '{"name": "test_experiment", "owner": "weijie.ou@example.com", ...}'
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -1112,7 +1111,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/experiments/exp_1234 \
-              -d '{ name: "test_experiment", "owner": "weijie.ou@example.com" ... }'
+              -d '{ "name": "test_experiment", "owner": "weijie.ou@example.com", ... }' \
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -1376,7 +1375,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/metrics \
-              -d '{ datasourceId: "ds_abc123", ... }'
+              -d '{ "datasourceId": "ds_abc123", ... }'
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -1657,9 +1656,8 @@ paths:
         - lang: cURL
           source: |
             curl -XPUT https://api.growthbook.io/api/v1/metrics/met_123abc \
-              -u secret_abc123DEF456 \
-              -H "Content-Type: application/json" \
-              -d '{"name": "net revenue", "description":"revenue minus lacroix spend"}'
+              -d '{"name": "net revenue", "description":"revenue minus lacroix spend"}' \
+              -u secret_abc123DEF456:
       requestBody:
         required: true
         content:
@@ -1985,9 +1983,8 @@ paths:
         - lang: cURL
           source: |
             curl -XPUT https://api.growthbook.io/api/v1/visual-changesets/vc_123abc
-              -u secret_abc123DEF456 \
-              -H "Content-Type: application/json" \
-                                                 -d '{"editorUrl": "https://docs.growthbook.io", "urlPatterns":"[{ ... }]"}'
+              -d '{"editorUrl": "https://docs.growthbook.io", "urlPatterns":"[{ ... }]"}' \
+              -u secret_abc123DEF456:
       responses:
         '200':
           content:
@@ -2014,9 +2011,8 @@ paths:
         - lang: cURL
           source: |
             curl -XPOST https://api.growthbook.io/api/v1/visual-changesets/vc_123abc/visual-change \
-              -u secret_abc123DEF456 \
-              -H "Content-Type: application/json" \
-              -d '{"variation": "v_123abc", "domMutations":"[]"}'
+              -d '{"variation": "v_123abc", "domMutations":"[]"}' \
+              -u secret_abc123DEF456:
       responses:
         '200':
           content:
@@ -2041,9 +2037,8 @@ paths:
         - lang: cURL
           source: |
             curl -XPUT https://api.growthbook.io/api/v1/visual-changesets/vc_123abc/visual-change/vch_abc123 \
-              -u secret_abc123DEF456 \
-              -H "Content-Type: application/json" \
-              -d '{"variation": "v_123abc", "domMutations":"[]"}'
+              -d '{"variation": "v_123abc", "domMutations":"[]"}' \
+              -u secret_abc123DEF456:
       responses:
         '200':
           content:
@@ -2094,9 +2089,8 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/saved-groups \
-              -H "Content-Type: application/json" \
-              -u secret_abc123DEF456: \
-              -d '{"name": "interal-users", "values": ["userId-123", "userId-345", "userId-678"], "attributeKey": "userId", "owner": ""}'
+              -d '{"name": "interal-users", "values": ["userId-123", "userId-345", "userId-678"], "attributeKey": "userId", "owner": ""}' \
+              -u secret_abc123DEF456:
       requestBody:
         required: true
         content:
@@ -2175,9 +2169,8 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
-              -H "Content-Type: application/json" \
-              -u secret_abc123DEF456: \
-              -d '{"values": [ "userId-123", "userId-345" ]}'
+              -d '{"values": [ "userId-123", "userId-345" ]}' \
+              -u secret_abc123DEF456:
       requestBody:
         required: true
         content:
@@ -2278,7 +2271,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/organizations \
-              -d '{ name: "My Subsidiary" }' \
+              -d '{ "name": "My Subsidiary" }' \
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -2318,8 +2311,7 @@ paths:
         - lang: cURL
           source: |
             curl -X PUT https://api.growthbook.io/api/v1/organizations/org_abc123 \
-              -d '{ name: "My Subsidiary" }' \
-              -d '{ externalId: "subsidiary-123" }'
+              -d '{ "name": "My Subsidiary", "externalId": "subsidiary-123" }' \
               -u secret_abc123DEF456:
       requestBody:
         required: true

@@ -18,6 +18,7 @@ export type VariationMeta = {
 export type FeatureRule<T = any> = {
   id?: string;
   condition?: ConditionInterface;
+  parentConditions?: ParentConditionInterface[];
   force?: T;
   parentConditions?: ParentConditionInterface[];
   variations?: T[];
@@ -55,7 +56,9 @@ export type FeatureResultSource =
   | "defaultValue"
   | "force"
   | "override"
-  | "experiment";
+  | "experiment"
+  | "prerequisite"
+  | "cyclicPrerequisite";
 
 export interface FeatureResult<T = any> {
   value: T | null;
@@ -217,6 +220,11 @@ export type WidenPrimitives<T> = T extends string
   : T extends boolean
   ? boolean
   : T;
+
+export type FeatureEvalContext = {
+  id?: string;
+  evaluatedFeatures: Set<string>;
+};
 
 export type DOMMutation = {
   selector: string;
