@@ -1,10 +1,10 @@
 import Stripe from "stripe";
-import { ReadAccessFilter } from "shared/permissions";
 import {
   ENV_SCOPED_PERMISSIONS,
   GLOBAL_PERMISSIONS,
   PROJECT_SCOPED_PERMISSIONS,
-} from "../src/util/organization.util";
+  ReadAccessFilter,
+} from "shared/permissions";
 import { EventAuditUser } from "../src/events/event-types";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";

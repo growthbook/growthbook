@@ -115,7 +115,7 @@ function ConnectionStatus({
                       <div className="mb-2">
                         Encountered an error while trying to connect:
                       </div>
-                      {!errorTxt ? (
+                      {errorTxt ? (
                         <div className="alert alert-danger mt-2">
                           {errorTxt}
                         </div>

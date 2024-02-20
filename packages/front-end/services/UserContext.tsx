@@ -31,7 +31,7 @@ import {
 } from "react";
 import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
-import { hasPermission } from "shared/permissions";
+import { userHasPermission } from "shared/permissions";
 import { isCloud, isMultiOrg, isSentryEnabled } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
@@ -326,30 +326,21 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   const permissionsCheck = useCallback(
     (
       permission: Permission,
-      projects?: string[] | string,
+      project?: string[] | string,
       envs?: string[]
     ): boolean => {
-      let checkProjects: (string | undefined)[];
-      if (Array.isArray(projects)) {
-        checkProjects = projects.length > 0 ? projects : [undefined];
-      } else {
-        checkProjects = [projects];
-      }
-      for (const p of checkProjects) {
-        if (
-          !hasPermission(
-            currentOrg?.currentUserPermissions,
-            permission,
-            p,
-            envs
-          )
-        ) {
-          return false;
-        }
-      }
-      return true;
+      if (!currentOrg?.currentUserPermissions || !currentOrg || !data?.userId)
+        return false;
+
+      return userHasPermission(
+        data.superAdmin || false,
+        currentOrg.currentUserPermissions,
+        permission,
+        project,
+        envs ? [...envs] : undefined
+      );
     },
-    [currentOrg?.currentUserPermissions]
+    [currentOrg, data?.superAdmin, data?.userId]
   );
 
   return (
