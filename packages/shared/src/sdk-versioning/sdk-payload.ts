@@ -3,6 +3,7 @@ import {
   FeatureDefinitionWithProject,
 } from "back-end/types/api";
 import { pick, omit } from "lodash";
+import cloneDeep from "lodash/cloneDeep";
 import { SDKCapability } from "./index";
 
 const strictFeatureKeys = ["defaultValue", "rules"];
@@ -50,40 +51,40 @@ export const scrubFeatures = (
     allowedFeatureRuleKeys.push(...prerequisiteKeys);
   }
 
-  features = { ...features };
+  const newFeatures = cloneDeep(features);
 
   // Remove features that have any gating parentConditions & any rules that have parentConditions
   // Note: Reduction of features and rules is already performed in the back-end
   //   see: reduceFeaturesWithPrerequisites()
   if (!capabilities.includes("prerequisites")) {
-    for (const k in features) {
+    for (const k in newFeatures) {
       // delete feature
       if (
-        features[k]?.rules?.some((rule) =>
+        newFeatures[k]?.rules?.some((rule) =>
           rule?.parentConditions?.some((pc) => !!pc.gate)
         )
       ) {
-        delete features[k];
+        delete newFeatures[k];
         continue;
       }
       // delete rules
-      features[k].rules = features[k].rules?.filter(
+      newFeatures[k].rules = newFeatures[k].rules?.filter(
         (rule) => (rule.parentConditions?.length ?? 0) === 0
       );
     }
   }
 
   if (capabilities.includes("looseUnmarshalling")) {
-    return features;
+    return newFeatures;
   }
 
-  for (const k in features) {
-    features[k] = pick(
-      features[k],
+  for (const k in newFeatures) {
+    newFeatures[k] = pick(
+      newFeatures[k],
       allowedFeatureKeys
     ) as FeatureDefinitionWithProject;
-    if (features[k]?.rules) {
-      features[k].rules = features[k].rules?.map((rule) => {
+    if (newFeatures[k]?.rules) {
+      newFeatures[k].rules = newFeatures[k].rules?.map((rule) => {
         rule = {
           ...pick(rule, allowedFeatureRuleKeys),
         };
@@ -92,7 +93,7 @@ export const scrubFeatures = (
     }
   }
 
-  return features;
+  return newFeatures;
 };
 
 export const scrubExperiments = (
