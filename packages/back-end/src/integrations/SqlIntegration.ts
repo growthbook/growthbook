@@ -2806,7 +2806,12 @@ AND event_name = '${eventName}'`,
         COUNT (*) as count,
         MAX(${timestampColumn}) as lastTrackedAt
       FROM
-        ${this.generateTablePath(trackedEventTableName, schema)}
+        ${this.generateTablePath(
+          trackedEventTableName,
+          schema,
+          undefined,
+          !!schema
+        )}
       WHERE ${getDateLimitClause(start, end)}
       AND ${eventColumn} NOT IN ('experiment_viewed', 'experiment_started')
       GROUP BY ${groupByColumn || eventColumn}
