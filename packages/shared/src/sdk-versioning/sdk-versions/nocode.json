@@ -11,7 +11,8 @@
         "semverTargeting",
         "visualEditorJS",
         "remoteEval",
-        "visualEditorDragDrop"
+        "visualEditorDragDrop",
+        "prerequisites"
       ]
     }
   ]

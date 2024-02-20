@@ -96,6 +96,9 @@ export function getRules(feature: FeatureInterface, environment: string) {
 export function getFeatureDefaultValue(feature: FeatureInterface) {
   return feature.defaultValue ?? "";
 }
+export function getPrerequisites(feature: FeatureInterface) {
+  return feature.prerequisites ?? [];
+}
 
 export function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;
@@ -220,6 +223,11 @@ export function validateFeatureRule(
       },
       false
     );
+  }
+  if (rule.prerequisites) {
+    if (rule.prerequisites.some((p) => !p.id)) {
+      throw new Error("Cannot have empty prerequisites");
+    }
   }
   if (rule.type === "force") {
     const newValue = validateFeatureValue(
@@ -532,6 +540,10 @@ export function isRuleFullyCovered(rule: FeatureRule): boolean {
     scheduleCompletedAndDisabled ||
     upcomingScheduleRule?.enabled ||
     !rule.enabled;
+
+  if (rule?.prerequisites?.length) {
+    return false;
+  }
 
   // rollouts and experiments at 100%:
   if (

@@ -951,8 +951,6 @@ paths:
                   type: number
                 minBucketVersion:
                   type: number
-                excludeBlockedBucketUsers:
-                  type: boolean
                 releasedVariationId:
                   type: string
                 excludeFromPayload:
@@ -1178,8 +1176,6 @@ paths:
                   type: number
                 minBucketVersion:
                   type: number
-                excludeBlockedBucketUsers:
-                  type: boolean
                 releasedVariationId:
                   type: string
                 excludeFromPayload:
@@ -3640,6 +3636,18 @@ components:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/FeatureEnvironment'
+        prerequisites:
+          type: array
+          items:
+            type: object
+            required:
+              - parentId
+              - parentCondition
+            properties:
+              parentId:
+                type: string
+              parentCondition:
+                type: string
         revision:
           type: object
           required:
@@ -3869,8 +3877,6 @@ components:
           type: number
         minBucketVersion:
           type: number
-        excludeBlockedBucketUsers:
-          type: boolean
         namespace:
           type: obect
           required:
@@ -4071,8 +4077,6 @@ components:
           type: number
         minBucketVersion:
           type: number
-        excludeBlockedBucketUsers:
-          type: boolean
         variations:
           type: array
           items:
