@@ -286,7 +286,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
   const { metricDefaults } = useOrganizationMetricDefaults();
 
-  const [editChecklistOpen, setEditChecklistOpen] = useState(false);
+  const queryParams = new URLSearchParams(window.location.search);
+
+  const [editChecklistOpen, setEditChecklistOpen] = useState(
+    () => queryParams.get("editCheckListModal") || false
+  );
 
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
     defaultValues: {
@@ -1343,7 +1347,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   </div>
                 </div>
 
-                <div className="mb-3 form-group flex-column align-items-start">
+                <div
+                  className="mb-3 form-group flex-column align-items-start"
+                  id="edit-launch-checklist"
+                >
                   <PremiumTooltip
                     commercialFeature="custom-launch-checklist"
                     premiumText="Custom pre-launch checklists are available to Enterprise customers"

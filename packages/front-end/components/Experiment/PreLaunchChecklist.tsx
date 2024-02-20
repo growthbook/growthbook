@@ -11,9 +11,12 @@ import {
   ChecklistTask,
   ExperimentLaunchChecklistInterface,
 } from "back-end/types/experimentLaunchChecklist";
+import Link from "next/link";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
+import { useUser } from "@/services/UserContext";
+import usePermissions from "@/hooks/usePermissions";
 import InitialSDKConnectionForm from "../Features/SDKConnections/InitialSDKConnectionForm";
 import Tooltip from "../Tooltip/Tooltip";
 
@@ -63,6 +66,8 @@ export function PreLaunchChecklist({
   className?: string;
 }) {
   const { apiCall } = useAuth();
+  const { hasCommercialFeature } = useUser();
+  const permissions = usePermissions();
   const [warnings, setWarnings] = useState<ReactElement | null>(null);
   const [checkListOpen, setCheckListOpen] = useState(true);
   const [manualChecklistStatus, setManualChecklistStatus] = useState(
@@ -71,6 +76,9 @@ export function PreLaunchChecklist({
   const [updatingChecklist, setUpdatingChecklist] = useState(false);
 
   const [showSdkForm, setShowSdkForm] = useState(false);
+  const canEditChecklist =
+    hasCommercialFeature("custom-launch-checklist") &&
+    permissions.check("organizationSettings");
 
   const checklist: CheckListItem[] = [];
 
@@ -142,7 +150,7 @@ export function PreLaunchChecklist({
       type: "auto",
       display: (
         <>
-          Publish and enable all
+          Publish and enable all{" "}
           {openSetupTab ? (
             <a
               href="#"
@@ -155,7 +163,7 @@ export function PreLaunchChecklist({
             </a>
           ) : (
             "Linked Feature"
-          )}
+          )}{" "}
           rules.
         </>
       ),
@@ -362,23 +370,38 @@ export function PreLaunchChecklist({
         />
       )}
       <div className="appbox bg-white my-2 p-3">
-        <div
-          role="button"
-          className="d-flex flex-row align-items-center justify-content-between"
-          onClick={(e) => {
-            e.preventDefault();
-            setCheckListOpen(!checkListOpen);
-          }}
-        >
-          <h4 className="m-0">Pre-Launch Checklist {itemsRemainingBadge()}</h4>
-          <button className="btn text-dark">
-            <FaChevronRight
-              size={12}
-              style={{
-                transform: `rotate(${checkListOpen ? "90deg" : "0deg"})`,
+        <div className="d-flex flex-row align-items-center justify-content-between">
+          <h4
+            role="button"
+            className="m-0"
+            onClick={(e) => {
+              e.preventDefault();
+              setCheckListOpen(!checkListOpen);
+            }}
+          >
+            Pre-Launch Checklist {itemsRemainingBadge()}
+          </h4>
+          <div className="d-flex align-items-center">
+            {canEditChecklist ? (
+              <Link href={"/settings?editCheckListModal=true"}>
+                <a>Edit</a>
+              </Link>
+            ) : null}
+            <button
+              className="btn text-dark"
+              onClick={(e) => {
+                e.preventDefault();
+                setCheckListOpen(!checkListOpen);
               }}
-            />
-          </button>
+            >
+              <FaChevronRight
+                size={12}
+                style={{
+                  transform: `rotate(${checkListOpen ? "90deg" : "0deg"})`,
+                }}
+              />
+            </button>
+          </div>
         </div>
         {checkListOpen ? (
           <div className="row border-top pt-2 mt-2">
