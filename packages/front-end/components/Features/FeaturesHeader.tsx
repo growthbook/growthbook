@@ -78,7 +78,7 @@ export default function FeaturesHeader({
 
   return (
     <>
-      <div className="features-header bg-white pt-3 pb-1 px-4">
+      <div className="features-header bg-white pt-3 px-4 border-bottom">
         <div className="pagecontents mx-auto px-3">
           {projectId ===
             getDemoDatasourceProjectIdForOrganization(organization.id) && (
@@ -336,32 +336,34 @@ export default function FeaturesHeader({
               />
             </div>
           </div>
-          <TabButtons className="mb-0 pb-0">
-            <TabButton
-              active={tab === "overview"}
-              display={
-                <>
-                  <FaHome /> Overview
-                </>
-              }
-              anchor="overview"
-              onClick={() => setTab("overview")}
-              newStyle={false}
-              activeClassName="active-tab"
-            />
-            <TabButton
-              active={tab === "stats"}
-              display={
-                <>
-                  <FaStopwatch /> Stats
-                </>
-              }
-              anchor="stats"
-              onClick={() => setTab("stats")}
-              newStyle={false}
-              activeClassName="active-tab"
-            />
-          </TabButtons>
+          <div id="feature-page-tabs">
+            <TabButtons className="mb-0 pb-0">
+              <TabButton
+                active={tab === "overview"}
+                display={
+                  <>
+                    <FaHome /> Overview
+                  </>
+                }
+                anchor="overview"
+                onClick={() => setTab("overview")}
+                newStyle={false}
+                activeClassName="active-tab"
+              />
+              <TabButton
+                active={tab === "stats"}
+                display={
+                  <>
+                    <FaStopwatch /> Stats
+                  </>
+                }
+                anchor="stats"
+                onClick={() => setTab("stats")}
+                newStyle={false}
+                activeClassName="active-tab"
+              />
+            </TabButtons>
+          </div>
         </div>
       </div>
       {auditModal && (
