@@ -143,7 +143,7 @@ export function toVisualChangesetApiInterface(
       variation: c.variation,
       domMutations: c.domMutations,
     })),
-    urlRedirects: visualChangeset.urlRedirects.map((r) => ({
+    urlRedirects: visualChangeset.urlRedirects?.map((r) => ({
       url: r.url,
       variation: r.variation,
     })),

@@ -4,7 +4,6 @@ required:
   - editorUrl
   - experiment
   - visualChanges
-  - urlRedirects
 properties:
   id:
     type: string
@@ -68,6 +67,9 @@ properties:
     type: array
     items:
       type: object
+      required:
+        - url
+        - variation
       properties:
         url:
           type: string

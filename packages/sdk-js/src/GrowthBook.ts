@@ -40,7 +40,7 @@ import {
   isIncluded,
   isURLTargeted,
   loadSDKVersion,
-  mergeUrlSearchParams,
+  mergeQueryStrings,
   toString,
 } from "./util";
 import { evalCondition } from "./mongrule";
@@ -152,10 +152,6 @@ export class GrowthBook<
       this._updateAllAutoExperiments();
     } else if (context.antiFlicker) {
       this._setAntiFlicker();
-      // Fallback if GrowthBook fails to load in 3.5 seconds
-      setTimeout(() => {
-        document.body.classList.remove("gb-anti-flicker");
-      }, 3500);
     }
 
     if (context.clientKey && !context.remoteEval) {
@@ -352,6 +348,7 @@ export class GrowthBook<
 
   public async setURL(url: string) {
     this._ctx.url = url;
+    this._redirectedUrl = "";
     if (this._ctx.remoteEval) {
       await this._refreshForRemoteEval();
       this._updateAllAutoExperiments(true);
@@ -501,18 +498,12 @@ export class GrowthBook<
 
     // Apply new changes
     if (result.inExperiment) {
-      if (result.value.urlRedirect) {
-        const currUrl = new URL(this._getContextUrl());
-        const redirectUrl = new URL(result.value.urlRedirect);
-        mergeUrlSearchParams(currUrl.searchParams, redirectUrl.searchParams);
-
+      if (result.value.urlRedirect && experiment.urlPatterns) {
         const url = experiment.persistQueryString
-          ? redirectUrl.toString()
+          ? mergeQueryStrings(this._getContextUrl(), result.value.urlRedirect)
           : result.value.urlRedirect;
-        if (
-          experiment.urlPatterns &&
-          isURLTargeted(url, experiment.urlPatterns)
-        ) {
+
+        if (isURLTargeted(url, experiment.urlPatterns)) {
           this.log(
             "Skipping redirect because original URL matches redirect URL",
             {
@@ -530,7 +521,11 @@ export class GrowthBook<
               navigate(url);
             }, this._ctx.navigateDelay ?? 100);
           } else {
-            navigate(url);
+            try {
+              navigate(url);
+            } catch (e) {
+              console.error(e);
+            }
           }
         }
       } else {
@@ -567,17 +562,12 @@ export class GrowthBook<
       }
     });
 
-    console.log({ experiments });
-
     // Re-run all new/updated experiments
-    experiments.some((exp) => {
-      const result = this._runAutoExperiment(exp, forceRerun);
-      // Break if we encounter a URL Redirect experiment that is targetting the current URL and redirecting
-      return (
-        result?.value.urlRedirect &&
-        exp.urlPatterns &&
-        isURLTargeted(this._getContextUrl(), exp.urlPatterns)
-      );
+    experiments.forEach((exp) => {
+      // There's an active redirect happening already, skip this test
+      if (this._redirectedUrl) return;
+
+      this._runAutoExperiment(exp, forceRerun);
     });
   }
 
@@ -1378,10 +1368,19 @@ export class GrowthBook<
 
   private _setAntiFlicker() {
     if (!this._ctx.antiFlicker || !isBrowser) return;
-    const styleTag = document.createElement("style");
-    styleTag.innerHTML = ".gb-anti-flicker { opacity: 0 !important; }";
-    document.head.appendChild(styleTag);
-    document.body.classList.add("gb-anti-flicker");
+    try {
+      const styleTag = document.createElement("style");
+      styleTag.innerHTML = ".gb-anti-flicker { opacity: 0 !important; }";
+      document.head.appendChild(styleTag);
+      document.documentElement.classList.add("gb-anti-flicker");
+
+      // Fallback if GrowthBook fails to load in specified time or 3.5 seconds
+      setTimeout(() => {
+        document.documentElement.classList.remove("gb-anti-flicker");
+      }, this._ctx.antiFlickerTimeout ?? 3500);
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   private _applyDOMChanges(changes: AutoExperimentVariation) {

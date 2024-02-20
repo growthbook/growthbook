@@ -4500,7 +4500,6 @@ components:
         - editorUrl
         - experiment
         - visualChanges
-        - urlRedirects
       properties:
         id:
           type: string
@@ -4569,6 +4568,9 @@ components:
           type: array
           items:
             type: object
+            required:
+              - url
+              - variation
             properties:
               url:
                 type: string

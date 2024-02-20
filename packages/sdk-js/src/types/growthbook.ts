@@ -204,6 +204,7 @@ export interface Context {
   navigate?: (url: string) => void;
   navigateDelay?: number;
   antiFlicker?: boolean;
+  antiFlickerTimeout?: number;
 }
 
 export type SubscriptionFunction = (
