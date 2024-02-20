@@ -43,7 +43,7 @@ export {
 } from "./feature-repository";
 
 export { GrowthBook } from "./GrowthBook";
-export { evalCondition } from "./mongrule";
+
 export {
   StickyBucketService,
   LocalStorageStickyBucketService,
@@ -53,5 +53,4 @@ export {
 } from "./sticky-bucket-service";
 
 export { evalCondition } from "./mongrule";
-
 export { isURLTargeted } from "./util";
