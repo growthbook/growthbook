@@ -116,7 +116,7 @@ export function MultiValuesDisplay({ values }: { values: string[] }) {
 
 function MultiValueDisplay({ value }: { value: string }) {
   const parts = value
-    .split(", ")
+    .split(",")
     .map((v) => v.trim())
     .filter(Boolean);
 

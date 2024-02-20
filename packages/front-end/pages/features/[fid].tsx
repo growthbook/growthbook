@@ -1326,10 +1326,10 @@ export default function FeaturePage() {
         </div>
       </div>
 
-      {/* <div className="mb-4">
+      <div className="mb-4">
         <h3>Test Feature Rules</h3>
         <AssignmentTester feature={feature} version={currentVersion} />
-      </div> */}
+      </div>
 
       <div className="mb-4">
         <h3>Comments</h3>
