@@ -21,6 +21,7 @@ import Modal from "../components/Modal";
 import { DocLink } from "../components/DocLink";
 import Welcome from "../components/Auth/Welcome";
 import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
+import { LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
 
 export type UserOrganizations = { id: string; name: string }[];
 
@@ -102,7 +103,9 @@ const isUnregisteredCloudUser = () => {
   if (!isCloud()) return false;
 
   try {
-    const currentProject = window.localStorage.getItem("gb_current_project");
+    const currentProject = window.localStorage.getItem(
+      LOCALSTORAGE_PROJECT_KEY
+    );
     return currentProject === null;
   } catch (_) {
     return true;
