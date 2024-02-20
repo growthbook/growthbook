@@ -11,8 +11,8 @@ import usePermissions from "@/hooks/usePermissions";
 import { useUser } from "@/services/UserContext";
 import { trackReport } from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import DeleteButton from "../DeleteButton/DeleteButton";
-import Tooltip from "../Tooltip/Tooltip";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function ExperimentReportsList({
   experiment,

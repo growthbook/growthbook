@@ -9,7 +9,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { formatTrafficSplit } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
-import { HashVersionTooltip } from "../HashVersionSelector";
+import { HashVersionTooltip } from "@/components/Experiment/HashVersionSelector";
 
 export interface Props {
   phaseIndex?: number | null;

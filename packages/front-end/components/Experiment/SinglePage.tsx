@@ -55,31 +55,31 @@ import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
 import track from "@/services/track";
 import { formatTrafficSplit } from "@/services/utils";
 import Results_old from "@/components/Experiment/Results_old";
-import MoreMenu from "../Dropdown/MoreMenu";
-import WatchButton from "../WatchButton";
-import SortedTags from "../Tags/SortedTags";
-import MarkdownInlineEdit from "../Markdown/MarkdownInlineEdit";
-import DiscussionThread from "../DiscussionThread";
-import HeaderWithEdit from "../Layout/HeaderWithEdit";
-import DeleteButton from "../DeleteButton/DeleteButton";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import WatchButton from "@/components/WatchButton";
+import SortedTags from "@/components/Tags/SortedTags";
+import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
+import DiscussionThread from "@/components/DiscussionThread";
+import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import {
   GBAddCircle,
   GBCircleArrowLeft,
   GBCuped,
   GBEdit,
   GBSequential,
-} from "../Icons";
-import RightRailSection from "../Layout/RightRailSection";
-import RightRailSectionGroup from "../Layout/RightRailSectionGroup";
-import Modal from "../Modal";
-import HistoryTable from "../HistoryTable";
-import Code from "../SyntaxHighlighting/Code";
-import Tooltip from "../Tooltip/Tooltip";
-import Button from "../Button";
-import { DocLink } from "../DocLink";
-import FeatureFromExperimentModal from "../Features/FeatureModal/FeatureFromExperimentModal";
-import ConfirmButton from "../Modal/ConfirmButton";
-import { openVisualEditor } from "../OpenVisualEditorLink";
+} from "@/components/Icons";
+import RightRailSection from "@/components/Layout/RightRailSection";
+import RightRailSectionGroup from "@/components/Layout/RightRailSectionGroup";
+import Modal from "@/components/Modal";
+import HistoryTable from "@/components/HistoryTable";
+import Code from "@/components/SyntaxHighlighting/Code";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import Button from "@/components/Button";
+import { DocLink } from "@/components/DocLink";
+import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
+import ConfirmButton from "@/components/Modal/ConfirmButton";
+import { openVisualEditor } from "@/components/OpenVisualEditorLink";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import ResultsIndicator from "./ResultsIndicator";
 import EditStatusModal from "./EditStatusModal";

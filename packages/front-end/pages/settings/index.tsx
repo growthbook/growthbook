@@ -18,7 +18,7 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { OrganizationSettings } from "@/../back-end/types/organization";
+import { OrganizationSettings } from "@back-end/types/organization";
 import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { MdInfoOutline } from "react-icons/md";

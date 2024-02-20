@@ -12,7 +12,7 @@ import { getValidDate } from "shared/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import SelectField from "@/components/Forms/SelectField";
-import LoadingOverlay from "../LoadingOverlay";
+import LoadingOverlay from "@/components/LoadingOverlay";
 import styles from "./ExperimentGraph.module.scss";
 
 export default function ExperimentGraph({

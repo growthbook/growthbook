@@ -13,7 +13,7 @@ import emoji from "@jukben/emoji-search";
 import { useDropzone } from "react-dropzone";
 import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
-import LoadingOverlay from "../LoadingOverlay";
+import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "./Markdown";
 
 const Item = ({ entity: { name, char } }) => <div>{`${name}: ${char}`}</div>;

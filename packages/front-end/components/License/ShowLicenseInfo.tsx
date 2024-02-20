@@ -4,10 +4,10 @@ import { date } from "shared/dates";
 import usePermissions from "@/hooks/usePermissions";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
-import EditLicenseModal from "../Settings/EditLicenseModal";
-import { GBPremiumBadge } from "../Icons";
-import UpgradeModal from "../Settings/UpgradeModal";
-import AccountPlanNotices from "../Layout/AccountPlanNotices";
+import EditLicenseModal from "@/components/Settings/EditLicenseModal";
+import { GBPremiumBadge } from "@/components/Icons";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
+import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import RefreshLicenseButton from "./RefreshLicenseButton";
 import DownloadLicenseUsageButton from "./DownloadLicenseUsageButton";
 

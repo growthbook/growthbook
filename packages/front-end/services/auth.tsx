@@ -17,9 +17,9 @@ import {
 } from "back-end/types/sso-connection";
 import * as Sentry from "@sentry/react";
 import { roleSupportsEnvLimit } from "shared/permissions";
-import Modal from "../components/Modal";
-import { DocLink } from "../components/DocLink";
-import Welcome from "../components/Auth/Welcome";
+import Modal from "@/components/Modal";
+import { DocLink } from "@/components/DocLink";
+import Welcome from "@/components/Auth/Welcome";
 import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
 import { LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
 

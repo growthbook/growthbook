@@ -7,9 +7,9 @@ import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Toggle from "@/components/Forms/Toggle";
-import Modal from "../Modal";
-import MetricsSelector from "../Experiment/MetricsSelector";
-import Field from "../Forms/Field";
+import Modal from "@/components/Modal";
+import MetricsSelector from "@/components/Experiment/MetricsSelector";
+import Field from "@/components/Forms/Field";
 import NorthStarMetricDisplay from "./NorthStarMetricDisplay";
 
 const NorthStar: FC<{

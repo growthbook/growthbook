@@ -7,10 +7,10 @@ import {
 } from "back-end/types/datasource";
 import { useUser } from "@/services/UserContext";
 import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
-import VariationUsersTable from "../Experiment/TabbedPage/VariationUsersTable";
-import SRMWarning from "../Experiment/SRMWarning";
-import { DataPointVariation } from "../Experiment/ExperimentDateGraph";
-import { HealthTabConfigParams } from "../Experiment/TabbedPage/HealthTabOnboardingModal";
+import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
+import SRMWarning from "@/components/Experiment/SRMWarning";
+import { DataPointVariation } from "@/components/Experiment/ExperimentDateGraph";
+import { HealthTabConfigParams } from "@/components/Experiment/TabbedPage/HealthTabOnboardingModal";
 import { HealthStatus, StatusBadge } from "./StatusBadge";
 import { DimensionIssues } from "./DimensionIssues";
 import { IssueValue } from "./IssueTags";

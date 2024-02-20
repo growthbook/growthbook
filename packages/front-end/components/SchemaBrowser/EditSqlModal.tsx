@@ -7,13 +7,16 @@ import { TemplateVariables } from "back-end/types/sql";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
-import CodeTextArea from "../Forms/CodeTextArea";
-import Modal from "../Modal";
-import { CursorData } from "../Segments/SegmentForm";
-import DisplayTestQueryResults from "../Settings/DisplayTestQueryResults";
-import Button from "../Button";
-import { usesEventName, usesValueColumn } from "../Metrics/MetricForm";
-import Field from "../Forms/Field";
+import CodeTextArea from "@/components/Forms/CodeTextArea";
+import Modal from "@/components/Modal";
+import { CursorData } from "@/components/Segments/SegmentForm";
+import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
+import Button from "@/components/Button";
+import {
+  usesEventName,
+  usesValueColumn,
+} from "@/components/Metrics/MetricForm";
+import Field from "@/components/Forms/Field";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
