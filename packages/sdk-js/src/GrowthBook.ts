@@ -518,7 +518,11 @@ export class GrowthBook<
           if (isBrowser) {
             this._setAntiFlicker();
             window.setTimeout(() => {
-              navigate(url);
+              try {
+                navigate(url);
+              } catch (e) {
+                console.error(e);
+              }
             }, this._ctx.navigateDelay ?? 100);
           } else {
             try {
