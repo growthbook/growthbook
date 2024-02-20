@@ -55,7 +55,6 @@ export default function SetupTabOverview({
           mutateExperiment={mutate}
           linkedFeatures={linkedFeatures}
           visualChangesets={visualChangesets}
-          onStart={() => setTab("results")}
           editTargeting={editTargeting}
           connections={connections}
         />

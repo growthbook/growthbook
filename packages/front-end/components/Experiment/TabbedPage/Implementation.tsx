@@ -12,7 +12,6 @@ import track from "@/services/track";
 import { StartExperimentBanner } from "../StartExperimentBanner";
 import AddLinkedChangesBanner from "../AddLinkedChangesBanner";
 import TargetingInfo from "./TargetingInfo";
-import { ExperimentTab } from ".";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -22,7 +21,6 @@ export interface Props {
   setFeatureModal: (open: boolean) => void;
   setVisualEditorModal: (open: boolean) => void;
   linkedFeatures: LinkedFeatureInfo[];
-  setTab: (tab: ExperimentTab) => void;
   connections: SDKConnectionInterface[];
 }
 
@@ -34,7 +32,6 @@ export default function Implementation({
   setFeatureModal,
   setVisualEditorModal,
   linkedFeatures,
-  setTab,
   connections,
 }: Props) {
   const phases = experiment.phases || [];
@@ -70,7 +67,6 @@ export default function Implementation({
               mutateExperiment={mutate}
               linkedFeatures={linkedFeatures}
               visualChangesets={visualChangesets}
-              onStart={() => setTab("results")}
               editTargeting={editTargeting}
               connections={connections}
               className="appbox p-4"

@@ -5,7 +5,7 @@ import {
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { ReactElement, useState } from "react";
-import { FaCheckSquare, FaChevronRight, FaTimes } from "react-icons/fa";
+import { FaChevronRight } from "react-icons/fa";
 import { hasVisualChanges } from "shared/util";
 import {
   ChecklistTask,
@@ -15,6 +15,15 @@ import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import InitialSDKConnectionForm from "../Features/SDKConnections/InitialSDKConnectionForm";
+import Tooltip from "../Tooltip/Tooltip";
+
+type CheckListItem = {
+  display: string | ReactElement;
+  status?: "error" | "success";
+  tooltip?: string | ReactElement;
+  key?: string;
+  type: "auto" | "manual";
+};
 
 function isChecklistItemComplete(
   checklistTask: ChecklistTask,
@@ -49,12 +58,9 @@ export function PreLaunchChecklist({
   visualChangesets: VisualChangesetInterface[];
   connections: SDKConnectionInterface[];
   mutateExperiment: () => unknown | Promise<unknown>;
-  newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
-  onStart?: () => void;
   openSetupTab?: () => void;
   className?: string;
-  noConfirm?: boolean;
 }) {
   const { apiCall } = useAuth();
   const [warnings, setWarnings] = useState<ReactElement | null>(null);
@@ -66,13 +72,6 @@ export function PreLaunchChecklist({
 
   const [showSdkForm, setShowSdkForm] = useState(false);
 
-  type CheckListItem = {
-    display: string | ReactElement;
-    status?: "error" | "success";
-    tooltip?: string | ReactElement;
-    key?: string;
-    type: "auto" | "manual";
-  };
   const checklist: CheckListItem[] = [];
 
   checklist.push({
@@ -193,7 +192,6 @@ export function PreLaunchChecklist({
     });
   }
 
-  // SDK Connection set up
   const projectConnections = connections.filter(
     (connection) =>
       !connection.projects.length ||
@@ -207,7 +205,7 @@ export function PreLaunchChecklist({
     (connection) => connection.connected
   );
 
-  if (!connections.length) {
+  if (!verifiedConnections) {
     setWarnings(
       <>
         Before you can run an experiment, you need to integrate the GrowthBook
@@ -225,36 +223,6 @@ export function PreLaunchChecklist({
       </>
     );
   }
-  // checklist.push({
-  //   display: (
-  //     <>
-  //       {connections.length > 0 ? (
-  //         <>
-  //           Integrate the{" "}
-  //           <Link href="/sdks">
-  //             <a>GrowthBook SDK</a>
-  //           </Link>{" "}
-  //           into your app.
-  //         </>
-  //       ) : (
-  //         <>
-  //           Integrate the GrowthBook SDK into your app.{" "}
-  //           <a
-  //             href="#"
-  //             onClick={(e) => {
-  //               e.preventDefault();
-  //               setShowSdkForm(true);
-  //             }}
-  //           >
-  //             Create an SDK Connection
-  //           </a>
-  //         </>
-  //       )}
-  //     </>
-  //   ),
-  //   status: verifiedConnections.length > 0 ? "success" : "error",
-  //   type: "auto",
-  // });
 
   // Experiment has phases
   const hasPhases = experiment.phases.length > 0;
@@ -358,6 +326,29 @@ export function PreLaunchChecklist({
     mutateExperiment();
   }
 
+  function itemsRemainingBadge(): ReactElement {
+    let itemsRemaining = 0;
+    checklist.forEach((item) => {
+      if (item.status === "error" || (item.key && !isTaskCompleted(item.key))) {
+        itemsRemaining++;
+      }
+      if (item.status === "error") {
+        itemsRemaining++;
+      }
+    });
+
+    if (itemsRemaining === 0) {
+      // setCheckListOpen(false); //TODO: Refactor this - it's causing an infinite loop
+      return <span className="badge badge-success mx-2 my-0">Complete</span>;
+    }
+
+    return (
+      <span className="badge badge-warning mx-2 my-0">
+        {itemsRemaining} tasks remaining
+      </span>
+    );
+  }
+
   return (
     <div>
       {showSdkForm && (
@@ -379,13 +370,7 @@ export function PreLaunchChecklist({
             setCheckListOpen(!checkListOpen);
           }}
         >
-          <h4 className="m-0">
-            Pre-Launch Checklist{" "}
-            <span className="badge badge-warning mx-2 my-0">
-              {/* TODO: write a function that calculates how many tasks remain */}
-              6 tasks remaining
-            </span>
-          </h4>
+          <h4 className="m-0">Pre-Launch Checklist {itemsRemainingBadge()}</h4>
           <button className="btn text-dark">
             <FaChevronRight
               size={12}
@@ -405,58 +390,47 @@ export function PreLaunchChecklist({
                     style={{
                       listStyleType: "none",
                       marginLeft: 0,
-                      marginBottom: 3,
+                      marginBottom: 6,
                     }}
                   >
-                    {item.type === "manual" && item.key ? (
-                      <div className="d-flex">
+                    <div className="d-flex align-items-center">
+                      <Tooltip
+                        body="GrowthBook will mark this task as complete when the required conditions are met."
+                        shouldDisplay={item.status === "error"}
+                      >
                         <input
                           type="checkbox"
-                          disabled={updatingChecklist}
-                          className="ml-0 pl-0 mr-2"
-                          checked={isTaskCompleted(item.key)}
-                          onChange={async (e) =>
-                            updateTaskStatus(e.target.checked, item.key)
+                          disabled={
+                            (item.type === "manual" && updatingChecklist) ||
+                            (item.type === "auto" && item.status === "error")
                           }
+                          className="ml-0 pl-0 mr-2 "
+                          checked={
+                            item.status === "success" ||
+                            (item.key && isTaskCompleted(item.key)) ||
+                            false
+                          }
+                          onChange={async (e) => {
+                            updateTaskStatus(e.target.checked, item.key);
+                          }}
                         />
-                        <span
-                          style={{
-                            textDecoration: isTaskCompleted(item.key)
-                              ? "line-through"
-                              : "none",
-                          }}
-                        >
-                          {item.display}
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="d-flex align-items-center">
-                        {item.status === "error" ? (
-                          <FaTimes className="text-danger" />
-                        ) : item.status === "success" ? (
-                          <FaCheckSquare className="text-success" />
-                        ) : (
-                          ""
-                        )}{" "}
-                        <span
-                          style={{
-                            textDecoration:
-                              item.status === "success"
-                                ? "line-through"
-                                : "none",
-                          }}
-                          className="pl-2"
-                        >
-                          {item.display}
-                        </span>
-                      </div>
-                    )}
+                      </Tooltip>
+                      <span
+                        style={{
+                          textDecoration:
+                            item.status === "success" ? "line-through" : "none",
+                        }}
+                      >
+                        {item.display}
+                      </span>
+                    </div>
                   </li>
                 ))}
               </ul>
             </div>
           </div>
         ) : null}
+        {warnings ? warnings : null}
       </div>
     </div>
   );
