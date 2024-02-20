@@ -106,11 +106,13 @@ function generateVisualExperimentsPayload({
   ): e is AutoExperimentWithProject => !!e;
 
   const urlRedirectExperiments = visualExperiments.filter(
-    (e) => e.visualChangeset.urlRedirects.length > 0
+    (e) =>
+      e.visualChangeset.urlRedirects &&
+      e.visualChangeset.urlRedirects.length > 0
   );
 
   const visualEditorExperiments = visualExperiments.filter(
-    (e) => e.visualChangeset.urlRedirects.length === 0
+    (e) => !e.visualChangeset.urlRedirects
   );
 
   const sortedVisualExperiments = urlRedirectExperiments.concat(
@@ -141,12 +143,15 @@ function generateVisualExperimentsPayload({
         key: e.trackingKey,
         status: e.status,
         project: e.project,
-        variations: v.visualChanges.map((vc, i) => ({
-          css: vc.css,
-          js: vc.js || "",
-          domMutations: vc.domMutations,
-          urlRedirect: urlRedirects[i]?.url,
-        })) as AutoExperimentWithProject["variations"],
+        variations: urlRedirects
+          ? (urlRedirects.map((r) => ({
+              urlRedirect: r.url,
+            })) as AutoExperimentWithProject["variations"])
+          : (v.visualChanges.map((vc) => ({
+              css: vc.css,
+              js: vc.js || "",
+              domMutations: vc.domMutations,
+            })) as AutoExperimentWithProject["variations"]),
         persistQueryString: v.persistQueryString,
         hashVersion: e.hashVersion,
         hashAttribute: e.hashAttribute,
