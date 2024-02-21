@@ -4,7 +4,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isFeatureStale } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { FaHome, FaExclamationTriangle, FaStopwatch } from "react-icons/fa";
+import { FaHome, FaExclamationTriangle, FaCode } from "react-icons/fa";
 import { ImBlocked } from "react-icons/im";
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
@@ -409,7 +409,7 @@ export default function FeaturesHeader({
                 active={tab === "stats"}
                 display={
                   <>
-                    <FaStopwatch /> Stats
+                    <FaCode /> Code Refs
                   </>
                 }
                 anchor="stats"
