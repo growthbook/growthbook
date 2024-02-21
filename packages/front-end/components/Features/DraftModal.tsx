@@ -145,7 +145,7 @@ export default function DraftModal({
           ? async () => {
               try {
                 await apiCall(
-                  `/feature/${feature.id}/${revision.version}/request`,
+                  `/feature/${feature.id}/${revision.version}/publish`,
                   {
                     method: "POST",
                     body: JSON.stringify({
