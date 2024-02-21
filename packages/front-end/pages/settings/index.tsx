@@ -285,9 +285,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const hasCodeReferencesFeature = hasCommercialFeature("code-references");
 
   const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithStickyBucketing = getConnectionsSDKCapabilities(
-    sdkConnectionsData?.connections || []
-  ).includes("stickyBucketing");
+  const hasSDKWithStickyBucketing = getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+  }).includes("stickyBucketing");
 
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -1540,7 +1540,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   <Field
                     label={
                       <PremiumTooltip
-                        commercialFeature={"hash-secure-attributes"}
+                        commercialFeature="hash-secure-attributes"
                         body={
                           <>
                             <p>

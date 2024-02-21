@@ -8,7 +8,7 @@ import { validateAndFixCondition } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
 import { getEqualWeights } from "@/services/utils";
-import useIncrementer from "@/hooks/useIncrementer";
+import { useIncrementer } from "@/hooks/useIncrementer";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";

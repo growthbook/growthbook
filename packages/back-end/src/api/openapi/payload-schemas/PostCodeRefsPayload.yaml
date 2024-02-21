@@ -27,5 +27,5 @@ properties:
           type: string
         flagKey:
           type: string
-        kontentHash:
+        contentHash:
           type: string

@@ -807,6 +807,16 @@ main.main.report {
     text-decoration: underline;
   }
 }
+
+.link-purple {
+  color: colors.$highlight-purple;
+  text-decoration: none;
+  &:hover {
+    color: lighten(colors.$highlight-purple, 5%);
+    text-decoration: underline;
+  }
+}
+
 .modal {
   .modal-header {
     background-color: var(--surface-background-color-alt);

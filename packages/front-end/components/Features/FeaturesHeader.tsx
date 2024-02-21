@@ -5,6 +5,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isFeatureStale } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaHome, FaExclamationTriangle, FaStopwatch } from "react-icons/fa";
+import { ImBlocked } from "react-icons/im";
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
@@ -39,18 +40,20 @@ export default function FeaturesHeader({
   setEditProjectModal,
   setEditTagsModal,
   setEditOwnerModal,
+  dependents,
 }: {
   feature: FeatureInterface;
-  experiments: ExperimentInterfaceStringDates[];
+  experiments: ExperimentInterfaceStringDates[] | undefined;
   mutate: () => void;
   tab: FeatureTab;
   setTab: (tab: FeatureTab) => void;
   setEditProjectModal: (open: boolean) => void;
   setEditTagsModal: (open: boolean) => void;
   setEditOwnerModal: (open: boolean) => void;
+  dependents: number;
 }) {
   const router = useRouter();
-  const projectId = feature.project;
+  const projectId = feature?.project;
   const firstFeature = router?.query && "first" in router.query;
   const [auditModal, setAuditModal] = useState(false);
   const [duplicateModal, setDuplicateModal] = useState(false);
@@ -145,18 +148,35 @@ export default function FeaturesHeader({
                     projectId,
                     enabledEnvs
                   ) && (
-                    <DeleteButton
-                      useIcon={false}
-                      displayName="Feature"
-                      onClick={async () => {
-                        await apiCall(`/feature/${feature.id}`, {
-                          method: "DELETE",
-                        });
-                        router.push("/features");
-                      }}
-                      className="dropdown-item"
-                      text="Delete feature"
-                    />
+                    <Tooltip
+                      shouldDisplay={dependents > 0}
+                      usePortal={true}
+                      body={
+                        <>
+                          <ImBlocked className="text-danger" /> This feature has{" "}
+                          <strong>
+                            {dependents} dependent{dependents !== 1 && "s"}
+                          </strong>
+                          . This feature cannot be deleted until{" "}
+                          {dependents === 1 ? "it has" : "they have"} been
+                          removed.
+                        </>
+                      }
+                    >
+                      <DeleteButton
+                        useIcon={false}
+                        displayName="Feature"
+                        onClick={async () => {
+                          await apiCall(`/feature/${feature.id}`, {
+                            method: "DELETE",
+                          });
+                          router.push("/features");
+                        }}
+                        className="dropdown-item"
+                        text="Delete feature"
+                        disabled={dependents > 0}
+                      />
+                    </Tooltip>
                   )}
                 {canEdit &&
                   permissions.check(
@@ -164,41 +184,59 @@ export default function FeaturesHeader({
                     projectId,
                     enabledEnvs
                   ) && (
-                    <ConfirmButton
-                      onClick={async () => {
-                        await apiCall(`/feature/${feature.id}/archive`, {
-                          method: "POST",
-                        });
-                        mutate();
-                      }}
-                      modalHeader={
-                        isArchived ? "Unarchive Feature" : "Archive Feature"
+                    <Tooltip
+                      shouldDisplay={dependents > 0}
+                      usePortal={true}
+                      body={
+                        <>
+                          <ImBlocked className="text-danger" /> This feature has{" "}
+                          <strong>
+                            {dependents} dependent{dependents !== 1 && "s"}
+                          </strong>
+                          . This feature cannot be archived until{" "}
+                          {dependents === 1 ? "it has" : "they have"} been
+                          removed.
+                        </>
                       }
-                      confirmationText={
-                        isArchived ? (
-                          <>
-                            <p>
-                              Are you sure you want to continue? This will make
-                              the current feature active again.
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <p>
-                              Are you sure you want to continue? This will make
-                              the current feature inactive. It will not be
-                              included in API responses or Webhook payloads.
-                            </p>
-                          </>
-                        )
-                      }
-                      cta={isArchived ? "Unarchive" : "Archive"}
-                      ctaColor="danger"
                     >
-                      <button className="dropdown-item">
-                        {isArchived ? "Unarchive" : "Archive"} feature
-                      </button>
-                    </ConfirmButton>
+                      <ConfirmButton
+                        onClick={async () => {
+                          await apiCall(`/feature/${feature.id}/archive`, {
+                            method: "POST",
+                          });
+                          mutate();
+                        }}
+                        modalHeader={
+                          isArchived ? "Unarchive Feature" : "Archive Feature"
+                        }
+                        confirmationText={
+                          isArchived ? (
+                            <>
+                              <p>
+                                Are you sure you want to continue? This will
+                                make the current feature active again.
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <p>
+                                Are you sure you want to continue? This will
+                                make the current feature inactive. It will not
+                                be included in API responses or Webhook
+                                payloads.
+                              </p>
+                            </>
+                          )
+                        }
+                        cta={isArchived ? "Unarchive" : "Archive"}
+                        ctaColor="danger"
+                        disabled={dependents > 0}
+                      >
+                        <button className="dropdown-item">
+                          {isArchived ? "Unarchive" : "Archive"} feature
+                        </button>
+                      </ConfirmButton>
+                    </Tooltip>
                   )}
                 {canEdit && (
                   <a
@@ -255,12 +293,29 @@ export default function FeaturesHeader({
                     projectId,
                     enabledEnvs
                   ) && (
-                    <a
-                      className="ml-2 cursor-pointer"
-                      onClick={() => setEditProjectModal(true)}
+                    <Tooltip
+                      shouldDisplay={dependents > 0}
+                      body={
+                        <>
+                          <ImBlocked className="text-danger" /> This feature has{" "}
+                          <strong>
+                            {dependents} dependent{dependents !== 1 && "s"}
+                          </strong>
+                          . The project cannot be changed until{" "}
+                          {dependents === 1 ? "it has" : "they have"} been
+                          removed.
+                        </>
+                      }
                     >
-                      <GBEdit />
-                    </a>
+                      <a
+                        className="ml-2 cursor-pointer"
+                        onClick={() => {
+                          dependents === 0 && setEditProjectModal(true);
+                        }}
+                      >
+                        <GBEdit />
+                      </a>
+                    </Tooltip>
                   )}
               </div>
             )}

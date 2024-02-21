@@ -285,10 +285,21 @@ export default function FeaturesPage() {
                 {showProjectColumn && <th>Project</th>}
                 <SortableTH field="tags">Tags</SortableTH>
                 {toggleEnvs.map((en) => (
-                  <th key={en.id}>{en.id}</th>
+                  <th key={en.id} className="text-center">
+                    {en.id}
+                  </th>
                 ))}
-                <th>Value When Enabled</th>
-                <th>Overrides Rules</th>
+                <th>Prerequisites</th>
+                <th>
+                  Default
+                  <br />
+                  Value
+                </th>
+                <th>
+                  Overrides
+                  <br />
+                  Rules
+                </th>
                 <th>Version</th>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
                 {showGraphs && (
@@ -331,6 +342,14 @@ export default function FeaturesPage() {
                     feature.linkedExperiments?.includes(e.id)
                   )
                 );
+                const topLevelPrerequisites =
+                  feature.prerequisites?.length || 0;
+                const prerequisiteRules = rules.reduce(
+                  (acc, rule) => acc + (rule.prerequisites?.length || 0),
+                  0
+                );
+                const totalPrerequisites =
+                  topLevelPrerequisites + prerequisiteRules;
 
                 return (
                   <tr
@@ -372,7 +391,7 @@ export default function FeaturesPage() {
                       <SortedTags tags={feature?.tags || []} />
                     </td>
                     {toggleEnvs.map((en) => (
-                      <td key={en.id} className="position-relative">
+                      <td key={en.id} className="position-relative text-center">
                         <EnvironmentToggle
                           feature={feature}
                           environment={en.id}
@@ -381,21 +400,48 @@ export default function FeaturesPage() {
                       </td>
                     ))}
                     <td>
+                      {totalPrerequisites > 0 && (
+                        <div style={{ lineHeight: "16px" }}>
+                          <div className="text-dark">
+                            {totalPrerequisites} total
+                          </div>
+                          <div className="nowrap text-muted">
+                            <small>
+                              {topLevelPrerequisites > 0 && (
+                                <>{topLevelPrerequisites} top level</>
+                              )}
+                              {prerequisiteRules > 0 && (
+                                <>
+                                  <>
+                                    {topLevelPrerequisites > 0 && ", "}
+                                    {prerequisiteRules} rules
+                                  </>
+                                </>
+                              )}
+                            </small>
+                          </div>
+                        </div>
+                      )}
+                    </td>
+                    <td>
                       <ValueDisplay
                         value={getFeatureDefaultValue(feature) || ""}
                         type={feature.valueType}
                         full={false}
+                        additionalStyle={{ maxWidth: 120, fontSize: "11px" }}
                       />
                     </td>
                     <td>
-                      {firstRule && (
-                        <span className="text-dark">{firstRule.type}</span>
-                      )}
-                      {totalRules > 1 && (
-                        <small className="text-muted ml-1">
-                          +{totalRules - 1} more
-                        </small>
-                      )}
+                      <div style={{ lineHeight: "16px" }}>
+                        {firstRule && (
+                          <span className="text-dark">{firstRule.type}</span>
+                        )}
+                        {totalRules > 1 && (
+                          <small className="text-muted ml-1">
+                            +{totalRules - 1} more
+                          </small>
+                        )}
+                      </div>
                     </td>
                     <td style={{ textAlign: "center" }}>
                       {version}

@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { FeatureInterface, FeaturePrerequisite } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   FaChevronRight,
   FaDraftingCompass,
@@ -16,9 +16,10 @@ import {
   autoMerge,
   getValidation,
   mergeResultHasChanges,
-  mergeRevision,
+  PrerequisiteStateResult,
 } from "shared/util";
 import { MdHistory, MdRocketLaunch } from "react-icons/md";
+import { BiHide, BiShow } from "react-icons/bi";
 import { FaPlusMinus } from "react-icons/fa6";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import clsx from "clsx";
@@ -40,6 +41,7 @@ import {
   useEnvironmentState,
   useEnvironments,
   getAffectedRevisionEnvs,
+  getPrerequisites,
 } from "@/services/features";
 import AssignmentTester from "@/components/Archetype/AssignmentTester";
 import Tab from "@/components/Tabs/Tab";
@@ -61,9 +63,16 @@ import FixConflictsModal from "@/components/Features/FixConflictsModal";
 import Revisionlog from "@/components/Features/RevisionLog";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
+import PrerequisiteStatusRow, {
+  PrerequisiteStatesCols,
+} from "./PrerequisiteStatusRow";
+import { PrerequisiteAlerts } from "./PrerequisiteTargetingField";
+import PrerequisiteModal from "./PrerequisiteModal";
 
 export default function FeaturesOverview({
   baseFeature,
+  feature,
+  revision,
   revisions,
   experiments,
   mutate,
@@ -73,10 +82,22 @@ export default function FeaturesOverview({
   setEditTagsModal,
   editOwnerModal,
   setEditOwnerModal,
+  version,
+  setVersion,
+  prerequisites,
+  envs,
+  features,
+  prereqStates,
+  dependents,
+
+  dependentFeatures,
+  dependentExperiments,
 }: {
   baseFeature: FeatureInterface;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface | null;
   revisions: FeatureRevisionInterface[];
-  experiments: ExperimentInterfaceStringDates[];
+  experiments: ExperimentInterfaceStringDates[] | undefined;
   mutate: () => Promise<unknown>;
   editProjectModal: boolean;
   setEditProjectModal: (b: boolean) => void;
@@ -84,6 +105,15 @@ export default function FeaturesOverview({
   setEditTagsModal: (b: boolean) => void;
   editOwnerModal: boolean;
   setEditOwnerModal: (b: boolean) => void;
+  version: number | null;
+  setVersion: (v: number) => void;
+  prerequisites: FeaturePrerequisite[];
+  envs: string[];
+  features: FeatureInterface[];
+  prereqStates?: Record<string, PrerequisiteStateResult> | null;
+  dependents: number;
+  dependentFeatures: string[];
+  dependentExperiments: ExperimentInterfaceStringDates[];
 }) {
   const router = useRouter();
   const { fid } = router.query;
@@ -95,6 +125,10 @@ export default function FeaturesOverview({
   const [conflictModal, setConflictModal] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [logModal, setLogModal] = useState(false);
+  const [prerequisiteModal, setPrerequisiteModal] = useState<{
+    i: number;
+  } | null>(null);
+  const [showDependents, setShowDependents] = useState(false);
   const permissions = usePermissions();
 
   const [revertIndex, setRevertIndex] = useState(0);
@@ -111,8 +145,6 @@ export default function FeaturesOverview({
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
 
-  const [version, setVersion] = useState<number | null>(null);
-
   const environments = useEnvironments();
 
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
@@ -126,65 +158,6 @@ export default function FeaturesOverview({
       experiments.map((exp) => [exp.id, exp])
     );
   }, [experiments]);
-
-  useEffect(() => {
-    if (!revisions) return;
-    if (version) return;
-
-    // Version being forced via querystring
-    if ("v" in router.query) {
-      const v = parseInt(router.query.v as string);
-      if (v && revisions.some((r) => r.version === v)) {
-        setVersion(v);
-        return;
-      }
-    }
-
-    // If there's an active draft, show that by default, otherwise show the live version
-    const draft = revisions.find((r) => r.status === "draft");
-    setVersion(draft ? draft.version : baseFeature.version);
-  }, [revisions, version, router.query, baseFeature.version]);
-
-  const revision = useMemo<FeatureRevisionInterface | null>(() => {
-    if (!revisions || !version) return null;
-    const match = revisions.find((r) => r.version === version);
-    if (match) return match;
-
-    // If we can't find the revision, create a dummy revision just so the page can render
-    // This is for old features that don't have any revision history saved
-    const rules: Record<string, FeatureRule[]> = {};
-    environments.forEach((env) => {
-      rules[env.id] = baseFeature.environmentSettings?.[env.id]?.rules || [];
-    });
-
-    return {
-      baseVersion: baseFeature.version,
-      comment: "",
-      createdBy: null,
-      dateCreated: baseFeature.dateCreated,
-      datePublished: baseFeature.dateCreated,
-      dateUpdated: baseFeature.dateUpdated,
-      defaultValue: baseFeature.defaultValue,
-      featureId: baseFeature.id,
-      organization: baseFeature.organization,
-      publishedBy: null,
-      rules: rules,
-      status: "published",
-      version: baseFeature.version,
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [revisions, version, environments, baseFeature]);
-
-  const feature = useMemo(() => {
-    if (!revision || !baseFeature) return null;
-    return revision.version !== baseFeature.version
-      ? mergeRevision(
-          baseFeature,
-          revision,
-          environments.map((e) => e.id)
-        )
-      : baseFeature;
-  }, [baseFeature, revision, environments]);
 
   const mergeResult = useMemo(() => {
     if (!feature || !revision) return null;
@@ -205,6 +178,14 @@ export default function FeaturesOverview({
   if (!baseFeature || !feature || !revision) {
     return <LoadingOverlay />;
   }
+
+  const hasConditionalState =
+    prereqStates &&
+    Object.values(prereqStates).some((s) => s.state === "conditional");
+
+  const hasPrerequisitesCommercialFeature = hasCommercialFeature(
+    "prerequisites"
+  );
 
   const currentVersion = version || baseFeature.version;
 
@@ -262,34 +243,236 @@ export default function FeaturesOverview({
   return (
     <>
       <div className="contents container-fluid pagecontents">
-        <h3>Enabled Environments</h3>
-        <div className="mb-1">
-          In disabled environments, the feature will always evaluate to{" "}
-          <code>null</code>. The default value and override rules will be
-          ignored.
-        </div>
-        <div className="appbox mb-4 p-3">
-          <div className="row">
-            {environments.map((en) => (
-              <div className="col-auto" key={en.id}>
-                <label
-                  className="font-weight-bold mr-2 mb-0"
-                  htmlFor={`${en.id}_toggle`}
-                >
-                  {en.id}:{" "}
-                </label>
-                <EnvironmentToggle
-                  feature={feature}
-                  environment={en.id}
-                  mutate={() => {
-                    mutate();
-                  }}
-                  id={`${en.id}_toggle`}
-                />
-              </div>
-            ))}
+        <h3 className="mt-4 mb-3">Enabled Environments</h3>
+        <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
+          <div className="mb-2">
+            When disabled, this feature will evaluate to <code>null</code>. The
+            default value and override rules will be ignored.
           </div>
+          {prerequisites.length > 0 ? (
+            <table className="table border bg-white mb-2 w-100">
+              <thead>
+                <tr className="bg-light">
+                  <th
+                    className="pl-3 align-bottom font-weight-bold border-right"
+                    style={{ minWidth: 350 }}
+                  />
+                  {envs.map((env) => (
+                    <th
+                      key={env}
+                      className="text-center align-bottom font-weight-bolder"
+                      style={{ minWidth: 120 }}
+                    >
+                      {env}
+                    </th>
+                  ))}
+                  <th className="w-100" />
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td
+                    className="pl-3 align-bottom font-weight-bold border-right"
+                    style={{ minWidth: 350 }}
+                  >
+                    Kill Switch
+                  </td>
+                  {envs.map((env) => (
+                    <td
+                      key={env}
+                      className="text-center align-bottom pb-2"
+                      style={{ minWidth: 120 }}
+                    >
+                      <EnvironmentToggle
+                        feature={feature}
+                        environment={env}
+                        mutate={() => {
+                          mutate();
+                        }}
+                        id={`${env}_toggle`}
+                        className="mr-0"
+                      />
+                    </td>
+                  ))}
+                  <td className="w-100" />
+                </tr>
+                {prerequisites.map(({ ...item }, i) => {
+                  const parentFeature = features.find((f) => f.id === item.id);
+                  return (
+                    <PrerequisiteStatusRow
+                      key={i}
+                      i={i}
+                      feature={feature}
+                      features={features}
+                      parentFeature={parentFeature}
+                      prerequisite={item}
+                      environments={environments}
+                      mutate={mutate}
+                      setPrerequisiteModal={setPrerequisiteModal}
+                    />
+                  );
+                })}
+              </tbody>
+              <tbody>
+                <tr className="bg-light">
+                  <td className="pl-3 font-weight-bold border-right">
+                    Summary
+                  </td>
+                  <PrerequisiteStatesCols
+                    prereqStates={prereqStates ?? undefined}
+                    envs={envs}
+                    isSummaryRow={true}
+                  />
+                  <td />
+                </tr>
+              </tbody>
+            </table>
+          ) : (
+            <div className="row mt-3">
+              {environments.map((en) => (
+                <div className="col-auto" key={en.id}>
+                  <label
+                    className="font-weight-bold mr-2 mb-0"
+                    htmlFor={`${en.id}_toggle`}
+                  >
+                    {en.id}:{" "}
+                  </label>
+                  <EnvironmentToggle
+                    feature={feature}
+                    environment={en.id}
+                    mutate={() => {
+                      mutate();
+                    }}
+                    id={`${en.id}_toggle`}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {hasConditionalState && (
+            <PrerequisiteAlerts
+              environments={envs}
+              type="feature"
+              project={projectId ?? ""}
+            />
+          )}
+
+          {canEdit && (
+            <PremiumTooltip
+              commercialFeature="prerequisites"
+              className="d-inline-flex align-items-center mt-3"
+            >
+              <button
+                className="btn d-inline-block px-1 font-weight-bold link-purple"
+                disabled={!hasPrerequisitesCommercialFeature}
+                onClick={() => {
+                  setPrerequisiteModal({
+                    i: getPrerequisites(feature).length,
+                  });
+                  track("Viewed prerequisite feature modal", {
+                    source: "add-prerequisite",
+                  });
+                }}
+              >
+                <span className="h4 pr-2 m-0 d-inline-block align-top">
+                  <GBAddCircle />
+                </span>
+                Add Prerequisite Feature
+              </button>
+            </PremiumTooltip>
+          )}
         </div>
+        {dependents > 0 && (
+          <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
+            <h4>
+              Dependents
+              <div
+                className="ml-2 d-inline-block badge-warning font-weight-bold text-center"
+                style={{
+                  width: 24,
+                  height: 24,
+                  lineHeight: "24px",
+                  fontSize: "14px",
+                  borderRadius: 30,
+                }}
+              >
+                {dependents}
+              </div>
+            </h4>
+            <div className="mb-2">
+              {dependents === 1
+                ? `Another ${
+                    dependentFeatures.length ? "feature" : "experiment"
+                  } depends on this feature as a prerequisite. Modifying the current feature may affect its behavior.`
+                : `Other ${
+                    dependentFeatures.length
+                      ? dependentExperiments.length
+                        ? "features and experiments"
+                        : "features"
+                      : "experiments"
+                  } depend on this feature as a prerequisite. Modifying the current feature may affect their behavior.`}
+            </div>
+            <hr className="mb-2" />
+            {showDependents ? (
+              <div className="mt-3">
+                {dependentFeatures.length > 0 && (
+                  <>
+                    <label>Dependent Features</label>
+                    <ul className="pl-4">
+                      {dependentFeatures.map((fid, i) => (
+                        <li className="my-1" key={i}>
+                          <a
+                            href={`/features/${fid}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {fid}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+                {dependentExperiments.length > 0 && (
+                  <>
+                    <label>Dependent Experiments</label>
+                    <ul className="pl-4">
+                      {dependentExperiments.map((exp, i) => (
+                        <li className="my-1" key={i}>
+                          <a
+                            href={`/experiment/${exp.id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {exp.name}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+                <a
+                  role="button"
+                  className="d-inline-block a link-purple mt-1"
+                  onClick={() => setShowDependents(false)}
+                >
+                  <BiHide /> Hide details
+                </a>
+              </div>
+            ) : (
+              <>
+                <a
+                  role="button"
+                  className="d-inline-block a link-purple"
+                  onClick={() => setShowDependents(true)}
+                >
+                  <BiShow /> Show details
+                </a>
+              </>
+            )}
+          </div>
+        )}
 
         {feature.valueType === "json" && (
           <div>
@@ -468,8 +651,8 @@ export default function FeaturesOverview({
                   {canEditDrafts && drafts.length > 0 && (
                     <div>
                       <a
-                        href="#"
-                        className="font-weight-bold text-purple"
+                        role="button"
+                        className="a font-weight-bold link-purple"
                         onClick={(e) => {
                           e.preventDefault();
                           setVersion(drafts[0].version);
@@ -526,8 +709,8 @@ export default function FeaturesOverview({
                   {canEditDrafts && (
                     <div>
                       <a
-                        href="#"
-                        className="font-weight-bold text-purple"
+                        role="button"
+                        className="a font-weight-bold link-purple"
                         onClick={(e) => {
                           e.preventDefault();
                           setRevertIndex(revision.version);
@@ -568,12 +751,12 @@ export default function FeaturesOverview({
                         }
                       >
                         <a
-                          href="#"
+                          role="button"
                           className={clsx(
-                            "font-weight-bold",
+                            "a font-weight-bold",
                             !hasDraftPublishPermission || !revisionHasChanges
                               ? "text-muted"
-                              : "text-purple"
+                              : "link-purple"
                           )}
                           onClick={(e) => {
                             e.preventDefault();
@@ -589,8 +772,8 @@ export default function FeaturesOverview({
                     <div>
                       <Tooltip body="There have been new conflicting changes published since this draft was created that must be resolved before you can publish">
                         <a
-                          href="#"
-                          className="font-weight-bold text-purple"
+                          role="button"
+                          className="a font-weight-bold link-purple"
                           onClick={(e) => {
                             e.preventDefault();
                             setConflictModal(true);
@@ -906,6 +1089,7 @@ export default function FeaturesOverview({
             defaultType={ruleModal.defaultType || ""}
             version={currentVersion}
             setVersion={setVersion}
+            revisions={revisions}
           />
         )}
         {editProjectModal && (
@@ -1021,6 +1205,16 @@ export default function FeaturesOverview({
             feature={feature}
             mutate={mutate}
             revision={revision}
+          />
+        )}
+        {prerequisiteModal !== null && (
+          <PrerequisiteModal
+            feature={feature}
+            close={() => setPrerequisiteModal(null)}
+            i={prerequisiteModal.i}
+            mutate={mutate}
+            revisions={revisions}
+            version={currentVersion}
           />
         )}
       </div>

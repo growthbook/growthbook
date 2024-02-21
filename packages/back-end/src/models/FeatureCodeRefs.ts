@@ -74,6 +74,7 @@ export const upsertFeatureCodeRefs = async ({
     feature,
     repo,
     branch,
+    organization: organization.id,
   }).then((docs) => docs.map(toInterface));
 };
 

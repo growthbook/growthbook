@@ -1,9 +1,16 @@
 import { useRouter } from "next/router";
-import React, { useEffect, useState } from "react";
-import { FeatureInterface } from "back-end/types/feature";
+import React, { useEffect, useState, useMemo } from "react";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  evaluatePrerequisiteState,
+  getDependentExperiments,
+  getDependentFeatures,
+  mergeRevision,
+  PrerequisiteStateResult,
+} from "shared/util";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
 import PageHead from "@/components/Layout/PageHead";
@@ -12,6 +19,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeaturesOverview from "@/components/Features/FeaturesOverview";
 import FeaturesStats from "@/components/Features/FeaturesStats";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useEnvironments, useFeaturesList } from "@/services/features";
 
 const featureTabs = ["overview", "stats"] as const;
 export type FeatureTab = typeof featureTabs[number];
@@ -23,6 +31,11 @@ export default function FeaturePage() {
   const [editProjectModal, setEditProjectModal] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
+  const [version, setVersion] = useState<number | null>(null);
+
+  const { features } = useFeaturesList(false);
+  const environments = useEnvironments();
+  const envs = environments.map((e) => e.id);
 
   let extraQueryString = "";
   // Version being forced via querystring
@@ -39,6 +52,10 @@ export default function FeaturePage() {
     experiments: ExperimentInterfaceStringDates[];
     codeRefs: FeatureCodeRefsInterface[];
   }>(`/feature/${fid}${extraQueryString}`);
+  const baseFeature = data?.feature;
+  const baseFeatureVersion = baseFeature?.version;
+  const revisions = data?.revisions;
+  const experiments = data?.experiments;
 
   const [tab, setTab] = useLocalStorage<FeatureTab>(
     `tabbedPageTab__${data?.feature?.id}`,
@@ -68,6 +85,87 @@ export default function FeaturePage() {
     return () => window.removeEventListener("hashchange", handler, false);
   }, [setTab]);
 
+  useEffect(() => {
+    if (!revisions || !baseFeatureVersion) return;
+    if (version) return;
+
+    // Version being forced via querystring
+    if ("v" in router.query) {
+      const v = parseInt(router.query.v as string);
+      if (v && revisions.some((r) => r.version === v)) {
+        setVersion(v);
+        return;
+      }
+    }
+
+    // If there's an active draft, show that by default, otherwise show the live version
+    const draft = revisions.find((r) => r.status === "draft");
+    setVersion(draft ? draft.version : baseFeatureVersion);
+  }, [revisions, version, router.query, baseFeatureVersion]);
+
+  const revision = useMemo<FeatureRevisionInterface | null>(() => {
+    if (!revisions || !version || !baseFeature) return null;
+    const match = revisions.find((r) => r.version === version);
+    if (match) return match;
+
+    // If we can't find the revision, create a dummy revision just so the page can render
+    // This is for old features that don't have any revision history saved
+    const rules: Record<string, FeatureRule[]> = {};
+    environments.forEach((env) => {
+      rules[env.id] = baseFeature.environmentSettings?.[env.id]?.rules || [];
+    });
+
+    return {
+      baseVersion: baseFeature.version,
+      comment: "",
+      createdBy: null,
+      dateCreated: baseFeature.dateCreated,
+      datePublished: baseFeature.dateCreated,
+      dateUpdated: baseFeature.dateUpdated,
+      defaultValue: baseFeature.defaultValue,
+      featureId: baseFeature.id,
+      organization: baseFeature.organization,
+      publishedBy: null,
+      rules: rules,
+      status: "published",
+      version: baseFeature.version,
+      prerequisites: baseFeature.prerequisites || [],
+    };
+  }, [revisions, version, environments, baseFeature]);
+
+  const feature = useMemo(() => {
+    if (!revision || !baseFeature) return null;
+    return revision.version !== baseFeature.version
+      ? mergeRevision(
+          baseFeature,
+          revision,
+          environments.map((e) => e.id)
+        )
+      : baseFeature;
+  }, [baseFeature, revision, environments]);
+
+  const prerequisites = feature?.prerequisites || [];
+  const prereqStates = useMemo(() => {
+    if (!feature) return null;
+    const states: Record<string, PrerequisiteStateResult> = {};
+    envs.forEach((env) => {
+      states[env] = evaluatePrerequisiteState(feature, features, env, true);
+    });
+    return states;
+  }, [feature, features, envs]);
+
+  const dependentFeatures = useMemo(() => {
+    if (!feature || !features) return [];
+    return getDependentFeatures(feature, features, envs);
+  }, [feature, features, envs]);
+
+  const dependentExperiments = useMemo(() => {
+    if (!feature || !experiments) return [];
+    return getDependentExperiments(feature, experiments);
+  }, [feature, experiments]);
+
+  const dependents = dependentFeatures.length + dependentExperiments.length;
+
   if (error) {
     return (
       <div className="alert alert-danger">
@@ -76,7 +174,7 @@ export default function FeaturePage() {
     );
   }
 
-  if (!data) {
+  if (!data || !feature || !revision) {
     return <LoadingOverlay />;
   }
 
@@ -85,26 +183,29 @@ export default function FeaturePage() {
       <PageHead
         breadcrumb={[
           { display: "Features", href: "/features" },
-          { display: data.feature.id },
+          { display: feature.id },
         ]}
       />
 
       <FeaturesHeader
-        feature={data.feature}
-        experiments={data.experiments}
+        feature={feature}
+        experiments={experiments}
         mutate={mutate}
         tab={tab}
         setTab={setTabAndScroll}
         setEditProjectModal={setEditProjectModal}
         setEditTagsModal={setEditTagsModal}
         setEditOwnerModal={setEditOwnerModal}
+        dependents={dependents}
       />
 
       {tab === "overview" && (
         <FeaturesOverview
           baseFeature={data.feature}
-          experiments={data.experiments}
+          feature={feature}
+          revision={revision}
           revisions={data.revisions}
+          experiments={experiments}
           mutate={mutate}
           editProjectModal={editProjectModal}
           setEditProjectModal={setEditProjectModal}
@@ -112,6 +213,15 @@ export default function FeaturePage() {
           setEditTagsModal={setEditTagsModal}
           editOwnerModal={editOwnerModal}
           setEditOwnerModal={setEditOwnerModal}
+          version={version}
+          setVersion={setVersion}
+          dependents={dependents}
+          prerequisites={prerequisites}
+          prereqStates={prereqStates}
+          dependentFeatures={dependentFeatures}
+          dependentExperiments={dependentExperiments}
+          envs={envs}
+          features={features}
         />
       )}
 
