@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { FeatureInterface, FeaturePrerequisite } from "back-end/types/feature";
+import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import React, { useMemo, useState } from "react";
 import {
@@ -14,6 +14,7 @@ import {
 import { ago, date, datetime } from "shared/dates";
 import {
   autoMerge,
+  evaluatePrerequisiteState,
   getValidation,
   mergeResultHasChanges,
   PrerequisiteStateResult,
@@ -42,6 +43,7 @@ import {
   useEnvironments,
   getAffectedRevisionEnvs,
   getPrerequisites,
+  useFeaturesList,
 } from "@/services/features";
 import AssignmentTester from "@/components/Archetype/AssignmentTester";
 import Tab from "@/components/Tabs/Tab";
@@ -84,12 +86,7 @@ export default function FeaturesOverview({
   setEditOwnerModal,
   version,
   setVersion,
-  prerequisites,
-  envs,
-  features,
-  prereqStates,
   dependents,
-
   dependentFeatures,
   dependentExperiments,
 }: {
@@ -107,10 +104,6 @@ export default function FeaturesOverview({
   setEditOwnerModal: (b: boolean) => void;
   version: number | null;
   setVersion: (v: number) => void;
-  prerequisites: FeaturePrerequisite[];
-  envs: string[];
-  features: FeatureInterface[];
-  prereqStates?: Record<string, PrerequisiteStateResult> | null;
   dependents: number;
   dependentFeatures: string[];
   dependentExperiments: ExperimentInterfaceStringDates[];
@@ -145,7 +138,9 @@ export default function FeaturesOverview({
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
 
+  const { features } = useFeaturesList(false);
   const environments = useEnvironments();
+  const envs = environments.map((e) => e.id);
 
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 800,
@@ -174,6 +169,17 @@ export default function FeaturesOverview({
       {}
     );
   }, [revisions, revision, feature, environments]);
+
+  const prerequisites = feature?.prerequisites || [];
+
+  const prereqStates = useMemo(() => {
+    if (!feature) return null;
+    const states: Record<string, PrerequisiteStateResult> = {};
+    envs.forEach((env) => {
+      states[env] = evaluatePrerequisiteState(feature, features, env, true);
+    });
+    return states;
+  }, [feature, features, envs]);
 
   if (!baseFeature || !feature || !revision) {
     return <LoadingOverlay />;

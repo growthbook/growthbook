@@ -5,11 +5,9 @@ import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
-  evaluatePrerequisiteState,
   getDependentExperiments,
   getDependentFeatures,
   mergeRevision,
-  PrerequisiteStateResult,
 } from "shared/util";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
@@ -144,16 +142,6 @@ export default function FeaturePage() {
       : baseFeature;
   }, [baseFeature, revision, environments]);
 
-  const prerequisites = feature?.prerequisites || [];
-  const prereqStates = useMemo(() => {
-    if (!feature) return null;
-    const states: Record<string, PrerequisiteStateResult> = {};
-    envs.forEach((env) => {
-      states[env] = evaluatePrerequisiteState(feature, features, env, true);
-    });
-    return states;
-  }, [feature, features, envs]);
-
   const dependentFeatures = useMemo(() => {
     if (!feature || !features) return [];
     return getDependentFeatures(feature, features, envs);
@@ -216,12 +204,8 @@ export default function FeaturePage() {
           version={version}
           setVersion={setVersion}
           dependents={dependents}
-          prerequisites={prerequisites}
-          prereqStates={prereqStates}
           dependentFeatures={dependentFeatures}
           dependentExperiments={dependentExperiments}
-          envs={envs}
-          features={features}
         />
       )}
 
