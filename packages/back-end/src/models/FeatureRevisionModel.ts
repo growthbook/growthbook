@@ -7,7 +7,6 @@ import {
 } from "../../types/feature-revision";
 import { EventAuditUser, EventAuditUserLoggedIn } from "../events/event-types";
 import { ReqContext } from "../../types/organization";
-import { migrateToApproved, migrateToPendingReview } from "./FeatureModel";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
@@ -292,7 +291,8 @@ export async function updateRevision(
       !(
         revision.status === "draft" ||
         revision.status === "pending-review" ||
-        revision.status === "reviewed"
+        revision.status === "approved" ||
+        revision.status === "changes-requested"
       )
     ) {
       throw new Error("Can only update draft revisions");
@@ -366,7 +366,6 @@ export async function markRevisionAsReviewRequested(
     user,
     value: JSON.stringify(comment ? { comment } : {}),
   };
-  migrateToPendingReview(revision.organization, revision.featureId);
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -413,9 +412,6 @@ export async function submitReviewAndComments(
     user,
     value: JSON.stringify(comment ? { comment } : {}),
   };
-  if (status === "approved") {
-    await migrateToApproved(revision.organization, revision.featureId);
-  }
 
   await FeatureRevisionModel.updateOne(
     {
