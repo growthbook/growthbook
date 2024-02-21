@@ -161,6 +161,8 @@ export default function ExperimentHeader({
               see your variations. Double check the list below to make sure
               you&apos;re ready.
             </div>
+
+            {/* TODO: Update the StartExperimentBanner so it still has the "Start Experiment" button, but in a way that it doesn't show the Checklist - only warnings that X checklist items haven't been completed */}
             <StartExperimentBanner
               connections={connections}
               experiment={experiment}

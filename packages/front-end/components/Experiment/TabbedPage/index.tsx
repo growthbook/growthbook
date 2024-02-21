@@ -310,7 +310,6 @@ export default function TabbedPage({
             disableEditing={viewingOldPhase}
             linkedFeatures={linkedFeatures}
             visualChangesets={visualChangesets}
-            setTab={setTabAndScroll}
             editTargeting={editTargeting}
             connections={connections}
           />
@@ -322,7 +321,6 @@ export default function TabbedPage({
             visualChangesets={visualChangesets}
             editTargeting={!viewingOldPhase ? editTargeting : undefined}
             linkedFeatures={linkedFeatures}
-            connections={connections}
           />
           {experiment.status !== "draft" && (
             <div className="mt-3 mb-2 text-center d-print-none">

@@ -92,8 +92,8 @@ import ExpandablePhaseSummary from "./ExpandablePhaseSummary";
 import VariationsTable from "./VariationsTable";
 import VisualChangesetModal from "./VisualChangesetModal";
 import AddLinkedChangesBanner from "./AddLinkedChangesBanner";
-import { StartExperimentBanner } from "./StartExperimentBanner";
 import { HashVersionTooltip } from "./HashVersionSelector";
+import { PreLaunchChecklist } from "./PreLaunchChecklist";
 
 function drawMetricRow(
   m: string,
@@ -300,6 +300,7 @@ export default function SinglePage({
   } = useUser();
 
   const { data: sdkConnectionsData } = useSDKConnections();
+  const connections = sdkConnectionsData?.connections || [];
 
   const projectId = experiment.project;
   const project = getProjectById(experiment.project || "");
@@ -841,6 +842,20 @@ export default function SinglePage({
         numLinkedChanges={numLinkedChanges}
       />
 
+      <div>
+        <h2>Overview</h2>
+        {experiment.status === "draft" ? (
+          <PreLaunchChecklist
+            experiment={experiment}
+            mutateExperiment={mutate}
+            linkedFeatures={linkedFeatures}
+            visualChangesets={visualChangesets}
+            editTargeting={editTargeting}
+            connections={connections}
+          />
+        ) : null}
+      </div>
+
       <div className="mb-4 pt-3 appbox">
         <Collapsible
           trigger={
@@ -1097,17 +1112,6 @@ export default function SinglePage({
           </div>
         </Collapsible>
       </div>
-
-      <StartExperimentBanner
-        experiment={experiment}
-        connections={sdkConnectionsData?.connections || []}
-        linkedFeatures={linkedFeatures}
-        visualChangesets={visualChangesets}
-        mutateExperiment={mutate}
-        editTargeting={editTargeting}
-        newPhase={newPhase}
-        onStart={() => setResultsTab("results")}
-      />
 
       {experiment.status === "running" &&
         !experiment.datasource &&

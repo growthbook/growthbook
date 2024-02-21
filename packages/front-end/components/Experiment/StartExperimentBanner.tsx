@@ -351,87 +351,17 @@ export function StartExperimentBanner({
 
   return (
     <div className={className ?? `appbox p-4 my-4`}>
-      {showSdkForm && (
-        <InitialSDKConnectionForm
-          close={() => setShowSdkForm(false)}
-          includeCheck={true}
-          cta="Continue"
-          goToNextStep={() => {
-            setShowSdkForm(false);
-          }}
-        />
-      )}
       <div className="row">
-        <div className="col-auto text-left">
-          <h3 className="text-purple">Pre-launch Check List</h3>
-          <ul style={{ fontSize: "1.1em" }} className="ml-0 pl-0">
-            {checklist.map((item, i) => (
-              <li
-                key={i}
-                style={{
-                  listStyleType: "none",
-                  marginLeft: 0,
-                  marginBottom: 3,
-                }}
-              >
-                <Tooltip body={item.tooltip || ""}>
-                  {item.status === "error" ? (
-                    <FaTimes className="text-danger" />
-                  ) : item.status === "success" ? (
-                    <FaCheckSquare className="text-success" />
-                  ) : (
-                    ""
-                  )}{" "}
-                  {item.display}
-                  {item.action ? (
-                    <span className="ml-2">{item.action}</span>
-                  ) : null}
-                </Tooltip>
-              </li>
-            ))}
-          </ul>
-          <div className={updatingChecklist ? "text-muted" : ""}>
-            <small className="text-uppercase">
-              <strong>Manual Checks</strong>
-            </small>{" "}
-            <Tooltip body={"We're not able to verify these automatically"} />
-            <ul style={{ fontSize: "1.1em" }} className="ml-0 pl-0 mb-0 pb-0">
-              {manualChecklist.map((item, i) => (
-                <li
-                  key={i}
-                  style={{
-                    listStyleType: "none",
-                    marginLeft: 0,
-                    marginBottom: 3,
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    disabled={updatingChecklist}
-                    className="ml-0 pl-0"
-                    checked={isTaskCompleted(item.key)}
-                    onChange={async (e) =>
-                      updateTaskStatus(e.target.checked, item)
-                    }
-                  />{" "}
-                  {item.content}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
         <div className="col pt-3 text-center">
           {allPassed ? (
             <p>Everything looks great! Let&apos;s Go!</p>
-          ) : noConfirm ? (
+          ) : (
             <p style={{ fontSize: "1.2em", fontWeight: "bold" }}>
               Are you sure you still want to start?
             </p>
-          ) : (
-            <p>Almost there! Just a few things left</p>
           )}
-          {allPassed || noConfirm ? (
+          {/* TODO: Update this logic so that if itemsRemaining === 0 && !error */}
+          {allPassed ? (
             <Button
               color="teal"
               className="btn-lg mb-2"
@@ -452,10 +382,7 @@ export function StartExperimentBanner({
                 "You haven't completed the pre-launch checklist.  Are you sure you still want to start?"
               }
             >
-              <button
-                className="btn btn-teal btn-lg mb-2 disabled"
-                type="button"
-              >
+              <button className="btn btn-teal btn-lg mb-2" type="button">
                 Start Experiment <MdRocketLaunch />
               </button>
             </ConfirmButton>

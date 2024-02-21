@@ -10,7 +10,6 @@ import usePermissions from "@/hooks/usePermissions";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import VariationsTable from "../VariationsTable";
 import { PreLaunchChecklist } from "../PreLaunchChecklist";
-import { ExperimentTab } from ".";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -18,7 +17,6 @@ export interface Props {
   mutate: () => void;
   safeToEdit: boolean;
   editTargeting?: (() => void) | null;
-  setTab: (tab: ExperimentTab) => void;
   editVariations?: (() => void) | null;
   linkedFeatures: LinkedFeatureInfo[];
   connections: SDKConnectionInterface[];
@@ -29,7 +27,6 @@ export default function SetupTabOverview({
   experiment,
   visualChangesets,
   mutate,
-  setTab,
   editTargeting,
   safeToEdit,
   editVariations,

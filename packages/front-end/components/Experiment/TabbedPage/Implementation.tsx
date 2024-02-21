@@ -4,12 +4,10 @@ import {
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { FaPlusCircle } from "react-icons/fa";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import usePermissions from "@/hooks/usePermissions";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
 import track from "@/services/track";
-import { StartExperimentBanner } from "../StartExperimentBanner";
 import AddLinkedChangesBanner from "../AddLinkedChangesBanner";
 import TargetingInfo from "./TargetingInfo";
 
@@ -21,7 +19,6 @@ export interface Props {
   setFeatureModal: (open: boolean) => void;
   setVisualEditorModal: (open: boolean) => void;
   linkedFeatures: LinkedFeatureInfo[];
-  connections: SDKConnectionInterface[];
 }
 
 export default function Implementation({
@@ -32,7 +29,6 @@ export default function Implementation({
   setFeatureModal,
   setVisualEditorModal,
   linkedFeatures,
-  connections,
 }: Props) {
   const phases = experiment.phases || [];
 
@@ -54,25 +50,12 @@ export default function Implementation({
   if (!hasLinkedChanges) {
     if (experiment.status === "draft") {
       return (
-        <>
-          <AddLinkedChangesBanner
-            experiment={experiment}
-            numLinkedChanges={0}
-            setFeatureModal={setFeatureModal}
-            setVisualEditorModal={setVisualEditorModal}
-          />
-          <div className="mt-1">
-            <StartExperimentBanner
-              experiment={experiment}
-              mutateExperiment={mutate}
-              linkedFeatures={linkedFeatures}
-              visualChangesets={visualChangesets}
-              editTargeting={editTargeting}
-              connections={connections}
-              className="appbox p-4"
-            />
-          </div>
-        </>
+        <AddLinkedChangesBanner
+          experiment={experiment}
+          numLinkedChanges={0}
+          setFeatureModal={setFeatureModal}
+          setVisualEditorModal={setVisualEditorModal}
+        />
       );
     }
     return (
