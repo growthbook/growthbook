@@ -280,9 +280,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
   );
 
   const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithStickyBucketing = getConnectionsSDKCapabilities(
-    sdkConnectionsData?.connections || []
-  ).includes("stickyBucketing");
+  const hasSDKWithStickyBucketing = getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+  }).includes("stickyBucketing");
 
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -759,7 +759,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     <SelectField
                       label={
                         <AttributionModelTooltip>
-                          Default Attribution Model <FaQuestionCircle />
+                          Default Conversion Window Override{" "}
+                          <FaQuestionCircle />
                         </AttributionModelTooltip>
                       }
                       className="ml-2"
@@ -773,11 +774,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       }}
                       options={[
                         {
-                          label: "First Exposure",
+                          label: "Respect Conversion Windows",
                           value: "firstExposure",
                         },
                         {
-                          label: "Experiment Duration",
+                          label: "Ignore Conversion Windows",
                           value: "experimentDuration",
                         },
                       ]}
@@ -1513,7 +1514,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   <Field
                     label={
                       <PremiumTooltip
-                        commercialFeature={"hash-secure-attributes"}
+                        commercialFeature="hash-secure-attributes"
                         body={
                           <>
                             <p>

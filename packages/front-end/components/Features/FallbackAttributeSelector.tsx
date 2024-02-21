@@ -7,7 +7,7 @@ import {
   FaQuestionCircle,
 } from "react-icons/fa";
 import { FaGear } from "react-icons/fa6";
-import { getConnectionsSDKCapabilities } from "shared/dist/sdk-versioning";
+import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAttributeSchema } from "@/services/features";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -37,9 +37,9 @@ export default function FallbackAttributeSelector({ form }: Props) {
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
 
   const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithStickyBucketing = getConnectionsSDKCapabilities(
-    sdkConnectionsData?.connections || []
-  ).includes("stickyBucketing");
+  const hasSDKWithStickyBucketing = getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections || [],
+  }).includes("stickyBucketing");
 
   const attributeSchema = useAttributeSchema();
   const hasHashAttributes =

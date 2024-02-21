@@ -104,7 +104,7 @@ export default function ProjectSelector() {
   if (!projects.length) return null;
 
   // If globalRole doesn't give readAccess & user can only access 1 project, don't show dropdown
-  if (projects.length === 1 && !permissions.check("readData")) {
+  if (projects.length === 1 && !permissions.check("readData", "")) {
     setProject(projects[0].id);
     return (
       <li

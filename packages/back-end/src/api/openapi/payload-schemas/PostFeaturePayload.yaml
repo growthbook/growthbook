@@ -7,6 +7,7 @@ required:
 properties:
   id:
     type: string
+    minLength: 1
     description: A unique key name for the feature. Feature keys can only include letters, numbers, hyphens, and underscores.
   archived:
     type: boolean

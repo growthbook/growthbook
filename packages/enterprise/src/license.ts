@@ -39,7 +39,9 @@ export type CommercialFeature =
   | "multi-metric-queries"
   | "no-access-role"
   | "teams"
-  | "sticky-bucketing";
+  | "sticky-bucketing"
+  | "prerequisites"
+  | "prerequisite-targeting";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface LicenseInterface {
@@ -109,6 +111,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "livechat",
     "remote-evaluation",
     "sticky-bucketing",
+    "prerequisites",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -125,6 +128,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "livechat",
     "remote-evaluation",
     "sticky-bucketing",
+    "prerequisites",
   ]),
   enterprise: new Set<CommercialFeature>([
     "scim",
@@ -150,6 +154,8 @@ export const accountFeatures: CommercialFeaturesMap = {
     "custom-launch-checklist",
     "no-access-role",
     "sticky-bucketing",
+    "prerequisites",
+    "prerequisite-targeting",
   ]),
 };
 

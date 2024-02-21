@@ -17,7 +17,7 @@
     "type-check": "tsc --pretty --noEmit"
   },
   "dependencies": {
-    "@growthbook/growthbook": "^0.33.0",
+    "@growthbook/growthbook": "^0.34.0",
     "ajv": "^8.12.0",
     "date-fns": "^2.15.0",
     "dirty-json": "^0.9.2",

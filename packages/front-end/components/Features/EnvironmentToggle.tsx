@@ -12,6 +12,7 @@ export interface Props {
   environment: string;
   mutate: () => void;
   id?: string;
+  className?: string;
 }
 
 export default function EnvironmentToggle({
@@ -19,6 +20,7 @@ export default function EnvironmentToggle({
   environment,
   mutate,
   id = "",
+  className = "mr-1",
 }: Props) {
   const [toggling, setToggling] = useState(false);
 
@@ -101,6 +103,7 @@ export default function EnvironmentToggle({
           }
         }}
         type="environment"
+        className={className}
       />
     </>
   );

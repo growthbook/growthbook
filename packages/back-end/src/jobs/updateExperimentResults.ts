@@ -200,7 +200,6 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       await updateExperiment({
         context,
         experiment,
-        user: null,
         changes: {
           autoSnapshots: false,
         },

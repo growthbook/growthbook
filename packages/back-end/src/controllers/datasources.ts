@@ -2,6 +2,7 @@ import { Response } from "express";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import * as bq from "@google-cloud/bigquery";
 import { AuthRequest } from "../types/AuthRequest";
 import { getContextFromReq } from "../services/organizations";
 import {
@@ -85,6 +86,16 @@ export async function postSampleData(
       dateCreated: new Date(),
       dateUpdated: new Date(),
       runStarted: null,
+      cappingSettings: {
+        type: "",
+        value: 0,
+      },
+      windowSettings: {
+        type: "",
+        delayHours: 0,
+        windowValue: 0,
+        windowUnit: "hours",
+      },
       name: "Sample Conversions",
       description: `Part of the GrowthBook sample data set. Feel free to delete when finished exploring.`,
       type: "binomial",
@@ -106,6 +117,16 @@ export async function postSampleData(
       dateCreated: new Date(),
       dateUpdated: new Date(),
       runStarted: null,
+      cappingSettings: {
+        type: "",
+        value: 0,
+      },
+      windowSettings: {
+        type: "",
+        delayHours: 0,
+        windowValue: 0,
+        windowUnit: "hours",
+      },
       name: "Sample Revenue per User",
       description: `Part of the GrowthBook sample data set. Feel free to delete when finished exploring.`,
       type: "revenue",
@@ -195,7 +216,6 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
     await createExperiment({
       data: experiment,
       context,
-      user: res.locals.eventAudit,
     });
 
     const metricMap = await getMetricMap(context);
@@ -803,9 +823,9 @@ export async function postDimensionSlices(
   });
 
   const queryRunner = new DimensionSlicesQueryRunner(
+    context,
     model,
-    integration,
-    context
+    integration
   );
   const outputmodel = await queryRunner.startAnalysis({
     exposureQueryId: queryId,
@@ -844,13 +864,40 @@ export async function cancelDimensionSlices(
   const integration = getSourceIntegrationObject(datasource, true);
 
   const queryRunner = new DimensionSlicesQueryRunner(
+    context,
     dimensionSlices,
-    integration,
-    context
+    integration
   );
   await queryRunner.cancelQueries();
 
   res.status(200).json({
     status: 200,
   });
+}
+
+export async function fetchBigQueryDatasets(
+  req: AuthRequest<{
+    projectId: string;
+    client_email: string;
+    private_key: string;
+  }>,
+  res: Response
+) {
+  const { projectId, client_email, private_key } = req.body;
+
+  try {
+    const client = new bq.BigQuery({
+      projectId,
+      credentials: { client_email, private_key },
+    });
+
+    const [datasets] = await client.getDatasets();
+
+    res.status(200).json({
+      status: 200,
+      datasets: datasets.map((dataset) => dataset.id).filter(Boolean),
+    });
+  } catch (e) {
+    throw new Error(e.message);
+  }
 }

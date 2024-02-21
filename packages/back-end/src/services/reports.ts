@@ -1,9 +1,11 @@
 import {
+  DEFAULT_METRIC_WINDOW,
+  DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+  DEFAULT_METRIC_WINDOW_HOURS,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import {
-  getConversionWindowHours,
   isFactMetric,
   isBinomialMetric,
   ExperimentMetricInterface,
@@ -178,17 +180,30 @@ export function getMetricForSnapshot(
       datasource: metric.datasource,
       type: isBinomialMetric(metric) ? "binomial" : "count",
       aggregation: ("aggregation" in metric && metric.aggregation) || undefined,
-      capping: metric.capping || null,
-      capValue: metric.capValue || undefined,
+      cappingSettings: metric.cappingSettings,
       denominator: (!isFactMetric(metric) && metric.denominator) || undefined,
       sql: (!isFactMetric(metric) && metric.sql) || undefined,
       userIdTypes: (!isFactMetric(metric) && metric.userIdTypes) || undefined,
     },
     computedSettings: {
-      conversionDelayHours:
-        overrides?.conversionDelayHours ?? metric.conversionDelayHours ?? 0,
-      conversionWindowHours:
-        overrides?.conversionWindowHours ?? getConversionWindowHours(metric),
+      windowSettings: {
+        delayHours:
+          overrides?.delayHours ??
+          metric.windowSettings.delayHours ??
+          DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+        type:
+          overrides?.windowType ??
+          metric.windowSettings.type ??
+          DEFAULT_METRIC_WINDOW,
+        windowUnit:
+          overrides?.windowHours || overrides?.windowType
+            ? "hours"
+            : metric.windowSettings.windowUnit ?? "hours",
+        windowValue:
+          overrides?.windowHours ??
+          metric.windowSettings.windowValue ??
+          DEFAULT_METRIC_WINDOW_HOURS,
+      },
       regressionAdjustmentDays:
         regressionAdjustmentStatus?.regressionAdjustmentDays ??
         DEFAULT_REGRESSION_ADJUSTMENT_DAYS,

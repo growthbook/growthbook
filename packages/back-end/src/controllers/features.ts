@@ -9,6 +9,7 @@ import {
 import {
   ExperimentRefRule,
   FeatureInterface,
+  FeaturePrerequisite,
   FeatureRule,
   FeatureTestResult,
 } from "../../types/feature";
@@ -70,10 +71,7 @@ import {
 } from "../models/SdkConnectionModel";
 import { logger } from "../util/logger";
 import { addTagsDiff } from "../models/TagModel";
-import {
-  EventAuditUser,
-  EventAuditUserForResponseLocals,
-} from "../events/event-types";
+import { EventAuditUserForResponseLocals } from "../events/event-types";
 import {
   FASTLY_SERVICE_ID,
   CACHE_CONTROL_MAX_AGE,
@@ -414,7 +412,7 @@ export async function postFeatures(
 
   addIdsToRules(feature.environmentSettings, feature.id);
 
-  await createFeature(context, res.locals.eventAudit, feature);
+  await createFeature(context, feature);
   await upsertWatch({
     userId,
     organization: org.id,
@@ -596,7 +594,6 @@ export async function postFeaturePublish(
     feature,
     revision,
     mergeResult.result,
-    res.locals.eventAudit,
     comment
   );
 
@@ -680,8 +677,7 @@ export async function postFeatureRevert(
     context,
     feature,
     revision,
-    changes,
-    res.locals.eventAudit
+    changes
   );
 
   await markRevisionAsPublished(revision, res.locals.eventAudit, comment);
@@ -735,7 +731,7 @@ export async function postFeatureFork(
     changes: revision,
     environments,
   });
-  await updateFeature(context, res.locals.eventAudit, feature, {
+  await updateFeature(context, feature, {
     hasDrafts: true,
   });
 
@@ -775,7 +771,7 @@ export async function postFeatureDiscard(
 
   const hasDrafts = await hasDraft(org.id, feature, [revision.version]);
   if (!hasDrafts) {
-    await updateFeature(context, res.locals.eventAudit, feature, {
+    await updateFeature(context, feature, {
       hasDrafts: false,
     });
   }
@@ -812,12 +808,7 @@ export async function postFeatureRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  const revision = await getDraftRevision(
-    context,
-    feature,
-    parseInt(version),
-    res.locals.eventAudit
-  );
+  const revision = await getDraftRevision(context, feature, parseInt(version));
 
   await addFeatureRule(revision, environment, rule, res.locals.eventAudit);
 
@@ -826,12 +817,7 @@ export async function postFeatureRule(
     rule.type === "experiment-ref" &&
     !feature.linkedExperiments?.includes(rule.experimentId)
   ) {
-    await addLinkedFeatureToExperiment(
-      context,
-      res.locals.eventAudit,
-      rule.experimentId,
-      feature.id
-    );
+    await addLinkedFeatureToExperiment(context, rule.experimentId, feature.id);
     await addLinkedExperiment(feature, rule.experimentId);
   }
 
@@ -1052,16 +1038,10 @@ export async function postFeatureExperimentRefRule(
     updates.linkedExperiments.push(experiment.id);
   }
 
-  const updatedFeature = await updateFeature(
-    context,
-    res.locals.eventAudit,
-    feature,
-    updates
-  );
+  const updatedFeature = await updateFeature(context, feature, updates);
 
   await addLinkedFeatureToExperiment(
     context,
-    res.locals.eventAudit,
     rule.experimentId,
     feature.id,
     experiment
@@ -1087,18 +1067,17 @@ export async function postFeatureExperimentRefRule(
 async function getDraftRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
-  version: number,
-  user: EventAuditUser
+  version: number
 ): Promise<FeatureRevisionInterface> {
   // This is the published version, create a new draft revision
   if (version === feature.version) {
     const newRevision = await createRevision({
       feature,
-      user,
+      user: context.auditUser,
       environments: getEnvironmentIdsFromOrg(context.org),
     });
 
-    await updateFeature(context, user, feature, {
+    await updateFeature(context, feature, {
       hasDrafts: true,
     });
 
@@ -1174,12 +1153,7 @@ export async function postFeatureDefaultValue(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  const revision = await getDraftRevision(
-    context,
-    feature,
-    parseInt(version),
-    res.locals.eventAudit
-  );
+  const revision = await getDraftRevision(context, feature, parseInt(version));
 
   await setDefaultValue(revision, defaultValue, res.locals.eventAudit);
 
@@ -1205,13 +1179,7 @@ export async function postFeatureSchema(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  const updatedFeature = await setJsonSchema(
-    context,
-    res.locals.eventAudit,
-    feature,
-    schema,
-    enabled
-  );
+  const updatedFeature = await setJsonSchema(context, feature, schema, enabled);
 
   await req.audit({
     event: "feature.update",
@@ -1254,12 +1222,7 @@ export async function putFeatureRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  const revision = await getDraftRevision(
-    context,
-    feature,
-    parseInt(version),
-    res.locals.eventAudit
-  );
+  const revision = await getDraftRevision(context, feature, parseInt(version));
 
   await editFeatureRule(revision, environment, i, rule, res.locals.eventAudit);
 
@@ -1301,13 +1264,7 @@ export async function postFeatureToggle(
     });
   }
 
-  await toggleFeatureEnvironment(
-    context,
-    res.locals.eventAudit,
-    feature,
-    environment,
-    state
-  );
+  await toggleFeatureEnvironment(context, feature, environment, state);
 
   await req.audit({
     event: "feature.toggle",
@@ -1353,12 +1310,7 @@ export async function postFeatureMoveRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  const revision = await getDraftRevision(
-    context,
-    feature,
-    parseInt(version),
-    res.locals.eventAudit
-  );
+  const revision = await getDraftRevision(context, feature, parseInt(version));
 
   const changes = { rules: revision.rules || {} };
   const rules = changes.rules[environment];
@@ -1407,12 +1359,7 @@ export async function deleteFeatureRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  const revision = await getDraftRevision(
-    context,
-    feature,
-    parseInt(version),
-    res.locals.eventAudit
-  );
+  const revision = await getDraftRevision(context, feature, parseInt(version));
 
   const changes = { rules: revision.rules || {} };
   const rules = changes.rules[environment];
@@ -1489,12 +1436,7 @@ export async function putFeature(
     throw new Error("Invalid update fields for feature");
   }
 
-  const updatedFeature = await updateFeature(
-    context,
-    res.locals.eventAudit,
-    feature,
-    updates
-  );
+  const updatedFeature = await updateFeature(context, feature, updates);
 
   // If there are new tags to add
   await addTagsDiff(org.id, feature.tags || [], updates.tags || []);
@@ -1532,7 +1474,7 @@ export async function deleteFeatureById(
       feature.project,
       getEnabledEnvironments(feature, environments)
     );
-    await deleteFeature(context, res.locals.eventAudit, feature);
+    await deleteFeature(context, feature);
     await req.audit({
       event: "feature.delete",
       entity: {
@@ -1550,7 +1492,11 @@ export async function deleteFeatureById(
 
 export async function postFeatureEvaluate(
   req: AuthRequest<
-    { attributes: Record<string, boolean | string | number | object> },
+    {
+      attributes: Record<string, boolean | string | number | object>;
+      scrubPrerequisites?: boolean;
+      skipRulesWithPrerequisites?: boolean;
+    },
     { id: string; version: string }
   >,
   res: Response<
@@ -1561,7 +1507,11 @@ export async function postFeatureEvaluate(
   const { id, version } = req.params;
   const context = getContextFromReq(req);
   const { org } = context;
-  const { attributes } = req.body;
+  const {
+    attributes,
+    scrubPrerequisites,
+    skipRulesWithPrerequisites,
+  } = req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -1583,6 +1533,8 @@ export async function postFeatureEvaluate(
     groupMap,
     experimentMap,
     environments,
+    scrubPrerequisites,
+    skipRulesWithPrerequisites,
   });
 
   res.status(200).json({
@@ -1611,7 +1563,6 @@ export async function postFeatureArchive(
   );
   const updatedFeature = await archiveFeature(
     context,
-    res.locals.eventAudit,
     feature,
     !feature.archived
   );
@@ -1908,9 +1859,101 @@ export async function toggleStaleFFDetectionForFeature(
 
   req.checkPermissions("manageFeatures", feature.project);
 
-  await updateFeature(context, res.locals.eventAudit, feature, {
+  await updateFeature(context, feature, {
     neverStale: !feature.neverStale,
   });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function postPrerequisite(
+  req: AuthRequest<{ prerequisite: FeaturePrerequisite }, { id: string }>,
+  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { prerequisite } = req.body;
+
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  req.checkPermissions("manageFeatures", feature.project);
+
+  const changes = {
+    prerequisites: feature.prerequisites || [],
+  };
+  changes.prerequisites.push(prerequisite);
+
+  await updateFeature(context, feature, changes);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function putPrerequisite(
+  req: AuthRequest<
+    { prerequisite: FeaturePrerequisite; i: number },
+    { id: string }
+  >,
+  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { prerequisite, i } = req.body;
+
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  req.checkPermissions("manageFeatures", feature.project);
+
+  const changes = {
+    prerequisites: feature.prerequisites || [],
+  };
+
+  if (!changes.prerequisites[i]) {
+    throw new Error("Unknown prerequisite");
+  }
+  changes.prerequisites[i] = prerequisite;
+
+  await updateFeature(context, feature, changes);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function deletePrerequisite(
+  req: AuthRequest<{ i: number }, { id: string }>,
+  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { i } = req.body;
+
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  req.checkPermissions("manageFeatures", feature.project);
+
+  const changes = {
+    prerequisites: feature.prerequisites || [],
+  };
+
+  if (!changes.prerequisites[i]) {
+    throw new Error("Unknown prerequisite");
+  }
+  changes.prerequisites.splice(i, 1);
+
+  await updateFeature(context, feature, changes);
 
   res.status(200).json({
     status: 200,

@@ -58,6 +58,7 @@ export default class Athena extends SqlIntegration {
       valueCol: string;
       outputCol: string;
       percentile: number;
+      ignoreZeros: boolean;
     }[],
     metricTable: string,
     where: string = ""
@@ -65,10 +66,12 @@ export default class Athena extends SqlIntegration {
     return `
     SELECT
       ${values
-        .map(
-          (v) =>
-            `APPROX_PERCENTILE(${v.valueCol}, ${v.percentile}) AS ${v.outputCol}`
-        )
+        .map((v) => {
+          const value = v.ignoreZeros
+            ? this.ifElse(`${v.valueCol} = 0`, "NULL", v.valueCol)
+            : v.valueCol;
+          return `APPROX_PERCENTILE(${value}, ${v.percentile}) AS ${v.outputCol}`;
+        })
         .join(",\n")}
       FROM ${metricTable}
       ${where}

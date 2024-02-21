@@ -227,9 +227,9 @@ export async function refreshReport(
     true
   );
   const queryRunner = new ReportQueryRunner(
+    context,
     report,
     integration,
-    context,
     useCache
   );
 
@@ -312,9 +312,9 @@ export async function putReport(
       true
     );
     const queryRunner = new ReportQueryRunner(
+      context,
       updatedReport,
-      integration,
-      context
+      integration
     );
 
     await queryRunner.startAnalysis({
@@ -352,7 +352,7 @@ export async function cancelReport(
     context,
     report.args.datasource
   );
-  const queryRunner = new ReportQueryRunner(report, integration, context);
+  const queryRunner = new ReportQueryRunner(context, report, integration);
   await queryRunner.cancelQueries();
 
   res.status(200).json({ status: 200 });

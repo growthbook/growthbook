@@ -64,8 +64,8 @@ export async function generateReportNotebook(
 }
 
 export async function generateExperimentNotebook(
-  snapshotId: string,
-  context: ReqContext
+  context: ReqContext,
+  snapshotId: string
 ): Promise<string> {
   // Get snapshot
   const snapshot = await findSnapshotById(context.org.id, snapshotId);
@@ -140,7 +140,8 @@ export async function generateNotebook(
   const { queryResults, metricSettings } = getMetricsAndQueryDataForStatsEngine(
     queries,
     metricMap,
-    args.variations
+    args.variations,
+    args.regressionAdjustmentEnabled ?? false
   );
 
   const data: DataForStatsEngine = {
