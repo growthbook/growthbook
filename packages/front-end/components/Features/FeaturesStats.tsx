@@ -127,6 +127,10 @@ export default function FeaturesStats({
                   <Code
                     language="tsx"
                     code={ref.lines}
+                    highlightLine={
+                      ref.startingLineNumber +
+                      ((ref.lines.split("\n").length / 2) | 0)
+                    }
                     expandable={true}
                     startingLineNumber={ref.startingLineNumber}
                   />
