@@ -140,7 +140,7 @@ export async function getRevision(
 
 export async function getRevisionsByStatus(
   context: ReqContext,
-  statuses: string[] // Pick<FeatureRevisionInterface, "status">[]
+  statuses: string[]
 ) {
   const revisions = await FeatureRevisionModel.find({
     id: context.org.id,
