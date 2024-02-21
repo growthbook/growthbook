@@ -178,6 +178,7 @@ export type PastExperimentResult = {
   }[];
 };
 
+// NOTE: response rows must all be lower case to work across SQL integrations
 export type TrackedEventResponseRow = {
   event: string;
   display_name: string;
