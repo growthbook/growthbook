@@ -579,6 +579,7 @@ export async function postFeatureReviewOrComment(
   if (!feature) {
     throw new Error("Could not find feature");
   }
+  req.checkPermissions("canReview");
 
   const revision = await getRevision(
     context.org.id,
@@ -589,6 +590,7 @@ export async function postFeatureReviewOrComment(
     throw new Error("Could not find feature revision");
   }
   const createdByUser = revision.createdBy as EventAuditUserLoggedIn;
+
   if (createdByUser.id === context.userId && review !== "Comment") {
     throw Error("cannot submit a review for your self");
   }

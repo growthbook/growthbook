@@ -1,5 +1,5 @@
 import { FeatureInterface } from "back-end/types/feature";
-import { useState, useMemo, ChangeEvent } from "react";
+import { useState, useMemo, ChangeEvent, useRef } from "react";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { autoMerge, mergeResultHasChanges } from "shared/util";
 import {
@@ -14,6 +14,7 @@ import {
 import { useForm } from "react-hook-form";
 import { ReviewSubmittedType } from "@/../back-end/src/models/FeatureRevisionModel";
 
+import { EventAuditUserLoggedIn } from "back-end/src/events/event-types";
 import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
@@ -48,12 +49,20 @@ export default function RequestReviewModal({
   const user = getCurrentUser();
   const permissions = usePermissions();
 
+  const commentRef = useRef<HTMLInputElement>(null);
+  const scrollToComment = () => {
+    commentRef?.current?.scrollIntoView();
+  };
   const canPublish = permissions.check("bypassApprovalChecks");
   const revision = revisions.find((r) => r.version === version);
   const isPendingReview =
     revision?.status === "pending-review" ||
     revision?.status === "changes-requested";
-  const canReview = isPendingReview && revision?.createdBy?.id !== user?.id;
+  const createdBy = revision?.createdBy as EventAuditUserLoggedIn;
+  const canReview =
+    isPendingReview &&
+    createdBy?.id !== user?.id &&
+    permissions.check("canReview");
   const approved = revision?.status === "approved" || adminPublish;
   const baseRevision = revisions.find(
     (r) => r.version === revision?.baseVersion
@@ -242,6 +251,15 @@ export default function RequestReviewModal({
                 </Flex>
               </Text>
             )}
+            <div className="text-right">
+              <div
+                onClick={scrollToComment}
+                style={{ cursor: "pointer" }}
+                className="text-purple"
+              >
+                Leave a comment
+              </div>
+            </div>
             <div className="list-group mb-4 mt-4">
               <Heading size="4" mb="3">
                 Diffs by Enviroment
@@ -260,13 +278,13 @@ export default function RequestReviewModal({
               commentsOnly={true}
             />
             {hasPermission && !canReview && (
-              <div className="mt-3">
+              <div className="mt-3" id="comment-section">
                 <Field
-                  className=""
                   label="Add a Comment (optional)"
                   textarea
                   placeholder="Summary of changes..."
                   value={comment}
+                  ref={commentRef}
                   onChange={(e) => {
                     setComment(e.target.value);
                   }}
@@ -288,8 +306,8 @@ export default function RequestReviewModal({
                         await mutate();
                         throw e;
                       }
+                      setComment("");
                       await mutate();
-                      onDiscard && onDiscard();
                       close();
                     }}
                   >

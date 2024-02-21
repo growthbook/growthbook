@@ -358,7 +358,11 @@ export default function FeaturePage() {
       ));
 
   const drafts = data.revisions.filter(
-    (r) => r.status === "draft" || r.status === "pending-review"
+    (r) =>
+      r.status === "draft" ||
+      r.status === "pending-review" ||
+      r.status === "changes-requested" ||
+      r.status === "approved"
   );
 
   const isLocked =
