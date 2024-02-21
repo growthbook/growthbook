@@ -180,10 +180,10 @@ export type PastExperimentResult = {
 
 export type TrackedEventResponseRow = {
   event: string;
-  displayName: string;
-  hasUserId: boolean;
+  display_name: string;
+  has_user_id: boolean;
   count: number;
-  lastTrackedAt: Date | BigQueryTimestamp;
+  last_tracked_at: Date | BigQueryTimestamp;
 };
 
 export type TrackedEventData = {
