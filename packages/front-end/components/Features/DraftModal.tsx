@@ -46,7 +46,7 @@ export function ExpandableDiff({
         <div className="text-muted mr-2">Changed:</div>
         <strong>{title}</strong>
         <div className="ml-auto">
-          show/hide {open ? <FaAngleDown /> : <FaAngleRight />}
+          {open ? <FaAngleDown /> : <FaAngleRight />}
         </div>
       </div>
       {open && (
