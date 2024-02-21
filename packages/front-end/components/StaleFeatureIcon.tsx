@@ -18,6 +18,7 @@ export default function StaleFeatureIcon({
 }) {
   return (
     <Tooltip
+      popperClassName="text-left"
       body={`This feature has been marked stale. ${
         (staleReason && staleReasonToMessageMap[staleReason]) ?? ""
       }`}

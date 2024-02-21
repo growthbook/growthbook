@@ -74,6 +74,7 @@ import {
 import { applyMetricOverrides } from "../util/integration";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
+export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -226,9 +227,10 @@ export default abstract class SqlIntegration
   formatDateTimeString(col: string): string {
     return this.castToString(col);
   }
-  selectSampleRows(table: string, limit: number): string {
+  selectStarLimit(table: string, limit: number): string {
     return `SELECT * FROM ${table} LIMIT ${limit}`;
   }
+
   hasEfficientPercentile(): boolean {
     return true;
   }
@@ -340,9 +342,8 @@ export default abstract class SqlIntegration
         GROUP BY
           d.exposure_query, d.experiment_id, d.variation_id
       )
-    SELECT
-      *
-    FROM
+    ${this.selectStarLimit(
+      `
       __variations
     WHERE
       -- Skip experiments at start of date range since it's likely missing data
@@ -351,7 +352,10 @@ export default abstract class SqlIntegration
         "start_date"
       )} > 2
     ORDER BY
-      experiment_id ASC, variation_id ASC`,
+      start_date DESC, experiment_id ASC, variation_id ASC
+      `,
+      MAX_ROWS_PAST_EXPERIMENTS_QUERY
+    )}`,
       this.getFormatDialect()
     );
   }
@@ -665,7 +669,7 @@ export default abstract class SqlIntegration
       `WITH __table as (
         ${query}
       )
-      ${this.selectSampleRows("__table", limit)}`,
+      ${this.selectStarLimit("__table", limit)}`,
       {
         startDate,
         templateVariables,
@@ -1318,9 +1322,10 @@ export default abstract class SqlIntegration
           )
           .join("\nUNION ALL\n")}
       )
-      SELECT *
-      FROM __unitsByDimension
-      LIMIT ${MAX_ROWS_UNIT_AGGREGATE_QUERY}
+      ${this.selectStarLimit(
+        "__unitsByDimension",
+        MAX_ROWS_UNIT_AGGREGATE_QUERY
+      )}
     `,
       this.getFormatDialect()
     );
@@ -2801,7 +2806,12 @@ AND event_name = '${eventName}'`,
         COUNT (*) as count,
         MAX(${timestampColumn}) as lastTrackedAt
       FROM
-        ${this.generateTablePath(trackedEventTableName, schema)}
+        ${this.generateTablePath(
+          trackedEventTableName,
+          schema,
+          undefined,
+          !!schema
+        )}
       WHERE ${getDateLimitClause(start, end)}
       AND ${eventColumn} NOT IN ('experiment_viewed', 'experiment_started')
       GROUP BY ${groupByColumn || eventColumn}

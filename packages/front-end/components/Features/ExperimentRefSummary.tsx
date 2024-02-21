@@ -132,7 +132,8 @@ export default function ExperimentRefSummary({
 
   const hasCondition =
     (phase.condition && phase.condition !== "{}") ||
-    !!phase.savedGroups?.length;
+    !!phase.savedGroups?.length ||
+    phase.prerequisites?.length;
 
   return (
     <div>
@@ -152,13 +153,14 @@ export default function ExperimentRefSummary({
       )}
       {hasCondition && (
         <div className="row mb-3 align-items-top">
-          <div className="col-auto">
+          <div className="col-auto d-flex align-items-center">
             <strong>IF</strong>
           </div>
           <div className="col">
             <ConditionDisplay
               condition={phase.condition}
               savedGroups={phase.savedGroups}
+              prerequisites={phase.prerequisites}
             />
           </div>
         </div>

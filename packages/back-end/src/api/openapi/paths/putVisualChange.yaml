@@ -10,9 +10,8 @@ put:
     - lang: "cURL"
       source: |
         curl -XPUT https://api.growthbook.io/api/v1/visual-changesets/vc_123abc/visual-change/vch_abc123 \
-          -u secret_abc123DEF456 \
-          -H "Content-Type: application/json" \
-          -d '{"variation": "v_123abc", "domMutations":"[]"}'
+          -d '{"variation": "v_123abc", "domMutations":"[]"}' \
+          -u secret_abc123DEF456:
   responses:
     "200":
       content:

@@ -100,7 +100,7 @@ export const postFactTable = async (
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
-  req.checkPermissions("runQueries", datasource.projects || "");
+  req.checkPermissions("runQueries", datasource.projects || []);
 
   data.columns = await runRefreshColumnsQuery(
     datasource,
@@ -143,7 +143,7 @@ export const putFactTable = async (
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
-  req.checkPermissions("runQueries", datasource.projects || "");
+  req.checkPermissions("runQueries", datasource.projects || []);
 
   // Update the columns
   data.columns = await runRefreshColumnsQuery(datasource, {
@@ -226,7 +226,7 @@ export const postFactFilterTest = async (
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
-  req.checkPermissions("runQueries", datasource.projects || "");
+  req.checkPermissions("runQueries", datasource.projects || []);
 
   const result = await testFilterQuery(datasource, factTable, data.value);
 
@@ -254,7 +254,7 @@ export const postFactFilter = async (
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
-  req.checkPermissions("runQueries", datasource.projects || "");
+  req.checkPermissions("runQueries", datasource.projects || []);
 
   const filter = await createFactFilter(factTable, data);
 
@@ -287,7 +287,7 @@ export const putFactFilter = async (
     if (!datasource) {
       throw new Error("Could not find datasource");
     }
-    req.checkPermissions("runQueries", datasource.projects || "");
+    req.checkPermissions("runQueries", datasource.projects || []);
   }
 
   await updateFactFilter(context, factTable, req.params.filterId, data);

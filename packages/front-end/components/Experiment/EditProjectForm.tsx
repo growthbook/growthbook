@@ -9,6 +9,7 @@ const EditProjectForm: FC<{
   apiEndpoint: string;
   current?: string;
   additionalMessage?: string | ReactElement | null;
+  ctaEnabled?: boolean;
   cancel: () => void;
   mutate: () => void;
   method?: string;
@@ -19,6 +20,7 @@ const EditProjectForm: FC<{
   mutate,
   method = "POST",
   additionalMessage,
+  ctaEnabled = true,
 }) => {
   const { apiCall } = useAuth();
   const { projects } = useDefinitions();
@@ -42,6 +44,7 @@ const EditProjectForm: FC<{
         mutate();
       })}
       cta="Save"
+      ctaEnabled={ctaEnabled}
     >
       {additionalMessage}
       <SelectField

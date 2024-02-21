@@ -7,7 +7,7 @@ If you just want to contribute a client library in a new language and not make c
 ## Requirements
 
 - MacOS or Linux (Windows may work too, but we haven't tested it)
-- [NodeJS](https://nodejs.org/en/download/package-manager/) 16.x or higher
+- [NodeJS](https://nodejs.org/en/download/package-manager/) between 16.x and 18.x
   - Check version by running `node -v` on terminal
 - [Yarn](https://classic.yarnpkg.com/en/docs/install)
 - [Python](https://www.python.org/downloads/) 3.8+ (for the stats engine)
@@ -181,6 +181,7 @@ Ensure you have run `yarn setup` first to install the poetry virtual environment
 - `yarn workspace stats test` - Run pytest
 - `yarn workspace stats lint` - Run flake8, black, and pyright
 - `yarn workspace stats build` - Run the build process
+- `yarn workspace stats notebook` - Spin up a Jupyter Notebook with `gbstats` and other dependencies in the kernel
 
 You can also just run `yarn *` where \* is test, lint, build if you `cd` to the `packages/stats` directory first.
 

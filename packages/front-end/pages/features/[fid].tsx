@@ -15,16 +15,22 @@ import {
 import { ago, date, datetime } from "shared/dates";
 import {
   autoMerge,
+  evaluatePrerequisiteState,
+  getDependentExperiments,
+  getDependentFeatures,
   getValidation,
   isFeatureStale,
   mergeResultHasChanges,
   mergeRevision,
+  PrerequisiteStateResult,
 } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { MdHistory, MdRocketLaunch } from "react-icons/md";
 import { FaPlusMinus } from "react-icons/fa6";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import clsx from "clsx";
+import { BiHide, BiShow } from "react-icons/bi";
+import { ImBlocked } from "react-icons/im";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -50,6 +56,8 @@ import {
   useEnvironments,
   getEnabledEnvironments,
   getAffectedRevisionEnvs,
+  useFeaturesList,
+  getPrerequisites,
 } from "@/services/features";
 import AssignmentTester from "@/components/Archetype/AssignmentTester";
 import Tab from "@/components/Tabs/Tab";
@@ -80,6 +88,12 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
+import PrerequisiteModal from "@/components/Features/PrerequisiteModal";
+import PrerequisiteStatusRow, {
+  PrerequisiteStatesCols,
+} from "@/components/Features/PrerequisiteStatusRow";
+import { useExperiments } from "@/hooks/useExperiments";
+import { PrerequisiteAlerts } from "@/components/Features/PrerequisiteTargetingField";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -105,6 +119,9 @@ export default function FeaturePage() {
     i: number;
     environment: string;
     defaultType?: string;
+  } | null>(null);
+  const [prerequisiteModal, setPrerequisiteModal] = useState<{
+    i: number;
   } | null>(null);
   const [editProjectModal, setEditProjectModal] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
@@ -138,7 +155,13 @@ export default function FeaturePage() {
   }>(`/feature/${fid}${extraQueryString}`);
   const firstFeature = router?.query && "first" in router.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
+
+  const [showDependents, setShowDependents] = useState(false);
+
+  const { features } = useFeaturesList(false);
+  const { experiments } = useExperiments();
   const environments = useEnvironments();
+  const envs = environments.map((e) => e.id);
 
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 800,
@@ -194,6 +217,7 @@ export default function FeaturePage() {
       organization: data.feature.organization,
       publishedBy: null,
       rules: rules,
+      prerequisites: data.feature.prerequisites || [],
       status: "published",
       version: data.feature.version,
     };
@@ -209,6 +233,36 @@ export default function FeaturePage() {
         )
       : data.feature;
   }, [data, revision, environments]);
+
+  const prerequisites = feature?.prerequisites || [];
+  const prereqStates = useMemo(() => {
+    if (!feature) return null;
+    const states: Record<string, PrerequisiteStateResult> = {};
+    envs.forEach((env) => {
+      states[env] = evaluatePrerequisiteState(feature, features, env, true);
+    });
+    return states;
+  }, [feature, features, envs]);
+
+  const dependentFeatures = useMemo(() => {
+    if (!feature || !features) return [];
+    return getDependentFeatures(feature, features, envs);
+  }, [feature, features, envs]);
+
+  const dependentExperiments = useMemo(() => {
+    if (!feature || !experiments) return [];
+    return getDependentExperiments(feature, experiments);
+  }, [feature, experiments]);
+
+  const dependents = dependentFeatures.length + dependentExperiments.length;
+
+  const hasConditionalState =
+    prereqStates &&
+    Object.values(prereqStates).some((s) => s.state === "conditional");
+
+  const hasPrerequisitesCommercialFeature = hasCommercialFeature(
+    "prerequisites"
+  );
 
   const mergeResult = useMemo(() => {
     if (!data || !feature || !revision) return null;
@@ -338,8 +392,19 @@ export default function FeaturePage() {
           environment={ruleModal.environment}
           mutate={mutate}
           defaultType={ruleModal.defaultType || ""}
+          revisions={data.revisions}
           version={currentVersion}
           setVersion={setVersion}
+        />
+      )}
+      {prerequisiteModal !== null && (
+        <PrerequisiteModal
+          feature={feature}
+          close={() => setPrerequisiteModal(null)}
+          i={prerequisiteModal.i}
+          mutate={mutate}
+          revisions={data.revisions}
+          version={currentVersion}
         />
       )}
       {auditModal && (
@@ -561,56 +626,88 @@ export default function FeaturePage() {
               )}
             {canEdit &&
               permissions.check("publishFeatures", projectId, enabledEnvs) && (
-                <DeleteButton
-                  useIcon={false}
-                  displayName="Feature"
-                  onClick={async () => {
-                    await apiCall(`/feature/${feature.id}`, {
-                      method: "DELETE",
-                    });
-                    router.push("/features");
-                  }}
-                  className="dropdown-item"
-                  text="Delete feature"
-                />
+                <Tooltip
+                  shouldDisplay={dependents > 0}
+                  usePortal={true}
+                  body={
+                    <>
+                      <ImBlocked className="text-danger" /> This feature has{" "}
+                      <strong>
+                        {dependents} dependent{dependents !== 1 && "s"}
+                      </strong>
+                      . This feature cannot be deleted until{" "}
+                      {dependents === 1 ? "it has" : "they have"} been removed.
+                    </>
+                  }
+                >
+                  <DeleteButton
+                    useIcon={false}
+                    displayName="Feature"
+                    onClick={async () => {
+                      await apiCall(`/feature/${feature.id}`, {
+                        method: "DELETE",
+                      });
+                      router.push("/features");
+                    }}
+                    className="dropdown-item"
+                    text="Delete feature"
+                    disabled={dependents > 0}
+                  />
+                </Tooltip>
               )}
             {canEdit &&
               permissions.check("publishFeatures", projectId, enabledEnvs) && (
-                <ConfirmButton
-                  onClick={async () => {
-                    await apiCall(`/feature/${feature.id}/archive`, {
-                      method: "POST",
-                    });
-                    mutate();
-                  }}
-                  modalHeader={
-                    isArchived ? "Unarchive Feature" : "Archive Feature"
+                <Tooltip
+                  shouldDisplay={dependents > 0}
+                  usePortal={true}
+                  body={
+                    <>
+                      <ImBlocked className="text-danger" /> This feature has{" "}
+                      <strong>
+                        {dependents} dependent{dependents !== 1 && "s"}
+                      </strong>
+                      . This feature cannot be archived until{" "}
+                      {dependents === 1 ? "it has" : "they have"} been removed.
+                    </>
                   }
-                  confirmationText={
-                    isArchived ? (
-                      <>
-                        <p>
-                          Are you sure you want to continue? This will make the
-                          current feature active again.
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <p>
-                          Are you sure you want to continue? This will make the
-                          current feature inactive. It will not be included in
-                          API responses or Webhook payloads.
-                        </p>
-                      </>
-                    )
-                  }
-                  cta={isArchived ? "Unarchive" : "Archive"}
-                  ctaColor="danger"
                 >
-                  <button className="dropdown-item">
-                    {isArchived ? "Unarchive" : "Archive"} feature
-                  </button>
-                </ConfirmButton>
+                  <ConfirmButton
+                    onClick={async () => {
+                      await apiCall(`/feature/${feature.id}/archive`, {
+                        method: "POST",
+                      });
+                      mutate();
+                    }}
+                    modalHeader={
+                      isArchived ? "Unarchive Feature" : "Archive Feature"
+                    }
+                    confirmationText={
+                      isArchived ? (
+                        <>
+                          <p>
+                            Are you sure you want to continue? This will make
+                            the current feature active again.
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p>
+                            Are you sure you want to continue? This will make
+                            the current feature inactive. It will not be
+                            included in API responses or Webhook payloads.
+                          </p>
+                        </>
+                      )
+                    }
+                    cta={isArchived ? "Unarchive" : "Archive"}
+                    ctaColor="danger"
+                    disabled={dependents > 0}
+                  >
+                    <button className="dropdown-item">
+                      {isArchived ? "Unarchive" : "Archive"} feature
+                    </button>
+                  </ConfirmButton>
+                </Tooltip>
               )}
             {canEdit && (
               <a
@@ -671,12 +768,28 @@ export default function FeaturePage() {
             )}
             {canEdit &&
               permissions.check("publishFeatures", projectId, enabledEnvs) && (
-                <a
-                  className="ml-2 cursor-pointer"
-                  onClick={() => setEditProjectModal(true)}
+                <Tooltip
+                  shouldDisplay={dependents > 0}
+                  body={
+                    <>
+                      <ImBlocked className="text-danger" /> This feature has{" "}
+                      <strong>
+                        {dependents} dependent{dependents !== 1 && "s"}
+                      </strong>
+                      . The project cannot be changed until{" "}
+                      {dependents === 1 ? "it has" : "they have"} been removed.
+                    </>
+                  }
                 >
-                  <GBEdit />
-                </a>
+                  <a
+                    className="ml-2 cursor-pointer"
+                    onClick={() => {
+                      dependents === 0 && setEditProjectModal(true);
+                    }}
+                  >
+                    <GBEdit />
+                  </a>
+                </Tooltip>
               )}
           </div>
         )}
@@ -743,33 +856,236 @@ export default function FeaturePage() {
         </div>
       </div>
 
-      <h3>Enabled Environments</h3>
-      <div className="mb-1">
-        In disabled environments, the feature will always evaluate to{" "}
-        <code>null</code>. The default value and override rules will be ignored.
-      </div>
-      <div className="appbox mb-4 p-3">
-        <div className="row">
-          {environments.map((en) => (
-            <div className="col-auto" key={en.id}>
-              <label
-                className="font-weight-bold mr-2 mb-0"
-                htmlFor={`${en.id}_toggle`}
-              >
-                {en.id}:{" "}
-              </label>
-              <EnvironmentToggle
-                feature={feature}
-                environment={en.id}
-                mutate={() => {
-                  mutate();
-                }}
-                id={`${en.id}_toggle`}
-              />
-            </div>
-          ))}
+      <h3 className="mt-4 mb-3">Enabled Environments</h3>
+
+      <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
+        <div className="mb-2">
+          When disabled, this feature will evaluate to <code>null</code>. The
+          default value and override rules will be ignored.
         </div>
+        {prerequisites.length > 0 ? (
+          <table className="table border bg-white mb-2 w-100">
+            <thead>
+              <tr className="bg-light">
+                <th
+                  className="pl-3 align-bottom font-weight-bold border-right"
+                  style={{ minWidth: 350 }}
+                />
+                {envs.map((env) => (
+                  <th
+                    key={env}
+                    className="text-center align-bottom font-weight-bolder"
+                    style={{ minWidth: 120 }}
+                  >
+                    {env}
+                  </th>
+                ))}
+                <th className="w-100" />
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td
+                  className="pl-3 align-bottom font-weight-bold border-right"
+                  style={{ minWidth: 350 }}
+                >
+                  Kill Switch
+                </td>
+                {envs.map((env) => (
+                  <td
+                    key={env}
+                    className="text-center align-bottom pb-2"
+                    style={{ minWidth: 120 }}
+                  >
+                    <EnvironmentToggle
+                      feature={feature}
+                      environment={env}
+                      mutate={() => {
+                        mutate();
+                      }}
+                      id={`${env}_toggle`}
+                      className="mr-0"
+                    />
+                  </td>
+                ))}
+                <td className="w-100" />
+              </tr>
+              {prerequisites.map(({ ...item }, i) => {
+                const parentFeature = features.find((f) => f.id === item.id);
+                return (
+                  <PrerequisiteStatusRow
+                    key={i}
+                    i={i}
+                    feature={feature}
+                    features={features}
+                    parentFeature={parentFeature}
+                    prerequisite={item}
+                    environments={environments}
+                    mutate={mutate}
+                    setPrerequisiteModal={setPrerequisiteModal}
+                  />
+                );
+              })}
+            </tbody>
+            <tbody>
+              <tr className="bg-light">
+                <td className="pl-3 font-weight-bold border-right">Summary</td>
+                <PrerequisiteStatesCols
+                  prereqStates={prereqStates ?? undefined}
+                  envs={envs}
+                  isSummaryRow={true}
+                />
+                <td />
+              </tr>
+            </tbody>
+          </table>
+        ) : (
+          <div className="row mt-3">
+            {environments.map((en) => (
+              <div className="col-auto" key={en.id}>
+                <label
+                  className="font-weight-bold mr-2 mb-0"
+                  htmlFor={`${en.id}_toggle`}
+                >
+                  {en.id}:{" "}
+                </label>
+                <EnvironmentToggle
+                  feature={feature}
+                  environment={en.id}
+                  mutate={() => {
+                    mutate();
+                  }}
+                  id={`${en.id}_toggle`}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {hasConditionalState && (
+          <PrerequisiteAlerts
+            environments={envs}
+            type="feature"
+            project={projectId ?? ""}
+          />
+        )}
+
+        {canEdit && (
+          <PremiumTooltip
+            commercialFeature="prerequisites"
+            className="d-inline-flex align-items-center mt-3"
+          >
+            <button
+              className="btn d-inline-block px-1 font-weight-bold link-purple"
+              disabled={!hasPrerequisitesCommercialFeature}
+              onClick={() => {
+                setPrerequisiteModal({
+                  i: getPrerequisites(feature).length,
+                });
+                track("Viewed prerequisite feature modal", {
+                  source: "add-prerequisite",
+                });
+              }}
+            >
+              <span className="h4 pr-2 m-0 d-inline-block align-top">
+                <GBAddCircle />
+              </span>
+              Add Prerequisite Feature
+            </button>
+          </PremiumTooltip>
+        )}
       </div>
+
+      {dependents > 0 && (
+        <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
+          <h4>
+            Dependents
+            <div
+              className="ml-2 d-inline-block badge-warning font-weight-bold text-center"
+              style={{
+                width: 24,
+                height: 24,
+                lineHeight: "24px",
+                fontSize: "14px",
+                borderRadius: 30,
+              }}
+            >
+              {dependents}
+            </div>
+          </h4>
+          <div className="mb-2">
+            {dependents === 1
+              ? `Another ${
+                  dependentFeatures.length ? "feature" : "experiment"
+                } depends on this feature as a prerequisite. Modifying the current feature may affect its behavior.`
+              : `Other ${
+                  dependentFeatures.length
+                    ? dependentExperiments.length
+                      ? "features and experiments"
+                      : "features"
+                    : "experiments"
+                } depend on this feature as a prerequisite. Modifying the current feature may affect their behavior.`}
+          </div>
+          <hr className="mb-2" />
+          {showDependents ? (
+            <div className="mt-3">
+              {dependentFeatures.length > 0 && (
+                <>
+                  <label>Dependent Features</label>
+                  <ul className="pl-4">
+                    {dependentFeatures.map((fid, i) => (
+                      <li className="my-1" key={i}>
+                        <a
+                          href={`/features/${fid}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {fid}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              {dependentExperiments.length > 0 && (
+                <>
+                  <label>Dependent Experiments</label>
+                  <ul className="pl-4">
+                    {dependentExperiments.map((exp, i) => (
+                      <li className="my-1" key={i}>
+                        <a
+                          href={`/experiment/${exp.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {exp.name}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              <a
+                role="button"
+                className="d-inline-block a link-purple mt-1"
+                onClick={() => setShowDependents(false)}
+              >
+                <BiHide /> Hide details
+              </a>
+            </div>
+          ) : (
+            <>
+              <a
+                role="button"
+                className="d-inline-block a link-purple"
+                onClick={() => setShowDependents(true)}
+              >
+                <BiShow /> Show details
+              </a>
+            </>
+          )}
+        </div>
+      )}
 
       {feature.valueType === "json" && (
         <div>
@@ -946,8 +1262,8 @@ export default function FeaturePage() {
                 {canEditDrafts && drafts.length > 0 && (
                   <div>
                     <a
-                      href="#"
-                      className="font-weight-bold text-purple"
+                      role="button"
+                      className="a font-weight-bold link-purple"
                       onClick={(e) => {
                         e.preventDefault();
                         setVersion(drafts[0].version);
@@ -1004,8 +1320,8 @@ export default function FeaturePage() {
                 {canEditDrafts && (
                   <div>
                     <a
-                      href="#"
-                      className="font-weight-bold text-purple"
+                      role="button"
+                      className="a font-weight-bold link-purple"
                       onClick={(e) => {
                         e.preventDefault();
                         setRevertIndex(revision.version);
@@ -1046,12 +1362,12 @@ export default function FeaturePage() {
                       }
                     >
                       <a
-                        href="#"
+                        role="button"
                         className={clsx(
-                          "font-weight-bold",
+                          "a font-weight-bold",
                           !hasDraftPublishPermission || !revisionHasChanges
                             ? "text-muted"
-                            : "text-purple"
+                            : "link-purple"
                         )}
                         onClick={(e) => {
                           e.preventDefault();
@@ -1067,8 +1383,8 @@ export default function FeaturePage() {
                   <div>
                     <Tooltip body="There have been new conflicting changes published since this draft was created that must be resolved before you can publish">
                       <a
-                        href="#"
-                        className="font-weight-bold text-purple"
+                        role="button"
+                        className="a font-weight-bold link-purple"
                         onClick={(e) => {
                           e.preventDefault();
                           setConflictModal(true);
