@@ -31,6 +31,7 @@ import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatus
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { PrerequisiteAlerts } from "@/components/Features/PrerequisiteTargetingField";
+import { DocLink } from "@/components/DocLink";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 
@@ -372,6 +373,15 @@ export default function PrerequisiteModal({
           environments={envs}
         />
       )}
+
+      <div className="float-right small">
+        <DocLink
+          docSection="prerequisites"
+          className="align-self-center ml-2 pb-1"
+        >
+          View Documentation
+        </DocLink>
+      </div>
     </Modal>
   );
 }
