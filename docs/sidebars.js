@@ -67,6 +67,11 @@ const sidebars = {
           id: "features/stale-detection",
           label: "Stale Feature Detection",
         },
+        {
+          type: "doc",
+          id: "features/code-references",
+          label: "Code References",
+        },
       ],
     },
     {
