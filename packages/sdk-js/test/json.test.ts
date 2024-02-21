@@ -68,8 +68,8 @@ type Cases = {
     gt: [string, string, boolean][];
     eq: [string, string, boolean][];
   };
-  // name, context, experiment, url, result
-  urlRedirect: [string, Context, AutoExperiment, string, string][];
+  // name, context, experiment, result
+  urlRedirect: [string, Context, AutoExperiment, string][];
 };
 
 const round = (n: number) => Math.floor(n * 1e8) / 1e8;
@@ -264,7 +264,7 @@ describe("json test suite", () => {
 
   it.each((cases as Cases).urlRedirect)(
     "urlRedirect[%#] %s",
-    (name, ctx, exp, url, result) => {
+    (name, ctx, exp, result) => {
       const growthbook = new GrowthBook(ctx);
       const res = growthbook.run(exp);
       expect(res.value.urlRedirect).toEqual(result);
