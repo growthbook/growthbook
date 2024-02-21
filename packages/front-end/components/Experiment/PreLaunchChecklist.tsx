@@ -352,7 +352,7 @@ export function PreLaunchChecklist({
 
     return (
       <span className="badge badge-warning mx-2 my-0">
-        {itemsRemaining} tasks remaining
+        {itemsRemaining} task{itemsRemaining > 1 ? "s" : ""} remaining
       </span>
     );
   }
