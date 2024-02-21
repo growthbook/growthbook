@@ -196,7 +196,11 @@ export default function FeaturePage() {
 
     // If there's an active draft, show that by default, otherwise show the live version
     const draft = data.revisions.find(
-      (r) => r.status === "draft" || r.status === "approved"
+      (r) =>
+        r.status === "draft" ||
+        r.status === "approved" ||
+        r.status === "changes-requested" ||
+        r.status === "pending-review"
     );
     setVersion(draft ? draft.version : data.feature.version);
   }, [data, version, router.query]);
@@ -1407,14 +1411,17 @@ export default function FeaturePage() {
                           </>
                         ) : (
                           <>
-                            <MdRocketLaunch /> Request Approval to Publish
+                            <MdRocketLaunch />
+                            {approved
+                              ? " Review and Publish"
+                              : " Request Approval to Publish"}
                           </>
                         )}
                       </a>
                     </Tooltip>
                   </div>
                 )}
-                {mergeResult?.success && (!requireReviews || approved) && (
+                {mergeResult?.success && !requireReviews && (
                   <div>
                     <Tooltip
                       body={
