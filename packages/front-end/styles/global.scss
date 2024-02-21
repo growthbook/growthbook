@@ -3124,5 +3124,10 @@ input:disabled {
   align-items: flex-start;
   gap: 7px;
 }
+.feature-draft-copy {
+  font-size: 14px;
+  font-style: italic;
+  font-weight: 400;
+}
 @import "./components/react-select.scss";
 @import "./components/demo-datasource-banner";

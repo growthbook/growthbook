@@ -50,13 +50,14 @@ function RevisionLogRow({
       return <Code language="json" code={value} />;
     }
   };
-  const openClickClassNames = clsx("mb-2", {
-    "cursor-pointer": !(commentsOnly && !!comment),
+  const openClickClassNames = clsx("d-flex p-3", {
+    "cursor-pointer ": !(commentsOnly && !!comment),
   });
   return (
-    <div className={`appbox p-2 mb-0 ${first ? "" : "mt-3"}`}>
+    <div className={`appbox mb-0 ${first ? "" : "mt-3"}`}>
       <div
         className={openClickClassNames}
+        style={{ backgroundColor: "#EDE9FE" }}
         onClick={(e) => {
           e.preventDefault();
           if (!(commentsOnly && !!comment)) {
@@ -64,30 +65,32 @@ function RevisionLogRow({
           }
         }}
       >
-        <h3 className="mb-0">
-          <>
-            {log.action} {log.subject}
-          </>
-        </h3>
-        {commentsOnly && !!comment ? (
-          <div>{openContent()}</div>
-        ) : (
+        <h4 className="mb-0" style={{ color: "#050549" }}>
+          {log.action} {log.subject}
+        </h4>
+        {!(commentsOnly && !!comment) && (
           <div className="ml-auto">
             {open ? <FaAngleDown /> : <FaAngleRight />}
           </div>
         )}
-        {}
       </div>
-      {open && openContent()}
-      <div className="d-flex">
-        {log.user?.type === "dashboard" && (
-          <div className="mr-2">
-            <Avatar email={log.user.email} size={20} />
+      <div className="p-3">
+        {commentsOnly && !!comment && (
+          <div className="mb-3 " style={{ color: "rgba(5, 5, 73, 0.65)" }}>
+            {openContent()}
           </div>
         )}
-        <div>
-          {log.user?.type === "dashboard" ? log.user.name : "API"}{" "}
-          <span className="text-muted">{ago(log.timestamp)}</span>
+        {open && openContent()}
+        <div className="d-flex">
+          {log.user?.type === "dashboard" && (
+            <div className="mr-2">
+              <Avatar email={log.user.email} size={20} />
+            </div>
+          )}
+          <div>
+            {log.user?.type === "dashboard" ? log.user.name : "API"}{" "}
+            <span className="text-muted">{ago(log.timestamp)}</span>
+          </div>
         </div>
       </div>
     </div>

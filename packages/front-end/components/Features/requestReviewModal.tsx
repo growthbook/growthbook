@@ -9,6 +9,7 @@ import {
   TextArea,
   Text,
   Checkbox,
+  Heading,
 } from "@radix-ui/themes";
 import { useForm } from "react-hook-form";
 import { ReviewSubmittedType } from "@/../back-end/src/models/FeatureRevisionModel";
@@ -174,7 +175,7 @@ export default function RequestReviewModal({
         close={close}
         autoCloseOnSubmit={canReview ? false : true}
         closeCta="Cancel"
-        size="md"
+        size="lg"
         submit={
           !isPendingReview || canReview || approved ? submitButton : undefined
         }
@@ -226,9 +227,10 @@ export default function RequestReviewModal({
               </Callout.Text>
             </Callout.Root>
             {canPublish && (
-              <Text as="label" size="2" className="mt-2">
+              <Text as="label" size="2" className="mt-3">
                 <Flex gap="2">
                   <Checkbox
+                    checked={adminPublish}
                     onCheckedChange={(checkedState) => {
                       checkedState === "indeterminate"
                         ? setAdminPublish(false)
@@ -241,25 +243,35 @@ export default function RequestReviewModal({
               </Text>
             )}
             <div className="list-group mb-4 mt-4">
+              <Heading size="4" mb="3">
+                Diffs by Enviroment
+              </Heading>
               {resultDiffs.map((diff) => (
                 <ExpandableDiff {...diff} key={diff.title} />
               ))}
             </div>
+            <Heading size="4" mb="3">
+              Change Request Log
+            </Heading>
+
             <Revisionlog
               feature={feature}
               revision={revision}
               commentsOnly={true}
             />
             {hasPermission && !isPendingReview && (
-              <Field
-                label="Add a Comment (optional)"
-                textarea
-                placeholder="Summary of changes..."
-                value={comment}
-                onChange={(e) => {
-                  setComment(e.target.value);
-                }}
-              />
+              <div className="mt-3">
+                <Field
+                  className=""
+                  label="Add a Comment (optional)"
+                  textarea
+                  placeholder="Summary of changes..."
+                  value={comment}
+                  onChange={(e) => {
+                    setComment(e.target.value);
+                  }}
+                />
+              </div>
             )}
           </div>
         )}
@@ -273,8 +285,8 @@ export default function RequestReviewModal({
         open={true}
         close={close}
         header={"Review Draft Changes"}
-        cta={"submit"}
-        size="md"
+        cta={"Submit"}
+        size="lg"
         includeCloseCta={false}
         submit={submitReviewform.handleSubmit(async (data) => {
           try {
@@ -309,12 +321,13 @@ export default function RequestReviewModal({
             <TextArea
               placeholder="leave a comment"
               mb="5"
+              mt="3"
               {...submitReviewform.register("comment")}
             />
           </Text>
           <RadioGroup.Root
             defaultValue="Comment"
-            size="3"
+            size="2"
             onChange={(e: ChangeEvent<HTMLInputElement>) => {
               if (e.target.checked) {
                 submitReviewform.setValue(
@@ -328,7 +341,7 @@ export default function RequestReviewModal({
               <Flex gap="2">
                 <RadioGroup.Item value="Comment" />
                 <div>
-                  <Text as="div" size="3" weight="bold">
+                  <Text as="div" size="2" weight="bold">
                     Comment
                   </Text>
                   <Text as="div" size="2">
@@ -339,7 +352,7 @@ export default function RequestReviewModal({
               <Flex gap="2">
                 <RadioGroup.Item value="Requested Changes" />
                 <div>
-                  <Text as="div" size="3" weight="bold">
+                  <Text as="div" size="2" weight="bold">
                     Request Changes
                   </Text>
                   <Text as="div" size="2">
@@ -350,7 +363,7 @@ export default function RequestReviewModal({
               <Flex gap="2">
                 <RadioGroup.Item value="Approved" />
                 <div>
-                  <Text as="div" size="3" weight="bold">
+                  <Text as="div" size="2" weight="bold">
                     Approve
                   </Text>
                   <Text as="div" size="2">

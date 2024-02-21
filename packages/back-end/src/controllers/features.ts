@@ -61,6 +61,7 @@ import {
   discardRevision,
   getRevision,
   getRevisions,
+  getRevisionsByStatus,
   hasDraft,
   markRevisionAsPublished,
   markRevisionAsReviewRequested,
@@ -533,15 +534,19 @@ export async function postFeatureRequestReview(
   >,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { id, version } = req.params;
   const { comment } = req.body;
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
 
-  const revision = await getRevision(org.id, feature.id, parseInt(version));
+  const revision = await getRevision(
+    context.org.id,
+    feature.id,
+    parseInt(version)
+  );
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
@@ -564,15 +569,19 @@ export async function postFeatureReviewOrComment(
   >,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { id, version } = req.params;
   const { comment, review } = req.body;
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
 
-  const revision = await getRevision(org.id, feature.id, parseInt(version));
+  const revision = await getRevision(
+    context.org.id,
+    feature.id,
+    parseInt(version)
+  );
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
@@ -630,7 +639,7 @@ export async function postFeaturePublish(
   ) {
     throw new Error("review Required before publishing");
   }
-  if (revision.status !== "draft") {
+  if (!org.settings?.requireReviews && revision.status !== "draft") {
     throw new Error("Can only publish Draft revisions");
   }
 
@@ -1307,6 +1316,34 @@ export async function postFeatureMoveRule(
   res.status(200).json({
     status: 200,
     version: revision.version,
+  });
+}
+export async function getDraftandReviewRevisions(
+  req: AuthRequest,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const revisions = await getRevisionsByStatus(context, [
+    "draft",
+    "approved",
+    "changes-requested",
+    "pending-review",
+  ]);
+  const featuresAndRevisions: {
+    revision: FeatureRevisionInterface;
+    feature: FeatureInterface | null;
+  }[] = [];
+
+  for (const r of revisions) {
+    const feature = await getFeature(context, r.featureId);
+    featuresAndRevisions.push({
+      revision: r,
+      feature,
+    });
+  }
+  res.status(200).json({
+    status: 200,
+    featuresAndRevisions,
   });
 }
 

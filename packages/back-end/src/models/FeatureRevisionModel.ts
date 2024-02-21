@@ -6,6 +6,7 @@ import {
   RevisionLog,
 } from "../../types/feature-revision";
 import { EventAuditUser, EventAuditUserLoggedIn } from "../events/event-types";
+import { ReqContext } from "../../types/organization";
 import { migrateToApproved, migrateToPendingReview } from "./FeatureModel";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
@@ -41,6 +42,7 @@ featureRevisionSchema.index(
   { organization: 1, featureId: 1, version: 1 },
   { unique: true }
 );
+featureRevisionSchema.index({ organization: 1, status: 1 });
 
 type FeatureRevisionDocument = mongoose.Document & FeatureRevisionInterface;
 
@@ -135,6 +137,23 @@ export async function getRevision(
   });
 
   return doc ? toInterface(doc) : null;
+}
+
+export async function getRevisionsByStatus(
+  context: ReqContext,
+  statuses: string[] // Pick<FeatureRevisionInterface, "status">[]
+) {
+  const revisions = await FeatureRevisionModel.find({
+    id: context.org.id,
+    status: { $in: statuses },
+  });
+  const docs = revisions
+    .filter((r) => !!r)
+    .map((r) => {
+      return toInterface(r);
+    });
+
+  return docs;
 }
 
 export async function createInitialRevision(
@@ -360,6 +379,7 @@ export async function markRevisionAsReviewRequested(
         publishedBy: user,
         datePublished: null,
         dateUpdated: null,
+        comment: comment,
       },
       $push: {
         log,
