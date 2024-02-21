@@ -7,10 +7,7 @@ import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { ReactElement, useState } from "react";
 import { FaChevronRight } from "react-icons/fa";
 import { hasVisualChanges } from "shared/util";
-import {
-  ChecklistTask,
-  ExperimentLaunchChecklistInterface,
-} from "back-end/types/experimentLaunchChecklist";
+import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
 import Link from "next/link";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
@@ -22,30 +19,11 @@ import Tooltip from "../Tooltip/Tooltip";
 
 type CheckListItem = {
   display: string | ReactElement;
-  status?: "error" | "success";
+  status: "complete" | "incomplete";
   tooltip?: string | ReactElement;
   key?: string;
   type: "auto" | "manual";
 };
-
-function isChecklistItemComplete(
-  checklistTask: ChecklistTask,
-  experiment: ExperimentInterfaceStringDates
-): boolean {
-  if (!checklistTask.propertyKey) return false;
-  switch (checklistTask.propertyKey) {
-    case "hypothesis":
-      return !!experiment.hypothesis;
-    case "screenshots":
-      return experiment.variations.every((v) => !!v.screenshots.length);
-    case "description":
-      return !!experiment.description;
-    case "project":
-      return !!experiment.project;
-    case "tag":
-      return experiment.tags?.length > 0;
-  }
-}
 
 export function PreLaunchChecklist({
   experiment,
@@ -82,30 +60,9 @@ export function PreLaunchChecklist({
 
   const checklist: CheckListItem[] = [];
 
-  checklist.push({
-    type: "manual",
-    key: "sdk-connection",
-    display: (
-      <div>
-        Verify your app is passing both<code> attributes </code>
-        and a <code> trackingCallback </code>into the GrowthBook SDK
-      </div>
-    ),
-  });
-  checklist.push({
-    type: "manual",
-    key: "metrics-tracked",
-    display: (
-      <>
-        Verify your app is tracking events for all of the metrics that you plan
-        to include in the analysis
-      </>
-    ),
-  });
-
   const { data } = useApi<{ checklist: ExperimentLaunchChecklistInterface }>(
     "/experiments/launch-checklist"
-  );
+  ); //TODO: Can I memoize this?
 
   if (experiment.status !== "draft") return null;
 
@@ -133,7 +90,7 @@ export function PreLaunchChecklist({
         .
       </>
     ),
-    status: hasLinkedChanges ? "success" : "error",
+    status: hasLinkedChanges ? "complete" : "incomplete",
     type: "auto",
   });
 
@@ -146,7 +103,7 @@ export function PreLaunchChecklist({
           !Object.values(f.environmentStates || {}).some((s) => s === "active"))
     );
     checklist.push({
-      status: hasFeatureFlagsErrors ? "error" : "success",
+      status: hasFeatureFlagsErrors ? "incomplete" : "complete",
       type: "auto",
       display: (
         <>
@@ -195,7 +152,7 @@ export function PreLaunchChecklist({
           .
         </>
       ),
-      status: hasSomeVisualChanges ? "success" : "error",
+      status: hasSomeVisualChanges ? "complete" : "incomplete",
       type: "auto",
     });
   }
@@ -254,16 +211,78 @@ export function PreLaunchChecklist({
         variation assignment and targeting behavior.
       </>
     ),
-    status: hasPhases ? "success" : "error",
+    status: hasPhases ? "complete" : "incomplete",
     type: "auto",
+  });
+
+  function isChecklistItemComplete(
+    type: "auto" | "manual",
+    key: string
+  ): boolean {
+    if (type === "auto") {
+      if (!key) return false;
+      switch (key) {
+        case "hypothesis":
+          return !!experiment.hypothesis;
+        case "screenshots":
+          return experiment.variations.every((v) => !!v.screenshots.length);
+        case "description":
+          return !!experiment.description;
+        case "project":
+          return !!experiment.project;
+        case "tag":
+          return experiment.tags?.length > 0;
+      }
+    }
+
+    const index = manualChecklistStatus.findIndex(
+      (task) => task.key === key //TODO: Is this correct?
+    );
+
+    if (index === -1 || !manualChecklistStatus[index]) {
+      return false;
+    }
+
+    return manualChecklistStatus[index].status === "complete";
+  }
+
+  checklist.push({
+    type: "manual",
+    key: "sdk-connection",
+    status: isChecklistItemComplete("manual", "sdk-connection")
+      ? "complete"
+      : "incomplete",
+    display: (
+      <div>
+        Verify your app is passing both<code> attributes </code>
+        and a <code> trackingCallback </code>into the GrowthBook SDK
+      </div>
+    ),
+  });
+  checklist.push({
+    type: "manual",
+    key: "metrics-tracked",
+    status: isChecklistItemComplete("manual", "metrics-tracked")
+      ? "complete"
+      : "incomplete",
+    display: (
+      <>
+        Verify your app is tracking events for all of the metrics that you plan
+        to include in the analysis
+      </>
+    ),
   });
 
   if (data && data.checklist?.tasks?.length > 0) {
     data?.checklist.tasks.forEach((item) => {
+      console.log("item from backend", item);
       if (item.completionType === "manual") {
         checklist.push({
           type: "manual",
           key: item.task,
+          status: isChecklistItemComplete("manual", item.task)
+            ? "complete"
+            : "incomplete",
           display: item.url ? (
             <a href={item.url} target="_blank" rel="noreferrer">
               {item.task}
@@ -277,26 +296,14 @@ export function PreLaunchChecklist({
       if (item.completionType === "auto" && item.propertyKey) {
         checklist.push({
           display: <>{item.task}</>,
-          status: isChecklistItemComplete(item, experiment)
-            ? "success"
-            : "error",
+          status: isChecklistItemComplete("auto", item.propertyKey)
+            ? "complete"
+            : "incomplete",
           type: "auto",
         });
       }
     });
   }
-
-  const isTaskCompleted = (currentTask: string) => {
-    const index = manualChecklistStatus.findIndex(
-      (task) => task.key === currentTask
-    );
-
-    if (index === -1 || !manualChecklistStatus[index]) {
-      return false;
-    }
-
-    return manualChecklistStatus[index].status === "complete";
-  };
 
   async function updateTaskStatus(checked: boolean, key: string | undefined) {
     if (!key) return;
@@ -321,6 +328,7 @@ export function PreLaunchChecklist({
     }
     setManualChecklistStatus(updatedManualChecklistStatus);
     try {
+      // Updates the experiment's manual checklist and logs the event to the audit log
       await apiCall(`/experiment/${experiment.id}/launch-checklist`, {
         method: "PUT",
         body: JSON.stringify({
@@ -337,10 +345,13 @@ export function PreLaunchChecklist({
   function itemsRemainingBadge(): ReactElement {
     let itemsRemaining = 0;
     checklist.forEach((item) => {
-      if (item.status === "error" || (item.key && !isTaskCompleted(item.key))) {
+      if (
+        item.status === "incomplete" ||
+        (item.key && !isChecklistItemComplete(item.type, item.key))
+      ) {
         itemsRemaining++;
       }
-      if (item.status === "error") {
+      if (item.status === "complete") {
         itemsRemaining++;
       }
     });
@@ -405,7 +416,7 @@ export function PreLaunchChecklist({
         </div>
         {checkListOpen ? (
           <div className="row border-top pt-2 mt-2">
-            <div className="col-auto text-left">
+            <div className="col-auto text-left mt-2">
               <ul style={{ fontSize: "1.1em" }} className="ml-0 pl-0">
                 {checklist.map((item, i) => (
                   <li
@@ -418,22 +429,20 @@ export function PreLaunchChecklist({
                   >
                     <div className="d-flex align-items-center">
                       <Tooltip
-                        body="GrowthBook will mark this task as complete when the required conditions are met."
-                        shouldDisplay={item.status === "error"}
+                        body="GrowthBook calculates the completion of this task automatically."
+                        shouldDisplay={item.type === "auto"}
                       >
                         <input
                           type="checkbox"
                           disabled={
                             (item.type === "manual" && updatingChecklist) ||
-                            (item.type === "auto" && item.status === "error")
+                            (item.type === "auto" &&
+                              item.status === "incomplete")
                           }
                           className="ml-0 pl-0 mr-2 "
-                          checked={
-                            item.status === "success" ||
-                            (item.key && isTaskCompleted(item.key)) ||
-                            false
-                          }
+                          checked={item.status === "complete"}
                           onChange={async (e) => {
+                            console.log("item", item);
                             updateTaskStatus(e.target.checked, item.key);
                           }}
                         />
@@ -441,7 +450,9 @@ export function PreLaunchChecklist({
                       <span
                         style={{
                           textDecoration:
-                            item.status === "success" ? "line-through" : "none",
+                            item.status === "complete"
+                              ? "line-through"
+                              : "none",
                         }}
                       >
                         {item.display}
