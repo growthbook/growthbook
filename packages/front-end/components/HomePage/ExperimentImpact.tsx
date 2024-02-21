@@ -21,10 +21,11 @@ import ResultsIndicator from "../Experiment/ResultsIndicator";
 import ExperimentStatusIndicator from "../Experiment/TabbedPage/ExperimentStatusIndicator";
 import { Group } from "@visx/group";
 import { Circle } from "@visx/shape";
-import { scaleLinear } from "@visx/scale";
+import { scaleLinear, scaleTime } from "@visx/scale";
 import { ParentSizeModern } from "@visx/responsive";
-import { GridColumns } from "@visx/grid";
-import { AxisBottom } from "@visx/axis";
+import { GridColumns, GridRows } from "@visx/grid";
+import { AxisBottom, AxisLeft } from "@visx/axis";
+import MetricSelector from "../Experiment/MetricSelector";
 
 type group = "project" | "tag";
 
@@ -32,6 +33,13 @@ const noneString = "%__none__%";
 const scaledImpactFormatter = Intl.NumberFormat(undefined, {
   notation: "compact"
 })
+
+function jamesSteinAdjustment(effects: number[], se: number) {
+  const Ne = effects.length;
+  const mean = effects.reduce((a, b) => a + b, 0) / Ne;
+  const adj = (Ne - 2) * Math.pow(se, 2) / effects.reduce((a, b) => a + Math.pow(b - mean, 2), 0);
+  return {mean: mean, adjustment: adj};
+}
 
 export default function ExperimentImpact({
   experiments,
@@ -81,53 +89,37 @@ export default function ExperimentImpact({
     return <>Loading</>;
   }
   type ExperimentImpact = {
-    controlUnits: number;
+    endDate: Date;
     scaledImpact: number[];
+    scaledImpactAdjusted: number[];
     scaledImpactSE: number[];
     units: number[];
     selected: boolean[];
   };
-  type OverallImpact = {
-    uniqueExperiments: string[];
-    experiments: string[];
-    effects: number[];
-    ses: number[];
-    units: number[];
-    selected: boolean[];
-  };
-  type ImpactAnalysis = {
-    all: OverallImpact;
-    groups: Map<string, OverallImpact>;
-  };
 
-  const experimentImpacts = new Map<
-    string,
-    { impact: ExperimentImpact; experiment: ExperimentInterfaceStringDates }
-  >();
-  const impactAnalyses: ImpactAnalysis = {
-    all: {
-      uniqueExperiments: [],
-      experiments: [],
-      effects: [],
-      ses: [],
-      units: [],
-      selected: [],
-    },
-    groups: new Map<string, OverallImpact>(),
-  };
-
+  type ExperimentWithImpact = {
+    impact?: ExperimentImpact; experiment: ExperimentInterfaceStringDates
+  }
+  const experimentImpacts = new Map<string, ExperimentWithImpact>();
+  console.log(exps);
+  let plot: JSX.Element | null = null;
   if (snapshots && exps) {
+    let maxUnits = 0;
+    let overallSE: number | null = null;
+    let scaledImpacts: number[] = [];
     exps.forEach((e) => {
       const s = snapshots.find((s) => s.experiment === e.id);
-
-      const obj: ExperimentImpact = {
-        controlUnits: 0,
-        scaledImpact: [],
-        scaledImpactSE: [],
-        selected: [],
-        units: []
-      };
+      console.log(s)
+      const ei: ExperimentWithImpact = {experiment: e};
       if (s) {
+        const obj: ExperimentImpact = {
+          endDate: s.settings.endDate,
+          scaledImpact: [],
+          scaledImpactAdjusted: [],
+          scaledImpactSE: [],
+          selected: [],
+          units: []
+        };
         const defaultSettings = getSnapshotAnalysis(s)?.settings;
         const scaledAnalysis = defaultSettings
           ? getSnapshotAnalysis(s, {
@@ -140,148 +132,111 @@ export default function ExperimentImpact({
           // no dim so always one row:
           const res = scaledAnalysis.results[0];
           res.variations.forEach((v, i) => {
-            if (i === 0) {
-              obj.controlUnits = v.users;
-            }
-            // TODO what if control is winner?
-            else {
+            if (i !== 0) {
+              // TODO what if control is winner?
               // TODO effect of adding all branches?
-              obj.scaledImpact.push(v?.metrics[metric]?.expected ?? 0);
-              obj.scaledImpactSE.push(v?.metrics[metric]?.uplift?.stddev ?? 0);
+              const se = v?.metrics[metric]?.uplift?.stddev ?? 0;
+              const impact = v?.metrics[metric]?.expected ?? 0;
+              obj.scaledImpact.push(impact);
+              scaledImpacts.push(impact)
+              obj.scaledImpactSE.push(se);
               obj.selected.push(e.winner === i);
-              obj.units.push(v.users);
+              const totalUnits = v.users + res.variations[0].users;
+              if (totalUnits > maxUnits && se > 0) {
+                overallSE = se;
+              }
+              obj.units.push(v.users + res.variations[0].users);       
             }
           });
         }
-
-        let groups = e.project ? [e.project] : [noneString];
-        if (group === "tag") {
-          groups = e.tags.length ? e.tags : [noneString];
-        }
-        //const project = e.project || "%__none__%";
-        impactAnalyses.all.uniqueExperiments.push(e.id);
-        impactAnalyses.all.experiments = impactAnalyses.all.experiments.concat(
-          Array(obj.scaledImpact.length).fill(e.id)
-        );
-        impactAnalyses.all.effects = impactAnalyses.all.effects.concat(
-          obj.scaledImpact
-        );
-        impactAnalyses.all.ses = impactAnalyses.all.ses.concat(
-          obj.scaledImpactSE
-        );
-        impactAnalyses.all.units = impactAnalyses.all.units.concat(
-          obj.units.map((u) => u + obj.controlUnits)
-        )
-        impactAnalyses.all.selected = impactAnalyses.all.selected.concat(
-          obj.selected
-        );
-        groups.forEach((g) => {
-          const analysis = impactAnalyses.groups.get(g);
-          if (analysis) {
-            analysis.uniqueExperiments.push(e.id);
-            analysis.experiments = analysis.experiments.concat(
-              Array(obj.scaledImpact.length).fill(e.id)
-            );
-            analysis.effects = analysis.effects.concat(obj.scaledImpact);
-            analysis.ses = analysis.ses.concat(obj.scaledImpactSE);
-            analysis.selected = analysis.selected.concat(obj.selected);
-          } else {
-            impactAnalyses.groups.set(g, {
-              uniqueExperiments: [e.id],
-              experiments: Array(obj.scaledImpact.length).fill(e.id),
-              effects: obj.scaledImpact,
-              ses: obj.scaledImpactSE,
-              units: obj.units.map((u) => u + obj.controlUnits),
-              selected: obj.selected,
-            });
-          }
-        });
+        ei.impact = obj;
       }
-      experimentImpacts.set(e.id, { impact: obj, experiment: e });
-    });
-  }
-  const impacts: React.ReactElement[] = [];
-  impactAnalyses.groups.forEach((value, key) => {
-    // let selected = 0;
-    // let impact = 0;
-    // let bias = 0;
-    // TODO just get SE above
-    const se = value.ses[value.units.indexOf(Math.max(...value.units)) ?? 0]
-    const adj = (value.effects.length  - 2) * Math.pow(se, 2) / value.effects.reduce((a, b) => a + Math.pow(b, 2), 0);
-    const adjEstimates = value.effects.map((e) => e * adj);
-    const selected = value.selected.filter((s) => s).length;
-    const impact = value.effects.filter((_, i) => value.selected[i]).reduce((a, b) => a + b, 0);
-    const adjImpact = adjEstimates.filter((_, i) => value.selected[i]).reduce((a, b) => a + b, 0);
-    //value.effects.forEach((e, i) => {
-      // console.log("numbers")
-      // console.log(se);
-      // console.log(e);
-      // console.log((se * 0.6744897501960817 - e) / se);
-      // bias += (se === 0 ? 0 : se * normal.pdf((se * 0.6744897501960817 - e) / se, 0, 1));
-    //});
-    //     <div className="px-3 py-3 row  text-dark">
-    // <div className="col-auto d-flex align-items-center  text-dark">
-    // <div>{key},</div>
-    //   <div>{value.uniqueExperiments.length},</div>
-    //   <div>{selected},</div>
-    //   <div>{impact},</div>
-    //   <div>{impact - bias}</div>
-    //   <FaAngleRight className="chevron" />
-    //   </div>
-    //   </div>
+      experimentImpacts.set(e.id, ei);
 
-    const min = Math.min(...value.effects);
-    const max = Math.max(...value.effects);
-    const data1 = value.effects.map((e, i) => {
-      return { x: e, y: Math.random() / 10 };
     });
+
+    const adjustment = jamesSteinAdjustment(scaledImpacts, overallSE ?? 0);
+
+    let minImpact = 0;
+    let maxImpact = 0;
+    let totalImpact = 0;
+    let totalAdjustedImpact = 0;
+    let selected = 0;
+    let experiments = 0;
+    let data: {y: number, x: Date}[] = [];
+    for (const [eid, e] of experimentImpacts.entries()) {
+      if (e.impact) {
+        const adjustedImpacts: number[] = [];
+        e.impact.scaledImpact.forEach((si, i) => {
+          const adjustedImpact = adjustment.mean + adjustment.adjustment * (si - adjustment.mean);
+          if (si < minImpact) {
+            minImpact = si;
+          }
+          if (si > maxImpact) {
+            maxImpact = si;
+          }
+          adjustedImpacts.push(adjustedImpact);
+          if (e.impact?.selected[i]) {
+            selected++;
+            totalImpact += si;
+            totalAdjustedImpact += adjustedImpact;
+          }
+          data.push({y: si, x: e.impact?.endDate ?? new Date()});
+        });
+        experiments++;
+        e.impact.scaledImpactAdjusted = adjustedImpacts;
+      }
+    }
 
     const accessors = {
       xAccessor: (d) => d.x,
       yAccessor: (d) => d.y,
     };
-    impacts.push(<>
-      <div className="border bg-light my-2">
+      // Get x-axis domain
+    const min = Math.min(...data.map((d) => new Date(d.x).getTime()));
+    const max = Math.max(...data.map((d) => new Date(d.x).getTime()));
+    console.log(min);
+    console.log(max);
+    plot = (<>
+      <div>
         <div className="px-3 py-3 row align-items-center">
-                  <div className="w-20">{group.toLocaleUpperCase()}: {key}</div>
                   <div className="w-25 align-items-center">
                     <div className="text-center">Total Experiments:</div>
                     <div className="text-center">Experiments</div>
-                    <div className="text-center">Completed: {value.uniqueExperiments.length} Launched: {selected}</div>
+                    <div className="text-center">Completed: {experiments} Launched: {selected}</div>
                   </div>
                   <div className="w-25 align-items-center">
                     <div className="text-center">Summed Scaled Impact</div>
-                    <div className="text-center">{formatter(impact, formatterOptions)}</div>
+                    <div className="text-center">{formatter(totalImpact, formatterOptions)}</div>
                   </div>
                   <div className="w-25 align-items-center">
                     <div className="text-center">Adjusted Scaled Impact</div>
-                    <div className="text-center">{formatter(adjImpact, formatterOptions)}</div>
+                    <div className="text-center">{formatter(totalAdjustedImpact, formatterOptions)}</div>
                   </div>
                   
             </div>
             <ParentSizeModern style={{ position: "relative" }}>
         {({ width }) => {
-          const height = 50;
-          const yMax = height;
-          const xMax = width;
-          const graphHeight = yMax;
-          const margin = [-20, -30, -30, -30];
+          const margin = [15, 15, 50, 80];
+          const height = 200;
+          const yMax = height - margin[0] - margin[2];
+          const xMax = width - margin[1] -  margin[3];
 
           // TODO always include 0
-          const xScale = scaleLinear({
-            domain: [min, max],
-            range: [0, xMax],
+          const yScale = scaleLinear<number>({
+            domain: [minImpact, maxImpact],
+            range: [yMax, 0],
             round: true,
           });
-          const yScale = scaleLinear<number>({
-            domain: [-0.1, 1.2],
-            range: [graphHeight, 0],
+          const xScale = scaleTime({
+            domain: [min, max],
+            range: [0, xMax],
             round: true,
           });
 
 
           const numXTicks = 10;
-
+          console.log(data);
           return (
             <>
               <svg width={width} height={height}>
@@ -292,10 +247,26 @@ export default function ExperimentImpact({
                   stroke="var(--border-color-200)"
                   height={yMax}
                 />
-                {data1.map((d, i) => <Circle key={i} cx={xScale(d.x)} cy={yScale(d.y)} r={5} fill="black" />)}
+                <GridRows
+                  scale={yScale}
+                  width={xMax}
+                  stroke="var(--border-color-200)"
+                />
+                {data.map((d, i) => <Circle key={i} cx={xScale(d.x)} cy={yScale(d.y)} r={5} fill="black" />)}
                 <AxisBottom
                   top={yMax}
                   scale={xScale}
+                  tickLength={5}
+                  tickLabelProps={() => ({
+                    fill: "var(--text-color-table)",
+                    fontSize: 11,
+                    textAnchor: "middle",
+                  })}
+                  label={"Experiment End Date"}
+                  labelClassName="h5"
+                />
+                <AxisLeft
+                  scale={yScale}
                   tickLength={5}
                   tickLabelProps={() => ({
                     fill: "var(--text-color-table)",
@@ -313,8 +284,8 @@ export default function ExperimentImpact({
       </ParentSizeModern>
 
           </div>
-</>);
-  });
+  </>);
+  }
   return (
     <div>
       <div className="d-flex w-100">
@@ -322,31 +293,11 @@ export default function ExperimentImpact({
         <span>
             Metric:{" "} {/*TODO METRIC SELECTOR*/}
           </span>
-          <SelectField
+          <MetricSelector
+            initialOption="None"
             value={metric}
-            onChange={(m) => setMetric(m)}
-            options={metrics.map((m) => {
-              return {
-                value: m.id,
-                label: m.name,
-              };
-            })}
-          />
-        </div>
-        <div className="mb-2 mx-2 form-inline">
-        <span>
-            Group By:{" "}
-          </span>
-          <SelectField
-            value={group}
-            onChange={(g) => setGroup(g as group)}
-            options={[
-              {value: "project",
-            label: "Project"},
-            {value: "tag",
-            label: "Tag"}
-            ]
-            }
+            onChange={(metric) => setMetric(metric)}
+            includeFacts={true}
           />
         </div>
         <div className="mb-3">
@@ -354,7 +305,7 @@ export default function ExperimentImpact({
         </div>
       </div>
       <div>
-                    {impacts}
+                    {plot}
           </div>
       {/*<ul className="list-unstyled simple-divider ">
        {exps.map((test, i) => {
