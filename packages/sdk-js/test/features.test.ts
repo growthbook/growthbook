@@ -532,4 +532,402 @@ describe("features", () => {
 
     growthbook.destroy();
   });
+
+  it("gates flag rule evaluation on prerequisite flag", async () => {
+    const growthbook = new GrowthBook({
+      attributes: {
+        id: "123",
+        memberType: "basic",
+        country: "USA",
+      },
+      features: {
+        parentFlag: {
+          defaultValue: "silver",
+          rules: [
+            {
+              condition: { country: "Canada" },
+              force: "red",
+            },
+            {
+              condition: { country: { $in: ["USA", "Mexico"] } },
+              force: "green",
+            },
+          ],
+        },
+        childFlag: {
+          defaultValue: "default",
+          rules: [
+            {
+              // Bailout (fail) if the parent flag value is not "green"
+              parentConditions: [
+                {
+                  id: "parentFlag",
+                  condition: { value: "green" },
+                  gate: true,
+                },
+              ],
+            },
+            {
+              condition: { memberType: "basic" },
+              force: "success",
+            },
+          ],
+        },
+        childFlagWithMissingPrereq: {
+          defaultValue: "default",
+          rules: [
+            {
+              // Bailout (fail) if the parent flag value is not "green"
+              parentConditions: [
+                {
+                  id: "missingParentFlag",
+                  condition: { value: "green" },
+                  gate: true,
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+
+    const missingResult = growthbook.evalFeature("childFlagWithMissingPrereq");
+    expect(missingResult.value).toEqual(null);
+
+    const result1 = growthbook.evalFeature("childFlag");
+    expect(result1.value).toEqual("success");
+
+    growthbook.setAttributes({
+      id: "123",
+      memberType: "basic",
+      country: "Canada",
+    });
+
+    const result2 = growthbook.evalFeature("childFlag");
+    expect(result2.value).toEqual(null);
+
+    growthbook.destroy();
+  });
+
+  it("gates experiment rule evaluation on prerequisite flag", async () => {
+    const growthbook = new GrowthBook({
+      attributes: {
+        id: "1",
+        country: "USA",
+      },
+      features: {
+        parentFlag: {
+          defaultValue: "silver",
+          rules: [
+            {
+              condition: { country: "Canada" },
+              force: "red",
+            },
+            {
+              condition: { country: { $in: ["USA", "Mexico"] } },
+              force: "green",
+            },
+          ],
+        },
+      },
+      experiments: [
+        {
+          key: "childExperiment",
+          variations: [{}, {}],
+          meta: [
+            {
+              key: "v0",
+              name: "variation 0",
+            },
+            {
+              key: "v1",
+              name: "variation 1",
+            },
+          ],
+          parentConditions: [
+            {
+              id: "parentFlag",
+              condition: { value: "green" },
+            },
+          ],
+        },
+      ],
+    });
+
+    const exp = growthbook.getExperiments()[0];
+    const result1 = growthbook.run(exp);
+    expect(result1.variationId).toEqual(1);
+
+    growthbook.setAttributes({
+      id: "123",
+      memberType: "basic",
+      country: "Canada",
+    });
+
+    const result2 = growthbook.run(exp);
+    expect(result2.variationId).toEqual(0);
+
+    growthbook.destroy();
+  });
+
+  it("gates flag rule evaluation on prerequisite experiment flag", async () => {
+    const growthbook = new GrowthBook({
+      attributes: {
+        id: "1234",
+        memberType: "basic",
+        country: "USA",
+      },
+      features: {
+        parentExperimentFlag: {
+          defaultValue: 0,
+          rules: [
+            {
+              key: "experiment",
+              variations: [0, 1],
+              hashAttribute: "id",
+              hashVersion: 2,
+              ranges: [
+                [0, 0.5],
+                [0.5, 1.0],
+              ],
+            },
+          ],
+        },
+        childFlag: {
+          defaultValue: "default",
+          rules: [
+            {
+              // Bailout (fail) if the parent flag value is not 1
+              parentConditions: [
+                {
+                  id: "parentExperimentFlag",
+                  condition: { value: 1 },
+                  gate: true,
+                },
+              ],
+            },
+            {
+              condition: { memberType: "basic" },
+              force: "success",
+            },
+          ],
+        },
+      },
+    });
+
+    const result1 = growthbook.evalFeature("childFlag");
+    expect(result1.value).toEqual("success");
+
+    growthbook.destroy();
+  });
+
+  it("conditionally applies a force rule based on prerequisite targeting", async () => {
+    const growthbook = new GrowthBook({
+      attributes: {
+        id: "123",
+        memberType: "basic",
+        otherGatingProperty: "allow",
+        country: "USA",
+      },
+      features: {
+        parentFlag: {
+          defaultValue: "silver",
+          rules: [
+            {
+              condition: { country: "Canada" },
+              force: "red",
+            },
+            {
+              condition: { country: { $in: ["USA", "Mexico"] } },
+              force: "green",
+            },
+          ],
+        },
+        childFlag: {
+          defaultValue: "default",
+          rules: [
+            {
+              // Only apply force rule if parentConditions pass
+              parentConditions: [
+                {
+                  id: "parentFlag",
+                  condition: { value: "green" },
+                },
+              ],
+              condition: { otherGatingProperty: "allow" },
+              force: "dark mode",
+            },
+            {
+              condition: { memberType: "basic" },
+              force: "light mode",
+            },
+          ],
+        },
+      },
+    });
+
+    const result1 = growthbook.evalFeature("childFlag");
+    expect(result1.value).toEqual("dark mode");
+
+    growthbook.setAttributes({
+      id: "123",
+      memberType: "basic",
+      otherGatingProperty: "allow",
+      country: "Canada",
+    });
+
+    const result2 = growthbook.evalFeature("childFlag");
+    expect(result2.value).toEqual("light mode");
+
+    growthbook.setAttributes({
+      id: "123",
+      memberType: "basic",
+      otherGatingProperty: "deny",
+      country: "USA",
+    });
+
+    const result3 = growthbook.evalFeature("childFlag");
+    expect(result3.value).toEqual("light mode");
+
+    growthbook.destroy();
+  });
+
+  it("conditionally applies a force rule based on prerequisite JSON targeting", async () => {
+    const growthbook = new GrowthBook({
+      attributes: {
+        id: "123",
+        memberType: "basic",
+        country: "USA",
+      },
+      features: {
+        parentFlag: {
+          defaultValue: { foo: true, bar: {} },
+          rules: [
+            {
+              condition: { country: "Canada" },
+              force: { foo: true, bar: { color: "red" } },
+            },
+            {
+              condition: { country: { $in: ["USA", "Mexico"] } },
+              force: { foo: true, bar: { color: "green" } },
+            },
+          ],
+        },
+        childFlag: {
+          defaultValue: "default",
+          rules: [
+            {
+              // Only apply force rule if parentConditions pass
+              parentConditions: [
+                {
+                  id: "parentFlag",
+                  condition: { "value.bar.color": "green" },
+                },
+              ],
+              force: "dark mode",
+            },
+            {
+              condition: { memberType: "basic" },
+              force: "light mode",
+            },
+          ],
+        },
+        childFlag2: {
+          defaultValue: "default",
+          rules: [
+            {
+              // Only apply force rule if parentConditions pass
+              parentConditions: [
+                {
+                  id: "parentFlag",
+                  condition: { value: { $exists: true } },
+                },
+              ],
+              force: "dark mode",
+            },
+            {
+              condition: { memberType: "basic" },
+              force: "light mode",
+            },
+          ],
+        },
+      },
+    });
+
+    const result1a = growthbook.evalFeature("childFlag");
+    expect(result1a.value).toEqual("dark mode");
+
+    const result1b = growthbook.evalFeature("childFlag2");
+    expect(result1b.value).toEqual("dark mode");
+
+    growthbook.setAttributes({
+      id: "123",
+      memberType: "basic",
+      otherGatingProperty: "allow",
+      country: "Canada",
+    });
+
+    const result2 = growthbook.evalFeature("childFlag");
+    expect(result2.value).toEqual("light mode");
+
+    growthbook.destroy();
+  });
+
+  it("returns null when hitting a prerequisite cycle", async () => {
+    const growthbook = new GrowthBook({
+      attributes: {
+        id: "123",
+        memberType: "basic",
+        country: "USA",
+      },
+      features: {
+        parentFlag: {
+          defaultValue: "silver",
+          rules: [
+            {
+              parentConditions: [
+                {
+                  id: "childFlag",
+                  condition: { $not: { value: "success" } },
+                },
+              ],
+              force: null,
+            },
+            {
+              condition: { country: "Canada" },
+              force: "red",
+            },
+            {
+              condition: { country: { $in: ["USA", "Mexico"] } },
+              force: "green",
+            },
+          ],
+        },
+        childFlag: {
+          defaultValue: "default",
+          rules: [
+            {
+              parentConditions: [
+                {
+                  id: "parentFlag",
+                  condition: { $not: { value: "green" } },
+                },
+              ],
+              force: null,
+            },
+            {
+              condition: { memberType: "basic" },
+              force: "success",
+            },
+          ],
+        },
+      },
+    });
+
+    const result = growthbook.evalFeature("childFlag");
+    expect(result.value).toEqual(null);
+    expect(result.source).toEqual("cyclicPrerequisite");
+
+    growthbook.destroy();
+  });
 });

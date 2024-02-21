@@ -54,8 +54,6 @@ properties:
     type: number
   minBucketVersion:
     type: number
-  excludeBlockedBucketUsers:
-    type: boolean
   releasedVariationId:
     type: string
   excludeFromPayload:

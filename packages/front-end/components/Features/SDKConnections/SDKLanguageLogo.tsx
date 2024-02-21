@@ -8,10 +8,14 @@ import {
   SiJavascript,
   SiNodedotjs,
   SiPhp,
+  SiShopify,
+  SiWebflow,
+  SiWordpress,
 } from "react-icons/si";
 import { ReactElement } from "react";
 import { isSDKOutdated } from "shared/sdk-versioning";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
+import { BsFiletypeHtml } from "react-icons/bs";
 import { DocSection } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
@@ -24,8 +28,41 @@ export const languageMapping: Record<
     label: string;
     docs: DocSection;
     environment: LanguageEnvironment;
+    hideVersion?: boolean;
   }
 > = {
+  "nocode-shopify": {
+    Icon: SiShopify,
+    color: "#95BF47",
+    label: "Shopify",
+    docs: "shopify",
+    environment: "frontend",
+    hideVersion: true,
+  },
+  "nocode-wordpress": {
+    Icon: SiWordpress,
+    color: "#00749C",
+    label: "Wordpress",
+    docs: "wordpress",
+    environment: "frontend",
+    hideVersion: true,
+  },
+  "nocode-webflow": {
+    Icon: SiWebflow,
+    color: "#146EF5",
+    label: "Webflow",
+    docs: "webflow",
+    environment: "frontend",
+    hideVersion: true,
+  },
+  "nocode-other": {
+    Icon: BsFiletypeHtml,
+    color: "#777",
+    label: "Generic",
+    docs: "visual_editor",
+    environment: "frontend",
+    hideVersion: true,
+  },
   javascript: {
     Icon: SiJavascript,
     color: "#f7df1e",
@@ -116,6 +153,7 @@ export const languageMapping: Record<
     label: "Other",
     docs: "sdks",
     environment: "hybrid",
+    hideVersion: true,
   },
 };
 
@@ -132,13 +170,13 @@ export default function SDKLanguageLogo({
   titlePrefix?: string;
   version?: string;
 }) {
-  const { Icon, color, label } =
+  const { Icon, color, label, hideVersion } =
     languageMapping[language] || languageMapping["other"];
 
   const versionOutdated = isSDKOutdated(language, version);
 
   let versionText: ReactElement | null = null;
-  if (version !== undefined && language !== "other") {
+  if (version !== undefined && !hideVersion) {
     versionText = (
       <>
         <span className="text-info small ml-2">ver. {version || "0"}</span>

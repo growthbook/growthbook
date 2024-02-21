@@ -21,6 +21,7 @@ import Modal from "../components/Modal";
 import { DocLink } from "../components/DocLink";
 import Welcome from "../components/Auth/Welcome";
 import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
+import { LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
 
 export type UserOrganizations = { id: string; name: string }[];
 
@@ -31,7 +32,7 @@ export interface AuthContextValue {
   loading: boolean;
   logout: () => Promise<void>;
   apiCall: <T>(url: string | null, options?: RequestInit) => Promise<T>;
-  orgId?: string;
+  orgId: string | null;
   setOrgId?: (orgId: string) => void;
   organizations?: UserOrganizations;
   setOrganizations?: (orgs: UserOrganizations) => void;
@@ -51,7 +52,9 @@ export const AuthContext = React.createContext<AuthContextValue>({
     let x: any;
     return x;
   },
+  orgId: null,
 });
+
 export const useAuth = (): AuthContextValue => useContext(AuthContext);
 
 // Only run one refresh operation at a time
@@ -96,6 +99,25 @@ async function refreshToken() {
 }
 
 const isLocal = (url: string) => url.includes("localhost");
+
+const isUnregisteredCloudUser = () => {
+  if (!isCloud()) return false;
+
+  try {
+    const currentProject = window.localStorage.getItem(
+      LOCALSTORAGE_PROJECT_KEY
+    );
+    return currentProject === null;
+  } catch (_) {
+    return true;
+  }
+};
+
+const addCloudRegisterParam = (uri: string) => {
+  const url = new URL(uri);
+  url.searchParams.append("screen_hint", "signup");
+  return url.toString();
+};
 
 function getDetailedError(error: string): string | ReactElement {
   const curUrl = window.location.origin;
@@ -150,8 +172,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState("");
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
-  const [orgId, setOrgId] = useState<string>(null);
+  const [orgId, setOrgId] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<UserOrganizations>([]);
   const [
     specialOrg,
@@ -198,8 +219,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         } catch (e) {
           // ignore
         }
+
         // Don't need to confirm, just redirect immediately
-        window.location.href = resp.redirectURI;
+        if (isUnregisteredCloudUser()) {
+          window.location.href = addCloudRegisterParam(resp.redirectURI);
+        } else {
+          window.location.href = resp.redirectURI;
+        }
       }
     } else if ("showLogin" in resp) {
       setLoading(false);
@@ -402,7 +428,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
             method: "POST",
             credentials: "include",
           });
-          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
           setOrgId(null);
           setOrganizations([]);
           setSpecialOrg(null);

@@ -97,11 +97,15 @@ const DataSources: FC = () => {
                   {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                   {d?.projects?.length > 0 ? (
                     <ProjectBadges
+                      resourceType="data source"
                       projectIds={d.projects}
                       className="badge-ellipsis short align-middle"
                     />
                   ) : (
-                    <ProjectBadges className="badge-ellipsis short align-middle" />
+                    <ProjectBadges
+                      resourceType="data source"
+                      className="badge-ellipsis short align-middle"
+                    />
                   )}
                 </td>
                 {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Date | null' is not assignable t... Remove this comment to see the full error message */}

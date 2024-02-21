@@ -7,14 +7,14 @@ import { getFeatureValidator } from "../../validators/openapi";
 
 export const getFeature = createApiRequestHandler(getFeatureValidator)(
   async (req): Promise<GetFeatureResponse> => {
-    const feature = await getFeatureDB(req.organization.id, req.params.id);
+    const feature = await getFeatureDB(req.context, req.params.id);
     if (!feature) {
       throw new Error("Could not find a feature with that key");
     }
 
     const groupMap = await getSavedGroupMap(req.organization);
     const experimentMap = await getExperimentMapForFeature(
-      req.organization.id,
+      req.context,
       feature.id
     );
     return {

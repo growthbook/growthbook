@@ -68,7 +68,7 @@ export const TRAFFIC_QUERY_NAME = "traffic";
 
 export const MAX_METRICS_PER_QUERY = 20;
 
-function getFactMetricGroup(metric: FactMetricInterface) {
+export function getFactMetricGroup(metric: FactMetricInterface) {
   // Ratio metrics must have the same numerator and denominator fact table to be grouped
   if (isRatioMetric(metric)) {
     if (metric.numerator.factTableId !== metric.denominator?.factTableId) {
@@ -116,7 +116,7 @@ export function getFactMetricGroups(
 
     // Skip grouping metrics with percentile caps if there's not an efficient implementation
     if (
-      m.capping === "percentile" &&
+      m.cappingSettings.type === "percentile" &&
       !integration.getSourceProperties().hasEfficientPercentiles
     ) {
       return;
@@ -379,7 +379,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       return startExperimentResultQueries(
         params,
         this.integration,
-        this.organization,
+        this.context.org,
         this.startQuery.bind(this)
       );
     } else {
@@ -430,7 +430,8 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
   async getLatestModel(): Promise<ExperimentSnapshotInterface> {
     const obj = await findSnapshotById(this.model.organization, this.model.id);
-    if (!obj) throw new Error("Could not load snapshot model");
+    if (!obj)
+      throw new Error("Could not load snapshot model: " + this.model.id);
     return obj;
   }
   async updateModel({

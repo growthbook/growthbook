@@ -101,9 +101,9 @@ export const putProject = async (
   const { id } = req.params;
   req.checkPermissions("manageProjects", id);
 
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
-  const project = await findProjectById(id, org.id);
+  const project = await findProjectById(context, id);
 
   if (!project) {
     res.status(404).json({
@@ -169,7 +169,8 @@ export const deleteProject = async (
 
   req.checkPermissions("manageProjects", id);
 
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
   await deleteProjectById(id, org.id);
 
@@ -200,8 +201,7 @@ export const deleteProject = async (
 
       await deleteAllMetricsForAProject({
         projectId: id,
-        organization: org,
-        user: res.locals.eventAudit,
+        context,
       });
     } catch (e) {
       return res.json({
@@ -220,8 +220,7 @@ export const deleteProject = async (
 
       await deleteAllFeaturesForAProject({
         projectId: id,
-        organization: org,
-        user: res.locals.eventAudit,
+        context,
       });
     } catch (e) {
       return res.json({
@@ -230,7 +229,7 @@ export const deleteProject = async (
       });
     }
   } else {
-    await removeProjectFromFeatures(id, org, res.locals.eventAudit);
+    await removeProjectFromFeatures(context, id);
   }
 
   // Clean up experiments
@@ -240,8 +239,7 @@ export const deleteProject = async (
 
       await deleteAllExperimentsForAProject({
         projectId: id,
-        organization: org,
-        user: res.locals.eventAudit,
+        context,
       });
     } catch (e) {
       return res.json({
@@ -250,7 +248,7 @@ export const deleteProject = async (
       });
     }
   } else {
-    await removeProjectFromExperiments(id, org, res.locals.eventAudit);
+    await removeProjectFromExperiments(context, id);
   }
 
   // Clean up Slack integrations
@@ -304,9 +302,9 @@ export const putProjectSettings = async (
   const { id } = req.params;
   req.checkPermissions("manageProjects", id);
 
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
-  const project = await findProjectById(id, org.id);
+  const project = await findProjectById(context, id);
 
   if (!project) {
     res.status(404).json({

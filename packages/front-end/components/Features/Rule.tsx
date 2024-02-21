@@ -97,7 +97,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       !rule.enabled;
 
     const hasCondition =
-      (rule.condition && rule.condition !== "{}") || !!rule.savedGroups?.length;
+      (rule.condition && rule.condition !== "{}") ||
+      !!rule.savedGroups?.length ||
+      !!rule.prerequisites?.length;
 
     return (
       <div
@@ -111,27 +113,20 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           <div>
             <Tooltip body={ruleDisabled ? "This rule will be skipped" : ""}>
               <div
-                className={`text-light border rounded-circle ${
+                className={`text-light border rounded-circle text-center font-weight-bold ${
                   ruleDisabled ? "bg-secondary" : "bg-purple"
                 }`}
                 style={{
                   width: 28,
                   height: 28,
                   lineHeight: "28px",
-                  textAlign: "center",
-                  fontWeight: "bold",
                 }}
               >
                 {i + 1}
               </div>
             </Tooltip>
           </div>
-          <div
-            style={{
-              flex: 1,
-            }}
-            className="mx-2"
-          >
+          <div className="flex-1 mx-2">
             {linkedExperiment ? (
               <div>
                 Experiment:{" "}
@@ -146,11 +141,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               title
             )}
             {unreachable && !ruleDisabled ? (
-              <Tooltip
-                body={
-                  "A rule above this one will serve to 100% of the traffic, and this rule will never be reached."
-                }
-              >
+              <Tooltip body="A rule above this one will serve to 100% of the traffic, and this rule will never be reached.">
                 <span className="ml-2 font-italic bg-secondary text-light border px-2 rounded d-inline-block">
                   {" "}
                   <FaExclamationTriangle className="text-warning" /> This rule
@@ -283,21 +274,21 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         <div className="d-flex">
           <div
             style={{
-              flex: 1,
               maxWidth: "100%",
               opacity: ruleDisabled ? 0.4 : 1,
             }}
-            className="pt-1 position-relative"
+            className="flex-1 pt-1 position-relative"
           >
             {hasCondition && rule.type !== "experiment-ref" && (
               <div className="row mb-3 align-items-top">
-                <div className="col-auto">
+                <div className="col-auto d-flex align-items-center">
                   <strong>IF</strong>
                 </div>
                 <div className="col">
                   <ConditionDisplay
                     condition={rule.condition || ""}
                     savedGroups={rule.savedGroups}
+                    prerequisites={rule.prerequisites}
                   />
                 </div>
               </div>

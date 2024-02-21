@@ -8,7 +8,6 @@ import {
   SavedGroupInterface,
   UpdateSavedGroupProps,
 } from "../../types/saved-group";
-import { usingFileConfig } from "../init/config";
 import { migrateSavedGroup } from "../util/migrations";
 
 const savedGroupSchema = new mongoose.Schema({
@@ -115,10 +114,6 @@ export async function updateSavedGroupById(
 }
 
 export async function deleteSavedGroupById(id: string, organization: string) {
-  if (usingFileConfig()) {
-    throw new Error("Cannot delete. Saved Groups managed by config.yml");
-  }
-
   await SavedGroupModel.deleteOne({
     id,
     organization,

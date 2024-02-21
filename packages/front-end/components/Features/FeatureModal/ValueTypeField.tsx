@@ -13,12 +13,12 @@ const ValueTypeField: FC<{
       onChange={onChange}
       options={[
         {
-          label: "boolean (on/off)",
+          label: "boolean (true/false)",
           value: "boolean",
         },
         { label: "number", value: "number" },
         { label: "string", value: "string" },
-        { label: "json", value: "json" },
+        { label: "JSON", value: "json" },
       ]}
     />
   );

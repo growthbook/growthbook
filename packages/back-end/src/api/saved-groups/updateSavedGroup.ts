@@ -15,6 +15,8 @@ export const updateSavedGroup = createApiRequestHandler(
   updateSavedGroupValidator
 )(
   async (req): Promise<UpdateSavedGroupResponse> => {
+    req.checkPermissions("manageSavedGroups");
+
     const { name, values, condition, owner } = req.body;
 
     const { id } = req.params;
@@ -79,7 +81,7 @@ export const updateSavedGroup = createApiRequestHandler(
 
     // If the values or key change, we need to invalidate cached feature rules
     if (fieldsToUpdate.values || fieldsToUpdate.condition) {
-      savedGroupUpdated(req.organization, savedGroup.id);
+      savedGroupUpdated(req.context, savedGroup.id);
     }
 
     return {

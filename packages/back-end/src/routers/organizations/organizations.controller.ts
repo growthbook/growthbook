@@ -8,6 +8,7 @@ import {
   getLicense,
   setLicense,
 } from "enterprise";
+import { hasReadAccess } from "shared/permissions";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -66,8 +67,8 @@ import {
 import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
 import { getAllSavedGroups } from "../../models/SavedGroupModel";
 import { getMetricsByOrganization } from "../../models/MetricModel";
-import { WebhookModel } from "../../models/WebhookModel";
-import { createWebhook } from "../../services/webhooks";
+import { WebhookModel, countWebhooksByOrg } from "../../models/WebhookModel";
+import { createWebhook, createSdkWebhook } from "../../services/webhooks";
 import {
   createOrganization,
   findOrganizationByInviteKey,
@@ -78,7 +79,7 @@ import {
 } from "../../models/OrganizationModel";
 import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { ConfigFile } from "../../init/config";
-import { WebhookInterface } from "../../../types/webhook";
+import { WebhookInterface, WebhookMethod } from "../../../types/webhook";
 import { ExperimentRule, NamespaceValue } from "../../../types/feature";
 import { usingOpenId } from "../../services/auth";
 import { getSSOConnectionSummary } from "../../models/SSOConnectionModel";
@@ -115,11 +116,12 @@ import { getTeamsForOrganization } from "../../models/TeamModel";
 import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { getAllFactMetricsForOrganization } from "../../models/FactMetricModel";
 import { TeamInterface } from "../../../types/team";
+import { queueSingleWebhookById } from "../../jobs/sdkWebhooks";
 import { initializeLicense } from "../../services/licenseData";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
-  const { org } = getContextFromReq(req);
-  const orgId = org?.id;
+  const context = getContextFromReq(req);
+  const orgId = context.org.id;
   if (!orgId) {
     throw new Error("Must be part of an organization");
   }
@@ -135,15 +137,15 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     factTables,
     factMetrics,
   ] = await Promise.all([
-    getMetricsByOrganization(orgId),
-    getDataSourcesByOrganization(orgId),
+    getMetricsByOrganization(context),
+    getDataSourcesByOrganization(context),
     findDimensionsByOrganization(orgId),
     findSegmentsByOrganization(orgId),
     getAllTags(orgId),
     getAllSavedGroups(orgId),
-    findAllProjectsByOrganization(orgId),
-    getAllFactTablesForOrganization(orgId),
-    getAllFactMetricsForOrganization(orgId),
+    findAllProjectsByOrganization(context),
+    getAllFactTablesForOrganization(context),
+    getAllFactMetricsForOrganization(context),
   ]);
 
   return res.status(200).json({
@@ -176,7 +178,8 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
 }
 
 export async function getActivityFeed(req: AuthRequest, res: Response) {
-  const { org, userId } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
   try {
     const docs = await getRecentWatchedAudits(userId, org.id);
 
@@ -191,7 +194,7 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
 
     const experimentIds = Array.from(new Set(docs.map((d) => d.entity.id)));
     const experiments = await getExperimentsForActivityFeed(
-      org.id,
+      context,
       experimentIds
     );
 
@@ -692,12 +695,13 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
       organization: null,
     });
   }
-  const { org, environments } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { environments } = context;
 
   const namespaces: NamespaceUsage = {};
 
   // Get all of the active experiments that are tied to a namespace
-  const allFeatures = await getAllFeatures(org.id);
+  const allFeatures = await getAllFeatures(context);
   allFeatures.forEach((f) => {
     environments.forEach((env) => {
       if (!f.environmentSettings?.[env]?.enabled) return;
@@ -726,7 +730,7 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
     });
   });
 
-  const allExperiments = await getAllExperiments(org.id);
+  const allExperiments = await getAllExperiments(context);
   allExperiments.forEach((e) => {
     if (!e.phases) return;
     const phase = e.phases[e.phases.length - 1];
@@ -1486,9 +1490,30 @@ export async function postApiKeyReveal(
 }
 
 export async function getWebhooks(req: AuthRequest, res: Response) {
+  const context = getContextFromReq(req);
+  const webhooks = await WebhookModel.find({
+    organization: context.org.id,
+    useSdkMode: { $ne: true },
+  });
+
+  res.status(200).json({
+    status: 200,
+    webhooks: webhooks.filter((webhook) =>
+      hasReadAccess(context.readAccessFilter, webhook.project)
+    ),
+  });
+}
+
+export async function getWebhooksSDK(
+  req: AuthRequest<Record<string, unknown>, { sdkid: string }>,
+  res: Response
+) {
   const { org } = getContextFromReq(req);
+  const { sdkid } = req.params;
   const webhooks = await WebhookModel.find({
     organization: org.id,
+    useSdkMode: true,
+    sdks: { $in: sdkid },
   });
   res.status(200).json({
     status: 200,
@@ -1500,7 +1525,7 @@ export async function postWebhook(
   req: AuthRequest<{
     name: string;
     endpoint: string;
-    project: string;
+    project?: string;
     environment: string;
   }>,
   res: Response
@@ -1510,15 +1535,81 @@ export async function postWebhook(
   const { org } = getContextFromReq(req);
   const { name, endpoint, project, environment } = req.body;
 
-  const webhook = await createWebhook(
-    org.id,
+  const webhook = await createWebhook({
+    organization: org.id,
     name,
     endpoint,
     project,
-    environment
-  );
+    environment,
+  });
 
   res.status(200).json({
+    status: 200,
+    webhook,
+  });
+}
+export async function getTestWebhook(
+  req: AuthRequest<Record<string, unknown>, { id: string }>,
+  res: Response
+) {
+  const webhookId = req.params.id;
+  await queueSingleWebhookById(webhookId);
+  res.status(200).json({
+    status: 200,
+  });
+}
+export async function postWebhookSDK(
+  req: AuthRequest<{
+    name: string;
+    endpoint: string;
+    sdkid: string;
+    sendPayload: boolean;
+    headers?: string;
+    httpMethod: WebhookMethod;
+  }>,
+  res: Response
+) {
+  req.checkPermissions("manageWebhooks");
+
+  // enterprise is unlimited
+  const limits = {
+    pro: 99,
+    starter: 2,
+  };
+  const { org } = getContextFromReq(req);
+  const { name, endpoint, sdkid, sendPayload, headers, httpMethod } = req.body;
+  const webhookcount = await countWebhooksByOrg(org.id);
+  if (
+    IS_CLOUD &&
+    getAccountPlan(org).includes("pro") &&
+    webhookcount > limits.pro
+  ) {
+    return res.status(426).json({
+      status: 426,
+      message: "SDK webhook limit has been reached",
+    });
+  }
+
+  if (
+    IS_CLOUD &&
+    getAccountPlan(org).includes("starter") &&
+    webhookcount > limits.starter
+  ) {
+    return res.status(426).json({
+      status: 426,
+      message: "SDK webhook limit has been reached",
+    });
+  }
+  const webhook = await createSdkWebhook({
+    organization: org.id,
+    name,
+    endpoint,
+    sdkid,
+    sendPayload,
+    headers: headers || "",
+    httpMethod,
+  });
+  return res.status(200).json({
     status: 200,
     webhook,
   });
@@ -1532,7 +1623,6 @@ export async function putWebhook(
 
   const { org } = getContextFromReq(req);
   const { id } = req.params;
-
   const webhook = await WebhookModel.findOne({
     id,
   });
@@ -1553,7 +1643,7 @@ export async function putWebhook(
   webhook.set("endpoint", endpoint);
   webhook.set("project", project || "");
   webhook.set("environment", environment || "");
-
+  if (webhook.useSdkMode) queueSingleWebhookById(webhook.id);
   await webhook.save();
 
   res.status(200).json({
@@ -1581,6 +1671,25 @@ export async function deleteWebhook(
   });
 }
 
+export async function deleteWebhookSDK(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  req.checkPermissions("manageWebhooks");
+
+  const { org } = getContextFromReq(req);
+  const { id } = req.params;
+
+  await WebhookModel.deleteOne({
+    organization: org.id,
+    id,
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
 export async function postImportConfig(
   req: AuthRequest<{
     contents: string;
@@ -1589,7 +1698,7 @@ export async function postImportConfig(
 ) {
   req.checkPermissions("organizationSettings");
 
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { contents } = req.body;
 
   const config: ConfigFile = JSON.parse(contents);
@@ -1597,7 +1706,7 @@ export async function postImportConfig(
     throw new Error("Failed to parse config.yml file contents.");
   }
 
-  await importConfig(config, org);
+  await importConfig(context, config);
 
   res.status(200).json({
     status: 200,

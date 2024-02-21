@@ -406,12 +406,16 @@ const sidebars = {
           type: "doc",
           id: "integrations/shopify",
           label: "Shopify + GrowthBook",
-          className: "pill-new",
         },
         {
           type: "doc",
           id: "integrations/webflow",
           label: "Webflow + GrowthBook",
+        },
+        {
+          type: "doc",
+          id: "integrations/wordpress",
+          label: "WordPress + GrowthBook",
           className: "pill-new",
         },
         {
@@ -471,6 +475,12 @@ const sidebars = {
           type: "doc",
           id: "integrations/scim",
           label: "SCIM",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "integrations/github-metrics",
+          label: "GitHub (Metric Definitions)",
           className: "pill-new",
         },
       ],

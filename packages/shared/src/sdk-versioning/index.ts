@@ -5,6 +5,7 @@ import {
 import uniq from "lodash/uniq";
 import { CapabilityStrategy, SDKCapability } from "./types";
 
+import * as nocode_json from "./sdk-versions/nocode.json";
 import * as javascript_json from "./sdk-versions/javascript.json";
 import * as nodejs_json from "./sdk-versions/nodejs.json";
 import * as react_json from "./sdk-versions/react.json";
@@ -29,6 +30,10 @@ type SDKVersionData = {
 };
 
 const sdks: SDKRecords = {
+  "nocode-other": nocode_json,
+  "nocode-webflow": nocode_json,
+  "nocode-shopify": nocode_json,
+  "nocode-wordpress": nocode_json,
   javascript: javascript_json,
   nodejs: nodejs_json,
   react: react_json,
@@ -46,6 +51,10 @@ const sdks: SDKRecords = {
 
 // Default SDK versions as of 12/5/2023
 const defaultSdkVersions: Record<SDKLanguage, string> = {
+  "nocode-other": "0.0.0",
+  "nocode-webflow": "0.0.0",
+  "nocode-shopify": "0.0.0",
+  "nocode-wordpress": "0.0.0",
   javascript: "0.31.0",
   nodejs: "0.31.0",
   react: "0.21.0",
@@ -163,17 +172,35 @@ export const getConnectionSDKCapabilities = (
   return uniq(capabilities);
 };
 
-export const getConnectionsSDKCapabilities = (
-  connections: Partial<SDKConnectionInterface>[],
-  strategy:
-    | "min-ver-intersection"
-    | "max-ver-intersection" = "min-ver-intersection"
-) => {
+export const getConnectionsSDKCapabilities = ({
+  connections,
+  strategy = "min-ver-intersection",
+  mustMatchAllConnections = false,
+  project,
+}: {
+  connections: Partial<SDKConnectionInterface>[];
+  strategy?: "min-ver-intersection" | "max-ver-intersection";
+  mustMatchAllConnections?: boolean;
+  project?: string;
+}) => {
   let capabilities: SDKCapability[] = [];
-  for (const connection of connections) {
-    capabilities = capabilities.concat(
-      getConnectionSDKCapabilities(connection, strategy)
+  const filteredConnections = connections.filter((c) => {
+    if (project === undefined) return true;
+    return c.projects?.includes(project) || (c.projects ?? [])?.length === 0;
+  });
+  for (let i = 0; i < filteredConnections.length; i++) {
+    const connection = filteredConnections[i];
+    const connectionCapabilities = getConnectionSDKCapabilities(
+      connection,
+      strategy
     );
+    if (!mustMatchAllConnections || i === 0) {
+      capabilities = capabilities.concat(connectionCapabilities);
+    } else {
+      capabilities = capabilities.filter((c) =>
+        connectionCapabilities.includes(c)
+      );
+    }
   }
   return uniq(capabilities);
 };

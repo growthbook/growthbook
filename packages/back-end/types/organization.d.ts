@@ -3,9 +3,12 @@ import {
   ENV_SCOPED_PERMISSIONS,
   GLOBAL_PERMISSIONS,
   PROJECT_SCOPED_PERMISSIONS,
-} from "../src/util/organization.util";
+  ReadAccessFilter,
+} from "shared/permissions";
+import { EventAuditUser } from "../src/events/event-types";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
+import { MetricCappingSettings, MetricWindowSettings } from "./fact-table";
 
 export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
 export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
@@ -33,6 +36,7 @@ export type MemberRole =
   | "noaccess"
   | "readonly"
   | "collaborator"
+  | "visualEditor"
   | "designer"
   | "analyst"
   | "developer"
@@ -101,6 +105,8 @@ export interface MetricDefaults {
   minimumSampleSize?: number;
   maxPercentageChange?: number;
   minPercentageChange?: number;
+  windowSettings?: MetricWindowSettings;
+  cappingSettings?: MetricCappingSettings;
 }
 
 export interface Namespaces {
@@ -275,3 +281,13 @@ export type NamespaceUsage = Record<
     end: number;
   }[]
 >;
+
+export type ReqContext = {
+  org: OrganizationInterface;
+  userId: string;
+  email: string;
+  environments: string[];
+  userName: string;
+  readAccessFilter: ReadAccessFilter;
+  auditUser: EventAuditUser;
+};

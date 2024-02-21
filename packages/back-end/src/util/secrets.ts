@@ -2,6 +2,7 @@ import fs from "fs";
 import dotenv from "dotenv";
 import trimEnd from "lodash/trimEnd";
 import { stringToBoolean } from "shared/util";
+import { DEFAULT_METRIC_WINDOW_HOURS } from "shared/constants";
 
 export const ENVIRONMENT = process.env.NODE_ENV;
 const prod = ENVIRONMENT === "production";
@@ -130,7 +131,8 @@ export const EXPERIMENT_REFRESH_FREQUENCY =
   parseInt(process.env.EXPERIMENT_REFRESH_FREQUENCY || "") || 6;
 
 export const DEFAULT_CONVERSION_WINDOW_HOURS =
-  parseInt(process.env.DEFAULT_CONVERSION_WINDOW_HOURS || "") || 72;
+  parseInt(process.env.DEFAULT_CONVERSION_WINDOW_HOURS || "") ||
+  DEFAULT_METRIC_WINDOW_HOURS;
 
 // Update metrics every X hours
 export const METRIC_REFRESH_FREQUENCY =
@@ -151,6 +153,11 @@ export const CACHE_CONTROL_STALE_WHILE_REVALIDATE =
 export const CACHE_CONTROL_STALE_IF_ERROR =
   parseInt(process.env?.CACHE_CONTROL_STALE_IF_ERROR || "") || 36000;
 
+// remote Eval Edge
+export const REMOTE_EVAL_EDGE_HOST = process.env.REMOTE_EVAL_EDGE_HOST;
+export const REMOTE_EVAL_EDGE_API_TOKEN =
+  process.env.REMOTE_EVAL_EDGE_API_TOKEN;
+
 // update Feature every
 
 export const CRON_ENABLED = !stringToBoolean(process.env.CRON_DISABLED);
@@ -163,6 +170,12 @@ export const SENTRY_DSN = process.env.SENTRY_DSN || "";
 export const STORE_SEGMENTS_IN_MONGO = stringToBoolean(
   process.env.STORE_SEGMENTS_IN_MONGO
 );
+
+// If set to false AND using a config file, don't allow creating metric via the UI
+export const ALLOW_CREATE_METRICS = stringToBoolean(
+  process.env.ALLOW_CREATE_METRICS
+);
+
 // Add a default secret access key via an environment variable
 // Only allowed while self-hosting and not multi org
 let secretAPIKey = IS_MULTI_ORG ? "" : process.env.SECRET_API_KEY || "";
@@ -181,6 +194,16 @@ export const SECRET_API_KEY_ROLE =
 export const PROXY_ENABLED = stringToBoolean(process.env.PROXY_ENABLED);
 export const PROXY_HOST_INTERNAL = process.env.PROXY_HOST_INTERNAL || "";
 export const PROXY_HOST_PUBLIC = process.env.PROXY_HOST_PUBLIC || "";
+
+// global webhooks
+const webhooksString = process.env.WEBHOOKS;
+let webhooks = [];
+try {
+  webhooks = webhooksString ? JSON.parse(webhooksString) : [];
+} catch (error) {
+  throw Error(`webhooks in env file is malformed: ${webhooksString}`);
+}
+export const WEBHOOKS = webhooks;
 
 /**
  * Allows custom configuration of the trust proxy settings as

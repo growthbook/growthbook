@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
 import { omit } from "lodash";
+import { hasReadAccess } from "shared/permissions";
 import { ApiSdkConnection } from "../../types/openapi";
 import {
   CreateSDKConnectionParams,
@@ -11,7 +12,6 @@ import {
   SDKConnectionInterface,
   SDKLanguage,
 } from "../../types/sdk-connection";
-import { queueSingleProxyUpdate } from "../jobs/proxyUpdate";
 import { cancellableFetch } from "../util/http.util";
 import {
   IS_CLOUD,
@@ -20,7 +20,9 @@ import {
   PROXY_HOST_PUBLIC,
 } from "../util/secrets";
 import { errorStringFromZodResult } from "../util/validation";
-import { purgeCDNCache } from "../util/cdn.util";
+import { triggerSingleSDKWebhookJobs } from "../jobs/updateAllJobs";
+import { ApiReqContext } from "../../types/api";
+import { ReqContext } from "../../types/organization";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
 
 const sdkConnectionSchema = new mongoose.Schema({
@@ -100,22 +102,42 @@ function toInterface(doc: SDKConnectionDocument): SDKConnectionInterface {
   return omit(conn, ["__v", "_id"]);
 }
 
-export async function findSDKConnectionById(id: string) {
+export async function findSDKConnectionById(
+  context: ReqContext | ApiReqContext,
+  id: string
+) {
   const doc = await SDKConnectionModel.findOne({
     id,
   });
-  return doc ? toInterface(doc) : null;
+
+  if (!doc) return null;
+
+  const connection = toInterface(doc);
+  return hasReadAccess(context.readAccessFilter, connection.projects || [])
+    ? connection
+    : null;
 }
 
-export async function findSDKConnectionsByOrganization(organization: string) {
+export async function findSDKConnectionsByOrganization(
+  context: ReqContext | ApiReqContext
+) {
   const docs = await SDKConnectionModel.find({
-    organization,
+    organization: context.org.id,
   });
-  return docs.map(toInterface);
+
+  const connections = docs.map(toInterface);
+  return connections.filter((conn) =>
+    hasReadAccess(context.readAccessFilter, conn.projects || [])
+  );
 }
 
 export async function findAllSDKConnections() {
   const docs = await SDKConnectionModel.find();
+  return docs.map(toInterface);
+}
+
+export async function findSDKConnectionsByIds(keys: string[]) {
+  const docs = await SDKConnectionModel.find({ id: { $in: keys } });
   return docs.map(toInterface);
 }
 
@@ -210,6 +232,7 @@ export const editSDKConnectionValidator = z
   .strict();
 
 export async function editSDKConnection(
+  context: ReqContext | ApiReqContext,
   connection: SDKConnectionInterface,
   updates: EditSDKConnectionParams
 ) {
@@ -278,21 +301,14 @@ export async function editSDKConnection(
 
   if (needsProxyUpdate) {
     // Purge CDN if used
-    await purgeCDNCache(connection.organization, [connection.key]);
-
-    const newConnection = {
-      ...connection,
-      ...otherChanges,
-      proxy: newProxy,
-    } as SDKConnectionInterface;
-
-    if (IS_CLOUD) {
-      await queueSingleProxyUpdate(newConnection, true);
-    }
-
-    if (newProxy.enabled && newProxy.host) {
-      await queueSingleProxyUpdate(newConnection, false);
-    }
+    const isUsingProxy = !!(newProxy.enabled && newProxy.host);
+    await triggerSingleSDKWebhookJobs(
+      context.org.id,
+      connection,
+      otherChanges as Partial<SDKConnectionInterface>,
+      newProxy,
+      isUsingProxy
+    );
   }
 }
 
@@ -331,6 +347,21 @@ export async function setProxyError(
         "proxy.error": error,
         "proxy.connected": false,
         "proxy.lastError": new Date(),
+      },
+    }
+  );
+}
+
+export async function clearProxyError(connection: SDKConnectionInterface) {
+  await SDKConnectionModel.updateOne(
+    {
+      organization: connection.organization,
+      id: connection.id,
+    },
+    {
+      $set: {
+        "proxy.error": "",
+        "proxy.connected": true,
       },
     }
   );

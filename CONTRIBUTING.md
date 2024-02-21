@@ -7,7 +7,7 @@ If you just want to contribute a client library in a new language and not make c
 ## Requirements
 
 - MacOS or Linux (Windows may work too, but we haven't tested it)
-- [NodeJS](https://nodejs.org/en/download/package-manager/) 16.x or higher
+- [NodeJS](https://nodejs.org/en/download/package-manager/) between 16.x and 18.x
   - Check version by running `node -v` on terminal
 - [Yarn](https://classic.yarnpkg.com/en/docs/install)
 - [Python](https://www.python.org/downloads/) 3.8+ (for the stats engine)
@@ -147,6 +147,33 @@ To work on the SDKs, `cd` into the desired directory and the following commands 
 - `yarn build` - Run the rollup build process
 - `yarn size` - Get the gzip size of the bundle (must run `yarn build` first)
 
+#### Releasing SDK Updates
+
+Releasing SDK updates is a very manual process right now. It requires bumping versions in many different files, updating changelogs, and adding metadata to shared packages.
+
+1. Create a branch from the latest main
+2. Bump version of the Javascript SDK
+   - Bump version in `packages/sdk-js/package.json`
+   - Bump dependency version in `packages/back-end/package.json`
+   - Bump dependency version in `package/shared/package.json`
+   - Bump dependency version in `packages/sdk-react/package.json`
+   - Add new entry to `packages/sdk-js/CHANGELOG.md`
+   - Add new entry to `packages/shared/src/sdk-versioning/sdk-versions/javascript.json`
+   - Add new entry to `packages/shared/src/sdk-versioning/sdk-versions/nodejs.json`
+3. Bump versions of the React SDK
+   - Bump version in `packages/sdk-react/package.json`
+   - Bump dependency version in `package/front-end/package.json`
+   - Add new entry to `packages/shared/src/sdk-versioning/sdk-versions/react.json`
+4. Do a global search for the old version strings for both Javascript and React to make sure nothing was missed. Update these instructions if needed.
+5. Create a PR and let CI complete successfully
+6. Publish the Javascript SDK
+   - `yarn build`
+   - `npm publish`
+7. Publish the React SDK
+   - `yarn build`
+   - `npm publish`
+8. Merge the PR
+
 ### Working on the stats engine
 
 Ensure you have run `yarn setup` first to install the poetry virtual environment before working in the stats engine. Otherwise, pre-commit hooks and the following commands will error.
@@ -154,6 +181,7 @@ Ensure you have run `yarn setup` first to install the poetry virtual environment
 - `yarn workspace stats test` - Run pytest
 - `yarn workspace stats lint` - Run flake8, black, and pyright
 - `yarn workspace stats build` - Run the build process
+- `yarn workspace stats notebook` - Spin up a Jupyter Notebook with `gbstats` and other dependencies in the kernel
 
 You can also just run `yarn *` where \* is test, lint, build if you `cd` to the `packages/stats` directory first.
 
