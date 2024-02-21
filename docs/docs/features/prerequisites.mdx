@@ -81,7 +81,7 @@ The same **deterministic** and **Schrödinger** states apply to inline prerequis
 
   - **Live** prerequisites which pass the evaluation condition will allow their dependent rules or experiments to be enabled.
   - **Live** prerequisites which fail the evaluation condition will still block their dependent rules or experiments.
-  - **Not live** prerequisites will always block their dependent rules or experiments.
+  - **Not live** prerequisites will generally block the dependent rule or experiment, unless the evaluation condition specifically checks for this (e.g. `is not live`)
 
 - **Schrödinger** state prerequisites must be evaluated at runtime in the SDK, and thus a compatible SDK version is required.
 
