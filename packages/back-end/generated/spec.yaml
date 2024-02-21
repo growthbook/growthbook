@@ -3269,7 +3269,7 @@ paths:
                         type: string
                       flagKey:
                         type: string
-                      kontentHash:
+                      contentHash:
                         type: string
       responses:
         '200':

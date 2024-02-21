@@ -5879,7 +5879,7 @@ export interface operations {
               startingLineNumber: number;
               lines: string;
               flagKey: string;
-              kontentHash?: string;
+              contentHash: string;
             })[];
         };
       };
