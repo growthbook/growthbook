@@ -71,7 +71,7 @@ export default function RequestReviewModal({
     );
   }, [revision, baseRevision, liveRevision, environments]);
 
-  const [comment, setComment] = useState(revision?.comment || "");
+  const [comment, setComment] = useState("");
   const submitReviewform = useForm<{
     reviewStatus: ReviewSubmittedType;
     comment: string;
@@ -259,7 +259,7 @@ export default function RequestReviewModal({
               revision={revision}
               commentsOnly={true}
             />
-            {hasPermission && !isPendingReview && (
+            {hasPermission && !canReview && (
               <div className="mt-3">
                 <Field
                   className=""
@@ -271,6 +271,31 @@ export default function RequestReviewModal({
                     setComment(e.target.value);
                   }}
                 />
+                {!canReview && isPendingReview && (
+                  <LegacyButton
+                    onClick={async () => {
+                      try {
+                        await apiCall(
+                          `/feature/${feature.id}/${revision.version}/comment`,
+                          {
+                            method: "POST",
+                            body: JSON.stringify({
+                              comment,
+                            }),
+                          }
+                        );
+                      } catch (e) {
+                        await mutate();
+                        throw e;
+                      }
+                      await mutate();
+                      onDiscard && onDiscard();
+                      close();
+                    }}
+                  >
+                    Comment
+                  </LegacyButton>
+                )}
               </div>
             )}
           </div>

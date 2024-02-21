@@ -579,6 +579,11 @@ app.post(
   "/feature/:id/toggleStaleDetection",
   featuresController.toggleStaleFFDetectionForFeature
 );
+app.post(
+  "/feature/:id/:version/comment",
+  featuresController.postFeatureReviewOrComment
+);
+
 app.get(
   "/feature/revisions/draftAndReview",
   featuresController.getDraftandReviewRevisions

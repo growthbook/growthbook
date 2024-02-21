@@ -76,7 +76,10 @@ import {
 } from "../models/SdkConnectionModel";
 import { logger } from "../util/logger";
 import { addTagsDiff } from "../models/TagModel";
-import { EventAuditUserForResponseLocals } from "../events/event-types";
+import {
+  EventAuditUserForResponseLocals,
+  EventAuditUserLoggedIn,
+} from "../events/event-types";
 import {
   FASTLY_SERVICE_ID,
   CACHE_CONTROL_MAX_AGE,
@@ -563,7 +566,7 @@ export async function postFeatureReviewOrComment(
   req: AuthRequest<
     {
       comment: string;
-      review: ReviewSubmittedType;
+      review?: ReviewSubmittedType;
     },
     { id: string; version: string }
   >,
@@ -571,7 +574,7 @@ export async function postFeatureReviewOrComment(
 ) {
   const context = getContextFromReq(req);
   const { id, version } = req.params;
-  const { comment, review } = req.body;
+  const { comment, review = "Comment" } = req.body;
   const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
@@ -585,10 +588,16 @@ export async function postFeatureReviewOrComment(
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
+  const createdByUser = revision.createdBy as EventAuditUserLoggedIn;
+  if (createdByUser.id === context.userId && review !== "Comment") {
+    throw Error("cannot submit a review for your self");
+  }
   if (
-    revision.status === "changes-requested" ||
-    revision.status === "pending-review" ||
-    revision.status === "approved"
+    !(
+      revision.status === "changes-requested" ||
+      revision.status === "pending-review" ||
+      revision.status === "approved"
+    )
   ) {
     throw new Error("Can only review if review is requested");
   }

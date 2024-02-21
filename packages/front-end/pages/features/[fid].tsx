@@ -372,7 +372,27 @@ export default function FeaturePage() {
   );
 
   const { stale, reason } = isFeatureStale(feature, data.experiments);
-
+  const renderDraftBannerCopy = () => {
+    if (isPendingReview) {
+      return (
+        <>
+          <BsClock /> Awaiting Approval
+        </>
+      );
+    }
+    if (approved) {
+      return (
+        <>
+          <MdRocketLaunch /> Review and Publish
+        </>
+      );
+    }
+    return (
+      <>
+        <MdRocketLaunch /> Request Approval to Publish
+      </>
+    );
+  };
   return (
     <div className="contents container-fluid pagecontents">
       {edit && (
@@ -1405,18 +1425,7 @@ export default function FeaturePage() {
                           setReviewModal(true);
                         }}
                       >
-                        {isPendingReview ? (
-                          <>
-                            <BsClock /> Awaiting Approval
-                          </>
-                        ) : (
-                          <>
-                            <MdRocketLaunch />
-                            {approved
-                              ? " Review and Publish"
-                              : " Request Approval to Publish"}
-                          </>
-                        )}
+                        {renderDraftBannerCopy()}
                       </a>
                     </Tooltip>
                   </div>
