@@ -158,7 +158,7 @@ export default function Revisionlog({
               log={log}
               key={i}
               first={i === 0}
-              commentsOnly={commentsOnly}
+              commentsOnly={!!commentsOnly}
             />
           ))}
         </div>

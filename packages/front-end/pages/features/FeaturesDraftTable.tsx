@@ -3,6 +3,7 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ago, datetime } from "shared/dates";
+import { EventAuditUserLoggedIn } from "back-end/src/events/event-types";
 import {
   removeEnvFromSearchTerm,
   useAddComputedFields,
@@ -45,16 +46,20 @@ export default function FeaturesDraftTable() {
   console.log(data?.featuresAndRevisions);
   const featuresAndRevisions = useAddComputedFields(
     data?.featuresAndRevisions,
-    (featureAndRevision) => ({
-      id: featureAndRevision.feature.id,
-      tags: featureAndRevision.feature.tags,
-      status: featureAndRevision.revision.status,
-      version: featureAndRevision.revision.version,
-      dateUpdated: featureAndRevision.revision.dateUpdated,
-      project: featureAndRevision.feature.project,
-      creator: featureAndRevision.revision.createdBy?.name || "",
-      comment: featureAndRevision.revision.comment,
-    })
+    (featureAndRevision) => {
+      const createdBy = featureAndRevision.revision
+        .createdBy as EventAuditUserLoggedIn;
+      return {
+        id: featureAndRevision.feature.id,
+        tags: featureAndRevision.feature.tags,
+        status: featureAndRevision.revision.status,
+        version: featureAndRevision.revision.version,
+        dateUpdated: featureAndRevision.revision.dateUpdated,
+        project: featureAndRevision.feature.project,
+        creator: createdBy.name,
+        comment: featureAndRevision.revision.comment,
+      };
+    }
   );
 
   const { searchInputProps, items, SortableTH } = useSearch({

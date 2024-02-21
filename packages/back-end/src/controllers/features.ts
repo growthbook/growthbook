@@ -635,7 +635,12 @@ export async function postFeaturePublish(
   req.checkPermissions("manageFeatures", feature.project);
 
   const revision = await getRevision(org.id, feature.id, parseInt(version));
-
+  const reviewStatuses = [
+    "pending-review",
+    "changes-requested",
+    "draft",
+    "approved",
+  ];
   if (adminOverride && org.settings?.requireReviews) {
     req.checkPermissions("bypassApprovalChecks");
   }
@@ -646,9 +651,12 @@ export async function postFeaturePublish(
     (!adminOverride && org.settings?.requireReviews) ||
     revision.status !== "approved"
   ) {
-    throw new Error("review Required before publishing");
+    throw new Error("needs review before publishing");
   }
-  if (!org.settings?.requireReviews && revision.status !== "draft") {
+  if (
+    !org.settings?.requireReviews &&
+    !reviewStatuses.includes(revision.status)
+  ) {
     throw new Error("Can only publish Draft revisions");
   }
 
