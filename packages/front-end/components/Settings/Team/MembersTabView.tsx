@@ -10,7 +10,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
 import PendingMemberList from "@/components/Settings/Team/PendingMemberList";
-import { isMultiOrg } from "@/services/env";
+import { isCloud, isMultiOrg } from "@/services/env";
 import AutoApproveMembersToggle from "@/components/Settings/Team/AutoApproveMembersToggle";
 import UpdateDefaultRoleForm from "@/components/Settings/Team/UpdateDefaultRoleForm";
 
@@ -123,7 +123,7 @@ export const MembersTabView: FC = () => {
             project={currentProject}
           />
         )}
-      {!isMultiOrg() && (
+      {!isMultiOrg() && !isCloud() && (
         <OrphanedUsersList
           mutateUsers={refreshOrganization}
           numUsersInAccount={organization.members?.length || 0}
