@@ -20,7 +20,6 @@ import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import { GBAddCircle } from "@/components/Icons";
 import Results, { ResultsMetricFilters } from "../Results";
-import { StartExperimentBanner } from "../StartExperimentBanner";
 import AnalysisForm from "../AnalysisForm";
 import ExperimentReportsList from "../ExperimentReportsList";
 import { useSnapshot } from "../SnapshotProvider";
@@ -56,13 +55,8 @@ export default function ResultsTab({
   mutate,
   editMetrics,
   editResult,
-  newPhase,
   editPhases,
-  connections,
-  linkedFeatures,
   setTab,
-  visualChangesets,
-  editTargeting,
   isTabActive,
   safeToEdit,
   baselineRow,
