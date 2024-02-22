@@ -252,7 +252,7 @@ export default function RequestReviewModal({
               <div
                 onClick={scrollToComment}
                 style={{ cursor: "pointer" }}
-                className="text-purple"
+                className="text-purple mt-3"
               >
                 Leave a comment
               </div>
