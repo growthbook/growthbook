@@ -519,10 +519,10 @@ export default function FeaturesPage() {
         </div>
       )}
       <Tabs newStyle={true} defaultTab="all-features">
-        <Tab id="all-features" display="All Features">
+        <Tab id="all-features" display="All Features" padding={false}>
           {renderFeaturesTable()}
         </Tab>
-        <Tab id="drafts" display="Drafts">
+        <Tab id="drafts" display="Drafts" padding={false} lazy={true}>
           <FeaturesDraftTable />
         </Tab>
       </Tabs>

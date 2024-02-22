@@ -76,99 +76,101 @@ export default function FeaturesDraftTable() {
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
   const renderFeaturesTableDrafts = () => {
-    return (
-      items.length > 0 && (
-        <div>
-          <div className="row mb-2 align-items-center">
-            <div className="col-auto">
-              <Field
-                placeholder="Search..."
-                type="search"
-                {...searchInputProps}
-              />
-            </div>
-          </div>
-
-          <table className="table gbtable table-hover appbox">
-            <thead
-              className="sticky-top bg-white shadow-sm"
-              style={{ top: "56px", zIndex: 900 }}
-            >
-              <tr>
-                <SortableTH field="id">Feature Key</SortableTH>
-                <th>Comment</th>
-                <th>Project</th>
-                <th> Creator</th>
-                <SortableTH field="dateUpdated">Last Updated</SortableTH>
-                <SortableTH field="status">Status</SortableTH>
-              </tr>
-            </thead>
-            <tbody>
-              {items.slice(start, end).map((featureAndRevision) => {
-                const projectId = featureAndRevision.feature.project;
-                const projectName = projectId
-                  ? getProjectById(projectId)?.name || null
-                  : null;
-                const projectIsDeReferenced = projectId && !projectName;
-
-                return (
-                  <tr
-                    key={`${featureAndRevision.id}:${featureAndRevision.version}`}
-                  >
-                    <td>
-                      <Link
-                        href={`/features/${featureAndRevision.id}?v=${featureAndRevision?.version}`}
-                      >
-                        <a>{featureAndRevision.id}</a>
-                      </Link>
-                    </td>
-                    <td>
-                      <OverflowText maxWidth={200}>
-                        {featureAndRevision.comment}
-                      </OverflowText>
-                    </td>
-                    {
-                      <td>
-                        {projectIsDeReferenced ? (
-                          <Tooltip
-                            body={
-                              <>
-                                Project
-                                <code>{featureAndRevision.project}</code>
-                                not found
-                              </>
-                            }
-                          >
-                            <span className="text-danger">Invalid project</span>
-                          </Tooltip>
-                        ) : (
-                          projectName ?? <em>None</em>
-                        )}
-                      </td>
-                    }
-                    <td>{featureAndRevision.creator}</td>
-
-                    <td title={datetime(featureAndRevision.dateUpdated)}>
-                      {ago(featureAndRevision.dateUpdated)}
-                    </td>
-                    <td>{statusToCopy(featureAndRevision.status)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {Math.ceil(featuresAndRevisions.length / NUM_PER_PAGE) > 1 && (
-            <Pagination
-              numItemsTotal={items.length}
-              currentPage={currentPage}
-              perPage={NUM_PER_PAGE}
-              onPageChange={(d) => {
-                setCurrentPage(d);
-              }}
+    return items.length < 0 ? (
+      <div>
+        <div className="row mb-2 align-items-center">
+          <div className="col-auto">
+            <Field
+              placeholder="Search..."
+              type="search"
+              {...searchInputProps}
             />
-          )}
+          </div>
         </div>
-      )
+
+        <table className="table gbtable table-hover appbox">
+          <thead
+            className="sticky-top bg-white shadow-sm"
+            style={{ top: "56px", zIndex: 900 }}
+          >
+            <tr>
+              <SortableTH field="id">Feature Key</SortableTH>
+              <th>Comment</th>
+              <th>Project</th>
+              <th> Creator</th>
+              <SortableTH field="dateUpdated">Last Updated</SortableTH>
+              <SortableTH field="status">Status</SortableTH>
+            </tr>
+          </thead>
+          <tbody>
+            {items.slice(start, end).map((featureAndRevision) => {
+              const projectId = featureAndRevision.feature.project;
+              const projectName = projectId
+                ? getProjectById(projectId)?.name || null
+                : null;
+              const projectIsDeReferenced = projectId && !projectName;
+
+              return (
+                <tr
+                  key={`${featureAndRevision.id}:${featureAndRevision.version}`}
+                >
+                  <td>
+                    <Link
+                      href={`/features/${featureAndRevision.id}?v=${featureAndRevision?.version}`}
+                    >
+                      <a>{featureAndRevision.id}</a>
+                    </Link>
+                  </td>
+                  <td>
+                    <OverflowText maxWidth={200}>
+                      {featureAndRevision.comment}
+                    </OverflowText>
+                  </td>
+                  {
+                    <td>
+                      {projectIsDeReferenced ? (
+                        <Tooltip
+                          body={
+                            <>
+                              Project
+                              <code>{featureAndRevision.project}</code>
+                              not found
+                            </>
+                          }
+                        >
+                          <span className="text-danger">Invalid project</span>
+                        </Tooltip>
+                      ) : (
+                        projectName ?? <em>None</em>
+                      )}
+                    </td>
+                  }
+                  <td>{featureAndRevision.creator}</td>
+
+                  <td title={datetime(featureAndRevision.dateUpdated)}>
+                    {ago(featureAndRevision.dateUpdated)}
+                  </td>
+                  <td>{statusToCopy(featureAndRevision.status)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {Math.ceil(featuresAndRevisions.length / NUM_PER_PAGE) > 1 && (
+          <Pagination
+            numItemsTotal={items.length}
+            currentPage={currentPage}
+            perPage={NUM_PER_PAGE}
+            onPageChange={(d) => {
+              setCurrentPage(d);
+            }}
+          />
+        )}
+      </div>
+    ) : (
+      <div className="callout callout-color-amber">
+        There are no drafts or revisions to review
+      </div>
     );
   };
 

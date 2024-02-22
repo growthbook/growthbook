@@ -41,6 +41,7 @@ export type CommercialFeature =
   | "teams"
   | "sticky-bucketing"
   | "require-approvals"
+  | "code-references"
   | "prerequisites"
   | "prerequisite-targeting";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
@@ -112,6 +113,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "livechat",
     "remote-evaluation",
     "sticky-bucketing",
+    "code-references",
     "prerequisites",
   ]),
   pro_sso: new Set<CommercialFeature>([
@@ -129,6 +131,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "livechat",
     "remote-evaluation",
     "sticky-bucketing",
+    "code-references",
     "prerequisites",
   ]),
   enterprise: new Set<CommercialFeature>([
@@ -156,6 +159,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "no-access-role",
     "sticky-bucketing",
     "require-approvals",
+    "code-references",
     "prerequisites",
     "prerequisite-targeting",
   ]),

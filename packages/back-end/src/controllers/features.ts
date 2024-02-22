@@ -98,6 +98,7 @@ import {
 import { ReqContext } from "../../types/organization";
 import { ExperimentInterface } from "../../types/experiment";
 import { ApiReqContext } from "../../types/api";
+import { getAllCodeRefsForFeature } from "../models/FeatureCodeRefs";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -1793,11 +1794,18 @@ export async function getFeatureById(
     }
   }
 
+  // find code references
+  const codeRefs = await getAllCodeRefsForFeature({
+    feature: feature.id,
+    organization: org,
+  });
+
   res.status(200).json({
     status: 200,
     feature,
     revisions,
     experiments: [...experimentsMap.values()],
+    codeRefs,
   });
 }
 

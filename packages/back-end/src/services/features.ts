@@ -1220,7 +1220,7 @@ export const reduceFeaturesWithPrerequisites = (
   // block "always off" rules, or reduce "always on" rules
   for (let i = 0; i < newFeatures.length; i++) {
     const feature = newFeatures[i];
-    if (!feature.environmentSettings[environment]) continue;
+    if (!feature.environmentSettings[environment]?.rules) continue;
 
     const newFeatureRules: FeatureRule[] = [];
 

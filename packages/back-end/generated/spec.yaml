@@ -96,6 +96,9 @@ tags:
   - name: fact-metrics
     x-displayName: Fact Metrics
     description: Fact Metrics are metrics built on top of Fact Table definitions
+  - name: code-references
+    x-displayName: Code References
+    description: 'Intended for use with our code reference CI utility, [`gb-find-code-refs`](https://github.com/growthbook/gb-find-code-refs).'
   - name: DataSource_model
     x-displayName: DataSource
     description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
@@ -553,6 +556,27 @@ paths:
                 properties:
                   feature:
                     $ref: '#/components/schemas/Feature'
+  /feature-keys:
+    get:
+      summary: Get list of feature keys
+      tags:
+        - features
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      operationId: getFeatureKeys
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/feature-keys?projectId=prj_5l652 \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
   /projects:
     get:
       summary: Get all projects
@@ -3199,6 +3223,65 @@ paths:
                     type: integer
                   factMetricsUpdated:
                     type: integer
+  /code-refs:
+    post:
+      tags:
+        - code-references
+      summary: Submit list of code references
+      operationId: postCodeRefs
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/code-refs \
+              -d '{ "startingLineNumber": 16, "lines": "...", "flagKey": "..." }' \
+              -u secret_abc123DEF456
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - branch
+                - repoName
+                - refs
+              properties:
+                branch:
+                  type: string
+                repoName:
+                  type: string
+                refs:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - filePath
+                      - startingLineNumber
+                      - lines
+                      - flagKey
+                      - contentHash
+                    properties:
+                      filePath:
+                        type: string
+                      startingLineNumber:
+                        type: integer
+                      lines:
+                        type: string
+                      flagKey:
+                        type: string
+                      contentHash:
+                        type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  featuresUpdated:
+                    type: array
+                    items:
+                      type: string
 components:
   parameters:
     id:
@@ -3251,6 +3334,30 @@ components:
       description: Specify a specific fact table
       schema:
         type: string
+    repo:
+      name: repo
+      in: query
+      required: true
+      description: Fully qualified name of repo either in GitHub or some other version control platform.
+      schema:
+        type: string
+    branch:
+      name: branch
+      in: query
+      required: true
+      description: Name of branch for git repo.
+      schema:
+        type: string
+    platform:
+      name: platform
+      in: query
+      description: Name of versino control platform like GitHub or Gitlab.
+      schema:
+        type: string
+        enum:
+          - github
+          - gitlab
+          - bitbucket
   schemas:
     PaginationFields:
       type: object
@@ -4933,6 +5040,7 @@ x-tagGroups:
       - organizations
       - fact-tables
       - fact-metrics
+      - code-references
   - name: Models
     tags:
       - DataSource_model

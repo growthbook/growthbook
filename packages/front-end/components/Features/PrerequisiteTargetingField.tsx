@@ -35,6 +35,7 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
+import { DocLink } from "@/components/DocLink";
 import { GBAddCircle } from "../Icons";
 import SelectField from "../Forms/SelectField";
 
@@ -376,6 +377,15 @@ export default function PrerequisiteTargetingField({
               </div>
             );
           })}
+
+          <div className="float-right small">
+            <DocLink
+              docSection="prerequisites"
+              className="align-self-center ml-2 pb-1"
+            >
+              View Documentation
+            </DocLink>
+          </div>
 
           <button
             className="btn p-0 ml-2 link-purple font-weight-bold"
