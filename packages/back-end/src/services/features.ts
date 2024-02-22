@@ -137,7 +137,7 @@ function generateVisualExperimentsPayload({
 
       const urlRedirects = v.urlRedirects;
 
-      if (!phase) return null;
+      if (!phase || (urlRedirects?.length && !v.urlPatterns)) return null;
 
       const exp: AutoExperimentWithProject = {
         key: e.trackingKey,

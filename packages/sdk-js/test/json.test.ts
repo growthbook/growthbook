@@ -11,9 +11,9 @@ import {
 } from "../src";
 import { evalCondition } from "../src/mongrule";
 import {
-  AutoExperiment,
   StickyAssignmentsDocument,
   StickyAttributeKey,
+  TrackingData,
   VariationRange,
 } from "../src/types/growthbook";
 import {
@@ -68,8 +68,8 @@ type Cases = {
     gt: [string, string, boolean][];
     eq: [string, string, boolean][];
   };
-  // name, context, experiment, result
-  urlRedirect: [string, Context, AutoExperiment, string][];
+  // name, context, result
+  urlRedirect: [string, Context, TrackingData[]][];
 };
 
 const round = (n: number) => Math.floor(n * 1e8) / 1e8;
@@ -264,10 +264,15 @@ describe("json test suite", () => {
 
   it.each((cases as Cases).urlRedirect)(
     "urlRedirect[%#] %s",
-    (name, ctx, exp, result) => {
+    (name, ctx, result) => {
       const growthbook = new GrowthBook(ctx);
-      const res = growthbook.run(exp);
-      expect(res.value.urlRedirect).toEqual(result);
+      const data = growthbook.getDeferredTrackingCalls();
+      const calls: TrackingData[] = JSON.parse(atob(data));
+      const actualResult = calls.map((c) => ({
+        inExperiment: c.result.inExperiment,
+        urlRedirect: c.result.value.urlRedirect,
+      }));
+      expect(actualResult).toEqual(result);
       growthbook.destroy();
     }
   );

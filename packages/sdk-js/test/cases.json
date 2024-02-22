@@ -4833,29 +4833,31 @@
       "Basic redirect without query strings",
       {
         "attributes": { "id": "1" },
-        "url": "http://www.example.com/home"
-      },
-      {
-        "key": "my-experiment",
-        "urlPatterns": [
+        "url": "http://www.example.com/home",
+        "experiments": [
           {
-            "type": "simple",
-            "include": true,
-            "pattern": "http://www.example.com/home"
-          }
-        ],
-        "weights": [0.1, 0.9],
-        "variations": [
-          {},
-          {
-            "urlRedirects": {
-              "variation": "vc_123abc",
-              "url": "http://www.example.com/home-new"
-            }
+            "key": "my-experiment",
+            "urlPatterns": [
+              {
+                "type": "simple",
+                "include": true,
+                "pattern": "http://www.example.com/home"
+              }
+            ],
+            "weights": [0.1, 0.9],
+            "variations": [
+              {},
+              {
+                "urlRedirects": {
+                  "variation": "vc_123abc",
+                  "url": "http://www.example.com/home-new"
+                }
+              }
+            ]
           }
         ]
       },
-      "http://www.example.com/home-new"
+      { "inExperiment": true, "urlRedirect": "http://www.example.com/home-new" }
     ]
   ]
 }
