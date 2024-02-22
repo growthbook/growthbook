@@ -45,12 +45,10 @@ export interface Props {
   setStatusModal: (open: boolean) => void;
   setAuditModal: (open: boolean) => void;
   setWatchersModal: (open: boolean) => void;
+  checklistItemsRemaining: number | null;
   editResult?: () => void;
   safeToEdit: boolean;
   usersWatching: (string | undefined)[];
-  linkedFeatures: LinkedFeatureInfo[];
-  visualChangesets: VisualChangesetInterface[];
-  connections: SDKConnectionInterface[];
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editPhases?: (() => void) | null;
@@ -92,13 +90,11 @@ export default function ExperimentHeader({
   safeToEdit,
   usersWatching,
   editResult,
-  connections,
-  linkedFeatures,
-  visualChangesets,
   editTargeting,
   newPhase,
   editPhases,
   healthNotificationCount,
+  checklistItemsRemaining,
 }: Props) {
   const { apiCall } = useAuth();
   const router = useRouter();
@@ -158,28 +154,18 @@ export default function ExperimentHeader({
             <div className="alert alert-info">
               When you start this experiment, all linked Feature Flags rules and
               Visual Editor changes will be activated and users will begin to
-              see your variations. Double check the list below to make sure
-              you&apos;re ready.
+              see your variations.
             </div>
-
-            {/* TODO: Update the StartExperimentBanner so it still has the "Start Experiment" button, but in a way that it doesn't show the Checklist - only warnings that X checklist items haven't been completed */}
             <StartExperimentBanner
-              connections={connections}
               experiment={experiment}
-              linkedFeatures={linkedFeatures}
               mutateExperiment={mutate}
-              visualChangesets={visualChangesets}
-              editTargeting={editTargeting}
               newPhase={newPhase}
-              openSetupTab={
-                tab !== "overview" ? () => setTab("overview") : undefined
-              }
               onStart={() => {
                 setTab("results");
                 setStartExperiment(false);
               }}
               className=""
-              noConfirm={true}
+              checklistItemsRemaining={checklistItemsRemaining}
             />
           </Modal>
         )}
@@ -208,33 +194,35 @@ export default function ExperimentHeader({
               )}
             </div>
 
-            <div className="ml-2">
-              {experiment.status === "running" ? (
-                <ExperimentActionButtons
-                  editResult={editResult}
-                  editTargeting={editTargeting}
-                />
-              ) : experiment.status === "stopped" && experiment.results ? (
-                <div className="experiment-status-widget border d-flex">
-                  <div
-                    className="d-flex"
-                    style={{ height: 30, lineHeight: "30px" }}
-                  >
-                    <ResultsIndicator results={experiment.results} />
+            {canRunExperiment ? (
+              <div className="ml-2">
+                {experiment.status === "running" ? (
+                  <ExperimentActionButtons
+                    editResult={editResult}
+                    editTargeting={editTargeting}
+                  />
+                ) : experiment.status === "stopped" && experiment.results ? (
+                  <div className="experiment-status-widget border d-flex">
+                    <div
+                      className="d-flex"
+                      style={{ height: 30, lineHeight: "30px" }}
+                    >
+                      <ResultsIndicator results={experiment.results} />
+                    </div>
                   </div>
-                </div>
-              ) : experiment.status === "draft" ? (
-                <button
-                  className="btn btn-teal"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setStartExperiment(true);
-                  }}
-                >
-                  Start Experiment <MdRocketLaunch />
-                </button>
-              ) : null}
-            </div>
+                ) : experiment.status === "draft" ? (
+                  <button
+                    className="btn btn-teal"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setStartExperiment(true);
+                    }}
+                  >
+                    Start Experiment <MdRocketLaunch />
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
 
             <div className="ml-2">
               <MoreMenu>

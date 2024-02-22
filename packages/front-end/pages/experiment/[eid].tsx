@@ -12,7 +12,6 @@ import {
 } from "shared/util";
 import { BsChatSquareQuote } from "react-icons/bs";
 import { FaCheck, FaMagic, FaUndo } from "react-icons/fa";
-import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
@@ -35,7 +34,6 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeedbackModal from "@/components/FeedbackModal";
 import track from "@/services/track";
 import PageHead from "@/components/Layout/PageHead";
-import { buildPreLaunchChecklist } from "@/services/preLaunchChecklist";
 
 const ExperimentPage = (): ReactElement => {
   const permissions = usePermissions();
@@ -52,6 +50,9 @@ const ExperimentPage = (): ReactElement => {
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
+  const [checklistItemsRemaining, setChecklistItemsRemaining] = useState<
+    number | null
+  >(null);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -59,10 +60,6 @@ const ExperimentPage = (): ReactElement => {
     visualChangesets: VisualChangesetInterface[];
     linkedFeatures: LinkedFeatureInfo[];
   }>(`/experiment/${eid}`);
-
-  const { data: checkListData } = useApi<{
-    checklist: ExperimentLaunchChecklistInterface;
-  }>("/experiments/launch-checklist"); //TODO: Can I memoize this?
 
   useSwitchOrg(data?.experiment?.organization ?? null);
 
@@ -123,13 +120,6 @@ const ExperimentPage = (): ReactElement => {
       experiment,
       linkedFeatures.map((f) => f.feature)
     );
-
-  const experimentLaunchChecklist = buildPreLaunchChecklist(
-    checkListData?.checklist,
-    experiment,
-    visualChangesets,
-    linkedFeatures
-  );
 
   return (
     <div>
@@ -302,6 +292,8 @@ const ExperimentPage = (): ReactElement => {
               editPhases={editPhases}
               editPhase={editPhase}
               editTargeting={editTargeting}
+              checklistItemsRemaining={checklistItemsRemaining}
+              setChecklistItemsRemaining={setChecklistItemsRemaining}
             />
           ) : (
             <SinglePage
@@ -320,6 +312,8 @@ const ExperimentPage = (): ReactElement => {
               editPhases={editPhases}
               editPhase={editPhase}
               editTargeting={editTargeting}
+              checklistItemsRemaining={checklistItemsRemaining}
+              setChecklistItemsRemaining={setChecklistItemsRemaining}
             />
           )}
         </SnapshotProvider>

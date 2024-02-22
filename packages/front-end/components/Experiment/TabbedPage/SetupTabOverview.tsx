@@ -21,6 +21,8 @@ export interface Props {
   linkedFeatures: LinkedFeatureInfo[];
   connections: SDKConnectionInterface[];
   disableEditing?: boolean;
+  checklistItemsRemaining: number | null;
+  setChecklistItemsRemaining: (value: number | null) => void;
 }
 
 export default function SetupTabOverview({
@@ -33,6 +35,8 @@ export default function SetupTabOverview({
   linkedFeatures,
   connections,
   disableEditing,
+  checklistItemsRemaining,
+  setChecklistItemsRemaining,
 }: Props) {
   const { apiCall } = useAuth();
 
@@ -54,6 +58,8 @@ export default function SetupTabOverview({
           visualChangesets={visualChangesets}
           editTargeting={editTargeting}
           connections={connections}
+          checklistItemsRemaining={checklistItemsRemaining}
+          setChecklistItemsRemaining={setChecklistItemsRemaining}
         />
       ) : null}
       <div className="appbox bg-white my-2 mb-4 p-3">

@@ -177,6 +177,8 @@ export interface Props {
   visualChangesets: VisualChangesetInterface[];
   linkedFeatures: LinkedFeatureInfo[];
   mutate: () => void;
+  checklistItemsRemaining: number | null;
+  setChecklistItemsRemaining: (value: number | null) => void;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
   editVariations?: (() => void) | null;
@@ -207,6 +209,8 @@ export default function SinglePage({
   editPhases,
   editPhase,
   editTargeting,
+  checklistItemsRemaining,
+  setChecklistItemsRemaining,
 }: Props) {
   const [metaInfoOpen, setMetaInfoOpen] = useLocalStorage<boolean>(
     `experiment-page__${experiment.id}__meta-info-open`,
@@ -852,6 +856,8 @@ export default function SinglePage({
             visualChangesets={visualChangesets}
             editTargeting={editTargeting}
             connections={connections}
+            checklistItemsRemaining={checklistItemsRemaining}
+            setChecklistItemsRemaining={setChecklistItemsRemaining}
           />
         ) : null}
       </div>

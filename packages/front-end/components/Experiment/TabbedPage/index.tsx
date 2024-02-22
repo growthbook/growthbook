@@ -47,6 +47,8 @@ export interface Props {
   editTags?: (() => void) | null;
   editProject?: (() => void) | null;
   idea?: IdeaInterface;
+  checklistItemsRemaining: number | null;
+  setChecklistItemsRemaining: (value: number | null) => void;
   editVariations?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
   newPhase?: (() => void) | null;
@@ -72,6 +74,8 @@ export default function TabbedPage({
   newPhase,
   editMetrics,
   editResult,
+  checklistItemsRemaining,
+  setChecklistItemsRemaining,
 }: Props) {
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__${experiment.id}`,
@@ -235,13 +239,11 @@ export default function TabbedPage({
         duplicate={duplicate}
         usersWatching={usersWatching}
         editResult={editResult || undefined}
-        connections={connections}
-        linkedFeatures={linkedFeatures}
-        visualChangesets={visualChangesets}
         editTargeting={editTargeting}
         newPhase={newPhase}
         editPhases={editPhases}
         healthNotificationCount={healthNotificationCount}
+        checklistItemsRemaining={checklistItemsRemaining}
       />
       <div className="container pagecontents pb-4">
         {experiment.project ===
@@ -312,6 +314,8 @@ export default function TabbedPage({
             visualChangesets={visualChangesets}
             editTargeting={editTargeting}
             connections={connections}
+            checklistItemsRemaining={checklistItemsRemaining}
+            setChecklistItemsRemaining={setChecklistItemsRemaining}
           />
           <Implementation
             experiment={experiment}
