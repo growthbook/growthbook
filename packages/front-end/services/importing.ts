@@ -1,6 +1,10 @@
 import { ProjectInterface } from "back-end/types/project";
 import { Environment } from "back-end/types/organization";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import {
+  FeatureInterface,
+  FeatureRule,
+  FeatureValueType,
+} from "back-end/types/feature";
 import { ConditionInterface } from "@growthbook/growthbook-react";
 
 // Various utilities to help migrate from another service to GrowthBook
@@ -85,6 +89,10 @@ export type LDListFeatureFlagsResponse = {
       lastName: string;
       role: string;
     };
+    defaults?: {
+      onVariation: number;
+      offVariation: number;
+    };
     environments: {
       [key: string]: {
         on: boolean;
@@ -93,6 +101,7 @@ export type LDListFeatureFlagsResponse = {
         fallthrough?: {
           variation?: number;
         };
+        offVariation?: number;
         prerequisites?: {
           key: string;
           variation: number;
@@ -276,35 +285,19 @@ function transformLDClause(
   return null;
 }
 
-export const transformLDFeatureFlag = (
-  data: LDListFeatureFlagsResponse["items"][0],
-  project: string
-): Omit<
-  FeatureInterface,
-  "dateCreated" | "dateUpdated" | "version" | "organization"
-> => {
-  const {
-    description,
-    environments,
-    key,
-    kind,
-    name,
-    tags,
-    variations,
-    _maintainer,
-  } = data;
-
-  const envKeys = Object.keys(environments);
+function getTypeAndVariations(
+  data: LDListFeatureFlagsResponse["items"][0]
+): { type: FeatureValueType; variations: string[] } {
   const valueType =
-    kind === "boolean"
+    data.kind === "boolean"
       ? "boolean"
-      : typeof variations[0].value === "number"
+      : typeof data.variations[0].value === "number"
       ? "number"
-      : typeof variations[0].value === "string"
+      : typeof data.variations[0].value === "string"
       ? "string"
       : "json";
 
-  const variationValues = variations.map((v) => {
+  const variationValues = data.variations.map((v) => {
     if (valueType === "boolean") {
       return v.value ? "true" : "false";
     }
@@ -313,6 +306,40 @@ export const transformLDFeatureFlag = (
     }
     return JSON.stringify(v.value);
   });
+
+  return { type: valueType, variations: variationValues };
+}
+
+// eslint-disable-next-line
+function getJSONValue(type: FeatureValueType, value: string): any {
+  if (type === "json") {
+    try {
+      return JSON.parse(value);
+    } catch (e) {
+      return null;
+    }
+  }
+  if (type === "number") return parseFloat(value) || 0;
+  if (type === "string") return value;
+  if (type === "boolean") return value === "false" ? false : true;
+  return null;
+}
+
+export const transformLDFeatureFlag = (
+  data: LDListFeatureFlagsResponse["items"][0],
+  project: string,
+  featureVarMap: FeatureVariationsMap = new Map()
+): Omit<
+  FeatureInterface,
+  "dateCreated" | "dateUpdated" | "version" | "organization"
+> => {
+  const { description, environments, key, name, tags, _maintainer } = data;
+
+  const envKeys = Object.keys(environments);
+
+  const { type: valueType, variations: variationValues } = getTypeAndVariations(
+    data
+  );
 
   function getFallthroughForEnvironments(envKey: string): number | null {
     const envData = environments[envKey];
@@ -349,6 +376,51 @@ export const transformLDFeatureFlag = (
     const envData = environments[envKey];
 
     const rules: FeatureRule[] = [];
+
+    // If there are prerequisites, add force rules to the top
+    if (envData.prerequisites?.length) {
+      // Value to force when any prerequisite is not met
+      const offVariationIndex =
+        envData.offVariation ?? data.defaults?.offVariation ?? 0;
+      const offVariation = variationValues[offVariationIndex];
+
+      envData.prerequisites.forEach((prereq, i) => {
+        const { key, variation } = prereq;
+        const parentFeature = featureVarMap.get(key);
+
+        if (!parentFeature) {
+          throw new Error(
+            `Unknown prerequisite feature ${key} (referenced from feature ${data.key})`
+          );
+        }
+
+        const parentJSONValue = getJSONValue(
+          parentFeature.type,
+          parentFeature.variations[variation] || ""
+        );
+
+        // Need to invert the condition since we want this rule to match if the prerequisite is not met
+        const invertedCondition: ConditionInterface =
+          parentFeature.type === "boolean"
+            ? { $eq: !parentJSONValue }
+            : { $ne: parentJSONValue };
+
+        rules.push({
+          type: "force",
+          id: `rule_prereqs_${i}`,
+          description: `Prerequisite feature ${i + 1}`,
+          prerequisites: [
+            {
+              id: key,
+              condition: JSON.stringify(invertedCondition),
+            },
+          ],
+          condition: "",
+          enabled: true,
+          value: offVariation,
+        });
+      });
+    }
 
     // First add targeting rules
     const targets = (envData.targets || []).concat(
@@ -468,6 +540,11 @@ export const transformLDFeatureFlag = (
   };
 };
 
+export type FeatureVariationsMap = Map<
+  string,
+  { type: FeatureValueType; variations: string[] }
+>;
+
 export const transformLDFeatureFlagToGBFeature = (
   data: LDListFeatureFlagsResponse,
   project: string
@@ -475,7 +552,16 @@ export const transformLDFeatureFlagToGBFeature = (
   FeatureInterface,
   "organization" | "dateUpdated" | "dateCreated" | "version"
 >[] => {
-  return data.items.map((item) => transformLDFeatureFlag(item, project));
+  // Build a map of feature key to type and variations
+  // This is required for prerequisites
+  const featureVarMap: FeatureVariationsMap = new Map();
+  data.items.forEach((item) => {
+    featureVarMap.set(item.key, getTypeAndVariations(item));
+  });
+
+  return data.items.map((item) =>
+    transformLDFeatureFlag(item, project, featureVarMap)
+  );
 };
 
 /**
