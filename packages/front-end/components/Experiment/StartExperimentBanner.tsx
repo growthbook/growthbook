@@ -1,5 +1,6 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { MdRocketLaunch } from "react-icons/md";
+import { ReactElement } from "react";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import { useCelebration } from "@/hooks/useCelebration";
@@ -14,6 +15,7 @@ export function StartExperimentBanner({
   onStart,
   className,
   checklistItemsRemaining,
+  noConnectionsWarning,
 }: {
   experiment: ExperimentInterfaceStringDates;
   mutateExperiment: () => unknown | Promise<unknown>;
@@ -21,6 +23,7 @@ export function StartExperimentBanner({
   newPhase?: (() => void) | null;
   onStart?: () => void;
   className?: string;
+  noConnectionsWarning: ReactElement | null;
 }) {
   const { apiCall } = useAuth();
   const startCelebration = useCelebration();
@@ -77,7 +80,8 @@ export function StartExperimentBanner({
                   </div>
                 </>
               )}
-              {checklistItemsRemaining === 0 ? (
+              {noConnectionsWarning ? noConnectionsWarning : null}
+              {checklistItemsRemaining === 0 && !noConnectionsWarning ? (
                 <Button
                   color="teal"
                   className="btn-lg mb-2"

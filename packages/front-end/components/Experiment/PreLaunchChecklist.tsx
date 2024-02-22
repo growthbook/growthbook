@@ -33,6 +33,8 @@ export function PreLaunchChecklist({
   mutateExperiment,
   checklistItemsRemaining,
   setChecklistItemsRemaining,
+  setNoConnectionsWarning,
+  noConnectionsWarning,
   editTargeting,
   openSetupTab,
 }: {
@@ -43,6 +45,8 @@ export function PreLaunchChecklist({
   mutateExperiment: () => unknown | Promise<unknown>;
   checklistItemsRemaining: number | null;
   setChecklistItemsRemaining: (value: number | null) => void;
+  setNoConnectionsWarning: (value: ReactElement | null) => void;
+  noConnectionsWarning: ReactElement | null;
   editTargeting?: (() => void) | null;
   openSetupTab?: () => void;
   className?: string;
@@ -50,7 +54,6 @@ export function PreLaunchChecklist({
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
   const permissions = usePermissions();
-  const [warnings, setWarnings] = useState<ReactElement | null>(null);
   const [checkListOpen, setCheckListOpen] = useState(() =>
     checklistItemsRemaining === 0 ? false : true
   );
@@ -180,25 +183,6 @@ export function PreLaunchChecklist({
     (connection) => connection.connected
   );
 
-  if (!verifiedConnections) {
-    setWarnings(
-      <>
-        Before you can run an experiment, you need to integrate the GrowthBook
-        into your app.{" "}
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            setShowSdkForm(true);
-          }}
-        >
-          Create an SDK Connection
-        </a>
-        .
-      </>
-    );
-  }
-
   // Experiment has phases
   const hasPhases = experiment.phases.length > 0;
   checklist.push({
@@ -283,7 +267,6 @@ export function PreLaunchChecklist({
 
   if (data && data.checklist?.tasks?.length > 0) {
     data?.checklist.tasks.forEach((item) => {
-      console.log("item from backend", item);
       if (item.completionType === "manual") {
         checklist.push({
           type: "manual",
@@ -376,6 +359,37 @@ export function PreLaunchChecklist({
     }
     setChecklistItemsRemaining(calculateItemsRemaining());
   }, [checklist, setChecklistItemsRemaining]);
+
+  useEffect(() => {
+    if (verifiedConnections && noConnectionsWarning) {
+      setNoConnectionsWarning(null);
+    }
+
+    if (!verifiedConnections.length) {
+      setNoConnectionsWarning(
+        <div className="alert alert-danger">
+          <strong>
+            Before you can run an experiment, you need to integrate the
+            GrowthBook into your app.{" "}
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setShowSdkForm(true);
+              }}
+            >
+              Create an SDK Connection
+            </a>
+          </strong>
+        </div>
+      );
+    }
+  }, [
+    noConnectionsWarning,
+    setNoConnectionsWarning,
+    verifiedConnections,
+    verifiedConnections.length,
+  ]);
 
   if (experiment.status !== "draft") return null;
 
@@ -478,7 +492,7 @@ export function PreLaunchChecklist({
             </div>
           </div>
         ) : null}
-        {warnings ? warnings : null}
+        {noConnectionsWarning ? noConnectionsWarning : null}
       </div>
     </div>
   );
