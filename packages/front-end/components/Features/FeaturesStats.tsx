@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
 import { OrganizationSettings } from "back-end/types/organization";
 import { FaGitAlt, FaExternalLinkAlt } from "react-icons/fa";
@@ -9,6 +9,8 @@ import usePermissions from "@/hooks/usePermissions";
 import Button from "../Button";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
 import Tooltip from "../Tooltip/Tooltip";
+import { GBPremiumBadge } from "../Icons";
+import UpgradeModal from "../Settings/UpgradeModal";
 
 const generatePlatformUrl = (
   platformUrl: string,
@@ -28,12 +30,13 @@ export default function FeaturesStats({
   codeRefs: FeatureCodeRefsInterface[];
 }) {
   const router = useRouter();
+  const [upgradeModal, setUpgradeModal] = useState(false);
   const {
     codeReferencesEnabled,
     codeRefsPlatformUrl,
     codeRefsBranchesToFilter,
   } = orgSettings;
-  const { hasCommercialFeature } = useUser();
+  const { accountPlan, hasCommercialFeature } = useUser();
   const hasFeature = hasCommercialFeature("code-references");
   const permissions = usePermissions();
 
@@ -48,51 +51,63 @@ export default function FeaturesStats({
 
   if (!codeReferencesEnabled) {
     return (
-      <div className="contents container-fluid pagecontents">
-        <div
-          className="appbox bg-white"
-          style={{
-            height: "18rem",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          <h2>Enable Code References</h2>
-          <p style={{ width: "32rem" }}>
-            Quickly see instances of feature flags being leveraged in your
-            codebase, with direct links from GrowthBook to the platform of your
-            choice.
-          </p>
-          {hasFeature ? (
-            <Tooltip
-              shouldDisplay={!permissions.organizationSettings}
-              body="You need to be an admin to enable this feature."
-            >
-              <Button
-                disabled={!permissions.organizationSettings}
-                onClick={async () => {
-                  router.push("/settings#configure-code-refs");
-                }}
-              >
-                Go to settings
-              </Button>
-            </Tooltip>
-          ) : (
+      <>
+        <div className="contents container-fluid pagecontents">
+          <div
+            className="appbox bg-white"
+            style={{
+              height: "18rem",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
             <PremiumTooltip commercialFeature="code-references">
-              <Button
-                color="warning"
-                onClick={async () => {
-                  router.push("/settings");
-                }}
-              >
-                Upgrade to Pro
-              </Button>
+              <span className="h2">Enable Code References</span>
             </PremiumTooltip>
-          )}
+            <p style={{ width: "32rem" }}>
+              Quickly see instances of feature flags being leveraged in your
+              codebase, with direct links from GrowthBook to the platform of
+              your choice.
+            </p>
+            {hasFeature ? (
+              <Tooltip
+                shouldDisplay={!permissions.organizationSettings}
+                body="You need to be an admin to enable this feature."
+              >
+                <Button
+                  disabled={!permissions.organizationSettings}
+                  onClick={async () => {
+                    router.push("/settings#configure-code-refs");
+                  }}
+                >
+                  Go to settings
+                </Button>
+              </Tooltip>
+            ) : (
+              <Button color="warning" onClick={() => setUpgradeModal(true)}>
+                {accountPlan === "oss" ? (
+                  <>
+                    Upgrade to Enterprise <GBPremiumBadge />
+                  </>
+                ) : (
+                  <>
+                    Upgrade to Pro <GBPremiumBadge />
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
+        {upgradeModal && (
+          <UpgradeModal
+            close={() => setUpgradeModal(false)}
+            reason=""
+            source="settings"
+          />
+        )}
+      </>
     );
   }
 
