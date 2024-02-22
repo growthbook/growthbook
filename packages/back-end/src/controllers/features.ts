@@ -1349,7 +1349,9 @@ export async function getDraftandReviewRevisions(
   for (const r of revisions) {
     if (r) {
       const feature = await getFeature(context, r.featureId);
-      if (feature) {
+      // we need to filter out features that are created after the revision
+      // eg someone deletes a feature with revisions and creates a new one with the same id
+      if (feature && feature.dateCreated > r.dateCreated) {
         featuresAndRevisions.push({
           revision: r,
           feature,
