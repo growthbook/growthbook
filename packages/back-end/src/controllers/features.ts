@@ -1347,11 +1347,15 @@ export async function getDraftandReviewRevisions(
   }[] = [];
 
   for (const r of revisions) {
-    const feature = await getFeature(context, r.featureId);
-    featuresAndRevisions.push({
-      revision: r,
-      feature,
-    });
+    if (r) {
+      const feature = await getFeature(context, r.featureId);
+      if (feature) {
+        featuresAndRevisions.push({
+          revision: r,
+          feature,
+        });
+      }
+    }
   }
   res.status(200).json({
     status: 200,

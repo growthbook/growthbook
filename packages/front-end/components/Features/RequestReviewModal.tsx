@@ -232,13 +232,11 @@ export default function RequestReviewModal({
             {canPublish && (
               <div className="mt-3">
                 <div className="d-flex">
-                  <div
+                  <input
+                    type="checkbox"
+                    className="mr-2"
                     checked={adminPublish}
-                    onCheckedChange={(checkedState) => {
-                      checkedState === "indeterminate"
-                        ? setAdminPublish(false)
-                        : setAdminPublish(checkedState);
-                    }}
+                    onChange={async (e) => setAdminPublish(e.target.checked)}
                   />
                   Bypass approval requirement to publish (optional for Admins
                   only)
