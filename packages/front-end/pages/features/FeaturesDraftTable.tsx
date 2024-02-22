@@ -15,6 +15,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Pagination from "@/components/Pagination";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 export default function FeaturesDraftTable() {
   const draftAndReviewData = useApi<{
@@ -75,6 +76,8 @@ export default function FeaturesDraftTable() {
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
+  const loading = !data;
+
   const renderFeaturesTableDrafts = () => {
     return items.length > 0 ? (
       <div>
@@ -173,6 +176,6 @@ export default function FeaturesDraftTable() {
       </div>
     );
   };
-
+  if (loading) return <LoadingOverlay />;
   return renderFeaturesTableDrafts() || null;
 }
