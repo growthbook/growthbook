@@ -411,7 +411,7 @@ export const transformLDFeatureFlag = (
           return;
         }
 
-        if (!rule.variation) {
+        if (rule.variation == null) {
           throw new Error("Rule found without a variation");
         }
 
