@@ -112,7 +112,9 @@ function generateVisualExperimentsPayload({
   );
 
   const visualEditorExperiments = visualExperiments.filter(
-    (e) => !e.visualChangeset.urlRedirects
+    (e) =>
+      !e.visualChangeset.urlRedirects ||
+      e.visualChangeset.urlRedirects.length === 0
   );
 
   const sortedVisualExperiments = urlRedirectExperiments.concat(
