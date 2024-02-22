@@ -43,7 +43,6 @@ export default function FeaturesDraftTable() {
         return;
     }
   };
-  console.log(data?.featuresAndRevisions);
   const featuresAndRevisions = useAddComputedFields(
     data?.featuresAndRevisions,
     (featureAndRevision) => {
