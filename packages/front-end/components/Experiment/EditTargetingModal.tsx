@@ -9,7 +9,7 @@ import isEqual from "lodash/isEqual";
 import React, { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
 import { MdInfoOutline } from "react-icons/md";
-import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
+import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
@@ -73,9 +73,11 @@ export default function EditTargetingModal({
   const [changesConfirmed, setChangesConfirmed] = useState(false);
 
   const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithNoBucketingV2 = (sdkConnectionsData?.connections || [])
-    .map((sdk) => getConnectionSDKCapabilities(sdk))
-    .some((c) => !c.includes("bucketingV2"));
+  const hasSDKWithNoBucketingV2 = !getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+    mustMatchAllConnections: true,
+    project: experiment?.project,
+  }).includes("bucketingV2");
 
   const [
     prerequisiteTargetingSdkIssues,
@@ -454,6 +456,7 @@ function TargetingForm({
           <HashVersionSelector
             value={form.watch("hashVersion")}
             onChange={(v) => form.setValue("hashVersion", v)}
+            project={experiment.project}
           />
         </>
       )}

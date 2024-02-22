@@ -4,7 +4,7 @@ import {
   FaQuestionCircle,
 } from "react-icons/fa";
 import { ReactNode } from "react";
-import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
+import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip/Tooltip";
@@ -48,14 +48,18 @@ export function HashVersionTooltip({ children }: { children: ReactNode }) {
 export default function HashVersionSelector({
   value,
   onChange,
+  project,
 }: {
   value: 1 | 2;
   onChange: (value: 1 | 2) => void;
+  project?: string;
 }) {
   const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithNoBucketingV2 = (sdkConnectionsData?.connections || [])
-    .map((sdk) => getConnectionSDKCapabilities(sdk))
-    .some((c) => !c.includes("bucketingV2"));
+  const hasSDKWithNoBucketingV2 = !getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+    mustMatchAllConnections: true,
+    project,
+  }).includes("bucketingV2");
 
   return (
     <>

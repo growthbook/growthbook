@@ -22,7 +22,7 @@ import {
 import Link from "next/link";
 import cloneDeep from "lodash/cloneDeep";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
+import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import {
   NewExperimentRefRule,
   generateVariationId,
@@ -156,9 +156,11 @@ export default function RuleModal({
   const selectedExperiment = experimentsMap.get(experimentId) || null;
 
   const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithNoBucketingV2 = (sdkConnectionsData?.connections || [])
-    .map((sdk) => getConnectionSDKCapabilities(sdk))
-    .some((c) => !c.includes("bucketingV2"));
+  const hasSDKWithNoBucketingV2 = !getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+    mustMatchAllConnections: true,
+    project: feature.project,
+  }).includes("bucketingV2");
 
   const prerequisites = form.watch("prerequisites") || [];
   const [isCyclic, cyclicFeatureId] = useMemo(() => {
@@ -777,10 +779,9 @@ export default function RuleModal({
           </div>
           {hasSDKWithNoBucketingV2 && (
             <HashVersionSelector
-              value={
-                form.watch("hashVersion") || hasSDKWithNoBucketingV2 ? 1 : 2
-              }
+              value={(form.watch("hashVersion") || 1) as 1 | 2}
               onChange={(v) => form.setValue("hashVersion", v)}
+              project={feature.project}
             />
           )}
           <hr />

@@ -13,7 +13,7 @@ import {
   isProjectListValidForProject,
   validateAndFixCondition,
 } from "shared/util";
-import { getConnectionSDKCapabilities } from "shared/dist/sdk-versioning";
+import { getConnectionsSDKCapabilities } from "shared/dist/sdk-versioning";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -153,9 +153,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const { refreshWatching } = useWatching();
 
   const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithNoBucketingV2 = (sdkConnectionsData?.connections || [])
-    .map((sdk) => getConnectionSDKCapabilities(sdk))
-    .some((c) => !c.includes("bucketingV2"));
+  const hasSDKWithNoBucketingV2 = !getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+    mustMatchAllConnections: true,
+    project,
+  }).includes("bucketingV2");
 
   useEffect(() => {
     track("New Experiment Form", {
@@ -471,10 +473,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
               {hasSDKWithNoBucketingV2 && (
                 <HashVersionSelector
-                  value={
-                    form.watch("hashVersion") || hasSDKWithNoBucketingV2 ? 1 : 2
-                  }
+                  value={(form.watch("hashVersion") || 1) as 1 | 2}
                   onChange={(v) => form.setValue("hashVersion", v)}
+                  project={project}
                 />
               )}
 
