@@ -116,7 +116,6 @@
         "./packages/front-end/components/Experiment/NewExperimentForm.tsx",
         "./packages/front-end/components/Experiment/VisualEditorScriptMissing.tsx",
         "./packages/front-end/components/Features/CodeSnippetModal.tsx",
-        "./packages/front-end/components/Features/ConditionInput.tsx",
         "./packages/front-end/components/Features/DraftModal.tsx",
         "./packages/front-end/components/Features/RuleList.tsx",
         "./packages/front-end/components/Forms/SelectField.tsx",

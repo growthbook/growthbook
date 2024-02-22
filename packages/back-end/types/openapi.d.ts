@@ -33,6 +33,10 @@ export interface paths {
       };
     };
   };
+  "/feature-keys": {
+    /** Get list of feature keys */
+    get: operations["getFeatureKeys"];
+  };
   "/projects": {
     /** Get all projects */
     get: operations["listProjects"];
@@ -241,6 +245,10 @@ export interface paths {
     /** Bulk import fact tables, filters, and metrics */
     post: operations["postBulkImportFacts"];
   };
+  "/code-refs": {
+    /** Submit list of code references */
+    post: operations["postCodeRefs"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -433,7 +441,6 @@ export interface components {
               disableStickyBucketing?: any;
               bucketVersion?: number;
               minBucketVersion?: number;
-              excludeBlockedBucketUsers?: boolean;
               namespace?: {
                 enabled: boolean;
                 name: string;
@@ -500,7 +507,6 @@ export interface components {
                 disableStickyBucketing?: any;
                 bucketVersion?: number;
                 minBucketVersion?: number;
-                excludeBlockedBucketUsers?: boolean;
                 namespace?: {
                   enabled: boolean;
                   name: string;
@@ -529,6 +535,10 @@ export interface components {
           };
         }) | undefined;
       };
+      prerequisites?: ({
+          parentId: string;
+          parentCondition: string;
+        })[];
       revision: {
         version: number;
         comment: string;
@@ -578,7 +588,6 @@ export interface components {
           disableStickyBucketing?: any;
           bucketVersion?: number;
           minBucketVersion?: number;
-          excludeBlockedBucketUsers?: boolean;
           namespace?: {
             enabled: boolean;
             name: string;
@@ -645,7 +654,6 @@ export interface components {
             disableStickyBucketing?: any;
             bucketVersion?: number;
             minBucketVersion?: number;
-            excludeBlockedBucketUsers?: boolean;
             namespace?: {
               enabled: boolean;
               name: string;
@@ -711,7 +719,6 @@ export interface components {
       disableStickyBucketing?: any;
       bucketVersion?: number;
       minBucketVersion?: number;
-      excludeBlockedBucketUsers?: boolean;
       namespace?: {
         enabled: boolean;
         name: string;
@@ -790,7 +797,6 @@ export interface components {
       disableStickyBucketing?: any;
       bucketVersion?: number;
       minBucketVersion?: number;
-      excludeBlockedBucketUsers?: boolean;
       namespace?: {
         enabled: boolean;
         name: string;
@@ -864,7 +870,6 @@ export interface components {
       disableStickyBucketing?: any;
       bucketVersion?: number;
       minBucketVersion?: number;
-      excludeBlockedBucketUsers?: boolean;
       variations: ({
           variationId: string;
           key: string;
@@ -1320,6 +1325,12 @@ export interface components {
     visualChangeId: string;
     /** @description Specify a specific fact table */
     factTableId: string;
+    /** @description Fully qualified name of repo either in GitHub or some other version control platform. */
+    repo: string;
+    /** @description Name of branch for git repo. */
+    branch: string;
+    /** @description Name of versino control platform like GitHub or Gitlab. */
+    platform: "github" | "gitlab" | "bitbucket";
   };
   requestBodies: never;
   headers: never;
@@ -1402,7 +1413,6 @@ export interface operations {
                         disableStickyBucketing?: any;
                         bucketVersion?: number;
                         minBucketVersion?: number;
-                        excludeBlockedBucketUsers?: boolean;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -1469,7 +1479,6 @@ export interface operations {
                           disableStickyBucketing?: any;
                           bucketVersion?: number;
                           minBucketVersion?: number;
-                          excludeBlockedBucketUsers?: boolean;
                           namespace?: {
                             enabled: boolean;
                             name: string;
@@ -1498,6 +1507,10 @@ export interface operations {
                     };
                   }) | undefined;
                 };
+                prerequisites?: ({
+                    parentId: string;
+                    parentCondition: string;
+                  })[];
                 revision: {
                   version: number;
                   comment: string;
@@ -1714,7 +1727,6 @@ export interface operations {
                       disableStickyBucketing?: any;
                       bucketVersion?: number;
                       minBucketVersion?: number;
-                      excludeBlockedBucketUsers?: boolean;
                       namespace?: {
                         enabled: boolean;
                         name: string;
@@ -1781,7 +1793,6 @@ export interface operations {
                         disableStickyBucketing?: any;
                         bucketVersion?: number;
                         minBucketVersion?: number;
-                        excludeBlockedBucketUsers?: boolean;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -1810,6 +1821,10 @@ export interface operations {
                   };
                 }) | undefined;
               };
+              prerequisites?: ({
+                  parentId: string;
+                  parentCondition: string;
+                })[];
               revision: {
                 version: number;
                 comment: string;
@@ -1891,7 +1906,6 @@ export interface operations {
                       disableStickyBucketing?: any;
                       bucketVersion?: number;
                       minBucketVersion?: number;
-                      excludeBlockedBucketUsers?: boolean;
                       namespace?: {
                         enabled: boolean;
                         name: string;
@@ -1958,7 +1972,6 @@ export interface operations {
                         disableStickyBucketing?: any;
                         bucketVersion?: number;
                         minBucketVersion?: number;
-                        excludeBlockedBucketUsers?: boolean;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -1987,6 +2000,10 @@ export interface operations {
                   };
                 }) | undefined;
               };
+              prerequisites?: ({
+                  parentId: string;
+                  parentCondition: string;
+                })[];
               revision: {
                 version: number;
                 comment: string;
@@ -2192,7 +2209,6 @@ export interface operations {
                       disableStickyBucketing?: any;
                       bucketVersion?: number;
                       minBucketVersion?: number;
-                      excludeBlockedBucketUsers?: boolean;
                       namespace?: {
                         enabled: boolean;
                         name: string;
@@ -2259,7 +2275,6 @@ export interface operations {
                         disableStickyBucketing?: any;
                         bucketVersion?: number;
                         minBucketVersion?: number;
-                        excludeBlockedBucketUsers?: boolean;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -2288,6 +2303,10 @@ export interface operations {
                   };
                 }) | undefined;
               };
+              prerequisites?: ({
+                  parentId: string;
+                  parentCondition: string;
+                })[];
               revision: {
                 version: number;
                 comment: string;
@@ -2373,7 +2392,6 @@ export interface operations {
                       disableStickyBucketing?: any;
                       bucketVersion?: number;
                       minBucketVersion?: number;
-                      excludeBlockedBucketUsers?: boolean;
                       namespace?: {
                         enabled: boolean;
                         name: string;
@@ -2440,7 +2458,6 @@ export interface operations {
                         disableStickyBucketing?: any;
                         bucketVersion?: number;
                         minBucketVersion?: number;
-                        excludeBlockedBucketUsers?: boolean;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -2469,6 +2486,10 @@ export interface operations {
                   };
                 }) | undefined;
               };
+              prerequisites?: ({
+                  parentId: string;
+                  parentCondition: string;
+                })[];
               revision: {
                 version: number;
                 comment: string;
@@ -2478,6 +2499,22 @@ export interface operations {
               };
             };
           };
+        };
+      };
+    };
+  };
+  getFeatureKeys: {
+    /** Get list of feature keys */
+    parameters: {
+        /** @description Filter by project id */
+      query: {
+        projectId?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": (string)[];
         };
       };
     };
@@ -2907,7 +2944,6 @@ export interface operations {
                 disableStickyBucketing?: any;
                 bucketVersion?: number;
                 minBucketVersion?: number;
-                excludeBlockedBucketUsers?: boolean;
                 variations: ({
                     variationId: string;
                     key: string;
@@ -3025,7 +3061,7 @@ export interface operations {
           metrics?: (string)[];
           guardrailMetrics?: (string)[];
           /** @description Email of the person who owns this experiment */
-          owner: string;
+          owner?: string;
           archived?: boolean;
           /** @enum {string} */
           status?: "draft" | "running" | "stopped";
@@ -3037,7 +3073,6 @@ export interface operations {
           disableStickyBucketing?: any;
           bucketVersion?: number;
           minBucketVersion?: number;
-          excludeBlockedBucketUsers?: boolean;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
           variations: ({
@@ -3109,7 +3144,6 @@ export interface operations {
               disableStickyBucketing?: any;
               bucketVersion?: number;
               minBucketVersion?: number;
-              excludeBlockedBucketUsers?: boolean;
               variations: ({
                   variationId: string;
                   key: string;
@@ -3232,7 +3266,6 @@ export interface operations {
               disableStickyBucketing?: any;
               bucketVersion?: number;
               minBucketVersion?: number;
-              excludeBlockedBucketUsers?: boolean;
               variations: ({
                   variationId: string;
                   key: string;
@@ -3358,7 +3391,6 @@ export interface operations {
           disableStickyBucketing?: any;
           bucketVersion?: number;
           minBucketVersion?: number;
-          excludeBlockedBucketUsers?: boolean;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
           variations?: ({
@@ -3430,7 +3462,6 @@ export interface operations {
               disableStickyBucketing?: any;
               bucketVersion?: number;
               minBucketVersion?: number;
-              excludeBlockedBucketUsers?: boolean;
               variations: ({
                   variationId: string;
                   key: string;
@@ -4345,7 +4376,6 @@ export interface operations {
               disableStickyBucketing?: any;
               bucketVersion?: number;
               minBucketVersion?: number;
-              excludeBlockedBucketUsers?: boolean;
               variations: ({
                   variationId: string;
                   key: string;
@@ -5857,6 +5887,33 @@ export interface operations {
       };
     };
   };
+  postCodeRefs: {
+    /** Submit list of code references */
+    requestBody: {
+      content: {
+        "application/json": {
+          branch: string;
+          repoName: string;
+          refs: ({
+              filePath: string;
+              startingLineNumber: number;
+              lines: string;
+              flagKey: string;
+              contentHash: string;
+            })[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            featuresUpdated?: (string)[];
+          };
+        };
+      };
+    };
+  };
 }
 
 // Schemas
@@ -5893,6 +5950,7 @@ export type PostFeatureResponse = operations["postFeature"]["responses"]["200"][
 export type GetFeatureResponse = operations["getFeature"]["responses"]["200"]["content"]["application/json"];
 export type UpdateFeatureResponse = operations["updateFeature"]["responses"]["200"]["content"]["application/json"];
 export type ToggleFeatureResponse = operations["toggleFeature"]["responses"]["200"]["content"]["application/json"];
+export type GetFeatureKeysResponse = operations["getFeatureKeys"]["responses"]["200"]["content"]["application/json"];
 export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];
 export type GetProjectResponse = operations["getProject"]["responses"]["200"]["content"]["application/json"];
 export type ListDimensionsResponse = operations["listDimensions"]["responses"]["200"]["content"]["application/json"];
@@ -5942,3 +6000,4 @@ export type GetFactMetricResponse = operations["getFactMetric"]["responses"]["20
 export type UpdateFactMetricResponse = operations["updateFactMetric"]["responses"]["200"]["content"]["application/json"];
 export type DeleteFactMetricResponse = operations["deleteFactMetric"]["responses"]["200"]["content"]["application/json"];
 export type PostBulkImportFactsResponse = operations["postBulkImportFacts"]["responses"]["200"]["content"]["application/json"];
+export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"]["content"]["application/json"];

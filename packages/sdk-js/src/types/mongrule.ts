@@ -80,5 +80,11 @@ export type ConditionInterface =
   | NotCondition
   | OperatorCondition;
 
+export type ParentConditionInterface = {
+  id: string;
+  condition: ConditionInterface;
+  gate?: boolean;
+};
+
 // eslint-disable-next-line
 export type TestedObj = Record<string, any>;

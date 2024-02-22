@@ -586,7 +586,7 @@ const MetricPage: FC = () => {
                               {canEditMetric &&
                                 permissions.check(
                                   "runQueries",
-                                  metric.projects || ""
+                                  metric.projects || []
                                 ) && (
                                   <a
                                     onClick={(e) => {
@@ -605,7 +605,7 @@ const MetricPage: FC = () => {
                         <div className="col-auto">
                           {permissions.check(
                             "runQueries",
-                            metric.projects || ""
+                            metric.projects || []
                           ) && (
                             <form
                               onSubmit={async (e) => {

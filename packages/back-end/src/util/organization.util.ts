@@ -1,5 +1,9 @@
 import { cloneDeep } from "lodash";
-import { roleSupportsEnvLimit } from "shared/permissions";
+import {
+  ALL_PERMISSIONS,
+  ENV_SCOPED_PERMISSIONS,
+  roleSupportsEnvLimit,
+} from "shared/permissions";
 import {
   MemberRole,
   MemberRoleInfo,
@@ -12,55 +16,6 @@ import {
   UserPermissions,
 } from "../../types/organization";
 import { TeamInterface } from "../../types/team";
-
-export const ENV_SCOPED_PERMISSIONS = [
-  "publishFeatures",
-  "manageEnvironments",
-  "runExperiments",
-] as const;
-
-export const PROJECT_SCOPED_PERMISSIONS = [
-  "readData",
-  "addComments",
-  "createFeatureDrafts",
-  "manageFeatures",
-  "manageProjects",
-  "createAnalyses",
-  "createIdeas",
-  "createMetrics",
-  "manageFactTables",
-  "createDatasources",
-  "editDatasourceSettings",
-  "runQueries",
-  "manageVisualChanges",
-] as const;
-
-export const GLOBAL_PERMISSIONS = [
-  "readData",
-  "createPresentations",
-  "createDimensions",
-  "createSegments",
-  "organizationSettings",
-  "superDelete",
-  "manageTeam",
-  "manageTags",
-  "manageApiKeys",
-  "manageIntegrations",
-  "manageWebhooks",
-  "manageBilling",
-  "manageNorthStarMetric",
-  "manageTargetingAttributes",
-  "manageNamespaces",
-  "manageSavedGroups",
-  "manageArchetype",
-  "viewEvents",
-] as const;
-
-export const ALL_PERMISSIONS = [
-  ...GLOBAL_PERMISSIONS,
-  ...PROJECT_SCOPED_PERMISSIONS,
-  ...ENV_SCOPED_PERMISSIONS,
-];
 
 function hasEnvScopedPermissions(userPermission: PermissionsObject): boolean {
   const envLimitedPermissions: Permission[] = ENV_SCOPED_PERMISSIONS.map(

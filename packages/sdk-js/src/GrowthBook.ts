@@ -45,6 +45,7 @@ import {
 } from "./util";
 import { evalCondition } from "./mongrule";
 import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
+import { FeatureEvalContext } from "./types/growthbook";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -705,6 +706,26 @@ export class GrowthBook<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string
   >(id: K): FeatureResult<V | null> {
+    return this._evalFeature(id);
+  }
+
+  private _evalFeature<
+    V extends AppFeatures[K],
+    K extends string & keyof AppFeatures = string
+  >(id: K, evalCtx?: FeatureEvalContext): FeatureResult<V | null> {
+    evalCtx = evalCtx || { evaluatedFeatures: new Set() };
+
+    if (evalCtx.evaluatedFeatures.has(id)) {
+      process.env.NODE_ENV !== "production" &&
+        this.log(
+          `evalFeature: circular dependency detected: ${evalCtx.id} -> ${id}`,
+          { from: evalCtx.id, to: id }
+        );
+      return this._getFeatureResult(id, null, "cyclicPrerequisite");
+    }
+    evalCtx.evaluatedFeatures.add(id);
+    evalCtx.id = id;
+
     // Global override
     if (this._forcedFeatureValues.has(id)) {
       process.env.NODE_ENV !== "production" &&
@@ -731,7 +752,39 @@ export class GrowthBook<
 
     // Loop through the rules
     if (feature.rules) {
-      for (const rule of feature.rules) {
+      rules: for (const rule of feature.rules) {
+        // If there are prerequisite flag(s), evaluate them
+        if (rule.parentConditions) {
+          for (const parentCondition of rule.parentConditions) {
+            const parentResult = this._evalFeature(parentCondition.id, evalCtx);
+            // break out for cyclic prerequisites
+            if (parentResult.source === "cyclicPrerequisite") {
+              return this._getFeatureResult(id, null, "cyclicPrerequisite");
+            }
+
+            const evalObj = { value: parentResult.value };
+            const evaled = evalCondition(
+              evalObj,
+              parentCondition.condition || {}
+            );
+            if (!evaled) {
+              // blocking prerequisite eval failed: feature evaluation fails
+              if (parentCondition.gate) {
+                process.env.NODE_ENV !== "production" &&
+                  this.log("Feature blocked by prerequisite", { id, rule });
+                return this._getFeatureResult(id, null, "prerequisite");
+              }
+              // non-blocking prerequisite eval failed: break out of parentConditions loop, jump to the next rule
+              process.env.NODE_ENV !== "production" &&
+                this.log("Skip rule because prerequisite evaluation fails", {
+                  id,
+                  rule,
+                });
+              continue rules;
+            }
+          }
+        }
+
         // If there are filters for who is included (e.g. namespaces)
         if (rule.filters && this._isFilteredOut(rule.filters)) {
           process.env.NODE_ENV !== "production" &&
@@ -1041,6 +1094,26 @@ export class GrowthBook<
             id: key,
           });
         return this._getResult(experiment, -1, false, featureId);
+      }
+
+      // 8.05. Exclude if prerequisites are not met
+      if (experiment.parentConditions) {
+        for (const parentCondition of experiment.parentConditions) {
+          const parentResult = this._evalFeature(parentCondition.id);
+          // break out for cyclic prerequisites
+          if (parentResult.source === "cyclicPrerequisite") {
+            return this._getResult(experiment, -1, false, featureId);
+          }
+
+          const evalObj = { value: parentResult.value };
+          if (!evalCondition(evalObj, parentCondition.condition || {})) {
+            process.env.NODE_ENV !== "production" &&
+              this.log("Skip because prerequisite evaluation fails", {
+                id: key,
+              });
+            return this._getResult(experiment, -1, false, featureId);
+          }
+        }
       }
 
       // 8.1. Exclude if user is not in a required group

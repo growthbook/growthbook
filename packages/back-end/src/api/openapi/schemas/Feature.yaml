@@ -46,6 +46,18 @@ properties:
     type: object
     additionalProperties:
       $ref: "./FeatureEnvironment.yaml"
+  prerequisites:
+    type: array
+    items:
+      type: object
+      required:
+        - parentId
+        - parentCondition
+      properties:
+        parentId:
+          type: string
+        parentCondition:
+          type: string
   revision:
     type: object
     required:

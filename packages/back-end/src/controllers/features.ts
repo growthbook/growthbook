@@ -9,6 +9,7 @@ import {
 import {
   ExperimentRefRule,
   FeatureInterface,
+  FeaturePrerequisite,
   FeatureRule,
   FeatureTestResult,
 } from "../../types/feature";
@@ -90,6 +91,7 @@ import {
 import { ReqContext } from "../../types/organization";
 import { ExperimentInterface } from "../../types/experiment";
 import { ApiReqContext } from "../../types/api";
+import { getAllCodeRefsForFeature } from "../models/FeatureCodeRefs";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -1369,7 +1371,11 @@ export async function deleteFeatureById(
 
 export async function postFeatureEvaluate(
   req: AuthRequest<
-    { attributes: Record<string, boolean | string | number | object> },
+    {
+      attributes: Record<string, boolean | string | number | object>;
+      scrubPrerequisites?: boolean;
+      skipRulesWithPrerequisites?: boolean;
+    },
     { id: string; version: string }
   >,
   res: Response<
@@ -1380,7 +1386,11 @@ export async function postFeatureEvaluate(
   const { id, version } = req.params;
   const context = getContextFromReq(req);
   const { org } = context;
-  const { attributes } = req.body;
+  const {
+    attributes,
+    scrubPrerequisites,
+    skipRulesWithPrerequisites,
+  } = req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -1402,6 +1412,8 @@ export async function postFeatureEvaluate(
     groupMap,
     experimentMap,
     environments,
+    scrubPrerequisites,
+    skipRulesWithPrerequisites,
   });
 
   res.status(200).json({
@@ -1628,11 +1640,18 @@ export async function getFeatureById(
     }
   }
 
+  // find code references
+  const codeRefs = await getAllCodeRefsForFeature({
+    feature: feature.id,
+    organization: org,
+  });
+
   res.status(200).json({
     status: 200,
     feature,
     revisions,
     experiments: [...experimentsMap.values()],
+    codeRefs,
   });
 }
 
@@ -1729,6 +1748,98 @@ export async function toggleStaleFFDetectionForFeature(
   await updateFeature(context, feature, {
     neverStale: !feature.neverStale,
   });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function postPrerequisite(
+  req: AuthRequest<{ prerequisite: FeaturePrerequisite }, { id: string }>,
+  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { prerequisite } = req.body;
+
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  req.checkPermissions("manageFeatures", feature.project);
+
+  const changes = {
+    prerequisites: feature.prerequisites || [],
+  };
+  changes.prerequisites.push(prerequisite);
+
+  await updateFeature(context, feature, changes);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function putPrerequisite(
+  req: AuthRequest<
+    { prerequisite: FeaturePrerequisite; i: number },
+    { id: string }
+  >,
+  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { prerequisite, i } = req.body;
+
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  req.checkPermissions("manageFeatures", feature.project);
+
+  const changes = {
+    prerequisites: feature.prerequisites || [],
+  };
+
+  if (!changes.prerequisites[i]) {
+    throw new Error("Unknown prerequisite");
+  }
+  changes.prerequisites[i] = prerequisite;
+
+  await updateFeature(context, feature, changes);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function deletePrerequisite(
+  req: AuthRequest<{ i: number }, { id: string }>,
+  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { i } = req.body;
+
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  req.checkPermissions("manageFeatures", feature.project);
+
+  const changes = {
+    prerequisites: feature.prerequisites || [],
+  };
+
+  if (!changes.prerequisites[i]) {
+    throw new Error("Unknown prerequisite");
+  }
+  changes.prerequisites.splice(i, 1);
+
+  await updateFeature(context, feature, changes);
 
   res.status(200).json({
     status: 200,

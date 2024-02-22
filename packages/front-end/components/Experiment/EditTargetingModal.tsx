@@ -9,10 +9,10 @@ import isEqual from "lodash/isEqual";
 import React, { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
 import { MdInfoOutline } from "react-icons/md";
-import useIncrementer from "@/hooks/useIncrementer";
+import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import { getEqualWeights } from "@/services/utils";
-import { useAttributeSchema } from "@/services/features";
+import { useAttributeSchema, useEnvironments } from "@/services/features";
 import ReleaseChangesForm from "@/components/Experiment/ReleaseChangesForm";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
@@ -21,6 +21,7 @@ import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSe
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
@@ -69,6 +70,11 @@ export default function EditTargetingModal({
   const [releasePlan, setReleasePlan] = useState<ReleasePlan | undefined>();
   const [changesConfirmed, setChangesConfirmed] = useState(false);
 
+  const [
+    prerequisiteTargetingSdkIssues,
+    setPrerequisiteTargetingSdkIssues,
+  ] = useState(false);
+
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
 
@@ -77,6 +83,7 @@ export default function EditTargetingModal({
   const defaultValues = {
     condition: lastPhase?.condition ?? "",
     savedGroups: lastPhase?.savedGroups ?? [],
+    prerequisites: lastPhase?.prerequisites ?? [],
     coverage: lastPhase?.coverage ?? 1,
     hashAttribute: experiment.hashAttribute || "id",
     fallbackAttribute: experiment.fallbackAttribute || "",
@@ -141,6 +148,10 @@ export default function EditTargetingModal({
       forceConditionRender();
     });
 
+    if (prerequisiteTargetingSdkIssues) {
+      throw new Error("Prerequisite targeting issues must be resolved");
+    }
+
     await apiCall(`/experiment/${experiment.id}/targeting`, {
       method: "POST",
       body: JSON.stringify(value),
@@ -163,6 +174,7 @@ export default function EditTargetingModal({
           form={form}
           safeToEdit={true}
           conditionKey={conditionKey}
+          setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
         />
       </Modal>
     );
@@ -267,6 +279,9 @@ export default function EditTargetingModal({
               safeToEdit={false}
               changeType={changeType}
               conditionKey={conditionKey}
+              setPrerequisiteTargetingSdkIssues={
+                setPrerequisiteTargetingSdkIssues
+              }
             />
           </div>
         </Page>
@@ -299,7 +314,7 @@ function ChangeTypeSelector({
   const options = [
     { label: "Start a New Phase", value: "phase" },
     {
-      label: "Saved Group & Attribute Targeting",
+      label: "Saved Group, Attribute, and Prerequisite Targeting",
       value: "targeting",
     },
     {
@@ -358,12 +373,14 @@ function TargetingForm({
   safeToEdit,
   changeType = "advanced",
   conditionKey,
+  setPrerequisiteTargetingSdkIssues,
 }: {
   experiment: ExperimentInterfaceStringDates;
   form: UseFormReturn<ExperimentTargetingData>;
   safeToEdit: boolean;
   changeType?: ChangeType;
   conditionKey: number;
+  setPrerequisiteTargetingSdkIssues: (v: boolean) => void;
 }) {
   const hasLinkedChanges =
     !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
@@ -377,6 +394,9 @@ function TargetingForm({
     ? getDatasourceById(experiment.datasource)
     : null;
   const supportsSQL = datasource?.properties?.queryLanguage === "sql";
+
+  const environments = useEnvironments();
+  const envs = environments.map((e) => e.id);
 
   return (
     <div className="px-2 pt-2">
@@ -428,9 +448,9 @@ function TargetingForm({
         </>
       )}
 
+      {(!hasLinkedChanges || safeToEdit) && <hr className="my-4" />}
       {!hasLinkedChanges && (
         <>
-          <hr className="my-4" />
           <div className="alert alert-info">
             Changes made below are only metadata changes and will have no impact
             on actual experiment delivery unless you link a GrowthBook-managed
@@ -445,20 +465,36 @@ function TargetingForm({
             value={form.watch("savedGroups") || []}
             setValue={(v) => form.setValue("savedGroups", v)}
           />
+          <hr />
           <ConditionInput
             defaultValue={form.watch("condition")}
             onChange={(condition) => form.setValue("condition", condition)}
             key={conditionKey}
           />
+          <hr />
+          <PrerequisiteTargetingField
+            value={form.watch("prerequisites") || []}
+            setValue={(prerequisites) =>
+              form.setValue("prerequisites", prerequisites)
+            }
+            environments={envs}
+            setPrerequisiteTargetingSdkIssues={
+              setPrerequisiteTargetingSdkIssues
+            }
+          />
+          {["advanced"].includes(changeType) && <hr />}
         </>
       )}
 
       {["namespace", "advanced"].includes(changeType) && (
-        <NamespaceSelector
-          form={form}
-          featureId={experiment.trackingKey}
-          trackingKey={experiment.trackingKey}
-        />
+        <>
+          <NamespaceSelector
+            form={form}
+            featureId={experiment.trackingKey}
+            trackingKey={experiment.trackingKey}
+          />
+          {["advanced"].includes(changeType) && <hr />}
+        </>
       )}
 
       {["traffic", "weights", "advanced"].includes(changeType) && (

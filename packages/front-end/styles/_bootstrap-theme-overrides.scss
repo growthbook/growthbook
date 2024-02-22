@@ -72,6 +72,10 @@ pre {
   background-color: var(--table-row-hover-background-color);
 }
 
+.table tbody + tbody {
+  border-top: 2px solid var(--border-color-100);
+}
+
 // endregion Tables
 
 // region Surfaces

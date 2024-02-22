@@ -12,8 +12,9 @@ import {
 } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { evalCondition } from "@growthbook/growthbook";
 import { getValidDate } from "../dates";
-import { includeExperimentInPayload } from ".";
+import { getMatchingRules, includeExperimentInPayload } from ".";
 
 export function getValidation(feature: FeatureInterface) {
   try {
@@ -467,4 +468,210 @@ export function validateAndFixCondition(
     );
   }
   throw new Error("Invalid targeting condition JSON: " + res.error);
+}
+
+export function getDefaultPrerequisiteCondition(
+  parentFeature?: FeatureInterface
+) {
+  const valueType = parentFeature?.valueType || "boolean";
+  if (valueType === "boolean") {
+    return `{"value": true}`;
+  }
+  return `{"value": {"$exists": true}}`;
+}
+
+export function isFeatureCyclic(
+  feature: FeatureInterface,
+  features: FeatureInterface[],
+  revision?: FeatureRevisionInterface
+): [boolean, string | null] {
+  const visited = new Set<string>();
+  const stack = new Set<string>();
+
+  const newFeature = cloneDeep(feature);
+  if (revision) {
+    for (const env of Object.keys(newFeature.environmentSettings || {})) {
+      newFeature.environmentSettings[env].rules = revision?.rules?.[env] || [];
+    }
+  }
+
+  const visit = (feature: FeatureInterface): [boolean, string | null] => {
+    if (stack.has(feature.id)) return [true, feature.id];
+    if (visited.has(feature.id)) return [false, null];
+
+    stack.add(feature.id);
+    visited.add(feature.id);
+
+    const prerequisiteIds = (feature.prerequisites || []).map((p) => p.id);
+    for (const env of Object.values(feature.environmentSettings || {})) {
+      for (const rule of env.rules || []) {
+        if (rule.prerequisites?.length) {
+          const rulePrerequisiteIds = rule.prerequisites.map((p) => p.id);
+          prerequisiteIds.push(...rulePrerequisiteIds);
+        }
+      }
+    }
+
+    for (const prerequisiteId of prerequisiteIds) {
+      const parentFeature = features.find((f) => f.id === prerequisiteId);
+      if (parentFeature && visit(parentFeature)[0])
+        return [true, prerequisiteId];
+    }
+
+    stack.delete(feature.id);
+    return [false, null];
+  };
+
+  return visit(newFeature);
+}
+
+type PrerequisiteState = "deterministic" | "conditional" | "cyclic";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PrerequisiteValue = any;
+export type PrerequisiteStateResult = {
+  state: PrerequisiteState;
+  value: PrerequisiteValue;
+};
+export function evaluatePrerequisiteState(
+  feature: FeatureInterface,
+  features: FeatureInterface[],
+  env: string,
+  skipRootConditions: boolean = false,
+  skipCyclicCheck: boolean = false
+): PrerequisiteStateResult {
+  let isTopLevel = true;
+  if (!skipCyclicCheck) {
+    if (isFeatureCyclic(feature, features)[0])
+      return { state: "cyclic", value: null };
+  }
+
+  const visit = (feature: FeatureInterface): PrerequisiteStateResult => {
+    // 1. Current environment toggles take priority
+    if (!feature.environmentSettings[env]) {
+      return { state: "deterministic", value: null };
+    }
+    if (!feature.environmentSettings[env].enabled) {
+      return { state: "deterministic", value: null };
+    }
+
+    // 2. Determine default feature state
+    //   - start with "deterministic" / defaultValue
+    //   - force "conditional" if there are rules
+    let state: PrerequisiteState = "deterministic";
+    let value: PrerequisiteValue = feature.defaultValue;
+    // cast value to correct format for evaluation
+    if (feature.valueType === "boolean") {
+      value = feature.defaultValue !== "false";
+    } else if (feature.valueType === "number") {
+      value = parseFloat(feature.defaultValue);
+    } else if (feature.valueType === "json") {
+      try {
+        value = JSON.parse(feature.defaultValue);
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    if (!skipRootConditions || !isTopLevel) {
+      if (
+        feature.environmentSettings[env].rules?.filter((r) => !!r.enabled)
+          ?.length
+      ) {
+        state = "conditional";
+        value = undefined;
+      }
+    }
+
+    // 3. If the feature has prerequisites, traverse all nodes (may override default state)
+    //  - if any are "off", the feature is "off"
+    //  - if any are "conditional", the feature is "conditional"
+    isTopLevel = false;
+    const prerequisites = feature.prerequisites || [];
+    for (const prerequisite of prerequisites) {
+      const prerequisiteFeature = features.find(
+        (f) => f.id === prerequisite.id
+      );
+      if (!prerequisiteFeature) {
+        // todo: consider returning info about missing feature
+        state = "deterministic";
+        value = null;
+        break;
+      }
+      const { state: prerequisiteState, value: prerequisiteValue } = visit(
+        prerequisiteFeature
+      );
+      if (prerequisiteState === "deterministic") {
+        const evaled = evalDeterministicPrereqValue(
+          prerequisiteValue ?? null,
+          prerequisite.condition
+        );
+        if (evaled === "fail") {
+          state = "deterministic";
+          value = null;
+          break;
+        }
+      } else if (prerequisiteState === "conditional") {
+        // if no "off" prereqs, then any "conditional" prereq state overrides feature's default state (#2)
+        state = "conditional";
+        value = undefined;
+      }
+    }
+
+    return { state, value };
+  };
+  return visit(feature);
+}
+
+export function evalDeterministicPrereqValue(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  value: any,
+  condition: string
+): "pass" | "fail" {
+  const parsedCondition = getParsedPrereqCondition(condition);
+  if (!parsedCondition) return "fail";
+  const evalObj = { value: value };
+  const pass = evalCondition(evalObj, parsedCondition);
+  return pass ? "pass" : "fail";
+}
+
+export function getDependentFeatures(
+  feature: FeatureInterface,
+  features: FeatureInterface[],
+  environments: string[]
+): string[] {
+  const dependentFeatures = features.filter((f) => {
+    const prerequisites = f.prerequisites || [];
+    const rules = getMatchingRules(
+      f,
+      (r) =>
+        !!r.enabled && (r.prerequisites || []).some((p) => p.id === feature.id),
+      environments
+    );
+
+    return prerequisites.some((p) => p.id === feature.id) || rules.length > 0;
+  });
+  return dependentFeatures.map((f) => f.id);
+}
+
+export function getDependentExperiments(
+  feature: FeatureInterface,
+  experiments: ExperimentInterfaceStringDates[]
+): ExperimentInterfaceStringDates[] {
+  return experiments.filter((e) => {
+    const phase = e.phases.slice(-1)?.[0] ?? null;
+    return phase?.prerequisites?.some((p) => p.id === feature.id);
+  });
+}
+
+// Simplified version of getParsedCondition() from: back-end/src/util/features.ts
+export function getParsedPrereqCondition(condition: string) {
+  if (condition && condition !== "{}") {
+    try {
+      const cond = JSON.parse(condition);
+      if (cond) return cond;
+    } catch (e) {
+      // ignore condition parse errors here
+    }
+  }
+  return undefined;
 }

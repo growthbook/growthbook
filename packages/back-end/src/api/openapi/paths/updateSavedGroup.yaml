@@ -8,9 +8,8 @@ x-codeSamples:
   - lang: "cURL"
     source: |
       curl -X POST https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
-        -H "Content-Type: application/json" \
-        -u secret_abc123DEF456: \
-        -d '{"values": [ "userId-123", "userId-345" ]}'
+        -d '{"values": [ "userId-123", "userId-345" ]}' \
+        -u secret_abc123DEF456:
 requestBody:
   required: true
   content:
