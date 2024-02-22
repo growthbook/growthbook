@@ -1196,26 +1196,26 @@ export class GrowthBook<
   }
 
   public getDeferredTrackingCalls() {
-    return btoa(JSON.stringify(this._deferredTrackingCalls));
+    return this._deferredTrackingCalls;
   }
 
-  public fireDeferredTrackingCalls(data: string) {
-    const calls = JSON.parse(atob(data));
-    if (!Array.isArray(calls)) throw new Error("Invalid tracking data");
-    calls.forEach((call: TrackingData) => {
+  public setDeferredTrackingCalls(calls: TrackingData[]) {
+    this._deferredTrackingCalls = calls;
+  }
+
+  public fireDeferredTrackingCalls() {
+    this._deferredTrackingCalls.forEach((call: TrackingData) => {
       if (!call || !call.experiment || !call.result) {
         throw new Error("Invalid tracking data");
       }
       this._track(call.experiment, call.result);
     });
+    this._deferredTrackingCalls = [];
   }
 
   public setTrackingCallback(callback: TrackingCallback) {
     this._ctx.trackingCallback = callback;
-    this._deferredTrackingCalls.forEach((call) => {
-      this._track(call.experiment, call.result);
-    });
-    this._deferredTrackingCalls = [];
+    this.fireDeferredTrackingCalls();
   }
 
   private _track<T>(experiment: Experiment<T>, result: Result<T>) {

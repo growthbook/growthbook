@@ -266,9 +266,8 @@ describe("json test suite", () => {
     "urlRedirect[%#] %s",
     (name, ctx, result) => {
       const growthbook = new GrowthBook(ctx);
-      const data = growthbook.getDeferredTrackingCalls();
-      const calls: TrackingData[] = JSON.parse(atob(data));
-      const actualResult = calls.map((c) => ({
+      const trackingCalls = growthbook.getDeferredTrackingCalls();
+      const actualResult = trackingCalls.map((c) => ({
         inExperiment: c.result.inExperiment,
         urlRedirect: c.result.value.urlRedirect,
       }));
