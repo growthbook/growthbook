@@ -132,6 +132,7 @@ export default function FeaturesPage() {
               </div>
             )}
           </div>
+
           <table className="table gbtable table-hover appbox">
             <thead
               className="sticky-top bg-white shadow-sm"
@@ -281,7 +282,7 @@ export default function FeaturesPage() {
                         </div>
                       )}
                     </td>
-                    <td>
+                    <td style={{ minWidth: 90 }}>
                       <ValueDisplay
                         value={getFeatureDefaultValue(feature) || ""}
                         type={feature.valueType}
