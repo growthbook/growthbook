@@ -90,7 +90,7 @@ import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import RequestReviewModal from "@/components/Features/requestReviewModal";
+import RequestReviewModal from "@/components/Features/RequestReviewModal";
 import PrerequisiteModal from "@/components/Features/PrerequisiteModal";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,

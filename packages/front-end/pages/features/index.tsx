@@ -7,7 +7,6 @@ import { ago, datetime } from "shared/dates";
 import { isFeatureStale } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaTriangleExclamation } from "react-icons/fa6";
-import { Tabs } from "@radix-ui/themes";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle } from "@/components/Icons";
 import FeatureModal from "@/components/Features/FeatureModal";
@@ -46,6 +45,8 @@ import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
+import Tab from "@/components/Tabs/Tab";
+import Tabs from "@/components/Tabs/Tabs";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
@@ -517,21 +518,14 @@ export default function FeaturesPage() {
           </a>
         </div>
       )}
-      <Tabs.Root defaultValue="all-features">
-        <Tabs.List className="mb-3">
-          <Tabs.Trigger value="all-features">All Features</Tabs.Trigger>
-          <Tabs.Trigger value="drafts">Drafts</Tabs.Trigger>
-        </Tabs.List>
-
-        <Tabs.Content value="all-features">
+      <Tabs newStyle={true} defaultTab="all-features">
+        <Tab id="all-features" display="All Features">
           {renderFeaturesTable()}
-        </Tabs.Content>
-
-        <Tabs.Content value="drafts">
+        </Tab>
+        <Tab id="drafts" display="Drafts">
           <FeaturesDraftTable />
-        </Tabs.Content>
-      </Tabs.Root>
-
+        </Tab>
+      </Tabs>
       <div className="alert alert-info mt-5">
         Looking for <strong>Attributes</strong>, <strong>Namespaces</strong>,{" "}
         <strong>Environments</strong>, or <strong>Saved Groups</strong>? They

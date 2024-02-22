@@ -113,11 +113,11 @@ export default function FeaturesDraftTable() {
 
                 return (
                   <tr
-                    key={`${featureAndRevision.feature.id}:${featureAndRevision.version}`}
+                    key={`${featureAndRevision.id}:${featureAndRevision.version}`}
                   >
                     <td>
                       <Link
-                        href={`/features/${featureAndRevision.id}?v=${featureAndRevision.version}`}
+                        href={`/features/${featureAndRevision.id}?v=${featureAndRevision?.version}`}
                       >
                         <a>{featureAndRevision.id}</a>
                       </Link>

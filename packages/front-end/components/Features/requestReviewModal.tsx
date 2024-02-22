@@ -1,16 +1,7 @@
 import { FeatureInterface } from "back-end/types/feature";
-import { useState, useMemo, ChangeEvent, useRef } from "react";
+import { useState, useMemo, useRef } from "react";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { autoMerge, mergeResultHasChanges } from "shared/util";
-import {
-  Callout,
-  Flex,
-  RadioGroup,
-  TextArea,
-  Text,
-  Checkbox,
-  Heading,
-} from "@radix-ui/themes";
 import { useForm } from "react-hook-form";
 import { ReviewSubmittedType } from "@/../back-end/src/models/FeatureRevisionModel";
 
@@ -21,7 +12,8 @@ import usePermissions from "@/hooks/usePermissions";
 import { getCurrentUser } from "@/services/UserContext";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
-import LegacyButton from "../Button";
+import Button from "../Button";
+import RadioSelector from "../Forms/RadioSelector";
 import { ExpandableDiff } from "./DraftModal";
 import Revisionlog from "./RevisionLog";
 export interface Props {
@@ -190,7 +182,7 @@ export default function RequestReviewModal({
         }
         secondaryCTA={
           isPendingReview && !canReview ? (
-            <LegacyButton
+            <Button
               color="danger"
               onClick={async () => {
                 try {
@@ -210,7 +202,7 @@ export default function RequestReviewModal({
               }}
             >
               Discard
-            </LegacyButton>
+            </Button>
           ) : undefined
         }
       >
@@ -230,15 +222,17 @@ export default function RequestReviewModal({
 
         {mergeResult.success && hasChanges && (
           <div>
-            <Callout.Root color={isPendingReview ? "amber" : "gray"}>
-              <Callout.Text>
-                Publishing to the prod environment requires approval.
-              </Callout.Text>
-            </Callout.Root>
+            <div
+              className={`callout callout-color-${
+                isPendingReview ? "amber" : "gray"
+              }`}
+            >
+              <div>Publishing to the prod environment requires approval.</div>
+            </div>
             {canPublish && (
-              <Text as="label" size="2" className="mt-3">
-                <Flex gap="2">
-                  <Checkbox
+              <div className="mt-3">
+                <div className="d-flex">
+                  <div
                     checked={adminPublish}
                     onCheckedChange={(checkedState) => {
                       checkedState === "indeterminate"
@@ -248,8 +242,8 @@ export default function RequestReviewModal({
                   />
                   Bypass approval requirement to publish (optional for Admins
                   only)
-                </Flex>
-              </Text>
+                </div>
+              </div>
             )}
             <div className="text-right">
               <div
@@ -261,16 +255,12 @@ export default function RequestReviewModal({
               </div>
             </div>
             <div className="list-group mb-4 mt-4">
-              <Heading size="4" mb="3">
-                Diffs by Enviroment
-              </Heading>
+              <h4 className="mb-3">Diffs by Enviroment</h4>
               {resultDiffs.map((diff) => (
                 <ExpandableDiff {...diff} key={diff.title} />
               ))}
             </div>
-            <Heading size="4" mb="3">
-              Change Request Log
-            </Heading>
+            <h4 className="mb-3"> Change Request Log</h4>
 
             <Revisionlog
               feature={feature}
@@ -290,7 +280,7 @@ export default function RequestReviewModal({
                   }}
                 />
                 {!canReview && isPendingReview && (
-                  <LegacyButton
+                  <Button
                     onClick={async () => {
                       try {
                         await apiCall(
@@ -312,7 +302,7 @@ export default function RequestReviewModal({
                     }}
                   >
                     Comment
-                  </LegacyButton>
+                  </Button>
                 )}
               </div>
             )}
@@ -350,72 +340,51 @@ export default function RequestReviewModal({
           await mutate();
         })}
         secondaryCTA={
-          <LegacyButton
+          <Button
             color="outline"
             onClick={async () => setShowSumbmitReview(false)}
           >
             Back
-          </LegacyButton>
+          </Button>
         }
       >
         <div style={{ padding: "0 30px" }}>
-          <Text weight="bold">
+          <div>
             Leave a Comment
-            <TextArea
+            <Field
               placeholder="leave a comment"
-              mb="5"
-              mt="3"
+              className="mb-5 mt-3"
               {...submitReviewform.register("comment")}
             />
-          </Text>
-          <RadioGroup.Root
-            defaultValue="Comment"
-            size="2"
-            onChange={(e: ChangeEvent<HTMLInputElement>) => {
-              if (e.target.checked) {
-                submitReviewform.setValue(
-                  "reviewStatus",
-                  e.target.value as ReviewSubmittedType
-                );
-              }
-            }}
-          >
-            <Flex gap="2" direction="column">
-              <Flex gap="2">
-                <RadioGroup.Item value="Comment" />
-                <div>
-                  <Text as="div" size="2" weight="bold">
-                    Comment
-                  </Text>
-                  <Text as="div" size="2">
-                    Submit general feedback without explicit approval.
-                  </Text>
-                </div>
-              </Flex>
-              <Flex gap="2">
-                <RadioGroup.Item value="Requested Changes" />
-                <div>
-                  <Text as="div" size="2" weight="bold">
-                    Request Changes
-                  </Text>
-                  <Text as="div" size="2">
-                    Submit feedback that must be addressed before publishing.
-                  </Text>
-                </div>
-              </Flex>
-              <Flex gap="2">
-                <RadioGroup.Item value="Approved" />
-                <div>
-                  <Text as="div" size="2" weight="bold">
-                    Approve
-                  </Text>
-                  <Text as="div" size="2">
-                    Submit feedback and approve for publishing.
-                  </Text>
-                </div>
-              </Flex>
-            </Flex>
-          </RadioGroup.Root>
+          </div>
+
+          <RadioSelector
+            name="type"
+            value={submitReviewform.getValues().reviewStatus}
+            setValue={(val: ReviewSubmittedType) =>
+              submitReviewform.setValue("reviewStatus", val)
+            }
+            labelWidth={"100%"}
+            options={[
+              {
+                key: "Comment",
+                display: "Comment",
+                description:
+                  "Submit general feedback without explicit approval.",
+              },
+              {
+                key: "Requested Changes",
+                display: "Request Changes",
+                description:
+                  "Submit feedback that must be addressed before publishing.",
+              },
+              {
+                key: "Approved",
+                display: "Approve",
+                description: "Submit feedback and approve for publishing.",
+              },
+            ]}
+          />
         </div>
       </Modal>
     );
