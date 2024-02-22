@@ -1,6 +1,8 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { MdRocketLaunch } from "react-icons/md";
-import { ReactElement } from "react";
+import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import Link from "next/link";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import { useCelebration } from "@/hooks/useCelebration";
@@ -15,7 +17,8 @@ export function StartExperimentBanner({
   onStart,
   className,
   checklistItemsRemaining,
-  noConnectionsWarning,
+  connections,
+  visualChangesets,
 }: {
   experiment: ExperimentInterfaceStringDates;
   mutateExperiment: () => unknown | Promise<unknown>;
@@ -23,10 +26,24 @@ export function StartExperimentBanner({
   newPhase?: (() => void) | null;
   onStart?: () => void;
   className?: string;
-  noConnectionsWarning: ReactElement | null;
+  connections: SDKConnectionInterface[];
+  visualChangesets: VisualChangesetInterface[];
 }) {
   const { apiCall } = useAuth();
   const startCelebration = useCelebration();
+
+  const projectConnections = connections.filter(
+    (connection) =>
+      !connection.projects.length ||
+      connection.projects.includes(experiment.project || "")
+  );
+  const matchingConnections = projectConnections.filter(
+    (connection) =>
+      !visualChangesets.length || connection.includeVisualExperiments
+  );
+  const verifiedConnections = matchingConnections.filter(
+    (connection) => connection.connected
+  );
 
   async function startExperiment() {
     startCelebration();
@@ -73,15 +90,25 @@ export function StartExperimentBanner({
                   <div className="alert alert-warning">
                     <span>
                       There {checklistItemsRemaining > 1 ? "are" : "is"} still{" "}
-                      {checklistItemsRemaining} incomplete task
+                      {checklistItemsRemaining} task
                       {checklistItemsRemaining > 1 ? "s" : ""} to complete
                       before you can start this experiment.
                     </span>
                   </div>
                 </>
               )}
-              {noConnectionsWarning ? noConnectionsWarning : null}
-              {checklistItemsRemaining === 0 && !noConnectionsWarning ? (
+              {!verifiedConnections.length ? (
+                <div className="alert alert-danger">
+                  <strong>
+                    Before you can run an experiment, you need to integrate the
+                    GrowthBook into your app.{" "}
+                    <Link href="/sdks">
+                      <a href="#">Create an SDK Connection</a>
+                    </Link>
+                  </strong>
+                </div>
+              ) : null}
+              {checklistItemsRemaining === 0 && verifiedConnections.length ? (
                 <Button
                   color="teal"
                   className="btn-lg mb-2"

@@ -53,10 +53,6 @@ const ExperimentPage = (): ReactElement => {
   const [checklistItemsRemaining, setChecklistItemsRemaining] = useState<
     number | null
   >(null);
-  const [
-    noConnectionsWarning,
-    setNoConnectionsWarning,
-  ] = useState<ReactElement | null>(null);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -298,8 +294,6 @@ const ExperimentPage = (): ReactElement => {
               editTargeting={editTargeting}
               checklistItemsRemaining={checklistItemsRemaining}
               setChecklistItemsRemaining={setChecklistItemsRemaining}
-              noConnectionsWarning={noConnectionsWarning}
-              setNoConnectionsWarning={setNoConnectionsWarning}
             />
           ) : (
             <SinglePage
@@ -320,8 +314,6 @@ const ExperimentPage = (): ReactElement => {
               editTargeting={editTargeting}
               checklistItemsRemaining={checklistItemsRemaining}
               setChecklistItemsRemaining={setChecklistItemsRemaining}
-              noConnectionsWarning={noConnectionsWarning}
-              setNoConnectionsWarning={setNoConnectionsWarning}
             />
           )}
         </SnapshotProvider>

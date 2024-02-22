@@ -4,7 +4,7 @@ import {
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import React, { ReactElement, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import {
@@ -179,8 +179,6 @@ export interface Props {
   mutate: () => void;
   checklistItemsRemaining: number | null;
   setChecklistItemsRemaining: (value: number | null) => void;
-  noConnectionsWarning: ReactElement | null;
-  setNoConnectionsWarning: (value: ReactElement | null) => void;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
   editVariations?: (() => void) | null;
@@ -213,8 +211,6 @@ export default function SinglePage({
   editTargeting,
   checklistItemsRemaining,
   setChecklistItemsRemaining,
-  noConnectionsWarning,
-  setNoConnectionsWarning,
 }: Props) {
   const [metaInfoOpen, setMetaInfoOpen] = useLocalStorage<boolean>(
     `experiment-page__${experiment.id}__meta-info-open`,
@@ -862,8 +858,6 @@ export default function SinglePage({
             connections={connections}
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
-            setNoConnectionsWarning={setNoConnectionsWarning}
-            noConnectionsWarning={noConnectionsWarning}
           />
         ) : null}
       </div>

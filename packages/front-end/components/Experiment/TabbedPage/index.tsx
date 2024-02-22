@@ -5,7 +5,7 @@ import {
 import { IdeaInterface } from "back-end/types/idea";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { includeExperimentInPayload } from "shared/util";
-import { ReactElement, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FaChartBar } from "react-icons/fa";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
@@ -49,8 +49,6 @@ export interface Props {
   idea?: IdeaInterface;
   checklistItemsRemaining: number | null;
   setChecklistItemsRemaining: (value: number | null) => void;
-  noConnectionsWarning: ReactElement | null;
-  setNoConnectionsWarning: (value: ReactElement | null) => void;
   editVariations?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
   newPhase?: (() => void) | null;
@@ -78,8 +76,6 @@ export default function TabbedPage({
   editResult,
   checklistItemsRemaining,
   setChecklistItemsRemaining,
-  noConnectionsWarning,
-  setNoConnectionsWarning,
 }: Props) {
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__${experiment.id}`,
@@ -248,7 +244,8 @@ export default function TabbedPage({
         editPhases={editPhases}
         healthNotificationCount={healthNotificationCount}
         checklistItemsRemaining={checklistItemsRemaining}
-        noConnectionsWarning={noConnectionsWarning}
+        connections={connections}
+        visualChangesets={visualChangesets}
       />
       <div className="container pagecontents pb-4">
         {experiment.project ===
@@ -321,8 +318,6 @@ export default function TabbedPage({
             connections={connections}
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
-            noConnectionsWarning={noConnectionsWarning}
-            setNoConnectionsWarning={setNoConnectionsWarning}
           />
           <Implementation
             experiment={experiment}

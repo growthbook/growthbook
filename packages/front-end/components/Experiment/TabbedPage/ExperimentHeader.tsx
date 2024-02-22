@@ -7,10 +7,12 @@ import { PiChartBarHorizontalFill } from "react-icons/pi";
 import { FaHeartPulse } from "react-icons/fa6";
 import { useRouter } from "next/router";
 import { getAffectedEnvsForExperiment } from "shared/util";
-import React, { ReactElement, ReactNode, useState } from "react";
+import React, { ReactNode, useState } from "react";
 import { date, daysBetween } from "shared/dates";
 import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
+import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { useAuth } from "@/services/auth";
 import WatchButton from "@/components/WatchButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -43,7 +45,8 @@ export interface Props {
   setAuditModal: (open: boolean) => void;
   setWatchersModal: (open: boolean) => void;
   checklistItemsRemaining: number | null;
-  noConnectionsWarning: ReactElement | null;
+  connections: SDKConnectionInterface[];
+  visualChangesets: VisualChangesetInterface[];
   editResult?: () => void;
   safeToEdit: boolean;
   usersWatching: (string | undefined)[];
@@ -93,7 +96,8 @@ export default function ExperimentHeader({
   editPhases,
   healthNotificationCount,
   checklistItemsRemaining,
-  noConnectionsWarning,
+  connections,
+  visualChangesets,
 }: Props) {
   const { apiCall } = useAuth();
   const router = useRouter();
@@ -165,7 +169,8 @@ export default function ExperimentHeader({
               }}
               className=""
               checklistItemsRemaining={checklistItemsRemaining}
-              noConnectionsWarning={noConnectionsWarning}
+              connections={connections}
+              visualChangesets={visualChangesets}
             />
           </Modal>
         )}

@@ -4,7 +4,6 @@ import {
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import { ReactElement } from "react";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
@@ -24,8 +23,6 @@ export interface Props {
   disableEditing?: boolean;
   checklistItemsRemaining: number | null;
   setChecklistItemsRemaining: (value: number | null) => void;
-  noConnectionsWarning: ReactElement | null;
-  setNoConnectionsWarning: (value: ReactElement | null) => void;
 }
 
 export default function SetupTabOverview({
@@ -40,8 +37,6 @@ export default function SetupTabOverview({
   disableEditing,
   checklistItemsRemaining,
   setChecklistItemsRemaining,
-  noConnectionsWarning,
-  setNoConnectionsWarning,
 }: Props) {
   const { apiCall } = useAuth();
 
@@ -65,8 +60,6 @@ export default function SetupTabOverview({
           connections={connections}
           checklistItemsRemaining={checklistItemsRemaining}
           setChecklistItemsRemaining={setChecklistItemsRemaining}
-          noConnectionsWarning={noConnectionsWarning}
-          setNoConnectionsWarning={setNoConnectionsWarning}
         />
       ) : null}
       <div className="appbox bg-white my-2 mb-4 p-3">
