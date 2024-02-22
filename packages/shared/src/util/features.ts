@@ -175,21 +175,36 @@ const areRulesOneSided = (
   return rolloutRulesOnesided && forceRulesOnesided;
 };
 
-export function isFeatureStale(
-  feature: FeatureInterface,
-  features: FeatureInterface[],
-  experiments: ExperimentInterfaceStringDates[],
-  environments: string[],
-  linkedExperiments: ExperimentInterfaceStringDates[] | undefined = []
-): { stale: boolean; reason?: StaleFeatureReason } {
+interface IsFeatureStaleInterface {
+  feature: FeatureInterface;
+  features?: FeatureInterface[];
+  experiments?: ExperimentInterfaceStringDates[];
+  environments?: string[];
+  linkedExperiments?: ExperimentInterfaceStringDates[];
+}
+export function isFeatureStale({
+  feature,
+  features,
+  experiments = [],
+  environments = [],
+  linkedExperiments,
+}: IsFeatureStaleInterface): { stale: boolean; reason?: StaleFeatureReason } {
   const visitedFeatures = new Set<string>();
 
-  function visit(
-    feature: FeatureInterface,
-    features: FeatureInterface[],
-    environments: string[],
-    linkedExperiments: ExperimentInterfaceStringDates[] | undefined = []
-  ): { stale: boolean; reason?: StaleFeatureReason } {
+  if (!features) {
+    features = [feature];
+  }
+  if (!environments.length) {
+    environments = Object.keys(feature.environmentSettings);
+  }
+
+  const visit = ({
+    feature,
+    linkedExperiments,
+  }: {
+    feature: FeatureInterface;
+    linkedExperiments?: ExperimentInterfaceStringDates[];
+  }): { stale: boolean; reason?: StaleFeatureReason } => {
     if (visitedFeatures.has(feature.id)) {
       return { stale: false };
     }
@@ -198,12 +213,17 @@ export function isFeatureStale(
     try {
       if (feature.neverStale) return { stale: false };
 
+      if (!linkedExperiments) {
+        // If we don't have linkedExperiments in the context (e.g. evaluating dependents), use the baked array
+        linkedExperiments = (feature?.linkedExperiments ?? [])
+          .map((id) => experiments.find((e) => e.id === id))
+          .filter(Boolean) as ExperimentInterfaceStringDates[];
+      }
       if (feature.linkedExperiments?.length !== linkedExperiments.length) {
         // eslint-disable-next-line no-console
         console.error("isFeatureStale: linkedExperiments length mismatch");
         return { stale: false, reason: "error" };
       }
-
       const linkedExperimentIds: string[] | undefined = linkedExperiments
         ? linkedExperiments.map((e) => e.id)
         : undefined;
@@ -228,28 +248,30 @@ export function isFeatureStale(
       if (feature.hasDrafts) return { stale: false };
 
       // features with fresh dependents are not stale
-      const dependentFeatures = getDependentFeatures(
-        feature,
-        features,
-        environments
-      );
-      const hasNonStaleDependentFeatures = dependentFeatures.some((id) => {
-        const f = features.find((f) => f.id === id);
-        if (!f) return true;
-        return !isFeatureStale(f, features, experiments, environments).stale;
-      });
-      if (dependentFeatures.length && hasNonStaleDependentFeatures) {
-        return { stale: false };
-      }
-      const dependentExperiments = getDependentExperiments(
-        feature,
-        experiments
-      );
-      const hasNonStaleDependentExperiments = dependentExperiments.some((e) =>
-        includeExperimentInPayload(e)
-      );
-      if (dependentExperiments.length && hasNonStaleDependentExperiments) {
-        return { stale: false };
+      if (features && features.length > 1) {
+        const dependentFeatures = getDependentFeatures(
+          feature,
+          features,
+          environments
+        );
+        const hasNonStaleDependentFeatures = dependentFeatures.some((id) => {
+          const f = features?.find((f) => f.id === id);
+          if (!f) return true;
+          return !visit({ feature: f }).stale;
+        });
+        if (dependentFeatures.length && hasNonStaleDependentFeatures) {
+          return { stale: false };
+        }
+        const dependentExperiments = getDependentExperiments(
+          feature,
+          experiments
+        );
+        const hasNonStaleDependentExperiments = dependentExperiments.some((e) =>
+          includeExperimentInPayload(e)
+        );
+        if (dependentExperiments.length && hasNonStaleDependentExperiments) {
+          return { stale: false };
+        }
       }
 
       const envSettings = Object.values(feature.environmentSettings ?? {});
@@ -262,12 +284,6 @@ export function isFeatureStale(
 
       if (enabledRules.length === 0) return { stale, reason: "no-rules" };
 
-      if (!linkedExperiments) {
-        // If we don't have linkedExperiments in the context (e.g. evaluating dependents), use the baked array
-        linkedExperiments = (feature?.linkedExperiments ?? [])
-          .map((id) => experiments.find((e) => e.id === id))
-          .filter(Boolean) as ExperimentInterfaceStringDates[];
-      }
       // If there's at least one active experiment, it's not stale
       if (linkedExperiments.some((e) => includeExperimentInPayload(e)))
         return { stale: false };
@@ -281,9 +297,9 @@ export function isFeatureStale(
       console.error("Error calculating stale feature", e);
       return { stale: false };
     }
-  }
+  };
 
-  return visit(feature, features, environments, linkedExperiments);
+  return visit({ feature, linkedExperiments });
 }
 
 export interface MergeConflict {

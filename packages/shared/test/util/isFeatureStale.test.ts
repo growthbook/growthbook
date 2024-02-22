@@ -106,7 +106,7 @@ describe("isFeatureStale", () => {
       feature.hasDrafts = true;
     });
     it("is not stale", () => {
-      expect(isFeatureStale(feature)).toEqual({ stale: false });
+      expect(isFeatureStale({feature})).toEqual({ stale: false });
     });
   });
 
@@ -132,13 +132,13 @@ describe("isFeatureStale", () => {
     describe("and has been updated within past two weeks", () => {
       it("is not stale", () => {
         feature.dateUpdated = subWeeks(new Date(), 1);
-        expect(isFeatureStale(feature)).toEqual({ stale: false });
+        expect(isFeatureStale({feature})).toEqual({ stale: false });
       });
     });
     describe("and has not been updated within past two weeks", () => {
       it("is stale", () => {
         feature.dateUpdated = subWeeks(new Date(), 3);
-        expect(isFeatureStale(feature)).toEqual({
+        expect(isFeatureStale({feature})).toEqual({
           stale: true,
           reason: "no-rules",
         });
@@ -151,7 +151,7 @@ describe("isFeatureStale", () => {
       describe("and has been updated within past two weeks", () => {
         it("is not stale", () => {
           feature.dateUpdated = subWeeks(new Date(), 1);
-          expect(isFeatureStale(feature)).toEqual({
+          expect(isFeatureStale({feature})).toEqual({
             stale: false,
           });
         });
@@ -159,7 +159,7 @@ describe("isFeatureStale", () => {
       describe("and has not been updated within past two weeks", () => {
         it("is not stale", () => {
           feature.dateUpdated = subWeeks(new Date(), 3);
-          expect(isFeatureStale(feature)).toEqual({
+          expect(isFeatureStale({feature})).toEqual({
             stale: false,
           });
         });
@@ -178,13 +178,13 @@ describe("isFeatureStale", () => {
     describe("and has been updated within past two weeks", () => {
       it("is not stale", () => {
         feature.dateUpdated = subWeeks(new Date(), 1);
-        expect(isFeatureStale(feature)).toEqual({ stale: false });
+        expect(isFeatureStale({feature})).toEqual({ stale: false });
       });
     });
     describe("and has not been updated within past two weeks", () => {
       it("is stale", () => {
         feature.dateUpdated = subWeeks(new Date(), 3);
-        expect(isFeatureStale(feature)).toEqual({
+        expect(isFeatureStale({feature})).toEqual({
           stale: true,
           reason: "no-rules",
         });
@@ -235,13 +235,13 @@ describe("isFeatureStale", () => {
         describe("and has been updated within past two weeks", () => {
           it("is not stale", () => {
             feature.dateUpdated = subWeeks(new Date(), 1);
-            expect(isFeatureStale(feature)).toEqual({ stale: false });
+            expect(isFeatureStale({feature})).toEqual({ stale: false });
           });
         });
         describe("and has not been updated within past two weeks", () => {
           it("is not stale", () => {
             feature.dateUpdated = subWeeks(new Date(), 3);
-            expect(isFeatureStale(feature)).toEqual({ stale: false });
+            expect(isFeatureStale({feature})).toEqual({ stale: false });
           });
         });
       });
@@ -281,13 +281,13 @@ describe("isFeatureStale", () => {
         describe("and has been updated within past two weeks", () => {
           it("is not stale", () => {
             feature.dateUpdated = subWeeks(new Date(), 1);
-            expect(isFeatureStale(feature)).toEqual({ stale: false });
+            expect(isFeatureStale({feature})).toEqual({ stale: false });
           });
         });
         describe("and has not been updated within past two weeks", () => {
           it("is not stale", () => {
             feature.dateUpdated = subWeeks(new Date(), 3);
-            expect(isFeatureStale(feature)).toEqual({ stale: false });
+            expect(isFeatureStale({feature})).toEqual({ stale: false });
           });
         });
       });
@@ -331,13 +331,13 @@ describe("isFeatureStale", () => {
         describe("and has been updated within past two weeks", () => {
           it("is not stale", () => {
             feature.dateUpdated = subWeeks(new Date(), 1);
-            expect(isFeatureStale(feature)).toEqual({ stale: false });
+            expect(isFeatureStale({feature})).toEqual({ stale: false });
           });
         });
         describe("and has not been updated within past two weeks", () => {
           it("is stale", () => {
             feature.dateUpdated = subWeeks(new Date(), 3);
-            expect(isFeatureStale(feature)).toEqual({
+            expect(isFeatureStale({feature})).toEqual({
               stale: true,
               reason: "rules-one-sided",
             });
@@ -386,13 +386,13 @@ describe("isFeatureStale", () => {
         describe("and has been updated within past two weeks", () => {
           it("is not stale", () => {
             feature.dateUpdated = subWeeks(new Date(), 1);
-            expect(isFeatureStale(feature)).toEqual({ stale: false });
+            expect(isFeatureStale({feature})).toEqual({ stale: false });
           });
         });
         describe("and has not been updated within past two weeks", () => {
           it("is not stale", () => {
             feature.dateUpdated = subWeeks(new Date(), 3);
-            expect(isFeatureStale(feature)).toEqual({ stale: false });
+            expect(isFeatureStale({feature})).toEqual({ stale: false });
           });
         });
       });
@@ -439,13 +439,13 @@ describe("isFeatureStale", () => {
         describe("and has been updated within past two weeks", () => {
           it("is not stale", () => {
             feature.dateUpdated = subWeeks(new Date(), 1);
-            expect(isFeatureStale(feature)).toEqual({ stale: false });
+            expect(isFeatureStale({feature})).toEqual({ stale: false });
           });
         });
         describe("and has not been updated within past two weeks", () => {
           it("is not stale", () => {
             feature.dateUpdated = subWeeks(new Date(), 3);
-            expect(isFeatureStale(feature)).toEqual({ stale: false });
+            expect(isFeatureStale({feature})).toEqual({ stale: false });
           });
         });
       });
@@ -487,13 +487,13 @@ describe("isFeatureStale", () => {
         describe("and has been updated within past two weeks", () => {
           it("is not stale", () => {
             feature.dateUpdated = subWeeks(new Date(), 1);
-            expect(isFeatureStale(feature)).toEqual({ stale: false });
+            expect(isFeatureStale({feature})).toEqual({ stale: false });
           });
         });
         describe("and has not been updated within past two weeks", () => {
           it("is stale", () => {
             feature.dateUpdated = subWeeks(new Date(), 3);
-            expect(isFeatureStale(feature)).toEqual({
+            expect(isFeatureStale({feature})).toEqual({
               stale: true,
               reason: "rules-one-sided",
             });
@@ -554,13 +554,13 @@ describe("isFeatureStale", () => {
             describe("and has been updated within past two weeks", () => {
               it("is not stale", () => {
                 feature.dateUpdated = subWeeks(new Date(), 1);
-                expect(isFeatureStale(feature)).toEqual({ stale: false });
+                expect(isFeatureStale({feature})).toEqual({ stale: false });
               });
             });
             describe("and has not been updated within past two weeks", () => {
               it("is stale", () => {
                 feature.dateUpdated = subWeeks(new Date(), 3);
-                expect(isFeatureStale(feature)).toEqual({
+                expect(isFeatureStale({feature})).toEqual({
                   stale: true,
                   reason: "rules-one-sided",
                 });
@@ -637,7 +637,7 @@ describe("isFeatureStale", () => {
             describe("and has been updated within past two weeks", () => {
               it("is not stale", () => {
                 feature.dateUpdated = subWeeks(new Date(), 1);
-                expect(isFeatureStale(feature, experiments)).toEqual({
+                expect(isFeatureStale({feature, experiments})).toEqual({
                   stale: false,
                 });
               });
@@ -645,7 +645,7 @@ describe("isFeatureStale", () => {
             describe("and has not been updated within past two weeks", () => {
               it("is stale", () => {
                 feature.dateUpdated = subWeeks(new Date(), 3);
-                expect(isFeatureStale(feature, experiments)).toEqual({
+                expect(isFeatureStale({feature, experiments})).toEqual({
                   stale: true,
                   reason: "rules-one-sided",
                 });
@@ -722,7 +722,7 @@ describe("isFeatureStale", () => {
             describe("and has been updated within past two weeks", () => {
               it("is not stale", () => {
                 feature.dateUpdated = subWeeks(new Date(), 1);
-                expect(isFeatureStale(feature, experiments)).toEqual({
+                expect(isFeatureStale({feature, experiments})).toEqual({
                   stale: false,
                 });
               });
@@ -730,7 +730,7 @@ describe("isFeatureStale", () => {
             describe("and has not been updated within past two weeks", () => {
               it("is not stale", () => {
                 feature.dateUpdated = subWeeks(new Date(), 3);
-                expect(isFeatureStale(feature, experiments)).toEqual({
+                expect(isFeatureStale({feature, experiments})).toEqual({
                   stale: false,
                 });
               });
@@ -786,7 +786,7 @@ describe("isFeatureStale", () => {
             describe("and has been updated within past two weeks", () => {
               it("is not stale", () => {
                 feature.dateUpdated = subWeeks(new Date(), 1);
-                expect(isFeatureStale(feature)).toEqual({
+                expect(isFeatureStale({feature})).toEqual({
                   stale: false,
                 });
               });
@@ -794,7 +794,7 @@ describe("isFeatureStale", () => {
             describe("and has not been updated within past two weeks", () => {
               it("is not stale", () => {
                 feature.dateUpdated = subWeeks(new Date(), 3);
-                expect(isFeatureStale(feature)).toEqual({
+                expect(isFeatureStale({feature})).toEqual({
                   stale: false,
                 });
               });
@@ -870,7 +870,7 @@ describe("isFeatureStale", () => {
             describe("and has been updated within past two weeks", () => {
               it("is not stale", () => {
                 feature.dateUpdated = subWeeks(new Date(), 1);
-                expect(isFeatureStale(feature, experiments)).toEqual({
+                expect(isFeatureStale({feature, experiments})).toEqual({
                   stale: false,
                 });
               });
@@ -878,7 +878,7 @@ describe("isFeatureStale", () => {
             describe("and has not been updated within past two weeks", () => {
               it("is not stale", () => {
                 feature.dateUpdated = subWeeks(new Date(), 3);
-                expect(isFeatureStale(feature, experiments)).toEqual({
+                expect(isFeatureStale({feature, experiments})).toEqual({
                   stale: false,
                 });
               });
@@ -954,7 +954,7 @@ describe("isFeatureStale", () => {
             describe("and has been updated within past two weeks", () => {
               it("is not stale", () => {
                 feature.dateUpdated = subWeeks(new Date(), 1);
-                expect(isFeatureStale(feature, experiments)).toEqual({
+                expect(isFeatureStale({feature, experiments})).toEqual({
                   stale: false,
                 });
               });
@@ -962,7 +962,7 @@ describe("isFeatureStale", () => {
             describe("and has not been updated within past two weeks", () => {
               it("is not stale", () => {
                 feature.dateUpdated = subWeeks(new Date(), 3);
-                expect(isFeatureStale(feature, experiments)).toEqual({
+                expect(isFeatureStale({feature, experiments})).toEqual({
                   stale: false,
                 });
               });
@@ -1020,7 +1020,7 @@ describe("isFeatureStale", () => {
             describe("and has been updated within past two weeks", () => {
               it("is not stale", () => {
                 feature.dateUpdated = subWeeks(new Date(), 1);
-                expect(isFeatureStale(feature)).toEqual({
+                expect(isFeatureStale({feature})).toEqual({
                   stale: false,
                 });
               });
@@ -1028,7 +1028,7 @@ describe("isFeatureStale", () => {
             describe("and has not been updated within past two weeks", () => {
               it("is not stale", () => {
                 feature.dateUpdated = subWeeks(new Date(), 3);
-                expect(isFeatureStale(feature)).toEqual({
+                expect(isFeatureStale({feature})).toEqual({
                   stale: false,
                 });
               });
@@ -1104,7 +1104,7 @@ describe("isFeatureStale", () => {
             describe("and has been updated within past two weeks", () => {
               it("is not stale", () => {
                 feature.dateUpdated = subWeeks(new Date(), 1);
-                expect(isFeatureStale(feature, experiments)).toEqual({
+                expect(isFeatureStale({feature, experiments})).toEqual({
                   stale: false,
                 });
               });
@@ -1112,7 +1112,7 @@ describe("isFeatureStale", () => {
             describe("and has not been updated within past two weeks", () => {
               it("is not stale", () => {
                 feature.dateUpdated = subWeeks(new Date(), 3);
-                expect(isFeatureStale(feature, experiments)).toEqual({
+                expect(isFeatureStale({feature, experiments})).toEqual({
                   stale: false,
                 });
               });
@@ -1188,7 +1188,7 @@ describe("isFeatureStale", () => {
             describe("and has been updated within past two weeks", () => {
               it("is not stale", () => {
                 feature.dateUpdated = subWeeks(new Date(), 1);
-                expect(isFeatureStale(feature, experiments)).toEqual({
+                expect(isFeatureStale({feature, experiments})).toEqual({
                   stale: false,
                 });
               });
@@ -1196,7 +1196,7 @@ describe("isFeatureStale", () => {
             describe("and has not been updated within past two weeks", () => {
               it("is not stale", () => {
                 feature.dateUpdated = subWeeks(new Date(), 3);
-                expect(isFeatureStale(feature, experiments)).toEqual({
+                expect(isFeatureStale({feature, experiments})).toEqual({
                   stale: false,
                 });
               });
@@ -1214,7 +1214,7 @@ describe("isFeatureStale", () => {
 
     describe("but no experiments are supplied to isFeatureStale util fn", () => {
       it("should fail silently and return false", () => {
-        expect(isFeatureStale(feature)).toEqual({
+        expect(isFeatureStale({feature})).toEqual({
           stale: false,
           reason: "error",
         });
@@ -1232,7 +1232,7 @@ describe("isFeatureStale", () => {
         feature.linkedExperiments = ["exp_1", "exp_2", "exp_3"];
       });
       it("should fail silently and return false", () => {
-        expect(isFeatureStale(feature, experiments)).toEqual({
+        expect(isFeatureStale({feature, experiments})).toEqual({
           stale: false,
           reason: "error",
         });
@@ -1270,7 +1270,7 @@ describe("isFeatureStale", () => {
       describe("and has been updated within past two weeks", () => {
         it("is not stale", () => {
           feature.dateUpdated = subWeeks(new Date(), 1);
-          expect(isFeatureStale(feature, experiments)).toEqual({
+          expect(isFeatureStale({feature, experiments})).toEqual({
             stale: false,
           });
         });
@@ -1278,7 +1278,7 @@ describe("isFeatureStale", () => {
       describe("and has not been updated within past two weeks", () => {
         it("is stale", () => {
           feature.dateUpdated = subWeeks(new Date(), 3);
-          expect(isFeatureStale(feature, experiments)).toEqual({
+          expect(isFeatureStale({feature, experiments})).toEqual({
             stale: true,
             reason: "rules-one-sided",
           });

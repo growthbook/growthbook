@@ -124,13 +124,13 @@ export default function FeaturesPage() {
       { stale: boolean; reason?: StaleFeatureReason }
     > = {};
     featureItems.forEach((feature) => {
-      staleFeatures[feature.id] = isFeatureStale(
+      staleFeatures[feature.id] = isFeatureStale({
         feature,
         features,
         experiments,
-        envs,
-        experiments.filter((e) => feature.linkedExperiments?.includes(e.id))
-      );
+        environments: envs,
+        linkedExperiments: experiments.filter((e) => feature.linkedExperiments?.includes(e.id))
+      });
     });
     return staleFeatures;
   }, [featureItems, features, experiments, envs]);

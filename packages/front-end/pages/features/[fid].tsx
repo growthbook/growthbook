@@ -285,13 +285,13 @@ export default function FeaturePage() {
   const { stale, reason } = useMemo(() => {
     if (!feature) return { stale: false };
     if (!data?.experiments) return { stale: false };
-    return isFeatureStale(
+    return isFeatureStale({
       feature,
       features,
       experiments,
-      envs,
-      data.experiments
-    );
+      environments: envs,
+      linkedExperiments: data.experiments,
+    });
   }, [feature, features, experiments, envs, data]);
 
   if (error) {
