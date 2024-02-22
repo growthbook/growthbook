@@ -5,8 +5,10 @@ import { OrganizationSettings } from "back-end/types/organization";
 import { FaGitAlt, FaExternalLinkAlt } from "react-icons/fa";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { useUser } from "@/services/UserContext";
+import usePermissions from "@/hooks/usePermissions";
 import Button from "../Button";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
+import Tooltip from "../Tooltip/Tooltip";
 
 const generatePlatformUrl = (
   platformUrl: string,
@@ -33,6 +35,7 @@ export default function FeaturesStats({
   } = orgSettings;
   const { hasCommercialFeature } = useUser();
   const hasFeature = hasCommercialFeature("code-references");
+  const permissions = usePermissions();
 
   const codeRefs = useMemo(() => {
     if (!codeRefsBranchesToFilter || codeRefsBranchesToFilter.length === 0) {
@@ -63,13 +66,19 @@ export default function FeaturesStats({
             choice.
           </p>
           {hasFeature ? (
-            <Button
-              onClick={async () => {
-                router.push("/settings#configure-code-refs");
-              }}
+            <Tooltip
+              shouldDisplay={!permissions.organizationSettings}
+              body="You need to be an admin to enable this feature."
             >
-              Go to settings
-            </Button>
+              <Button
+                disabled={!permissions.organizationSettings}
+                onClick={async () => {
+                  router.push("/settings#configure-code-refs");
+                }}
+              >
+                Go to settings
+              </Button>
+            </Tooltip>
           ) : (
             <PremiumTooltip commercialFeature="code-references">
               <Button
