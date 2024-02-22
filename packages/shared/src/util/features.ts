@@ -262,16 +262,16 @@ export function isFeatureStale({
         if (dependentFeatures.length && hasNonStaleDependentFeatures) {
           return { stale: false };
         }
-        const dependentExperiments = getDependentExperiments(
-          feature,
-          experiments
-        );
-        const hasNonStaleDependentExperiments = dependentExperiments.some((e) =>
-          includeExperimentInPayload(e)
-        );
-        if (dependentExperiments.length && hasNonStaleDependentExperiments) {
-          return { stale: false };
-        }
+      }
+      const dependentExperiments = getDependentExperiments(
+        feature,
+        experiments
+      );
+      const hasNonStaleDependentExperiments = dependentExperiments.some((e) =>
+        includeExperimentInPayload(e)
+      );
+      if (dependentExperiments.length && hasNonStaleDependentExperiments) {
+        return { stale: false };
       }
 
       const envSettings = Object.values(feature.environmentSettings ?? {});
