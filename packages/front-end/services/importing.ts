@@ -575,7 +575,9 @@ export const transformLDFeatureFlagToGBFeature = (
   data.items.forEach((item) => {
     // Prevent importing the same duplicate feature id multiple times
     if (alreadyImported.has(item.key)) {
-      console.error("Duplicate feature key", item.key);
+      console.error(
+        `Skipping duplicate feature '${item.key}' in project '${project}'`
+      );
       return;
     }
     alreadyImported.add(item.key);
