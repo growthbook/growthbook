@@ -4,7 +4,7 @@ tags:
 summary: Create a single experiment
 operationId: postExperiment
 x-codeSamples:
-  - lang: 'cURL'
+  - lang: "cURL"
     source: |
       curl -X POST https://api.growthbook.io/api/v1/experiments \
         -d '{"name": "test_experiment", "owner": "weijie.ou@example.com", ...}'
