@@ -521,15 +521,15 @@ export default function FeaturesPage() {
       <Tabs newStyle={true} defaultTab="all-features">
         <Tab id="all-features" display="All Features" padding={false}>
           {renderFeaturesTable()}
-        </Tab>
-        <Tab id="drafts" display="Drafts" padding={false} lazy={true}>
-          <FeaturesDraftTable />
           <div className="alert alert-info mt-5">
             Looking for <strong>Attributes</strong>, <strong>Namespaces</strong>
             , <strong>Environments</strong>, or <strong>Saved Groups</strong>?
             They have moved to the <Link href="/sdks">SDK Configuration</Link>{" "}
             tab.
           </div>
+        </Tab>
+        <Tab id="drafts" display="Drafts" padding={false} lazy={true}>
+          <FeaturesDraftTable />
         </Tab>
       </Tabs>
     </div>

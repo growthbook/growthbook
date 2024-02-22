@@ -176,6 +176,6 @@ export default function FeaturesDraftTable() {
       </div>
     );
   };
-  if (loading) return <LoadingOverlay />;
+  if (loading) return <LoadingOverlay relativePosition={true} />;
   return renderFeaturesTableDrafts() || null;
 }

@@ -143,7 +143,7 @@ export async function getRevisionsByStatus(
   statuses: string[]
 ) {
   const revisions = await FeatureRevisionModel.find({
-    id: context.org.id,
+    organization: context.org.id,
     status: { $in: statuses },
   });
   const docs = revisions
