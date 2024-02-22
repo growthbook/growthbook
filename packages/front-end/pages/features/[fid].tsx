@@ -282,6 +282,18 @@ export default function FeaturePage() {
     );
   }, [data, revision, feature, environments]);
 
+  const { stale, reason } = useMemo(() => {
+    if (!feature) return { stale: false };
+    if (!data?.experiments) return { stale: false };
+    return isFeatureStale(
+      feature,
+      features,
+      experiments,
+      envs,
+      data.experiments
+    );
+  }, [feature, features, experiments, envs, data]);
+
   if (error) {
     return (
       <div className="alert alert-danger">
@@ -350,8 +362,6 @@ export default function FeaturePage() {
     "createFeatureDrafts",
     feature.project
   );
-
-  const { stale, reason } = isFeatureStale(feature, data.experiments);
 
   return (
     <div className="contents container-fluid pagecontents">

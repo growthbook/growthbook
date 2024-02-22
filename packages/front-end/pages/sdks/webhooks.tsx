@@ -26,7 +26,7 @@ export default function SDKWebhooks({ sdkid }) {
   const permissions = usePermissions();
   const { accountPlan } = useUser();
 
-  const hasWebhookPermitions = permissions.check("manageWebhooks");
+  const hasWebhookPermissions = permissions.check("manageWebhooks");
   const amountOfWebhooks = data?.webhooks?.length || 0;
   const webhookLimits = {
     pro: 99,
@@ -43,7 +43,7 @@ export default function SDKWebhooks({ sdkid }) {
       <tr key={webhook.name}>
         <td>{webhook.name}</td>
         <td>{webhook.endpoint}</td>
-        <td>{webhook.sendPayload === true ? "yes" : "no"}</td>
+        <td>{webhook.sendPayload ? "yes" : "no"}</td>
         <td>{webhook.signingKey}</td>
         <td>
           {webhook.error ? (
@@ -57,7 +57,7 @@ export default function SDKWebhooks({ sdkid }) {
             <em>never fired</em>
           )}
         </td>
-        {hasWebhookPermitions && (
+        {hasWebhookPermissions && (
           <td>
             <Button
               color="link"
@@ -74,7 +74,7 @@ export default function SDKWebhooks({ sdkid }) {
           </td>
         )}
         <td>
-          {hasWebhookPermitions && (
+          {hasWebhookPermissions && (
             <>
               <div className="col-auto">
                 <MoreMenu>
@@ -110,7 +110,7 @@ export default function SDKWebhooks({ sdkid }) {
   };
   const renderAddWebhookButton = () => (
     <>
-      {hasWebhookPermitions && (
+      {hasWebhookPermissions && (
         <button
           className="btn btn-primary mb-2"
           disabled={disableWebhookCreate}
@@ -154,7 +154,7 @@ export default function SDKWebhooks({ sdkid }) {
               <td>SEND PAYLOAD</td>
               <td>SHARED SECRET</td>
               <td>LAST SUCCESS</td>
-              {hasWebhookPermitions && <td>TEST WEBHOOK</td>}
+              {hasWebhookPermissions && <td>TEST WEBHOOK</td>}
               <td>EDIT</td>
             </tr>
           </thead>
