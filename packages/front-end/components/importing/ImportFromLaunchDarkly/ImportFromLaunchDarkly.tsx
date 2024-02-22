@@ -18,6 +18,43 @@ type ImportFromLaunchDarklyProps = {
   onSubmit(apiToken: string): Promise<void>;
 };
 
+function TaskResultSummary({
+  results,
+}: {
+  results: { message: string; status: "ignored" | "failed" | "completed" }[];
+}) {
+  const counts = {
+    completed: 0,
+    ignored: 0,
+    failed: 0,
+  };
+  results.forEach((t) => {
+    counts[t.status]++;
+  });
+
+  return (
+    <>
+      <p>
+        <strong>{results.length}</strong> total,
+        <strong>{counts.completed}</strong> completed,
+        <strong>{counts.ignored}</strong> ignored,
+        <strong>{counts.failed}</strong> failed
+      </p>
+
+      <div style={{ maxHeight: 600, overflowY: "auto" }}>
+        <ul>
+          {results.map((result) => (
+            <li key={result.message}>
+              {getIconForTaskResultState(result.status)}{" "}
+              <span className="ml-2">{result.message}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </>
+  );
+}
+
 export const ImportFromLaunchDarkly: FC<ImportFromLaunchDarklyProps> = ({
   onSubmit,
   errors,
@@ -138,13 +175,7 @@ export const ImportFromLaunchDarkly: FC<ImportFromLaunchDarklyProps> = ({
       {results.projects.taskResults.length > 0 && (
         <div className="card p-4 my-4">
           <h2>Results &rarr; Projects</h2>
-
-          {results.projects.taskResults.map((result) => (
-            <p key={result.message} className="d-sm-flex align-items-center">
-              {getIconForTaskResultState(result.status)}{" "}
-              <span className="ml-2">{result.message}</span>
-            </p>
-          ))}
+          <TaskResultSummary results={results.projects.taskResults} />
         </div>
       )}
       {/* endregion Project Results */}
@@ -153,13 +184,7 @@ export const ImportFromLaunchDarkly: FC<ImportFromLaunchDarklyProps> = ({
       {results.environments.taskResults.length > 0 && (
         <div className="card p-4 my-4">
           <h2>Results &rarr; Environments</h2>
-
-          {results.environments.taskResults.map((result) => (
-            <p key={result.message} className="d-sm-flex align-items-center">
-              {getIconForTaskResultState(result.status)}{" "}
-              <span className="ml-2">{result.message}</span>
-            </p>
-          ))}
+          <TaskResultSummary results={results.environments.taskResults} />
         </div>
       )}
       {/* endregion Environment Results */}
@@ -168,13 +193,7 @@ export const ImportFromLaunchDarkly: FC<ImportFromLaunchDarklyProps> = ({
       {results.features.taskResults.length > 0 && (
         <div className="card p-4 my-4">
           <h2>Results &rarr; Features</h2>
-
-          {results.features.taskResults.map((result) => (
-            <p key={result.message} className="d-sm-flex align-items-center">
-              {getIconForTaskResultState(result.status)}{" "}
-              <span className="ml-2">{result.message}</span>
-            </p>
-          ))}
+          <TaskResultSummary results={results.features.taskResults} />
         </div>
       )}
       {/* endregion Feature Results */}

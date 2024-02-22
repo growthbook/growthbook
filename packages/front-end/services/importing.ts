@@ -6,6 +6,7 @@ import {
   FeatureValueType,
 } from "back-end/types/feature";
 import { ConditionInterface } from "@growthbook/growthbook-react";
+import { uniqBy } from "lodash";
 
 // Various utilities to help migrate from another service to GrowthBook
 
@@ -25,10 +26,13 @@ export type LDListProjectsResponse = {
 export const transformLDProjectsToGBProject = (
   data: LDListProjectsResponse
 ): Pick<ProjectInterface, "name" | "description">[] => {
-  return data.items.map(({ key, name }) => ({
-    name: key,
-    description: name,
-  }));
+  return uniqBy(
+    data.items.map(({ key, name }) => ({
+      name: key,
+      description: name,
+    })),
+    "name"
+  );
 };
 
 export type LDListEnvironmentsResponse = {
@@ -45,10 +49,13 @@ export type LDListEnvironmentsResponse = {
 export const transformLDEnvironmentsToGBEnvironment = (
   data: LDListEnvironmentsResponse
 ): Environment[] => {
-  return data.items.map(({ key, name }) => ({
-    id: key,
-    description: name,
-  }));
+  return uniqBy(
+    data.items.map(({ key, name }) => ({
+      id: key,
+      description: name,
+    })),
+    "id"
+  );
 };
 
 export type LDOperator =
@@ -559,9 +566,24 @@ export const transformLDFeatureFlagToGBFeature = (
     featureVarMap.set(item.key, getTypeAndVariations(item));
   });
 
-  return data.items.map((item) =>
-    transformLDFeatureFlag(item, project, featureVarMap)
-  );
+  const alreadyImported = new Set<string>();
+
+  const features: Omit<
+    FeatureInterface,
+    "organization" | "dateUpdated" | "dateCreated" | "version"
+  >[] = [];
+  data.items.forEach((item) => {
+    // Prevent importing the same duplicate feature id multiple times
+    if (alreadyImported.has(item.key)) {
+      console.error("Duplicate feature key", item.key);
+      return;
+    }
+    alreadyImported.add(item.key);
+
+    const feature = transformLDFeatureFlag(item, project, featureVarMap);
+    features.push(feature);
+  });
+  return features;
 };
 
 /**
