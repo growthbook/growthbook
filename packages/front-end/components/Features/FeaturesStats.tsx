@@ -116,7 +116,8 @@ export default function FeaturesStats({
                           codeRef.repo,
                           codeRef.branch,
                           ref.filePath,
-                          ref.startingLineNumber + 2
+                          ref.startingLineNumber +
+                            ((ref.lines.split("\n").length / 2) | 0)
                         )}
                       >
                         <FaExternalLinkAlt className="mr-2 cursor-pointer" />

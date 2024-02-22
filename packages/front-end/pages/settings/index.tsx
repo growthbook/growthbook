@@ -1631,22 +1631,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   {form.watch("codeReferencesEnabled") ? (
                     <>
                       <div className="my-4">
-                        <strong>
-                          Only show code refs from the following branches
-                          (comma-separated, optional):
-                        </strong>
-                        <Field
-                          className="my-2"
-                          type="text"
-                          placeholder="main, qa, dev"
-                          value={codeRefsBranchesToFilterStr}
-                          onChange={(v) => {
-                            const branches = v.currentTarget.value;
-                            setCodeRefsBranchesToFilterStr(branches);
-                          }}
-                        />
-                      </div>
-                      <div className="my-4">
+                        <h4>Code References Setup</h4>
                         <div className="appbox my-4 p-3">
                           <div className="row">
                             <div className="col-sm-9">
@@ -1667,6 +1652,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                             </div>
                           </div>
                         </div>
+
                         <div className="appbox my-4 p-3">
                           <div className="row">
                             <div className="col-sm-9">
@@ -1685,17 +1671,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
                                 </a>
                                 .
                               </p>
-                              <div>
-                                <strong>
-                                  Platform host URL for code reference links:
-                                </strong>
-                                <Field
-                                  className="my-2"
-                                  type="text"
-                                  placeholder="https://gitlab.com"
-                                  {...form.register("codeRefsPlatformUrl")}
-                                />
-                              </div>
                             </div>
                             <div className="col-sm-3 text-right">
                               <a
@@ -1715,6 +1690,49 @@ const GeneralSettingsPage = (): React.ReactElement => {
                               </a>
                             </div>
                           </div>
+                        </div>
+                      </div>
+                      <div className="my-4">
+                        <strong>
+                          Only show code refs from the following branches
+                          (comma-separated, optional):
+                        </strong>
+                        <Field
+                          className="my-2"
+                          type="text"
+                          placeholder="main, qa, dev"
+                          value={codeRefsBranchesToFilterStr}
+                          onChange={(v) => {
+                            const branches = v.currentTarget.value;
+                            setCodeRefsBranchesToFilterStr(branches);
+                          }}
+                        />
+                      </div>
+
+                      <div className="my-4">
+                        <strong>
+                          Platform (to allow direct linking, optional):
+                        </strong>
+                        <div className="d-flex">
+                          <SelectField
+                            className="my-2"
+                            value={form.watch("codeRefsPlatformUrl") || ""}
+                            isClearable
+                            options={[
+                              {
+                                label: "GitHub",
+                                value: "https://github.com",
+                              },
+                              {
+                                label: "GitLab",
+                                value: "https://gitlab.com",
+                              },
+                            ]}
+                            onChange={(v: string) => {
+                              if (!v) form.setValue("codeRefsPlatformUrl", "");
+                              else form.setValue("codeRefsPlatformUrl", v);
+                            }}
+                          />
                         </div>
                       </div>
                     </>
