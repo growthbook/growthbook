@@ -353,10 +353,11 @@ export default function RequestReviewModal({
       >
         <div style={{ padding: "0 30px" }}>
           <div>
-            Leave a Comment
+            <h4>Leave a Comment</h4>
             <Field
               placeholder="leave a comment"
-              className="mb-5 mt-3"
+              textarea
+              className="mb-3 mt-3"
               {...submitReviewform.register("comment")}
             />
           </div>
@@ -364,10 +365,10 @@ export default function RequestReviewModal({
           <RadioSelector
             name="type"
             value={submitReviewform.getValues().reviewStatus}
+            descriptionNewLine={true}
             setValue={(val: ReviewSubmittedType) =>
               submitReviewform.setValue("reviewStatus", val)
             }
-            labelWidth={"100%"}
             options={[
               {
                 key: "Comment",
