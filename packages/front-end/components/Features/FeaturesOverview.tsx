@@ -206,11 +206,12 @@ export default function FeaturesOverview({
   );
   const requireReviews = !!settings?.requireReviews;
   const isLive = revision?.version === feature.version;
-  const isDraft = revision?.status === "draft";
   const isPendingReview =
     revision?.status === "pending-review" ||
     revision?.status === "changes-requested";
   const approved = revision?.status === "approved";
+
+  const isDraft = revision?.status === "draft" || isPendingReview || approved;
 
   const revisionHasChanges =
     !!mergeResult && mergeResultHasChanges(mergeResult);
