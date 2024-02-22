@@ -46,17 +46,17 @@ export default function FeaturesDraftTable() {
   const featuresAndRevisions = useAddComputedFields(
     data?.featuresAndRevisions,
     (featureAndRevision) => {
-      const createdBy = featureAndRevision.revision
-        .createdBy as EventAuditUserLoggedIn;
+      const createdBy = featureAndRevision?.revision
+        ?.createdBy as EventAuditUserLoggedIn | null;
       return {
-        id: featureAndRevision.feature.id,
-        tags: featureAndRevision.feature.tags,
-        status: featureAndRevision.revision.status,
-        version: featureAndRevision.revision.version,
-        dateUpdated: featureAndRevision.revision.dateUpdated,
-        project: featureAndRevision.feature.project,
-        creator: createdBy.name,
-        comment: featureAndRevision.revision.comment,
+        id: featureAndRevision?.feature?.id,
+        tags: featureAndRevision?.feature?.tags,
+        status: featureAndRevision?.revision?.status,
+        version: featureAndRevision?.revision?.version,
+        dateUpdated: featureAndRevision?.revision?.dateUpdated,
+        project: featureAndRevision?.feature?.project,
+        creator: createdBy?.name,
+        comment: featureAndRevision?.revision?.comment,
       };
     }
   );
