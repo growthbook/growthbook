@@ -14,7 +14,7 @@ interface Props
     HTMLButtonElement
   > {
   color?: string;
-  onClick: () => Promise<void>;
+  onClick: (() => Promise<void>) | (() => void);
   disabled?: boolean;
   description?: string;
   children: ReactNode;

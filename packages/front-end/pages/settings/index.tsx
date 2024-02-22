@@ -255,6 +255,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const [statsEngineTab, setStatsEngineTab] = useState<string>(
     settings.statsEngine || DEFAULT_STATS_ENGINE
   );
+  const [
+    codeRefsBranchesToFilterStr,
+    setCodeRefsBranchesToFilterStr,
+  ] = useState<string>("");
   const displayCurrency = useCurrency();
   const growthbook = useGrowthBook<AppFeatures>();
   const { datasources } = useDefinitions();
@@ -278,11 +282,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const hasCustomChecklistFeature = hasCommercialFeature(
     "custom-launch-checklist"
   );
+  const hasCodeReferencesFeature = hasCommercialFeature("code-references");
 
   const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithStickyBucketing = getConnectionsSDKCapabilities(
-    sdkConnectionsData?.connections || []
-  ).includes("stickyBucketing");
+  const hasSDKWithStickyBucketing = getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+  }).includes("stickyBucketing");
 
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -339,6 +344,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
       defaultDataSource: settings.defaultDataSource || "",
       useStickyBucketing: false,
       useFallbackAttributes: false,
+      codeReferencesEnabled: false,
+      codeRefsBranchesToFilter: [],
+      codeRefsPlatformUrl: "",
     },
   });
   const { apiCall } = useAuth();
@@ -379,6 +387,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
     defaultDataSource: form.watch("defaultDataSource"),
     useStickyBucketing: form.watch("useStickyBucketing"),
     useFallbackAttributes: form.watch("useFallbackAttributes"),
+    codeReferencesEnabled: form.watch("codeReferencesEnabled"),
+    codeRefsBranchesToFilter: form.watch("codeRefsBranchesToFilter"),
+    codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
   };
 
   const [cronString, setCronString] = useState("");
@@ -435,8 +446,23 @@ const GeneralSettingsPage = (): React.ReactElement => {
       form.reset(newVal);
       setOriginalValue(newVal);
       updateCronString(newVal.updateSchedule?.cron || "");
+      if (newVal.codeRefsBranchesToFilter) {
+        setCodeRefsBranchesToFilterStr(
+          newVal.codeRefsBranchesToFilter.join(", ")
+        );
+      }
     }
   }, [settings]);
+
+  useEffect(() => {
+    form.setValue(
+      "codeRefsBranchesToFilter",
+      codeRefsBranchesToFilterStr
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    );
+  }, [codeRefsBranchesToFilterStr]);
 
   const ctaEnabled = hasChanges(value, originalValue);
 
@@ -1521,7 +1547,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   <Field
                     label={
                       <PremiumTooltip
-                        commercialFeature={"hash-secure-attributes"}
+                        commercialFeature="hash-secure-attributes"
                         body={
                           <>
                             <p>
@@ -1583,6 +1609,141 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       form.setValue("killswitchConfirmation", value);
                     }}
                   />
+                </div>
+                <div className="my-3">
+                  <PremiumTooltip commercialFeature={"code-references"}>
+                    <div
+                      className="d-inline-block h4 mt-4 mb-0"
+                      id="configure-code-refs"
+                    >
+                      Configure Code References
+                    </div>
+                  </PremiumTooltip>
+                  <div>
+                    <label className="mr-1" htmlFor="toggle-codeReferences">
+                      Enable displaying code references for feature flags in the
+                      GrowthBook UI
+                    </label>
+                  </div>
+                  <div className="my-2">
+                    <Toggle
+                      id={"toggle-codeReferences"}
+                      value={!!form.watch("codeReferencesEnabled")}
+                      setValue={(value) => {
+                        form.setValue("codeReferencesEnabled", value);
+                      }}
+                      disabled={!hasCodeReferencesFeature}
+                    />
+                  </div>
+                  {form.watch("codeReferencesEnabled") ? (
+                    <>
+                      <div className="my-4">
+                        <h4>Code References Setup</h4>
+                        <div className="appbox my-4 p-3">
+                          <div className="row">
+                            <div className="col-sm-9">
+                              <strong>For GitHub Users</strong>
+                              <p className="my-2">
+                                Use our all-in-one GitHub Action to integrate
+                                GrowthBook into your CI workflow.
+                              </p>
+                            </div>
+                            <div className="col-sm-3 text-right">
+                              <a
+                                href="https://github.com/marketplace/actions/growthbook-code-references"
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                Setup
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="appbox my-4 p-3">
+                          <div className="row">
+                            <div className="col-sm-9">
+                              <strong>For Non-GitHub Users</strong>
+                              <p className="my-2">
+                                Use our CLI utility that takes in a list of
+                                feature keys and scans your codebase to provide
+                                a JSON output of code references, which you can
+                                supply to our code references{" "}
+                                <a
+                                  href="https://docs.growthbook.io/api#tag/code-references"
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  REST API endpoint
+                                </a>
+                                .
+                              </p>
+                            </div>
+                            <div className="col-sm-3 text-right">
+                              <a
+                                href="https://github.com/growthbook/gb-find-code-refs"
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                CLI Utility
+                              </a>{" "}
+                              |{" "}
+                              <a
+                                href="https://hub.docker.com/repository/docker/growthbook/gb-find-code-refs/general"
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                Docker Image
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="my-4">
+                        <strong>
+                          Only show code refs from the following branches
+                          (comma-separated, optional):
+                        </strong>
+                        <Field
+                          className="my-2"
+                          type="text"
+                          placeholder="main, qa, dev"
+                          value={codeRefsBranchesToFilterStr}
+                          onChange={(v) => {
+                            const branches = v.currentTarget.value;
+                            setCodeRefsBranchesToFilterStr(branches);
+                          }}
+                        />
+                      </div>
+
+                      <div className="my-4">
+                        <strong>
+                          Platform (to allow direct linking, optional):
+                        </strong>
+                        <div className="d-flex">
+                          <SelectField
+                            className="my-2"
+                            value={form.watch("codeRefsPlatformUrl") || ""}
+                            isClearable
+                            options={[
+                              {
+                                label: "GitHub",
+                                value: "https://github.com",
+                              },
+                              {
+                                label: "GitLab",
+                                value: "https://gitlab.com",
+                              },
+                            ]}
+                            onChange={(v: string) => {
+                              if (!v) form.setValue("codeRefsPlatformUrl", "");
+                              else form.setValue("codeRefsPlatformUrl", v);
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  ) : null}
                 </div>
               </div>
             </div>

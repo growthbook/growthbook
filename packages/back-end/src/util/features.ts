@@ -1,6 +1,7 @@
 import isEqual from "lodash/isEqual";
 import {
   ConditionInterface,
+  ParentConditionInterface,
   FeatureRule as FeatureDefinitionRule,
 } from "@growthbook/growthbook";
 import { includeExperimentInPayload } from "shared/util";
@@ -331,179 +332,213 @@ export function getFeatureDefinition({
     ? revision.rules?.[environment] ?? settings.rules
     : settings.rules;
 
+  // convert prerequisites to force rules:
+  const prerequisiteRules = (feature.prerequisites ?? [])
+    ?.map((p) => {
+      const condition = getParsedCondition(groupMap, p.condition);
+      if (!condition) return null;
+      return {
+        parentConditions: [
+          {
+            id: p.id,
+            condition,
+            gate: true,
+          },
+        ],
+      };
+    })
+    .filter(Boolean) as FeatureDefinitionRule[];
+
   const isRule = (
     rule: FeatureDefinitionRule | null
   ): rule is FeatureDefinitionRule => !!rule;
 
-  const def: FeatureDefinitionWithProject = {
-    defaultValue: getJSONValue(feature.valueType, defaultValue),
-    project: feature.project,
-    rules:
-      rules
-        ?.filter(isRuleEnabled)
-        ?.map((r) => {
-          const rule: FeatureDefinitionRule = {};
+  const defRules = [
+    ...prerequisiteRules,
+    ...(rules
+      ?.filter(isRuleEnabled)
+      ?.map((r) => {
+        const rule: FeatureDefinitionRule = {};
 
-          // Experiment reference rules inherit everything from the experiment
-          if (r.type === "experiment-ref") {
-            const exp = experimentMap.get(r.experimentId);
-            if (!exp) return null;
+        // Experiment reference rules inherit everything from the experiment
+        if (r.type === "experiment-ref") {
+          const exp = experimentMap.get(r.experimentId);
+          if (!exp) return null;
 
-            if (!includeExperimentInPayload(exp)) return null;
+          if (!includeExperimentInPayload(exp)) return null;
 
-            // Never include experiment drafts
-            if (exp.status === "draft") return null;
+          // Never include experiment drafts
+          if (exp.status === "draft") return null;
 
-            // Get current experiment phase and use it to set rule properties
-            const phase = exp.phases[exp.phases.length - 1];
-            if (!phase) return null;
-
-            const condition = getParsedCondition(
-              groupMap,
-              phase.condition,
-              phase.savedGroups
-            );
-            if (condition) {
-              rule.condition = condition;
-            }
-
-            rule.coverage = phase.coverage;
-
-            if (exp.hashAttribute) {
-              rule.hashAttribute = exp.hashAttribute;
-            }
-            if (exp.fallbackAttribute) {
-              rule.fallbackAttribute = exp.fallbackAttribute;
-            }
-            if (exp.disableStickyBucketing) {
-              rule.disableStickyBucketing = exp.disableStickyBucketing;
-            }
-            if (exp.bucketVersion) {
-              rule.bucketVersion = exp.bucketVersion;
-            }
-            if (exp.minBucketVersion) {
-              rule.minBucketVersion = exp.minBucketVersion;
-            }
-            if (
-              phase.namespace &&
-              phase.namespace.enabled &&
-              phase.namespace.name
-            ) {
-              rule.namespace = [
-                phase.namespace.name,
-                // eslint-disable-next-line
-                parseFloat(phase.namespace.range[0] as any) || 0,
-                // eslint-disable-next-line
-                parseFloat(phase.namespace.range[1] as any) || 0,
-              ];
-            }
-
-            if (phase.seed) {
-              rule.seed = phase.seed;
-            }
-            rule.hashVersion = exp.hashVersion;
-
-            // Stopped experiment
-            if (exp.status === "stopped") {
-              const variation = r.variations.find(
-                (v) => v.variationId === exp.releasedVariationId
-              );
-              if (!variation) return null;
-
-              // If a variation has been rolled out to 100%
-              rule.force = getJSONValue(feature.valueType, variation.value);
-            }
-            // Running experiment
-            else {
-              rule.variations = exp.variations.map((v) => {
-                const variation = r.variations.find(
-                  (ruleVariation) => v.id === ruleVariation.variationId
-                );
-                return variation
-                  ? getJSONValue(feature.valueType, variation.value)
-                  : null;
-              });
-              rule.weights = phase.variationWeights;
-              rule.key = exp.trackingKey;
-              rule.meta = exp.variations.map((v) => ({
-                key: v.key,
-                name: v.name,
-              }));
-              rule.phase = exp.phases.length - 1 + "";
-              rule.name = exp.name;
-            }
-            if (returnRuleId) rule.id = r.id;
-            return rule;
-          }
+          // Get current experiment phase and use it to set rule properties
+          const phase = exp.phases[exp.phases.length - 1];
+          if (!phase) return null;
 
           const condition = getParsedCondition(
             groupMap,
-            r.condition,
-            r.savedGroups
+            phase.condition,
+            phase.savedGroups
           );
           if (condition) {
             rule.condition = condition;
           }
 
-          if (r.type === "force") {
-            rule.force = getJSONValue(feature.valueType, r.value);
-          } else if (r.type === "experiment") {
-            rule.variations = r.values.map((v) =>
-              getJSONValue(feature.valueType, v.value)
+          rule.coverage = phase.coverage;
+
+          if (exp.hashAttribute) {
+            rule.hashAttribute = exp.hashAttribute;
+          }
+          if (exp.fallbackAttribute) {
+            rule.fallbackAttribute = exp.fallbackAttribute;
+          }
+          if (exp.disableStickyBucketing) {
+            rule.disableStickyBucketing = exp.disableStickyBucketing;
+          }
+          if (exp.bucketVersion) {
+            rule.bucketVersion = exp.bucketVersion;
+          }
+          if (exp.minBucketVersion) {
+            rule.minBucketVersion = exp.minBucketVersion;
+          }
+          if (
+            phase.namespace &&
+            phase.namespace.enabled &&
+            phase.namespace.name
+          ) {
+            rule.namespace = [
+              phase.namespace.name,
+              // eslint-disable-next-line
+              parseFloat(phase.namespace.range[0] as any) || 0,
+              // eslint-disable-next-line
+              parseFloat(phase.namespace.range[1] as any) || 0,
+            ];
+          }
+
+          if (phase.seed) {
+            rule.seed = phase.seed;
+          }
+          rule.hashVersion = exp.hashVersion;
+
+          // Stopped experiment
+          if (exp.status === "stopped") {
+            const variation = r.variations.find(
+              (v) => v.variationId === exp.releasedVariationId
             );
+            if (!variation) return null;
 
-            rule.coverage = r.coverage;
-
-            rule.weights = r.values
-              .map((v) => v.weight)
-              .map((w) => (w < 0 ? 0 : w > 1 ? 1 : w))
-              .map((w) => roundVariationWeight(w));
-
-            rule.meta = r.values.map((v, i) => ({
-              key: i + "",
-              ...(v.name ? { name: v.name } : {}),
+            // If a variation has been rolled out to 100%
+            rule.force = getJSONValue(feature.valueType, variation.value);
+          }
+          // Running experiment
+          else {
+            rule.variations = exp.variations.map((v) => {
+              const variation = r.variations.find(
+                (ruleVariation) => v.id === ruleVariation.variationId
+              );
+              return variation
+                ? getJSONValue(feature.valueType, variation.value)
+                : null;
+            });
+            rule.weights = phase.variationWeights;
+            rule.key = exp.trackingKey;
+            rule.meta = exp.variations.map((v) => ({
+              key: v.key,
+              name: v.name,
             }));
-
-            if (r.trackingKey) {
-              rule.key = r.trackingKey;
-            }
-            if (r.hashAttribute) {
-              rule.hashAttribute = r.hashAttribute;
-            }
-            if (r.fallbackAttribute) {
-              rule.fallbackAttribute = r.fallbackAttribute;
-            }
-            if (r.disableStickyBucketing) {
-              rule.disableStickyBucketing = r.disableStickyBucketing;
-            }
-            if (r.bucketVersion) {
-              rule.bucketVersion = r.bucketVersion;
-            }
-            if (r.minBucketVersion) {
-              rule.minBucketVersion = r.minBucketVersion;
-            }
-            if (r?.namespace && r.namespace.enabled && r.namespace.name) {
-              rule.namespace = [
-                r.namespace.name,
-                // eslint-disable-next-line
-                parseFloat(r.namespace.range[0] as any) || 0,
-                // eslint-disable-next-line
-                parseFloat(r.namespace.range[1] as any) || 0,
-              ];
-            }
-          } else if (r.type === "rollout") {
-            rule.force = getJSONValue(feature.valueType, r.value);
-            rule.coverage =
-              r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
-
-            if (r.hashAttribute) {
-              rule.hashAttribute = r.hashAttribute;
-            }
+            rule.phase = exp.phases.length - 1 + "";
+            rule.name = exp.name;
           }
           if (returnRuleId) rule.id = r.id;
           return rule;
-        })
-        ?.filter(isRule) ?? [],
+        }
+
+        const condition = getParsedCondition(
+          groupMap,
+          r.condition,
+          r.savedGroups
+        );
+        if (condition) {
+          rule.condition = condition;
+        }
+
+        const prerequisites = (r?.prerequisites ?? [])
+          ?.map((p) => {
+            const condition = getParsedCondition(groupMap, p.condition);
+            if (!condition) return null;
+            return {
+              id: p.id,
+              condition,
+            };
+          })
+          .filter(Boolean) as ParentConditionInterface[];
+        if (prerequisites?.length) {
+          rule.parentConditions = prerequisites;
+        }
+
+        if (r.type === "force") {
+          rule.force = getJSONValue(feature.valueType, r.value);
+        } else if (r.type === "experiment") {
+          rule.variations = r.values.map((v) =>
+            getJSONValue(feature.valueType, v.value)
+          );
+
+          rule.coverage = r.coverage;
+
+          rule.weights = r.values
+            .map((v) => v.weight)
+            .map((w) => (w < 0 ? 0 : w > 1 ? 1 : w))
+            .map((w) => roundVariationWeight(w));
+
+          rule.meta = r.values.map((v, i) => ({
+            key: i + "",
+            ...(v.name ? { name: v.name } : {}),
+          }));
+
+          if (r.trackingKey) {
+            rule.key = r.trackingKey;
+          }
+          if (r.hashAttribute) {
+            rule.hashAttribute = r.hashAttribute;
+          }
+          if (r.fallbackAttribute) {
+            rule.fallbackAttribute = r.fallbackAttribute;
+          }
+          if (r.disableStickyBucketing) {
+            rule.disableStickyBucketing = r.disableStickyBucketing;
+          }
+          if (r.bucketVersion) {
+            rule.bucketVersion = r.bucketVersion;
+          }
+          if (r.minBucketVersion) {
+            rule.minBucketVersion = r.minBucketVersion;
+          }
+          if (r?.namespace && r.namespace.enabled && r.namespace.name) {
+            rule.namespace = [
+              r.namespace.name,
+              // eslint-disable-next-line
+              parseFloat(r.namespace.range[0] as any) || 0,
+              // eslint-disable-next-line
+              parseFloat(r.namespace.range[1] as any) || 0,
+            ];
+          }
+        } else if (r.type === "rollout") {
+          rule.force = getJSONValue(feature.valueType, r.value);
+          rule.coverage = r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
+
+          if (r.hashAttribute) {
+            rule.hashAttribute = r.hashAttribute;
+          }
+        }
+        if (returnRuleId) rule.id = r.id;
+        return rule;
+      })
+      ?.filter(isRule) ?? []),
+  ];
+
+  const def: FeatureDefinitionWithProject = {
+    defaultValue: getJSONValue(feature.valueType, defaultValue),
+    project: feature.project,
+    rules: defRules,
   };
   if (def.rules && !def.rules.length) {
     delete def.rules;

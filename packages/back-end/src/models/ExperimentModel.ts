@@ -160,6 +160,13 @@ const experimentSchema = new mongoose.Schema({
           match: String,
         },
       ],
+      prerequisites: [
+        {
+          _id: false,
+          id: String,
+          condition: String,
+        },
+      ],
       namespace: {},
       seed: String,
       variationWeights: [Number],
