@@ -200,7 +200,6 @@ export function generateVisualExperimentsPayload({
               js: vc.js || "",
               domMutations: vc.domMutations,
             })) as AutoExperimentWithProject["variations"]),
-        persistQueryString: v.persistQueryString,
         hashVersion: e.hashVersion,
         hashAttribute: e.hashAttribute,
         fallbackAttribute: e.fallbackAttribute,
@@ -232,6 +231,10 @@ export function generateVisualExperimentsPayload({
 
       if (prerequisites.length) {
         exp.parentConditions = prerequisites;
+      }
+
+      if (urlRedirects?.length && typeof v.persistQueryString !== "undefined") {
+        exp.persistQueryString = v.persistQueryString;
       }
 
       return exp;
