@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { ReviewSubmittedType } from "@/../back-end/src/models/FeatureRevisionModel";
 
 import { EventAuditUserLoggedIn } from "back-end/src/events/event-types";
-import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
+import { useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
 import { getCurrentUser } from "@/services/UserContext";
@@ -154,12 +154,6 @@ export default function RequestReviewModal({
 
   if (!revision || !mergeResult) return null;
 
-  const hasPermission = permissions.check(
-    "publishFeatures",
-    feature.project,
-    getAffectedRevisionEnvs(feature, revision, environments)
-  );
-
   const hasChanges = mergeResultHasChanges(mergeResult);
   let ctaCopy = "Request Review";
   if (approved) {
@@ -248,15 +242,17 @@ export default function RequestReviewModal({
                 </div>
               </div>
             )}
-            <div className="text-right">
-              <div
-                onClick={scrollToComment}
-                style={{ cursor: "pointer" }}
-                className="text-purple mt-3"
-              >
-                Leave a comment
+            {!canReview && (
+              <div className="text-right">
+                <div
+                  onClick={scrollToComment}
+                  style={{ cursor: "pointer" }}
+                  className="text-purple mt-3"
+                >
+                  Leave a comment
+                </div>
               </div>
-            </div>
+            )}
             <div className="list-group mb-4 mt-4">
               <h4 className="mb-3">Diffs by Enviroment</h4>
               {resultDiffs.map((diff) => (
@@ -270,7 +266,7 @@ export default function RequestReviewModal({
               revision={revision}
               commentsOnly={true}
             />
-            {hasPermission && !canReview && (
+            {!canReview && (
               <div className="mt-3" id="comment-section">
                 <Field
                   label="Add a Comment (optional)"
