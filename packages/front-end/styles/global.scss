@@ -3129,5 +3129,16 @@ input:disabled {
   font-style: italic;
   font-weight: 400;
 }
+
+.callout {
+  padding: 16px;
+  border-radius: 4px;
+  &.callout-color-gray {
+    background-color: rgba(245, 247, 250, 1);
+  }
+  &.callout-color-amber {
+    background: rgba(235, 166, 0, 0.17);
+  }
+}
 @import "./components/react-select.scss";
 @import "./components/demo-datasource-banner";

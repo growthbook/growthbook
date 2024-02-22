@@ -230,16 +230,21 @@ export default function RequestReviewModal({
               <div>Publishing to the prod environment requires approval.</div>
             </div>
             {canPublish && (
-              <div className="mt-3">
-                <div className="d-flex">
+              <div className="mt-3 ml-1">
+                <div
+                  className="d-flex"
+                  style={{ color: "rgba(5, 5, 73, 0.65)" }}
+                >
                   <input
                     type="checkbox"
                     className="mr-2"
                     checked={adminPublish}
                     onChange={async (e) => setAdminPublish(e.target.checked)}
                   />
-                  Bypass approval requirement to publish (optional for Admins
-                  only)
+                  <span className="font-weight-bold mr-1">
+                    Bypass approval requirement to publish
+                  </span>
+                  (optional for Admins only)
                 </div>
               </div>
             )}
