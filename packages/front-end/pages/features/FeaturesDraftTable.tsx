@@ -76,7 +76,7 @@ export default function FeaturesDraftTable() {
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
   const renderFeaturesTableDrafts = () => {
-    return items.length < 0 ? (
+    return items.length > 0 ? (
       <div>
         <div className="row mb-2 align-items-center">
           <div className="col-auto">
