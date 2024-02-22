@@ -925,12 +925,7 @@ export async function postFeatureSync(
     updates.version = revision.version;
   }
 
-  const updatedFeature = await updateFeature(
-    context,
-    res.locals.eventAudit,
-    feature,
-    updates
-  );
+  const updatedFeature = await updateFeature(context, feature, updates);
 
   await req.audit({
     event: "feature.update",
