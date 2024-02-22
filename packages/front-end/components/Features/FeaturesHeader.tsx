@@ -80,7 +80,7 @@ export default function FeaturesHeader({
   const isArchived = feature.archived;
 
   return (
-    <>
+    <div className="container-fluid">
       <div className="features-header bg-white pt-3 px-4 border-bottom">
         <div className="pagecontents mx-auto px-3">
           {projectId ===
@@ -459,6 +459,6 @@ export default function FeaturesHeader({
           }}
         />
       )}
-    </>
+    </div>
   );
 }
