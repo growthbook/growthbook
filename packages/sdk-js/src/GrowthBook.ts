@@ -1447,7 +1447,8 @@ export class GrowthBook<
     if (!this._ctx.antiFlicker || !isBrowser) return;
     try {
       const styleTag = document.createElement("style");
-      styleTag.innerHTML = ".gb-anti-flicker { opacity: 0 !important; }";
+      styleTag.innerHTML =
+        ".gb-anti-flicker { opacity: 0 !important; pointer-events: none; }";
       document.head.appendChild(styleTag);
       document.documentElement.classList.add("gb-anti-flicker");
 
