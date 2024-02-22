@@ -568,12 +568,12 @@ export class GrowthBook<
     });
 
     // Re-run all new/updated experiments
-    experiments.forEach((exp) => {
-      // There's an active redirect happening already, skip this test
-      if (this._redirectedUrl) return;
+    for (const exp of experiments) {
+      // There's an active redirect happening already, skip remaining tests
+      if (this._redirectedUrl) break;
 
       this._runAutoExperiment(exp, forceRerun);
-    });
+    }
   }
 
   private _fireSubscriptions<T>(experiment: Experiment<T>, result: Result<T>) {

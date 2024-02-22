@@ -30,7 +30,7 @@ export interface VisualChangesetURLPattern {
 export interface VisualChangesetInterface {
   id: string;
   organization: string;
-  urlPatterns: VisualChangesetURLPattern[]; // single pattern per URL Redirect Visual Changeset
+  urlPatterns: VisualChangesetURLPattern[]; // single URLPattern per URL Redirect Visual Changeset
   editorUrl: string;
   experiment: string;
   visualChanges: VisualChange[];
