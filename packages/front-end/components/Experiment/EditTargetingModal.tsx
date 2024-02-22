@@ -9,6 +9,8 @@ import isEqual from "lodash/isEqual";
 import React, { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
 import { MdInfoOutline } from "react-icons/md";
+import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
+import useSDKConnections from "@/hooks/useSDKConnections";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import { getEqualWeights } from "@/services/utils";
@@ -70,6 +72,11 @@ export default function EditTargetingModal({
   const [releasePlan, setReleasePlan] = useState<ReleasePlan | undefined>();
   const [changesConfirmed, setChangesConfirmed] = useState(false);
 
+  const { data: sdkConnectionsData } = useSDKConnections();
+  const hasSDKWithNoBucketingV2 = (sdkConnectionsData?.connections || [])
+    .map((sdk) => getConnectionSDKCapabilities(sdk))
+    .some((c) => !c.includes("bucketingV2"));
+
   const [
     prerequisiteTargetingSdkIssues,
     setPrerequisiteTargetingSdkIssues,
@@ -87,7 +94,10 @@ export default function EditTargetingModal({
     coverage: lastPhase?.coverage ?? 1,
     hashAttribute: experiment.hashAttribute || "id",
     fallbackAttribute: experiment.fallbackAttribute || "",
-    hashVersion: experiment.hashVersion || 2,
+    hashVersion:
+      experiment.hashVersion || hasSDKWithNoBucketingV2
+        ? 1
+        : (2 as 1 | 2 | undefined),
     disableStickyBucketing: experiment.disableStickyBucketing ?? false,
     bucketVersion: experiment.bucketVersion || 1,
     minBucketVersion: experiment.minBucketVersion || 0,

@@ -22,6 +22,7 @@ import {
 import Link from "next/link";
 import cloneDeep from "lodash/cloneDeep";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import {
   NewExperimentRefRule,
   generateVariationId,
@@ -40,6 +41,8 @@ import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import HashVersionSelector from "@/components/Experiment/HashVersionSelector";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
@@ -151,6 +154,11 @@ export default function RuleModal({
 
   const experimentId = form.watch("experimentId");
   const selectedExperiment = experimentsMap.get(experimentId) || null;
+
+  const { data: sdkConnectionsData } = useSDKConnections();
+  const hasSDKWithNoBucketingV2 = (sdkConnectionsData?.connections || [])
+    .map((sdk) => getConnectionSDKCapabilities(sdk))
+    .some((c) => !c.includes("bucketingV2"));
 
   const prerequisites = form.watch("prerequisites") || [];
   const [isCyclic, cyclicFeatureId] = useMemo(() => {
@@ -354,7 +362,7 @@ export default function RuleModal({
               activationMetric: "",
               guardrails: [],
               name: values.name,
-              hashVersion: 2,
+              hashVersion: hasSDKWithNoBucketingV2 ? 1 : 2,
               owner: "",
               status: values.autoStart ? "running" : "draft",
               tags: feature.tags || [],
@@ -767,6 +775,14 @@ export default function RuleModal({
               }
             />
           </div>
+          {hasSDKWithNoBucketingV2 && (
+            <HashVersionSelector
+              value={
+                form.watch("hashVersion") || hasSDKWithNoBucketingV2 ? 1 : 2
+              }
+              onChange={(v) => form.setValue("hashVersion", v)}
+            />
+          )}
           <hr />
         </>
       )}

@@ -13,6 +13,7 @@ import {
   isProjectListValidForProject,
   validateAndFixCondition,
 } from "shared/util";
+import { getConnectionSDKCapabilities } from "shared/dist/sdk-versioning";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -28,6 +29,8 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import HashVersionSelector from "@/components/Experiment/HashVersionSelector";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import TagsInput from "../Tags/TagsInput";
@@ -149,6 +152,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const settings = useOrgSettings();
   const { refreshWatching } = useWatching();
 
+  const { data: sdkConnectionsData } = useSDKConnections();
+  const hasSDKWithNoBucketingV2 = (sdkConnectionsData?.connections || [])
+    .map((sdk) => getConnectionSDKCapabilities(sdk))
+    .some((c) => !c.includes("bucketingV2"));
+
   useEffect(() => {
     track("New Experiment Form", {
       source,
@@ -174,7 +182,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       name: initialValue?.name || "",
       hypothesis: initialValue?.hypothesis || "",
       activationMetric: initialValue?.activationMetric || "",
-      hashVersion: initialValue?.hashVersion || 2,
+      hashVersion: initialValue?.hashVersion || hasSDKWithNoBucketingV2 ? 1 : 2,
       attributionModel:
         initialValue?.attributionModel ??
         settings?.attributionModel ??
@@ -460,6 +468,15 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 />
                 <FallbackAttributeSelector form={form} />
               </div>
+
+              {hasSDKWithNoBucketingV2 && (
+                <HashVersionSelector
+                  value={
+                    form.watch("hashVersion") || hasSDKWithNoBucketingV2 ? 1 : 2
+                  }
+                  onChange={(v) => form.setValue("hashVersion", v)}
+                />
+              )}
 
               <hr />
               <SavedGroupTargetingField
