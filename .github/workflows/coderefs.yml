@@ -1,8 +1,10 @@
 name: Find feature flag code references
 on:
-  pull_request:
+  push:
     branches:
       - main
+    paths:
+      - "packages/**"
 jobs:
   codeRefs:
     runs-on: ubuntu-latest
