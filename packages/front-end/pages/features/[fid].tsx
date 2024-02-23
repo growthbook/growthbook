@@ -290,7 +290,6 @@ export default function FeaturePage() {
       features,
       experiments,
       environments: envs,
-      linkedExperiments: data.experiments,
     });
   }, [feature, features, experiments, envs, data]);
 

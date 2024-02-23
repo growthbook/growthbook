@@ -180,14 +180,12 @@ interface IsFeatureStaleInterface {
   features?: FeatureInterface[];
   experiments?: ExperimentInterfaceStringDates[];
   environments?: string[];
-  linkedExperiments?: ExperimentInterfaceStringDates[];
 }
 export function isFeatureStale({
   feature,
   features,
   experiments = [],
   environments = [],
-  linkedExperiments,
 }: IsFeatureStaleInterface): { stale: boolean; reason?: StaleFeatureReason } {
   const visitedFeatures = new Set<string>();
 
@@ -198,13 +196,9 @@ export function isFeatureStale({
     environments = Object.keys(feature.environmentSettings);
   }
 
-  const visit = ({
-    feature,
-    linkedExperiments,
-  }: {
-    feature: FeatureInterface;
-    linkedExperiments?: ExperimentInterfaceStringDates[];
-  }): { stale: boolean; reason?: StaleFeatureReason } => {
+  const visit = (
+    feature: FeatureInterface
+  ): { stale: boolean; reason?: StaleFeatureReason } => {
     if (visitedFeatures.has(feature.id)) {
       return { stale: false };
     }
@@ -213,30 +207,9 @@ export function isFeatureStale({
     try {
       if (feature.neverStale) return { stale: false };
 
-      if (!linkedExperiments) {
-        // If we don't have linkedExperiments in the context (e.g. evaluating dependents), use the baked array
-        linkedExperiments = (feature?.linkedExperiments ?? [])
-          .map((id) => experiments.find((e) => e.id === id))
-          .filter(Boolean) as ExperimentInterfaceStringDates[];
-      }
-      if (feature.linkedExperiments?.length !== linkedExperiments.length) {
-        // eslint-disable-next-line no-console
-        console.error("isFeatureStale: linkedExperiments length mismatch");
-        return { stale: false, reason: "error" };
-      }
-      const linkedExperimentIds: string[] | undefined = linkedExperiments
-        ? linkedExperiments.map((e) => e.id)
-        : undefined;
-      if (
-        linkedExperimentIds &&
-        !linkedExperimentIds.every((id) =>
-          feature.linkedExperiments?.includes(id)
-        )
-      ) {
-        // eslint-disable-next-line no-console
-        console.error("isFeatureStale: linkedExperiments id mismatch");
-        return { stale: false, reason: "error" };
-      }
+      const linkedExperiments = (feature?.linkedExperiments ?? [])
+        .map((id) => experiments.find((e) => e.id === id))
+        .filter(Boolean) as ExperimentInterfaceStringDates[];
 
       const twoWeeksAgo = subWeeks(new Date(), 2);
       const dateUpdated = getValidDate(feature.dateUpdated);
@@ -257,7 +230,7 @@ export function isFeatureStale({
         const hasNonStaleDependentFeatures = dependentFeatures.some((id) => {
           const f = features?.find((f) => f.id === id);
           if (!f) return true;
-          return !visit({ feature: f }).stale;
+          return !visit(f).stale;
         });
         if (dependentFeatures.length && hasNonStaleDependentFeatures) {
           return { stale: false };
@@ -299,7 +272,7 @@ export function isFeatureStale({
     }
   };
 
-  return visit({ feature, linkedExperiments });
+  return visit(feature);
 }
 
 export interface MergeConflict {

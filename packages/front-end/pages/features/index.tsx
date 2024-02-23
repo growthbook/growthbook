@@ -129,7 +129,6 @@ export default function FeaturesPage() {
         features,
         experiments,
         environments: envs,
-        linkedExperiments: experiments.filter((e) => feature.linkedExperiments?.includes(e.id))
       });
     });
     return staleFeatures;
@@ -187,8 +186,6 @@ export default function FeaturesPage() {
             router.push(url);
             mutate({
               features: [...features, feature],
-              // we don't care about updating linked experiments since its only
-              // used for stale feature detection
               linkedExperiments: experiments,
             });
           }}
