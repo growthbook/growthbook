@@ -9,6 +9,7 @@ import { useCelebration } from "@/hooks/useCelebration";
 import Button from "../Button";
 import ConfirmButton from "../Modal/ConfirmButton";
 import LoadingOverlay from "../LoadingOverlay";
+import { DocLink } from "../DocLink";
 
 export function StartExperimentBanner({
   experiment,
@@ -100,11 +101,12 @@ export function StartExperimentBanner({
               {!verifiedConnections.length ? (
                 <div className="alert alert-danger">
                   <strong>
-                    Before you can run an experiment, you need to integrate the
-                    GrowthBook into your app.{" "}
+                    Before you can run an experiment, you need to{" "}
                     <Link href="/sdks">
-                      <a href="#">Create an SDK Connection</a>
-                    </Link>
+                      <a href="#">integrate GrowthBook into</a>
+                    </Link>{" "}
+                    your app.{" "}
+                    <DocLink docSection="quick_start_sdks">Learn More</DocLink>
                   </strong>
                 </div>
               ) : null}

@@ -15,9 +15,9 @@ import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
-import InitialSDKConnectionForm from "../Features/SDKConnections/InitialSDKConnectionForm";
 import Tooltip from "../Tooltip/Tooltip";
 import LoadingSpinner from "../LoadingSpinner";
+import { DocLink } from "../DocLink";
 
 type CheckListItem = {
   display: string | ReactElement;
@@ -54,7 +54,6 @@ export function PreLaunchChecklist({
   const permissions = usePermissions();
   const [checkListOpen, setCheckListOpen] = useState(true);
   const [updatingChecklist, setUpdatingChecklist] = useState(false);
-  const [showSdkForm, setShowSdkForm] = useState(false);
   const showEditChecklistLink =
     hasCommercialFeature("custom-launch-checklist") &&
     permissions.check("organizationSettings");
@@ -358,16 +357,6 @@ export function PreLaunchChecklist({
 
   return (
     <div>
-      {showSdkForm && (
-        <InitialSDKConnectionForm
-          close={() => setShowSdkForm(false)}
-          includeCheck={true}
-          cta="Continue"
-          goToNextStep={() => {
-            setShowSdkForm(false);
-          }}
-        />
-      )}
       <div className="appbox bg-white my-2 p-3">
         <div className="d-flex flex-row align-items-center justify-content-between">
           <h4
@@ -449,6 +438,7 @@ export function PreLaunchChecklist({
                             className="ml-0 pl-0 mr-2 "
                             checked={item.status === "complete"}
                             onChange={async (e) => {
+                              console.log("updating", item.key);
                               updateTaskStatus(e.target.checked, item.key);
                             }}
                           />
@@ -479,17 +469,12 @@ export function PreLaunchChecklist({
             )}
           >
             <strong>
-              Before you can run an experiment, you need to integrate the
-              GrowthBook into your app.{" "}
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setShowSdkForm(true);
-                }}
-              >
-                Create an SDK Connection
-              </a>
+              Before you can run an experiment, you need to{" "}
+              <Link href="/sdks">
+                <a href="#">integrate GrowthBook into</a>
+              </Link>{" "}
+              your app.{" "}
+              <DocLink docSection="quick_start_sdks">Learn More</DocLink>
             </strong>
           </div>
         ) : null}

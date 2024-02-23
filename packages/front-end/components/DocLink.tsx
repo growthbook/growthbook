@@ -33,6 +33,7 @@ const docSections = {
   csharp: "/lib/csharp",
   flutter: "/lib/flutter",
   //Other
+  quick_start_sdks: "/quick-start#step-2-add-an-sdk-endpoint",
   user_guide: "/app",
   config: "/self-host/config",
   config_yml: "/self-host/config",
