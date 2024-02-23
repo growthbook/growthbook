@@ -22,7 +22,6 @@ import {
 import Link from "next/link";
 import cloneDeep from "lodash/cloneDeep";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import {
   NewExperimentRefRule,
   generateVariationId,
@@ -42,7 +41,9 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import HashVersionSelector from "@/components/Experiment/HashVersionSelector";
+import HashVersionSelector, {
+  hasSdkConnectionsSupportingBucketingV2,
+} from "@/components/Experiment/HashVersionSelector";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
@@ -156,11 +157,10 @@ export default function RuleModal({
   const selectedExperiment = experimentsMap.get(experimentId) || null;
 
   const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithNoBucketingV2 = !getConnectionsSDKCapabilities({
-    connections: sdkConnectionsData?.connections ?? [],
-    mustMatchAllConnections: true,
-    project: feature.project,
-  }).includes("bucketingV2");
+  const hasSDKWithNoBucketingV2 = !hasSdkConnectionsSupportingBucketingV2(
+    sdkConnectionsData?.connections,
+    feature.project
+  );
 
   const prerequisites = form.watch("prerequisites") || [];
   const [isCyclic, cyclicFeatureId] = useMemo(() => {

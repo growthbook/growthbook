@@ -9,7 +9,6 @@ import isEqual from "lodash/isEqual";
 import React, { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
 import { MdInfoOutline } from "react-icons/md";
-import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
@@ -33,7 +32,9 @@ import SelectField from "../Forms/SelectField";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "../Features/SavedGroupTargetingField";
-import HashVersionSelector from "./HashVersionSelector";
+import HashVersionSelector, {
+  hasSdkConnectionsSupportingBucketingV2,
+} from "./HashVersionSelector";
 
 export type ChangeType =
   | "targeting"
@@ -73,11 +74,10 @@ export default function EditTargetingModal({
   const [changesConfirmed, setChangesConfirmed] = useState(false);
 
   const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithNoBucketingV2 = !getConnectionsSDKCapabilities({
-    connections: sdkConnectionsData?.connections ?? [],
-    mustMatchAllConnections: true,
-    project: experiment?.project,
-  }).includes("bucketingV2");
+  const hasSDKWithNoBucketingV2 = !hasSdkConnectionsSupportingBucketingV2(
+    sdkConnectionsData?.connections,
+    experiment.project
+  );
 
   const [
     prerequisiteTargetingSdkIssues,

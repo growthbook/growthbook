@@ -13,7 +13,6 @@ import {
   isProjectListValidForProject,
   validateAndFixCondition,
 } from "shared/util";
-import { getConnectionsSDKCapabilities } from "shared/dist/sdk-versioning";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -30,7 +29,9 @@ import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import HashVersionSelector from "@/components/Experiment/HashVersionSelector";
+import HashVersionSelector, {
+  hasSdkConnectionsSupportingBucketingV2,
+} from "@/components/Experiment/HashVersionSelector";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import TagsInput from "../Tags/TagsInput";
@@ -153,11 +154,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const { refreshWatching } = useWatching();
 
   const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithNoBucketingV2 = !getConnectionsSDKCapabilities({
-    connections: sdkConnectionsData?.connections ?? [],
-    mustMatchAllConnections: true,
-    project,
-  }).includes("bucketingV2");
+  const hasSDKWithNoBucketingV2 = !hasSdkConnectionsSupportingBucketingV2(
+    sdkConnectionsData?.connections,
+    project
+  );
 
   useEffect(() => {
     track("New Experiment Form", {
@@ -184,7 +184,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       name: initialValue?.name || "",
       hypothesis: initialValue?.hypothesis || "",
       activationMetric: initialValue?.activationMetric || "",
-      hashVersion: initialValue?.hashVersion || (hasSDKWithNoBucketingV2 ? 1 : 2),
+      hashVersion:
+        initialValue?.hashVersion || (hasSDKWithNoBucketingV2 ? 1 : 2),
       attributionModel:
         initialValue?.attributionModel ??
         settings?.attributionModel ??

@@ -5,6 +5,7 @@ import {
 } from "react-icons/fa";
 import { ReactNode } from "react";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
+import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip/Tooltip";
@@ -55,11 +56,10 @@ export default function HashVersionSelector({
   project?: string;
 }) {
   const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithNoBucketingV2 = !getConnectionsSDKCapabilities({
-    connections: sdkConnectionsData?.connections ?? [],
-    mustMatchAllConnections: true,
-    project,
-  }).includes("bucketingV2");
+  const hasSDKWithNoBucketingV2 = !hasSdkConnectionsSupportingBucketingV2(
+    sdkConnectionsData?.connections,
+    project
+  );
 
   return (
     <>
@@ -100,4 +100,15 @@ export default function HashVersionSelector({
       )}
     </>
   );
+}
+
+export function hasSdkConnectionsSupportingBucketingV2(
+  connections?: SDKConnectionInterface[],
+  project?: string
+) {
+  return getConnectionsSDKCapabilities({
+    connections: connections ?? [],
+    mustMatchAllConnections: true,
+    project,
+  }).includes("bucketingV2");
 }
