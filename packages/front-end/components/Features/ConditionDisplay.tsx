@@ -237,6 +237,7 @@ export default function ConditionDisplay({
   const attributes = useAttributeMap();
 
   const parts: ReactNode[] = [];
+  let partId = 0;
 
   const jsonFormattedCondition = useMemo(() => {
     if (!condition) return;
@@ -254,7 +255,7 @@ export default function ConditionDisplay({
     // Could not parse into simple conditions
     if (conds === null || !attributes.size) {
       parts.push(
-        <div className="w-100">
+        <div className="w-100" key={partId++}>
           <InlineCode language="json" code={jsonFormattedCondition} />
         </div>
       );
@@ -262,7 +263,7 @@ export default function ConditionDisplay({
       const conditionParts = getConditionParts({
         conditions: conds,
         savedGroups,
-        keyPrefix: "condition-",
+        keyPrefix: `${partId++}-condition-`,
       });
       parts.push(...conditionParts);
     }
@@ -274,7 +275,7 @@ export default function ConditionDisplay({
         savedGroups={savedGroupTargeting}
         groupClassName="col-auto"
         initialAnd={parts.length > 0}
-        key="saved-group-targeting"
+        key={`${partId++}-saved-group-targeting`}
       />
     );
   }
@@ -292,7 +293,7 @@ export default function ConditionDisplay({
             console.error(e, p.condition);
           }
           parts.push(
-            <div className="w-100 d-flex col-auto">
+            <div className="w-100 d-flex col-auto" key={partId++}>
               {parts.length > 0 && <div className="mr-1">AND</div>}
               <div className="mr-1">prerequisite</div>
               <ParentIdLink parentId={p.id} />
@@ -324,7 +325,7 @@ export default function ConditionDisplay({
       savedGroups,
       renderPrerequisite: true,
       initialAnd: parts.length > 0,
-      keyPrefix: "prereq-",
+      keyPrefix: `${partId++}-prereq-`,
     });
     parts.push(...prereqParts);
   }
