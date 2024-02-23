@@ -5319,7 +5319,7 @@
       ]
     ],
     [
-      "Basic redirect with query string on original url & redirect url with param conflicts -- persistQueryString enabled",
+      "merges query strings on original url & redirect url with param conflicts correctly when persistQueryString enabled",
       {
         "attributes": { "id": "1" },
         "url": "http://www.example.com/home?color=blue&food=sushi&title=original",
@@ -5349,6 +5349,73 @@
           "inExperiment": true,
           "urlRedirect": "http://www.example.com/home-new?name=test&color=red&food=lasagna",
           "urlWithParams": "http://www.example.com/home-new?name=test&color=red&food=lasagna&title=original"
+        }
+      ]
+    ],
+    [
+      "only performs a redirect for first eligible experiment when there are multiple eligible experiments",
+      {
+        "attributes": { "id": "1" },
+        "url": "http://www.example.com/home",
+        "experiments": [
+          {
+            "key": "my-experiment",
+            "urlPatterns": [
+              {
+                "type": "simple",
+                "include": true,
+                "pattern": "http://www.example.com/"
+              }
+            ],
+            "weights": [0.1, 0.9],
+            "variations": [
+              {},
+              {
+                "urlRedirect": "http://www.example.com/home-new"
+              }
+            ]
+          },
+          {
+            "key": "my-experiment-2",
+            "urlPatterns": [
+              {
+                "type": "simple",
+                "include": true,
+                "pattern": "http://www.example.com/home"
+              }
+            ],
+            "weights": [0.1, 0.9],
+            "variations": [
+              {},
+              {
+                "urlRedirect": "http://www.example.com/home-new-new"
+              }
+            ]
+          },
+          {
+            "key": "my-experiment-3",
+            "urlPatterns": [
+              {
+                "type": "simple",
+                "include": true,
+                "pattern": "http://www.example.com/home"
+              }
+            ],
+            "weights": [0.1, 0.9],
+            "variations": [
+              {},
+              {
+                "urlRedirect": "http://www.example.com/home-es"
+              }
+            ]
+          }
+        ]
+      },
+      [
+        {
+          "inExperiment": true,
+          "urlRedirect": "http://www.example.com/home-new-new",
+          "urlWithParams": "http://www.example.com/home-new-new"
         }
       ]
     ]
