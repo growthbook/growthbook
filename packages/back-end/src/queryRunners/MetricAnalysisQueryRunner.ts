@@ -23,7 +23,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
         dependencies: [],
         labels: new Map<string, string>([
           ["metric_id", params.metric.id.toLowerCase()],
-          ["metric_name", params.metric.name.toLowerCase()],
+          ["metric_name", params.metric.name.replace(/\W/g, "").toLowerCase()],
           ["organization", this.context.org.id],
           ["datasource", this.integration.datasource],
           ["call", "getMetricValueQuery".toLowerCase()],

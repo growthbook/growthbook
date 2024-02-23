@@ -304,7 +304,7 @@ export const startExperimentResultQueries = async (
       ["organization", organization.id],
       ["datasource", integration.datasource],
       ["metric_id", m.id.toLowerCase()],
-      ["metric_name", m.name.toLowerCase()],
+      ["metric_name", m.name.replace(/\W/g, "").toLowerCase()],
       ["query_type", "experimentMetric".toLowerCase()],
       ["experiment_id", snapshotSettings.experimentId.toLowerCase()],
     ]);
