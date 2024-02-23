@@ -52,30 +52,26 @@ export function PreLaunchChecklist({
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
   const permissions = usePermissions();
-  const [checkListOpen, setCheckListOpen] = useState(() =>
-    checklistItemsRemaining === 0 ? false : true
-  );
-  const [manualChecklistStatus, setManualChecklistStatus] = useState(
-    experiment.manualLaunchChecklist || []
-  );
+  const [checkListOpen, setCheckListOpen] = useState(true);
   const [updatingChecklist, setUpdatingChecklist] = useState(false);
   const [showSdkForm, setShowSdkForm] = useState(false);
-  const canEditChecklist =
+  const showEditChecklistLink =
     hasCommercialFeature("custom-launch-checklist") &&
     permissions.check("organizationSettings");
-
-  const { data } = useApi<{ checklist: ExperimentLaunchChecklistInterface }>(
-    "/experiments/launch-checklist"
-  );
-
   const canCreateAnalyses = permissions.check(
     "createAnalyses",
     experiment.project
   );
   const canEditExperiment = !experiment.archived && canCreateAnalyses;
 
+  const { data } = useApi<{ checklist: ExperimentLaunchChecklistInterface }>(
+    "/experiments/launch-checklist"
+  );
+
+  //Merge the GB checklist items with org's custom checklist items
   const checklist: CheckListItem[] = useMemo(() => {
     function isChecklistItemComplete(
+      // Some items we check completion for automatically, others require users to manually check an item as complete
       type: "auto" | "manual",
       key: string
     ): boolean {
@@ -94,6 +90,8 @@ export function PreLaunchChecklist({
             return experiment.tags?.length > 0;
         }
       }
+
+      const manualChecklistStatus = experiment.manualLaunchChecklist || [];
 
       const index = manualChecklistStatus.findIndex((task) => task.key === key);
 
@@ -287,12 +285,12 @@ export function PreLaunchChecklist({
     editTargeting,
     experiment.description,
     experiment.hypothesis,
+    experiment.manualLaunchChecklist,
     experiment.phases.length,
     experiment.project,
     experiment.tags?.length,
     experiment.variations,
     linkedFeatures,
-    manualChecklistStatus,
     openSetupTab,
     visualChangesets,
   ]);
@@ -300,8 +298,10 @@ export function PreLaunchChecklist({
   async function updateTaskStatus(checked: boolean, key: string | undefined) {
     if (!key) return;
     setUpdatingChecklist(true);
-    const updatedManualChecklistStatus = Array.isArray(manualChecklistStatus)
-      ? [...manualChecklistStatus]
+    const updatedManualChecklistStatus = Array.isArray(
+      experiment.manualLaunchChecklist
+    )
+      ? [...experiment.manualLaunchChecklist]
       : [];
 
     const index = updatedManualChecklistStatus.findIndex(
@@ -318,7 +318,6 @@ export function PreLaunchChecklist({
         status: checked ? "complete" : "incomplete",
       };
     }
-    setManualChecklistStatus(updatedManualChecklistStatus);
     try {
       // Updates the experiment's manual checklist and logs the event to the audit log
       await apiCall(`/experiment/${experiment.id}/launch-checklist`, {
@@ -348,9 +347,7 @@ export function PreLaunchChecklist({
   );
 
   useEffect(() => {
-    if (!data) {
-      setChecklistItemsRemaining(null);
-    } else {
+    if (data && checklist.length > 0) {
       setChecklistItemsRemaining(
         checklist.filter((item) => item.status === "incomplete").length
       );
@@ -382,7 +379,7 @@ export function PreLaunchChecklist({
             }}
           >
             Pre-Launch Checklist{" "}
-            {data ? (
+            {data && checklistItemsRemaining !== null ? (
               <span
                 className={`badge ${
                   checklistItemsRemaining === 0
@@ -399,7 +396,7 @@ export function PreLaunchChecklist({
             ) : null}
           </h4>
           <div className="d-flex align-items-center">
-            {canEditChecklist ? (
+            {showEditChecklistLink ? (
               <Link href={"/settings?editCheckListModal=true"}>
                 <a>Edit</a>
               </Link>
@@ -452,7 +449,6 @@ export function PreLaunchChecklist({
                             className="ml-0 pl-0 mr-2 "
                             checked={item.status === "complete"}
                             onChange={async (e) => {
-                              console.log("item", item);
                               updateTaskStatus(e.target.checked, item.key);
                             }}
                           />
