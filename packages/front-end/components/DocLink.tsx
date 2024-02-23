@@ -49,6 +49,7 @@ const docSections = {
   shopify: "/integrations/shopify",
   webflow: "/integrations/webflow",
   wordpress: "/integrations/wordpress",
+  prerequisites: "/features/prerequisites",
 };
 
 export type DocSection = keyof typeof docSections;

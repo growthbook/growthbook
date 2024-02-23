@@ -36,6 +36,12 @@ export const toggleFeatureValidator = {
   paramsSchema: z.object({"id":z.string()}).strict(),
 };
 
+export const getFeatureKeysValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({"projectId":z.string().optional()}).strict(),
+  paramsSchema: z.never(),
+};
+
 export const listProjectsValidator = {
   bodySchema: z.never(),
   querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0)}).strict(),
@@ -326,6 +332,12 @@ export const deleteFactMetricValidator = {
 
 export const postBulkImportFactsValidator = {
   bodySchema: z.object({"factTables":z.array(z.object({"id":z.string(),"data":z.object({"name":z.string(),"description":z.string().describe("Description of the fact table").optional(),"owner":z.string().describe("The person who is responsible for this fact table").optional(),"projects":z.array(z.string()).describe("List of associated project ids").optional(),"tags":z.array(z.string()).describe("List of associated tags").optional(),"datasource":z.string().describe("The datasource id"),"userIdTypes":z.array(z.string()).describe("List of identifier columns in this table. For example, \"id\" or \"anonymous_id\""),"sql":z.string().describe("The SQL query for this fact table"),"managedBy":z.enum(["","api"]).describe("Set this to \"api\" to disable editing in the GrowthBook UI").optional()})})).optional(),"factTableFilters":z.array(z.object({"factTableId":z.string(),"id":z.string(),"data":z.object({"name":z.string(),"description":z.string().describe("Description of the fact table filter").optional(),"value":z.string().describe("The SQL expression for this filter."),"managedBy":z.enum(["","api"]).describe("Set this to \"api\" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as \"api\"").optional()})})).optional(),"factMetrics":z.array(z.object({"id":z.string(),"data":z.object({"name":z.string(),"description":z.string().optional(),"owner":z.string().optional(),"projects":z.array(z.string()).optional(),"tags":z.array(z.string()).optional(),"metricType":z.enum(["proportion","mean","ratio"]),"numerator":z.object({"factTableId":z.string(),"column":z.string().describe("Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count'").optional(),"filters":z.array(z.string()).describe("Array of Fact Table Filter Ids").optional()}),"denominator":z.object({"factTableId":z.string(),"column":z.string().describe("The column name or one of the special values: '$$distinctUsers' or '$$count'"),"filters":z.array(z.string()).describe("Array of Fact Table Filter Ids").optional()}).describe("Only when metricType is 'ratio'").optional(),"inverse":z.boolean().describe("Set to true for things like Bounce Rate, where you want the metric to decrease").optional(),"cappingSettings":z.object({"type":z.enum(["none","absolute","percentile"]),"value":z.number().describe("When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).").optional(),"ignoreZeros":z.boolean().describe("If true and capping is `percentile`, zeros will be ignored when calculating the percentile.").optional()}).describe("Controls how outliers are handled").optional(),"windowSettings":z.object({"type":z.enum(["none","conversion","lookback"]),"delayHours":z.number().describe("Wait this many hours after experiment exposure before counting conversions").optional(),"windowValue":z.number().optional(),"windowUnit":z.enum(["hours","days","weeks"]).optional()}).describe("Controls the conversion window for the metric").optional(),"regressionAdjustmentSettings":z.object({"override":z.boolean().describe("If false, the organization default settings will be used"),"enabled":z.boolean().describe("Controls whether or not regression adjustment is applied to the metric").optional(),"days":z.number().describe("Number of pre-exposure days to use for the regression adjustment").optional()}).describe("Controls the regression adjustment (CUPED) settings for the metric").optional(),"managedBy":z.enum(["","api"]).describe("Set this to \"api\" to disable editing in the GrowthBook UI").optional()})})).optional()}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
+export const postCodeRefsValidator = {
+  bodySchema: z.object({"branch":z.string(),"repoName":z.string(),"refs":z.array(z.object({"filePath":z.string(),"startingLineNumber":z.number().int(),"lines":z.string(),"flagKey":z.string(),"contentHash":z.string()}))}).strict(),
   querySchema: z.never(),
   paramsSchema: z.never(),
 };
