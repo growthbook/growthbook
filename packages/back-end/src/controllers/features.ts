@@ -593,12 +593,14 @@ export async function postFeatureReviewOrComment(
   if (createdByUser?.id === context.userId && review !== "Comment") {
     throw Error("cannot submit a review for your self");
   }
+  // dont allow review unless you are adding a comment
   if (
     !(
       revision.status === "changes-requested" ||
       revision.status === "pending-review" ||
       revision.status === "approved"
-    )
+    ) &&
+    review !== "Comment"
   ) {
     throw new Error("Can only review if review is requested");
   }
