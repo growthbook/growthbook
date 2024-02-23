@@ -184,7 +184,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       name: initialValue?.name || "",
       hypothesis: initialValue?.hypothesis || "",
       activationMetric: initialValue?.activationMetric || "",
-      hashVersion: initialValue?.hashVersion || hasSDKWithNoBucketingV2 ? 1 : 2,
+      hashVersion: initialValue?.hashVersion || (hasSDKWithNoBucketingV2 ? 1 : 2),
       attributionModel:
         initialValue?.attributionModel ??
         settings?.attributionModel ??
