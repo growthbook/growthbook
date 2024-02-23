@@ -5,7 +5,7 @@ import {
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { ReactElement, useEffect, useMemo, useState } from "react";
-import { FaChevronRight } from "react-icons/fa";
+import { FaCheck, FaChevronRight } from "react-icons/fa";
 import { hasVisualChanges } from "shared/util";
 import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
 import Link from "next/link";
@@ -334,20 +334,6 @@ export function PreLaunchChecklist({
     mutateExperiment();
   }
 
-  const itemsRemainingBadge: ReactElement = useMemo(() => {
-    if (checklistItemsRemaining === 0) {
-      return <span className="badge badge-success mx-2 my-0">Complete</span>;
-    }
-
-    return (
-      <span className="badge badge-warning mx-2 my-0">
-        {checklistItemsRemaining} task
-        {checklistItemsRemaining && checklistItemsRemaining > 1 ? "s" : ""}{" "}
-        remaining
-      </span>
-    );
-  }, [checklistItemsRemaining]);
-
   const projectConnections = connections.filter(
     (connection) =>
       !connection.projects.length ||
@@ -395,7 +381,22 @@ export function PreLaunchChecklist({
               setCheckListOpen(!checkListOpen);
             }}
           >
-            Pre-Launch Checklist {data ? itemsRemainingBadge : null}
+            Pre-Launch Checklist{" "}
+            {data ? (
+              <span
+                className={`badge ${
+                  checklistItemsRemaining === 0
+                    ? "badge-success"
+                    : "badge-warning"
+                } mx-2 my-0`}
+              >
+                {checklistItemsRemaining === 0 ? (
+                  <FaCheck size={10} />
+                ) : (
+                  checklistItemsRemaining
+                )}
+              </span>
+            ) : null}
           </h4>
           <div className="d-flex align-items-center">
             {canEditChecklist ? (

@@ -239,13 +239,13 @@ export default function TabbedPage({
         duplicate={duplicate}
         usersWatching={usersWatching}
         editResult={editResult || undefined}
+        connections={connections}
+        visualChangesets={visualChangesets}
         editTargeting={editTargeting}
         newPhase={newPhase}
         editPhases={editPhases}
         healthNotificationCount={healthNotificationCount}
         checklistItemsRemaining={checklistItemsRemaining}
-        connections={connections}
-        visualChangesets={visualChangesets}
       />
       <div className="container pagecontents pb-4">
         {experiment.project ===

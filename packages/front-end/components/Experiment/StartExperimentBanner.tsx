@@ -12,22 +12,22 @@ import LoadingOverlay from "../LoadingOverlay";
 
 export function StartExperimentBanner({
   experiment,
+  checklistItemsRemaining,
+  visualChangesets,
+  connections,
   mutateExperiment,
   newPhase,
   onStart,
   className,
-  checklistItemsRemaining,
-  connections,
-  visualChangesets,
 }: {
   experiment: ExperimentInterfaceStringDates;
-  mutateExperiment: () => unknown | Promise<unknown>;
   checklistItemsRemaining: number | null;
+  visualChangesets: VisualChangesetInterface[];
+  connections: SDKConnectionInterface[];
+  mutateExperiment: () => unknown | Promise<unknown>;
   newPhase?: (() => void) | null;
   onStart?: () => void;
   className?: string;
-  connections: SDKConnectionInterface[];
-  visualChangesets: VisualChangesetInterface[];
 }) {
   const { apiCall } = useAuth();
   const startCelebration = useCelebration();

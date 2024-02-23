@@ -44,12 +44,12 @@ export interface Props {
   setStatusModal: (open: boolean) => void;
   setAuditModal: (open: boolean) => void;
   setWatchersModal: (open: boolean) => void;
-  checklistItemsRemaining: number | null;
-  connections: SDKConnectionInterface[];
-  visualChangesets: VisualChangesetInterface[];
   editResult?: () => void;
   safeToEdit: boolean;
   usersWatching: (string | undefined)[];
+  checklistItemsRemaining: number | null;
+  visualChangesets: VisualChangesetInterface[];
+  connections: SDKConnectionInterface[];
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editPhases?: (() => void) | null;
@@ -91,13 +91,13 @@ export default function ExperimentHeader({
   safeToEdit,
   usersWatching,
   editResult,
+  connections,
+  checklistItemsRemaining,
+  visualChangesets,
   editTargeting,
   newPhase,
   editPhases,
   healthNotificationCount,
-  checklistItemsRemaining,
-  connections,
-  visualChangesets,
 }: Props) {
   const { apiCall } = useAuth();
   const router = useRouter();

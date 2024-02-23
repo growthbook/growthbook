@@ -304,7 +304,6 @@ export default function SinglePage({
   } = useUser();
 
   const { data: sdkConnectionsData } = useSDKConnections();
-  const connections = sdkConnectionsData?.connections || [];
 
   const projectId = experiment.project;
   const project = getProjectById(experiment.project || "");
@@ -855,7 +854,7 @@ export default function SinglePage({
             linkedFeatures={linkedFeatures}
             visualChangesets={visualChangesets}
             editTargeting={editTargeting}
-            connections={connections}
+            connections={sdkConnectionsData?.connections || []}
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
           />
