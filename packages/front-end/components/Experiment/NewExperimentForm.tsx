@@ -30,7 +30,7 @@ import { useIncrementer } from "@/hooks/useIncrementer";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import HashVersionSelector, {
-  hasSdkConnectionsSupportingBucketingV2,
+  allConnectionsSupportBucketingV2,
 } from "@/components/Experiment/HashVersionSelector";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 import MarkdownInput from "../Markdown/MarkdownInput";
@@ -154,7 +154,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const { refreshWatching } = useWatching();
 
   const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithNoBucketingV2 = !hasSdkConnectionsSupportingBucketingV2(
+  const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
     project
   );

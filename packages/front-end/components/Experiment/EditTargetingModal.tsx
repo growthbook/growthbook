@@ -33,7 +33,7 @@ import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "../Features/SavedGroupTargetingField";
 import HashVersionSelector, {
-  hasSdkConnectionsSupportingBucketingV2,
+  allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";
 
 export type ChangeType =
@@ -74,7 +74,7 @@ export default function EditTargetingModal({
   const [changesConfirmed, setChangesConfirmed] = useState(false);
 
   const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithNoBucketingV2 = !hasSdkConnectionsSupportingBucketingV2(
+  const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
     experiment.project
   );

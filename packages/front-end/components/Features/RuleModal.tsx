@@ -42,7 +42,7 @@ import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import HashVersionSelector, {
-  hasSdkConnectionsSupportingBucketingV2,
+  allConnectionsSupportBucketingV2,
 } from "@/components/Experiment/HashVersionSelector";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 import Field from "../Forms/Field";
@@ -157,7 +157,7 @@ export default function RuleModal({
   const selectedExperiment = experimentsMap.get(experimentId) || null;
 
   const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithNoBucketingV2 = !hasSdkConnectionsSupportingBucketingV2(
+  const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
     feature.project
   );
