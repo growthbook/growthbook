@@ -340,11 +340,13 @@ export function mergeQueryStrings(oldUrl: string, newUrl: string): string {
     return newUrl;
   }
 
-  redirectUrl.searchParams.forEach((value, key) => {
-    currUrl.searchParams.set(key, value);
+  currUrl.searchParams.forEach((value, key) => {
+    // skip if search param already exists in redirectUrl
+    if (redirectUrl.searchParams.has(key)) {
+      return;
+    }
+    redirectUrl.searchParams.set(key, value);
   });
-
-  redirectUrl.search = currUrl.search;
 
   return redirectUrl.toString();
 }
