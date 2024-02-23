@@ -151,7 +151,7 @@ export default function ExperimentRefSummary({
           page.
         </div>
       )}
-      {hasCondition && (
+      {!!hasCondition && (
         <div className="row mb-3 align-items-top">
           <div className="col-auto d-flex align-items-center">
             <strong>IF</strong>
