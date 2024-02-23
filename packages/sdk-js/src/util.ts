@@ -341,7 +341,7 @@ export function mergeQueryStrings(oldUrl: string, newUrl: string): string {
   }
 
   currUrl.searchParams.forEach((value, key) => {
-    // skip if search param already exists in redirectUrl
+    // skip  if search param already exists in redirectUrl
     if (redirectUrl.searchParams.has(key)) {
       return;
     }

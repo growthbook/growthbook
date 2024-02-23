@@ -5270,16 +5270,87 @@
             "variations": [
               {},
               {
-                "urlRedirects": {
-                  "variation": "vc_123abc",
-                  "url": "http://www.example.com/home-new"
-                }
+                "urlRedirect": "http://www.example.com/home-new"
               }
             ]
           }
         ]
       },
-      { "inExperiment": true, "urlRedirect": "http://www.example.com/home-new" }
+      [
+        {
+          "inExperiment": true,
+          "urlRedirect": "http://www.example.com/home-new",
+          "urlWithParams": "http://www.example.com/home-new"
+        }
+      ]
+    ],
+    [
+      "Basic redirect with query string on original url -- persistQueryString enabled",
+      {
+        "attributes": { "id": "1" },
+        "url": "http://www.example.com/home?color=blue&food=sushi",
+        "experiments": [
+          {
+            "key": "my-experiment",
+            "urlPatterns": [
+              {
+                "type": "simple",
+                "include": true,
+                "pattern": "http://www.example.com/home"
+              }
+            ],
+            "weights": [0.1, 0.9],
+            "variations": [
+              {},
+              {
+                "urlRedirect": "http://www.example.com/home-new"
+              }
+            ],
+            "persistQueryString": true
+          }
+        ]
+      },
+      [
+        {
+          "inExperiment": true,
+          "urlRedirect": "http://www.example.com/home-new",
+          "urlWithParams": "http://www.example.com/home-new?color=blue&food=sushi"
+        }
+      ]
+    ],
+    [
+      "Basic redirect with query string on original url & redirect url with param conflicts -- persistQueryString enabled",
+      {
+        "attributes": { "id": "1" },
+        "url": "http://www.example.com/home?color=blue&food=sushi&title=original",
+        "experiments": [
+          {
+            "key": "my-experiment",
+            "urlPatterns": [
+              {
+                "type": "simple",
+                "include": true,
+                "pattern": "http://www.example.com/home"
+              }
+            ],
+            "weights": [0.1, 0.9],
+            "variations": [
+              {},
+              {
+                "urlRedirect": "http://www.example.com/home-new?name=test&color=red&food=lasagna"
+              }
+            ],
+            "persistQueryString": true
+          }
+        ]
+      },
+      [
+        {
+          "inExperiment": true,
+          "urlRedirect": "http://www.example.com/home-new?name=test&color=red&food=lasagna",
+          "urlWithParams": "http://www.example.com/home-new?name=test&color=red&food=lasagna&title=original"
+        }
+      ]
     ]
   ]
 }
