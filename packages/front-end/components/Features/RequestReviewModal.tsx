@@ -45,7 +45,7 @@ export default function RequestReviewModal({
   const scrollToComment = () => {
     commentRef?.current?.scrollIntoView();
   };
-  const canPublish = permissions.check("bypassApprovalChecks");
+  const canAdminPublish = permissions.check("bypassApprovalChecks");
   const revision = revisions.find((r) => r.version === version);
   const isPendingReview =
     revision?.status === "pending-review" ||
@@ -96,8 +96,6 @@ export default function RequestReviewModal({
         throw e;
       }
       await mutate();
-    } else if (canReview) {
-      setShowSumbmitReview(true);
     } else if (approved) {
       try {
         await apiCall(`/feature/${feature.id}/${revision?.version}/publish`, {
@@ -113,6 +111,8 @@ export default function RequestReviewModal({
         throw e;
       }
       await mutate();
+    } else if (canReview) {
+      setShowSumbmitReview(true);
     }
   };
 
@@ -223,7 +223,7 @@ export default function RequestReviewModal({
             >
               <div>Publishing to the prod environment requires approval.</div>
             </div>
-            {canPublish && (
+            {canAdminPublish && (
               <div className="mt-3 ml-1">
                 <div
                   className="d-flex"
@@ -261,12 +261,8 @@ export default function RequestReviewModal({
             </div>
             <h4 className="mb-3"> Change Request Log</h4>
 
-            <Revisionlog
-              feature={feature}
-              revision={revision}
-              commentsOnly={true}
-            />
-            {!canReview && (
+            <Revisionlog feature={feature} revision={revision} />
+            {(!canReview || approved) && (
               <div className="mt-3" id="comment-section">
                 <Field
                   label="Add a Comment (optional)"
@@ -278,7 +274,7 @@ export default function RequestReviewModal({
                     setComment(e.target.value);
                   }}
                 />
-                {!canReview && isPendingReview && (
+                {(!canReview || approved) && (
                   <Button
                     onClick={async () => {
                       try {
@@ -310,7 +306,6 @@ export default function RequestReviewModal({
       </Modal>
     );
   };
-
   const renderReviewAndSubmitModal = () => {
     return (
       <Modal
@@ -360,11 +355,11 @@ export default function RequestReviewModal({
 
           <RadioSelector
             name="type"
-            value={submitReviewform.getValues().reviewStatus}
+            value={submitReviewform.watch("reviewStatus")}
             descriptionNewLine={true}
-            setValue={(val: ReviewSubmittedType) =>
-              submitReviewform.setValue("reviewStatus", val)
-            }
+            setValue={(val: ReviewSubmittedType) => {
+              submitReviewform.setValue("reviewStatus", val);
+            }}
             options={[
               {
                 key: "Comment",

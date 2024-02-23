@@ -11,11 +11,14 @@ export default function LoadingOverlay({
   relativePosition?: boolean;
 }): React.ReactElement {
   const overlayClasses = clsx(styles.overlay, {
-    relativePosition: relativePosition,
+    relativePositionOverlay: relativePosition,
+  });
+  const overlayTextClasses = clsx(styles.text, {
+    relativePositionOverlayText: relativePosition,
   });
   return (
     <div className={overlayClasses}>
-      <div className={styles.text}>
+      <div className={overlayTextClasses}>
         <LoadingSpinner /> {text}
       </div>
     </div>

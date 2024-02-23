@@ -3141,8 +3141,11 @@ input:disabled {
     background: rgba(235, 166, 0, 0.17);
   }
 }
-.relativePosition {
+.relativePositionOverlay {
   position: relative !important;
+}
+.relativePositionOverlayText {
+  margin-top: 0 !important;
 }
 @import "./components/react-select.scss";
 @import "./components/demo-datasource-banner";

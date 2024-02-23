@@ -375,7 +375,6 @@ export async function markRevisionAsReviewRequested(
     {
       $set: {
         status: "pending-review",
-        publishedBy: user,
         datePublished: null,
         dateUpdated: null,
         comment: comment,
@@ -403,7 +402,8 @@ export async function submitReviewAndComments(
       status = "changes-requested";
       break;
     default:
-      status = "pending-review";
+      // we dont want comments to override approved state
+      status = revision.status;
   }
   const log: RevisionLog = {
     action,
@@ -422,7 +422,6 @@ export async function submitReviewAndComments(
     {
       $set: {
         status,
-        publishedBy: user,
         datePublished: null,
         dateUpdated: null,
         comment: comment ?? revision.comment,

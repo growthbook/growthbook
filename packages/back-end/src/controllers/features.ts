@@ -590,7 +590,7 @@ export async function postFeatureReviewOrComment(
   }
   const createdByUser = revision.createdBy as EventAuditUserLoggedIn;
 
-  if (createdByUser.id === context.userId && review !== "Comment") {
+  if (createdByUser?.id === context.userId && review !== "Comment") {
     throw Error("cannot submit a review for your self");
   }
   if (
@@ -1347,14 +1347,17 @@ export async function getDraftandReviewRevisions(
     feature: FeatureInterface | null;
   }[] = [];
 
-  for (const r of revisions) {
-    if (r) {
-      const feature = await getFeature(context, r.featureId);
+  for (const revision of revisions) {
+    if (revision) {
+      const feature = await getFeature(context, revision.featureId);
       // we need to filter out features that are created after the revision
       // eg someone deletes a feature with revisions and creates a new one with the same id
-      if (feature && feature.dateCreated.getTime() < r.dateCreated.getTime()) {
+      if (
+        feature &&
+        feature.dateCreated.getTime() <= revision.dateCreated.getTime()
+      ) {
         featuresAndRevisions.push({
-          revision: r,
+          revision,
           feature,
         });
       }

@@ -238,7 +238,12 @@ export default function FeaturesOverview({
   const schemaDescriptionItems = [...schemaDescription.keys()];
 
   const hasDraftPublishPermission =
-    approved ||
+    (approved &&
+      permissions.check(
+        "publishFeatures",
+        projectId,
+        getAffectedRevisionEnvs(feature, revision, environments)
+      )) ||
     (isDraft &&
       !requireReviews &&
       permissions.check(

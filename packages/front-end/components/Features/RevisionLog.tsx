@@ -17,25 +17,20 @@ import Code from "../SyntaxHighlighting/Code";
 export interface Props {
   feature: FeatureInterface;
   revision: FeatureRevisionInterface;
-  commentsOnly?: boolean;
 }
 
-function RevisionLogRow({
-  log,
-  first,
-  commentsOnly,
-}: {
-  log: RevisionLog;
-  first: boolean;
-  commentsOnly: boolean;
-}) {
+function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
   const [open, setOpen] = useState(false);
 
   let value = log.value;
+  let valueContainsData = false;
   try {
-    value = stringify(JSON.parse(log.value));
+    const valueAsJson = JSON.parse(log.value);
+    value = stringify(valueAsJson);
+    valueContainsData = Object.keys(valueAsJson).length > 0;
   } catch (e) {
     // Ignore
+    valueContainsData = value.length > 0;
   }
   let comment: string | undefined;
   try {
@@ -44,14 +39,14 @@ function RevisionLogRow({
     // Ignore
   }
   const openContent = () => {
-    if (commentsOnly && !!comment) {
+    if (comment) {
       return <div>{comment}</div>;
     } else {
-      return <Code language="json" code={value} />;
+      return valueContainsData ? <Code language="json" code={value} /> : null;
     }
   };
   const openClickClassNames = clsx("d-flex p-3", {
-    "cursor-pointer ": !(commentsOnly && !!comment),
+    "cursor-pointer ": !(!!comment || !valueContainsData),
   });
   return (
     <div className={`appbox mb-0 ${first ? "" : "mt-3"}`}>
@@ -60,7 +55,7 @@ function RevisionLogRow({
         style={{ backgroundColor: "#EDE9FE" }}
         onClick={(e) => {
           e.preventDefault();
-          if (!(commentsOnly && !!comment)) {
+          if (!(!valueContainsData || !!comment)) {
             setOpen(!open);
           }
         }}
@@ -68,18 +63,19 @@ function RevisionLogRow({
         <h4 className="mb-0" style={{ color: "#050549" }}>
           {log.action} {log.subject}
         </h4>
-        {!(commentsOnly && !!comment) && (
+        {!(!valueContainsData || !!comment) && (
           <div className="ml-auto">
             {open ? <FaAngleDown /> : <FaAngleRight />}
           </div>
         )}
       </div>
       <div className="p-3">
-        {commentsOnly && !!comment && (
-          <div className="mb-3 " style={{ color: "rgba(5, 5, 73, 0.65)" }}>
-            {openContent()}
-          </div>
-        )}
+        {!valueContainsData ||
+          (!!comment && (
+            <div className="mb-3 " style={{ color: "rgba(5, 5, 73, 0.65)" }}>
+              {openContent()}
+            </div>
+          ))}
         {open && openContent()}
         <div className="d-flex">
           {log.user?.type === "dashboard" && (
@@ -97,11 +93,7 @@ function RevisionLogRow({
   );
 }
 
-export default function Revisionlog({
-  feature,
-  revision,
-  commentsOnly,
-}: Props) {
+export default function Revisionlog({ feature, revision }: Props) {
   const { data, error } = useApi<{ log: RevisionLog[] }>(
     `/feature/${feature.id}/${revision.version}/log`
   );
@@ -154,12 +146,7 @@ export default function Revisionlog({
           </div>
           <div className="mb-1">{date}</div>
           {logs.map((log, i) => (
-            <RevisionLogRow
-              log={log}
-              key={i}
-              first={i === 0}
-              commentsOnly={!!commentsOnly}
-            />
+            <RevisionLogRow log={log} key={i} first={i === 0} />
           ))}
         </div>
       ))}
