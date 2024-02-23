@@ -649,7 +649,8 @@ export async function postFeaturePublish(
     throw new Error("Could not find feature revision");
   }
   if (
-    (!adminOverride && org.settings?.requireReviews) ||
+    !adminOverride &&
+    org.settings?.requireReviews &&
     revision.status !== "approved"
   ) {
     throw new Error("needs review before publishing");
