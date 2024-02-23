@@ -130,11 +130,18 @@ const gb = new GrowthBook({
   remoteEval: !!dataContext.remoteEval,
   subscribeToChanges: true,
   trackingCallback: (e, r) => {
-    const p = { experiment_id: e.key, variation_id: r.key };
-    window.dataLayer.push(["event", "experiment_viewed", p]);
+    window.dataLayer.push({
+      event: "experiment_viewed",
+      event_category: "experiment",
+      experiment_id: e.key,
+      variation_id: r.key,
+    });
     window.analytics &&
       window.analytics.track &&
-      window.analytics.track("Experiment Viewed", p);
+      window.analytics.track("Experiment Viewed", {
+        experiment_id: e.key,
+        variation_id: r.key,
+      });
   },
   ...windowContext,
   attributes: getAttributes(),
