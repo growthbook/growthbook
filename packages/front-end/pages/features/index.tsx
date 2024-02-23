@@ -1,10 +1,10 @@
 import Link from "next/link";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { ago, datetime } from "shared/dates";
-import { isFeatureStale } from "shared/util";
+import { isFeatureStale, StaleFeatureReason } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -72,6 +72,7 @@ export default function FeaturesPage() {
   const { project, getProjectById } = useDefinitions();
   const settings = useOrgSettings();
   const environments = useEnvironments();
+  const envs = environments.map((e) => e.id);
   const { features, experiments, loading, error, mutate } = useFeaturesList();
 
   const { usage, usageDomain } = useRealtimeData(
@@ -113,6 +114,26 @@ export default function FeaturesPage() {
     localStorageKey: "features",
   });
 
+  const start = (currentPage - 1) * NUM_PER_PAGE;
+  const end = start + NUM_PER_PAGE;
+  const featureItems = items.slice(start, end);
+
+  const staleFeatures = useMemo(() => {
+    const staleFeatures: Record<
+      string,
+      { stale: boolean; reason?: StaleFeatureReason }
+    > = {};
+    featureItems.forEach((feature) => {
+      staleFeatures[feature.id] = isFeatureStale({
+        feature,
+        features,
+        experiments,
+        environments: envs,
+      });
+    });
+    return staleFeatures;
+  }, [featureItems, features, experiments, envs]);
+
   // Reset to page 1 when a filter is applied
   useEffect(() => {
     setCurrentPage(1);
@@ -140,9 +161,6 @@ export default function FeaturesPage() {
     return <LoadingOverlay />;
   }
 
-  const start = (currentPage - 1) * NUM_PER_PAGE;
-  const end = start + NUM_PER_PAGE;
-
   // If "All Projects" is selected is selected and some experiments are in a project, show the project column
   const showProjectColumn = !project && features.some((f) => f.project);
 
@@ -168,8 +186,6 @@ export default function FeaturesPage() {
             router.push(url);
             mutate({
               features: [...features, feature],
-              // we don't care about updating linked experiments since its only
-              // used for stale feature detection
               linkedExperiments: experiments,
             });
           }}
@@ -313,7 +329,7 @@ export default function FeaturesPage() {
               </tr>
             </thead>
             <tbody>
-              {items.slice(start, end).map((feature) => {
+              {featureItems.map((feature) => {
                 let rules: FeatureRule[] = [];
                 environments.forEach(
                   (e) => (rules = rules.concat(getRules(feature, e.id)))
@@ -336,12 +352,9 @@ export default function FeaturesPage() {
                   ? getProjectById(projectId)?.name || null
                   : null;
                 const projectIsDeReferenced = projectId && !projectName;
-                const { stale, reason: staleReason } = isFeatureStale(
-                  feature,
-                  experiments.filter((e) =>
-                    feature.linkedExperiments?.includes(e.id)
-                  )
-                );
+                const { stale, reason: staleReason } = staleFeatures?.[
+                  feature.id
+                ] || { stale: false };
                 const topLevelPrerequisites =
                   feature.prerequisites?.length || 0;
                 const prerequisiteRules = rules.reduce(

@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { FeatureInterface } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isFeatureStale } from "shared/util";
@@ -33,6 +33,7 @@ import MoreMenu from "../Dropdown/MoreMenu";
 
 export default function FeaturesHeader({
   feature,
+  features,
   experiments,
   mutate,
   tab,
@@ -43,6 +44,7 @@ export default function FeaturesHeader({
   dependents,
 }: {
   feature: FeatureInterface;
+  features: FeatureInterface[];
   experiments: ExperimentInterfaceStringDates[] | undefined;
   mutate: () => void;
   tab: FeatureTab;
@@ -61,15 +63,25 @@ export default function FeaturesHeader({
   const [showImplementation, setShowImplementation] = useState(firstFeature);
 
   const { organization } = useUser();
-  const { stale, reason } = isFeatureStale(feature, experiments);
   const permissions = usePermissions();
   const environments = useEnvironments();
+  const envs = environments.map((e) => e.id);
   const { apiCall } = useAuth();
   const {
     getProjectById,
     project: currentProject,
     projects,
   } = useDefinitions();
+
+  const { stale, reason } = useMemo(() => {
+    if (!feature) return { stale: false };
+    return isFeatureStale({
+      feature,
+      features,
+      experiments,
+      environments: envs,
+    });
+  }, [feature, features, experiments, envs]);
 
   const project = getProjectById(projectId || "");
   const projectName = project?.name || null;
