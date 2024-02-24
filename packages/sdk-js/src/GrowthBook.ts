@@ -1437,7 +1437,7 @@ export class GrowthBook<
       return this._ctx.navigate;
     } else if (isBrowser) {
       return (url: string) => {
-        window.location.href = url;
+        window.location.replace(url);
       };
     }
     return null;

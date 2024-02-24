@@ -5252,7 +5252,7 @@
   ],
   "urlRedirect": [
     [
-      "Basic redirect without query strings",
+      "redirects correctly without query strings",
       {
         "attributes": { "id": "1" },
         "url": "http://www.example.com/home",
@@ -5285,7 +5285,7 @@
       ]
     ],
     [
-      "Basic redirect with query string on original url -- persistQueryString enabled",
+      "redirects with query string on original url and persistQueryString enabled",
       {
         "attributes": { "id": "1" },
         "url": "http://www.example.com/home?color=blue&food=sushi",
