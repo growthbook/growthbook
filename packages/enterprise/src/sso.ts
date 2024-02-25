@@ -6,12 +6,6 @@ import type { SSOConnectionInterface } from "back-end/types/sso-connection";
 function getSSOConfig() {
   if (!process.env.SSO_CONFIG) return null;
 
-  if (!stringToBoolean(process.env.IS_CLOUD) && !process.env.LICENSE_KEY) {
-    throw new Error(
-      "Must have a commercial License Key to use self-hosted SSO"
-    );
-  }
-
   const config: SSOConnectionInterface = JSON.parse(process.env.SSO_CONFIG);
   // Must include clientId and specific metadata
   const requiredMetadataKeys: (keyof IssuerMetadata)[] = [
