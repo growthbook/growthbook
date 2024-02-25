@@ -5,10 +5,12 @@ declare global {
     _growthbook?: GrowthBook;
     growthbook_config?: Context;
     // eslint-disable-next-line
-    dataLayer: any[];
+    dataLayer?: any[];
     analytics?: {
       track?: (name: string, props?: Record<string, unknown>) => void;
     };
+    // eslint-disable-next-line
+    gtag?: (...args: any) => void;
   }
 }
 
@@ -83,6 +85,32 @@ function getUtmAttributes() {
   return utms;
 }
 
+function getDataLayerVariables() {
+  if (!window.dataLayer) return {};
+  const obj: Record<string, unknown> = {};
+  window.dataLayer.forEach((item: unknown) => {
+    // Skip empty and non-object entries
+    if (!item || typeof item !== "object" || "length" in item) return;
+
+    // Skip events
+    if ("event" in item) return;
+
+    Object.keys(item).forEach((k) => {
+      // Filter out known properties that aren't useful
+      if (typeof k !== "string" || k.match(/^(gtm)/)) return;
+
+      const val = (item as Record<string, unknown>)[k];
+
+      // Only add primitive variable values
+      const valueType = typeof val;
+      if (["string", "number", "boolean"].includes(valueType)) {
+        obj[k] = val;
+      }
+    });
+  });
+  return obj;
+}
+
 function getAutoAttributes() {
   const ua = navigator.userAgent;
 
@@ -97,19 +125,18 @@ function getAutoAttributes() {
     : "unknown";
 
   return {
+    ...getDataLayerVariables(),
     id: getUUID(),
     url: location.href,
     path: location.pathname,
     host: location.host,
     query: location.search,
+    pageTitle: document && document.title,
     deviceType: ua.match(/Mobi/) ? "mobile" : "desktop",
     browser,
     ...getUtmAttributes(),
   };
 }
-
-// Initialize the data layer if it doesn't exist yet (GA4, GTM)
-window.dataLayer = window.dataLayer || [];
 
 const currentScript = document.currentScript;
 const dataContext = currentScript ? currentScript.dataset : {};
@@ -131,7 +158,14 @@ const gb = new GrowthBook({
   subscribeToChanges: true,
   trackingCallback: (e, r) => {
     const p = { experiment_id: e.key, variation_id: r.key };
-    window.dataLayer.push(["event", "experiment_viewed", p]);
+
+    // GA4 (gtag and GTM options)
+    window.gtag
+      ? window.gtag("event", "experiment_viewed", p)
+      : window.dataLayer &&
+        window.dataLayer.push({ event: "experiment_viewed", ...p });
+
+    // Segment
     window.analytics &&
       window.analytics.track &&
       window.analytics.track("Experiment Viewed", p);
@@ -149,12 +183,25 @@ setInterval(() => {
   if (location.href !== currentUrl) {
     currentUrl = location.href;
     gb.setURL(currentUrl);
-    gb.setAttributes({
-      ...gb.getAttributes(),
-      ...getAttributes(),
-    });
+    gb.updateAttributes(getAttributes());
   }
 }, 500);
+
+// Listen for a custom event to update URL and attributes
+document.addEventListener("gb_refresh", () => {
+  if (location.href !== currentUrl) {
+    currentUrl = location.href;
+    gb.setURL(currentUrl);
+  }
+  gb.updateAttributes(getAttributes());
+});
+
+// Fire an event to let the page know GrowthBook is loaded
+// Need to use setTimeout because the GrowthBook instance is not stored in the window object yet
+window.setTimeout(() => {
+  const event = new CustomEvent("gb_loaded");
+  document.dispatchEvent(event);
+}, 0);
 
 // Store a reference in window to enable more advanced use cases
 export default gb;
