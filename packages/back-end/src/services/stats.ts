@@ -218,11 +218,14 @@ export function getMetricSettingsForStatsEngine(
 ): MetricSettingsForStatsEngine {
   const metric = cloneDeep<ExperimentMetricInterface>(metricDoc);
   applyMetricOverrides(metric, settings);
-  let denominator =
+
+  const denominatorDoc =
     metric.denominator && !isFactMetric(metric)
       ? metricMap.get(metric.denominator)
       : undefined;
-  if (denominator) {
+  let denominator: undefined | ExperimentMetricInterface = undefined;
+  if (denominatorDoc) {
+    denominator = cloneDeep<ExperimentMetricInterface>(denominatorDoc);
     applyMetricOverrides(denominator, settings);
   }
 
