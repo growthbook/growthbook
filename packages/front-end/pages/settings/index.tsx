@@ -3,7 +3,6 @@ import {
   FaExclamationCircle,
   FaExclamationTriangle,
   FaQuestionCircle,
-  FaUpload,
 } from "react-icons/fa";
 import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
@@ -18,14 +17,11 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { OrganizationSettings } from "@/../back-end/types/organization";
-import Link from "next/link";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { MdInfoOutline } from "react-icons/md";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import Field from "@/components/Forms/Field";
-import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import TempMessage from "@/components/TempMessage";
 import Button from "@/components/Button";
 import {
@@ -43,7 +39,6 @@ import Tab from "@/components/Tabs/Tab";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { useCurrency } from "@/hooks/useCurrency";
-import { AppFeatures } from "@/types/app-features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
 import {
@@ -54,7 +49,8 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { supportedCurrencies } from "@/services/settings";
 import OrganizationAndLicenseSettings from "@/components/GeneralSettings/OrganizationAndLicenseSettings";
-import ConfigYmlSettings from "@/components/GeneralSettings/ConfigYmlSettings";
+import ImportSettings from "@/components/GeneralSettings/ImportSettings";
+import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetricSettings";
 
 export const DEFAULT_SRM_THRESHOLD = 0.001;
 
@@ -84,7 +80,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
     setCodeRefsBranchesToFilterStr,
   ] = useState<string>("");
   const displayCurrency = useCurrency();
-  const growthbook = useGrowthBook<AppFeatures>();
   const { datasources } = useDefinitions();
 
   const currencyOptions = Object.entries(
@@ -427,59 +422,21 @@ const GeneralSettingsPage = (): React.ReactElement => {
             refreshOrg={refreshOrganization}
           />
 
-          <ConfigYmlSettings
+          <ImportSettings
             hasFileConfig={hasFileConfig()}
             isCloud={isCloud()}
             settings={settings}
             refreshOrg={refreshOrganization}
           />
 
-          {growthbook?.getFeatureValue("import-from-x", false) && (
-            <div className="bg-white p-3 border position-relative my-3">
-              <h3>Import from another service</h3>
-              <p>
-                Import your data from another feature flag and/or
-                experimentation service.
-              </p>
-              <Link href="/importing">
-                <a className="btn btn-primary">
-                  <FaUpload /> Import from another service
-                </a>
-              </Link>
-            </div>
-          )}
-
-          <div className="my-3 bg-white p-3 border">
-            <div className="row">
-              <div className="col-sm-3">
-                <h4>North Star Metrics</h4>
-              </div>
-              <div className="col-sm-9">
-                <p>
-                  North stars are metrics your team is focused on improving.
-                  These metrics are shown on the home page with the experiments
-                  that have the metric as a goal.
-                </p>
-                <div className={"form-group"}>
-                  <div className="my-3">
-                    <div className="form-group">
-                      <label>Metric(s)</label>
-                      <MetricsSelector
-                        selected={form.watch("northStar.metricIds")}
-                        onChange={(metrics) =>
-                          form.setValue("northStar.metricIds", metrics)
-                        }
-                      />
-                    </div>
-                    <Field
-                      label="Title"
-                      {...form.register("northStar.title")}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <NorthStarMetricSettings
+            metricIds={form.watch("northStar.metricIds")}
+            onChangeMetricIds={(metricIds) =>
+              form.setValue("northStar.metricIds", metricIds)
+            }
+            title={form.watch("northStar.title")}
+            onChangeTitle={(title) => form.setValue("northStar.title", title)}
+          />
 
           <div className="bg-white p-3 border position-relative">
             <div className="row">
