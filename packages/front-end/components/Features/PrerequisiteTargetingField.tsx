@@ -59,6 +59,8 @@ export default function PrerequisiteTargetingField({
   setPrerequisiteTargetingSdkIssues,
 }: Props) {
   const { features } = useFeaturesList(false);
+  const envsStr = JSON.stringify(environments);
+  const valueStr = JSON.stringify(value);
 
   const [conditionKeys, forceConditionRender] = useArrayIncrementer();
 
@@ -93,34 +95,40 @@ export default function PrerequisiteTargetingField({
         }
       }
     }
-  }, [JSON.stringify(value)]);
+  }, [valueStr]);
 
   const prereqStatesArr: (Record<
     string,
     PrerequisiteStateResult
   > | null)[] = useMemo(() => {
+    const featuresMap = new Map(features.map((f) => [f.id, f]));
     return value.map((v) => {
-      const parentFeature = features.find((f) => f.id === v.id);
+      const parentFeature = featuresMap.get(v.id);
       if (!parentFeature) return null;
       const states: Record<string, PrerequisiteStateResult> = {};
       environments.forEach((env) => {
-        states[env] = evaluatePrerequisiteState(parentFeature, features, env);
+        states[env] = evaluatePrerequisiteState(
+          parentFeature,
+          featuresMap,
+          env
+        );
       });
       return states;
     });
-  }, [value, features, environments]);
+  }, [valueStr, features, envsStr]);
 
   const [featuresStates, wouldBeCyclicStates] = useMemo(() => {
     const featuresStates: Record<
       string,
       Record<string, PrerequisiteStateResult>
     > = {};
+    const featuresMap = new Map(features.map((f) => [f.id, f]));
     const wouldBeCyclicStates: Record<string, boolean> = {};
     for (const f of features) {
       // get current states:
       const states: Record<string, PrerequisiteStateResult> = {};
       environments.forEach((env) => {
-        states[env] = evaluatePrerequisiteState(f, features, env);
+        states[env] = evaluatePrerequisiteState(f, featuresMap, env);
       });
       featuresStates[f.id] = states;
 
@@ -128,7 +136,6 @@ export default function PrerequisiteTargetingField({
       let wouldBeCyclic = false;
       if (feature?.environmentSettings?.[environments?.[0]]?.rules) {
         const newFeature = cloneDeep(feature);
-        const newFeatures = cloneDeep(features);
         const revision = revisions?.find((r) => r.version === version);
         const newRevision = cloneDeep(revision);
         const fakeRule: ForceRule = {
@@ -152,14 +159,14 @@ export default function PrerequisiteTargetingField({
 
         wouldBeCyclic = isFeatureCyclic(
           newFeature,
-          newFeatures,
+          featuresMap,
           newRevision
         )[0];
       }
       wouldBeCyclicStates[f.id] = wouldBeCyclic;
     }
     return [featuresStates, wouldBeCyclicStates];
-  }, [features, environments]);
+  }, [features, envsStr]);
 
   const blockedBySdkLimitations = useMemo(() => {
     for (let i = 0; i < prereqStatesArr.length; i++) {
@@ -173,7 +180,7 @@ export default function PrerequisiteTargetingField({
       }
     }
     return false;
-  }, [prereqStatesArr, features, value, hasSDKWithPrerequisites]);
+  }, [prereqStatesArr, features, valueStr, hasSDKWithPrerequisites]);
 
   useEffect(() => {
     setPrerequisiteTargetingSdkIssues(blockedBySdkLimitations);
