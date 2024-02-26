@@ -28,7 +28,7 @@ import Collapsible from "react-collapsible";
 import { DiscussionInterface } from "back-end/types/discussion";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
-import { MdInfoOutline } from "react-icons/md";
+import { MdInfoOutline, MdRocketLaunch } from "react-icons/md";
 import {
   ExperimentMetricInterface,
   getAllMetricRegressionAdjustmentStatuses,
@@ -288,6 +288,7 @@ export default function SinglePage({
   const [watchersModal, setWatchersModal] = useState(false);
   const [visualEditorModal, setVisualEditorModal] = useState(false);
   const [featureModal, setFeatureModal] = useState(false);
+  const [showStartExperiment, setShowStartExperiment] = useState(false);
 
   const permissions = usePermissions();
   const { apiCall } = useAuth();
@@ -304,6 +305,9 @@ export default function SinglePage({
   } = useUser();
 
   const { data: sdkConnectionsData } = useSDKConnections();
+
+  const hasVerifiedConnection =
+    checklistItemsRemaining !== null && checklistItemsRemaining > 0;
 
   const projectId = experiment.project;
   const project = getProjectById(experiment.project || "");
@@ -440,6 +444,30 @@ export default function SinglePage({
 
   const safeToEdit = experiment.status !== "running" || !hasLiveLinkedChanges;
 
+  async function startExperiment() {
+    if (!experiment.phases?.length) {
+      if (newPhase) {
+        newPhase();
+        return;
+      } else {
+        throw new Error("You do not have permission to start this experiment");
+      }
+    }
+
+    await apiCall(`/experiment/${experiment.id}/status`, {
+      method: "POST",
+      body: JSON.stringify({
+        status: "running",
+      }),
+    });
+    await mutate();
+    track("Start experiment", {
+      source: "experiment-start-banner",
+      action: "main CTA",
+    });
+    setShowStartExperiment(false);
+  }
+
   return (
     <div className="container-fluid experiment-details pagecontents pb-3">
       <div className="row">
@@ -530,6 +558,80 @@ export default function SinglePage({
           mutate={mutate}
         />
       )}
+      {showStartExperiment && experiment.status === "draft" && (
+        <Modal
+          open={true}
+          size="md"
+          closeCta={
+            hasVerifiedConnection ? (
+              <button
+                className="btn btn-primary"
+                onClick={() => setShowStartExperiment(false)}
+              >
+                Close
+              </button>
+            ) : (
+              // This is a bit odd, but design requested we use the closeCTA as an override in this case
+              <button
+                className="btn btn-primary"
+                onClick={async () => startExperiment()}
+              >
+                Start Immediately
+              </button>
+            )
+          }
+          secondaryCTA={
+            hasVerifiedConnection ? (
+              <button
+                className="btn btn-link text-decoration-none"
+                onClick={async () => startExperiment()}
+              >
+                <span
+                  style={{
+                    color: "var(--text-color-primary)",
+                  }}
+                >
+                  Start Anyway
+                </span>
+              </button>
+            ) : (
+              <button
+                className="btn btn-link text-decoration-none"
+                onClick={() => setShowStartExperiment(false)}
+              >
+                <span
+                  style={{
+                    color: "var(--text-color-primary)",
+                  }}
+                >
+                  Cancel
+                </span>
+              </button>
+            )
+          }
+          close={() => setShowStartExperiment(false)}
+          header="Start Experiment"
+        >
+          <div className="p-2">
+            {hasVerifiedConnection ? (
+              <div className="alert alert-warning">
+                You have{" "}
+                <strong>
+                  {checklistItemsRemaining} task
+                  {checklistItemsRemaining > 1 ? "s " : " "}
+                </strong>
+                left to complete. Review the Pre-Launch Checklist before startng
+                this experiment.
+              </div>
+            ) : null}
+            <div>
+              Once started, linked changes will be activated and users will
+              begin to see your experiment variations{" "}
+              <strong>immediately</strong>.
+            </div>
+          </div>
+        </Modal>
+      )}
       <div className="row align-items-center mb-1">
         <div className="col-auto">
           <h1 className="mb-0">{experiment.name}</h1>
@@ -538,6 +640,23 @@ export default function SinglePage({
         <div className="col-auto ml-auto">
           <WatchButton itemType="experiment" item={experiment.id} />
         </div>
+        {canRunExperiment && experiment.status === "draft" ? (
+          <Tooltip
+            shouldDisplay={!verifiedConnections.length}
+            body="To start an experiment, integrate GrowthBook into your app."
+          >
+            <button
+              className="btn btn-teal"
+              onClick={(e) => {
+                e.preventDefault();
+                setShowStartExperiment(true);
+              }}
+              disabled={!verifiedConnections.length}
+            >
+              Start Experiment <MdRocketLaunch />
+            </button>
+          </Tooltip>
+        ) : null}
         <div className="col-auto">
           <MoreMenu>
             {canRunExperiment && (
