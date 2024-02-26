@@ -8,6 +8,7 @@ export interface Props {
   resourceType:
     | "metric"
     | "data source"
+    | "environment"
     | "member"
     | "team"
     | "fact table"
@@ -33,6 +34,7 @@ export default function ProjectBadges({
           !project ? "badge-primary bg-purple" : "badge-gray",
           className
         )}
+        skipMargin={true}
       />
     );
   }
@@ -55,7 +57,7 @@ export default function ProjectBadges({
 
   return (
     <>
-      {filteredProjects.map((p) => {
+      {filteredProjects.map((p, i) => {
         if (!p?.name) return;
         return (
           <Badge
@@ -65,6 +67,7 @@ export default function ProjectBadges({
               project === p?.id ? "badge-primary bg-purple" : "badge-gray",
               className
             )}
+            skipMargin={i === 0}
           />
         );
       })}

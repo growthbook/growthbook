@@ -1,8 +1,13 @@
 import { useForm } from "react-hook-form";
 import { Environment } from "back-end/types/organization";
+import React, { useMemo } from "react";
+import { FaExclamationTriangle } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import { useUser } from "@/services/UserContext";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import useSDKConnections from "@/hooks/useSDKConnections";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import Toggle from "../Forms/Toggle";
@@ -22,11 +27,34 @@ export default function EnvironmentModal({
       description: existing.description || "",
       toggleOnList: existing.toggleOnList || false,
       defaultState: existing.defaultState ?? true,
+      projects: existing.projects || [],
     },
   });
   const { apiCall } = useAuth();
   const environments = useEnvironments();
+
+  const { data: sdkConnectionData } = useSDKConnections();
+  const sdkConnections = useMemo(() => {
+    if (!existing.id) return [];
+    if (!sdkConnectionData?.connections) return [];
+    return sdkConnectionData?.connections?.filter((c) => {
+      return c.environment === existing.id;
+    });
+  }, [sdkConnectionData, existing.id]);
+
+  const projectsChanged =
+    existing.id !== undefined &&
+    JSON.stringify((existing?.projects ?? []).sort()) !==
+      JSON.stringify(form.watch("projects").sort());
+
   const { refreshOrganization } = useUser();
+
+  const { projects } = useDefinitions();
+
+  const projectsOptions = projects.map((p) => ({
+    label: p.name,
+    value: p.id,
+  }));
 
   return (
     <Modal
@@ -46,6 +74,7 @@ export default function EnvironmentModal({
           env.description = value.description;
           env.toggleOnList = value.toggleOnList;
           env.defaultState = value.defaultState;
+          env.projects = value.projects;
         } else {
           // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
           if (!value.id.match(/^[A-Za-z][A-Za-z0-9_-]*$/)) {
@@ -62,6 +91,7 @@ export default function EnvironmentModal({
             description: value.description,
             toggleOnList: value.toggleOnList,
             defaultState: value.defaultState,
+            projects: value.projects,
           });
         }
 
@@ -92,8 +122,6 @@ export default function EnvironmentModal({
     >
       {!existing.id && (
         <Field
-          // @ts-expect-error TS(2783) If you come across this, please fix it!: 'name' is specified more than once, so this usage ... Remove this comment to see the full error message
-          name="Environment"
           maxLength={30}
           required
           pattern="^[A-Za-z][A-Za-z0-9_-]*$"
@@ -102,9 +130,14 @@ export default function EnvironmentModal({
           label="Id"
           helpText={
             <>
-              Only letters, numbers, hyphens, and underscores allowed. No
-              spaces. Valid examples: <code>prod</code>, <code>qa-1</code>,{" "}
-              <code>john_dev</code>
+              <div>
+                Only letters, numbers, hyphens, and underscores allowed. No
+                spaces.
+              </div>
+              <div>
+                Valid examples: <code>prod</code>, <code>qa-1</code>,{" "}
+                <code>john_dev</code>
+              </div>
             </>
           }
         />
@@ -115,6 +148,25 @@ export default function EnvironmentModal({
         placeholder=""
         textarea
       />
+      <div className="mb-4">
+        <MultiSelectField
+          label="Projects"
+          placeholder="All Projects"
+          value={form.watch("projects") || []}
+          onChange={(projects) => form.setValue("projects", projects)}
+          options={projectsOptions}
+          sort={false}
+          closeMenuOnSelect={true}
+        />
+        {projectsChanged && sdkConnections.length > 0 && (
+          <div className="alert alert-warning">
+            <FaExclamationTriangle /> There{" "}
+            {sdkConnections.length === 1 ? "is" : "are"} {sdkConnections.length}{" "}
+            SDK connections using this environment. Altering the projects
+            associated may affect any existing integrations.
+          </div>
+        )}
+      </div>
       <div className="mb-3">
         <Toggle
           id={"defaultToggle"}
@@ -135,14 +187,6 @@ export default function EnvironmentModal({
         }}
       />{" "}
       <label htmlFor="toggle">Show toggle on feature list </label>
-      {!existing.id && (
-        <div>
-          <small className="d-inline-block text-muted mt-3 mb-0">
-            Each new environment key will have an API key automatically
-            generated for it
-          </small>
-        </div>
-      )}
     </Modal>
   );
 }
