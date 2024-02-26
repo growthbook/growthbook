@@ -5,31 +5,49 @@ import {
   convertMemberToManagedByIdp,
   expandOrgMembers,
 } from "../../services/organizations";
-import { OrganizationInterface } from "../../../types/organization";
-import {
-  ScimError,
-  ScimUser,
-  ScimUserPutOrPostRequest,
-} from "../../../types/scim";
+import { OrganizationInterface, MemberRole } from "../../../types/organization";
+import { ScimError, ScimUser, ScimUserPostRequest } from "../../../types/scim";
 import {
   createUser as createNewUser,
   getUserByEmail,
 } from "../../services/users";
 
+export function isRoleValid(role: MemberRole) {
+  const validRoles: Record<MemberRole, boolean> = {
+    noaccess: true,
+    readonly: true,
+    visualEditor: true,
+    collaborator: true,
+    designer: true,
+    analyst: true,
+    developer: true,
+    engineer: true,
+    experimenter: true,
+    admin: true,
+  };
+  return validRoles[role] || false;
+}
+
 export async function createUser(
-  req: ScimUserPutOrPostRequest,
+  req: ScimUserPostRequest,
   res: Response<ScimUser | ScimError>
 ) {
-  const { externalId, displayName, userName } = req.body;
+  const { externalId, displayName, userName, growthbookRole } = req.body;
 
   const org: OrganizationInterface = req.organization;
+
+  let role: MemberRole = org.settings?.defaultRole?.role || "readonly";
+
+  if (growthbookRole && isRoleValid(growthbookRole)) {
+    // If a growthbookRole is provided, and it's a MemberRole, use that
+    role = growthbookRole;
+  }
 
   const expandedMembers = await expandOrgMembers(org.members);
   const existingOrgMember = expandedMembers.find(
     (member) => member.email === userName
   );
 
-  const role = org.settings?.defaultRole?.role || "readonly";
   const responseObj = cloneDeep(req.body);
 
   try {

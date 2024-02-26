@@ -1,6 +1,7 @@
 type: object
 required:
   - id
+  - managedBy
   - dateCreated
   - dateUpdated
   - owner
@@ -15,6 +16,13 @@ required:
 properties:
   id:
     type: string
+  managedBy:
+    type: string
+    description: Where this metric must be managed from. If not set (empty string), it can be managed from anywhere.
+    enum:
+      - ""
+      - api
+      - config
   dateCreated:
     type: string
   dateUpdated:
@@ -48,8 +56,7 @@ properties:
     type: object
     required:
       - goal
-      - conversionWindowStart
-      - conversionWindowEnd
+      - windowSettings
       - riskThresholdSuccess
       - riskThresholdDanger
       - minPercentChange
@@ -61,20 +68,66 @@ properties:
         enum:
           - increase
           - decrease
+      cappingSettings:
+        description: Controls how outliers are handled
+        type: object
+        required:
+          - type
+        properties:
+          type:
+            type: string
+            enum:
+              - "none"
+              - "absolute"
+              - "percentile"
+          value:
+            type: number
+            description: When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).
+          ignoreZeros:
+            type: boolean
+            description: If true and capping is `percentile`, zeros will be ignored when calculating the percentile.
       cap:
         type: number
+        deprecated: true
       capping:
         type: string
         nullable: true
+        deprecated: true
         enum:
           - absolute
           - percentile
       capValue:
         type: number
+        deprecated: true
+      windowSettings:
+          type: object
+          description: Controls the conversion window for the metric
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum:
+                - "none"
+                - "conversion"
+                - "lookback"
+            delayHours:
+              type: number
+              description: Wait this many hours after experiment exposure before counting conversions
+            windowValue:
+              type: number
+            windowUnit:
+              type: string
+              enum:
+                - "hours"
+                - "days"
+                - "weeks"
       conversionWindowStart:
         type: number
+        deprecated: true
       conversionWindowEnd:
         type: number
+        deprecated: true
       riskThresholdSuccess:
         type: number
       riskThresholdDanger:

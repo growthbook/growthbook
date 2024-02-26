@@ -24,18 +24,22 @@ In both engines, the first two data columns are:
 
 For both columns, the raw data in grey underneath shows the numerator and denominator totals.
 
-### Experiment Results Statistics (Bayesian Engine)
+### Bayesian Engine
 
 **Chance to Win** tells you the probability that the variation is better. Anything above 95% (a customizable threshold set at the organization level) is highlighted green indicating a very clear winner. Anything below 5% is highlighted red, indicating a very clear loser. Anything in between is grayed out indicating it's inconclusive. If that's the case, there's either no measurable difference or you haven't gathered enough data yet.
 
 Furthermore, we include tooltips for **Risk**, which captures the average loss in a metric if the variation were actually to be worse than control. We use this tooltip to let you know about "risky" cases. For example, in cases like in the screenshot above, the chance to win is above 50% for a few metrics, but the average loss if the baseline was actually better is above the risk threshold, indicating that shipping the variation still has substantial risk. More information about risk is available in a tooltip when you mouseover the result:
 
-![Results Tooltip](/images/results-tooltip.png)
+<img
+  src="/images/results-tooltip.png"
+  alt="Results Tooltip"
+  style={{ width: 400, margin: "0 auto" }}
+/>
 
 The graph and the **% Change** column show you how much better/worse the variation is compared to the baseline. It is a probability density graph and the thicker the area, the more likely the true percent change will be there.
 As you collect more data, the tails of the graphs will shorten, indicating more certainty around the estimates.
 
-## Experiment Results Table (Frequentist Engine)
+### Frequentist Engine
 
 If you select the "Frequentist" engine, when you navigate to the results tab to view and update the results, you will see the following results table:
 
@@ -50,14 +54,6 @@ The _% Change_ column is unaffected, although we now also represent the width of
 ## Guardrails
 
 In the new results view (as of GrowthBook 2.4), guardrail metrics are treated much like regular metrics, but they are placed in a separate part of the results view, have an additional tooltip warning if they are trending in the wrong direction, and are not part of any p-value corrections in the frequentist engine (in other words, even with p-value corrections applied, these results will be more sensitive to negative or positive trends).
-
-## Sample Ratio Mismatch (SRM)
-
-Every experiment automatically checks for a Sample Ratio Mismatch and will warn you if found. This happens when you expect a certain traffic split (e.g. 50/50) but you see something significantly different (e.g. 46/54). We only show this warning if the p-value is less than `0.001`, which means it's extremely unlikely to occur by chance.
-
-![SRM Warning](/images/srm.png)
-
-Like the warning says, you shouldn't trust the results since they are likely misleading. Instead, find and fix the source of the bug and restart the experiment.
 
 ## Results Table Settings
 
@@ -111,6 +107,70 @@ Take the following results, for example.
 
 In the first graph, we see the number of users who were first exposed to the experiment on that day.
 
-In the second graph, we see the uplift for the two variations relative to the control _for all users first bucketed on that day_. That means that the values on October 7 show that users first exposed to the experiment on October 7 had X% uplift relative to control, when pooling all of the data in their relevant conversion window. It does not mean show the difference in conversions across variations on October 7 for all previously bucketed users.
+In the second graph, we see the uplift for the two variations relative to the control _for all users first bucketed on that day_. That means that the values on October 7 show that users first exposed to the experiment on October 7 had X% uplift relative to control, when pooling all of the data in their relevant metric window. It does not mean show the difference in conversions across variations on October 7 for all previously bucketed users.
 
 That analysis, and other time series analyses, are on GrowthBook's roadmap.
+
+## Experiment Health
+
+By default, GrowthBook runs several health checks on your experiment to help you diagnose if there are any issues with the configuration.
+
+Health checks appear in two places in the app:
+
+1. On the results tab -- we insert Experiment Balance and Multiple Exposures warnings for all experiments that might be untrustworthy right into your results tab
+2. On the health tab -- if you have health traffic queries enabled, we can run additional queries to further dig into any experiment health issues
+
+### Experiment Balance (SRM)
+
+Every experiment automatically checks for a Sample Ratio Mismatch (SRM) and will warn you if found. This happens when you expect a certain traffic split (e.g. 50/50) but you see something significantly different (e.g. 46/54). We only show this warning if the p-value is less than `0.001` (customizable in your Organization Settings), which means it's extremely unlikely to occur by chance.
+
+![SRM Warning](/images/srm.png)
+
+Like the warning says, you shouldn't trust the results since they are likely misleading. Instead, find and fix the source of the bug and restart the experiment.
+
+Under the hood, we are conducting a standard chi-squared test for Sample Ratio Mismatch, which compares the distribution of observed units to the expected units and computes a p-value for the probability of observing this traffic split if the traffic split were truly unbiased.
+
+### Multiple Exposures
+
+This alert indicates that there a substantial number of users (or other unit) in your experiment that have been exposed to multiple variations. At its core, this means that your Experiment Assignment Query is returning data that has rows that look like the following:
+
+| user_id | timestamp           | experiment_id  | variation_id |
+| ------- | ------------------- | -------------- | ------------ |
+| 123     | 2022-08-23-10:53:04 | my-button-test | 0            |
+| 123     | 2022-08-23 10:53:06 | my-button-test | 1            |
+
+This indicates that for some reason your identifier type (in this case `user_id`) is being tracked with multiple values of `variation_id` and it is impossible to tell which variation to assign to that user. This can happen if:
+
+- Your SDK is misaligned with GrowthBook's identifier types for some reason. For example, it's possible that the identifier type you're using as the hash attribute in the SDK is different from the one you're firing in the `trackingCallback` to your warehouse. Ensure that the id you're using to hash users is the same one that you see in your data warehouse for a given user.
+- If you're using something other than GrowthBook for experiment assignment, there are many possible reasons for this issue:
+  - A bug with the third party solution's hashing algorithm
+  - A mismatch between the identifier type that you have set up in GrowthBook and the ID that is being used to assign variations in that third-party solution
+  - A mistaken in your Experiment Assignment Query that is returning the wrong `variation_id` or identifier type for a given experiment.
+
+### Health Tab
+
+:::tip
+To get access to the health tab, you need to enable us to run one additional query per experiment analysis. You can do this on a health tab for any experiment if you have the requisite permissions to run queries.
+:::
+
+The health tab provides you with more insights on the traffic to your experiment over time and across dimensions.
+
+<img
+  src="/images/health-tab.png"
+  alt="Experiment Health Tab"
+  style={{ width: 800, margin: "0 auto" }}
+/>
+
+**Experiment Traffic** - A plot of experiment units by the first date they were exposed to the experiment. You can look at daily traffic or cumulative traffic. If you have your experiment dimensions configured with pre-defined slices, we will also return traffic splits by dimension in this tab. For example, if you have a `browser` dimension with pre-defined slices, we will show you the traffic splits by browser.
+
+**Experiment Balance Check** - A table with information on the actual number of experiment units, the expected number, and the differences between the percent traffic allocated to each bucket.
+
+We also provide you with checks by any pre-defined dimension slices you have configured for your experiment dimensions.
+
+#### Adding Dimensions to Health Tab
+
+Your health tab shows dimension breakdowns only for Experiment Dimensions which have pre-defined slices.
+
+When setting up the health tab, you will be prompted to configure your Experiment Dimensions to have pre-defined slices that can be used in the health tab. This is optional, but we require pre-defined slices for your experiment dimensions to compute dimension traffic and health checks so that we can run only one additional query per analysis and get reliable results.
+
+If you want to refresh your dimension slices or change your dimension definitions, you should do so via the Data Source page for the related data source. You can read more about that [here](/app/dimensions#experiment-dimensions).

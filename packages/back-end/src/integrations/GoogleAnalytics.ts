@@ -1,5 +1,6 @@
 import { analyticsreporting_v4, google } from "googleapis";
 import { DataSourceType } from "aws-sdk/clients/quicksight";
+import cloneDeep from "lodash/cloneDeep";
 import {
   SourceIntegrationConstructor,
   SourceIntegrationInterface,
@@ -11,6 +12,7 @@ import {
   PastExperimentQueryResponse,
   ExperimentUnitsQueryResponse,
   ExperimentAggregateUnitsQueryResponse,
+  DimensionSlicesQueryResponse,
 } from "../types/Integration";
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { decryptDataSourceParams } from "../services/datasource";
@@ -26,6 +28,7 @@ import {
 } from "../../types/datasource";
 import { MetricInterface } from "../../types/metric";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
+import { applyMetricOverrides } from "../util/integration";
 
 export function getOauth2Client() {
   return new google.auth.OAuth2(
@@ -93,6 +96,12 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
     throw new Error("Method not implemented.");
   }
   runPastExperimentQuery(): Promise<PastExperimentQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  getDimensionSlicesQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  async runDimensionSlicesQuery(): Promise<DimensionSlicesQueryResponse> {
     throw new Error("Method not implemented.");
   }
   getMetricValueQuery(params: MetricValueParams): string {
@@ -230,8 +239,13 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
 
   getExperimentResultsQuery(
     snapshotSettings: ExperimentSnapshotSettings,
-    metrics: MetricInterface[]
+    metricDocs: MetricInterface[]
   ): string {
+    const metrics = metricDocs.map((m) => {
+      const mCopy = cloneDeep<MetricInterface>(m);
+      applyMetricOverrides(mCopy, snapshotSettings);
+      return mCopy;
+    });
     const metricExpressions = metrics.map((m) => ({
       expression: m.table,
     }));

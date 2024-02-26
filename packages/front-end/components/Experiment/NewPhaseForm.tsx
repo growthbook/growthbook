@@ -4,9 +4,11 @@ import {
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
+import { validateAndFixCondition } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
 import { getEqualWeights } from "@/services/utils";
+import { useIncrementer } from "@/hooks/useIncrementer";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
@@ -59,10 +61,17 @@ const NewPhaseForm: FC<{
   );
   const isValid = totalWeights > 0.99 && totalWeights < 1.01;
 
+  const [conditionKey, forceConditionRender] = useIncrementer();
+
   const submit = form.handleSubmit(async (value) => {
     if (!isValid) throw new Error("Variation weights must sum to 1");
 
     validateSavedGroupTargeting(value.savedGroups);
+
+    validateAndFixCondition(value.condition, (condition) => {
+      form.setValue("condition", condition);
+      forceConditionRender();
+    });
 
     await apiCall<{ status: number; message?: string }>(
       `/experiment/${experiment.id}/phase`,
@@ -129,6 +138,7 @@ const NewPhaseForm: FC<{
         <ConditionInput
           defaultValue={form.watch("condition")}
           onChange={(condition) => form.setValue("condition", condition)}
+          key={conditionKey}
         />
       )}
 

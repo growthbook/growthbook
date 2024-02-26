@@ -1,11 +1,11 @@
 ---
-title: Experiments (Adding and Configuring)
+title: Experiments (Setup)
 description: Add and configure your experiments.
-sidebar_label: Experiments (Adding and Configuring)
+sidebar_label: Experiments (Setup)
 slug: /app/experiment-configuration
 ---
 
-# Experiments (Adding and Configuring)
+# Experiments (Setup)
 
 The Experiments section in GrowthBook is all about analyzing raw experiment results in a data source.
 
@@ -47,49 +47,73 @@ There are several different ways to configure your experiment analysis.
 
 ### Experiment Metadata
 
-The top left of the experiment page shows the experiment name, tags description, hypothesis, and variation metadata. You can edit these fields as you see fit to help describe and categorize your experiment.
+On the experiment page in the "Overview" tab near the top of the page, you can see the experiment name, tags description, hypothesis, and variation metadata. You can edit these fields as you see fit to help describe and categorize your experiment.
 
-### Experiment Settings
+### Experiment Targeting and Traffic
+
+You can also configure targeting and traffic to your experiment's linked feature flags or visual editor changes. These settings do not have any effect on an experiment that is performing analysis only (with the exception of "experiment key"). On the "Overview" tab, you will see a section called "Targeting and Traffic" which allows you to modify these settings, such as:
+
+**Experiment Key** (tracking key) - This is the key that will be used when filtering your experiment assignment source to query experiment exposure data.
+
+**Hashing attribute** - This is the attribute that will be used to hash the user id to determine which variation they will be bucketed into.
+
+**Fallback attribute** (Sticky Bucketing enabled only) - The Fallback attribute be used when the hash attribute is missing or empty. For example falling back to an anonymous cookie identifier instead of a logged-in user id. Which ever attribute is first used to bucket the user into a variation will "stick". For example, if the user is logged out when they first view an experiment, it would use the fallback device id. If the user later logs in, it will continue using the bucket from their device id, even though they now have a logged-in id as well.
+
+**Targeting** - Create matching conditions using attributes and saved groups or target by namespaces.
+
+**Traffic** - Choose the percentage of traffic (coverage) and set the relative weights of each variation.
+
+### Analysis Settings
 
 Here is where much of your experiment analysis is configured. Many of the fields here have some text explaining how they affect your analysis. Here are a few of them in more detail:
 
-**Experiment Id** - This is the key that will be used when filtering your experiment assignment source to query experiment exposure data.
+**Experiment Key**
 
 **Activation Metric** - A binomial metric that will filter the users in your analysis to only those who have converted on this binomial metric. This should only be used if activation is expected to be independent of experiment assignment. If an experiment affects the activation metric directly, then there is the potential for bias in your analysis.
 
-**Metric Conversion Windows** - Each user has a conversion window defined by when they were exposed to the experiment. If a user was recently exposed to the experiment, or was exposed near the end of the experiment, they may not have had the full window to convert before the analysis window closes. You may exclude these users with "In-Progress Conversions" if you want your experiment averages to only include those who have had the full window to convert.
+**Metric Conversion Windows** - Some of your metrics may have "conversion windows" defined for them. For those metrics, we build a window for each user based on when they were first exposed to the experiment. If a user's first exposure to an experiment was recent (for a running experiment) or or near the end of a stopped experiment, they may not have had the full window to convert before the analysis window closes. You may exclude these users with "In-Progress Conversions" if you want your experiment averages to only include those who have had the full window to convert.
 
-**Attribution Model**
+**Conversion Override**
 
-Attribution models deal with how we attribute metric values (conversions, counts, any arbitrary value to be aggregated at the unit level) to individual units (e.g. users). They rely on the concept of "conversion windows" which is discussed more in depth on the [Metric documentation page](metrics).
+Previously called "Attribution Model" in the UI, this setting lets you use an experiment level override to disable all conversion windows and instead use the exposure period for a user (from their first exposure until the end of the experiment) as the metric window. You can read more about Metric Windows on the [Metric documentation page](metrics).
 
-There are 2 **Attribution Models** that experiments can use:
+- **Respect Conversion Windows** - This setting ensures that all conversion windows on your metrics are respected.
+- **Ignore Conversion Windows** - This setting overrides all metrics to be as if they had no conversion windows. Lookback windows will not be overriden by this setting.
 
-- **First Exposure** uses a single conversion window based on the first time the user sees a particular experiment. The conversion window runs from the exposure timestamp + the conversion delay hours and for however many hours the conversion window is set to. For example, if the delay is 12 hours, and the window is 24 hours, then we will aggregate the metric values for each user from 12-36 hours after their first experiment exposure.
-- **Experiment Duration** uses a single conversion window that extends from their first exposure + conversion delay until the end of the experiment or phase. For example, if the delay is 12 hours, then the conversion window will extend from 12 hours after each user is bucketed until the present time or the end of the experiment/phase, if specified.
-
-This table summarizes the two models:
-
-| Attribution Model   | Conversion Window Start                | Conversion Window End                              |
-| ------------------- | -------------------------------------- | -------------------------------------------------- |
-| First Exposure      | First Exposure Date + Conversion Delay | Conversion Window Start + Conversion Window Length |
-| Experiment Duration | First Exposure Date + Conversion Delay | End of Experiment                                  |
-
-Currently, all analyses will use the "First Exposure" model by default. The _Experiment Duration_ model replaced the _All Exposures_ model in early 2023.
+For those familiar with he "Experiment Duration" attribution model, choosing "Ignore Conversion Windows" will work the same way, and you should know that you can now specify the metric window behavior on a metric-by-metric basis (see the [Metric documentation page](metrics)).
 
 ### Experiment Metrics
 
-You can add metrics as goal metrics, guardrail metrics, or both. You also can add "Metric Overrides" which provide experiment-specific controls for metrics, allowing you to override the metric's defaults for, for example, conversion windows and risk thresholds.
+You can add metrics as goal metrics, guardrail metrics, or both. You also can add "Metric Overrides" which provide experiment-specific controls for metrics, allowing you to override the metric's defaults for, for example, metric windows and risk thresholds.
 
 ### Experiment Phases
 
-Experiment Phases can help you filter the dates used in the experiment analysis. Be very careful using phases. If you move the start date of the phase to past the start date of the experiment (and users were not re-randomized across phases), then your analysis could suffer from carryover bias. It is best to always look at the full history of an experiment if possible.
+Experiment Phases can help you filter the dates used in the experiment analysis. Be very careful using phases. If you move the start date of the phase to past the start date of the experiment (and users were not re-randomized across phases), then your analysis could suffer from [carryover bias](/statistics/carryover-bias). It is best to always look at the full history of an experiment if possible.
 
 ### Making Changes While Running
 
-We allow you make changes to an experiment's targeting while it is running. This is especially useful if you want to start running on a small percent of traffic and then gradually ramp up exposure.
+We allow you make changes to an experiment's targeting while it is running. This is especially useful if you want to start running on a small percent of traffic and then gradually ramp up exposure. To make a change to a running experiment, click the "Make Changes" button on the top of the experiment page.
 
-Based on what you are changing, there are two recommended ways to release these changes. The UI should guide you to make the correct recommended choice in most cases, but you are able to change this if desired.
+You will then be asked what sort of change you want to make, with options ranging from targeting changes to traffic and variation weight changes. You may also make multiple changes at once by choosing "advanced".
+
+Based on what you are changing, we will provide a list of possible release plans for that change and provide a recommended plan to use. The UI should guide you to make the correct recommended choice in most cases, but you are able to change this if desired.
+
+When changing a **single targeting or traffic setting**, your release plan options may include:
+
+- New phase, re-randomize traffic
+- Same phase, apply changes to everyone
+- Same phase, apply changes to new traffic only (Sticky Bucketing enabled only)
+
+Note that potentially unsafe options per your specific changes may be removed (often "Same phase" options are unsafe for certain types of changes).
+
+When using **"advanced"** to make multiple targeting or traffic changes at once, all above options will be made available (including potentially unsafe ones), as well as an additional option:
+
+- New Phase, re-randomize traffic, block bucketed users (Sticky Bucketing enabled only)
+
+If you are not making targeting or traffic changes and simply want to **start a new phase**, the release plan options will be:
+
+- New phase, re-randomize traffic
+- New phase, do not re-randomize
 
 #### Update the existing phase
 
@@ -101,20 +125,24 @@ However, if you're not careful, this can introduce significant bias and data qua
 - Removing a condition from an experiment (e.g. going from "US visitors only" to "All visitors")
 - Removing an experiment from a namespace
 
-All of these changes have something in common - they are simply increasing the number of users exposed to the experiment. There is no affect on existing users in the experiment.
+All of these changes have something in common - they are simply increasing the number of users exposed to the experiment. There is no effect on existing users in the experiment.
+
+If you have Sticky Bucketing enabled, you may also elect to apply changes to new traffic only, leaving already-bucketed users in their existing (sticky) buckets. An example of this scenario could be decreasing the percent of people included in the experiment for all new incoming users, but leaving existing users in their existing buckets.
 
 #### Start a new phase
 
 This creates a brand new phase of the experiment. All data collected until this point is excluded from the analysis and you start fresh (nothing is deleted from your data warehouse, we just hide old data from the results).
 
-In addition, there is a recommended toggle to re-randomize traffic. This will cause everyone - including existing experiment users - to get assigned a new random variation. This can be a disruptive user experience since many people will switch from Control to Treatment (or vice versa).
+In most cases, you will also want to re-randomize traffic. This will cause everyone - including existing experiment users - to get assigned a new random variation. This can be a disruptive user experience since many people will switch from Control to Treatment (or vice versa).
 
-Why would you ever want to do this? Some changes you make completely invalidate past results so this lets you cleanly separate the data analysis from before and after you make the change. Re-randomizing traffic can also eliminate carryover bias and make your results more reliable and accurate.
+Why would you ever want to do this? Some changes you make completely invalidate past results so this lets you cleanly separate the data analysis from before and after you make the change. Re-randomizing traffic can also eliminate [carryover bias](/statistics/carryover-bias) and make your results more reliable and accurate.
 
 We recommend this approach for any change that is not considered "safe" (listed above). This can include (but not limited to):
 
-- Changing the traffic split between variations
+- Changing the traffic split (weights) between variations
 - Adding a new targeting condition
 - Decreasing the percent of people included
 
 Because of how disruptive this can be, it's best to plan ahead before starting an experiment. It's better to start with more conservative targeting and scale up than the reverse (starting big and scaling back).
+
+As before, if you have Sticky Bucketing enabled, you have some additional options about how to treat already-bucketed users. By default when starting a new phase, these bucketed users will be reassigned (their sticky bucket will be cleared). You may instead choose to block these users from the experiment going forward (in which case they will still see the control). This strategy is only available in the "advanced" mode.

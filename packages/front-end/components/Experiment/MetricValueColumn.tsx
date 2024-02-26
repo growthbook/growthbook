@@ -56,18 +56,15 @@ export default function MetricValueColumn({
   let denominator = numberFormatter.format(denominatorValue);
 
   if (isFactMetric(metric)) {
-    const ratioMetric = metric.metricType === "ratio";
-    numerator = getColumnRefFormatter(
-      metric.numerator,
-      getFactTableById,
-      ratioMetric
-    )(numeratorValue, formatterOptions);
-    if (ratioMetric && metric.denominator) {
-      denominator = getColumnRefFormatter(
-        metric.denominator,
-        getFactTableById,
-        ratioMetric
-      )(denominatorValue, formatterOptions);
+    numerator = getColumnRefFormatter(metric.numerator, getFactTableById)(
+      numeratorValue,
+      formatterOptions
+    );
+    if (metric.metricType === "ratio" && metric.denominator) {
+      denominator = getColumnRefFormatter(metric.denominator, getFactTableById)(
+        denominatorValue,
+        formatterOptions
+      );
     }
   } else {
     numerator = getMetricFormatter(

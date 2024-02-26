@@ -1,9 +1,15 @@
 import { Request, Response, NextFunction } from "express";
-import { licenseInit } from "enterprise";
-import { hasPermission } from "shared/permissions";
+import {
+  getApiKeyReadAccessFilter,
+  getReadAccessFilter,
+  hasPermission,
+} from "shared/permissions";
 import { ApiRequestLocals } from "../../types/api";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
-import { getOrganizationById } from "../services/organizations";
+import {
+  getEnvironmentIdsFromOrg,
+  getOrganizationById,
+} from "../services/organizations";
 import { getCustomLogProps } from "../util/logger";
 import { EventAuditUserApiKey } from "../events/event-types";
 import { isApiKeyForUserInOrganization } from "../util/api-key.util";
@@ -21,6 +27,7 @@ import { insertAudit } from "../models/AuditModel";
 import { getTeamsForOrganization } from "../models/TeamModel";
 import { TeamInterface } from "../../types/team";
 import { getUserById } from "../services/users";
+import { initializeLicense } from "../services/licenseData";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
@@ -59,7 +66,7 @@ export default function authenticateApiRequestMiddleware(
   // Lookup organization by secret key and store in req
   lookupOrganizationByApiKey(secretKey)
     .then(async (apiKeyPartial) => {
-      const { organization, secret, id, userId } = apiKeyPartial;
+      const { organization, secret, id, userId, role } = apiKeyPartial;
       if (!organization) {
         throw new Error("Invalid API key");
       }
@@ -116,6 +123,25 @@ export default function authenticateApiRequestMiddleware(
 
       const teams = await getTeamsForOrganization(org.id);
 
+      const eventAudit: EventAuditUserApiKey = {
+        type: "api_key",
+        apiKey: id || "unknown",
+      };
+
+      req.context = {
+        org,
+        userId: req.user?.id,
+        email: req.user?.email,
+        environments: getEnvironmentIdsFromOrg(org),
+        userName: req.user?.name,
+        readAccessFilter: userId
+          ? getReadAccessFilter(
+              getUserPermissions(userId, req.organization, teams)
+            )
+          : getApiKeyReadAccessFilter(role),
+        auditUser: eventAudit,
+      };
+
       // Check permissions for user API keys
       req.checkPermissions = (
         permission: Permission,
@@ -148,10 +174,6 @@ export default function authenticateApiRequestMiddleware(
       // Add user info to logger
       res.log = req.log = req.log.child(getCustomLogProps(req as Request));
 
-      const eventAudit: EventAuditUserApiKey = {
-        type: "api_key",
-        apiKey: id || "unknown",
-      };
       req.eventAudit = eventAudit;
 
       // Add audit method to req
@@ -167,7 +189,7 @@ export default function authenticateApiRequestMiddleware(
       };
 
       // init license for org if it exists
-      await licenseInit(req.organization.licenseKey);
+      await initializeLicense(req.organization.licenseKey);
 
       // Continue to the actual request handler
       next();

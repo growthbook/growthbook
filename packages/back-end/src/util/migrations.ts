@@ -30,6 +30,14 @@ import {
   MetricForSnapshot,
 } from "../../types/experiment-snapshot";
 import { getEnvironments } from "../services/organizations";
+import {
+  LegacySavedGroupInterface,
+  SavedGroupInterface,
+} from "../../types/saved-group";
+import {
+  FactMetricInterface,
+  LegacyFactMetricInterface,
+} from "../../types/fact-table";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -52,13 +60,51 @@ function adjustWeights(weights: number[]): number[] {
   });
 }
 
-export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
-  const newDoc = { ...doc };
+export function upgradeFactMetricDoc(
+  doc: LegacyFactMetricInterface
+): FactMetricInterface {
+  const newDoc: FactMetricInterface = { ...doc };
 
-  if (doc.conversionDelayHours == null && doc.earlyStart) {
-    newDoc.conversionDelayHours = -0.5;
-    newDoc.conversionWindowHours =
-      (doc.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) + 0.5;
+  if (doc.windowSettings === undefined) {
+    newDoc.windowSettings = {
+      type: doc.hasConversionWindow ? "conversion" : "",
+      windowValue: doc.conversionWindowValue || DEFAULT_CONVERSION_WINDOW_HOURS,
+      windowUnit: doc.conversionWindowUnit || "hours",
+      delayHours: doc.conversionDelayHours || 0,
+    };
+  }
+
+  if (doc.cappingSettings === undefined) {
+    newDoc.cappingSettings = {
+      type: doc.capping || "",
+      value: doc.capValue || 0,
+    };
+  }
+
+  return newDoc;
+}
+
+export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
+  const newDoc = cloneDeep(doc);
+
+  if (doc.windowSettings === undefined) {
+    if (doc.conversionDelayHours == null && doc.earlyStart) {
+      newDoc.windowSettings = {
+        type: "conversion",
+        windowValue:
+          (doc.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) + 0.5,
+        windowUnit: "hours",
+        delayHours: -0.5,
+      };
+    } else {
+      newDoc.windowSettings = {
+        type: "conversion",
+        windowValue:
+          doc.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS,
+        windowUnit: "hours",
+        delayHours: doc.conversionDelayHours || 0,
+      };
+    }
   }
 
   if (!doc.userIdTypes?.length) {
@@ -84,13 +130,28 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
     });
   }
 
-  if (doc.cap) {
-    newDoc.capValue = doc.cap;
-    newDoc.capping = "absolute";
+  if (doc.cappingSettings === undefined) {
+    if (doc.capping === undefined && doc.cap) {
+      newDoc.cappingSettings = {
+        type: "absolute",
+        value: doc.cap,
+      };
+    } else {
+      newDoc.cappingSettings = {
+        type: doc.capping || "",
+        value: doc.capValue || 0,
+      };
+    }
   }
-  if (newDoc.cap !== undefined) delete newDoc.cap;
 
-  return newDoc;
+  // delete old fields
+  delete newDoc.cap;
+  delete newDoc.capping;
+  delete newDoc.capValue;
+  delete newDoc.conversionDelayHours;
+  delete newDoc.conversionWindowHours;
+
+  return newDoc as MetricInterface;
 }
 
 export function getDefaultExperimentQuery(
@@ -365,7 +426,7 @@ export function upgradeOrganizationDoc(
     };
   }
 
-  // Default attribute schema
+  // Default attribute schema for backwards compatibility
   if (!org.settings.attributeSchema) {
     org.settings.attributeSchema = [
       { property: "id", datatype: "string", hashAttribute: true },
@@ -432,6 +493,15 @@ export function upgradeExperimentDoc(
         name: "",
         range: [0, 1],
       };
+      // Some experiments have a namespace with only `enabled` set, no idea why
+      // This breaks namespaces, so add default values if missing
+      if (!phase.namespace.range) {
+        phase.namespace = {
+          enabled: false,
+          name: "",
+          range: [0, 1],
+        };
+      }
     });
   }
 
@@ -449,6 +519,20 @@ export function upgradeExperimentDoc(
   // Old `observations` field
   if (!experiment.description && experiment.observations) {
     experiment.description = experiment.observations;
+  }
+
+  // metric overrides
+  if (experiment.metricOverrides) {
+    experiment.metricOverrides.forEach((mo) => {
+      mo.delayHours = mo.delayHours || mo.conversionDelayHours;
+      mo.windowHours = mo.windowHours || mo.conversionWindowHours;
+      if (
+        mo.windowType === undefined &&
+        mo.conversionWindowHours !== undefined
+      ) {
+        mo.windowType = "conversion";
+      }
+    });
   }
 
   // releasedVariationId
@@ -571,8 +655,12 @@ export function migrateSnapshot(
       return {
         id,
         computedSettings: {
-          conversionDelayHours: 0,
-          conversionWindowHours: DEFAULT_CONVERSION_WINDOW_HOURS,
+          windowSettings: {
+            type: "conversion",
+            delayHours: 0,
+            windowUnit: "hours",
+            windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
+          },
           regressionAdjustmentDays:
             regressionSettings?.regressionAdjustmentDays || 0,
           regressionAdjustmentEnabled: !!(
@@ -632,4 +720,33 @@ export function migrateSnapshot(
   }
 
   return snapshot;
+}
+
+export function migrateSavedGroup(
+  legacy: LegacySavedGroupInterface
+): SavedGroupInterface {
+  // Add `type` field to legacy groups
+  const { source, type, ...otherFields } = legacy;
+  const group: SavedGroupInterface = {
+    ...otherFields,
+    type: type || (source === "runtime" ? "condition" : "list"),
+  };
+
+  // Migrate legacy runtime groups to use a condition
+  if (
+    group.type === "condition" &&
+    !group.condition &&
+    source === "runtime" &&
+    group.attributeKey
+  ) {
+    group.condition = JSON.stringify({
+      $groups: {
+        $elemMatch: {
+          $eq: group.attributeKey,
+        },
+      },
+    });
+  }
+
+  return group;
 }

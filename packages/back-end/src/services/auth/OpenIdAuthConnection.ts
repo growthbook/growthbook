@@ -153,6 +153,7 @@ export class OpenIdAuthConnection implements AuthConnection {
       const middleware = jwtExpress({
         secret: jwks.expressJwtSecret({
           cache: true,
+          cacheMaxEntries: 50,
           rateLimit: true,
           jwksRequestsPerMinute: 5,
           jwksUri,
@@ -208,7 +209,7 @@ export class OpenIdAuthConnection implements AuthConnection {
       code_challenge,
       code_challenge_method: "S256",
       state,
-      audience: (ssoConnection.metadata?.audience ||
+      audience: (ssoConnection.metadata?.audience ??
         ssoConnection.clientId) as string,
     });
 

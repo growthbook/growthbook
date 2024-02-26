@@ -2,7 +2,10 @@ import type { Response } from "express";
 import { orgHasPremiumFeature } from "enterprise";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse, PrivateApiErrorResponse } from "../../../types/api";
-import { getOrgFromReq } from "../../services/organizations";
+import {
+  getEnvironments,
+  getContextFromReq,
+} from "../../services/organizations";
 import {
   ArchetypeAttributeValues,
   ArchetypeInterface,
@@ -20,9 +23,9 @@ import {
   auditDetailsUpdate,
 } from "../../services/audit";
 import { FeatureTestResult } from "../../../types/feature";
-import { evaluateFeature } from "../../services/features";
+import { evaluateFeature, getSavedGroupMap } from "../../services/features";
 import { getFeature } from "../../models/FeatureModel";
-import { promiseAllChunks } from "../../util/promise";
+import { getAllPayloadExperiments } from "../../models/ExperimentModel";
 import { getRevision } from "../../models/FeatureRevisionModel";
 
 type GetArchetypeResponse = {
@@ -34,7 +37,7 @@ export const getArchetype = async (
   req: AuthRequest,
   res: Response<GetArchetypeResponse>
 ) => {
-  const { org, userId } = getOrgFromReq(req);
+  const { org, userId } = getContextFromReq(req);
 
   req.checkPermissions("manageArchetype");
 
@@ -55,16 +58,33 @@ type GetArchetypeAndEvalResponse = {
 };
 
 export const getArchetypeAndEval = async (
-  req: AuthRequest<null, { id: string; version: string }>,
+  req: AuthRequest<
+    null,
+    { id: string; version: string },
+    {
+      scrubPrerequisites?: string;
+      skipRulesWithPrerequisites?: string;
+    }
+  >,
   res: Response<GetArchetypeAndEvalResponse | PrivateApiErrorResponse>
 ) => {
-  const { org, userId } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
   const { id, version } = req.params;
-  const feature = await getFeature(org.id, id);
+  const {
+    scrubPrerequisites: scrubPrerequisitesStr,
+    skipRulesWithPrerequisites: skipRulesWithPrerequisitesStr,
+  } = req.query;
+  const feature = await getFeature(context, id);
 
-  if (!feature) {
-    throw new Error("Feature not found");
-  }
+  const scrubPrerequisites =
+    scrubPrerequisitesStr === undefined
+      ? undefined
+      : ["1", "true"].includes(scrubPrerequisitesStr ?? "");
+  const skipRulesWithPrerequisites =
+    skipRulesWithPrerequisitesStr === undefined
+      ? undefined
+      : ["1", "true"].includes(skipRulesWithPrerequisitesStr ?? "");
 
   if (!orgHasPremiumFeature(org, "archetypes")) {
     return res.status(403).json({
@@ -73,31 +93,47 @@ export const getArchetypeAndEval = async (
     });
   }
 
+  if (!feature) {
+    throw new Error("Feature not found");
+  }
+
+  const revision = await getRevision(org.id, feature.id, parseInt(version));
+  if (!revision) {
+    throw new Error("Could not find feature revision");
+  }
+
   req.checkPermissions("manageArchetype");
 
   const archetype = await getAllArchetypes(org.id, userId);
   const featureResults: { [key: string]: FeatureTestResult[] } = {};
 
   if (archetype.length) {
-    const revision = await getRevision(org.id, feature.id, parseInt(version));
-    if (!revision) {
-      throw new Error("Could not find feature revision");
-    }
+    const groupMap = await getSavedGroupMap(org);
+    const experimentMap = await getAllPayloadExperiments(context);
+    const environments = getEnvironments(org);
 
-    const promiseCallbacks: (() => Promise<unknown>)[] = [];
     archetype.forEach((arch) => {
       try {
-        const attrs = JSON.parse(arch.attributes) as ArchetypeAttributeValues;
-        promiseCallbacks.push(async () => {
-          const result = await evaluateFeature(feature, revision, attrs, org);
-          if (!result) return;
-          featureResults[arch.id] = result;
+        const attributes = JSON.parse(
+          arch.attributes
+        ) as ArchetypeAttributeValues;
+        const result = evaluateFeature({
+          feature,
+          attributes,
+          environments,
+          experimentMap,
+          groupMap,
+          revision,
+          scrubPrerequisites,
+          skipRulesWithPrerequisites,
         });
+
+        if (!result) return;
+        featureResults[arch.id] = result;
       } catch (e) {
         // not sure what we should do with a json error - should be impossible to get here.
       }
     });
-    await promiseAllChunks(promiseCallbacks, 5);
   }
 
   return res.status(200).json({
@@ -124,7 +160,7 @@ export const postArchetype = async (
   req: CreateArchetypeRequest,
   res: Response<CreateArchetypeResponse | PrivateApiErrorResponse>
 ) => {
-  const { org, userId } = getOrgFromReq(req);
+  const { org, userId } = getContextFromReq(req);
   const { name, attributes, description, isPublic } = req.body;
 
   if (!orgHasPremiumFeature(org, "archetypes")) {
@@ -182,7 +218,7 @@ export const putArchetype = async (
     PutArchetypeResponse | ApiErrorResponse | PrivateApiErrorResponse
   >
 ) => {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { name, description, isPublic, owner, attributes } = req.body;
   const { id } = req.params;
 
@@ -252,7 +288,7 @@ export const deleteArchetype = async (
   req.checkPermissions("manageArchetype");
 
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const archetype = await getArchetypeById(id, org.id);
 

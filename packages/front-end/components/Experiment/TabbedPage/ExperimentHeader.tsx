@@ -5,9 +5,10 @@ import {
 } from "back-end/types/experiment";
 import { FaHome } from "react-icons/fa";
 import { PiChartBarHorizontalFill } from "react-icons/pi";
+import { FaHeartPulse } from "react-icons/fa6";
 import { useRouter } from "next/router";
 import { getAffectedEnvsForExperiment } from "shared/util";
-import React, { useState } from "react";
+import React, { ReactNode, useState } from "react";
 import { date, daysBetween } from "shared/dates";
 import { MdRocketLaunch } from "react-icons/md";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
@@ -24,10 +25,14 @@ import usePermissions from "@/hooks/usePermissions";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Modal from "@/components/Modal";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import track from "@/services/track";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultsIndicator from "../ResultsIndicator";
 import { StartExperimentBanner } from "../StartExperimentBanner";
+import { useSnapshot } from "../SnapshotProvider";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
-import StopExperimentButton from "./StopExperimentButton";
+import ExperimentActionButtons from "./ExperimentActionButtons";
 import { ExperimentTab } from ".";
 
 export interface Props {
@@ -49,7 +54,30 @@ export interface Props {
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editPhases?: (() => void) | null;
+  healthNotificationCount: number;
 }
+
+const datasourcesWithoutHealthData = new Set(["mixpanel", "google_analytics"]);
+
+const DisabledHealthTabTooltip = ({
+  reason,
+  children,
+}: {
+  reason: "UNSUPPORTED_DATASOURCE" | "DIMENSION_SELECTED";
+  children: ReactNode;
+}) => {
+  return (
+    <Tooltip
+      body={
+        reason === "UNSUPPORTED_DATASOURCE"
+          ? "Experiment Health is not available for Mixpanel or (legacy) Google Analytics data sources"
+          : "Set the Dimension to None to see Experiment Health"
+      }
+    >
+      {children}
+    </Tooltip>
+  );
+};
 
 export default function ExperimentHeader({
   tab,
@@ -70,11 +98,15 @@ export default function ExperimentHeader({
   editTargeting,
   newPhase,
   editPhases,
+  healthNotificationCount,
 }: Props) {
   const { apiCall } = useAuth();
   const router = useRouter();
   const permissions = usePermissions();
+  const { getDatasourceById } = useDefinitions();
+  const dataSource = getDatasourceById(experiment.datasource);
   const { scrollY } = useScrollPosition();
+  const { dimension } = useSnapshot();
   const headerPinned = scrollY > 45;
 
   const phases = experiment.phases || [];
@@ -109,8 +141,9 @@ export default function ExperimentHeader({
   }
   const canRunExperiment = canEditExperiment && hasRunExperimentsPermission;
 
-  const hasLinkedChanges =
-    linkedFeatures.length > 0 || visualChangesets.length > 0;
+  const isUsingHealthUnsupportDatasource =
+    !dataSource || datasourcesWithoutHealthData.has(dataSource.type);
+  const disableHealthTab = isUsingHealthUnsupportDatasource || !!dimension;
 
   return (
     <>
@@ -175,11 +208,9 @@ export default function ExperimentHeader({
 
             <div className="ml-2">
               {experiment.status === "running" ? (
-                <StopExperimentButton
+                <ExperimentActionButtons
                   editResult={editResult}
                   editTargeting={editTargeting}
-                  coverage={lastPhase?.coverage}
-                  hasLinkedChanges={hasLinkedChanges}
                 />
               ) : experiment.status === "stopped" && experiment.results ? (
                 <div className="experiment-status-widget border d-flex">
@@ -205,14 +236,14 @@ export default function ExperimentHeader({
 
             <div className="ml-2">
               <MoreMenu>
-                {editTargeting && (
+                {experiment.status !== "running" && editTargeting && (
                   <button
                     className="dropdown-item"
                     onClick={() => {
                       editTargeting();
                     }}
                   >
-                    Edit targeting / rollout
+                    Edit targeting & traffic
                   </button>
                 )}
                 {canRunExperiment && (
@@ -223,12 +254,6 @@ export default function ExperimentHeader({
                     Edit status
                   </button>
                 )}
-                <button
-                  className="dropdown-item"
-                  onClick={() => setAuditModal(true)}
-                >
-                  Audit log
-                </button>
                 {editPhases && (
                   <button
                     className="dropdown-item"
@@ -250,6 +275,12 @@ export default function ExperimentHeader({
                   <span className="badge badge-pill badge-info">
                     {usersWatching.length}
                   </span>
+                </button>
+                <button
+                  className="dropdown-item"
+                  onClick={() => setAuditModal(true)}
+                >
+                  Audit log
                 </button>
                 {duplicate && (
                   <button className="dropdown-item" onClick={duplicate}>
@@ -380,6 +411,37 @@ export default function ExperimentHeader({
                   activeClassName="active-tab"
                   last={false}
                 />
+                {disableHealthTab ? (
+                  <DisabledHealthTabTooltip
+                    reason={
+                      isUsingHealthUnsupportDatasource
+                        ? "UNSUPPORTED_DATASOURCE"
+                        : "DIMENSION_SELECTED"
+                    }
+                  >
+                    <span className="nav-item nav-link text-muted">
+                      <FaHeartPulse /> Health
+                    </span>
+                  </DisabledHealthTabTooltip>
+                ) : (
+                  <TabButton
+                    active={tab === "health"}
+                    display={
+                      <>
+                        <FaHeartPulse /> Health
+                      </>
+                    }
+                    anchor="health"
+                    onClick={() => {
+                      track("Open health tab", { source: "tab-click" });
+                      setTab("health");
+                    }}
+                    newStyle={false}
+                    activeClassName="active-tab"
+                    last={true}
+                    notificationCount={healthNotificationCount}
+                  />
+                )}
               </TabButtons>
             </div>
 

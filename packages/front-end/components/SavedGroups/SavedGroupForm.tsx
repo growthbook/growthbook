@@ -1,6 +1,13 @@
 import { FC, useState } from "react";
-import { SavedGroupInterface } from "back-end/types/saved-group";
+import {
+  CreateSavedGroupProps,
+  SavedGroupInterface,
+  SavedGroupType,
+  UpdateSavedGroupProps,
+} from "back-end/types/saved-group";
 import { useForm } from "react-hook-form";
+import { validateAndFixCondition } from "shared/util";
+import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "../../services/auth";
 import useMembers from "../../hooks/useMembers";
 import { useAttributeSchema } from "../../services/features";
@@ -9,18 +16,17 @@ import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import StringArrayField from "../Forms/StringArrayField";
-
-function getKeyFromName(name: string) {
-  return name.toLowerCase().split(/\s+/g).join("_").replace(/__*/g, "_");
-}
+import ConditionInput from "../Features/ConditionInput";
 
 const SavedGroupForm: FC<{
   close: () => void;
   current: Partial<SavedGroupInterface>;
-  runtime: boolean;
-}> = ({ close, current, runtime }) => {
+  type: SavedGroupType;
+}> = ({ close, current, type }) => {
   const { apiCall } = useAuth();
   const { memberUsernameOptions } = useMembers();
+
+  const [conditionKey, forceConditionRender] = useIncrementer();
 
   const attributeSchema = useAttributeSchema();
 
@@ -29,14 +35,14 @@ const SavedGroupForm: FC<{
   const [rawTextMode, setRawTextMode] = useState(false);
   const [rawText, setRawText] = useState(current.values?.join(", ") || "");
 
-  const form = useForm({
+  const form = useForm<CreateSavedGroupProps>({
     defaultValues: {
       groupName: current.groupName || "",
       owner: current.owner || "",
       attributeKey: current.attributeKey || "",
-      groupList: current.values || [],
-      id: current.id || "",
-      source: runtime ? "runtime" : "inline",
+      condition: current.condition || "",
+      type,
+      values: current.values || [],
     },
   });
 
@@ -46,25 +52,42 @@ const SavedGroupForm: FC<{
       open={true}
       size="lg"
       header={`${current.id ? "Edit" : "New"} ${
-        runtime ? "Runtime Group" : "Inline Group"
+        type === "condition" ? "Condition Group" : "ID List"
       }`}
       submit={form.handleSubmit(async (value) => {
-        if (runtime) {
-          value.source = "runtime";
-          value.groupList = [];
-
-          if (!value.attributeKey) {
-            value.attributeKey = getKeyFromName(value.groupName);
+        if (type === "condition") {
+          const conditionRes = validateAndFixCondition(value.condition, (c) => {
+            form.setValue("condition", c);
+            forceConditionRender();
+          });
+          if (conditionRes.empty) {
+            throw new Error("Condition cannot be empty");
           }
         }
 
-        await apiCall(
-          current.id ? `/saved-groups/${current.id}` : `/saved-groups`,
-          {
-            method: current.id ? "PUT" : "POST",
-            body: JSON.stringify(value),
-          }
-        );
+        // Update existing saved group
+        if (current.id) {
+          const payload: UpdateSavedGroupProps = {
+            condition: value.condition,
+            groupName: value.groupName,
+            owner: value.owner,
+            values: value.values,
+          };
+          await apiCall(`/saved-groups/${current.id}`, {
+            method: "PUT",
+            body: JSON.stringify(payload),
+          });
+        }
+        // Create new saved group
+        else {
+          const payload: CreateSavedGroupProps = {
+            ...value,
+          };
+          await apiCall(`/saved-groups`, {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+        }
         mutateDefinitions({});
       })}
     >
@@ -77,7 +100,7 @@ const SavedGroupForm: FC<{
       {current.id && (
         <SelectField
           label="Owner"
-          value={form.watch("owner")}
+          value={form.watch("owner") || ""}
           onChange={(v) => form.setValue("owner", v)}
           placeholder="Optional"
           options={memberUsernameOptions.map((m) => ({
@@ -86,19 +109,21 @@ const SavedGroupForm: FC<{
           }))}
         />
       )}
-      {runtime ? (
-        <Field
-          {...form.register("attributeKey")}
-          label="Group Identifier"
-          placeholder={getKeyFromName(form.watch("groupName"))}
-          helpText="This is the unique group identifier you will reference in your code."
+      {type === "condition" ? (
+        <ConditionInput
+          defaultValue={form.watch("condition") || ""}
+          onChange={(v) => form.setValue("condition", v)}
+          key={conditionKey}
+          emptyText="No conditions specified."
+          title="Include all users who match the following"
+          require
         />
       ) : (
         <>
           <SelectField
             label="Attribute Key"
             required
-            value={form.watch("attributeKey")}
+            value={form.watch("attributeKey") || ""}
             disabled={!!current.attributeKey}
             onChange={(v) => form.setValue("attributeKey", v)}
             placeholder="Choose one..."
@@ -118,7 +143,7 @@ const SavedGroupForm: FC<{
               onChange={(e) => {
                 setRawText(e.target.value);
                 form.setValue(
-                  "groupList",
+                  "values",
                   e.target.value.split(",").map((val) => val.trim())
                 );
               }}
@@ -127,9 +152,9 @@ const SavedGroupForm: FC<{
             <StringArrayField
               containerClassName="mb-0"
               label="Create list of values"
-              value={form.watch("groupList")}
+              value={form.watch("values") || []}
               onChange={(values) => {
-                form.setValue("groupList", values);
+                form.setValue("values", values);
                 setRawText(values.join(","));
               }}
               placeholder="Enter some values..."

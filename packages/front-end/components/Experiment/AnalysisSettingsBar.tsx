@@ -129,6 +129,8 @@ export default function AnalysisSettingsBar({
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const [refreshError, setRefreshError] = useState("");
 
+  const manualSnapshot = !datasource;
+
   return (
     <div>
       {modalOpen && experiment && (
@@ -156,16 +158,6 @@ export default function AnalysisSettingsBar({
           {newUi && setVariationFilter && setBaselineRow ? (
             <>
               <div className="col-auto form-inline pr-5">
-                <VariationChooser
-                  variations={experiment.variations}
-                  variationFilter={variationFilter ?? []}
-                  setVariationFilter={setVariationFilter}
-                  baselineRow={baselineRow ?? 0}
-                  dropdownEnabled={snapshot?.dimension !== "pre:date"}
-                />
-                <em className="text-muted mx-3" style={{ marginTop: 15 }}>
-                  vs
-                </em>
                 <BaselineChooser
                   variations={experiment.variations}
                   setVariationFilter={setVariationFilter}
@@ -176,8 +168,20 @@ export default function AnalysisSettingsBar({
                   setAnalysisSettings={setAnalysisSettings}
                   loading={!!loading}
                   mutate={mutate}
-                  dropdownEnabled={snapshot?.dimension !== "pre:date"}
+                  dropdownEnabled={
+                    !manualSnapshot && snapshot?.dimension !== "pre:date"
+                  }
                   dimension={dimension}
+                />
+                <em className="text-muted mx-3" style={{ marginTop: 15 }}>
+                  vs
+                </em>
+                <VariationChooser
+                  variations={experiment.variations}
+                  variationFilter={variationFilter ?? []}
+                  setVariationFilter={setVariationFilter}
+                  baselineRow={baselineRow ?? 0}
+                  dropdownEnabled={snapshot?.dimension !== "pre:date"}
                 />
               </div>
             </>
@@ -198,7 +202,7 @@ export default function AnalysisSettingsBar({
               setAnalysisSettings={setAnalysisSettings}
             />
           </div>
-          {newUi && setDifferenceType ? (
+          {newUi && !manualSnapshot && setDifferenceType ? (
             <div className="col-auto form-inline pr-5">
               <DifferenceTypeChooser
                 differenceType={differenceType ?? "relative"}
@@ -411,6 +415,7 @@ export default function AnalysisSettingsBar({
                     experiment={experiment}
                     lastAnalysis={analysis}
                     dimension={dimension}
+                    setAnalysisSettings={setAnalysisSettings}
                     onSubmit={() => {
                       if (baselineRow !== 0) {
                         setBaselineRow?.(0);

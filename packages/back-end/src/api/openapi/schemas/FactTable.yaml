@@ -1,0 +1,51 @@
+type: object
+required:
+  - id
+  - name
+  - description
+  - owner
+  - projects
+  - tags
+  - datasource
+  - userIdTypes
+  - sql
+  - managedBy
+  - dateCreated
+  - dateUpdated
+properties:
+  id:
+    type: string
+  name:
+    type: string
+  description:
+    type: string
+  owner:
+    type: string
+  projects:
+    type: array
+    items:
+      type: string
+  tags:
+    type: array
+    items:
+      type: string
+  datasource:
+    type: string
+  userIdTypes:
+    type: array
+    items:
+      type: string
+  sql:
+    type: string
+  managedBy:
+    type: string
+    description: Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere.
+    enum:
+      - ""
+      - api
+  dateCreated:
+    type: string
+    format: date-time
+  dateUpdated:
+    type: string
+    format: date-time

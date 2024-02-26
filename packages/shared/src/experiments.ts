@@ -1,5 +1,9 @@
 import { MetricInterface } from "back-end/types/metric";
-import { FactMetricInterface, FactTableMap } from "back-end/types/fact-table";
+import {
+  FactMetricInterface,
+  FactTableMap,
+  MetricWindowSettings,
+} from "back-end/types/fact-table";
 import { TemplateVariables } from "back-end/types/sql";
 import { OrganizationSettings } from "back-end/types/organization";
 import { MetricOverride } from "back-end/types/experiment";
@@ -10,7 +14,6 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
 } from "./constants";
-import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./settings/resolvers/genDefaultSettings";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
 
@@ -65,21 +68,27 @@ export function isFunnelMetric(
   return !!denominatorMetric && isBinomialMetric(denominatorMetric);
 }
 
+export function isRegressionAdjusted(
+  m: ExperimentMetricInterface,
+  denominatorMetric?: ExperimentMetricInterface
+) {
+  return (
+    (m.regressionAdjustmentDays ?? 0) > 0 &&
+    !!m.regressionAdjustmentEnabled &&
+    !isRatioMetric(m, denominatorMetric)
+  );
+}
+
 export function getConversionWindowHours(
-  metric: ExperimentMetricInterface
+  windowSettings: MetricWindowSettings
 ): number {
-  if ("conversionWindowHours" in metric && metric.conversionWindowHours) {
-    return metric.conversionWindowHours;
-  }
+  const value = windowSettings.windowValue;
+  if (windowSettings.windowUnit === "hours") return value;
+  if (windowSettings.windowUnit === "days") return value * 24;
+  if (windowSettings.windowUnit === "weeks") return value * 24 * 7;
 
-  if ("conversionWindowValue" in metric) {
-    const value = metric.conversionWindowValue;
-    if (metric.conversionWindowUnit === "hours") return value;
-    if (metric.conversionWindowUnit === "days") return value * 24;
-    if (metric.conversionWindowUnit === "weeks") return value * 24 * 7;
-  }
-
-  return DEFAULT_CONVERSION_WINDOW_HOURS || 72;
+  // TODO
+  return 72;
 }
 
 export function getUserIdTypes(

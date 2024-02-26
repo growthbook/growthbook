@@ -20,6 +20,14 @@ properties:
     type: string
   hashAttribute:
     type: string
+  fallbackAttribute:
+    type: string
+  disableStickyBucketing:
+    type: boolean;
+  bucketVersion:
+    type: number
+  minBucketVersion:
+    type: number
   namespace:
     type: obect
     required:

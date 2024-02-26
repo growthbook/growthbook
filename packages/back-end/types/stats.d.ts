@@ -48,8 +48,12 @@ type StatsEngineDimensionResponse =
   | BayesianDimensionResponse
   | FrequentistVariationResponse;
 
-export interface ExperimentMetricAnalysis {
-  unknownVariations: string[];
-  multipleExposures: number;
-  dimensions: StatsEngineDimensionResponse[];
-}
+// Keep ExperimentMetricAnalysis and children classes in sync with gbstats
+export type ExperimentMetricAnalysis = {
+  metric: string;
+  analyses: {
+    unknownVariations: string[];
+    multipleExposures: number;
+    dimensions: StatsEngineDimensionResponse[];
+  }[];
+}[];

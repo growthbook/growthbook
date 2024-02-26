@@ -620,6 +620,15 @@ const NewDataSourceForm: FC<{
     );
   }
 
+  // Disabling the CTA if the user hasn't input a data set to call attention to the "Test Connection" button
+  if (
+    step == 2 &&
+    datasource.type === "bigquery" &&
+    !datasource.params?.defaultDataset
+  ) {
+    ctaEnabled = false;
+  }
+
   return (
     <Modal
       open={true}

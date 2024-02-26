@@ -20,7 +20,9 @@ import {
 } from "shared/constants";
 import { OrganizationSettings } from "@/../back-end/types/organization";
 import Link from "next/link";
-import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { MdInfoOutline } from "react-icons/md";
+import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
@@ -37,9 +39,7 @@ import {
 } from "@/hooks/useOrganizationMetricDefaults";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
-import { GBCuped, GBPremiumBadge, GBSequential } from "@/components/Icons";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
-import EditLicenseModal from "@/components/Settings/EditLicenseModal";
+import { GBCuped, GBSequential } from "@/components/Icons";
 import Toggle from "@/components/Forms/Toggle";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import SelectField from "@/components/Forms/SelectField";
@@ -51,6 +51,13 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { AppFeatures } from "@/types/app-features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
+import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
+import {
+  StickyBucketingToggleWarning,
+  StickyBucketingTooltip,
+} from "@/components/Features/FallbackAttributeSelector";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export const supportedCurrencies = {
   AED: "UAE Dirham (AED)",
@@ -240,21 +247,21 @@ const GeneralSettingsPage = (): React.ReactElement => {
     refreshOrganization,
     settings,
     organization,
-    accountPlan,
-    license,
     hasCommercialFeature,
   } = useUser();
   const [editOpen, setEditOpen] = useState(false);
-  const [editLicenseOpen, setEditLicenseOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState(false);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
   const [statsEngineTab, setStatsEngineTab] = useState<string>(
     settings.statsEngine || DEFAULT_STATS_ENGINE
   );
+  const [
+    codeRefsBranchesToFilterStr,
+    setCodeRefsBranchesToFilterStr,
+  ] = useState<string>("");
   const displayCurrency = useCurrency();
   const growthbook = useGrowthBook<AppFeatures>();
   const { datasources } = useDefinitions();
-  const healthTabSettingsEnabled = useFeatureIsOn<AppFeatures>("health-tab");
 
   const currencyOptions = Object.entries(
     supportedCurrencies
@@ -270,24 +277,21 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const hasSecureAttributesFeature = hasCommercialFeature(
     "hash-secure-attributes"
   );
+  const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
 
   const hasCustomChecklistFeature = hasCommercialFeature(
     "custom-launch-checklist"
   );
+  const hasCodeReferencesFeature = hasCommercialFeature("code-references");
+
+  const { data: sdkConnectionsData } = useSDKConnections();
+  const hasSDKWithStickyBucketing = getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+  }).includes("stickyBucketing");
 
   const { metricDefaults } = useOrganizationMetricDefaults();
 
-  const [upgradeModal, setUpgradeModal] = useState(false);
   const [editChecklistOpen, setEditChecklistOpen] = useState(false);
-  const showUpgradeButton = ["oss", "starter"].includes(accountPlan || "");
-  const licensePlanText =
-    (accountPlan === "enterprise"
-      ? "Enterprise"
-      : accountPlan === "pro"
-      ? "Pro"
-      : accountPlan === "pro_sso"
-      ? "Pro + SSO"
-      : "Starter") + (license && license.trial ? " (trial)" : "");
 
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
     defaultValues: {
@@ -318,7 +322,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         hours: 6,
         cron: "0 */6 * * *",
       },
-      runHealthTrafficQuery: true,
+      runHealthTrafficQuery: false,
       srmThreshold: DEFAULT_SRM_THRESHOLD,
       multipleExposureMinPercent: 0.01,
       confidenceLevel: 0.95,
@@ -334,6 +338,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
       secureAttributeSalt: "",
       killswitchConfirmation: false,
       defaultDataSource: settings.defaultDataSource || "",
+      useStickyBucketing: false,
+      useFallbackAttributes: false,
+      codeReferencesEnabled: false,
+      codeRefsBranchesToFilter: [],
+      codeRefsPlatformUrl: "",
     },
   });
   const { apiCall } = useAuth();
@@ -372,6 +381,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
     secureAttributeSalt: form.watch("secureAttributeSalt"),
     killswitchConfirmation: form.watch("killswitchConfirmation"),
     defaultDataSource: form.watch("defaultDataSource"),
+    useStickyBucketing: form.watch("useStickyBucketing"),
+    useFallbackAttributes: form.watch("useFallbackAttributes"),
+    codeReferencesEnabled: form.watch("codeReferencesEnabled"),
+    codeRefsBranchesToFilter: form.watch("codeRefsBranchesToFilter"),
+    codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
   };
 
   const [cronString, setCronString] = useState("");
@@ -408,17 +422,43 @@ const GeneralSettingsPage = (): React.ReactElement => {
               newVal.metricDefaults.minPercentageChange * 100,
           };
         }
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-        if (k === "confidenceLevel" && newVal?.confidenceLevel <= 1) {
-          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-          newVal.confidenceLevel = newVal.confidenceLevel * 100;
+        if (k === "confidenceLevel" && (newVal?.confidenceLevel ?? 0.95) <= 1) {
+          newVal.confidenceLevel = (newVal.confidenceLevel ?? 0.95) * 100;
+        }
+        if (
+          k === "multipleExposureMinPercent" &&
+          (newVal?.multipleExposureMinPercent ?? 0.01) <= 1
+        ) {
+          newVal.multipleExposureMinPercent =
+            (newVal.multipleExposureMinPercent ?? 0.01) * 100;
+        }
+
+        if (k === "useStickyBucketing") {
+          newVal.useStickyBucketing = hasStickyBucketFeature
+            ? newVal.useStickyBucketing
+            : false;
         }
       });
       form.reset(newVal);
       setOriginalValue(newVal);
       updateCronString(newVal.updateSchedule?.cron || "");
+      if (newVal.codeRefsBranchesToFilter) {
+        setCodeRefsBranchesToFilterStr(
+          newVal.codeRefsBranchesToFilter.join(", ")
+        );
+      }
     }
   }, [settings]);
+
+  useEffect(() => {
+    form.setValue(
+      "codeRefsBranchesToFilter",
+      codeRefsBranchesToFilterStr
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    );
+  }, [codeRefsBranchesToFilterStr]);
 
   const ctaEnabled = hasChanges(value, originalValue);
 
@@ -430,8 +470,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
         maxPercentageChange: value.metricDefaults.maxPercentageChange / 100,
         minPercentageChange: value.metricDefaults.minPercentageChange / 100,
       },
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      confidenceLevel: value.confidenceLevel / 100,
+      confidenceLevel: (value.confidenceLevel ?? 0.95) / 100,
+      multipleExposureMinPercent:
+        (value.multipleExposureMinPercent ?? 0.01) / 100,
     };
 
     await apiCall(`/organization`, {
@@ -549,14 +590,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
   return (
     <>
-      {upgradeModal && (
-        <UpgradeModal
-          close={() => setUpgradeModal(false)}
-          reason=""
-          source="settings"
-        />
-      )}
-
       {editChecklistOpen ? (
         <ExperimentCheckListModal close={() => setEditChecklistOpen(false)} />
       ) : null}
@@ -566,12 +599,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
           <EditOrganizationModal
             name={organization.name || ""}
             close={() => setEditOpen(false)}
-            mutate={refreshOrganization}
-          />
-        )}
-        {editLicenseOpen && (
-          <EditLicenseModal
-            close={() => setEditLicenseOpen(false)}
             mutate={refreshOrganization}
           />
         )}
@@ -606,122 +633,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 </div>
               </div>
             </div>
-            {(isCloud() || !isMultiOrg()) && (
-              <div>
-                <div className="divider border-bottom mb-3 mt-3" />
-                <div className="row">
-                  <div className="col-sm-3">
-                    <h4>License</h4>
-                  </div>
-                  <div className="col-sm-9">
-                    <div className="form-group row mb-2">
-                      <div className="col-sm-12">
-                        <strong>Plan type: </strong> {licensePlanText}{" "}
-                      </div>
-                    </div>
-                    {showUpgradeButton && (
-                      <div className="form-group row mb-1">
-                        <div className="col-sm-12">
-                          <button
-                            className="btn btn-premium font-weight-normal"
-                            onClick={() => setUpgradeModal(true)}
-                          >
-                            {accountPlan === "oss" ? (
-                              <>
-                                Try Enterprise <GBPremiumBadge />
-                              </>
-                            ) : (
-                              <>
-                                Try Pro <GBPremiumBadge />
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                    {!isCloud() && permissions.manageBilling && (
-                      <div className="form-group row mt-3 mb-0">
-                        <div className="col-sm-4">
-                          <div>
-                            <strong>License Key: </strong>
-                          </div>
-                          <div
-                            className="d-inline-block mt-1 mb-2 text-center text-muted"
-                            style={{
-                              width: 100,
-                              borderBottom: "1px solid #cccccc",
-                              pointerEvents: "none",
-                              overflow: "hidden",
-                              verticalAlign: "top",
-                            }}
-                          >
-                            {license ? "***************" : "(none)"}
-                          </div>{" "}
-                          <a
-                            href="#"
-                            className="pl-1"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setEditLicenseOpen(true);
-                            }}
-                          >
-                            <FaPencilAlt />
-                          </a>
-                        </div>
-                        {license && (
-                          <>
-                            <div className="col-sm-2">
-                              <div>Issued:</div>
-                              <span className="text-muted">{license.iat}</span>
-                            </div>
-                            <div className="col-sm-2">
-                              <div>Expires:</div>
-                              <span className="text-muted">{license.exp}</span>
-                            </div>
-                            <div className="col-sm-2">
-                              <div>Seats:</div>
-                              <span className="text-muted">{license.qty}</span>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="my-3 bg-white p-3 border">
-            <div className="row">
-              <div className="col-sm-3">
-                <h4>North Star Metrics</h4>
-              </div>
-              <div className="col-sm-9">
-                <p>
-                  North stars are metrics your team is focused on improving.
-                  These metrics are shown on the home page with the experiments
-                  that have the metric as a goal.
-                </p>
-                <div className={"form-group"}>
-                  <div className="my-3">
-                    <div className="form-group">
-                      <label>Metric(s)</label>
-                      <MetricsSelector
-                        selected={form.watch("northStar.metricIds")}
-                        onChange={(metrics) =>
-                          form.setValue("northStar.metricIds", metrics)
-                        }
-                      />
-                    </div>
-                    <Field
-                      label="Title"
-                      {...form.register("northStar.title")}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
+            {(isCloud() || !isMultiOrg()) && <ShowLicenseInfo />}
           </div>
 
           {hasFileConfig() && (
@@ -738,6 +650,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               .
             </div>
           )}
+
           {!hasFileConfig() && (
             <div className="alert alert-info my-3">
               <h3>Import/Export config.yml</h3>
@@ -790,6 +703,38 @@ const GeneralSettingsPage = (): React.ReactElement => {
             </div>
           )}
 
+          <div className="my-3 bg-white p-3 border">
+            <div className="row">
+              <div className="col-sm-3">
+                <h4>North Star Metrics</h4>
+              </div>
+              <div className="col-sm-9">
+                <p>
+                  North stars are metrics your team is focused on improving.
+                  These metrics are shown on the home page with the experiments
+                  that have the metric as a goal.
+                </p>
+                <div className={"form-group"}>
+                  <div className="my-3">
+                    <div className="form-group">
+                      <label>Metric(s)</label>
+                      <MetricsSelector
+                        selected={form.watch("northStar.metricIds")}
+                        onChange={(metrics) =>
+                          form.setValue("northStar.metricIds", metrics)
+                        }
+                      />
+                    </div>
+                    <Field
+                      label="Title"
+                      {...form.register("northStar.title")}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="bg-white p-3 border position-relative">
             <div className="row">
               <div className="col-sm-3">
@@ -797,7 +742,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               </div>
 
               <div className="col-sm-9">
-                <div className="form-inline flex-column align-items-start mb-4">
+                <div className="form-inline flex-column align-items-start mb-3">
                   <Field
                     label="Minimum experiment length (in days) when importing past
                   experiments"
@@ -819,9 +764,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   <Field
                     label="Warn when this percent of experiment users are in multiple variations"
                     type="number"
-                    step="any"
+                    step="1"
                     min="0"
-                    max="1"
+                    max="100"
                     className="ml-2"
                     containerClassName="mb-3"
                     append="%"
@@ -829,11 +774,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       width: "80px",
                     }}
                     disabled={hasFileConfig()}
-                    helpText={<span className="ml-2">from 0 to 1</span>}
                     {...form.register("multipleExposureMinPercent", {
                       valueAsNumber: true,
                       min: 0,
-                      max: 1,
+                      max: 100,
                     })}
                   />
 
@@ -841,7 +785,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     <SelectField
                       label={
                         <AttributionModelTooltip>
-                          Default Attribution Model <FaQuestionCircle />
+                          Default Conversion Window Override{" "}
+                          <FaQuestionCircle />
                         </AttributionModelTooltip>
                       }
                       className="ml-2"
@@ -855,18 +800,18 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       }}
                       options={[
                         {
-                          label: "First Exposure",
+                          label: "Respect Conversion Windows",
                           value: "firstExposure",
                         },
                         {
-                          label: "Experiment Duration",
+                          label: "Ignore Conversion Windows",
                           value: "experimentDuration",
                         },
                       ]}
                     />
                   </div>
 
-                  <div className="mb-3 form-group flex-column align-items-start">
+                  <div className="mb-4 form-group flex-column align-items-start">
                     <Field
                       label="Experiment Auto-Update Frequency"
                       className="ml-2"
@@ -926,64 +871,46 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       </div>
                     )}
                   </div>
-                  {healthTabSettingsEnabled && (
-                    <>
-                      <div>
-                        <label
-                          className="mr-1"
-                          htmlFor="toggle-runHealthTrafficQuery"
-                        >
-                          Run traffic query by default
-                        </label>
-                      </div>
-                      <div>
-                        <Toggle
-                          id={"toggle-runHealthTrafficQuery"}
-                          value={!!form.watch("runHealthTrafficQuery")}
-                          setValue={(value) => {
-                            form.setValue("runHealthTrafficQuery", value);
-                          }}
-                        />
-                      </div>
 
-                      <Field
-                        label="SRM threshold"
-                        type="number"
-                        step="0.001"
-                        style={{
-                          borderColor: srmHighlightColor,
-                          backgroundColor: srmHighlightColor
-                            ? srmHighlightColor + "15"
-                            : "",
-                        }}
-                        max="0.1"
-                        min="0.00001"
-                        className={`ml-2`}
-                        containerClassName="mb-3"
-                        append=""
-                        disabled={hasFileConfig()}
-                        helpText={
+                  <div className="d-flex form-group mb-3">
+                    <label
+                      className="mr-1"
+                      htmlFor="toggle-factTableQueryOptimization"
+                    >
+                      <PremiumTooltip
+                        commercialFeature="multi-metric-queries"
+                        body={
                           <>
-                            <span className="ml-2">(0.001 is default)</span>
-                            <div
-                              className="ml-2"
-                              style={{
-                                color: srmHighlightColor,
-                                flexBasis: "100%",
-                              }}
-                            >
-                              {srmWarningMsg}
-                            </div>
+                            <p>
+                              If multiple metrics from the same Fact Table are
+                              added to an experiment, this will combine them
+                              into a single query, which is much faster and more
+                              efficient.
+                            </p>
+                            <p>
+                              For data sources with usage-based billing like
+                              BigQuery or SnowFlake, this can result in
+                              substantial cost savings.
+                            </p>
                           </>
                         }
-                        {...form.register("srmThreshold", {
-                          valueAsNumber: true,
-                          min: 0,
-                          max: 1,
-                        })}
-                      />
-                    </>
-                  )}
+                      >
+                        Fact Table Query Optimization{" "}
+                        <MdInfoOutline className="text-info" />
+                      </PremiumTooltip>
+                    </label>
+                    <Toggle
+                      id={"toggle-factTableQueryOptimization"}
+                      value={
+                        hasCommercialFeature("multi-metric-queries") &&
+                        !form.watch("disableMultiMetricQueries")
+                      }
+                      setValue={(value) => {
+                        form.setValue("disableMultiMetricQueries", !value);
+                      }}
+                      disabled={!hasCommercialFeature("multi-metric-queries")}
+                    />
+                  </div>
 
                   <StatsEngineSelect
                     label="Default Statistics Engine"
@@ -993,6 +920,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       setStatsEngineTab(value);
                       form.setValue("statsEngine", value);
                     }}
+                    labelClassName="mr-2"
                   />
                 </div>
 
@@ -1300,15 +1228,155 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     </Tab>
                   </ControlledTabs>
                 </div>
+
+                <h4 className="mt-4 mb-2">Sticky Bucketing Settings</h4>
+                <div className="appbox py-2 px-3">
+                  <div className="w-100 mt-2">
+                    <div className="d-flex">
+                      <label
+                        className="mr-2"
+                        htmlFor="toggle-useStickyBucketing"
+                      >
+                        <PremiumTooltip
+                          commercialFeature={"sticky-bucketing"}
+                          body={<StickyBucketingTooltip />}
+                        >
+                          Enable Sticky Bucketing <FaQuestionCircle />
+                        </PremiumTooltip>
+                      </label>
+                      <Toggle
+                        id={"toggle-useStickyBucketing"}
+                        value={!!form.watch("useStickyBucketing")}
+                        setValue={(value) => {
+                          form.setValue(
+                            "useStickyBucketing",
+                            hasStickyBucketFeature ? value : false
+                          );
+                        }}
+                        disabled={
+                          !form.watch("useStickyBucketing") &&
+                          (!hasStickyBucketFeature ||
+                            !hasSDKWithStickyBucketing)
+                        }
+                      />
+                    </div>
+                    {!form.watch("useStickyBucketing") && (
+                      <div className="small">
+                        <StickyBucketingToggleWarning
+                          hasSDKWithStickyBucketing={hasSDKWithStickyBucketing}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {form.watch("useStickyBucketing") && (
+                    <div className="w-100 mt-4">
+                      <div className="d-flex">
+                        <label
+                          className="mr-2"
+                          htmlFor="toggle-useFallbackAttributes"
+                        >
+                          <Tooltip
+                            body={
+                              <>
+                                <div className="mb-2">
+                                  If the user&apos;s assignment attribute is not
+                                  available a fallback attribute may be used
+                                  instead. Toggle this to allow selection of a
+                                  fallback attribute when creating experiments.
+                                </div>
+                                <div>
+                                  While using a fallback attribute can improve
+                                  the consistency of the user experience, it can
+                                  also lead to statistical biases if not
+                                  implemented carefully. See the Sticky
+                                  Bucketing docs for more information.
+                                </div>
+                              </>
+                            }
+                          >
+                            Enable fallback attributes in experiments{" "}
+                            <FaQuestionCircle />
+                          </Tooltip>
+                        </label>
+                        <Toggle
+                          id={"toggle-useFallbackAttributes"}
+                          value={!!form.watch("useFallbackAttributes")}
+                          setValue={(value) =>
+                            form.setValue("useFallbackAttributes", value)
+                          }
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <h4 className="mt-4 mb-2">Experiment Health Settings</h4>
+                <div className="appbox pt-2 px-3">
+                  <div className="form-group mb-2 mt-2 mr-2 form-inline">
+                    <label
+                      className="mr-1"
+                      htmlFor="toggle-runHealthTrafficQuery"
+                    >
+                      Run traffic query by default
+                    </label>
+                    <Toggle
+                      id={"toggle-runHealthTrafficQuery"}
+                      value={!!form.watch("runHealthTrafficQuery")}
+                      setValue={(value) => {
+                        form.setValue("runHealthTrafficQuery", value);
+                      }}
+                    />
+                  </div>
+
+                  <div className="mt-3 form-inline flex-column align-items-start">
+                    <Field
+                      label="SRM p-value threshold"
+                      type="number"
+                      step="0.001"
+                      style={{
+                        borderColor: srmHighlightColor,
+                        backgroundColor: srmHighlightColor
+                          ? srmHighlightColor + "15"
+                          : "",
+                      }}
+                      max="0.1"
+                      min="0.00001"
+                      className={`ml-2`}
+                      containerClassName="mb-3"
+                      append=""
+                      disabled={hasFileConfig()}
+                      helpText={
+                        <>
+                          <span className="ml-2">(0.001 is default)</span>
+                          <div
+                            className="ml-2"
+                            style={{
+                              color: srmHighlightColor,
+                              flexBasis: "100%",
+                            }}
+                          >
+                            {srmWarningMsg}
+                          </div>
+                        </>
+                      }
+                      {...form.register("srmThreshold", {
+                        valueAsNumber: true,
+                        min: 0,
+                        max: 1,
+                      })}
+                    />
+                  </div>
+                </div>
+
                 <div className="mb-3 form-group flex-column align-items-start">
                   <PremiumTooltip
-                    className="d-flex align-items-center"
                     commercialFeature="custom-launch-checklist"
-                    body="Custom pre-launch checklists are available to Enterprise customers"
+                    premiumText="Custom pre-launch checklists are available to Enterprise customers"
                   >
-                    <h4 className="mb-0 pl-1">
+                    <div className="d-inline-block h4 mt-4 mb-0">
                       Experiment Pre-Launch Checklist
-                    </h4>
+                    </div>
                   </PremiumTooltip>
                   <p className="pt-2">
                     Configure required steps that need to be completed before an
@@ -1472,7 +1540,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   <Field
                     label={
                       <PremiumTooltip
-                        commercialFeature={"hash-secure-attributes"}
+                        commercialFeature="hash-secure-attributes"
                         body={
                           <>
                             <p>
@@ -1534,6 +1602,141 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       form.setValue("killswitchConfirmation", value);
                     }}
                   />
+                </div>
+                <div className="my-3">
+                  <PremiumTooltip commercialFeature={"code-references"}>
+                    <div
+                      className="d-inline-block h4 mt-4 mb-0"
+                      id="configure-code-refs"
+                    >
+                      Configure Code References
+                    </div>
+                  </PremiumTooltip>
+                  <div>
+                    <label className="mr-1" htmlFor="toggle-codeReferences">
+                      Enable displaying code references for feature flags in the
+                      GrowthBook UI
+                    </label>
+                  </div>
+                  <div className="my-2">
+                    <Toggle
+                      id={"toggle-codeReferences"}
+                      value={!!form.watch("codeReferencesEnabled")}
+                      setValue={(value) => {
+                        form.setValue("codeReferencesEnabled", value);
+                      }}
+                      disabled={!hasCodeReferencesFeature}
+                    />
+                  </div>
+                  {form.watch("codeReferencesEnabled") ? (
+                    <>
+                      <div className="my-4">
+                        <h4>Code References Setup</h4>
+                        <div className="appbox my-4 p-3">
+                          <div className="row">
+                            <div className="col-sm-9">
+                              <strong>For GitHub Users</strong>
+                              <p className="my-2">
+                                Use our all-in-one GitHub Action to integrate
+                                GrowthBook into your CI workflow.
+                              </p>
+                            </div>
+                            <div className="col-sm-3 text-right">
+                              <a
+                                href="https://github.com/marketplace/actions/growthbook-code-references"
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                Setup
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="appbox my-4 p-3">
+                          <div className="row">
+                            <div className="col-sm-9">
+                              <strong>For Non-GitHub Users</strong>
+                              <p className="my-2">
+                                Use our CLI utility that takes in a list of
+                                feature keys and scans your codebase to provide
+                                a JSON output of code references, which you can
+                                supply to our code references{" "}
+                                <a
+                                  href="https://docs.growthbook.io/api#tag/code-references"
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  REST API endpoint
+                                </a>
+                                .
+                              </p>
+                            </div>
+                            <div className="col-sm-3 text-right">
+                              <a
+                                href="https://github.com/growthbook/gb-find-code-refs"
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                CLI Utility
+                              </a>{" "}
+                              |{" "}
+                              <a
+                                href="https://hub.docker.com/r/growthbook/gb-find-code-refs"
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                Docker Image
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="my-4">
+                        <strong>
+                          Only show code refs from the following branches
+                          (comma-separated, optional):
+                        </strong>
+                        <Field
+                          className="my-2"
+                          type="text"
+                          placeholder="main, qa, dev"
+                          value={codeRefsBranchesToFilterStr}
+                          onChange={(v) => {
+                            const branches = v.currentTarget.value;
+                            setCodeRefsBranchesToFilterStr(branches);
+                          }}
+                        />
+                      </div>
+
+                      <div className="my-4">
+                        <strong>
+                          Platform (to allow direct linking, optional):
+                        </strong>
+                        <div className="d-flex">
+                          <SelectField
+                            className="my-2"
+                            value={form.watch("codeRefsPlatformUrl") || ""}
+                            isClearable
+                            options={[
+                              {
+                                label: "GitHub",
+                                value: "https://github.com",
+                              },
+                              {
+                                label: "GitLab",
+                                value: "https://gitlab.com",
+                              },
+                            ]}
+                            onChange={(v: string) => {
+                              if (!v) form.setValue("codeRefsPlatformUrl", "");
+                              else form.setValue("codeRefsPlatformUrl", v);
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  ) : null}
                 </div>
               </div>
             </div>

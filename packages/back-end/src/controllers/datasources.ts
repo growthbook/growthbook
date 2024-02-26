@@ -1,13 +1,16 @@
 import { Response } from "express";
 import uniqid from "uniqid";
+import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import * as bq from "@google-cloud/bigquery";
 import { AuthRequest } from "../types/AuthRequest";
-import { getOrgFromReq } from "../services/organizations";
+import { getContextFromReq } from "../services/organizations";
 import {
   DataSourceParams,
   DataSourceType,
   DataSourceSettings,
   DataSourceInterface,
+  ExposureQuery,
 } from "../../types/datasource";
 import {
   getSourceIntegrationObject,
@@ -47,6 +50,12 @@ import { MetricType } from "../../types/metric";
 import { TemplateVariables } from "../../types/sql";
 import { getUserById } from "../services/users";
 import { AuditUserLoggedIn } from "../../types/audit";
+import {
+  createDimensionSlices,
+  getLatestDimensionSlices,
+  getDimensionSlicesById,
+} from "../models/DimensionSlicesModel";
+import { DimensionSlicesQueryRunner } from "../queryRunners/DimensionSlicesQueryRunner";
 
 export async function postSampleData(
   req: AuthRequest,
@@ -58,11 +67,12 @@ export async function postSampleData(
   req.checkPermissions("createMetrics", "");
   req.checkPermissions("createAnalyses", "");
 
-  const { org, userId } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
   const orgId = org.id;
   const statsEngine = org.settings?.statsEngine || DEFAULT_STATS_ENGINE;
 
-  const existingMetrics = await getSampleMetrics(orgId);
+  const existingMetrics = await getSampleMetrics(context);
 
   let metric1 = existingMetrics.filter((m) => m.type === "binomial")[0];
   if (!metric1) {
@@ -76,6 +86,16 @@ export async function postSampleData(
       dateCreated: new Date(),
       dateUpdated: new Date(),
       runStarted: null,
+      cappingSettings: {
+        type: "",
+        value: 0,
+      },
+      windowSettings: {
+        type: "",
+        delayHours: 0,
+        windowValue: 0,
+        windowUnit: "hours",
+      },
       name: "Sample Conversions",
       description: `Part of the GrowthBook sample data set. Feel free to delete when finished exploring.`,
       type: "binomial",
@@ -97,6 +117,16 @@ export async function postSampleData(
       dateCreated: new Date(),
       dateUpdated: new Date(),
       runStarted: null,
+      cappingSettings: {
+        type: "",
+        value: 0,
+      },
+      windowSettings: {
+        type: "",
+        delayHours: 0,
+        windowValue: 0,
+        windowUnit: "hours",
+      },
       name: "Sample Revenue per User",
       description: `Part of the GrowthBook sample data set. Feel free to delete when finished exploring.`,
       type: "revenue",
@@ -185,11 +215,10 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
 
     await createExperiment({
       data: experiment,
-      organization: org,
-      user: res.locals.eventAudit,
+      context,
     });
 
-    const metricMap = await getMetricMap(org.id);
+    const metricMap = await getMetricMap(context);
 
     await createManualSnapshot(
       experiment,
@@ -248,10 +277,11 @@ export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.params;
 
-  const datasource = await getDataSourceById(id, org.id);
+  const datasource = await getDataSourceById(context, id);
   if (!datasource) {
     throw new Error("Cannot find datasource");
   }
@@ -268,10 +298,7 @@ export async function deleteDataSource(
   }
 
   // Make sure there are no metrics
-  const metrics = await getMetricsByDatasource(
-    datasource.id,
-    datasource.organization
-  );
+  const metrics = await getMetricsByDatasource(context, datasource.id);
   if (metrics.length > 0) {
     throw new Error(
       "Error: Please delete all metrics tied to this datasource first."
@@ -319,8 +346,8 @@ export async function deleteDataSource(
 }
 
 export async function getDataSources(req: AuthRequest, res: Response) {
-  const { org } = getOrgFromReq(req);
-  const datasources = await getDataSourcesByOrganization(org.id);
+  const context = getContextFromReq(req);
+  const datasources = await getDataSourcesByOrganization(context);
 
   if (!datasources || !datasources.length) {
     res.status(200).json({
@@ -351,10 +378,10 @@ export async function getDataSource(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
   const { id } = req.params;
 
-  const datasource = await getDataSourceById(id, org.id);
+  const datasource = await getDataSourceById(context, id);
   if (!datasource) {
     res.status(404).json({
       status: 404,
@@ -387,7 +414,7 @@ export async function postDataSources(
   }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { name, description, type, params, projects } = req.body;
   const settings = req.body.settings || {};
 
@@ -465,7 +492,8 @@ export async function putDataSource(
     email: user.email,
     name: user.name || "",
   };
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.params;
   const {
     name,
@@ -477,7 +505,7 @@ export async function putDataSource(
     metricsToCreate,
   } = req.body;
 
-  const datasource = await getDataSourceById(id, org.id);
+  const datasource = await getDataSourceById(context, id);
   if (!datasource) {
     res.status(404).json({
       status: 404,
@@ -557,13 +585,81 @@ export async function putDataSource(
       updates.params = encryptParams(integration.params);
     }
 
-    await updateDataSource(datasource, org.id, updates);
+    await updateDataSource(context, datasource, updates);
 
     res.status(200).json({
       status: 200,
     });
   } catch (e) {
     req.log.error(e, "Failed to update data source");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function updateExposureQuery(
+  req: AuthRequest<
+    {
+      updates: Partial<ExposureQuery>;
+    },
+    { datasourceId: string; exposureQueryId: string }
+  >,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { datasourceId, exposureQueryId } = req.params;
+  const { updates } = req.body;
+
+  const dataSource = await getDataSourceById(context, datasourceId);
+  if (!dataSource) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+    return;
+  }
+
+  req.checkPermissions(
+    "editDatasourceSettings",
+    dataSource?.projects?.length ? dataSource.projects : ""
+  );
+
+  const copy = cloneDeep<DataSourceInterface>(dataSource);
+  const exposureQueryIndex = copy.settings.queries?.exposure?.findIndex(
+    (e) => e.id === exposureQueryId
+  );
+  if (
+    exposureQueryIndex === undefined ||
+    !copy.settings.queries?.exposure?.[exposureQueryIndex]
+  ) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find exposure query",
+    });
+    return;
+  }
+
+  const exposureQuery = copy.settings.queries.exposure[exposureQueryIndex];
+  copy.settings.queries.exposure[exposureQueryIndex] = {
+    ...exposureQuery,
+    ...updates,
+  };
+
+  try {
+    const updates: Partial<DataSourceInterface> = {
+      dateUpdated: new Date(),
+      settings: copy.settings,
+    };
+
+    await updateDataSource(context, dataSource, updates);
+
+    res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    req.log.error(e, "Failed to update exposure query");
     res.status(400).json({
       status: 400,
       message: e.message || "An error occurred",
@@ -595,7 +691,7 @@ export async function getQueries(
   req: AuthRequest<null, { ids: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { ids } = req.params;
   const queries = ids.split(",");
 
@@ -617,11 +713,11 @@ export async function testLimitedQuery(
   }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
 
   const { query, datasourceId, templateVariables } = req.body;
 
-  const datasource = await getDataSourceById(datasourceId, org.id);
+  const datasource = await getDataSourceById(context, datasourceId);
   if (!datasource) {
     return res.status(404).json({
       status: 404,
@@ -652,13 +748,156 @@ export async function getDataSourceMetrics(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
   const { id } = req.params;
 
-  const metrics = await getMetricsByDatasource(id, org.id);
+  const metrics = await getMetricsByDatasource(context, id);
 
   res.status(200).json({
     status: 200,
     metrics,
   });
+}
+
+export async function getDimensionSlices(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getContextFromReq(req);
+  const { id } = req.params;
+
+  const dimensionSlices = await getDimensionSlicesById(org.id, id);
+
+  res.status(200).json({
+    status: 200,
+    dimensionSlices,
+  });
+}
+
+export async function getLatestDimensionSlicesForDatasource(
+  req: AuthRequest<null, { datasourceId: string; exposureQueryId: string }>,
+  res: Response
+) {
+  const { org } = getContextFromReq(req);
+  const { datasourceId, exposureQueryId } = req.params;
+
+  const dimensionSlices = await getLatestDimensionSlices(
+    org.id,
+    datasourceId,
+    exposureQueryId
+  );
+
+  res.status(200).json({
+    status: 200,
+    dimensionSlices,
+  });
+}
+
+export async function postDimensionSlices(
+  req: AuthRequest<{
+    dataSourceId: string;
+    queryId: string;
+    lookbackDays: number;
+  }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { dataSourceId, queryId, lookbackDays } = req.body;
+
+  const datasourceObj = await getDataSourceById(context, dataSourceId);
+  if (!datasourceObj) {
+    throw new Error("Could not find datasource");
+  }
+  req.checkPermissions(
+    "runQueries",
+    datasourceObj?.projects?.length ? datasourceObj.projects : ""
+  );
+
+  const integration = getSourceIntegrationObject(datasourceObj, true);
+
+  const model = await createDimensionSlices({
+    organization: org.id,
+    dataSourceId,
+    queryId,
+  });
+
+  const queryRunner = new DimensionSlicesQueryRunner(
+    context,
+    model,
+    integration
+  );
+  const outputmodel = await queryRunner.startAnalysis({
+    exposureQueryId: queryId,
+    lookbackDays: Number(lookbackDays) ?? 30,
+  });
+  res.status(200).json({
+    status: 200,
+    dimensionSlices: outputmodel,
+  });
+}
+
+export async function cancelDimensionSlices(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { id } = req.params;
+  const dimensionSlices = await getDimensionSlicesById(org.id, id);
+  if (!dimensionSlices) {
+    throw new Error("Could not cancel automatic dimension");
+  }
+  const datasource = await getDataSourceById(
+    context,
+    dimensionSlices.datasource
+  );
+  if (!datasource) {
+    throw new Error("Could not find datasource");
+  }
+
+  req.checkPermissions(
+    "runQueries",
+    datasource.projects ? datasource.projects : ""
+  );
+
+  const integration = getSourceIntegrationObject(datasource, true);
+
+  const queryRunner = new DimensionSlicesQueryRunner(
+    context,
+    dimensionSlices,
+    integration
+  );
+  await queryRunner.cancelQueries();
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function fetchBigQueryDatasets(
+  req: AuthRequest<{
+    projectId: string;
+    client_email: string;
+    private_key: string;
+  }>,
+  res: Response
+) {
+  const { projectId, client_email, private_key } = req.body;
+
+  try {
+    const client = new bq.BigQuery({
+      projectId,
+      credentials: { client_email, private_key },
+    });
+
+    const [datasets] = await client.getDatasets();
+
+    res.status(200).json({
+      status: 200,
+      datasets: datasets.map((dataset) => dataset.id).filter(Boolean),
+    });
+  } catch (e) {
+    throw new Error(e.message);
+  }
 }

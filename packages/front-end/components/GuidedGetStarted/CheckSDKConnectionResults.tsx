@@ -58,8 +58,7 @@ export default function TestConnectionResults({
           <h2 className={styles.notConnected}>Status: Not Connected</h2>
           <p>
             Something isn&apos;t quite right. Please double check that
-            you&apos;ve created a feature flag and implemented the SDK
-            instructions correctly.{" "}
+            you&apos;ve implemented the SDK instructions correctly.{" "}
             <a href="#" onClick={close} className="pl-1">
               View Implementation Instructions.
             </a>

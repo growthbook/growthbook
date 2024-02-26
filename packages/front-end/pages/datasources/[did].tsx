@@ -18,7 +18,6 @@ import { DataSourceInlineEditIdentityJoins } from "@/components/Settings/EditDat
 import { ExperimentAssignmentQueries } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries";
 import { DataSourceViewEditExperimentProperties } from "@/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceViewEditExperimentProperties";
 import { DataSourceJupyterNotebookQuery } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/DataSourceJupyterNotebookQuery";
-import { checkDatasourceProjectPermissions } from "@/services/datasources";
 import ProjectBadges from "@/components/ProjectBadges";
 import usePermissions from "@/hooks/usePermissions";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -59,7 +58,13 @@ const DataSourcePage: FC = () => {
 
   const canEdit =
     (d &&
-      checkDatasourceProjectPermissions(d, permissions, "createDatasources") &&
+      permissions.check("editDatasourceSettings", d.projects || []) &&
+      !hasFileConfig()) ||
+    false;
+
+  const canEditAndDelete =
+    (d &&
+      permissions.check("createDatasources", d.projects || []) &&
       !hasFileConfig()) ||
     false;
 
@@ -174,11 +179,15 @@ const DataSourcePage: FC = () => {
           Projects:{" "}
           {d?.projects?.length || 0 > 0 ? (
             <ProjectBadges
+              resourceType="data source"
               projectIds={d.projects}
               className="badge-ellipsis align-middle"
             />
           ) : (
-            <ProjectBadges className="badge-ellipsis align-middle" />
+            <ProjectBadges
+              resourceType="data source"
+              className="badge-ellipsis align-middle"
+            />
           )}
         </div>
       </div>
@@ -189,16 +198,17 @@ const DataSourcePage: FC = () => {
             {canEdit && (
               <div className="d-md-flex w-100 justify-content-between">
                 <div>
-                  <button
-                    className="btn btn-outline-primary mr-2 mt-1 font-weight-bold"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setEditConn(true);
-                    }}
-                  >
-                    <FaKey /> Edit Connection Info
-                  </button>
-
+                  {canEditAndDelete ? (
+                    <button
+                      className="btn btn-outline-primary mr-2 mt-1 font-weight-bold"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setEditConn(true);
+                      }}
+                    >
+                      <FaKey /> Edit Connection Info
+                    </button>
+                  ) : null}
                   <DocLink
                     className="btn btn-outline-secondary mr-2 mt-1 font-weight-bold"
                     docSection={d.type as DocSection}
@@ -220,7 +230,7 @@ const DataSourcePage: FC = () => {
                 </div>
 
                 <div>
-                  {canEdit && (
+                  {canEditAndDelete && (
                     <DeleteButton
                       displayName={d.name}
                       className="font-weight-bold mt-1"

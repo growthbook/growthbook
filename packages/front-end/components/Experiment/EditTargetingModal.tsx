@@ -1,28 +1,53 @@
-import { useForm } from "react-hook-form";
+import { useForm, UseFormReturn } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
 } from "back-end/types/experiment";
-import { useEffect, useMemo } from "react";
+import omit from "lodash/omit";
+import isEqual from "lodash/isEqual";
+import React, { useEffect, useState } from "react";
+import { validateAndFixCondition } from "shared/util";
+import { MdInfoOutline } from "react-icons/md";
+import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import { getEqualWeights } from "@/services/utils";
-import { useAttributeSchema } from "@/services/features";
+import { useAttributeSchema, useEnvironments } from "@/services/features";
+import ReleaseChangesForm from "@/components/Experiment/ReleaseChangesForm";
+import PagedModal from "@/components/Modal/PagedModal";
+import Page from "@/components/Modal/Page";
+import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
+import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
 import ConditionInput from "../Features/ConditionInput";
 import NamespaceSelector from "../Features/NamespaceSelector";
 import SelectField from "../Forms/SelectField";
-import Toggle from "../Forms/Toggle";
-import Tooltip from "../Tooltip/Tooltip";
-import { DocLink } from "../DocLink";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "../Features/SavedGroupTargetingField";
-import HashVersionSelector, {
-  NewBucketingSDKList,
-} from "./HashVersionSelector";
+import HashVersionSelector from "./HashVersionSelector";
+
+export type ChangeType =
+  | "targeting"
+  | "traffic"
+  | "weights"
+  | "namespace"
+  | "advanced"
+  | "phase";
+
+export type ReleasePlan =
+  | "new-phase"
+  | "same-phase-sticky"
+  | "same-phase-everyone"
+  | "new-phase-block-sticky" //advanced only
+  | "new-phase-same-seed" // available from "new phase" only
+  | "";
 
 export interface Props {
   close: () => void;
@@ -37,273 +62,473 @@ export default function EditTargetingModal({
   mutate,
   safeToEdit,
 }: Props) {
+  const { apiCall } = useAuth();
+  const [conditionKey, forceConditionRender] = useIncrementer();
+
+  const [step, setStep] = useState(0);
+  const [changeType, setChangeType] = useState<ChangeType | undefined>();
+  const [releasePlan, setReleasePlan] = useState<ReleasePlan | undefined>();
+  const [changesConfirmed, setChangesConfirmed] = useState(false);
+
+  const [
+    prerequisiteTargetingSdkIssues,
+    setPrerequisiteTargetingSdkIssues,
+  ] = useState(false);
+
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
 
-  const form = useForm<ExperimentTargetingData>({
-    defaultValues: {
-      condition: lastPhase?.condition ?? "",
-      savedGroups: lastPhase?.savedGroups ?? [],
-      coverage: lastPhase?.coverage ?? 1,
-      hashAttribute: experiment.hashAttribute || "id",
-      hashVersion: experiment.hashVersion || 2,
-      namespace: lastPhase?.namespace || {
-        enabled: false,
-        name: "",
-        range: [0, 1],
-      },
-      seed: lastPhase?.seed ?? "",
-      trackingKey: experiment.trackingKey || "",
-      variationWeights:
-        lastPhase?.variationWeights ??
-        getEqualWeights(experiment.variations.length, 4),
-      newPhase: false,
-      reseed: true,
+  const lastStepNumber = changeType !== "phase" ? 2 : 1;
+
+  const defaultValues = {
+    condition: lastPhase?.condition ?? "",
+    savedGroups: lastPhase?.savedGroups ?? [],
+    prerequisites: lastPhase?.prerequisites ?? [],
+    coverage: lastPhase?.coverage ?? 1,
+    hashAttribute: experiment.hashAttribute || "id",
+    fallbackAttribute: experiment.fallbackAttribute || "",
+    hashVersion: experiment.hashVersion || 2,
+    disableStickyBucketing: experiment.disableStickyBucketing ?? false,
+    bucketVersion: experiment.bucketVersion || 1,
+    minBucketVersion: experiment.minBucketVersion || 0,
+    namespace: lastPhase?.namespace || {
+      enabled: false,
+      name: "",
+      range: [0, 1],
     },
+    seed: lastPhase?.seed ?? "",
+    trackingKey: experiment.trackingKey || "",
+    variationWeights:
+      lastPhase?.variationWeights ??
+      getEqualWeights(experiment.variations.length, 4),
+    newPhase: false,
+    reseed: true,
+  };
+
+  const form = useForm<ExperimentTargetingData>({
+    defaultValues,
   });
-  const { apiCall } = useAuth();
+
+  const _formValues = omit(form.getValues(), [
+    "newPhase",
+    "reseed",
+    "bucketVersion",
+    "minBucketVersion",
+  ]);
+  const _defaultValues = omit(defaultValues, [
+    "newPhase",
+    "reseed",
+    "bucketVersion",
+    "minBucketVersion",
+  ]);
+  const hasChanges = !isEqual(_formValues, _defaultValues);
+
+  useEffect(() => {
+    if (changeType !== "advanced") {
+      form.reset();
+    }
+  }, [changeType, form]);
+
+  useEffect(() => {
+    if (step !== lastStepNumber) {
+      if (changeType === "phase") {
+        setReleasePlan("new-phase");
+      } else {
+        setReleasePlan("");
+      }
+      setChangesConfirmed(false);
+    }
+  }, [changeType, step, lastStepNumber, setReleasePlan]);
+
+  const onSubmit = form.handleSubmit(async (value) => {
+    validateSavedGroupTargeting(value.savedGroups);
+
+    validateAndFixCondition(value.condition, (condition) => {
+      form.setValue("condition", condition);
+      forceConditionRender();
+    });
+
+    if (prerequisiteTargetingSdkIssues) {
+      throw new Error("Prerequisite targeting issues must be resolved");
+    }
+
+    await apiCall(`/experiment/${experiment.id}/targeting`, {
+      method: "POST",
+      body: JSON.stringify(value),
+    });
+    mutate();
+  });
+
+  if (safeToEdit) {
+    return (
+      <Modal
+        open={true}
+        close={close}
+        header={`Edit Targeting`}
+        submit={onSubmit}
+        cta="Save"
+        size="lg"
+      >
+        <TargetingForm
+          experiment={experiment}
+          form={form}
+          safeToEdit={true}
+          conditionKey={conditionKey}
+          setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
+        />
+      </Modal>
+    );
+  }
+
+  let cta = "Publish changes";
+  let ctaEnabled = true;
+  let blockSteps: number[] = [];
+  if (!changeType) {
+    cta = "Select a change type";
+    ctaEnabled = false;
+    blockSteps = [1, 2];
+  } else {
+    if (changeType !== "phase" && !hasChanges) {
+      if (step === 1) {
+        cta = "No changes";
+        ctaEnabled = false;
+      }
+      blockSteps = [lastStepNumber];
+    }
+    if (!releasePlan && step === lastStepNumber) {
+      cta = "Select a release plan";
+      ctaEnabled = false;
+    }
+    if (step == lastStepNumber && !changesConfirmed) {
+      ctaEnabled = false;
+    }
+  }
+
+  return (
+    <PagedModal
+      close={close}
+      header="Make Experiment Changes"
+      submit={onSubmit}
+      cta={cta}
+      ctaEnabled={ctaEnabled}
+      forceCtaText={!ctaEnabled}
+      size="lg"
+      step={step}
+      setStep={(i) => {
+        if (!blockSteps.includes(i)) {
+          setStep(i);
+        }
+      }}
+      secondaryCTA={
+        step === lastStepNumber ? (
+          <div className="col ml-1 pl-0" style={{ minWidth: 500 }}>
+            <div className="d-flex m-0 pl-3 pr-2 py-1 alert alert-warning">
+              <div>
+                <strong>Warning:</strong> Changes made will apply to all linked
+                Feature Flags and Visual Editor changes immediately upon
+                publishing.
+              </div>
+              <label
+                htmlFor="confirm-changes"
+                className="btn btn-sm btn-warning d-flex my-1 ml-1 px-2 d-flex align-items-center justify-content-md-center"
+              >
+                <strong className="mr-2 user-select-none">Confirm</strong>
+                <input
+                  id="confirm-changes"
+                  type="checkbox"
+                  checked={changesConfirmed}
+                  onChange={(e) => setChangesConfirmed(e.target.checked)}
+                />
+              </label>
+            </div>
+          </div>
+        ) : undefined
+      }
+    >
+      <Page display="Type of Changes">
+        <div className="px-3 py-2">
+          <ChangeTypeSelector
+            changeType={changeType}
+            setChangeType={setChangeType}
+          />
+
+          <div className="mt-4">
+            <label>
+              Current experiment targeting and traffic (for reference)
+            </label>
+            <div className="appbox bg-light px-3 pt-3 pb-1 mb-0">
+              <TargetingInfo
+                experiment={experiment}
+                noHeader={true}
+                targetingFieldsOnly={true}
+                separateTrafficSplitDisplay={true}
+                showDecimals={true}
+                showNamespaceRanges={true}
+              />
+            </div>
+          </div>
+        </div>
+      </Page>
+
+      {changeType !== "phase" && (
+        <Page display="Make Changes">
+          <div className="px-2">
+            <TargetingForm
+              experiment={experiment}
+              form={form}
+              safeToEdit={false}
+              changeType={changeType}
+              conditionKey={conditionKey}
+              setPrerequisiteTargetingSdkIssues={
+                setPrerequisiteTargetingSdkIssues
+              }
+            />
+          </div>
+        </Page>
+      )}
+
+      <Page display="Review & Deploy">
+        <div className="px-3 mt-2">
+          <ReleaseChangesForm
+            experiment={experiment}
+            form={form}
+            changeType={changeType}
+            releasePlan={releasePlan}
+            setReleasePlan={setReleasePlan}
+          />
+        </div>
+      </Page>
+    </PagedModal>
+  );
+}
+
+function ChangeTypeSelector({
+  changeType,
+  setChangeType,
+}: {
+  changeType?: ChangeType;
+  setChangeType: (changeType: ChangeType) => void;
+}) {
+  const { namespaces } = useOrgSettings();
+
+  const options = [
+    { label: "Start a New Phase", value: "phase" },
+    {
+      label: "Saved Group, Attribute, and Prerequisite Targeting",
+      value: "targeting",
+    },
+    {
+      label: "Namespace Targeting",
+      value: "namespace",
+      disabled: !namespaces?.length,
+    },
+    { label: "Traffic Percent", value: "traffic" },
+    { label: "Variation Weights", value: "weights" },
+    {
+      label: (
+        <Tooltip body="Warning: When making multiple changes at the same time, it can be difficult to control for the impact of each change. The risk of introducing experimental bias increases. Proceed with caution.">
+          Advanced: multiple changes at once{" "}
+          <MdInfoOutline className="text-warning-orange" />
+        </Tooltip>
+      ),
+      value: "advanced",
+    },
+  ];
+
+  return (
+    <div className="form-group">
+      <label>What do you want to change?</label>
+      <div className="ml-2">
+        {options
+          .filter((o) => !o.disabled)
+          .map((o) => (
+            <div key={o.value} className="mb-2">
+              <div className="form-check">
+                <input
+                  className="form-check-input"
+                  type="radio"
+                  name="changeType"
+                  id={`changeType-${o.value}`}
+                  value={o.value}
+                  checked={changeType === o.value}
+                  onChange={() => setChangeType(o.value as ChangeType)}
+                />
+                <label
+                  className="form-check-label cursor-pointer text-dark font-weight-bold hover-underline"
+                  htmlFor={`changeType-${o.value}`}
+                >
+                  {o.label}
+                </label>
+              </div>
+            </div>
+          ))}
+      </div>
+    </div>
+  );
+}
+
+function TargetingForm({
+  experiment,
+  form,
+  safeToEdit,
+  changeType = "advanced",
+  conditionKey,
+  setPrerequisiteTargetingSdkIssues,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  form: UseFormReturn<ExperimentTargetingData>;
+  safeToEdit: boolean;
+  changeType?: ChangeType;
+  conditionKey: number;
+  setPrerequisiteTargetingSdkIssues: (v: boolean) => void;
+}) {
+  const hasLinkedChanges =
+    !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
 
   const attributeSchema = useAttributeSchema();
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
-  const newPhase = form.watch("newPhase");
-  const variationWeights = form.watch("variationWeights");
-  const coverage = form.watch("coverage");
-  const condition = form.watch("condition");
-  const namespace = form.watch("namespace");
-  const savedGroups = form.watch("savedGroups");
-  const encodedVariationWeights = JSON.stringify(variationWeights);
-  const encodedNamespace = JSON.stringify(namespace);
-  const isNamespaceEnabled = namespace.enabled;
-  const shouldCreateNewPhase = useMemo<boolean>(() => {
-    // If it's safe to edit (or there is no previous phase), we don't need to ask about creating a new phase
-    if (safeToEdit) return false;
-    if (!lastPhase) return false;
+  const { getDatasourceById } = useDefinitions();
+  const datasource = experiment.datasource
+    ? getDatasourceById(experiment.datasource)
+    : null;
+  const supportsSQL = datasource?.properties?.queryLanguage === "sql";
 
-    // Changing variation weights will almost certainly cause an SRM error
-    if (
-      encodedVariationWeights !== JSON.stringify(lastPhase.variationWeights)
-    ) {
-      return true;
-    }
-
-    // Remove outer curly braces from condition so we can use it to look for substrings
-    // e.g. If they have 3 conditions ANDed together and delete one, that is a safe change
-    // But if they add new conditions or modify an existing one, that is not
-    // There are some edge cases with '$or' that are not handled correctly, but those are super rare
-    const strippedCondition = condition.slice(1).slice(0, -1);
-    if (!(lastPhase.condition || "").includes(strippedCondition)) {
-      return true;
-    }
-
-    // Changing saved groups
-    // TODO: certain changes should be safe, so make this logic smarter
-    if (
-      JSON.stringify(savedGroups || []) !==
-      JSON.stringify(lastPhase.savedGroups || [])
-    ) {
-      return true;
-    }
-
-    // If adding or changing a namespace
-    if (
-      isNamespaceEnabled &&
-      encodedNamespace !== JSON.stringify(lastPhase.namespace)
-    ) {
-      return true;
-    }
-
-    // If reducing coverage
-    if (coverage < (lastPhase.coverage ?? 1)) {
-      return true;
-    }
-
-    // If not changing any of the above, no reason to create a new phase
-    return false;
-  }, [
-    coverage,
-    lastPhase,
-    encodedVariationWeights,
-    condition,
-    isNamespaceEnabled,
-    encodedNamespace,
-    savedGroups,
-    safeToEdit,
-  ]);
-
-  useEffect(() => {
-    form.setValue("newPhase", shouldCreateNewPhase);
-    form.setValue("reseed", true);
-  }, [form, shouldCreateNewPhase]);
+  const environments = useEnvironments();
+  const envs = environments.map((e) => e.id);
 
   return (
-    <Modal
-      open={true}
-      close={close}
-      header={`Edit Targeting`}
-      submit={form.handleSubmit(async (value) => {
-        validateSavedGroupTargeting(value.savedGroups);
-
-        await apiCall(`/experiment/${experiment.id}/targeting`, {
-          method: "POST",
-          body: JSON.stringify(value),
-        });
-        mutate();
-      })}
-      cta={safeToEdit ? "Save" : "Save and Publish"}
-      size="lg"
-    >
-      {safeToEdit ? (
+    <div className="px-2 pt-2">
+      {safeToEdit && (
         <>
           <Field
             label="Tracking Key"
             labelClassName="font-weight-bold"
             {...form.register("trackingKey")}
-            helpText="Unique identifier for this experiment, used to track impressions and analyze results"
-          />
-          <SelectField
-            label="Assignment Attribute"
-            labelClassName="font-weight-bold"
-            options={attributeSchema
-              .filter((s) => !hasHashAttributes || s.hashAttribute)
-              .map((s) => ({ label: s.property, value: s.property }))}
-            value={form.watch("hashAttribute")}
-            onChange={(v) => {
-              form.setValue("hashAttribute", v);
-            }}
             helpText={
-              "Will be hashed together with the Tracking Key to determine which variation to assign"
+              supportsSQL ? (
+                <>
+                  Unique identifier for this experiment, used to track
+                  impressions and analyze results. Will match against the{" "}
+                  <code>experiment_id</code> column in your data source.
+                </>
+              ) : (
+                <>
+                  Unique identifier for this experiment, used to track
+                  impressions and analyze results. Must match the experiment id
+                  in your tracking callback.
+                </>
+              )
             }
           />
+          <div className="d-flex" style={{ gap: "2rem" }}>
+            <SelectField
+              containerClassName="flex-1"
+              label="Assign variation based on attribute"
+              labelClassName="font-weight-bold"
+              options={attributeSchema
+                .filter((s) => !hasHashAttributes || s.hashAttribute)
+                .map((s) => ({ label: s.property, value: s.property }))}
+              sort={false}
+              value={form.watch("hashAttribute")}
+              onChange={(v) => {
+                form.setValue("hashAttribute", v);
+              }}
+              helpText={
+                "Will be hashed together with the Tracking Key to determine which variation to assign"
+              }
+            />
+            <FallbackAttributeSelector form={form} />
+          </div>
           <HashVersionSelector
             value={form.watch("hashVersion")}
             onChange={(v) => form.setValue("hashVersion", v)}
           />
         </>
-      ) : (
-        <div className="alert alert-warning">
-          <div>
-            <strong>
-              Warning: Experiment is still{" "}
-              {experiment.status === "running" ? "running" : "live"}
-            </strong>
-          </div>
-          Changes you make here will apply to all linked Feature Flags and
-          Visual Editor changes immediately upon saving.
-        </div>
       )}
-      <SavedGroupTargetingField
-        value={savedGroups || []}
-        setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
-      />
-      <ConditionInput
-        defaultValue={form.watch("condition")}
-        onChange={(condition) => form.setValue("condition", condition)}
-      />
-      <FeatureVariationsInput
-        valueType={"string"}
-        coverage={form.watch("coverage")}
-        setCoverage={(coverage) => form.setValue("coverage", coverage)}
-        setWeight={(i, weight) =>
-          form.setValue(`variationWeights.${i}`, weight)
-        }
-        valueAsId={true}
-        variations={
-          experiment.variations.map((v, i) => {
-            return {
-              value: v.key || i + "",
-              name: v.name,
-              weight: form.watch(`variationWeights.${i}`),
-              id: v.id,
-            };
-          }) || []
-        }
-        showPreview={false}
-      />
-      <NamespaceSelector
-        form={form}
-        featureId={experiment.trackingKey}
-        trackingKey={experiment.trackingKey}
-      />
 
-      {!safeToEdit && lastPhase && (
+      {(!hasLinkedChanges || safeToEdit) && <hr className="my-4" />}
+      {!hasLinkedChanges && (
         <>
-          <hr />
           <div className="alert alert-info">
-            We have defaulted you to the recommended release settings below
-            based on the changes you made above. These recommendations will
-            prevent bias and data quality issues in your results.{" "}
-            <DocLink docSection="targetingChanges">Learn more</DocLink>
+            Changes made below are only metadata changes and will have no impact
+            on actual experiment delivery unless you link a GrowthBook-managed
+            Linked Feature or Visual Change to this experiment.
           </div>
-          <SelectField
-            label="How to release changes"
-            options={[
-              {
-                label: "Start a new phase",
-                value: "new",
-              },
-              {
-                label: "Update the existing phase",
-                value: "existing",
-              },
-            ]}
-            formatOptionLabel={(value) => {
-              const recommended =
-                (value.value === "new" && shouldCreateNewPhase) ||
-                (value.value === "existing" && !shouldCreateNewPhase);
-
-              return (
-                <>
-                  {value.label}{" "}
-                  {recommended && (
-                    <span className="badge badge-purple badge-pill ml-2">
-                      recommended
-                    </span>
-                  )}
-                </>
-              );
-            }}
-            value={newPhase ? "new" : "existing"}
-            onChange={(value) =>
-              form.setValue("newPhase", value === "new" ? true : false)
-            }
-          />
-
-          {newPhase && (
-            <div className="form-group">
-              <Toggle
-                id="reseed-traffic"
-                value={form.watch("reseed")}
-                setValue={(reseed) => form.setValue("reseed", reseed)}
-              />{" "}
-              <label htmlFor="reseed-traffic" className="text-dark">
-                Re-randomize Traffic
-              </label>{" "}
-              <span className="badge badge-purple badge-pill ml-2">
-                recommended
-              </span>
-              <small className="form-text text-muted">
-                Removes carryover bias. Returning visitors will be re-bucketed
-                and may start seeing a different variation from before. Only
-                supported in{" "}
-                <Tooltip
-                  body={
-                    <>
-                      Only supported in the following SDKs:
-                      <NewBucketingSDKList />
-                      Unsupported SDKs and versions will simply ignore this
-                      setting and continue with the previous randomization.
-                    </>
-                  }
-                >
-                  <span className="text-primary">some SDKs</span>
-                </Tooltip>
-              </small>
-            </div>
-          )}
         </>
       )}
-    </Modal>
+
+      {["targeting", "advanced"].includes(changeType) && (
+        <>
+          <SavedGroupTargetingField
+            value={form.watch("savedGroups") || []}
+            setValue={(v) => form.setValue("savedGroups", v)}
+          />
+          <hr />
+          <ConditionInput
+            defaultValue={form.watch("condition")}
+            onChange={(condition) => form.setValue("condition", condition)}
+            key={conditionKey}
+          />
+          <hr />
+          <PrerequisiteTargetingField
+            value={form.watch("prerequisites") || []}
+            setValue={(prerequisites) =>
+              form.setValue("prerequisites", prerequisites)
+            }
+            environments={envs}
+            setPrerequisiteTargetingSdkIssues={
+              setPrerequisiteTargetingSdkIssues
+            }
+          />
+          {["advanced"].includes(changeType) && <hr />}
+        </>
+      )}
+
+      {["namespace", "advanced"].includes(changeType) && (
+        <>
+          <NamespaceSelector
+            form={form}
+            featureId={experiment.trackingKey}
+            trackingKey={experiment.trackingKey}
+          />
+          {["advanced"].includes(changeType) && <hr />}
+        </>
+      )}
+
+      {["traffic", "weights", "advanced"].includes(changeType) && (
+        <FeatureVariationsInput
+          valueType={"string"}
+          coverage={form.watch("coverage")}
+          setCoverage={(coverage) => form.setValue("coverage", coverage)}
+          setWeight={(i, weight) =>
+            form.setValue(`variationWeights.${i}`, weight)
+          }
+          valueAsId={true}
+          variations={
+            experiment.variations.map((v, i) => {
+              return {
+                value: v.key || i + "",
+                name: v.name,
+                weight: form.watch(`variationWeights.${i}`),
+                id: v.id,
+              };
+            }) || []
+          }
+          showPreview={false}
+          disableCoverage={changeType === "weights"}
+          disableVariations={changeType === "traffic"}
+          label={
+            changeType === "traffic"
+              ? "Traffic Percentage"
+              : changeType === "weights"
+              ? "Variation Weights"
+              : "Traffic Percentage & Variation Weights"
+          }
+          customSplitOn={true}
+        />
+      )}
+    </div>
   );
 }

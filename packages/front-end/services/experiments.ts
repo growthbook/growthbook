@@ -5,7 +5,7 @@ import {
   StatsEngine,
 } from "back-end/types/stats";
 import { useState } from "react";
-import { jStat } from "jstat";
+import normal from "@stdlib/stats/base/dists/normal";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariationWithIndex,
@@ -280,21 +280,18 @@ export function applyMetricOverrides<T extends ExperimentMetricInterface>(
   const overrideFields: string[] = [];
   const metricOverride = metricOverrides.find((mo) => mo.id === newMetric.id);
   if (metricOverride) {
-    if (!isNil(metricOverride?.conversionWindowHours)) {
-      if ("conversionWindowValue" in newMetric) {
-        // Fact metrics
-        newMetric.conversionWindowUnit = "hours";
-        newMetric.conversionWindowValue = metricOverride.conversionWindowHours;
-      } else {
-        // Old metrics
-        newMetric.conversionWindowHours = metricOverride.conversionWindowHours;
-      }
-
-      overrideFields.push("conversionWindowHours");
+    if (!isNil(metricOverride?.windowType)) {
+      newMetric.windowSettings.type = metricOverride.windowType;
+      overrideFields.push("windowType");
     }
-    if (!isNil(metricOverride?.conversionDelayHours)) {
-      newMetric.conversionDelayHours = metricOverride.conversionDelayHours;
-      overrideFields.push("conversionDelayHours");
+    if (!isNil(metricOverride?.windowHours)) {
+      newMetric.windowSettings.windowUnit = "hours";
+      newMetric.windowSettings.windowValue = metricOverride.windowHours;
+      overrideFields.push("windowHours");
+    }
+    if (!isNil(metricOverride?.delayHours)) {
+      newMetric.windowSettings.delayHours = metricOverride.delayHours;
+      overrideFields.push("delayHours");
     }
     if (!isNil(metricOverride?.winRisk)) {
       newMetric.winRisk = metricOverride.winRisk;
@@ -338,11 +335,13 @@ export function isStatSig(pValue: number, pValueThreshold: number): boolean {
   return pValue < pValueThreshold;
 }
 
-export function pValueFormatter(pValue: number): string {
+export function pValueFormatter(pValue: number, digits: number = 3): string {
   if (typeof pValue !== "number") {
     return "";
   }
-  return pValue < 0.001 ? "<0.001" : pValue.toFixed(3);
+  return pValue < Math.pow(10, -digits)
+    ? `<0.${"0".repeat(digits - 1)}1`
+    : pValue.toFixed(digits);
 }
 
 export type IndexedPValue = {
@@ -447,7 +446,7 @@ export function adjustedCI(
 ): [number, number] {
   if (!uplift.mean) return [uplift.mean ?? 0, uplift.mean ?? 0];
   const adjStdDev = Math.abs(
-    uplift.mean / jStat.normal.inv(1 - adjustedPValue / 2, 0, 1)
+    uplift.mean / normal.quantile(1 - adjustedPValue / 2, 0, 1)
   );
   const width = zScore * adjStdDev;
   return [uplift.mean - width, uplift.mean + width];
@@ -457,7 +456,7 @@ export function setAdjustedCIs(
   results: ExperimentReportResultDimension[],
   pValueThreshold: number
 ): void {
-  const zScore = jStat.normal.inv(1 - pValueThreshold / 2, 0, 1);
+  const zScore = normal.quantile(1 - pValueThreshold / 2, 0, 1);
   results.forEach((r) => {
     r.variations.forEach((v) => {
       for (const key in v.metrics) {

@@ -11,6 +11,8 @@ import { updateDataSource } from "../models/DataSourceModel";
 import { removeDeletedInformationSchemaTables } from "../models/InformationSchemaTablesModel";
 import { queueUpdateStaleInformationSchemaTable } from "../jobs/updateStaleInformationSchemaTable";
 import { promiseAllChunks } from "../util/promise";
+import { ApiReqContext } from "../../types/api";
+import { ReqContext } from "../../types/organization";
 import { getSourceIntegrationObject } from "./datasource";
 
 export function getRecentlyDeletedTables(
@@ -55,6 +57,7 @@ export function getRecentlyDeletedTables(
       });
     });
   });
+
   return deletedTableIds;
 }
 
@@ -210,18 +213,18 @@ export async function generateInformationSchema(
 }
 
 export async function initializeDatasourceInformationSchema(
-  datasource: DataSourceInterface,
-  organization: string
+  context: ReqContext | ApiReqContext,
+  datasource: DataSourceInterface
 ): Promise<void> {
   // Create an empty informationSchema
   const emptyInformationSchema = await createInformationSchema(
     [],
-    organization,
+    context.org.id,
     datasource.id
   );
 
   // Update the datasource with the informationSchemaId
-  await updateDataSource(datasource, organization, {
+  await updateDataSource(context, datasource, {
     settings: {
       ...datasource.settings,
       informationSchemaId: emptyInformationSchema.id,
@@ -233,7 +236,7 @@ export async function initializeDatasourceInformationSchema(
   );
 
   // Update the empty informationSchema record with the actual informationSchema
-  await updateInformationSchemaById(organization, emptyInformationSchema.id, {
+  await updateInformationSchemaById(context.org.id, emptyInformationSchema.id, {
     ...emptyInformationSchema,
     databases: informationSchema,
     status: "COMPLETE",

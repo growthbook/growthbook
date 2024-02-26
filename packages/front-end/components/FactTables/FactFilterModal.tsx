@@ -1,12 +1,13 @@
 import {
   CreateFactFilterProps,
   FactFilterInterface,
+  FactFilterTestResults,
   FactTableInterface,
   UpdateFactFilterProps,
 } from "back-end/types/fact-table";
 import { useForm } from "react-hook-form";
 import { useEffect, useState } from "react";
-import { FaAngleDown, FaAngleRight } from "react-icons/fa";
+import { FaAngleDown, FaAngleRight, FaPlay } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -14,6 +15,8 @@ import Modal from "../Modal";
 import Field from "../Forms/Field";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import InlineCode from "../SyntaxHighlighting/InlineCode";
+import DisplayTestQueryResults from "../Settings/DisplayTestQueryResults";
+import Button from "../Button";
 import FactTableSchema from "./FactTableSchema";
 
 export interface Props {
@@ -28,6 +31,12 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
   const [showDescription, setShowDescription] = useState(
     !!existing?.description?.length
   );
+
+  const [testResult, setTestResult] = useState<null | FactFilterTestResults>(
+    null
+  );
+
+  const [testBeforeSave, setTestBeforeSave] = useState(true);
 
   const [showExamples, setShowExamples] = useState(false);
 
@@ -48,6 +57,18 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
     );
   }, [isNew]);
 
+  const testQuery = async (value: string) => {
+    setTestResult(null);
+    const result = await apiCall<{
+      result: FactFilterTestResults;
+    }>(`/fact-tables/${factTable.id}/test-filter`, {
+      method: "POST",
+      body: JSON.stringify({ value }),
+    });
+    setTestResult(result.result);
+    return result.result;
+  };
+
   return (
     <Modal
       open={true}
@@ -61,6 +82,13 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
 
         if (!value.value) {
           throw new Error("Cannot leave Filter SQL blank");
+        }
+
+        if (testBeforeSave) {
+          const result = await testQuery(value.value);
+          if (result.error) {
+            throw new Error("Fix errors before saving");
+          }
         }
 
         if (existing) {
@@ -83,6 +111,17 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
         }
         mutateDefinitions();
       })}
+      secondaryCTA={
+        <label className="mr-4">
+          <input
+            type="checkbox"
+            className="form-check-input"
+            checked={testBeforeSave}
+            onChange={(e) => setTestBeforeSave(e.target.checked)}
+          />
+          Test before saving
+        </label>
+      }
     >
       <div className="row">
         <div className="col">
@@ -114,25 +153,26 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
             label="Filter SQL"
             required
             textarea
+            minRows={1}
             helpText={
               <>
-                Will be inserted into a WHERE clause to limit rows included in a
-                fact or metric
+                When this filter is added to a metric, this will be inserted
+                into the WHERE clause.{" "}
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowExamples(!showExamples);
+                  }}
+                >
+                  {showExamples ? "Hide" : "Show"} examples{" "}
+                  {showExamples ? <FaAngleDown /> : <FaAngleRight />}
+                </a>
               </>
             }
             {...form.register("value")}
           />
 
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setShowExamples(!showExamples);
-            }}
-          >
-            {showExamples ? "Hide" : "Show"} examples{" "}
-            {showExamples ? <FaAngleDown /> : <FaAngleRight />}
-          </a>
           {showExamples && (
             <div className="alert alert-info">
               <div className="mb-2">Here are some examples of Filter SQL:</div>
@@ -163,6 +203,19 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
               </table>
             </div>
           )}
+
+          <Button
+            color="primary"
+            className="btn-sm mr-4"
+            onClick={async () => {
+              await testQuery(form.watch("value"));
+            }}
+          >
+            <span className="pr-2">
+              <FaPlay />
+            </span>
+            Test Query
+          </Button>
         </div>
         {factTable.columns?.some((col) => !col.deleted) ? (
           <div className="col-auto border-left">
@@ -173,6 +226,18 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
           </div>
         ) : null}
       </div>
+      {testResult ? (
+        <div className="border-top mt-3 pt-2">
+          <DisplayTestQueryResults
+            duration={testResult.duration || 0}
+            results={testResult.results || []}
+            sql={testResult.sql || ""}
+            error={testResult.error || ""}
+            close={() => setTestResult(null)}
+            expandable={true}
+          />
+        </div>
+      ) : null}
     </Modal>
   );
 }

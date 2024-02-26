@@ -16,6 +16,7 @@ import {
 } from "@/services/features";
 import MoreMenu from "../Dropdown/MoreMenu";
 import Field from "../Forms/Field";
+import Tooltip from "../Tooltip/Tooltip";
 import FeatureValueField from "./FeatureValueField";
 import styles from "./VariationsInput.module.scss";
 
@@ -29,7 +30,7 @@ interface SortableProps {
   variations: SortableVariation[];
   valueType: FeatureValueType;
   setVariations?: (value: ExperimentValue[]) => void;
-  setWeight: (i: number, weight: number) => void;
+  setWeight?: (i: number, weight: number) => void;
   customSplit: boolean;
   valueAsId: boolean;
 }
@@ -62,6 +63,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       newValue: number,
       precision: number = 4
     ) => {
+      if (!setWeight) return;
       rebalance(weights, i, newValue, precision).forEach((w, j) => {
         // The weight needs updating
         if (w !== weights[j]) {
@@ -128,7 +130,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             {customSplit ? (
               <div className="col d-flex flex-row">
                 <input
-                  value={decimalToPercent(weights[i])}
+                  value={decimalToPercent(weights[i] ?? 0)}
                   onChange={(e) => {
                     rebalanceAndUpdate(i, percentToDecimal(e.target.value));
                   }}
@@ -137,10 +139,11 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                   step="0.01"
                   type="range"
                   className="w-100 mr-3"
+                  disabled={!setWeight}
                 />
                 <div className={`position-relative ${styles.percentInputWrap}`}>
                   <Field
-                    value={decimalToPercent(weights[i])}
+                    value={decimalToPercent(weights[i] ?? 0)}
                     onChange={(e) => {
                       // the split now should add to 100% if there are two variations.
                       rebalanceAndUpdate(
@@ -162,6 +165,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                     max={100}
                     step="any"
                     className={styles.percentInput}
+                    disabled={!setWeight}
                   />
                   <span>%</span>
                 </div>
@@ -178,33 +182,38 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             )}
             {setVariations && (
               <div className="col-auto">
-                <MoreMenu>
-                  <button
-                    disabled={variations.length <= 2}
-                    className={clsx(
-                      "dropdown-item",
-                      variations.length > 2 && "text-danger"
-                    )}
-                    onClick={(e) => {
-                      e.preventDefault();
-
-                      const newValues = [...variations];
-                      newValues.splice(i, 1);
-
-                      const newWeights = distributeWeights(
-                        newValues.map((v) => v.weight),
-                        customSplit
-                      );
-
-                      newValues.forEach((v, j) => {
-                        v.weight = newWeights[j] || 0;
-                      });
-                      setVariations(newValues);
-                    }}
-                    type="button"
+                <MoreMenu zIndex={1000000}>
+                  <Tooltip
+                    body="Experiments must have atleast two variations"
+                    shouldDisplay={variations.length <= 2}
                   >
-                    remove
-                  </button>
+                    <button
+                      disabled={variations.length <= 2}
+                      className={clsx(
+                        "dropdown-item",
+                        variations.length > 2 && "text-danger"
+                      )}
+                      onClick={(e) => {
+                        e.preventDefault();
+
+                        const newValues = [...variations];
+                        newValues.splice(i, 1);
+
+                        const newWeights = distributeWeights(
+                          newValues.map((v) => v.weight),
+                          customSplit
+                        );
+
+                        newValues.forEach((v, j) => {
+                          v.weight = newWeights[j] || 0;
+                        });
+                        setVariations(newValues);
+                      }}
+                      type="button"
+                    >
+                      remove
+                    </button>
+                  </Tooltip>
                 </MoreMenu>
               </div>
             )}

@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
-import { licenseInit, SSO_CONFIG } from "enterprise";
-import { hasPermission } from "shared/permissions";
+import { SSO_CONFIG } from "enterprise";
+import { userHasPermission } from "shared/permissions";
 import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
 import { markUserAsVerified, UserModel } from "../../models/UserModel";
@@ -22,8 +22,8 @@ import {
   EventAuditUserLoggedIn,
 } from "../../events/event-types";
 import { insertAudit } from "../../models/AuditModel";
-import { TeamInterface } from "../../../types/team";
 import { getTeamsForOrganization } from "../../models/TeamModel";
+import { initializeLicense } from "../licenseData";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
@@ -84,52 +84,32 @@ export async function processJWT(
   req.email = email || "";
   req.name = name || "";
   req.verified = verified || false;
-
-  let teams: TeamInterface[] = [];
-
-  const userHasPermission = (
-    permission: Permission,
-    teams: TeamInterface[],
-    project?: string,
-    envs?: string[]
-  ): boolean => {
-    if (!req.organization || !req.userId) {
-      return false;
-    }
-
-    if (req.superAdmin) {
-      return true;
-    }
-
-    // Generate full list of permissions for the user
-    const userPermissions = getUserPermissions(
-      req.userId,
-      req.organization,
-      teams
-    );
-
-    // Check if the user has the permission
-    return hasPermission(userPermissions, permission, project, envs);
-  };
+  req.teams = [];
 
   // Throw error if permissions don't pass
   req.checkPermissions = (
     permission: Permission,
-    project?: string | (string | undefined)[] | undefined,
+    project?: string | string[],
     envs?: string[] | Set<string>
   ) => {
-    let checkProjects: (string | undefined)[];
-    if (Array.isArray(project)) {
-      checkProjects = project.length > 0 ? project : [undefined];
-    } else {
-      checkProjects = [project];
-    }
-    for (const p of checkProjects) {
-      if (
-        !userHasPermission(permission, teams, p, envs ? [...envs] : undefined)
-      ) {
-        throw new Error("You do not have permission to complete that action.");
-      }
+    if (!req.userId || !req.organization) return false;
+
+    const userPermissions = getUserPermissions(
+      req.userId,
+      req.organization,
+      req.teams
+    );
+
+    if (
+      !userHasPermission(
+        req.superAdmin || false,
+        userPermissions,
+        permission,
+        project,
+        envs ? [...envs] : undefined
+      )
+    ) {
+      throw new Error("You do not have permission to complete that action.");
     }
   };
 
@@ -174,7 +154,7 @@ export async function processJWT(
           return;
         }
 
-        teams = await getTeamsForOrganization(req.organization.id);
+        req.teams = await getTeamsForOrganization(req.organization.id);
 
         // Make sure this is a valid login method for the organization
         try {
@@ -188,7 +168,7 @@ export async function processJWT(
         }
 
         // init license for org if it exists
-        await licenseInit(req.organization.licenseKey);
+        await initializeLicense(req.organization.licenseKey);
       } else {
         res.status(404).json({
           status: 404,

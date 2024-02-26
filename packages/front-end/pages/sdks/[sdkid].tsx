@@ -27,6 +27,7 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import { isCloud } from "@/services/env";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PageHead from "@/components/Layout/PageHead";
+import Webhooks from "./webhooks";
 
 function ConnectionDot({ left }: { left: boolean }) {
   return (
@@ -77,11 +78,13 @@ function ConnectionNode({
 function ConnectionStatus({
   connected,
   error,
+  errorTxt,
   refresh,
   canRefresh,
 }: {
   connected: boolean;
   error?: boolean;
+  errorTxt?: string;
   refresh?: ReactElement;
   canRefresh: boolean;
 }) {
@@ -99,9 +102,33 @@ function ConnectionStatus({
       ) : (
         <>
           {error ? (
-            <span className="text-danger">
-              <FaExclamationTriangle /> error
-            </span>
+            <>
+              <span className="text-danger">
+                <FaExclamationTriangle /> error
+              </span>
+              {errorTxt !== undefined && (
+                <Tooltip
+                  className="ml-2"
+                  usePortal={true}
+                  body={
+                    <>
+                      <div className="mb-2">
+                        Encountered an error while trying to connect:
+                      </div>
+                      {errorTxt ? (
+                        <div className="alert alert-danger mt-2">
+                          {errorTxt}
+                        </div>
+                      ) : (
+                        <div className="alert alert-danger">
+                          <em>Unknown error</em>
+                        </div>
+                      )}
+                    </>
+                  }
+                />
+              )}
+            </>
           ) : (
             <span className="text-secondary">
               <FaQuestionCircle /> not connected
@@ -324,7 +351,15 @@ export default function SDKConnectionPage() {
           >
             {connection.languages.map((language) => (
               <div className="mx-1" key={language}>
-                <SDKLanguageLogo showLabel={true} language={language} />
+                <SDKLanguageLogo
+                  showLabel={true}
+                  language={language}
+                  version={
+                    connection.languages?.length === 1
+                      ? connection.sdkVersion
+                      : undefined
+                  }
+                />
               </div>
             ))}
           </div>
@@ -363,6 +398,7 @@ export default function SDKConnectionPage() {
               connected={connection.proxy.connected}
               canRefresh={hasPermission}
               error={!connection.proxy.connected}
+              errorTxt={connection.proxy.error}
               refresh={
                 <ProxyTestButton
                   host={connection.proxy.host}
@@ -391,7 +427,7 @@ export default function SDKConnectionPage() {
         </ConnectionNode>
       </div>
 
-      <div className="row mb-5 align-items-center">
+      <div className="row mb-3 align-items-center">
         <div className="flex-1"></div>
         <div className="col-auto">
           <Tooltip
@@ -419,7 +455,7 @@ export default function SDKConnectionPage() {
           </Tooltip>
         </div>
       </div>
-
+      <Webhooks sdkid={sdkid} />
       <div className="mt-4">
         <CodeSnippetModal
           connections={data.connections}

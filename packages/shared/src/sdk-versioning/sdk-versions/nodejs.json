@@ -1,0 +1,38 @@
+{
+  "versions": [
+    {
+      "version": "0.34.0",
+      "capabilities": ["prerequisites"]
+    },
+    {
+      "version": "0.33.0"
+    },
+    {
+      "version": "0.32.0",
+      "capabilities": ["stickyBucketing"]
+    },
+    {
+      "version": "0.31.0"
+    },
+    {
+      "version": "0.27.0",
+      "capabilities": ["semverTargeting"]
+    },
+    {
+      "version": "0.23.0",
+      "capabilities": ["bucketingV2"]
+    },
+    {
+      "version": "0.21.0",
+      "capabilities": ["streaming"]
+    },
+    {
+      "version": "0.20.0",
+      "capabilities": ["encryption"]
+    },
+    {
+      "version": "0.0.0",
+      "capabilities": ["looseUnmarshalling"]
+    }
+  ]
+}

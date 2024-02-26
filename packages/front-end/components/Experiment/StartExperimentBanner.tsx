@@ -15,10 +15,12 @@ import {
 } from "back-end/types/experimentLaunchChecklist";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
+import { useCelebration } from "@/hooks/useCelebration";
 import useApi from "@/hooks/useApi";
 import Button from "../Button";
 import Tooltip from "../Tooltip/Tooltip";
 import ConfirmButton from "../Modal/ConfirmButton";
+import InitialSDKConnectionForm from "../Features/SDKConnections/InitialSDKConnectionForm";
 
 type ManualChecklist = {
   key: string;
@@ -75,6 +77,9 @@ export function StartExperimentBanner({
   );
   const [updatingChecklist, setUpdatingChecklist] = useState(false);
   const manualChecklist: ManualChecklist[] = [];
+  const startCelebration = useCelebration();
+
+  const [showSdkForm, setShowSdkForm] = useState(false);
 
   manualChecklist.push({
     key: "sdk-connection",
@@ -192,16 +197,24 @@ export function StartExperimentBanner({
   );
   checklist.push({
     display: "Integrate the GrowthBook SDK into your app.",
-    action: (
-      <Link href="/sdks">
-        <a>
-          {connections.length > 0
-            ? "Manage SDK Connections"
-            : "Create an SDK Connection"}{" "}
-          <FaExternalLinkAlt />
+    action:
+      connections.length > 0 ? (
+        <Link href="/sdks">
+          <a>
+            Manage SDK Connections <FaExternalLinkAlt />
+          </a>
+        </Link>
+      ) : (
+        <a
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            setShowSdkForm(true);
+          }}
+        >
+          Add SDK Connection
         </a>
-      </Link>
-    ),
+      ),
     status: verifiedConnections.length > 0 ? "success" : "error",
     tooltip:
       verifiedConnections.length > 0
@@ -261,6 +274,7 @@ export function StartExperimentBanner({
   }
 
   async function startExperiment() {
+    startCelebration();
     if (!experiment.phases?.length) {
       if (newPhase) {
         newPhase();
@@ -337,6 +351,16 @@ export function StartExperimentBanner({
 
   return (
     <div className={className ?? `appbox p-4 my-4`}>
+      {showSdkForm && (
+        <InitialSDKConnectionForm
+          close={() => setShowSdkForm(false)}
+          includeCheck={true}
+          cta="Continue"
+          goToNextStep={() => {
+            setShowSdkForm(false);
+          }}
+        />
+      )}
       <div className="row">
         <div className="col-auto text-left">
           <h3 className="text-purple">Pre-launch Check List</h3>

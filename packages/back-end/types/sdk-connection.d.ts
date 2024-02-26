@@ -13,6 +13,7 @@ export interface ProxyConnection {
 export type EditSDKConnectionParams = {
   name?: string;
   languages?: SDKLanguage[];
+  sdkVersion?: string;
   proxyEnabled?: boolean;
   proxyHost?: string;
   environment?: string;
@@ -28,6 +29,7 @@ export type CreateSDKConnectionParams = {
   organization: string;
   name?: string;
   languages?: SDKLanguage[];
+  sdkVersion?: string;
   proxyEnabled?: boolean;
   proxyHost?: string;
   environment: string;
@@ -41,6 +43,10 @@ export type CreateSDKConnectionParams = {
 };
 
 export type SDKLanguage =
+  | "nocode-webflow"
+  | "nocode-wordpress"
+  | "nocode-shopify"
+  | "nocode-other"
   | "javascript"
   | "nodejs"
   | "react"
@@ -62,8 +68,10 @@ export interface SDKConnectionInterface {
   dateCreated: Date;
   dateUpdated: Date;
 
-  // The SDK languages being used (e.g. `javascript`)
+  // The SDK languages being used (e.g. `javascript`). Ideally it should only have 1 language (previously we encouraged multiple)
   languages: SDKLanguage[];
+  // The SDK version being used (e.g. `1.0.0`). Assumes a single language, otherwise should default to "0".
+  sdkVersion?: string;
 
   // SDK payload settings
   environment: string;

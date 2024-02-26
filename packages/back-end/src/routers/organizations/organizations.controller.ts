@@ -2,12 +2,13 @@ import { Response } from "express";
 import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
-  licenseInit,
   accountFeatures,
   getAccountPlan,
+  getEffectiveAccountPlan,
   getLicense,
   setLicense,
 } from "enterprise";
+import { hasReadAccess } from "shared/permissions";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -18,9 +19,9 @@ import {
   addPendingMemberToOrg,
   expandOrgMembers,
   findVerifiedOrgForNewUser,
+  getContextFromReq,
   getEnvironments,
   getInviteUrl,
-  getOrgFromReq,
   importConfig,
   inviteUser,
   isEnterpriseSSO,
@@ -40,6 +41,7 @@ import {
   NamespaceUsage,
   OrganizationInterface,
   OrganizationSettings,
+  SDKAttribute,
 } from "../../../types/organization";
 import {
   auditDetailsUpdate,
@@ -65,8 +67,8 @@ import {
 import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
 import { getAllSavedGroups } from "../../models/SavedGroupModel";
 import { getMetricsByOrganization } from "../../models/MetricModel";
-import { WebhookModel } from "../../models/WebhookModel";
-import { createWebhook } from "../../services/webhooks";
+import { WebhookModel, countWebhooksByOrg } from "../../models/WebhookModel";
+import { createWebhook, createSdkWebhook } from "../../services/webhooks";
 import {
   createOrganization,
   findOrganizationByInviteKey,
@@ -77,7 +79,7 @@ import {
 } from "../../models/OrganizationModel";
 import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { ConfigFile } from "../../init/config";
-import { WebhookInterface } from "../../../types/webhook";
+import { WebhookInterface, WebhookMethod } from "../../../types/webhook";
 import { ExperimentRule, NamespaceValue } from "../../../types/feature";
 import { usingOpenId } from "../../services/auth";
 import { getSSOConnectionSummary } from "../../models/SSOConnectionModel";
@@ -114,10 +116,12 @@ import { getTeamsForOrganization } from "../../models/TeamModel";
 import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { getAllFactMetricsForOrganization } from "../../models/FactMetricModel";
 import { TeamInterface } from "../../../types/team";
+import { queueSingleWebhookById } from "../../jobs/sdkWebhooks";
+import { initializeLicense } from "../../services/licenseData";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
-  const { org } = getOrgFromReq(req);
-  const orgId = org?.id;
+  const context = getContextFromReq(req);
+  const orgId = context.org.id;
   if (!orgId) {
     throw new Error("Must be part of an organization");
   }
@@ -133,15 +137,15 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     factTables,
     factMetrics,
   ] = await Promise.all([
-    getMetricsByOrganization(orgId),
-    getDataSourcesByOrganization(orgId),
+    getMetricsByOrganization(context),
+    getDataSourcesByOrganization(context),
     findDimensionsByOrganization(orgId),
     findSegmentsByOrganization(orgId),
     getAllTags(orgId),
     getAllSavedGroups(orgId),
-    findAllProjectsByOrganization(orgId),
-    getAllFactTablesForOrganization(orgId),
-    getAllFactMetricsForOrganization(orgId),
+    findAllProjectsByOrganization(context),
+    getAllFactTablesForOrganization(context),
+    getAllFactMetricsForOrganization(context),
   ]);
 
   return res.status(200).json({
@@ -174,7 +178,8 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
 }
 
 export async function getActivityFeed(req: AuthRequest, res: Response) {
-  const { org, userId } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
   try {
     const docs = await getRecentWatchedAudits(userId, org.id);
 
@@ -189,7 +194,7 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
 
     const experimentIds = Array.from(new Set(docs.map((d) => d.entity.id)));
     const experiments = await getExperimentsForActivityFeed(
-      org.id,
+      context,
       experimentIds
     );
 
@@ -210,7 +215,7 @@ export async function getAllHistory(
   req: AuthRequest<null, { type: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { type } = req.params;
 
   if (!isValidAuditEntityType(type)) {
@@ -250,7 +255,7 @@ export async function getHistory(
   req: AuthRequest<null, { type: string; id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { type, id } = req.params;
 
   if (!isValidAuditEntityType(type)) {
@@ -292,7 +297,7 @@ export async function putMemberRole(
 ) {
   req.checkPermissions("manageTeam");
 
-  const { org, userId } = getOrgFromReq(req);
+  const { org, userId } = getContextFromReq(req);
   const {
     role,
     limitAccessByEnvironment,
@@ -455,7 +460,7 @@ export async function postMemberApproval(
   res: Response
 ) {
   req.checkPermissions("manageTeam");
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
 
   const pendingMember = org?.pendingMembers?.find((m) => m.id === id);
@@ -505,7 +510,7 @@ export async function postAutoApproveMembers(
   res: Response
 ) {
   req.checkPermissions("manageTeam");
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { state } = req.body;
 
   try {
@@ -530,7 +535,7 @@ export async function putInviteRole(
 ) {
   req.checkPermissions("manageTeam");
 
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const {
     role,
     limitAccessByEnvironment,
@@ -592,8 +597,8 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       organization: null,
     });
   }
-
-  const { org, userId } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
   const {
     invites,
     members,
@@ -614,9 +619,12 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   if (!IS_CLOUD && licenseKey) {
     // automatically set the license data based on org license key
     const licenseData = getLicense();
-    if (!licenseData || (licenseData.org && licenseData.org !== id)) {
+    if (
+      !licenseData ||
+      (licenseData.organizationId && licenseData.organizationId !== id)
+    ) {
       try {
-        await licenseInit(licenseKey);
+        await initializeLicense(licenseKey);
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error("setting license failed", e);
@@ -625,7 +633,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   }
 
   // Some other global org data needed by the front-end
-  const apiKeys = await getAllApiKeysByOrganization(org.id);
+  const apiKeys = await getAllApiKeysByOrganization(context);
   const enterpriseSSO = isEnterpriseSSO(req.loginMethod)
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
@@ -651,9 +659,8 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     apiKeys,
     enterpriseSSO,
     accountPlan: getAccountPlan(org),
-    commercialFeatures: res.locals.licenseError
-      ? []
-      : [...accountFeatures[getAccountPlan(org)]],
+    effectiveAccountPlan: getEffectiveAccountPlan(org),
+    commercialFeatures: [...accountFeatures[getEffectiveAccountPlan(org)]],
     roles: getRoles(org),
     members: expandedMembers,
     currentUserPermissions,
@@ -688,12 +695,13 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
       organization: null,
     });
   }
-  const { org, environments } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { environments } = context;
 
   const namespaces: NamespaceUsage = {};
 
   // Get all of the active experiments that are tied to a namespace
-  const allFeatures = await getAllFeatures(org.id);
+  const allFeatures = await getAllFeatures(context);
   allFeatures.forEach((f) => {
     environments.forEach((env) => {
       if (!f.environmentSettings?.[env]?.enabled) return;
@@ -722,7 +730,7 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
     });
   });
 
-  const allExperiments = await getAllExperiments(org.id);
+  const allExperiments = await getAllExperiments(context);
   allExperiments.forEach((e) => {
     if (!e.phases) return;
     const phase = e.phases[e.phases.length - 1];
@@ -760,7 +768,7 @@ export async function postNamespaces(
   req.checkPermissions("manageNamespaces");
 
   const { name, description, status } = req.body;
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const namespaces = org.settings?.namespaces || [];
 
@@ -812,7 +820,7 @@ export async function putNamespaces(
 
   const { name, description, status } = req.body;
   const originalName = req.params.name;
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const namespaces = org.settings?.namespaces || [];
 
@@ -857,7 +865,7 @@ export async function deleteNamespace(
 ) {
   req.checkPermissions("manageNamespaces");
 
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { name } = req.params;
 
   const namespaces = org.settings?.namespaces || [];
@@ -962,7 +970,7 @@ export async function postInvite(
 ) {
   req.checkPermissions("manageTeam");
 
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const {
     email,
     role,
@@ -998,7 +1006,7 @@ export async function deleteMember(
 ) {
   req.checkPermissions("manageTeam");
 
-  const { org, userId } = getOrgFromReq(req);
+  const { org, userId } = getContextFromReq(req);
   const { id } = req.params;
 
   if (id === userId) {
@@ -1021,7 +1029,7 @@ export async function postInviteResend(
 ) {
   req.checkPermissions("manageTeam");
 
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { key } = req.body;
 
   let emailSent = false;
@@ -1047,7 +1055,7 @@ export async function deleteInvite(
 ) {
   req.checkPermissions("manageTeam");
 
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { key } = req.body;
 
   await revokeInvite(org, key);
@@ -1125,7 +1133,7 @@ export async function putOrganization(
   req: AuthRequest<Partial<OrganizationInterface>>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { name, settings, connections, externalId } = req.body;
 
   const deletedEnvIds: string[] = [];
@@ -1237,9 +1245,66 @@ export async function putOrganization(
   }
 }
 
+export const autoAddGroupsAttribute = async (
+  req: AuthRequest<never>,
+  res: Response<{ status: 200; added: boolean }>
+) => {
+  // Add missing `$groups` attribute automatically if it's being referenced by a Saved Group
+  const { org } = getContextFromReq(req);
+
+  req.checkPermissions("manageTargetingAttributes");
+
+  let added = false;
+
+  const attributeSchema = org.settings?.attributeSchema;
+  if (
+    attributeSchema &&
+    !attributeSchema.some((attribute) => attribute.property === "$groups")
+  ) {
+    const newAttributeSchema: SDKAttribute[] = [
+      ...attributeSchema,
+      {
+        property: "$groups",
+        datatype: "string[]",
+      },
+    ];
+
+    const orig = {
+      settings: {
+        ...org.settings,
+      },
+    };
+
+    const updates = {
+      settings: {
+        ...org.settings,
+        attributeSchema: newAttributeSchema,
+      },
+    };
+
+    added = true;
+
+    await updateOrganization(org.id, updates);
+
+    await req.audit({
+      event: "organization.update",
+      entity: {
+        object: "organization",
+        id: org.id,
+      },
+      details: auditDetailsUpdate(orig, updates),
+    });
+  }
+
+  return res.status(200).json({
+    status: 200,
+    added,
+  });
+};
+
 export async function getApiKeys(req: AuthRequest, res: Response) {
-  const { org } = getOrgFromReq(req);
-  const keys = await getAllApiKeysByOrganization(org.id);
+  const context = getContextFromReq(req);
+  const keys = await getAllApiKeysByOrganization(context);
   const filteredKeys = keys.filter((k) => !k.userId || k.userId === req.userId);
 
   res.status(200).json({
@@ -1259,7 +1324,7 @@ export async function postApiKey(
   }>,
   res: Response
 ) {
-  const { org, userId } = getOrgFromReq(req);
+  const { org, userId } = getContextFromReq(req);
   const {
     description = "",
     environment = "",
@@ -1290,7 +1355,7 @@ export async function postApiKey(
       req.checkPermissions("manageApiKeys");
     }
   } else {
-    req.checkPermissions("manageEnvironments", "", [environment]);
+    req.checkPermissions("manageEnvironments", project, [environment]);
   }
 
   // Handle user personal access tokens
@@ -1350,7 +1415,8 @@ export async function deleteApiKey(
   req: AuthRequest<{ key?: string; id?: string }>,
   res: Response
 ) {
-  const { org, userId } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { userId, org } = context;
   // Old API keys did not have an id, so we need to delete by the key value itself
   const { key, id } = req.body;
   if (!key && !id) {
@@ -1358,7 +1424,7 @@ export async function deleteApiKey(
   }
 
   const keyObj = await getApiKeyByIdOrKey(
-    org.id,
+    context,
     id || undefined,
     key || undefined
   );
@@ -1393,7 +1459,7 @@ export async function postApiKeyReveal(
   req: AuthRequest<{ id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.body;
 
   const key = await getUnredactedSecretKey(org.id, id);
@@ -1424,9 +1490,30 @@ export async function postApiKeyReveal(
 }
 
 export async function getWebhooks(req: AuthRequest, res: Response) {
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const webhooks = await WebhookModel.find({
+    organization: context.org.id,
+    useSdkMode: { $ne: true },
+  });
+
+  res.status(200).json({
+    status: 200,
+    webhooks: webhooks.filter((webhook) =>
+      hasReadAccess(context.readAccessFilter, webhook.project)
+    ),
+  });
+}
+
+export async function getWebhooksSDK(
+  req: AuthRequest<Record<string, unknown>, { sdkid: string }>,
+  res: Response
+) {
+  const { org } = getContextFromReq(req);
+  const { sdkid } = req.params;
   const webhooks = await WebhookModel.find({
     organization: org.id,
+    useSdkMode: true,
+    sdks: { $in: sdkid },
   });
   res.status(200).json({
     status: 200,
@@ -1438,25 +1525,91 @@ export async function postWebhook(
   req: AuthRequest<{
     name: string;
     endpoint: string;
-    project: string;
+    project?: string;
     environment: string;
   }>,
   res: Response
 ) {
   req.checkPermissions("manageWebhooks");
 
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { name, endpoint, project, environment } = req.body;
 
-  const webhook = await createWebhook(
-    org.id,
+  const webhook = await createWebhook({
+    organization: org.id,
     name,
     endpoint,
     project,
-    environment
-  );
+    environment,
+  });
 
   res.status(200).json({
+    status: 200,
+    webhook,
+  });
+}
+export async function getTestWebhook(
+  req: AuthRequest<Record<string, unknown>, { id: string }>,
+  res: Response
+) {
+  const webhookId = req.params.id;
+  await queueSingleWebhookById(webhookId);
+  res.status(200).json({
+    status: 200,
+  });
+}
+export async function postWebhookSDK(
+  req: AuthRequest<{
+    name: string;
+    endpoint: string;
+    sdkid: string;
+    sendPayload: boolean;
+    headers?: string;
+    httpMethod: WebhookMethod;
+  }>,
+  res: Response
+) {
+  req.checkPermissions("manageWebhooks");
+
+  // enterprise is unlimited
+  const limits = {
+    pro: 99,
+    starter: 2,
+  };
+  const { org } = getContextFromReq(req);
+  const { name, endpoint, sdkid, sendPayload, headers, httpMethod } = req.body;
+  const webhookcount = await countWebhooksByOrg(org.id);
+  if (
+    IS_CLOUD &&
+    getAccountPlan(org).includes("pro") &&
+    webhookcount > limits.pro
+  ) {
+    return res.status(426).json({
+      status: 426,
+      message: "SDK webhook limit has been reached",
+    });
+  }
+
+  if (
+    IS_CLOUD &&
+    getAccountPlan(org).includes("starter") &&
+    webhookcount > limits.starter
+  ) {
+    return res.status(426).json({
+      status: 426,
+      message: "SDK webhook limit has been reached",
+    });
+  }
+  const webhook = await createSdkWebhook({
+    organization: org.id,
+    name,
+    endpoint,
+    sdkid,
+    sendPayload,
+    headers: headers || "",
+    httpMethod,
+  });
+  return res.status(200).json({
     status: 200,
     webhook,
   });
@@ -1468,9 +1621,8 @@ export async function putWebhook(
 ) {
   req.checkPermissions("manageWebhooks");
 
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
-
   const webhook = await WebhookModel.findOne({
     id,
   });
@@ -1491,7 +1643,7 @@ export async function putWebhook(
   webhook.set("endpoint", endpoint);
   webhook.set("project", project || "");
   webhook.set("environment", environment || "");
-
+  if (webhook.useSdkMode) queueSingleWebhookById(webhook.id);
   await webhook.save();
 
   res.status(200).json({
@@ -1506,7 +1658,26 @@ export async function deleteWebhook(
 ) {
   req.checkPermissions("manageWebhooks");
 
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
+  const { id } = req.params;
+
+  await WebhookModel.deleteOne({
+    organization: org.id,
+    id,
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function deleteWebhookSDK(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  req.checkPermissions("manageWebhooks");
+
+  const { org } = getContextFromReq(req);
   const { id } = req.params;
 
   await WebhookModel.deleteOne({
@@ -1527,7 +1698,7 @@ export async function postImportConfig(
 ) {
   req.checkPermissions("organizationSettings");
 
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
   const { contents } = req.body;
 
   const config: ConfigFile = JSON.parse(contents);
@@ -1535,7 +1706,7 @@ export async function postImportConfig(
     throw new Error("Failed to parse config.yml file contents.");
   }
 
-  await importConfig(config, org);
+  await importConfig(context, config);
 
   res.status(200).json({
     status: 200,
@@ -1595,7 +1766,7 @@ export async function addOrphanedUser(
     );
   }
 
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
 
   const { id } = req.params;
   const {
@@ -1701,7 +1872,7 @@ export async function putAdminResetUserPassword(
     throw new Error("This functionality is not available when using SSO");
   }
 
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const isUserToUpdateInSameOrg = org.members.find(
     (member) => member.id === userToUpdateId
   );
@@ -1728,7 +1899,7 @@ export async function putLicenseKey(
   req: AuthRequest<{ licenseKey: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const orgId = org?.id;
   if (!orgId) {
     throw new Error("Must be part of an organization");
@@ -1744,20 +1915,21 @@ export async function putLicenseKey(
     );
   }
 
-  const { licenseKey } = req.body;
+  const licenseKey = req.body.licenseKey.trim();
   if (!licenseKey) {
     throw new Error("missing license key");
   }
 
   const currentLicenseData = getLicense();
   let licenseData = null;
+  let error = null;
   try {
     // set new license
-    await licenseInit(licenseKey);
-    licenseData = getLicense();
+    licenseData = await initializeLicense(licenseKey);
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error("setting new license failed", e);
+    error = e;
   }
   if (!licenseData) {
     // setting license failed, revert to previous
@@ -1769,7 +1941,11 @@ export async function putLicenseKey(
       console.error("reverting to old license failed", e);
       await setLicense(null);
     }
-    throw new Error("Invalid license key");
+    if (error.message.includes("Could not connect")) {
+      throw new Error(error?.message);
+    } else {
+      throw new Error("Invalid license key");
+    }
   }
 
   try {
@@ -1785,11 +1961,11 @@ export async function putLicenseKey(
   });
 }
 
-export function putDefaultRole(
+export async function putDefaultRole(
   req: AuthRequest<{ defaultRole: MemberRole }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { defaultRole } = req.body;
 
   const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];

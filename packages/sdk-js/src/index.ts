@@ -28,7 +28,10 @@ export type {
   UrlTargetType,
 } from "./types/growthbook";
 
-export type { ConditionInterface } from "./types/mongrule";
+export type {
+  ConditionInterface,
+  ParentConditionInterface,
+} from "./types/mongrule";
 
 export {
   setPolyfills,
@@ -40,5 +43,15 @@ export {
 } from "./feature-repository";
 
 export { GrowthBook } from "./GrowthBook";
+
+export {
+  StickyBucketService,
+  LocalStorageStickyBucketService,
+  ExpressCookieStickyBucketService,
+  BrowserCookieStickyBucketService,
+  RedisStickyBucketService,
+} from "./sticky-bucket-service";
+
+export { evalCondition } from "./mongrule";
 
 export { isURLTargeted } from "./util";

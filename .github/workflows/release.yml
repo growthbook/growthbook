@@ -18,15 +18,10 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
+      - name: Install buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Add tag to latest image
         run: |
           TAG=${GITHUB_REF#refs/tags/v}
-          
-          # Pull the latest image
-          docker pull growthbook/growthbook:latest
-
-          # Add the version tag
-          docker image tag growthbook/growthbook:latest growthbook/growthbook:$TAG
-
-          # Push the new tag
-          docker push growthbook/growthbook:$TAG
+          docker buildx imagetools create -t growthbook/growthbook:$TAG growthbook/growthbook:latest

@@ -60,6 +60,7 @@ export interface FeatureInterface {
   /** @deprecated */
   legacyDraftMigrated?: boolean;
   neverStale?: boolean;
+  prerequisites?: FeaturePrerequisite[];
 }
 type ScheduleRule = {
   timestamp: string | null;
@@ -78,6 +79,7 @@ export interface BaseRule {
   enabled?: boolean;
   scheduleRules?: ScheduleRule[];
   savedGroups?: SavedGroupTargeting[];
+  prerequisites?: FeaturePrerequisite[];
 }
 
 export interface ForceRule extends BaseRule {
@@ -111,6 +113,10 @@ export interface ExperimentRule extends BaseRule {
   type: "experiment";
   trackingKey: string;
   hashAttribute: string;
+  fallbackAttribute?: string;
+  disableStickyBucketing?: boolean;
+  bucketVersion?: number;
+  minBucketVersion?: number;
   namespace?: NamespaceValue;
   coverage?: number;
   values: ExperimentValue[];
@@ -140,4 +146,9 @@ export interface FeatureTestResult {
   defaultValue: boolean | string | object;
   log?: [string, any][];
   featureDefinition?: FeatureDefinition;
+}
+
+export interface FeaturePrerequisite {
+  id: string;
+  condition: string;
 }

@@ -99,6 +99,7 @@ pre {
   }
 }
 
+#feature-page-tabs,
 #experiment-page-tabs {
   font-size: 1.2em;
   .active-tab {
@@ -724,6 +725,10 @@ main.main.report {
   background-color: var(--form-multivalue-background-color);
   color: var(--form-multivalue-text-color);
 }
+.badge-muted-info {
+  @include badge-variant(#66aaaa);
+  color: var(--text-color-on-bright);
+}
 .badge-ellipsis {
   max-width: 250px;
   overflow: hidden;
@@ -802,6 +807,16 @@ main.main.report {
     text-decoration: underline;
   }
 }
+
+.link-purple {
+  color: colors.$highlight-purple;
+  text-decoration: none;
+  &:hover {
+    color: lighten(colors.$highlight-purple, 5%);
+    text-decoration: underline;
+  }
+}
+
 .modal {
   .modal-header {
     background-color: var(--surface-background-color-alt);
@@ -2315,32 +2330,6 @@ li.metrics a span img {
     border-top: 1px solid var(--border-color-300);
     border-bottom: 1px solid var(--border-color-300);
   }
-  .experiment-image {
-    height: 300px;
-    width: 100%;
-    object-fit: scale-down;
-    object-position: 50% 50%;
-  }
-  .carousel {
-    .carousel-control-next,
-    .carousel-control-prev {
-      background-color: transparent !important;
-    }
-    .carousel-control-next-icon,
-    .carousel-control-prev-icon {
-      width: 30px;
-      height: 30px;
-      border-radius: 50px;
-      background-size: 50%;
-      background-color: colors.$gray-600;
-    }
-  }
-  .carousel-inner {
-    overflow: visible;
-    img {
-      filter: drop-shadow(0px 4px 10px rgba(0, 0, 0, 0.12));
-    }
-  }
   .results-table {
     font-size: 14px;
     color: var(--text-color-muted);
@@ -2410,6 +2399,33 @@ li.metrics a span img {
           font-size: 10px;
         }
       }
+    }
+  }
+}
+.experiment-image {
+  height: 300px;
+  width: 100%;
+  object-fit: scale-down;
+  object-position: 50% 50%;
+}
+.carousel {
+  .carousel-control-next,
+  .carousel-control-prev {
+    background-color: transparent !important;
+    opacity: 0.6;
+  }
+  .carousel-control-next-icon,
+  .carousel-control-prev-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 50px;
+    background-size: 50%;
+    background-color: colors.$gray-600;
+  }
+  .carousel-inner {
+    overflow: visible;
+    img {
+      filter: drop-shadow(0px 4px 10px rgba(0, 0, 0, 0.08));
     }
   }
 }
@@ -2976,6 +2992,9 @@ td.disabled {
   background: var(--disabled-background);
   font-style: italic;
 }
+.cursor-disabled {
+  cursor: not-allowed;
+}
 .gb-select-wrapper.disabled {
   cursor: not-allowed;
 }
@@ -3091,6 +3110,10 @@ input:disabled {
     }
   }
 }
+.gb-webhook-table-container {
+  max-height: 300px;
+  overflow-y: scroll;
+}
 .table-tags {
   min-width: 250px;
   width: 100%;
@@ -3104,3 +3127,9 @@ input:disabled {
 }
 @import "./components/react-select.scss";
 @import "./components/demo-datasource-banner";
+
+.main.features {
+  .features-header {
+    margin: -4px -8px 0;
+  }
+}

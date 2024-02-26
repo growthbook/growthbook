@@ -1,6 +1,13 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+
 import React, { useState, useEffect } from "react";
 import { some } from "lodash";
-import { FaExclamationCircle } from "react-icons/fa";
+import {
+  FaExclamationCircle,
+  FaMinusCircle,
+  FaPlusCircle,
+} from "react-icons/fa";
+import { RxLoop } from "react-icons/rx";
 import {
   condToJson,
   jsonToConds,
@@ -10,7 +17,6 @@ import {
 } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "../Forms/Field";
-import { GBAddCircle } from "../Icons";
 import SelectField from "../Forms/SelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
 import StringArrayField from "../Forms/StringArrayField";
@@ -20,14 +26,18 @@ interface Props {
   defaultValue: string;
   onChange: (value: string) => void;
   labelClassName?: string;
+  emptyText?: string;
+  title?: string;
+  require?: boolean;
 }
-
-const title = "Target by Attribute";
 
 export default function ConditionInput(props: Props) {
   const { savedGroups } = useDefinitions();
 
   const attributes = useAttributeMap();
+
+  const title = props.title || "Target by Attributes";
+  const emptyText = props.emptyText || "Applied to everyone by default.";
 
   const [advanced, setAdvanced] = useState(
     () => jsonToConds(props.defaultValue, attributes) === null
@@ -69,56 +79,58 @@ export default function ConditionInput(props: Props) {
       )
     );
     return (
-      <div className="mb-3">
-        <CodeTextArea
-          label={title}
-          labelClassName={props.labelClassName}
-          language="json"
-          value={value}
-          setValue={setValue}
-          helpText={
-            <>
-              <div className="d-flex">
-                <div>JSON format using MongoDB query syntax.</div>
-                {simpleAllowed && attributes.size && (
-                  <div className="ml-auto">
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        const newConds = jsonToConds(value, attributes);
-                        // TODO: show error
-                        if (newConds === null) return;
-                        setConds(newConds);
-                        setAdvanced(false);
-                      }}
-                    >
-                      switch to simple mode
-                    </a>
+      <div className="form-group my-4">
+        <label className={props.labelClassName || ""}>{title}</label>
+        <div className="appbox bg-light px-3 py-3">
+          <CodeTextArea
+            labelClassName={props.labelClassName}
+            language="json"
+            value={value}
+            setValue={setValue}
+            helpText={
+              <>
+                <div className="d-flex">
+                  <div>JSON format using MongoDB query syntax.</div>
+                  {simpleAllowed && attributes.size && (
+                    <div className="ml-auto">
+                      <span
+                        className="link-purple cursor-pointer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          const newConds = jsonToConds(value, attributes);
+                          // TODO: show error
+                          if (newConds === null) return;
+                          setConds(newConds);
+                          setAdvanced(false);
+                        }}
+                      >
+                        <RxLoop /> Simple mode
+                      </span>
+                    </div>
+                  )}
+                </div>
+                {hasSecureAttributes && (
+                  <div className="mt-1 text-warning-orange">
+                    <FaExclamationCircle /> Secure attribute hashing not
+                    guaranteed to work for complicated rules
                   </div>
                 )}
-              </div>
-              {hasSecureAttributes && (
-                <div className="mt-1 text-warning-orange">
-                  <FaExclamationCircle /> Secure attribute hashing not
-                  guaranteed to work for complicated rules
-                </div>
-              )}
-            </>
-          }
-        />
+              </>
+            }
+          />
+        </div>
       </div>
     );
   }
 
   if (!conds.length) {
     return (
-      <div className="form-group">
+      <div className="form-group my-4">
         <label className={props.labelClassName || ""}>{title}</label>
-        <div className={`mb-3 bg-light p-3 ${styles.conditionbox}`}>
-          <em className="text-muted mr-3">Applied to everyone by default.</em>
-          <a
-            href="#"
+        <div>
+          <div className="font-italic text-muted mr-3">{emptyText}</div>
+          <div
+            className="d-inline-block ml-1 mt-2 link-purple font-weight-bold cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
               const prop = attributeSchema[0];
@@ -131,17 +143,18 @@ export default function ConditionInput(props: Props) {
               ]);
             }}
           >
+            <FaPlusCircle className="mr-1" />
             Add attribute targeting
-          </a>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="form-group">
+    <div className="form-group my-4">
       <label className={props.labelClassName || ""}>{title}</label>
-      <div className={`mb-3 bg-light px-3 pb-3 ${styles.conditionbox}`}>
+      <div className="appbox bg-light px-3 pb-3">
         <ul className={styles.conditionslist}>
           {conds.map(({ field, operator, value }, i) => {
             const attribute = attributes.get(field);
@@ -153,7 +166,7 @@ export default function ConditionInput(props: Props) {
 
             const savedGroupOptions = savedGroups
               // First, limit to groups with the correct attribute
-              .filter((g) => g.source !== "runtime" && g.attributeKey === field)
+              .filter((g) => g.type === "list" && g.attributeKey === field)
               // Then, transform into the select option format
               .map((g) => ({ label: g.groupName, value: g.id }));
 
@@ -184,8 +197,8 @@ export default function ConditionInput(props: Props) {
                 ? [
                     { label: "is true", value: "$true" },
                     { label: "is false", value: "$false" },
-                    { label: "exists", value: "$exists" },
-                    { label: "does not exist", value: "$notExists" },
+                    { label: "is not NULL", value: "$exists" },
+                    { label: "is NULL", value: "$notExists" },
                   ]
                 : attribute.array
                 ? [
@@ -193,8 +206,8 @@ export default function ConditionInput(props: Props) {
                     { label: "does not include", value: "$notIncludes" },
                     { label: "is empty", value: "$empty" },
                     { label: "is not empty", value: "$notEmpty" },
-                    { label: "exists", value: "$exists" },
-                    { label: "does not exist", value: "$notExists" },
+                    { label: "is not NULL", value: "$exists" },
+                    { label: "is NULL", value: "$notExists" },
                   ]
                 : attribute.enum?.length || 0 > 0
                 ? [
@@ -202,8 +215,8 @@ export default function ConditionInput(props: Props) {
                     { label: "is not equal to", value: "$ne" },
                     { label: "is in the list", value: "$in" },
                     { label: "is not in the list", value: "$nin" },
-                    { label: "exists", value: "$exists" },
-                    { label: "does not exist", value: "$notExists" },
+                    { label: "is not NULL", value: "$exists" },
+                    { label: "is NULL", value: "$notExists" },
                   ]
                 : attribute.datatype === "string"
                 ? [
@@ -235,8 +248,8 @@ export default function ConditionInput(props: Props) {
                     },
                     { label: "is in the list", value: "$in" },
                     { label: "is not in the list", value: "$nin" },
-                    { label: "exists", value: "$exists" },
-                    { label: "does not exist", value: "$notExists" },
+                    { label: "is not NULL", value: "$exists" },
+                    { label: "is NULL", value: "$notExists" },
                     ...(savedGroupOptions.length > 0
                       ? savedGroupOperators
                       : []),
@@ -247,8 +260,8 @@ export default function ConditionInput(props: Props) {
                     { label: "is not equal to", value: "$ne" },
                     { label: "is in the list", value: "$in" },
                     { label: "is not in the list", value: "$nin" },
-                    { label: "exists", value: "$exists" },
-                    { label: "does not exist", value: "$notExists" },
+                    { label: "is not NULL", value: "$exists" },
+                    { label: "is NULL", value: "$notExists" },
                     ...(savedGroupOptions.length > 0
                       ? savedGroupOperators
                       : []),
@@ -263,8 +276,8 @@ export default function ConditionInput(props: Props) {
                     { label: "is less than or equal to", value: "$lte" },
                     { label: "is in the list", value: "$in" },
                     { label: "is not in the list", value: "$nin" },
-                    { label: "exists", value: "$exists" },
-                    { label: "does not exist", value: "$notExists" },
+                    { label: "is not NULL", value: "$exists" },
+                    { label: "is NULL", value: "$notExists" },
                     ...(savedGroupOptions.length > 0
                       ? savedGroupOperators
                       : []),
@@ -328,7 +341,7 @@ export default function ConditionInput(props: Props) {
                   ].includes(operator) ? (
                     ""
                   ) : ["$inGroup", "$notInGroup"].includes(operator) &&
-                    savedGroups ? (
+                    savedGroupOptions.length > 0 ? (
                     <SelectField
                       options={savedGroupOptions}
                       value={value}
@@ -350,7 +363,14 @@ export default function ConditionInput(props: Props) {
                           name="value"
                           minRows={1}
                           className={styles.matchingInput}
-                          helpText="separate values by comma"
+                          helpText={
+                            <span
+                              className="position-relative"
+                              style={{ top: -5 }}
+                            >
+                              separate values by comma
+                            </span>
+                          }
                           required
                         />
                       ) : (
@@ -363,16 +383,16 @@ export default function ConditionInput(props: Props) {
                           required
                         />
                       )}
-                      <a
-                        href="#"
-                        style={{ fontSize: "0.5em" }}
+                      <span
+                        className="link-purple cursor-pointer"
+                        style={{ fontSize: "0.8em" }}
                         onClick={(e) => {
                           e.preventDefault();
                           setRawTextMode((prev) => !prev);
                         }}
                       >
                         Switch to {rawTextMode ? "token" : "raw text"} mode
-                      </a>
+                      </span>
                     </div>
                   ) : attribute.enum.length ? (
                     <SelectField
@@ -414,20 +434,23 @@ export default function ConditionInput(props: Props) {
                   ) : (
                     ""
                   )}
-                  <div className="col-md-auto col-sm-12">
-                    <button
-                      className="btn btn-link text-danger float-right"
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        const newConds = [...conds];
-                        newConds.splice(i, 1);
-                        setConds(newConds);
-                      }}
-                    >
-                      remove
-                    </button>
-                  </div>
+                  {(conds.length > 1 || !props.require) && (
+                    <div className="col-md-auto col-sm-12">
+                      <button
+                        className="btn btn-link text-danger float-right"
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          const newConds = [...conds];
+                          newConds.splice(i, 1);
+                          setConds(newConds);
+                        }}
+                      >
+                        <FaMinusCircle className="mr-1" />
+                        remove
+                      </button>
+                    </div>
+                  )}
                 </div>
               </li>
             );
@@ -435,9 +458,8 @@ export default function ConditionInput(props: Props) {
         </ul>
         <div className="d-flex align-items-center">
           {attributeSchema.length > 0 && (
-            <a
-              className={`mr-3 btn btn-outline-primary ${styles.addcondition}`}
-              href="#"
+            <span
+              className="link-purple font-weight-bold cursor-pointer"
               onClick={(e) => {
                 e.preventDefault();
                 const prop = attributeSchema[0];
@@ -451,25 +473,19 @@ export default function ConditionInput(props: Props) {
                 ]);
               }}
             >
-              <span
-                className={`h4 pr-2 m-0 d-inline-block align-top ${styles.addicon}`}
-              >
-                <GBAddCircle />
-              </span>
+              <FaPlusCircle className="mr-1" />
               Add another condition
-            </a>
+            </span>
           )}
-          <a
-            href="#"
-            className="ml-auto"
-            style={{ fontSize: "0.9em" }}
+          <span
+            className="ml-auto link-purple cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
               setAdvanced(true);
             }}
           >
-            Advanced mode
-          </a>
+            <RxLoop /> Advanced mode
+          </span>
         </div>
       </div>
     </div>

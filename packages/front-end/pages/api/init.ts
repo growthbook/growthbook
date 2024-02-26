@@ -10,6 +10,8 @@ export interface EnvironmentInitValue {
   allowSelfOrgCreation: boolean;
   appOrigin: string;
   apiHost: string;
+  s3domain: string;
+  gcsDomain: string;
   cdnHost: string;
   config: "file" | "db";
   defaultConversionWindowHours: number;
@@ -20,6 +22,8 @@ export interface EnvironmentInitValue {
   sentryDSN: string;
   usingSSO: boolean;
   storeSegmentsInMongo: boolean;
+  allowCreateMetrics: boolean;
+  usingFileProxy: boolean;
 }
 
 // Get env variables at runtime on the front-end while still using SSG
@@ -27,6 +31,10 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   const {
     APP_ORIGIN,
     API_HOST,
+    S3_DOMAIN,
+    S3_BUCKET,
+    GCS_DOMAIN,
+    GCS_BUCKET_NAME,
     CDN_HOST,
     IS_CLOUD,
     IS_MULTI_ORG,
@@ -36,6 +44,8 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     NEXT_PUBLIC_SENTRY_DSN,
     SSO_CONFIG,
     STORE_SEGMENTS_IN_MONGO,
+    ALLOW_CREATE_METRICS,
+    USE_FILE_PROXY: USING_FILE_PROXY,
   } = process.env;
 
   const rootPath = path.join(__dirname, "..", "..", "..", "..", "..", "..");
@@ -62,11 +72,19 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   const body: EnvironmentInitValue = {
     appOrigin: APP_ORIGIN || "http://localhost:3000",
     apiHost: API_HOST || "http://localhost:3100",
+    s3domain:
+      S3_DOMAIN || (S3_BUCKET ? `https://${S3_BUCKET}.s3.amazonaws.com/` : ""),
+    gcsDomain:
+      GCS_DOMAIN ||
+      (GCS_BUCKET_NAME
+        ? `https://storage.googleapis.com/${GCS_BUCKET_NAME}/`
+        : ""),
     cdnHost: CDN_HOST || "",
     cloud: stringToBoolean(IS_CLOUD),
     isMultiOrg: stringToBoolean(IS_MULTI_ORG),
     allowSelfOrgCreation: stringToBoolean(ALLOW_SELF_ORG_CREATION, true), // Default to true
     config: hasConfigFile ? "file" : "db",
+    allowCreateMetrics: !hasConfigFile || stringToBoolean(ALLOW_CREATE_METRICS),
     build,
     defaultConversionWindowHours: DEFAULT_CONVERSION_WINDOW_HOURS
       ? parseInt(DEFAULT_CONVERSION_WINDOW_HOURS)
@@ -80,6 +98,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     sentryDSN: NEXT_PUBLIC_SENTRY_DSN || "",
     usingSSO: !!SSO_CONFIG, // No matter what SSO_CONFIG is set to we want it to count as using it.
     storeSegmentsInMongo: stringToBoolean(STORE_SEGMENTS_IN_MONGO),
+    usingFileProxy: stringToBoolean(USING_FILE_PROXY),
   };
 
   res.status(200).json(body);

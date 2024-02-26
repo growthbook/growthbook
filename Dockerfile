@@ -1,15 +1,18 @@
+ARG PYTHON_MAJOR=3.11
+ARG NODE_MAJOR=18
+
 # Build the python gbstats package
-FROM python:3.9-slim AS pybuild
+FROM python:${PYTHON_MAJOR}-slim AS pybuild
 WORKDIR /usr/local/src/app
 COPY ./packages/stats .
 RUN \
   pip3 install poetry \
   && poetry install --no-root --no-dev --no-interaction --no-ansi \
-  && poetry build
-
+  && poetry build \
+  && poetry export -f requirements.txt --output requirements.txt
 
 # Build the nodejs app
-FROM node:16-slim AS nodebuild
+FROM node:${NODE_MAJOR}-slim AS nodebuild
 WORKDIR /usr/local/src/app
 # Copy over minimum files to install dependencies
 COPY package.json ./package.json
@@ -38,11 +41,12 @@ RUN \
 
 
 # Package the full app together
-FROM python:3.9-slim
+FROM python:${PYTHON_MAJOR}-slim
+ARG NODE_MAJOR
 WORKDIR /usr/local/src/app
 RUN apt-get update && \
   apt-get install -y wget gnupg2 && \
-  echo "deb https://deb.nodesource.com/node_16.x buster main" > /etc/apt/sources.list.d/nodesource.list && \
+  echo "deb https://deb.nodesource.com/node_$NODE_MAJOR.x buster main" > /etc/apt/sources.list.d/nodesource.list && \
   wget -qO- https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - && \
   echo "deb https://dl.yarnpkg.com/debian/ stable main" > /etc/apt/sources.list.d/yarn.list && \
   wget -qO- https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - && \
@@ -50,12 +54,8 @@ RUN apt-get update && \
   apt-get install -yqq nodejs=$(apt-cache show nodejs|grep Version|grep nodesource|cut -c 10-) yarn && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
-RUN pip3 install \
-    nbformat \
-    numpy \
-    pandas \
-    scipy \
-  && rm -rf /root/.cache/pip
+COPY --from=pybuild /usr/local/src/app/requirements.txt /usr/local/src/requirements.txt
+RUN pip3 install -r /usr/local/src/requirements.txt && rm -rf /root/.cache/pip
 COPY --from=nodebuild /usr/local/src/app/packages ./packages
 COPY --from=nodebuild /usr/local/src/app/node_modules ./node_modules
 COPY --from=nodebuild /usr/local/src/app/package.json ./package.json

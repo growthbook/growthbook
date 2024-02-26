@@ -25,6 +25,14 @@ export default function SingleRoleSelector({
   const { roles, hasCommercialFeature } = useUser();
   const hasFeature = hasCommercialFeature("advanced-permissions");
 
+  const isNoAccessRoleEnabled = hasCommercialFeature("no-access-role");
+
+  let roleOptions = [...roles];
+
+  if (!isNoAccessRoleEnabled) {
+    roleOptions = roles.filter((r) => r.id !== "noaccess");
+  }
+
   const availableEnvs = useEnvironments();
 
   const id = useMemo(() => uniqid(), []);
@@ -40,7 +48,7 @@ export default function SingleRoleSelector({
             role,
           });
         }}
-        options={roles
+        options={roleOptions
           .filter((r) => includeAdminRole || r.id !== "admin")
           .map((r) => ({
             label: r.id,

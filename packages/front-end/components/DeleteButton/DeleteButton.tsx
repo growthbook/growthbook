@@ -25,6 +25,7 @@ const DeleteButton: FC<{
   additionalMessage?: ReactElement | null | string;
   getConfirmationContent?: () => Promise<string | ReactElement | null>;
   canDelete?: boolean;
+  disabled?: boolean;
 }> = ({
   onClick,
   className,
@@ -40,6 +41,7 @@ const DeleteButton: FC<{
   additionalMessage = "",
   getConfirmationContent,
   canDelete = true,
+  disabled = false,
 }) => {
   const [confirming, setConfirming] = useState(false);
   const [dynamicContent, setDynamicContent] = useState<
@@ -94,7 +96,7 @@ const DeleteButton: FC<{
         style={style}
         onClick={(e) => {
           e.preventDefault();
-          setConfirming(true);
+          !disabled && setConfirming(true);
         }}
       >
         {useIcon && <FaTrash className={iconClassName} />}

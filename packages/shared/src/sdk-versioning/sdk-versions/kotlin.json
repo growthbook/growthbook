@@ -1,0 +1,19 @@
+{
+  "versions": [
+    {
+      "version": "1.1.43"
+    },
+    {
+      "version": "1.1.31",
+      "capabilities": ["semverTargeting"]
+    },
+    {
+      "version": "1.1.23",
+      "capabilities": ["encryption"]
+    },
+    {
+      "version": "0.0.0",
+      "capabilities": ["looseUnmarshalling"]
+    }
+  ]
+}
