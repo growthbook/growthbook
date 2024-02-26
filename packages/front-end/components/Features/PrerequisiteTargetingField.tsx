@@ -102,12 +102,17 @@ export default function PrerequisiteTargetingField({
     string,
     PrerequisiteStateResult
   > | null)[] = useMemo(() => {
+    const featuresMap = new Map(features.map((f) => [f.id, f]));
     return value.map((v) => {
-      const parentFeature = features.find((f) => f.id === v.id);
+      const parentFeature = featuresMap.get(v.id);
       if (!parentFeature) return null;
       const states: Record<string, PrerequisiteStateResult> = {};
       environments.forEach((env) => {
-        states[env] = evaluatePrerequisiteState(parentFeature, features, env);
+        states[env] = evaluatePrerequisiteState(
+          parentFeature,
+          featuresMap,
+          env
+        );
       });
       return states;
     });
@@ -118,12 +123,13 @@ export default function PrerequisiteTargetingField({
       string,
       Record<string, PrerequisiteStateResult>
     > = {};
+    const featuresMap = new Map(features.map((f) => [f.id, f]));
     const wouldBeCyclicStates: Record<string, boolean> = {};
     for (const f of features) {
       // get current states:
       const states: Record<string, PrerequisiteStateResult> = {};
       environments.forEach((env) => {
-        states[env] = evaluatePrerequisiteState(f, features, env);
+        states[env] = evaluatePrerequisiteState(f, featuresMap, env);
       });
       featuresStates[f.id] = states;
 
@@ -131,7 +137,6 @@ export default function PrerequisiteTargetingField({
       let wouldBeCyclic = false;
       if (feature?.environmentSettings?.[environments?.[0]]?.rules) {
         const newFeature = cloneDeep(feature);
-        const newFeatures = cloneDeep(features);
         const revision = revisions?.find((r) => r.version === version);
         const newRevision = cloneDeep(revision);
         const fakeRule: ForceRule = {
@@ -155,7 +160,7 @@ export default function PrerequisiteTargetingField({
 
         wouldBeCyclic = isFeatureCyclic(
           newFeature,
-          newFeatures,
+          featuresMap,
           newRevision
         )[0];
       }

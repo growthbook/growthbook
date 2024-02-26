@@ -178,8 +178,14 @@ export default function FeaturesOverview({
     () => {
       if (!feature) return null;
       const states: Record<string, PrerequisiteStateResult> = {};
+      const featuresMap = new Map(features.map((f) => [f.id, f]));
       envs.forEach((env) => {
-        states[env] = evaluatePrerequisiteState(feature, features, env, true);
+        states[env] = evaluatePrerequisiteState(
+          feature,
+          featuresMap,
+          env,
+          true
+        );
       });
       return states;
     },

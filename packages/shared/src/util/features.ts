@@ -535,13 +535,9 @@ export function getDefaultPrerequisiteCondition(
 
 export function isFeatureCyclic(
   feature: FeatureInterface,
-  features: FeatureInterface[],
+  featuresMap: Map<string, FeatureInterface>,
   revision?: FeatureRevisionInterface
 ): [boolean, string | null] {
-  const featuresMap = new Map<string, FeatureInterface>();
-  for (const f of features) {
-    featuresMap.set(f.id, f);
-  }
   const visited = new Set<string>();
   const stack = new Set<string>();
 
@@ -591,18 +587,14 @@ export type PrerequisiteStateResult = {
 };
 export function evaluatePrerequisiteState(
   feature: FeatureInterface,
-  features: FeatureInterface[],
+  featuresMap: Map<string, FeatureInterface>,
   env: string,
   skipRootConditions: boolean = false,
   skipCyclicCheck: boolean = false
 ): PrerequisiteStateResult {
-  const featuresMap = new Map<string, FeatureInterface>();
-  for (const f of features) {
-    featuresMap.set(f.id, f);
-  }
   let isTopLevel = true;
   if (!skipCyclicCheck) {
-    if (isFeatureCyclic(feature, features)[0])
+    if (isFeatureCyclic(feature, featuresMap)[0])
       return { state: "cyclic", value: null };
   }
 

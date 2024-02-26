@@ -53,8 +53,13 @@ export default function PrerequisiteStatusRow({
       if (!parentFeature) return null;
       const states: Record<string, PrerequisiteStateResult> = {};
       const defaultValues: Record<string, string> = {};
+      const featuresMap = new Map(features.map((f) => [f.id, f]));
       envs.forEach((env) => {
-        states[env] = evaluatePrerequisiteState(parentFeature, features, env);
+        states[env] = evaluatePrerequisiteState(
+          parentFeature,
+          featuresMap,
+          env
+        );
         defaultValues[env] = parentFeature.defaultValue;
       });
       return { states, defaultValues };
