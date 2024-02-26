@@ -25,7 +25,6 @@ import {
 import {
   ExperimentMetricInterface,
   getRegressionAdjustmentsForMetric,
-  isBinomialMetric,
   isFactMetric,
   isFactMetricId,
 } from "shared/experiments";
@@ -112,6 +111,7 @@ import {
   QueryResultsForStatsEngine,
   analyzeExperimentMetric,
   analyzeExperimentResults,
+  getMetricSettingsForStatsEngine,
 } from "./stats";
 import { getEnvironmentIdsFromOrg } from "./organizations";
 
@@ -218,6 +218,7 @@ export function generateTrackingKey(name: string, n: number): string {
 
 export async function getManualSnapshotData(
   experiment: ExperimentInterface,
+  snapshotSettings: ExperimentSnapshotSettings,
   analysisSettings: ExperimentSnapshotAnalysisSettings,
   phaseIndex: number,
   users: number[],
@@ -240,21 +241,8 @@ export async function getManualSnapshotData(
     const stats = metrics[m];
     const metric = metricMap.get(m);
     if (!metric) return null;
-
-    const denominator =
-      metric.denominator && !isFactMetric(metric)
-        ? metricMap.get(metric.denominator)
-        : undefined;
     metricSettings[m] = {
-      id: metric.id,
-      name: metric.name,
-      inverse: !!metric.inverse,
-      main_metric_type: isBinomialMetric(metric) ? "binomial" : "count",
-      ...(denominator && {
-        denominator_metric_type: isBinomialMetric(denominator)
-          ? "binomial"
-          : "count",
-      }),
+      ...getMetricSettingsForStatsEngine(metric, metricMap, snapshotSettings),
       // no ratio or regression adjustment for manual snapshots
       statistic_type: "mean",
     };
@@ -445,8 +433,17 @@ export async function createManualSnapshot(
   analysisSettings: ExperimentSnapshotAnalysisSettings,
   metricMap: Map<string, ExperimentMetricInterface>
 ) {
+  const snapshotSettings = getSnapshotSettings({
+    experiment,
+    phaseIndex,
+    settings: analysisSettings,
+    metricRegressionAdjustmentStatuses: [],
+    metricMap,
+  });
+
   const { srm, variations } = await getManualSnapshotData(
     experiment,
+    snapshotSettings,
     analysisSettings,
     phaseIndex,
     users,
@@ -464,13 +461,7 @@ export async function createManualSnapshot(
     runStarted: new Date(),
     dateCreated: new Date(),
     status: "success",
-    settings: getSnapshotSettings({
-      experiment,
-      phaseIndex,
-      settings: analysisSettings,
-      metricRegressionAdjustmentStatuses: [],
-      metricMap,
-    }),
+    settings: snapshotSettings,
     unknownVariations: [],
     multipleExposures: 0,
     analyses: [
