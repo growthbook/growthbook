@@ -16,6 +16,7 @@ import { ReqContext } from "../../types/organization";
 import { ApiReqContext } from "../../types/api";
 import {
   getAnalysisSettingsFromReportArgs,
+  getSnapshotSettingsFromReportArgs,
   reportArgsFromSnapshot,
 } from "./reports";
 import {
@@ -140,8 +141,7 @@ export async function generateNotebook(
   const { queryResults, metricSettings } = getMetricsAndQueryDataForStatsEngine(
     queries,
     metricMap,
-    args.variations,
-    args.regressionAdjustmentEnabled ?? false
+    getSnapshotSettingsFromReportArgs(args, metricMap).snapshotSettings
   );
 
   const data: DataForStatsEngine = {
