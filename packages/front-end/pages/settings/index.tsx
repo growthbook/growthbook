@@ -1,13 +1,8 @@
+import cronstrue from "cronstrue";
 import React, { useEffect, useState } from "react";
-import {
-  FaExclamationCircle,
-  FaExclamationTriangle,
-  FaQuestionCircle,
-} from "react-icons/fa";
+import { FaExclamationCircle, FaQuestionCircle } from "react-icons/fa";
 import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
-import cronstrue from "cronstrue";
-import { AttributionModel } from "back-end/types/experiment";
 import { PValueCorrection } from "back-end/types/stats";
 import {
   DEFAULT_P_VALUE_THRESHOLD,
@@ -17,8 +12,6 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { OrganizationSettings } from "@/../back-end/types/organization";
-import { MdInfoOutline } from "react-icons/md";
-import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import Field from "@/components/Forms/Field";
@@ -30,27 +23,16 @@ import {
 } from "@/hooks/useOrganizationMetricDefaults";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
-import { GBCuped, GBSequential } from "@/components/Icons";
 import Toggle from "@/components/Forms/Toggle";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import SelectField from "@/components/Forms/SelectField";
-import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
-import Tab from "@/components/Tabs/Tab";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
-import {
-  StickyBucketingToggleWarning,
-  StickyBucketingTooltip,
-} from "@/components/Features/FallbackAttributeSelector";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { supportedCurrencies } from "@/services/settings";
 import OrganizationAndLicenseSettings from "@/components/GeneralSettings/OrganizationAndLicenseSettings";
 import ImportSettings from "@/components/GeneralSettings/ImportSettings";
 import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetricSettings";
+import ExperimentSettings from "@/components/GeneralSettings/ExperimentSettings";
 
 export const DEFAULT_SRM_THRESHOLD = 0.001;
 
@@ -72,9 +54,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   } = useUser();
   const [saveMsg, setSaveMsg] = useState(false);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
-  const [statsEngineTab, setStatsEngineTab] = useState<string>(
-    settings.statsEngine || DEFAULT_STATS_ENGINE
-  );
+  const [cronString, setCronString] = useState("");
   const [
     codeRefsBranchesToFilterStr,
     setCodeRefsBranchesToFilterStr,
@@ -103,14 +83,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   );
   const hasCodeReferencesFeature = hasCommercialFeature("code-references");
 
-  const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithStickyBucketing = getConnectionsSDKCapabilities({
-    connections: sdkConnectionsData?.connections ?? [],
-  }).includes("stickyBucketing");
-
   const { metricDefaults } = useOrganizationMetricDefaults();
-
-  const [editChecklistOpen, setEditChecklistOpen] = useState(false);
 
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
     defaultValues: {
@@ -206,9 +179,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
     codeRefsBranchesToFilter: form.watch("codeRefsBranchesToFilter"),
     codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
   };
-
-  const [cronString, setCronString] = useState("");
-
   function updateCronString(cron?: string) {
     cron = cron || value.updateSchedule?.cron || "";
 
@@ -306,92 +276,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
     setSaveMsg(true);
   });
 
-  const highlightColor =
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    value.confidenceLevel < 70
-      ? "#c73333"
-      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      value.confidenceLevel < 80
-      ? "#e27202"
-      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      value.confidenceLevel < 90
-      ? "#B39F01"
-      : "";
-
-  const pHighlightColor =
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    value.pValueThreshold > 0.3
-      ? "#c73333"
-      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      value.pValueThreshold > 0.2
-      ? "#e27202"
-      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      value.pValueThreshold > 0.1
-      ? "#B39F01"
-      : "";
-
-  const srmHighlightColor =
-    value.srmThreshold &&
-    (value.srmThreshold > 0.01 || value.srmThreshold < 0.001)
-      ? "#B39F01"
-      : "";
-
-  const regressionAdjustmentDaysHighlightColor =
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    value.regressionAdjustmentDays > 28 || value.regressionAdjustmentDays < 7
-      ? "#e27202"
-      : "";
-
-  const warningMsg =
-    value.confidenceLevel === 70
-      ? "This is as low as it goes"
-      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      value.confidenceLevel < 75
-      ? "Confidence thresholds this low are not recommended"
-      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      value.confidenceLevel < 80
-      ? "Confidence thresholds this low are not recommended"
-      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      value.confidenceLevel < 90
-      ? "Use caution with values below 90%"
-      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      value.confidenceLevel >= 99
-      ? "Confidence levels 99% and higher can take lots of data to achieve"
-      : "";
-
-  const pWarningMsg =
-    value.pValueThreshold === 0.5
-      ? "This is as high as it goes"
-      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      value.pValueThreshold > 0.25
-      ? "P-value thresholds this high are not recommended"
-      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      value.pValueThreshold > 0.2
-      ? "P-value thresholds this high are not recommended"
-      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      value.pValueThreshold > 0.1
-      ? "Use caution with values above 0.1"
-      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      value.pValueThreshold <= 0.01
-      ? "Threshold values of 0.01 and lower can take lots of data to achieve"
-      : "";
-
-  const srmWarningMsg =
-    value.srmThreshold && value.srmThreshold > 0.01
-      ? "Thresholds above 0.01 may lead to many false positives, especially if you refresh results regularly."
-      : value.srmThreshold && value.srmThreshold < 0.001
-      ? "Thresholds below 0.001 may make it hard to detect imbalances without lots of traffic."
-      : "";
-
-  const regressionAdjustmentDaysWarningMsg =
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    value.regressionAdjustmentDays > 28
-      ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
-      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      value.regressionAdjustmentDays < 7
-      ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
-      : "";
-
   const metricAnalysisDaysWarningMsg =
     value.metricAnalysisDays && value.metricAnalysisDays > 365
       ? "Using more historical data will slow down metric analysis queries"
@@ -409,10 +293,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
   return (
     <>
-      {editChecklistOpen ? (
-        <ExperimentCheckListModal close={() => setEditChecklistOpen(false)} />
-      ) : null}
-
       <div className="container-fluid pagecontents">
         <h1>General Settings</h1>
 
@@ -439,663 +319,109 @@ const GeneralSettingsPage = (): React.ReactElement => {
           />
 
           <div className="bg-white p-3 border position-relative">
-            <div className="row">
-              <div className="col-sm-3">
-                <h4>Experiment Settings</h4>
-              </div>
-
-              <div className="col-sm-9">
-                <div className="form-inline flex-column align-items-start mb-3">
-                  <Field
-                    label="Minimum experiment length (in days) when importing past
-                  experiments"
-                    type="number"
-                    className="ml-2"
-                    containerClassName="mb-3"
-                    append="days"
-                    step="1"
-                    min="0"
-                    max="31"
-                    disabled={hasFileConfig()}
-                    {...form.register("pastExperimentsMinLength", {
-                      valueAsNumber: true,
-                      min: 0,
-                      max: 31,
-                    })}
-                  />
-
-                  <Field
-                    label="Warn when this percent of experiment users are in multiple variations"
-                    type="number"
-                    step="1"
-                    min="0"
-                    max="100"
-                    className="ml-2"
-                    containerClassName="mb-3"
-                    append="%"
-                    style={{
-                      width: "80px",
-                    }}
-                    disabled={hasFileConfig()}
-                    {...form.register("multipleExposureMinPercent", {
-                      valueAsNumber: true,
-                      min: 0,
-                      max: 100,
-                    })}
-                  />
-
-                  <div className="mb-3 form-group flex-column align-items-start">
-                    <SelectField
-                      label={
-                        <AttributionModelTooltip>
-                          Default Conversion Window Override{" "}
-                          <FaQuestionCircle />
-                        </AttributionModelTooltip>
-                      }
-                      className="ml-2"
-                      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-                      value={form.watch("attributionModel")}
-                      onChange={(value) => {
-                        form.setValue(
-                          "attributionModel",
-                          value as AttributionModel
-                        );
-                      }}
-                      options={[
-                        {
-                          label: "Respect Conversion Windows",
-                          value: "firstExposure",
-                        },
-                        {
-                          label: "Ignore Conversion Windows",
-                          value: "experimentDuration",
-                        },
-                      ]}
-                    />
-                  </div>
-
-                  <div className="mb-4 form-group flex-column align-items-start">
-                    <Field
-                      label="Experiment Auto-Update Frequency"
-                      className="ml-2"
-                      containerClassName="mb-2 mr-2"
-                      disabled={hasFileConfig()}
-                      options={[
-                        {
-                          display: "When results are X hours old",
-                          value: "stale",
-                        },
-                        {
-                          display: "Cron Schedule",
-                          value: "cron",
-                        },
-                        {
-                          display: "Never",
-                          value: "never",
-                        },
-                      ]}
-                      {...form.register("updateSchedule.type")}
-                    />
-                    {value.updateSchedule?.type === "stale" && (
-                      <div className="bg-light p-3 border">
-                        <Field
-                          label="Refresh when"
-                          append="hours old"
-                          type="number"
-                          step={1}
-                          min={1}
-                          max={168}
-                          className="ml-2"
-                          disabled={hasFileConfig()}
-                          {...form.register("updateSchedule.hours", {
-                            valueAsNumber: true,
-                            min: 1,
-                            max: 168,
-                          })}
-                        />
-                      </div>
-                    )}
-                    {value.updateSchedule?.type === "cron" && (
-                      <div className="bg-light p-3 border">
-                        <Field
-                          label="Cron String"
-                          className="ml-2"
-                          disabled={hasFileConfig()}
-                          {...form.register("updateSchedule.cron")}
-                          placeholder="0 */6 * * *"
-                          onFocus={(e) => {
-                            updateCronString(e.target.value);
-                          }}
-                          onBlur={(e) => {
-                            updateCronString(e.target.value);
-                          }}
-                          helpText={<span className="ml-2">{cronString}</span>}
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="d-flex form-group mb-3">
-                    <label
-                      className="mr-1"
-                      htmlFor="toggle-factTableQueryOptimization"
-                    >
-                      <PremiumTooltip
-                        commercialFeature="multi-metric-queries"
-                        body={
-                          <>
-                            <p>
-                              If multiple metrics from the same Fact Table are
-                              added to an experiment, this will combine them
-                              into a single query, which is much faster and more
-                              efficient.
-                            </p>
-                            <p>
-                              For data sources with usage-based billing like
-                              BigQuery or SnowFlake, this can result in
-                              substantial cost savings.
-                            </p>
-                          </>
-                        }
-                      >
-                        Fact Table Query Optimization{" "}
-                        <MdInfoOutline className="text-info" />
-                      </PremiumTooltip>
-                    </label>
-                    <Toggle
-                      id={"toggle-factTableQueryOptimization"}
-                      value={
-                        hasCommercialFeature("multi-metric-queries") &&
-                        !form.watch("disableMultiMetricQueries")
-                      }
-                      setValue={(value) => {
-                        form.setValue("disableMultiMetricQueries", !value);
-                      }}
-                      disabled={!hasCommercialFeature("multi-metric-queries")}
-                    />
-                  </div>
-
-                  <StatsEngineSelect
-                    label="Default Statistics Engine"
-                    allowUndefined={false}
-                    value={form.watch("statsEngine")}
-                    onChange={(value) => {
-                      setStatsEngineTab(value);
-                      form.setValue("statsEngine", value);
-                    }}
-                    labelClassName="mr-2"
-                  />
-                </div>
-
-                <div className="mb-3 form-group flex-column align-items-start">
-                  <h4>Stats Engine Settings</h4>
-
-                  <ControlledTabs
-                    newStyle={true}
-                    className="mt-3"
-                    buttonsClassName="px-5"
-                    tabContentsClassName="border"
-                    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<string>>' is not ass... Remove this comment to see the full error message
-                    setActive={setStatsEngineTab}
-                    active={statsEngineTab}
-                  >
-                    <Tab id="bayesian" display="Bayesian">
-                      <h4 className="mb-4 text-purple">Bayesian Settings</h4>
-
-                      <div className="form-group mb-2 mr-2 form-inline">
-                        <Field
-                          label="Chance to win threshold"
-                          type="number"
-                          step="any"
-                          min="70"
-                          max="99"
-                          style={{
-                            width: "80px",
-                            borderColor: highlightColor,
-                            backgroundColor: highlightColor
-                              ? highlightColor + "15"
-                              : "",
-                          }}
-                          className={`ml-2`}
-                          containerClassName="mb-3"
-                          append="%"
-                          disabled={hasFileConfig()}
-                          helpText={
-                            <>
-                              <span className="ml-2">(95% is default)</span>
-                              <div
-                                className="ml-2"
-                                style={{
-                                  color: highlightColor,
-                                  flexBasis: "100%",
-                                }}
-                              >
-                                {warningMsg}
-                              </div>
-                            </>
-                          }
-                          {...form.register("confidenceLevel", {
-                            valueAsNumber: true,
-                            min: 50,
-                            max: 100,
-                          })}
-                        />
-                      </div>
-                    </Tab>
-
-                    <Tab id="frequentist" display="Frequentist">
-                      <h4 className="mb-4 text-purple">Frequentist Settings</h4>
-
-                      <div className="form-group mb-2 mr-2 form-inline">
-                        <Field
-                          label="P-value threshold"
-                          type="number"
-                          step="0.001"
-                          max="0.5"
-                          min="0.001"
-                          style={{
-                            borderColor: pHighlightColor,
-                            backgroundColor: pHighlightColor
-                              ? pHighlightColor + "15"
-                              : "",
-                          }}
-                          className={`ml-2`}
-                          containerClassName="mb-3"
-                          append=""
-                          disabled={hasFileConfig()}
-                          helpText={
-                            <>
-                              <span className="ml-2">(0.05 is default)</span>
-                              <div
-                                className="ml-2"
-                                style={{
-                                  color: pHighlightColor,
-                                  flexBasis: "100%",
-                                }}
-                              >
-                                {pWarningMsg}
-                              </div>
-                            </>
-                          }
-                          {...form.register("pValueThreshold", {
-                            valueAsNumber: true,
-                            min: 0,
-                            max: 1,
-                          })}
-                        />
-                      </div>
-                      <div className="mb-3  form-inline flex-column align-items-start">
-                        <SelectField
-                          label={"Multiple comparisons correction to use: "}
-                          className="ml-2"
-                          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | null' is not assignable to type 'st... Remove this comment to see the full error message
-                          value={form.watch("pValueCorrection") ?? null}
-                          onChange={(value) =>
-                            form.setValue(
-                              "pValueCorrection",
-                              value as PValueCorrection
-                            )
-                          }
-                          sort={false}
-                          options={[
-                            {
-                              label: "None",
-                              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'string'.
-                              value: null,
-                            },
-                            {
-                              label: "Holm-Bonferroni (Control FWER)",
-                              value: "holm-bonferroni",
-                            },
-                            {
-                              label: "Benjamini-Hochberg (Control FDR)",
-                              value: "benjamini-hochberg",
-                            },
-                          ]}
-                        />
-                      </div>
-                      <div className="p-3 my-3 border rounded">
-                        <h5 className="font-weight-bold mb-4">
-                          <PremiumTooltip commercialFeature="regression-adjustment">
-                            <GBCuped /> Regression Adjustment (CUPED)
-                          </PremiumTooltip>
-                        </h5>
-                        <div className="form-group mb-0 mr-2">
-                          <div className="d-flex">
-                            <label
-                              className="mr-1"
-                              htmlFor="toggle-regressionAdjustmentEnabled"
-                            >
-                              Apply regression adjustment by default
-                            </label>
-                            <Toggle
-                              id={"toggle-regressionAdjustmentEnabled"}
-                              value={
-                                !!form.watch("regressionAdjustmentEnabled")
-                              }
-                              setValue={(value) => {
-                                form.setValue(
-                                  "regressionAdjustmentEnabled",
-                                  value
-                                );
-                              }}
-                              disabled={
-                                !hasRegressionAdjustmentFeature ||
-                                hasFileConfig()
-                              }
-                            />
-                          </div>
-                          {form.watch("regressionAdjustmentEnabled") &&
-                            form.watch("statsEngine") === "bayesian" && (
-                              <div className="d-flex">
-                                <small className="mb-1 text-warning-orange">
-                                  <FaExclamationTriangle /> Your organization
-                                  uses Bayesian statistics by default and
-                                  regression adjustment is not implemented for
-                                  the Bayesian engine.
-                                </small>
-                              </div>
-                            )}
-                        </div>
-                        <div
-                          className="form-group mt-3 mb-0 mr-2 form-inline"
-                          style={{
-                            opacity: form.watch("regressionAdjustmentEnabled")
-                              ? "1"
-                              : "0.5",
-                          }}
-                        >
-                          <Field
-                            label="Pre-exposure lookback period (days)"
-                            type="number"
-                            style={{
-                              borderColor: regressionAdjustmentDaysHighlightColor,
-                              backgroundColor: regressionAdjustmentDaysHighlightColor
-                                ? regressionAdjustmentDaysHighlightColor + "15"
-                                : "",
-                            }}
-                            className={`ml-2`}
-                            containerClassName="mb-0"
-                            append="days"
-                            min="0"
-                            max="100"
-                            disabled={
-                              !hasRegressionAdjustmentFeature || hasFileConfig()
-                            }
-                            helpText={
-                              <>
-                                <span className="ml-2">
-                                  ({DEFAULT_REGRESSION_ADJUSTMENT_DAYS} is
-                                  default)
-                                </span>
-                              </>
-                            }
-                            {...form.register("regressionAdjustmentDays", {
-                              valueAsNumber: true,
-                              validate: (v) => {
-                                // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                                return !(v <= 0 || v > 100);
-                              },
-                            })}
-                          />
-                          {regressionAdjustmentDaysWarningMsg && (
-                            <small
-                              style={{
-                                color: regressionAdjustmentDaysHighlightColor,
-                              }}
-                            >
-                              {regressionAdjustmentDaysWarningMsg}
-                            </small>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="p-3 my-3 border rounded">
-                        <h5 className="font-weight-bold mb-4">
-                          <PremiumTooltip commercialFeature="sequential-testing">
-                            <GBSequential /> Sequential Testing
-                          </PremiumTooltip>
-                        </h5>
-                        <div className="form-group mb-0 mr-2">
-                          <div className="d-flex">
-                            <label
-                              className="mr-1"
-                              htmlFor="toggle-sequentialTestingEnabled"
-                            >
-                              Apply sequential testing by default
-                            </label>
-                            <Toggle
-                              id={"toggle-sequentialTestingEnabled"}
-                              value={!!form.watch("sequentialTestingEnabled")}
-                              setValue={(value) => {
-                                form.setValue(
-                                  "sequentialTestingEnabled",
-                                  value
-                                );
-                              }}
-                              disabled={
-                                !hasSequentialTestingFeature || hasFileConfig()
-                              }
-                            />
-                          </div>
-                          {form.watch("sequentialTestingEnabled") &&
-                            form.watch("statsEngine") === "bayesian" && (
-                              <div className="d-flex">
-                                <small className="mb-1 text-warning-orange">
-                                  <FaExclamationTriangle /> Your organization
-                                  uses Bayesian statistics by default and
-                                  sequential testing is not implemented for the
-                                  Bayesian engine.
-                                </small>
-                              </div>
-                            )}
-                        </div>
-                        <div
-                          className="form-group mt-3 mb-0 mr-2 form-inline"
-                          style={{
-                            opacity: form.watch("sequentialTestingEnabled")
-                              ? "1"
-                              : "0.5",
-                          }}
-                        >
-                          <Field
-                            label="Tuning parameter"
-                            type="number"
-                            className={`ml-2`}
-                            containerClassName="mb-0"
-                            min="0"
-                            disabled={
-                              !hasSequentialTestingFeature || hasFileConfig()
-                            }
-                            helpText={
-                              <>
-                                <span className="ml-2">
-                                  ({DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
-                                  is default)
-                                </span>
-                              </>
-                            }
-                            {...form.register(
-                              "sequentialTestingTuningParameter",
-                              {
-                                valueAsNumber: true,
-                                validate: (v) => {
-                                  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                                  return !(v <= 0);
-                                },
-                              }
-                            )}
-                          />
-                        </div>
-                      </div>
-                    </Tab>
-                  </ControlledTabs>
-                </div>
-
-                <h4 className="mt-4 mb-2">Sticky Bucketing Settings</h4>
-                <div className="appbox py-2 px-3">
-                  <div className="w-100 mt-2">
-                    <div className="d-flex">
-                      <label
-                        className="mr-2"
-                        htmlFor="toggle-useStickyBucketing"
-                      >
-                        <PremiumTooltip
-                          commercialFeature={"sticky-bucketing"}
-                          body={<StickyBucketingTooltip />}
-                        >
-                          Enable Sticky Bucketing <FaQuestionCircle />
-                        </PremiumTooltip>
-                      </label>
-                      <Toggle
-                        id={"toggle-useStickyBucketing"}
-                        value={!!form.watch("useStickyBucketing")}
-                        setValue={(value) => {
-                          form.setValue(
-                            "useStickyBucketing",
-                            hasStickyBucketFeature ? value : false
-                          );
-                        }}
-                        disabled={
-                          !form.watch("useStickyBucketing") &&
-                          (!hasStickyBucketFeature ||
-                            !hasSDKWithStickyBucketing)
-                        }
-                      />
-                    </div>
-                    {!form.watch("useStickyBucketing") && (
-                      <div className="small">
-                        <StickyBucketingToggleWarning
-                          hasSDKWithStickyBucketing={hasSDKWithStickyBucketing}
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {form.watch("useStickyBucketing") && (
-                    <div className="w-100 mt-4">
-                      <div className="d-flex">
-                        <label
-                          className="mr-2"
-                          htmlFor="toggle-useFallbackAttributes"
-                        >
-                          <Tooltip
-                            body={
-                              <>
-                                <div className="mb-2">
-                                  If the user&apos;s assignment attribute is not
-                                  available a fallback attribute may be used
-                                  instead. Toggle this to allow selection of a
-                                  fallback attribute when creating experiments.
-                                </div>
-                                <div>
-                                  While using a fallback attribute can improve
-                                  the consistency of the user experience, it can
-                                  also lead to statistical biases if not
-                                  implemented carefully. See the Sticky
-                                  Bucketing docs for more information.
-                                </div>
-                              </>
-                            }
-                          >
-                            Enable fallback attributes in experiments{" "}
-                            <FaQuestionCircle />
-                          </Tooltip>
-                        </label>
-                        <Toggle
-                          id={"toggle-useFallbackAttributes"}
-                          value={!!form.watch("useFallbackAttributes")}
-                          setValue={(value) =>
-                            form.setValue("useFallbackAttributes", value)
-                          }
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <h4 className="mt-4 mb-2">Experiment Health Settings</h4>
-                <div className="appbox pt-2 px-3">
-                  <div className="form-group mb-2 mt-2 mr-2 form-inline">
-                    <label
-                      className="mr-1"
-                      htmlFor="toggle-runHealthTrafficQuery"
-                    >
-                      Run traffic query by default
-                    </label>
-                    <Toggle
-                      id={"toggle-runHealthTrafficQuery"}
-                      value={!!form.watch("runHealthTrafficQuery")}
-                      setValue={(value) => {
-                        form.setValue("runHealthTrafficQuery", value);
-                      }}
-                    />
-                  </div>
-
-                  <div className="mt-3 form-inline flex-column align-items-start">
-                    <Field
-                      label="SRM p-value threshold"
-                      type="number"
-                      step="0.001"
-                      style={{
-                        borderColor: srmHighlightColor,
-                        backgroundColor: srmHighlightColor
-                          ? srmHighlightColor + "15"
-                          : "",
-                      }}
-                      max="0.1"
-                      min="0.00001"
-                      className={`ml-2`}
-                      containerClassName="mb-3"
-                      append=""
-                      disabled={hasFileConfig()}
-                      helpText={
-                        <>
-                          <span className="ml-2">(0.001 is default)</span>
-                          <div
-                            className="ml-2"
-                            style={{
-                              color: srmHighlightColor,
-                              flexBasis: "100%",
-                            }}
-                          >
-                            {srmWarningMsg}
-                          </div>
-                        </>
-                      }
-                      {...form.register("srmThreshold", {
-                        valueAsNumber: true,
-                        min: 0,
-                        max: 1,
-                      })}
-                    />
-                  </div>
-                </div>
-
-                <div className="mb-3 form-group flex-column align-items-start">
-                  <PremiumTooltip
-                    commercialFeature="custom-launch-checklist"
-                    premiumText="Custom pre-launch checklists are available to Enterprise customers"
-                  >
-                    <div className="d-inline-block h4 mt-4 mb-0">
-                      Experiment Pre-Launch Checklist
-                    </div>
-                  </PremiumTooltip>
-                  <p className="pt-2">
-                    Configure required steps that need to be completed before an
-                    experiment can be launched.
-                  </p>
-                  <Button
-                    disabled={!hasCustomChecklistFeature}
-                    onClick={async () => {
-                      setEditChecklistOpen(true);
-                    }}
-                  >
-                    Edit Checklist
-                  </Button>
-                </div>
-              </div>
-            </div>
+            <ExperimentSettings
+              cronString={cronString}
+              updateCronString={updateCronString}
+              hasFileConfig={hasFileConfig()}
+              hasCommercialFeature={hasCommercialFeature}
+              pastExperimentsMinLengthField={form.register(
+                "pastExperimentsMinLength",
+                {
+                  valueAsNumber: true,
+                  min: 0,
+                  max: 31,
+                }
+              )}
+              multipleExposureMinPercentField={form.register(
+                "multipleExposureMinPercent",
+                {
+                  valueAsNumber: true,
+                  min: 0,
+                  max: 100,
+                }
+              )}
+              attributionModel={form.watch("attributionModel")}
+              setAttributionModel={(v) => form.setValue("attributionModel", v)}
+              updateSchedule={form.watch("updateSchedule")}
+              updateScheduleTypeField={form.register("updateSchedule.type")}
+              updateScheduleHoursField={form.register("updateSchedule.hours")}
+              updateScheduleCronField={form.register("updateSchedule.cron")}
+              disableMultiMetricQueries={form.watch(
+                "disableMultiMetricQueries"
+              )}
+              setDisableMultiMetricQueries={(v: boolean) =>
+                form.setValue("disableMultiMetricQueries", v)
+              }
+              statsEngine={form.watch("statsEngine")}
+              setStatsEngine={(v) => form.setValue("statsEngine", v)}
+              confidenceLevel={form.watch("confidenceLevel")}
+              confidenceLevelField={form.register("confidenceLevel", {
+                valueAsNumber: true,
+                min: 50,
+                max: 100,
+              })}
+              pValueThreshold={form.watch("pValueThreshold")}
+              pValueThresholdField={form.register("pValueThreshold", {
+                valueAsNumber: true,
+                min: 0,
+                max: 1,
+              })}
+              setPValueCorrection={(v: PValueCorrection) =>
+                form.setValue("pValueCorrection", v)
+              }
+              regressionAdjustmentEnabled={form.watch(
+                "regressionAdjustmentEnabled"
+              )}
+              setRegressionAdjustmentEnabled={(v: boolean) =>
+                form.setValue("regressionAdjustmentEnabled", v)
+              }
+              regressionAdjustmentDays={form.watch("regressionAdjustmentDays")}
+              hasRegressionAdjustmentFeature={hasRegressionAdjustmentFeature}
+              regressionAdjustmentDaysField={form.register(
+                "regressionAdjustmentDays",
+                {
+                  valueAsNumber: true,
+                  validate: (v) => {
+                    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                    return !(v <= 0 || v > 100);
+                  },
+                }
+              )}
+              sequentialTestingEnabled={form.watch("sequentialTestingEnabled")}
+              setSequentialTestingEnabled={(v: boolean) =>
+                form.setValue("sequentialTestingEnabled", v)
+              }
+              hasSequentialTestingFeature={hasSequentialTestingFeature}
+              sequentialTestingTuningParameterField={form.register(
+                "sequentialTestingTuningParameter",
+                {
+                  valueAsNumber: true,
+                  validate: (v) => {
+                    return !(v <= 0);
+                  },
+                }
+              )}
+              useStickyBucketing={form.watch("useStickyBucketing")}
+              setUseStickyBucketing={(v: boolean) =>
+                form.setValue("useStickyBucketing", v)
+              }
+              hasStickyBucketFeature={hasStickyBucketFeature}
+              useFallbackAttributes={form.watch("useFallbackAttributes")}
+              setUseFallbackAttributes={(v: boolean) =>
+                form.setValue("useFallbackAttributes", v)
+              }
+              runHealthTrafficQuery={form.watch("runHealthTrafficQuery")}
+              setRunHealthTrafficQuery={(v: boolean) =>
+                form.setValue("runHealthTrafficQuery", v)
+              }
+              srmThreshold={form.watch("srmThreshold")}
+              srmThresholdField={form.register("srmThreshold", {
+                valueAsNumber: true,
+                min: 0,
+                max: 1,
+              })}
+              hasCustomChecklistFeature={hasCustomChecklistFeature}
+            />
 
             <div className="divider border-bottom mb-3 mt-3" />
 
