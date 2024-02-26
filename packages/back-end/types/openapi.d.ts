@@ -33,6 +33,10 @@ export interface paths {
       };
     };
   };
+  "/feature-keys": {
+    /** Get list of feature keys */
+    get: operations["getFeatureKeys"];
+  };
   "/projects": {
     /** Get all projects */
     get: operations["listProjects"];
@@ -241,6 +245,10 @@ export interface paths {
     /** Bulk import fact tables, filters, and metrics */
     post: operations["postBulkImportFacts"];
   };
+  "/code-refs": {
+    /** Submit list of code references */
+    post: operations["postCodeRefs"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -286,12 +294,38 @@ export interface components {
       behavior: {
         /** @enum {string} */
         goal: "increase" | "decrease";
+        /** @description Controls how outliers are handled */
+        cappingSettings?: {
+          /** @enum {string} */
+          type: "none" | "absolute" | "percentile";
+          /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+          value?: number;
+          /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+          ignoreZeros?: boolean;
+        };
+        /** @deprecated */
         cap?: number;
-        /** @enum {string|null} */
+        /**
+         * @deprecated 
+         * @enum {string|null}
+         */
         capping?: "absolute" | "percentile" | null;
+        /** @deprecated */
         capValue?: number;
-        conversionWindowStart: number;
-        conversionWindowEnd: number;
+        /** @description Controls the conversion window for the metric */
+        windowSettings: {
+          /** @enum {string} */
+          type: "none" | "conversion" | "lookback";
+          /** @description Wait this many hours after experiment exposure before counting conversions */
+          delayHours?: number;
+          windowValue?: number;
+          /** @enum {string} */
+          windowUnit?: "hours" | "days" | "weeks";
+        };
+        /** @deprecated */
+        conversionWindowStart?: number;
+        /** @deprecated */
+        conversionWindowEnd?: number;
         riskThresholdSuccess: number;
         riskThresholdDanger: number;
         minPercentChange: number;
@@ -407,7 +441,6 @@ export interface components {
               disableStickyBucketing?: any;
               bucketVersion?: number;
               minBucketVersion?: number;
-              excludeBlockedBucketUsers?: boolean;
               namespace?: {
                 enabled: boolean;
                 name: string;
@@ -474,7 +507,6 @@ export interface components {
                 disableStickyBucketing?: any;
                 bucketVersion?: number;
                 minBucketVersion?: number;
-                excludeBlockedBucketUsers?: boolean;
                 namespace?: {
                   enabled: boolean;
                   name: string;
@@ -503,6 +535,10 @@ export interface components {
           };
         }) | undefined;
       };
+      prerequisites?: ({
+          parentId: string;
+          parentCondition: string;
+        })[];
       revision: {
         version: number;
         comment: string;
@@ -552,7 +588,6 @@ export interface components {
           disableStickyBucketing?: any;
           bucketVersion?: number;
           minBucketVersion?: number;
-          excludeBlockedBucketUsers?: boolean;
           namespace?: {
             enabled: boolean;
             name: string;
@@ -619,7 +654,6 @@ export interface components {
             disableStickyBucketing?: any;
             bucketVersion?: number;
             minBucketVersion?: number;
-            excludeBlockedBucketUsers?: boolean;
             namespace?: {
               enabled: boolean;
               name: string;
@@ -685,7 +719,6 @@ export interface components {
       disableStickyBucketing?: any;
       bucketVersion?: number;
       minBucketVersion?: number;
-      excludeBlockedBucketUsers?: boolean;
       namespace?: {
         enabled: boolean;
         name: string;
@@ -764,7 +797,6 @@ export interface components {
       disableStickyBucketing?: any;
       bucketVersion?: number;
       minBucketVersion?: number;
-      excludeBlockedBucketUsers?: boolean;
       namespace?: {
         enabled: boolean;
         name: string;
@@ -838,7 +870,6 @@ export interface components {
       disableStickyBucketing?: any;
       bucketVersion?: number;
       minBucketVersion?: number;
-      excludeBlockedBucketUsers?: boolean;
       variations: ({
           variationId: string;
           key: string;
@@ -883,8 +914,10 @@ export interface components {
         goals: ({
             metricId: string;
             overrides: {
-              conversionWindowStart?: number;
-              conversionWindowEnd?: number;
+              delayHours?: number;
+              windowHours?: number;
+              /** @enum {string} */
+              window?: "conversion" | "lookback" | "";
               winRiskThreshold?: number;
               loseRiskThreshold?: number;
             };
@@ -892,8 +925,10 @@ export interface components {
         guardrails: ({
             metricId: string;
             overrides: {
-              conversionWindowStart?: number;
-              conversionWindowEnd?: number;
+              delayHours?: number;
+              windowHours?: number;
+              /** @enum {string} */
+              window?: "conversion" | "lookback" | "";
               winRiskThreshold?: number;
               loseRiskThreshold?: number;
             };
@@ -901,8 +936,10 @@ export interface components {
         activationMetric?: {
           metricId: string;
           overrides: {
-            conversionWindowStart?: number;
-            conversionWindowEnd?: number;
+            delayHours?: number;
+            windowHours?: number;
+            /** @enum {string} */
+            window?: "conversion" | "lookback" | "";
             winRiskThreshold?: number;
             loseRiskThreshold?: number;
           };
@@ -919,8 +956,10 @@ export interface components {
     ExperimentMetric: {
       metricId: string;
       overrides: {
-        conversionWindowStart?: number;
-        conversionWindowEnd?: number;
+        delayHours?: number;
+        windowHours?: number;
+        /** @enum {string} */
+        window?: "conversion" | "lookback" | "";
         winRiskThreshold?: number;
         loseRiskThreshold?: number;
       };
@@ -940,8 +979,10 @@ export interface components {
       goals: ({
           metricId: string;
           overrides: {
-            conversionWindowStart?: number;
-            conversionWindowEnd?: number;
+            delayHours?: number;
+            windowHours?: number;
+            /** @enum {string} */
+            window?: "conversion" | "lookback" | "";
             winRiskThreshold?: number;
             loseRiskThreshold?: number;
           };
@@ -949,8 +990,10 @@ export interface components {
       guardrails: ({
           metricId: string;
           overrides: {
-            conversionWindowStart?: number;
-            conversionWindowEnd?: number;
+            delayHours?: number;
+            windowHours?: number;
+            /** @enum {string} */
+            window?: "conversion" | "lookback" | "";
             winRiskThreshold?: number;
             loseRiskThreshold?: number;
           };
@@ -958,8 +1001,10 @@ export interface components {
       activationMetric?: {
         metricId: string;
         overrides: {
-          conversionWindowStart?: number;
-          conversionWindowEnd?: number;
+          delayHours?: number;
+          windowHours?: number;
+          /** @enum {string} */
+          window?: "conversion" | "lookback" | "";
           winRiskThreshold?: number;
           loseRiskThreshold?: number;
         };
@@ -991,8 +1036,10 @@ export interface components {
         goals: ({
             metricId: string;
             overrides: {
-              conversionWindowStart?: number;
-              conversionWindowEnd?: number;
+              delayHours?: number;
+              windowHours?: number;
+              /** @enum {string} */
+              window?: "conversion" | "lookback" | "";
               winRiskThreshold?: number;
               loseRiskThreshold?: number;
             };
@@ -1000,8 +1047,10 @@ export interface components {
         guardrails: ({
             metricId: string;
             overrides: {
-              conversionWindowStart?: number;
-              conversionWindowEnd?: number;
+              delayHours?: number;
+              windowHours?: number;
+              /** @enum {string} */
+              window?: "conversion" | "lookback" | "";
               winRiskThreshold?: number;
               loseRiskThreshold?: number;
             };
@@ -1009,8 +1058,10 @@ export interface components {
         activationMetric?: {
           metricId: string;
           overrides: {
-            conversionWindowStart?: number;
-            conversionWindowEnd?: number;
+            delayHours?: number;
+            windowHours?: number;
+            /** @enum {string} */
+            window?: "conversion" | "lookback" | "";
             winRiskThreshold?: number;
             loseRiskThreshold?: number;
           };
@@ -1218,13 +1269,15 @@ export interface components {
         type: "none" | "absolute" | "percentile";
         /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
         value?: number;
+        /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+        ignoreZeros?: boolean;
       };
       /** @description Controls the conversion window for the metric */
       windowSettings: {
         /** @enum {string} */
-        type: "none" | "conversion";
+        type: "none" | "conversion" | "lookback";
         /** @description Wait this many hours after experiment exposure before counting conversions */
-        delayHours: number;
+        delayHours?: number;
         windowValue?: number;
         /** @enum {string} */
         windowUnit?: "hours" | "days" | "weeks";
@@ -1267,6 +1320,12 @@ export interface components {
     visualChangeId: string;
     /** @description Specify a specific fact table */
     factTableId: string;
+    /** @description Fully qualified name of repo either in GitHub or some other version control platform. */
+    repo: string;
+    /** @description Name of branch for git repo. */
+    branch: string;
+    /** @description Name of versino control platform like GitHub or Gitlab. */
+    platform: "github" | "gitlab" | "bitbucket";
   };
   requestBodies: never;
   headers: never;
@@ -1349,7 +1408,6 @@ export interface operations {
                         disableStickyBucketing?: any;
                         bucketVersion?: number;
                         minBucketVersion?: number;
-                        excludeBlockedBucketUsers?: boolean;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -1416,7 +1474,6 @@ export interface operations {
                           disableStickyBucketing?: any;
                           bucketVersion?: number;
                           minBucketVersion?: number;
-                          excludeBlockedBucketUsers?: boolean;
                           namespace?: {
                             enabled: boolean;
                             name: string;
@@ -1445,6 +1502,10 @@ export interface operations {
                     };
                   }) | undefined;
                 };
+                prerequisites?: ({
+                    parentId: string;
+                    parentCondition: string;
+                  })[];
                 revision: {
                   version: number;
                   comment: string;
@@ -1661,7 +1722,6 @@ export interface operations {
                       disableStickyBucketing?: any;
                       bucketVersion?: number;
                       minBucketVersion?: number;
-                      excludeBlockedBucketUsers?: boolean;
                       namespace?: {
                         enabled: boolean;
                         name: string;
@@ -1728,7 +1788,6 @@ export interface operations {
                         disableStickyBucketing?: any;
                         bucketVersion?: number;
                         minBucketVersion?: number;
-                        excludeBlockedBucketUsers?: boolean;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -1757,6 +1816,10 @@ export interface operations {
                   };
                 }) | undefined;
               };
+              prerequisites?: ({
+                  parentId: string;
+                  parentCondition: string;
+                })[];
               revision: {
                 version: number;
                 comment: string;
@@ -1838,7 +1901,6 @@ export interface operations {
                       disableStickyBucketing?: any;
                       bucketVersion?: number;
                       minBucketVersion?: number;
-                      excludeBlockedBucketUsers?: boolean;
                       namespace?: {
                         enabled: boolean;
                         name: string;
@@ -1905,7 +1967,6 @@ export interface operations {
                         disableStickyBucketing?: any;
                         bucketVersion?: number;
                         minBucketVersion?: number;
-                        excludeBlockedBucketUsers?: boolean;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -1934,6 +1995,10 @@ export interface operations {
                   };
                 }) | undefined;
               };
+              prerequisites?: ({
+                  parentId: string;
+                  parentCondition: string;
+                })[];
               revision: {
                 version: number;
                 comment: string;
@@ -2139,7 +2204,6 @@ export interface operations {
                       disableStickyBucketing?: any;
                       bucketVersion?: number;
                       minBucketVersion?: number;
-                      excludeBlockedBucketUsers?: boolean;
                       namespace?: {
                         enabled: boolean;
                         name: string;
@@ -2206,7 +2270,6 @@ export interface operations {
                         disableStickyBucketing?: any;
                         bucketVersion?: number;
                         minBucketVersion?: number;
-                        excludeBlockedBucketUsers?: boolean;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -2235,6 +2298,10 @@ export interface operations {
                   };
                 }) | undefined;
               };
+              prerequisites?: ({
+                  parentId: string;
+                  parentCondition: string;
+                })[];
               revision: {
                 version: number;
                 comment: string;
@@ -2320,7 +2387,6 @@ export interface operations {
                       disableStickyBucketing?: any;
                       bucketVersion?: number;
                       minBucketVersion?: number;
-                      excludeBlockedBucketUsers?: boolean;
                       namespace?: {
                         enabled: boolean;
                         name: string;
@@ -2387,7 +2453,6 @@ export interface operations {
                         disableStickyBucketing?: any;
                         bucketVersion?: number;
                         minBucketVersion?: number;
-                        excludeBlockedBucketUsers?: boolean;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -2416,6 +2481,10 @@ export interface operations {
                   };
                 }) | undefined;
               };
+              prerequisites?: ({
+                  parentId: string;
+                  parentCondition: string;
+                })[];
               revision: {
                 version: number;
                 comment: string;
@@ -2425,6 +2494,22 @@ export interface operations {
               };
             };
           };
+        };
+      };
+    };
+  };
+  getFeatureKeys: {
+    /** Get list of feature keys */
+    parameters: {
+        /** @description Filter by project id */
+      query: {
+        projectId?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": (string)[];
         };
       };
     };
@@ -2854,7 +2939,6 @@ export interface operations {
                 disableStickyBucketing?: any;
                 bucketVersion?: number;
                 minBucketVersion?: number;
-                excludeBlockedBucketUsers?: boolean;
                 variations: ({
                     variationId: string;
                     key: string;
@@ -2899,8 +2983,10 @@ export interface operations {
                   goals: ({
                       metricId: string;
                       overrides: {
-                        conversionWindowStart?: number;
-                        conversionWindowEnd?: number;
+                        delayHours?: number;
+                        windowHours?: number;
+                        /** @enum {string} */
+                        window?: "conversion" | "lookback" | "";
                         winRiskThreshold?: number;
                         loseRiskThreshold?: number;
                       };
@@ -2908,8 +2994,10 @@ export interface operations {
                   guardrails: ({
                       metricId: string;
                       overrides: {
-                        conversionWindowStart?: number;
-                        conversionWindowEnd?: number;
+                        delayHours?: number;
+                        windowHours?: number;
+                        /** @enum {string} */
+                        window?: "conversion" | "lookback" | "";
                         winRiskThreshold?: number;
                         loseRiskThreshold?: number;
                       };
@@ -2917,8 +3005,10 @@ export interface operations {
                   activationMetric?: {
                     metricId: string;
                     overrides: {
-                      conversionWindowStart?: number;
-                      conversionWindowEnd?: number;
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
                       winRiskThreshold?: number;
                       loseRiskThreshold?: number;
                     };
@@ -2966,7 +3056,7 @@ export interface operations {
           metrics?: (string)[];
           guardrailMetrics?: (string)[];
           /** @description Email of the person who owns this experiment */
-          owner: string;
+          owner?: string;
           archived?: boolean;
           /** @enum {string} */
           status?: "draft" | "running" | "stopped";
@@ -2978,7 +3068,6 @@ export interface operations {
           disableStickyBucketing?: any;
           bucketVersion?: number;
           minBucketVersion?: number;
-          excludeBlockedBucketUsers?: boolean;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
           variations: ({
@@ -3050,7 +3139,6 @@ export interface operations {
               disableStickyBucketing?: any;
               bucketVersion?: number;
               minBucketVersion?: number;
-              excludeBlockedBucketUsers?: boolean;
               variations: ({
                   variationId: string;
                   key: string;
@@ -3095,8 +3183,10 @@ export interface operations {
                 goals: ({
                     metricId: string;
                     overrides: {
-                      conversionWindowStart?: number;
-                      conversionWindowEnd?: number;
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
                       winRiskThreshold?: number;
                       loseRiskThreshold?: number;
                     };
@@ -3104,8 +3194,10 @@ export interface operations {
                 guardrails: ({
                     metricId: string;
                     overrides: {
-                      conversionWindowStart?: number;
-                      conversionWindowEnd?: number;
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
                       winRiskThreshold?: number;
                       loseRiskThreshold?: number;
                     };
@@ -3113,8 +3205,10 @@ export interface operations {
                 activationMetric?: {
                   metricId: string;
                   overrides: {
-                    conversionWindowStart?: number;
-                    conversionWindowEnd?: number;
+                    delayHours?: number;
+                    windowHours?: number;
+                    /** @enum {string} */
+                    window?: "conversion" | "lookback" | "";
                     winRiskThreshold?: number;
                     loseRiskThreshold?: number;
                   };
@@ -3167,7 +3261,6 @@ export interface operations {
               disableStickyBucketing?: any;
               bucketVersion?: number;
               minBucketVersion?: number;
-              excludeBlockedBucketUsers?: boolean;
               variations: ({
                   variationId: string;
                   key: string;
@@ -3212,8 +3305,10 @@ export interface operations {
                 goals: ({
                     metricId: string;
                     overrides: {
-                      conversionWindowStart?: number;
-                      conversionWindowEnd?: number;
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
                       winRiskThreshold?: number;
                       loseRiskThreshold?: number;
                     };
@@ -3221,8 +3316,10 @@ export interface operations {
                 guardrails: ({
                     metricId: string;
                     overrides: {
-                      conversionWindowStart?: number;
-                      conversionWindowEnd?: number;
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
                       winRiskThreshold?: number;
                       loseRiskThreshold?: number;
                     };
@@ -3230,8 +3327,10 @@ export interface operations {
                 activationMetric?: {
                   metricId: string;
                   overrides: {
-                    conversionWindowStart?: number;
-                    conversionWindowEnd?: number;
+                    delayHours?: number;
+                    windowHours?: number;
+                    /** @enum {string} */
+                    window?: "conversion" | "lookback" | "";
                     winRiskThreshold?: number;
                     loseRiskThreshold?: number;
                   };
@@ -3287,7 +3386,6 @@ export interface operations {
           disableStickyBucketing?: any;
           bucketVersion?: number;
           minBucketVersion?: number;
-          excludeBlockedBucketUsers?: boolean;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
           variations?: ({
@@ -3359,7 +3457,6 @@ export interface operations {
               disableStickyBucketing?: any;
               bucketVersion?: number;
               minBucketVersion?: number;
-              excludeBlockedBucketUsers?: boolean;
               variations: ({
                   variationId: string;
                   key: string;
@@ -3404,8 +3501,10 @@ export interface operations {
                 goals: ({
                     metricId: string;
                     overrides: {
-                      conversionWindowStart?: number;
-                      conversionWindowEnd?: number;
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
                       winRiskThreshold?: number;
                       loseRiskThreshold?: number;
                     };
@@ -3413,8 +3512,10 @@ export interface operations {
                 guardrails: ({
                     metricId: string;
                     overrides: {
-                      conversionWindowStart?: number;
-                      conversionWindowEnd?: number;
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
                       winRiskThreshold?: number;
                       loseRiskThreshold?: number;
                     };
@@ -3422,8 +3523,10 @@ export interface operations {
                 activationMetric?: {
                   metricId: string;
                   overrides: {
-                    conversionWindowStart?: number;
-                    conversionWindowEnd?: number;
+                    delayHours?: number;
+                    windowHours?: number;
+                    /** @enum {string} */
+                    window?: "conversion" | "lookback" | "";
                     winRiskThreshold?: number;
                     loseRiskThreshold?: number;
                   };
@@ -3480,8 +3583,10 @@ export interface operations {
                 goals: ({
                     metricId: string;
                     overrides: {
-                      conversionWindowStart?: number;
-                      conversionWindowEnd?: number;
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
                       winRiskThreshold?: number;
                       loseRiskThreshold?: number;
                     };
@@ -3489,8 +3594,10 @@ export interface operations {
                 guardrails: ({
                     metricId: string;
                     overrides: {
-                      conversionWindowStart?: number;
-                      conversionWindowEnd?: number;
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
                       winRiskThreshold?: number;
                       loseRiskThreshold?: number;
                     };
@@ -3498,8 +3605,10 @@ export interface operations {
                 activationMetric?: {
                   metricId: string;
                   overrides: {
-                    conversionWindowStart?: number;
-                    conversionWindowEnd?: number;
+                    delayHours?: number;
+                    windowHours?: number;
+                    /** @enum {string} */
+                    window?: "conversion" | "lookback" | "";
                     winRiskThreshold?: number;
                     loseRiskThreshold?: number;
                   };
@@ -3578,12 +3687,38 @@ export interface operations {
                 behavior: {
                   /** @enum {string} */
                   goal: "increase" | "decrease";
+                  /** @description Controls how outliers are handled */
+                  cappingSettings?: {
+                    /** @enum {string} */
+                    type: "none" | "absolute" | "percentile";
+                    /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+                    value?: number;
+                    /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+                    ignoreZeros?: boolean;
+                  };
+                  /** @deprecated */
                   cap?: number;
-                  /** @enum {string|null} */
+                  /**
+                   * @deprecated 
+                   * @enum {string|null}
+                   */
                   capping?: "absolute" | "percentile" | null;
+                  /** @deprecated */
                   capValue?: number;
-                  conversionWindowStart: number;
-                  conversionWindowEnd: number;
+                  /** @description Controls the conversion window for the metric */
+                  windowSettings: {
+                    /** @enum {string} */
+                    type: "none" | "conversion" | "lookback";
+                    /** @description Wait this many hours after experiment exposure before counting conversions */
+                    delayHours?: number;
+                    windowValue?: number;
+                    /** @enum {string} */
+                    windowUnit?: "hours" | "days" | "weeks";
+                  };
+                  /** @deprecated */
+                  conversionWindowStart?: number;
+                  /** @deprecated */
+                  conversionWindowEnd?: number;
                   riskThresholdSuccess: number;
                   riskThresholdDanger: number;
                   minPercentChange: number;
@@ -3664,21 +3799,50 @@ export interface operations {
           behavior?: {
             /** @enum {string} */
             goal?: "increase" | "decrease";
+            /** @description Controls how outliers are handled */
+            cappingSettings?: {
+              /** @enum {string|null} */
+              type: "none" | "absolute" | "percentile" | null;
+              /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+              value?: number;
+              /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+              ignoreZeros?: boolean;
+            };
             /**
              * @deprecated 
-             * @description (deprecated, use capping and capValue fields instead) This should be non-negative
+             * @description (deprecated, use cappingSettings instead) This should be non-negative
              */
             cap?: number;
             /**
-             * @description Used in conjunction with `capValue` to set the capping (winsorization). Do not specify or set to null for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/>  If `behavior.capping` is non-null, you must specify `behavior.capValue`. 
+             * @deprecated 
+             * @description (deprecated, use cappingSettings instead) Used in conjunction with `capValue` to set the capping (winsorization). Do not specify or set to null for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/>  If `behavior.capping` is non-null, you must specify `behavior.capValue`. 
              * @enum {string|null}
              */
             capping?: "absolute" | "percentile" | null;
-            /** @description This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`. */
+            /**
+             * @deprecated 
+             * @description (deprecated, use cappingSettings instead) This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`.
+             */
             capValue?: number;
-            /** @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither. */
+            /** @description Controls the conversion window for the metric */
+            windowSettings?: {
+              /** @enum {string} */
+              type: "none" | "conversion" | "lookback";
+              /** @description Wait this many hours after experiment exposure before counting conversions */
+              delayHours?: number;
+              windowValue?: number;
+              /** @enum {string} */
+              windowUnit?: "hours" | "days" | "weeks";
+            };
+            /**
+             * @deprecated 
+             * @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
+             */
             conversionWindowStart?: number;
-            /** @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither. */
+            /**
+             * @deprecated 
+             * @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
+             */
             conversionWindowEnd?: number;
             /** @description Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`. */
             riskThresholdSuccess?: number;
@@ -3753,12 +3917,38 @@ export interface operations {
               behavior: {
                 /** @enum {string} */
                 goal: "increase" | "decrease";
+                /** @description Controls how outliers are handled */
+                cappingSettings?: {
+                  /** @enum {string} */
+                  type: "none" | "absolute" | "percentile";
+                  /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+                  value?: number;
+                  /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+                  ignoreZeros?: boolean;
+                };
+                /** @deprecated */
                 cap?: number;
-                /** @enum {string|null} */
+                /**
+                 * @deprecated 
+                 * @enum {string|null}
+                 */
                 capping?: "absolute" | "percentile" | null;
+                /** @deprecated */
                 capValue?: number;
-                conversionWindowStart: number;
-                conversionWindowEnd: number;
+                /** @description Controls the conversion window for the metric */
+                windowSettings: {
+                  /** @enum {string} */
+                  type: "none" | "conversion" | "lookback";
+                  /** @description Wait this many hours after experiment exposure before counting conversions */
+                  delayHours?: number;
+                  windowValue?: number;
+                  /** @enum {string} */
+                  windowUnit?: "hours" | "days" | "weeks";
+                };
+                /** @deprecated */
+                conversionWindowStart?: number;
+                /** @deprecated */
+                conversionWindowEnd?: number;
                 riskThresholdSuccess: number;
                 riskThresholdDanger: number;
                 minPercentChange: number;
@@ -3834,12 +4024,38 @@ export interface operations {
               behavior: {
                 /** @enum {string} */
                 goal: "increase" | "decrease";
+                /** @description Controls how outliers are handled */
+                cappingSettings?: {
+                  /** @enum {string} */
+                  type: "none" | "absolute" | "percentile";
+                  /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+                  value?: number;
+                  /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+                  ignoreZeros?: boolean;
+                };
+                /** @deprecated */
                 cap?: number;
-                /** @enum {string|null} */
+                /**
+                 * @deprecated 
+                 * @enum {string|null}
+                 */
                 capping?: "absolute" | "percentile" | null;
+                /** @deprecated */
                 capValue?: number;
-                conversionWindowStart: number;
-                conversionWindowEnd: number;
+                /** @description Controls the conversion window for the metric */
+                windowSettings: {
+                  /** @enum {string} */
+                  type: "none" | "conversion" | "lookback";
+                  /** @description Wait this many hours after experiment exposure before counting conversions */
+                  delayHours?: number;
+                  windowValue?: number;
+                  /** @enum {string} */
+                  windowUnit?: "hours" | "days" | "weeks";
+                };
+                /** @deprecated */
+                conversionWindowStart?: number;
+                /** @deprecated */
+                conversionWindowEnd?: number;
                 riskThresholdSuccess: number;
                 riskThresholdDanger: number;
                 minPercentChange: number;
@@ -3917,16 +4133,50 @@ export interface operations {
           behavior?: {
             /** @enum {string} */
             goal?: "increase" | "decrease";
+            /** @description Controls how outliers are handled */
+            cappingSettings?: {
+              /** @enum {string|null} */
+              type: "none" | "absolute" | "percentile" | null;
+              /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+              value?: number;
+              /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+              ignoreZeros?: boolean;
+            };
             /**
-             * @description Used in conjunction with `capValue` to set the capping (winsorization). Set to null to turn capping off. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/> If `behavior.capping` is non-null, you must specify `behavior.capValue`. 
+             * @deprecated 
+             * @description (deprecated, use cappingSettings instead) This should be non-negative
+             */
+            cap?: number;
+            /**
+             * @deprecated 
+             * @description (deprecated, use cappingSettings instead) Used in conjunction with `capValue` to set the capping (winsorization). Do not specify or set to null for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/>  If `behavior.capping` is non-null, you must specify `behavior.capValue`. 
              * @enum {string|null}
              */
             capping?: "absolute" | "percentile" | null;
-            /** @description This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`. */
+            /**
+             * @deprecated 
+             * @description (deprecated, use cappingSettings instead) This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`.
+             */
             capValue?: number;
-            /** @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither. */
+            /** @description Controls the conversion window for the metric */
+            windowSettings?: {
+              /** @enum {string} */
+              type: "none" | "conversion" | "lookback";
+              /** @description Wait this many hours after experiment exposure before counting conversions */
+              delayHours?: number;
+              windowValue?: number;
+              /** @enum {string} */
+              windowUnit?: "hours" | "days" | "weeks";
+            };
+            /**
+             * @deprecated 
+             * @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
+             */
             conversionWindowStart?: number;
-            /** @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither. */
+            /**
+             * @deprecated 
+             * @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
+             */
             conversionWindowEnd?: number;
             /** @description Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`. */
             riskThresholdSuccess?: number;
@@ -4111,7 +4361,6 @@ export interface operations {
               disableStickyBucketing?: any;
               bucketVersion?: number;
               minBucketVersion?: number;
-              excludeBlockedBucketUsers?: boolean;
               variations: ({
                   variationId: string;
                   key: string;
@@ -4156,8 +4405,10 @@ export interface operations {
                 goals: ({
                     metricId: string;
                     overrides: {
-                      conversionWindowStart?: number;
-                      conversionWindowEnd?: number;
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
                       winRiskThreshold?: number;
                       loseRiskThreshold?: number;
                     };
@@ -4165,8 +4416,10 @@ export interface operations {
                 guardrails: ({
                     metricId: string;
                     overrides: {
-                      conversionWindowStart?: number;
-                      conversionWindowEnd?: number;
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
                       winRiskThreshold?: number;
                       loseRiskThreshold?: number;
                     };
@@ -4174,8 +4427,10 @@ export interface operations {
                 activationMetric?: {
                   metricId: string;
                   overrides: {
-                    conversionWindowStart?: number;
-                    conversionWindowEnd?: number;
+                    delayHours?: number;
+                    windowHours?: number;
+                    /** @enum {string} */
+                    window?: "conversion" | "lookback" | "";
                     winRiskThreshold?: number;
                     loseRiskThreshold?: number;
                   };
@@ -5059,13 +5314,15 @@ export interface operations {
                   type: "none" | "absolute" | "percentile";
                   /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
                   value?: number;
+                  /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+                  ignoreZeros?: boolean;
                 };
                 /** @description Controls the conversion window for the metric */
                 windowSettings: {
                   /** @enum {string} */
-                  type: "none" | "conversion";
+                  type: "none" | "conversion" | "lookback";
                   /** @description Wait this many hours after experiment exposure before counting conversions */
-                  delayHours: number;
+                  delayHours?: number;
                   windowValue?: number;
                   /** @enum {string} */
                   windowUnit?: "hours" | "days" | "weeks";
@@ -5136,13 +5393,15 @@ export interface operations {
             type: "none" | "absolute" | "percentile";
             /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
             value?: number;
+            /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+            ignoreZeros?: boolean;
           };
           /** @description Controls the conversion window for the metric */
           windowSettings?: {
             /** @enum {string} */
-            type: "none" | "conversion";
+            type: "none" | "conversion" | "lookback";
             /** @description Wait this many hours after experiment exposure before counting conversions */
-            delayHours: number;
+            delayHours?: number;
             windowValue?: number;
             /** @enum {string} */
             windowUnit?: "hours" | "days" | "weeks";
@@ -5151,7 +5410,7 @@ export interface operations {
           regressionAdjustmentSettings?: {
             /** @description If false, the organization default settings will be used */
             override: boolean;
-            /** @description Controls whether or not regresion adjustment is applied to the metric */
+            /** @description Controls whether or not regression adjustment is applied to the metric */
             enabled?: boolean;
             /** @description Number of pre-exposure days to use for the regression adjustment */
             days?: number;
@@ -5198,13 +5457,15 @@ export interface operations {
                 type: "none" | "absolute" | "percentile";
                 /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
                 value?: number;
+                /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+                ignoreZeros?: boolean;
               };
               /** @description Controls the conversion window for the metric */
               windowSettings: {
                 /** @enum {string} */
-                type: "none" | "conversion";
+                type: "none" | "conversion" | "lookback";
                 /** @description Wait this many hours after experiment exposure before counting conversions */
-                delayHours: number;
+                delayHours?: number;
                 windowValue?: number;
                 /** @enum {string} */
                 windowUnit?: "hours" | "days" | "weeks";
@@ -5275,13 +5536,15 @@ export interface operations {
                 type: "none" | "absolute" | "percentile";
                 /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
                 value?: number;
+                /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+                ignoreZeros?: boolean;
               };
               /** @description Controls the conversion window for the metric */
               windowSettings: {
                 /** @enum {string} */
-                type: "none" | "conversion";
+                type: "none" | "conversion" | "lookback";
                 /** @description Wait this many hours after experiment exposure before counting conversions */
-                delayHours: number;
+                delayHours?: number;
                 windowValue?: number;
                 /** @enum {string} */
                 windowUnit?: "hours" | "days" | "weeks";
@@ -5351,13 +5614,15 @@ export interface operations {
             type: "none" | "absolute" | "percentile";
             /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
             value?: number;
+            /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+            ignoreZeros?: boolean;
           };
           /** @description Controls the conversion window for the metric */
           windowSettings?: {
             /** @enum {string} */
-            type: "none" | "conversion";
+            type: "none" | "conversion" | "lookback";
             /** @description Wait this many hours after experiment exposure before counting conversions */
-            delayHours: number;
+            delayHours?: number;
             windowValue?: number;
             /** @enum {string} */
             windowUnit?: "hours" | "days" | "weeks";
@@ -5413,13 +5678,15 @@ export interface operations {
                 type: "none" | "absolute" | "percentile";
                 /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
                 value?: number;
+                /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+                ignoreZeros?: boolean;
               };
               /** @description Controls the conversion window for the metric */
               windowSettings: {
                 /** @enum {string} */
-                type: "none" | "conversion";
+                type: "none" | "conversion" | "lookback";
                 /** @description Wait this many hours after experiment exposure before counting conversions */
-                delayHours: number;
+                delayHours?: number;
                 windowValue?: number;
                 /** @enum {string} */
                 windowUnit?: "hours" | "days" | "weeks";
@@ -5552,13 +5819,15 @@ export interface operations {
                   type: "none" | "absolute" | "percentile";
                   /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
                   value?: number;
+                  /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+                  ignoreZeros?: boolean;
                 };
                 /** @description Controls the conversion window for the metric */
                 windowSettings?: {
                   /** @enum {string} */
-                  type: "none" | "conversion";
+                  type: "none" | "conversion" | "lookback";
                   /** @description Wait this many hours after experiment exposure before counting conversions */
-                  delayHours: number;
+                  delayHours?: number;
                   windowValue?: number;
                   /** @enum {string} */
                   windowUnit?: "hours" | "days" | "weeks";
@@ -5567,7 +5836,7 @@ export interface operations {
                 regressionAdjustmentSettings?: {
                   /** @description If false, the organization default settings will be used */
                   override: boolean;
-                  /** @description Controls whether or not regresion adjustment is applied to the metric */
+                  /** @description Controls whether or not regression adjustment is applied to the metric */
                   enabled?: boolean;
                   /** @description Number of pre-exposure days to use for the regression adjustment */
                   days?: number;
@@ -5593,6 +5862,33 @@ export interface operations {
             factTableFiltersUpdated: number;
             factMetricsAdded: number;
             factMetricsUpdated: number;
+          };
+        };
+      };
+    };
+  };
+  postCodeRefs: {
+    /** Submit list of code references */
+    requestBody: {
+      content: {
+        "application/json": {
+          branch: string;
+          repoName: string;
+          refs: ({
+              filePath: string;
+              startingLineNumber: number;
+              lines: string;
+              flagKey: string;
+              contentHash: string;
+            })[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            featuresUpdated?: (string)[];
           };
         };
       };
@@ -5634,6 +5930,7 @@ export type PostFeatureResponse = operations["postFeature"]["responses"]["200"][
 export type GetFeatureResponse = operations["getFeature"]["responses"]["200"]["content"]["application/json"];
 export type UpdateFeatureResponse = operations["updateFeature"]["responses"]["200"]["content"]["application/json"];
 export type ToggleFeatureResponse = operations["toggleFeature"]["responses"]["200"]["content"]["application/json"];
+export type GetFeatureKeysResponse = operations["getFeatureKeys"]["responses"]["200"]["content"]["application/json"];
 export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];
 export type GetProjectResponse = operations["getProject"]["responses"]["200"]["content"]["application/json"];
 export type ListDimensionsResponse = operations["listDimensions"]["responses"]["200"]["content"]["application/json"];
@@ -5683,3 +5980,4 @@ export type GetFactMetricResponse = operations["getFactMetric"]["responses"]["20
 export type UpdateFactMetricResponse = operations["updateFactMetric"]["responses"]["200"]["content"]["application/json"];
 export type DeleteFactMetricResponse = operations["deleteFactMetric"]["responses"]["200"]["content"]["application/json"];
 export type PostBulkImportFactsResponse = operations["postBulkImportFacts"]["responses"]["200"]["content"]["application/json"];
+export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"]["content"]["application/json"];

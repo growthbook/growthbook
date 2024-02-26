@@ -104,7 +104,7 @@ export const getSegmentUsage = async (
   const metrics = await getMetricsUsingSegment(context, id);
 
   // experiments:
-  const experiments = await getExperimentsUsingSegment(id, context);
+  const experiments = await getExperimentsUsingSegment(context, id);
 
   res.status(200).json({
     ideas,
@@ -149,9 +149,10 @@ export const postSegment = async (
 
   const { datasource, name, sql, userIdType, description } = req.body;
 
-  const { org, userName } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userName } = context;
 
-  const datasourceDoc = await getDataSourceById(datasource, org.id);
+  const datasourceDoc = await getDataSourceById(context, datasource);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
@@ -211,7 +212,8 @@ export const putSegment = async (
   req.checkPermissions("createSegments");
 
   const { id } = req.params;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
   const segment = await findSegmentById(id, org.id);
 
@@ -224,7 +226,7 @@ export const putSegment = async (
 
   const { datasource, name, sql, userIdType, owner, description } = req.body;
 
-  const datasourceDoc = await getDataSourceById(datasource, org.id);
+  const datasourceDoc = await getDataSourceById(context, datasource);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
@@ -295,7 +297,7 @@ export const deleteSegment = async (
   // metrics
   await removeSegmentFromAllMetrics(org.id, id);
 
-  await deleteExperimentSegment(context, res.locals.eventAudit, id);
+  await deleteExperimentSegment(context, id);
 
   res.status(200).json({
     status: 200,

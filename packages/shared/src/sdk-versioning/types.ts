@@ -9,7 +9,8 @@ export type SDKCapability =
   | "remoteEval"
   | "visualEditorDragDrop"
   | "stickyBucketing"
-  | "urlRedirects";
+  | "urlRedirects"
+  | "prerequisites";
 
 export type CapabilityStrategy =
   | "min-ver-intersection" // intersection of capabilities using default SDK versions

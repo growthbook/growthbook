@@ -116,7 +116,7 @@ export function getFactMetricGroups(
 
     // Skip grouping metrics with percentile caps if there's not an efficient implementation
     if (
-      m.capping === "percentile" &&
+      m.cappingSettings.type === "percentile" &&
       !integration.getSourceProperties().hasEfficientPercentiles
     ) {
       return;
@@ -430,7 +430,8 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
   async getLatestModel(): Promise<ExperimentSnapshotInterface> {
     const obj = await findSnapshotById(this.model.organization, this.model.id);
-    if (!obj) throw new Error("Could not load snapshot model");
+    if (!obj)
+      throw new Error("Could not load snapshot model: " + this.model.id);
     return obj;
   }
   async updateModel({

@@ -8,6 +8,7 @@ import {
   getLicense,
   setLicense,
 } from "enterprise";
+import { hasReadAccess } from "shared/permissions";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -137,7 +138,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     factMetrics,
   ] = await Promise.all([
     getMetricsByOrganization(context),
-    getDataSourcesByOrganization(orgId),
+    getDataSourcesByOrganization(context),
     findDimensionsByOrganization(orgId),
     findSegmentsByOrganization(orgId),
     getAllTags(orgId),
@@ -1489,14 +1490,17 @@ export async function postApiKeyReveal(
 }
 
 export async function getWebhooks(req: AuthRequest, res: Response) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const webhooks = await WebhookModel.find({
-    organization: org.id,
+    organization: context.org.id,
     useSdkMode: { $ne: true },
   });
+
   res.status(200).json({
     status: 200,
-    webhooks,
+    webhooks: webhooks.filter((webhook) =>
+      hasReadAccess(context.readAccessFilter, webhook.project)
+    ),
   });
 }
 

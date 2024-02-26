@@ -69,10 +69,11 @@ export const postDimension = async (
 ) => {
   req.checkPermissions("createDimensions");
 
-  const { org, userName } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userName } = context;
   const { datasource, name, sql, userIdType, description } = req.body;
 
-  const datasourceDoc = await getDataSourceById(datasource, org.id);
+  const datasourceDoc = await getDataSourceById(context, datasource);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
@@ -129,7 +130,8 @@ export const putDimension = async (
 ) => {
   req.checkPermissions("createDimensions");
 
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.params;
   const dimension = await findDimensionById(id, org.id);
 
@@ -139,7 +141,7 @@ export const putDimension = async (
 
   const { datasource, name, sql, userIdType, owner, description } = req.body;
 
-  const datasourceDoc = await getDataSourceById(datasource, org.id);
+  const datasourceDoc = await getDataSourceById(context, datasource);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }

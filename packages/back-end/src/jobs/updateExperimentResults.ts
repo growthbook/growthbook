@@ -137,8 +137,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
   try {
     logger.info("Start Refreshing Results for experiment " + experimentId);
     const datasource = await getDataSourceById(
-      experiment.datasource || "",
-      experiment.organization
+      context,
+      experiment.datasource || ""
     );
     if (!datasource) {
       throw new Error("Error refreshing experiment, could not find datasource");
@@ -200,7 +200,6 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       await updateExperiment({
         context,
         experiment,
-        user: null,
         changes: {
           autoSnapshots: false,
         },

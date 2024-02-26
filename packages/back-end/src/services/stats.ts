@@ -164,9 +164,9 @@ export async function analyzeExperimentMetric(
       )
     ),
   };
+  console.dir(statsData, {depth: null});
 
   const escapedStatsData = JSON.stringify(statsData).replace(/\\/g, "\\\\");
-
   const start = Date.now();
   const cpus = os.cpus();
   const result = await promisify(PythonShell.runString)(
@@ -211,14 +211,16 @@ print(json.dumps({
 
 export function getMetricSettingsForStatsEngine(
   metric: ExperimentMetricInterface,
-  metricMap: Map<string, ExperimentMetricInterface>
+  metricMap: Map<string, ExperimentMetricInterface>,
+  regressionAdjustmentEnabled: boolean
 ): MetricSettingsForStatsEngine {
   let denominator =
     metric.denominator && !isFactMetric(metric)
       ? metricMap.get(metric.denominator)
       : undefined;
   const ratioMetric = isRatioMetric(metric, denominator);
-  const regressionAdjusted = isRegressionAdjusted(metric, denominator);
+  const regressionAdjusted =
+    regressionAdjustmentEnabled && isRegressionAdjusted(metric, denominator);
   const mainMetricType = isBinomialMetric(metric) ? "binomial" : "count";
   // Fact ratio metrics contain denominator
   if (isFactMetric(metric) && ratioMetric) {
@@ -246,7 +248,8 @@ export function getMetricSettingsForStatsEngine(
 export function getMetricsAndQueryDataForStatsEngine(
   queryData: QueryMap,
   metricMap: Map<string, ExperimentMetricInterface>,
-  variations: (SnapshotSettingsVariation | ExperimentReportVariation)[]
+  variations: (SnapshotSettingsVariation | ExperimentReportVariation)[],
+  regressionAdjustmentEnabled: boolean
 ) {
   const queryResults: QueryResultsForStatsEngine[] = [];
   const metricSettings: Record<string, MetricSettingsForStatsEngine> = {};
@@ -271,7 +274,8 @@ export function getMetricsAndQueryDataForStatsEngine(
           }
           metricSettings[metric] = getMetricSettingsForStatsEngine(
             metricInterface,
-            metricMap
+            metricMap,
+            regressionAdjustmentEnabled
           );
           byMetric[metric].push({
             dimension: row.dimension,
@@ -311,7 +315,8 @@ export function getMetricsAndQueryDataForStatsEngine(
             metricIds.push(metricId);
             metricSettings[metricId] = getMetricSettingsForStatsEngine(
               metric,
-              metricMap
+              metricMap,
+              regressionAdjustmentEnabled
             );
           } else {
             metricIds.push(null);
@@ -328,7 +333,11 @@ export function getMetricsAndQueryDataForStatsEngine(
       // Single metric query, just return rows as-is
       const metric = metricMap.get(key);
       if (!metric) return;
-      metricSettings[key] = getMetricSettingsForStatsEngine(metric, metricMap);
+      metricSettings[key] = getMetricSettingsForStatsEngine(
+        metric,
+        metricMap,
+        regressionAdjustmentEnabled
+      );
       queryResults.push({
         metrics: [key],
         rows: (query.result ?? []) as ExperimentMetricQueryResponseRows,
@@ -359,7 +368,8 @@ export async function analyzeExperimentResults({
   const mdat = getMetricsAndQueryDataForStatsEngine(
     queryData,
     metricMap,
-    snapshotSettings.variations
+    snapshotSettings.variations,
+    snapshotSettings.regressionAdjustmentEnabled
   );
   const { queryResults, metricSettings } = mdat;
   let { unknownVariations } = mdat;

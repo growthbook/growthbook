@@ -2,7 +2,7 @@ import Link from "next/link";
 import normal from "@stdlib/stats/base/dists/normal";
 import React, { useEffect, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { date } from "shared/dates";
+import { date, getValidDate } from "shared/dates";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import Collapsible from "react-collapsible";
@@ -11,14 +11,9 @@ import { useRouter } from "next/router";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { phaseSummary } from "@/services/utils";
 import { useUser } from "@/services/UserContext";
-import SortedTags from "../Tags/SortedTags";
-import SelectField from "../Forms/SelectField";
 import { useCurrency } from "@/hooks/useCurrency";
 import { formatNumber, getExperimentMetricFormatter } from "@/services/metrics";
-import ResultsIndicator from "../Experiment/ResultsIndicator";
-import ExperimentStatusIndicator from "../Experiment/TabbedPage/ExperimentStatusIndicator";
 import { Group } from "@visx/group";
 import { Circle } from "@visx/shape";
 import { scaleLinear, scaleTime } from "@visx/scale";
@@ -26,6 +21,10 @@ import { ParentSizeModern } from "@visx/responsive";
 import { GridColumns, GridRows } from "@visx/grid";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import MetricSelector from "../Experiment/MetricSelector";
+import Field from "../Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import { useForm } from "react-hook-form";
+
 
 type group = "project" | "tag";
 
@@ -41,23 +40,45 @@ function jamesSteinAdjustment(effects: number[], se: number) {
   return {mean: mean, adjustment: adj};
 }
 
+type ExperimentImpactFilters = {
+  startDate: string;
+  endDate: string;
+  project: string;
+  metric: string;
+};
+
 export default function ExperimentImpact({
   experiments,
 }: {
   experiments: ExperimentInterfaceStringDates[];
 }): React.ReactElement {
+
   const settings = useOrgSettings();
-  const [metric, setMetric] = useState(
-    settings.northStar?.metricIds?.[0] ?? ""
-  );
-  const [group, setGroup] = useState<group>("project");
+  const now = new Date();
+  const defaultStartDate = new Date(now);
+  defaultStartDate.setDate(defaultStartDate.getDate() - 180);
+  console.log(defaultStartDate)
+  const form = useForm<ExperimentImpactFilters>({
+    defaultValues: {
+      startDate: defaultStartDate
+      .toISOString()
+      .substring(0, 16),
+      endDate: now
+      .toISOString()
+      .substring(0, 16),
+      project: "",
+      metric: settings.northStar?.metricIds?.[0] ?? ""
+    }
+  });
+
+  const { projects } = useDefinitions();
+
   const [snapshots, setSnapshots] = useState<ExperimentSnapshotInterface[]>();
   const [loading, setLoading] = useState(true);
   const { metrics, getFactTableById } = useDefinitions();
-  const { getUserDisplay } = useUser();
-  const router = useRouter();
-
   const displayCurrency = useCurrency();
+
+  const metric = form.watch("metric");
 
   const metricInterface = metrics.find((m) => m.id === metric);
   const formatter = metricInterface ? getExperimentMetricFormatter(metricInterface, getFactTableById, true) :
@@ -69,7 +90,12 @@ export default function ExperimentImpact({
 
   const { apiCall } = useAuth();
 
-  const exps = experiments.filter((e) => e.metrics.find((m) => m === metric));
+  const exps = experiments.filter((e) => {
+    if (e.phases[e.phases.length - 1]?.dateEnded !== undefined) {
+      return e.metrics.find((m) => m === metric) && new Date(e.phases[e.phases.length - 1].dateEnded) < getValidDate(form.watch("endDate")) && new Date(e.phases[e.phases.length - 1].dateEnded) > getValidDate(form.watch("startDate"));
+    }
+    return false;
+  });
   useEffect(() => {
     const fetchSnapshots = async () => {
       const { snapshots } = await apiCall<{
@@ -192,6 +218,7 @@ export default function ExperimentImpact({
       xAccessor: (d) => d.x,
       yAccessor: (d) => d.y,
     };
+    console.log(data);
       // Get x-axis domain
     const min = Math.min(...data.map((d) => new Date(d.x).getTime()));
     const max = Math.max(...data.map((d) => new Date(d.x).getTime()));
@@ -286,22 +313,48 @@ export default function ExperimentImpact({
           </div>
   </>);
   }
+  console.log(form.watch("startDate"))
   return (
     <div>
-      <div className="d-flex w-100">
-        <div className="mb-2 mx-2 form-inline">
-        <span>
-            Metric:{" "} {/*TODO METRIC SELECTOR*/}
-          </span>
+      <div className="row align-items-center p-3">
+        <div className="col-auto form-inline">
+        <div className="uppercase-title text-muted">Metric</div>
+        <div>
           <MetricSelector
             initialOption="None"
             value={metric}
-            onChange={(metric) => setMetric(metric)}
+            onChange={(metric) => form.setValue("metric", metric)}
             includeFacts={true}
           />
         </div>
-        <div className="mb-3">
-          {/* TODO actually put in date picker*/}
+        </div>
+        <div className="col-auto form-inline">
+        <span>
+            Project:{" "}
+          </span>
+          <SelectField
+            value={form.watch("project")}
+            containerClassName={"select-dropdown-underline"}
+            options={[
+              {value: "", label: "All"},
+              ...projects.map((p) => ({value: p.id, label: p.name}))
+            ]}
+            onChange={(v) => form.setValue("project", v)}
+            />
+        </div>
+        <div className="col-auto form-inline">
+        <span>
+            Experiment end date between{"  "}
+          </span>
+          <Field
+              type="datetime-local"
+              {...form.register("startDate")}
+            />
+            <span>{"and"}</span>
+          <Field
+              type="datetime-local"
+              {...form.register("endDate")}
+            />
         </div>
       </div>
       <div>

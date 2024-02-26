@@ -361,7 +361,7 @@ export async function postSnapshotNotebook(
   const context = getContextFromReq(req);
   const { id } = req.params;
 
-  const notebook = await generateExperimentNotebook(id, context);
+  const notebook = await generateExperimentNotebook(context, id);
 
   res.status(200).json({
     status: 200,
@@ -444,7 +444,7 @@ export async function postExperiments(
   req.checkPermissions("createAnalyses", data.project);
 
   if (data.datasource) {
-    const datasource = await getDataSourceById(data.datasource, org.id);
+    const datasource = await getDataSourceById(context, data.datasource);
     if (!datasource) {
       res.status(403).json({
         status: 403,
@@ -559,7 +559,6 @@ export async function postExperiments(
     const experiment = await createExperiment({
       data: obj,
       context,
-      user: res.locals.eventAudit,
     });
 
     if (req.query.originalId) {
@@ -574,7 +573,6 @@ export async function postExperiments(
           editorUrl: visualChangeset.editorUrl,
           context,
           visualChanges: visualChangeset.visualChanges,
-          user: res.locals.eventAudit,
         });
       }
     }
@@ -653,7 +651,7 @@ export async function postExperiment(
   req.checkPermissions("createAnalyses", experiment.project);
 
   if (data.datasource) {
-    const datasource = await getDataSourceById(data.datasource, org.id);
+    const datasource = await getDataSourceById(context, data.datasource);
     if (!datasource) {
       res.status(403).json({
         status: 403,
@@ -807,7 +805,6 @@ export async function postExperiment(
   const updated = await updateExperiment({
     context,
     experiment,
-    user: res.locals.eventAudit,
     changes,
   });
 
@@ -825,7 +822,6 @@ export async function postExperiment(
             visualChangeset: vc,
             experiment: updated,
             context,
-            user: res.locals.eventAudit,
           })
         )
       );
@@ -899,7 +895,6 @@ export async function postExperimentArchive(
     await updateExperiment({
       context,
       experiment,
-      user: res.locals.eventAudit,
       changes,
     });
 
@@ -958,7 +953,6 @@ export async function postExperimentUnarchive(
     await updateExperiment({
       context,
       experiment,
-      user: res.locals.eventAudit,
       changes,
     });
 
@@ -1059,7 +1053,6 @@ export async function postExperimentStatus(
   const updated = await updateExperiment({
     context,
     experiment,
-    user: res.locals.eventAudit,
     changes,
   });
 
@@ -1152,7 +1145,6 @@ export async function postExperimentStop(
     const updated = await updateExperiment({
       context,
       experiment,
-      user: res.locals.eventAudit,
       changes,
     });
 
@@ -1225,7 +1217,6 @@ export async function deleteExperimentPhase(
   const updated = await updateExperiment({
     context,
     experiment,
-    user: res.locals.eventAudit,
     changes,
   });
 
@@ -1296,7 +1287,6 @@ export async function putExperimentPhase(
   const updated = await updateExperiment({
     context,
     experiment,
-    user: res.locals.eventAudit,
     changes,
   });
 
@@ -1325,6 +1315,7 @@ export async function postExperimentTargeting(
   const {
     condition,
     savedGroups,
+    prerequisites,
     coverage,
     hashAttribute,
     fallbackAttribute,
@@ -1368,6 +1359,7 @@ export async function postExperimentTargeting(
       ...phases[phases.length - 1],
       condition,
       savedGroups,
+      prerequisites,
       coverage,
       namespace,
       variationWeights,
@@ -1382,6 +1374,7 @@ export async function postExperimentTargeting(
     phases.push({
       condition,
       savedGroups,
+      prerequisites,
       coverage,
       dateStarted: new Date(),
       name: "Main",
@@ -1406,7 +1399,6 @@ export async function postExperimentTargeting(
     const updated = await updateExperiment({
       context,
       experiment,
-      user: res.locals.eventAudit,
       changes,
     });
 
@@ -1505,7 +1497,6 @@ export async function postExperimentPhase(
     const updated = await updateExperiment({
       context,
       experiment,
-      user: res.locals.eventAudit,
       changes,
     });
 
@@ -1590,11 +1581,7 @@ export async function deleteExperiment(
   await Promise.all([
     // note: we might want to change this to change the status to
     // 'deleted' instead of actually deleting the document.
-    deleteExperimentByIdForOrganization(
-      experiment,
-      context,
-      res.locals.eventAudit
-    ),
+    deleteExperimentByIdForOrganization(context, experiment),
     removeExperimentFromPresentations(experiment.id),
   ]);
 
@@ -1639,13 +1626,13 @@ export async function cancelSnapshot(
   req.checkPermissions("runQueries", experiment.project || "");
 
   const integration = await getIntegrationFromDatasourceId(
-    snapshot.organization,
+    context,
     snapshot.settings.datasourceId
   );
   const queryRunner = new ExperimentResultsQueryRunner(
+    context,
     snapshot,
-    integration,
-    context
+    integration
   );
   await queryRunner.cancelQueries();
   await deleteSnapshotById(org.id, snapshot.id);
@@ -1710,7 +1697,7 @@ export async function postSnapshot(
       denominatorMetricIds.map((m) => getMetricById(context, m))
     )
   ).filter(Boolean) as MetricInterface[];
-  const datasource = await getDataSourceById(experiment.datasource, org.id);
+  const datasource = await getDataSourceById(context, experiment.datasource);
 
   const {
     metricRegressionAdjustmentStatuses,
@@ -1809,7 +1796,6 @@ export async function postSnapshot(
     const queryRunner = await createSnapshot({
       experiment,
       context,
-      user: res.locals.eventAudit,
       phaseIndex: phase,
       useCache,
       defaultAnalysisSettings: analysisSettings,
@@ -2042,7 +2028,6 @@ export async function deleteScreenshot(
   const updated = await updateExperiment({
     context,
     experiment,
-    user: res.locals.eventAudit,
     changes,
   });
 
@@ -2118,7 +2103,6 @@ export async function addScreenshot(
   await updateExperiment({
     context,
     experiment,
-    user: res.locals.eventAudit,
     changes,
   });
 
@@ -2167,13 +2151,13 @@ export async function cancelPastExperiments(
   }
 
   const integration = await getIntegrationFromDatasourceId(
-    pastExperiments.organization,
+    context,
     pastExperiments.datasource
   );
   const queryRunner = new PastExperimentsQueryRunner(
+    context,
     pastExperiments,
-    integration,
-    context
+    integration
   );
   await queryRunner.cancelQueries();
 
@@ -2227,13 +2211,13 @@ export async function postPastExperiments(
   const { org } = context;
   const { datasource, force } = req.body;
 
-  const datasourceObj = await getDataSourceById(datasource, org.id);
+  const datasourceObj = await getDataSourceById(context, datasource);
   if (!datasourceObj) {
     throw new Error("Could not find datasource");
   }
   req.checkPermissions(
     "runQueries",
-    datasourceObj?.projects?.length ? datasourceObj.projects : ""
+    datasourceObj?.projects?.length ? datasourceObj.projects : []
   );
 
   const integration = getSourceIntegrationObject(datasourceObj, true);
@@ -2270,9 +2254,9 @@ export async function postPastExperiments(
 
   if (needsRun) {
     const queryRunner = new PastExperimentsQueryRunner(
+      context,
       pastExperiments,
-      integration,
-      context
+      integration
     );
     pastExperiments = await queryRunner.startAnalysis({
       from: start,
@@ -2326,7 +2310,6 @@ export async function postVisualChangeset(
     urlPatterns: req.body.urlPatterns,
     editorUrl: req.body.editorUrl,
     context,
-    user: res.locals.eventAudit,
   });
 
   res.status(200).json({
@@ -2360,7 +2343,6 @@ export async function putVisualChangeset(
     experiment,
     context,
     updates: req.body,
-    user: res.locals.eventAudit,
   });
 
   res.status(200).json({
@@ -2397,7 +2379,6 @@ export async function deleteVisualChangeset(
     visualChangeset,
     experiment,
     context,
-    user: res.locals.eventAudit,
   });
 
   res.status(200).json({

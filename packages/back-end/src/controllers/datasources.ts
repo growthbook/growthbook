@@ -2,6 +2,7 @@ import { Response } from "express";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import * as bq from "@google-cloud/bigquery";
 import { AuthRequest } from "../types/AuthRequest";
 import { getContextFromReq } from "../services/organizations";
 import {
@@ -85,6 +86,16 @@ export async function postSampleData(
       dateCreated: new Date(),
       dateUpdated: new Date(),
       runStarted: null,
+      cappingSettings: {
+        type: "",
+        value: 0,
+      },
+      windowSettings: {
+        type: "",
+        delayHours: 0,
+        windowValue: 0,
+        windowUnit: "hours",
+      },
       name: "Sample Conversions",
       description: `Part of the GrowthBook sample data set. Feel free to delete when finished exploring.`,
       type: "binomial",
@@ -106,6 +117,16 @@ export async function postSampleData(
       dateCreated: new Date(),
       dateUpdated: new Date(),
       runStarted: null,
+      cappingSettings: {
+        type: "",
+        value: 0,
+      },
+      windowSettings: {
+        type: "",
+        delayHours: 0,
+        windowValue: 0,
+        windowUnit: "hours",
+      },
       name: "Sample Revenue per User",
       description: `Part of the GrowthBook sample data set. Feel free to delete when finished exploring.`,
       type: "revenue",
@@ -195,7 +216,6 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
     await createExperiment({
       data: experiment,
       context,
-      user: res.locals.eventAudit,
     });
 
     const metricMap = await getMetricMap(context);
@@ -261,7 +281,7 @@ export async function deleteDataSource(
   const { org } = context;
   const { id } = req.params;
 
-  const datasource = await getDataSourceById(id, org.id);
+  const datasource = await getDataSourceById(context, id);
   if (!datasource) {
     throw new Error("Cannot find datasource");
   }
@@ -326,8 +346,8 @@ export async function deleteDataSource(
 }
 
 export async function getDataSources(req: AuthRequest, res: Response) {
-  const { org } = getContextFromReq(req);
-  const datasources = await getDataSourcesByOrganization(org.id);
+  const context = getContextFromReq(req);
+  const datasources = await getDataSourcesByOrganization(context);
 
   if (!datasources || !datasources.length) {
     res.status(200).json({
@@ -358,10 +378,10 @@ export async function getDataSource(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { id } = req.params;
 
-  const datasource = await getDataSourceById(id, org.id);
+  const datasource = await getDataSourceById(context, id);
   if (!datasource) {
     res.status(404).json({
       status: 404,
@@ -472,7 +492,8 @@ export async function putDataSource(
     email: user.email,
     name: user.name || "",
   };
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.params;
   const {
     name,
@@ -484,7 +505,7 @@ export async function putDataSource(
     metricsToCreate,
   } = req.body;
 
-  const datasource = await getDataSourceById(id, org.id);
+  const datasource = await getDataSourceById(context, id);
   if (!datasource) {
     res.status(404).json({
       status: 404,
@@ -564,7 +585,7 @@ export async function putDataSource(
       updates.params = encryptParams(integration.params);
     }
 
-    await updateDataSource(datasource, org.id, updates);
+    await updateDataSource(context, datasource, updates);
 
     res.status(200).json({
       status: 200,
@@ -587,11 +608,11 @@ export async function updateExposureQuery(
   >,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { datasourceId, exposureQueryId } = req.params;
   const { updates } = req.body;
 
-  const dataSource = await getDataSourceById(datasourceId, org.id);
+  const dataSource = await getDataSourceById(context, datasourceId);
   if (!dataSource) {
     res.status(404).json({
       status: 404,
@@ -632,7 +653,7 @@ export async function updateExposureQuery(
       settings: copy.settings,
     };
 
-    await updateDataSource(dataSource, org.id, updates);
+    await updateDataSource(context, dataSource, updates);
 
     res.status(200).json({
       status: 200,
@@ -692,11 +713,11 @@ export async function testLimitedQuery(
   }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
   const { query, datasourceId, templateVariables } = req.body;
 
-  const datasource = await getDataSourceById(datasourceId, org.id);
+  const datasource = await getDataSourceById(context, datasourceId);
   if (!datasource) {
     return res.status(404).json({
       status: 404,
@@ -784,7 +805,7 @@ export async function postDimensionSlices(
   const { org } = context;
   const { dataSourceId, queryId, lookbackDays } = req.body;
 
-  const datasourceObj = await getDataSourceById(dataSourceId, org.id);
+  const datasourceObj = await getDataSourceById(context, dataSourceId);
   if (!datasourceObj) {
     throw new Error("Could not find datasource");
   }
@@ -802,9 +823,9 @@ export async function postDimensionSlices(
   });
 
   const queryRunner = new DimensionSlicesQueryRunner(
+    context,
     model,
-    integration,
-    context
+    integration
   );
   const outputmodel = await queryRunner.startAnalysis({
     exposureQueryId: queryId,
@@ -828,8 +849,8 @@ export async function cancelDimensionSlices(
     throw new Error("Could not cancel automatic dimension");
   }
   const datasource = await getDataSourceById(
-    dimensionSlices.datasource,
-    org.id
+    context,
+    dimensionSlices.datasource
   );
   if (!datasource) {
     throw new Error("Could not find datasource");
@@ -843,13 +864,40 @@ export async function cancelDimensionSlices(
   const integration = getSourceIntegrationObject(datasource, true);
 
   const queryRunner = new DimensionSlicesQueryRunner(
+    context,
     dimensionSlices,
-    integration,
-    context
+    integration
   );
   await queryRunner.cancelQueries();
 
   res.status(200).json({
     status: 200,
   });
+}
+
+export async function fetchBigQueryDatasets(
+  req: AuthRequest<{
+    projectId: string;
+    client_email: string;
+    private_key: string;
+  }>,
+  res: Response
+) {
+  const { projectId, client_email, private_key } = req.body;
+
+  try {
+    const client = new bq.BigQuery({
+      projectId,
+      credentials: { client_email, private_key },
+    });
+
+    const [datasets] = await client.getDatasets();
+
+    res.status(200).json({
+      status: 200,
+      datasets: datasets.map((dataset) => dataset.id).filter(Boolean),
+    });
+  } catch (e) {
+    throw new Error(e.message);
+  }
 }

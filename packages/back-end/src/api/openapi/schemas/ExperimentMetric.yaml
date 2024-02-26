@@ -8,10 +8,16 @@ properties:
   overrides:
     type: object
     properties:
-      conversionWindowStart:
+      delayHours:
         type: number
-      conversionWindowEnd:
+      windowHours:
         type: number
+      window:
+        type: string
+        enum: 
+          - 'conversion'
+          - 'lookback'
+          - ''
       winRiskThreshold:
         type: number
       loseRiskThreshold:

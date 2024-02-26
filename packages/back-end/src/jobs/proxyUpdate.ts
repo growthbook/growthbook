@@ -13,22 +13,24 @@ import {
 import { SDKConnectionInterface } from "../../types/sdk-connection";
 import { cancellableFetch } from "../util/http.util";
 import { logger } from "../util/logger";
+import { ApiReqContext } from "../../types/api";
+import { ReqContext } from "../../types/organization";
 import { getContextForAgendaJobByOrgId } from "../services/organizations";
+import { trackJob } from "../services/otel";
 
 const PROXY_UPDATE_JOB_NAME = "proxyUpdate";
 type ProxyUpdateJob = Job<{
+  orgId: string;
   connectionId: string;
   useCloudProxy: boolean;
   retryCount: number;
 }>;
 
-let agenda: Agenda;
-export default function addProxyUpdateJob(ag: Agenda) {
-  agenda = ag;
-
-  // Fire webhooks
-  agenda.define(PROXY_UPDATE_JOB_NAME, async (job: ProxyUpdateJob) => {
+const proxyUpdate = trackJob(
+  PROXY_UPDATE_JOB_NAME,
+  async (job: ProxyUpdateJob) => {
     const connectionId = job.attrs.data?.connectionId;
+    const orgId = job.attrs.data?.orgId;
     const useCloudProxy = job.attrs.data?.useCloudProxy;
     if (!connectionId) {
       logger.error(
@@ -38,7 +40,17 @@ export default function addProxyUpdateJob(ag: Agenda) {
       return;
     }
 
-    const connection = await findSDKConnectionById(connectionId);
+    if (!orgId) {
+      logger.error("proxyUpdate: No orgId provided for proxy update job", {
+        connectionId,
+        useCloudProxy,
+      });
+      return;
+    }
+
+    const context = await getContextForAgendaJobByOrgId(orgId);
+
+    const connection = await findSDKConnectionById(context, connectionId);
     if (!connection) {
       logger.error("proxyUpdate: Could not find sdk connection", {
         connectionId,
@@ -46,10 +58,6 @@ export default function addProxyUpdateJob(ag: Agenda) {
       });
       return;
     }
-
-    const context = await getContextForAgendaJobByOrgId(
-      connection.organization
-    );
 
     const defs = await getFeatureDefinitions({
       context,
@@ -90,7 +98,15 @@ export default function addProxyUpdateJob(ag: Agenda) {
     }
 
     await clearProxyError(connection);
-  });
+  }
+);
+
+let agenda: Agenda;
+export default function addProxyUpdateJob(ag: Agenda) {
+  agenda = ag;
+
+  // Fire webhooks
+  agenda.define(PROXY_UPDATE_JOB_NAME, proxyUpdate);
   agenda.on(
     "fail:" + PROXY_UPDATE_JOB_NAME,
     async (error: Error, job: ProxyUpdateJob) => {
@@ -116,12 +132,14 @@ export default function addProxyUpdateJob(ag: Agenda) {
 }
 
 export async function queueSingleProxyUpdate(
+  orgId: string,
   connection: SDKConnectionInterface,
   useCloudProxy: boolean = false
 ) {
   if (!connectionSupportsProxyUpdate(connection, useCloudProxy)) return;
 
   const job = agenda.create(PROXY_UPDATE_JOB_NAME, {
+    orgId,
     connectionId: connection.id,
     retryCount: 0,
     useCloudProxy,
@@ -135,13 +153,13 @@ export async function queueSingleProxyUpdate(
 }
 
 export async function queueProxyUpdate(
-  orgId: string,
+  context: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[]
 ) {
   if (!CRON_ENABLED) return;
   if (!payloadKeys.length) return;
 
-  const connections = await findSDKConnectionsByOrganization(orgId);
+  const connections = await findSDKConnectionsByOrganization(context);
 
   if (!connections) return;
 
@@ -162,10 +180,10 @@ export async function queueProxyUpdate(
 
     if (IS_CLOUD) {
       // Always fire webhook to GB Cloud Proxy for cloud users
-      await queueSingleProxyUpdate(connection, true);
+      await queueSingleProxyUpdate(context.org.id, connection, true);
     }
     // If connection (cloud or self-hosted) specifies an (additional) proxy host, fire webhook
-    await queueSingleProxyUpdate(connection, false);
+    await queueSingleProxyUpdate(context.org.id, connection, false);
   }
 }
 

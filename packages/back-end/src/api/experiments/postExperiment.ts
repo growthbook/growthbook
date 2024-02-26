@@ -17,12 +17,9 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
   async (req): Promise<PostExperimentResponse> => {
     req.checkPermissions("createAnalyses", req.body.project);
 
-    const { datasourceId, owner } = req.body;
+    const { datasourceId, owner: ownerEmail } = req.body;
 
-    const datasource = await getDataSourceById(
-      datasourceId,
-      req.organization.id
-    );
+    const datasource = await getDataSourceById(req.context, datasourceId);
 
     if (!datasource) {
       throw new Error(`Invalid data source: ${datasourceId}`);
@@ -50,20 +47,26 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       );
     }
 
-    const user = await getUserByEmail(owner);
+    const ownerId = await (async () => {
+      if (!ownerEmail) return req.context.userId;
 
-    // check if the user is a member of the organization
-    const isMember = req.organization.members.some(
-      (member) => member.id === user?.id
-    );
+      const user = await getUserByEmail(ownerEmail);
 
-    if (!isMember || !user) {
-      throw new Error(`Unable to find user: ${owner}.`);
-    }
+      // check if the user is a member of the organization
+      const isMember = req.organization.members.some(
+        (member) => member.id === user?.id
+      );
+
+      if (!isMember || !user) {
+        throw new Error(`Unable to find user: ${ownerEmail}.`);
+      }
+
+      return user.id;
+    })();
 
     // transform into exp interface; set sane defaults
     const newExperiment = postExperimentApiPayloadToInterface(
-      { ...req.body, owner: user.id },
+      { ...req.body, ...(ownerId ? { owner: ownerId } : {}) },
       req.organization,
       datasource
     );
@@ -71,16 +74,17 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     const experiment = await createExperiment({
       data: newExperiment,
       context: req.context,
-      user: req.eventAudit,
     });
 
-    // add owner as watcher
-    await upsertWatch({
-      userId: user.id,
-      organization: req.organization.id,
-      item: experiment.id,
-      type: "experiments",
-    });
+    if (ownerId) {
+      // add owner as watcher
+      await upsertWatch({
+        userId: ownerId,
+        organization: req.organization.id,
+        item: experiment.id,
+        type: "experiments",
+      });
+    }
 
     const apiExperiment = await toExperimentApiInterface(
       req.context,
