@@ -22,6 +22,9 @@ const WebhooksModal: FC<{
 }> = ({ close, onSave, current, showSDKMode, sdkid }) => {
   const { apiCall } = useAuth();
   const [validHeaders, setValidHeaders] = useState(true);
+  const [displayHttpValidationError, setDisplayHttpValidationError] = useState(
+    false
+  );
   showSDKMode = showSDKMode || false;
   const methodTypes: WebhookMethod[] = [
     "POST",
@@ -61,13 +64,29 @@ const WebhooksModal: FC<{
     }
   };
 
+  const isValidHttp = (urlString: string) => {
+    let url;
+    try {
+      url = new URL(urlString);
+    } catch (e) {
+      return false;
+    }
+    return /https?/.test(url.protocol);
+  };
+
   const onSubmit = form.handleSubmit(async (value) => {
+    setDisplayHttpValidationError(false);
     if (value.endpoint.match(/localhost/g)) {
       throw new Error("Invalid endpoint");
+    }
+    if (!isValidHttp(value.endpoint)) {
+      setDisplayHttpValidationError(true);
+      return;
     }
     await handleApiCall(value);
     track(current.id ? "Edit Webhook" : "Create Webhook");
     onSave();
+    close();
   });
 
   const envOptions = environments.map((e) => ({
@@ -164,21 +183,16 @@ const WebhooksModal: FC<{
       header={current.id ? "Update Webhook" : "Create New Webhook"}
       open={true}
       submit={onSubmit}
+      autoCloseOnSubmit={false}
       ctaEnabled={validHeaders}
       cta={current.id ? "Update" : "Create"}
     >
       <Field label="Display Name" required {...form.register("name")} />
       <Field
         label="HTTP(S) Endpoint"
-        type="url"
-        required
-        placeholder="https://"
+        // type="url"
+        placeholder="https://example.com"
         {...form.register("endpoint")}
-        onInvalid={(event) => {
-          (event.target as HTMLInputElement).setCustomValidity(
-            "Please enter a valid URL, including the http:// or https:// prefix."
-          );
-        }}
         helpText={
           <>
             Must accept <code>{form.watch("httpMethod")}</code> requests
@@ -194,6 +208,11 @@ const WebhooksModal: FC<{
           </>
         }
       />
+      {displayHttpValidationError && (
+        <div className="alert alert-danger">
+          Please enter a valid URL, including the http:// or https:// prefix.
+        </div>
+      )}
       {form.watch("endpoint").match(/localhost/) && (
         <div className="alert alert-danger">
           <strong>Error: </strong>Localhost not supported directly. Try using{" "}
