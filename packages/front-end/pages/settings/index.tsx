@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import {
   FaExclamationCircle,
   FaExclamationTriangle,
-  FaPencilAlt,
   FaQuestionCircle,
   FaUpload,
 } from "react-icons/fa";
@@ -24,10 +23,9 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { MdInfoOutline } from "react-icons/md";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { useAuth } from "@/services/auth";
-import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
 import RestoreConfigYamlButton from "@/components/Settings/RestoreConfigYamlButton";
-import { hasFileConfig, isCloud, isMultiOrg } from "@/services/env";
+import { hasFileConfig, isCloud } from "@/services/env";
 import Field from "@/components/Forms/Field";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import TempMessage from "@/components/TempMessage";
@@ -51,7 +49,6 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { AppFeatures } from "@/types/app-features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
-import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import {
   StickyBucketingToggleWarning,
   StickyBucketingTooltip,
@@ -59,6 +56,7 @@ import {
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { supportedCurrencies } from "@/services/settings";
+import OrganizationAndLicenseSettings from "@/components/GeneralSettings/OrganizationAndLicenseSettings";
 
 export const DEFAULT_SRM_THRESHOLD = 0.001;
 
@@ -78,7 +76,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
     organization,
     hasCommercialFeature,
   } = useUser();
-  const [editOpen, setEditOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState(false);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
   const [statsEngineTab, setStatsEngineTab] = useState<string>(
@@ -424,46 +421,13 @@ const GeneralSettingsPage = (): React.ReactElement => {
       ) : null}
 
       <div className="container-fluid pagecontents">
-        {editOpen && (
-          <EditOrganizationModal
-            name={organization.name || ""}
-            close={() => setEditOpen(false)}
-            mutate={refreshOrganization}
-          />
-        )}
         <h1>General Settings</h1>
 
         <div className="mb-1">
-          <div className=" bg-white p-3 border">
-            <div className="row mb-0">
-              <div className="col-sm-3">
-                <h4>Organization</h4>
-              </div>
-              <div className="col-sm-9">
-                <div className="form-group row">
-                  <div className="col-sm-12">
-                    <strong>Name: </strong> {organization.name}{" "}
-                    <a
-                      href="#"
-                      className="pl-1"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setEditOpen(true);
-                      }}
-                    >
-                      <FaPencilAlt />
-                    </a>
-                  </div>
-                </div>
-                <div className="form-group row">
-                  <div className="col-sm-12">
-                    <strong>Owner:</strong> {organization.ownerEmail}
-                  </div>
-                </div>
-              </div>
-            </div>
-            {(isCloud() || !isMultiOrg()) && <ShowLicenseInfo />}
-          </div>
+          <OrganizationAndLicenseSettings
+            org={organization}
+            refreshOrg={refreshOrganization}
+          />
 
           {hasFileConfig() && (
             <div className="alert alert-info my-3">
