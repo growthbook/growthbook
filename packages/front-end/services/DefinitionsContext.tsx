@@ -23,6 +23,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 type Definitions = {
   metrics: MetricInterface[];
+  _metricsIncludingArchived: MetricInterface[];
   datasources: DataSourceInterfaceWithParams[];
   dimensions: DimensionInterface[];
   segments: SegmentInterface[];
@@ -65,6 +66,7 @@ const defaultValue: DefinitionContextValue = {
   },
   project: "",
   metrics: [],
+  _metricsIncludingArchived: [],
   datasources: [],
   dimensions: [],
   segments: [],
@@ -133,6 +135,13 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     return data.metrics.filter((m) => m.status !== "archived");
   }, [data?.metrics]);
 
+  const allMetrics = useMemo(() => {
+    if (!data || !data.metrics) {
+      return [];
+    }
+    return data.metrics;
+  }, [data?.metrics]);
+
   const getMetricById = useGetById(data?.metrics);
   const getDatasourceById = useGetById(data?.datasources);
   const getDimensionById = useGetById(data?.dimensions);
@@ -166,6 +175,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     value = {
       ready: true,
       metrics: activeMetrics,
+      _metricsIncludingArchived: allMetrics,
       datasources: data.datasources,
       dimensions: data.dimensions,
       segments: data.segments,

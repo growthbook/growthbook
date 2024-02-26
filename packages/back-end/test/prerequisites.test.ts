@@ -142,7 +142,7 @@ describe("Prerequisite reduction in SDK Payload", () => {
     expect(payload).toHaveProperty("parent1");
     expect(payload).toHaveProperty("child1");
     // Prereq rules should be generated on the child because parent state is "conditional"
-    expect(payload.child1.rules[0]).toStrictEqual({
+    expect(payload.child1.rules?.[0]).toStrictEqual({
       parentConditions: [
         { condition: { value: true }, gate: true, id: "parent1" },
       ],
@@ -549,9 +549,10 @@ describe("Prerequisite reduction in SDK Payload", () => {
       },
     ];
 
+    const featuresMap = new Map(features.map((f) => [f.id, f]));
     const parent1State = evaluatePrerequisiteState(
       features[1],
-      features,
+      featuresMap,
       "production"
     );
     expect(parent1State.state).toEqual("conditional");

@@ -163,7 +163,8 @@ export default function RuleModal({
       const newRule = form.getValues() as FeatureRule;
       newRevision.rules[environment][i] = newRule;
     }
-    return isFeatureCyclic(newFeature, features, newRevision);
+    const featuresMap = new Map(features.map((f) => [f.id, f]));
+    return isFeatureCyclic(newFeature, featuresMap, newRevision);
   }, [
     // eslint-disable-next-line react-hooks/exhaustive-deps
     JSON.stringify(prerequisites),
