@@ -25,6 +25,7 @@ import {
 import {
   ExperimentMetricInterface,
   getRegressionAdjustmentsForMetric,
+  isBinomialMetric,
   isFactMetric,
   isFactMetricId,
 } from "shared/experiments";
@@ -111,7 +112,6 @@ import {
   QueryResultsForStatsEngine,
   analyzeExperimentMetric,
   analyzeExperimentResults,
-  getMetricSettingsForStatsEngine,
 } from "./stats";
 import { getEnvironmentIdsFromOrg } from "./organizations";
 
@@ -241,8 +241,20 @@ export async function getManualSnapshotData(
     const metric = metricMap.get(m);
     if (!metric) return null;
 
+    const denominator =
+      metric.denominator && !isFactMetric(metric)
+        ? metricMap.get(metric.denominator)
+        : undefined;
     metricSettings[m] = {
-      ...getMetricSettingsForStatsEngine(metric, metricMap, false),
+      id: metric.id,
+      name: metric.name,
+      inverse: !!metric.inverse,
+      main_metric_type: isBinomialMetric(metric) ? "binomial" : "count",
+      ...(denominator && {
+        denominator_metric_type: isBinomialMetric(denominator)
+          ? "binomial"
+          : "count",
+      }),
       // no ratio or regression adjustment for manual snapshots
       statistic_type: "mean",
     };
