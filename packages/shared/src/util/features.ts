@@ -187,6 +187,17 @@ export function isFeatureStale({
   experiments = [],
   environments = [],
 }: IsFeatureStaleInterface): { stale: boolean; reason?: StaleFeatureReason } {
+  const featuresMap = new Map<string, FeatureInterface>();
+  if (features) {
+    for (const f of features) {
+      featuresMap.set(f.id, f);
+    }
+  }
+  const experimentMap = new Map<string, ExperimentInterfaceStringDates>();
+  for (const e of experiments) {
+    experimentMap.set(e.id, e);
+  }
+
   const visitedFeatures = new Set<string>();
 
   if (!features) {
@@ -208,7 +219,7 @@ export function isFeatureStale({
       if (feature.neverStale) return { stale: false };
 
       const linkedExperiments = (feature?.linkedExperiments ?? [])
-        .map((id) => experiments.find((e) => e.id === id))
+        .map((id) => experimentMap.get(id))
         .filter(Boolean) as ExperimentInterfaceStringDates[];
 
       const twoWeeksAgo = subWeeks(new Date(), 2);
@@ -228,7 +239,7 @@ export function isFeatureStale({
           environments
         );
         const hasNonStaleDependentFeatures = dependentFeatures.some((id) => {
-          const f = features?.find((f) => f.id === id);
+          const f = featuresMap.get(id);
           if (!f) return true;
           return !visit(f).stale;
         });
@@ -527,6 +538,10 @@ export function isFeatureCyclic(
   features: FeatureInterface[],
   revision?: FeatureRevisionInterface
 ): [boolean, string | null] {
+  const featuresMap = new Map<string, FeatureInterface>();
+  for (const f of features) {
+    featuresMap.set(f.id, f);
+  }
   const visited = new Set<string>();
   const stack = new Set<string>();
 
@@ -555,7 +570,7 @@ export function isFeatureCyclic(
     }
 
     for (const prerequisiteId of prerequisiteIds) {
-      const parentFeature = features.find((f) => f.id === prerequisiteId);
+      const parentFeature = featuresMap.get(prerequisiteId);
       if (parentFeature && visit(parentFeature)[0])
         return [true, prerequisiteId];
     }
@@ -581,6 +596,10 @@ export function evaluatePrerequisiteState(
   skipRootConditions: boolean = false,
   skipCyclicCheck: boolean = false
 ): PrerequisiteStateResult {
+  const featuresMap = new Map<string, FeatureInterface>();
+  for (const f of features) {
+    featuresMap.set(f.id, f);
+  }
   let isTopLevel = true;
   if (!skipCyclicCheck) {
     if (isFeatureCyclic(feature, features)[0])
@@ -630,9 +649,7 @@ export function evaluatePrerequisiteState(
     isTopLevel = false;
     const prerequisites = feature.prerequisites || [];
     for (const prerequisite of prerequisites) {
-      const prerequisiteFeature = features.find(
-        (f) => f.id === prerequisite.id
-      );
+      const prerequisiteFeature = featuresMap.get(prerequisite.id);
       if (!prerequisiteFeature) {
         // todo: consider returning info about missing feature
         state = "deterministic";

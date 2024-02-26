@@ -44,18 +44,24 @@ export default function PrerequisiteStatusRow({
   const canEdit = permissions.check("manageFeatures", feature.project);
   const { apiCall } = useAuth();
 
+  const featureIdsStr = JSON.stringify(features.map((f) => f.id));
   const envs = environments.map((e) => e.id);
+  const envsStr = JSON.stringify(envs);
 
-  const prereqStatesAndDefaults = useMemo(() => {
-    if (!parentFeature) return null;
-    const states: Record<string, PrerequisiteStateResult> = {};
-    const defaultValues: Record<string, string> = {};
-    envs.forEach((env) => {
-      states[env] = evaluatePrerequisiteState(parentFeature, features, env);
-      defaultValues[env] = parentFeature.defaultValue;
-    });
-    return { states, defaultValues };
-  }, [parentFeature, features, envs]);
+  const prereqStatesAndDefaults = useMemo(
+    () => {
+      if (!parentFeature) return null;
+      const states: Record<string, PrerequisiteStateResult> = {};
+      const defaultValues: Record<string, string> = {};
+      envs.forEach((env) => {
+        states[env] = evaluatePrerequisiteState(parentFeature, features, env);
+        defaultValues[env] = parentFeature.defaultValue;
+      });
+      return { states, defaultValues };
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [parentFeature, featureIdsStr, envsStr]
+  );
 
   return (
     <tr>

@@ -59,6 +59,9 @@ export default function PrerequisiteTargetingField({
   setPrerequisiteTargetingSdkIssues,
 }: Props) {
   const { features } = useFeaturesList(false);
+  const featureIdsStr = JSON.stringify(features.map((f) => f.id));
+  const envsStr = JSON.stringify(environments);
+  const valueStr = JSON.stringify(value);
 
   const [conditionKeys, forceConditionRender] = useArrayIncrementer();
 
@@ -93,7 +96,7 @@ export default function PrerequisiteTargetingField({
         }
       }
     }
-  }, [JSON.stringify(value)]);
+  }, [valueStr]);
 
   const prereqStatesArr: (Record<
     string,
@@ -108,7 +111,7 @@ export default function PrerequisiteTargetingField({
       });
       return states;
     });
-  }, [value, features, environments]);
+  }, [valueStr, featureIdsStr, envsStr]);
 
   const [featuresStates, wouldBeCyclicStates] = useMemo(() => {
     const featuresStates: Record<
@@ -159,7 +162,7 @@ export default function PrerequisiteTargetingField({
       wouldBeCyclicStates[f.id] = wouldBeCyclic;
     }
     return [featuresStates, wouldBeCyclicStates];
-  }, [features, environments]);
+  }, [featureIdsStr, envsStr]);
 
   const blockedBySdkLimitations = useMemo(() => {
     for (let i = 0; i < prereqStatesArr.length; i++) {
@@ -173,7 +176,7 @@ export default function PrerequisiteTargetingField({
       }
     }
     return false;
-  }, [prereqStatesArr, features, value, hasSDKWithPrerequisites]);
+  }, [prereqStatesArr, featureIdsStr, valueStr, hasSDKWithPrerequisites]);
 
   useEffect(() => {
     setPrerequisiteTargetingSdkIssues(blockedBySdkLimitations);
