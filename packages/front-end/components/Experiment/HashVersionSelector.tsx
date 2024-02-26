@@ -1,8 +1,4 @@
-import {
-  FaExclamationTriangle,
-  FaExternalLinkAlt,
-  FaQuestionCircle,
-} from "react-icons/fa";
+import { FaExclamationTriangle, FaQuestionCircle } from "react-icons/fa";
 import { ReactNode } from "react";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
@@ -90,12 +86,9 @@ export default function HashVersionSelector({
       {hasSDKWithNoBucketingV2 && (
         <div className="mt-2 alert alert-warning">
           <FaExclamationTriangle className="mr-1" />
-          Some of your{" "}
-          <a href="/sdks" target="_blank">
-            SDK Connections <FaExternalLinkAlt />
-          </a>{" "}
-          may not support V2 hashing. While V2 hashing is preferred, please
-          ensure you are only using it with compatible SDKs.
+          Some of your SDK Connections may not support V2 hashing. While V2
+          hashing is preferred, please ensure you are only using it with
+          compatible SDKs.
         </div>
       )}
     </>
@@ -106,6 +99,10 @@ export function allConnectionsSupportBucketingV2(
   connections?: SDKConnectionInterface[],
   project?: string
 ) {
+  if (!connections?.length) {
+    // Don't warn if they haven't set up their SDK Connections yet
+    return true;
+  }
   return getConnectionsSDKCapabilities({
     connections: connections ?? [],
     mustMatchAllConnections: true,

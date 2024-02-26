@@ -96,10 +96,7 @@ export default function EditTargetingModal({
     coverage: lastPhase?.coverage ?? 1,
     hashAttribute: experiment.hashAttribute || "id",
     fallbackAttribute: experiment.fallbackAttribute || "",
-    hashVersion:
-      experiment.hashVersion || hasSDKWithNoBucketingV2
-        ? 1
-        : (2 as 1 | 2 | undefined),
+    hashVersion: experiment.hashVersion || (hasSDKWithNoBucketingV2 ? 1 : 2),
     disableStickyBucketing: experiment.disableStickyBucketing ?? false,
     bucketVersion: experiment.bucketVersion || 1,
     minBucketVersion: experiment.minBucketVersion || 0,
