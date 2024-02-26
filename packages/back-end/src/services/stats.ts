@@ -1,6 +1,7 @@
 import { promisify } from "util";
 import os from "os";
 import { PythonShell } from "python-shell";
+import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
@@ -39,6 +40,7 @@ import {
 } from "../../types/experiment-snapshot";
 import { QueryMap } from "../queryRunners/QueryRunner";
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "../integrations/SqlIntegration";
+import { applyMetricOverrides } from "../util/integration";
 
 // Keep these interfaces in sync with gbstats
 export interface AnalysisSettingsForStatsEngine {
@@ -210,17 +212,24 @@ print(json.dumps({
 }
 
 export function getMetricSettingsForStatsEngine(
-  metric: ExperimentMetricInterface,
+  metricDoc: ExperimentMetricInterface,
   metricMap: Map<string, ExperimentMetricInterface>,
-  regressionAdjustmentEnabled: boolean
+  settings: ExperimentSnapshotSettings
 ): MetricSettingsForStatsEngine {
+  const metric = cloneDeep<ExperimentMetricInterface>(metricDoc);
+  applyMetricOverrides(metric, settings);
   let denominator =
     metric.denominator && !isFactMetric(metric)
       ? metricMap.get(metric.denominator)
       : undefined;
+  if (denominator) {
+    applyMetricOverrides(denominator, settings);
+  }
+
   const ratioMetric = isRatioMetric(metric, denominator);
   const regressionAdjusted =
-    regressionAdjustmentEnabled && isRegressionAdjusted(metric, denominator);
+    settings.regressionAdjustmentEnabled &&
+    isRegressionAdjusted(metric, denominator);
   const mainMetricType = isBinomialMetric(metric) ? "binomial" : "count";
   // Fact ratio metrics contain denominator
   if (isFactMetric(metric) && ratioMetric) {
@@ -248,8 +257,7 @@ export function getMetricSettingsForStatsEngine(
 export function getMetricsAndQueryDataForStatsEngine(
   queryData: QueryMap,
   metricMap: Map<string, ExperimentMetricInterface>,
-  variations: (SnapshotSettingsVariation | ExperimentReportVariation)[],
-  regressionAdjustmentEnabled: boolean
+  settings: ExperimentSnapshotSettings
 ) {
   const queryResults: QueryResultsForStatsEngine[] = [];
   const metricSettings: Record<string, MetricSettingsForStatsEngine> = {};
@@ -275,11 +283,11 @@ export function getMetricsAndQueryDataForStatsEngine(
           metricSettings[metric] = getMetricSettingsForStatsEngine(
             metricInterface,
             metricMap,
-            regressionAdjustmentEnabled
+            settings
           );
           byMetric[metric].push({
             dimension: row.dimension,
-            variation: variations[v.variation]?.id || v.variation + "",
+            variation: settings.variations[v.variation]?.id || v.variation + "",
             users: stats.count,
             count: stats.count,
             main_sum: stats.main_sum,
@@ -316,7 +324,7 @@ export function getMetricsAndQueryDataForStatsEngine(
             metricSettings[metricId] = getMetricSettingsForStatsEngine(
               metric,
               metricMap,
-              regressionAdjustmentEnabled
+              settings
             );
           } else {
             metricIds.push(null);
@@ -336,7 +344,7 @@ export function getMetricsAndQueryDataForStatsEngine(
       metricSettings[key] = getMetricSettingsForStatsEngine(
         metric,
         metricMap,
-        regressionAdjustmentEnabled
+        settings
       );
       queryResults.push({
         metrics: [key],
@@ -368,8 +376,7 @@ export async function analyzeExperimentResults({
   const mdat = getMetricsAndQueryDataForStatsEngine(
     queryData,
     metricMap,
-    snapshotSettings.variations,
-    snapshotSettings.regressionAdjustmentEnabled
+    snapshotSettings
   );
   const { queryResults, metricSettings } = mdat;
   let { unknownVariations } = mdat;
