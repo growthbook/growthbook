@@ -1,7 +1,9 @@
+import { ApiReqContext } from "back-end/types/api";
 import {
   Permission,
   UserPermissions,
   MemberRole,
+  ReqContext,
 } from "back-end/types/organization";
 
 export const ENV_SCOPED_PERMISSIONS = [
@@ -197,4 +199,17 @@ export function hasReadAccess(
   });
 
   return everyProjectRestrictsReadAccess ? false : true;
+}
+
+export function hasReadAccess2(
+  context: ReqContext | ApiReqContext,
+  projects: string | string[] | undefined
+): boolean {
+  try {
+    context.checkPermissions("readData", projects);
+  } catch (e) {
+    console.log("hasReadAccess2 error", e);
+    return false;
+  }
+  return true;
 }

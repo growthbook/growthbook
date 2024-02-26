@@ -3,7 +3,7 @@ import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import { MergeResultChanges } from "shared/util";
-import { hasReadAccess } from "shared/permissions";
+import { hasReadAccess, hasReadAccess2 } from "shared/permissions";
 import {
   FeatureEnvironment,
   FeatureInterface,
@@ -176,6 +176,7 @@ export async function getAllFeaturesWithLinkedExperiments(
   features: FeatureInterface[];
   experiments: ExperimentInterface[];
 }> {
+  console.log("getAllFeaturesWithLinkedExperiments");
   const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
   if (project) {
     q.project = project;
@@ -186,6 +187,25 @@ export async function getAllFeaturesWithLinkedExperiments(
   const features = allFeatures.filter((feature) =>
     hasReadAccess(context.readAccessFilter, feature.project)
   );
+
+  const featuresFilteredByReadAccess = features.filter((feature) =>
+    hasReadAccess(context.readAccessFilter, feature.project)
+  );
+
+  console.log(
+    "featuresFilteredByReadAccess length",
+    featuresFilteredByReadAccess.length
+  );
+
+  const featuresFilteredByPermission = features.filter((feature) =>
+    hasReadAccess2(context, feature.project)
+  );
+
+  console.log(
+    "featuresFilteredByPermission length",
+    featuresFilteredByPermission.length
+  );
+
   const expIds = new Set<string>(
     features
       .map((f) => f.linkedExperiments)

@@ -115,6 +115,7 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
     userId: req.userId,
     email: req.email,
     environments: getEnvironmentIdsFromOrg(req.organization),
+    checkPermissions: req.checkPermissions,
     userName: req.name || "",
     readAccessFilter: getReadAccessFilter(
       getUserPermissions(req.userId, req.organization, req.teams)
@@ -983,6 +984,7 @@ export function getContextForAgendaJobByOrgObject(
     org: organization,
     environments: getEnvironmentIdsFromOrg(organization),
     readAccessFilter: FULL_ACCESS_PERMISSIONS,
+    checkPermissions: () => true,
     auditUser: null,
   };
 }

@@ -292,4 +292,6 @@ export type ReqContext = {
   userName: string;
   readAccessFilter: ReadAccessFilter;
   auditUser: EventAuditUser;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  checkPermissions: any;
 };
