@@ -1682,7 +1682,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                               </a>{" "}
                               |{" "}
                               <a
-                                href="https://hub.docker.com/repository/docker/growthbook/gb-find-code-refs/general"
+                                href="https://hub.docker.com/r/growthbook/gb-find-code-refs"
                                 target="_blank"
                                 rel="noreferrer"
                               >
