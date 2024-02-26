@@ -171,7 +171,6 @@ export default function FeaturesOverview({
   }, [revisions, revision, feature, environments]);
 
   const prerequisites = feature?.prerequisites || [];
-  const featureIdsStr = JSON.stringify(features.map((f) => f.id));
   const envsStr = JSON.stringify(envs);
 
   const prereqStates = useMemo(
@@ -190,7 +189,7 @@ export default function FeaturesOverview({
       return states;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [feature, featureIdsStr, envsStr]
+    [feature, features, envsStr]
   );
 
   if (!baseFeature || !feature || !revision) {

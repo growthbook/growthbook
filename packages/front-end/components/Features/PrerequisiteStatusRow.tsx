@@ -44,7 +44,6 @@ export default function PrerequisiteStatusRow({
   const canEdit = permissions.check("manageFeatures", feature.project);
   const { apiCall } = useAuth();
 
-  const featureIdsStr = JSON.stringify(features.map((f) => f.id));
   const envs = environments.map((e) => e.id);
   const envsStr = JSON.stringify(envs);
 
@@ -65,7 +64,7 @@ export default function PrerequisiteStatusRow({
       return { states, defaultValues };
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [parentFeature, featureIdsStr, envsStr]
+    [parentFeature, features, envsStr]
   );
 
   return (
