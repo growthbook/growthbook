@@ -15,7 +15,6 @@ import { getQueriesByIds } from "../models/QueryModel";
 import { ReqContext } from "../../types/organization";
 import { ApiReqContext } from "../../types/api";
 import {
-  getAnalysisSettingsFromReportArgs,
   getSnapshotSettingsFromReportArgs,
   reportArgsFromSnapshot,
 } from "./reports";
@@ -138,7 +137,10 @@ export async function generateNotebook(
   const phaseLengthDays =
     Math.max(hoursBetween(args.startDate, args.endDate), 1) / 24;
 
-  const { snapshotSettings, analysisSettings } = getSnapshotSettingsFromReportArgs(args, metricMap);
+  const {
+    snapshotSettings,
+    analysisSettings,
+  } = getSnapshotSettingsFromReportArgs(args, metricMap);
   const { queryResults, metricSettings } = getMetricsAndQueryDataForStatsEngine(
     queries,
     metricMap,
