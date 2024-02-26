@@ -455,11 +455,8 @@ export function PreLaunchChecklist({
             )}
           >
             <strong>
-              Before you can run an experiment, you need to{" "}
-              <Link href="/sdks">
-                <a href="#">integrate GrowthBook into</a>
-              </Link>{" "}
-              your app.{" "}
+              Before you can run an experiment, you need to integrate GrowthBook
+              into your app.{" "}
               <DocLink docSection="quick_start_sdks">Learn More</DocLink>
             </strong>
           </div>

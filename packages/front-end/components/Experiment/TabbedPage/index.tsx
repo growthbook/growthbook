@@ -165,8 +165,6 @@ export default function TabbedPage({
     (connection) => connection.connected
   );
 
-  // TOOD: Build verified connections here?
-
   const watcherIds = useApi<{
     userIds: string[];
   }>(`/experiment/${experiment.id}/watchers`);
