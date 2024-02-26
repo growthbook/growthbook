@@ -48,12 +48,11 @@ export interface Props {
   safeToEdit: boolean;
   usersWatching: (string | undefined)[];
   checklistItemsRemaining: number | null;
-  visualChangesets: VisualChangesetInterface[];
-  connections: SDKConnectionInterface[];
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editPhases?: (() => void) | null;
   healthNotificationCount: number;
+  verifiedConnections: SDKConnectionInterface[];
 }
 
 const datasourcesWithoutHealthData = new Set(["mixpanel", "google_analytics"]);
@@ -91,13 +90,12 @@ export default function ExperimentHeader({
   safeToEdit,
   usersWatching,
   editResult,
-  connections,
   checklistItemsRemaining,
-  visualChangesets,
   editTargeting,
   newPhase,
   editPhases,
   healthNotificationCount,
+  verifiedConnections,
 }: Props) {
   const { apiCall } = useAuth();
   const router = useRouter();
@@ -169,8 +167,6 @@ export default function ExperimentHeader({
               }}
               className=""
               checklistItemsRemaining={checklistItemsRemaining}
-              connections={connections}
-              visualChangesets={visualChangesets}
             />
           </Modal>
         )}
@@ -216,15 +212,21 @@ export default function ExperimentHeader({
                     </div>
                   </div>
                 ) : experiment.status === "draft" ? (
-                  <button
-                    className="btn btn-teal"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setStartExperiment(true);
-                    }}
+                  <Tooltip
+                    shouldDisplay={!verifiedConnections.length}
+                    body="To start an experiment, integrate GrowthBook into your app."
                   >
-                    Start Experiment <MdRocketLaunch />
-                  </button>
+                    <button
+                      className="btn btn-teal"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setStartExperiment(true);
+                      }}
+                      disabled={!verifiedConnections.length}
+                    >
+                      Start Experiment <MdRocketLaunch />
+                    </button>
+                  </Tooltip>
                 ) : null}
               </div>
             ) : null}

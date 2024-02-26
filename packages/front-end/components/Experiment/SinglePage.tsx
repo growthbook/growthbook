@@ -415,6 +415,21 @@ export default function SinglePage({
     linkedFeatures.map((f) => f.feature)
   );
 
+  const connections = sdkConnectionsData?.connections || [];
+
+  const projectConnections = connections.filter(
+    (connection) =>
+      !connection.projects.length ||
+      connection.projects.includes(experiment.project || "")
+  );
+  const matchingConnections = projectConnections.filter(
+    (connection) =>
+      !visualChangesets.length || connection.includeVisualExperiments
+  );
+  const verifiedConnections = matchingConnections.filter(
+    (connection) => connection.connected
+  );
+
   // Get name or email of all active users watching this experiment
   const usersWatching = (watcherIds?.data?.userIds || [])
     .map((id) => users.get(id))
@@ -854,7 +869,7 @@ export default function SinglePage({
             linkedFeatures={linkedFeatures}
             visualChangesets={visualChangesets}
             editTargeting={editTargeting}
-            connections={sdkConnectionsData?.connections || []}
+            verifiedConnections={verifiedConnections}
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
           />

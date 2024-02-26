@@ -152,6 +152,21 @@ export default function TabbedPage({
   const { data: sdkConnectionsData } = useSDKConnections();
   const connections = sdkConnectionsData?.connections || [];
 
+  const projectConnections = connections.filter(
+    (connection) =>
+      !connection.projects.length ||
+      connection.projects.includes(experiment.project || "")
+  );
+  const matchingConnections = projectConnections.filter(
+    (connection) =>
+      !visualChangesets.length || connection.includeVisualExperiments
+  );
+  const verifiedConnections = matchingConnections.filter(
+    (connection) => connection.connected
+  );
+
+  // TOOD: Build verified connections here?
+
   const watcherIds = useApi<{
     userIds: string[];
   }>(`/experiment/${experiment.id}/watchers`);
@@ -239,13 +254,12 @@ export default function TabbedPage({
         duplicate={duplicate}
         usersWatching={usersWatching}
         editResult={editResult || undefined}
-        connections={connections}
-        visualChangesets={visualChangesets}
         editTargeting={editTargeting}
         newPhase={newPhase}
         editPhases={editPhases}
         healthNotificationCount={healthNotificationCount}
         checklistItemsRemaining={checklistItemsRemaining}
+        verifiedConnections={verifiedConnections}
       />
       <div className="container pagecontents pb-4">
         {experiment.project ===
@@ -315,7 +329,7 @@ export default function TabbedPage({
             linkedFeatures={linkedFeatures}
             visualChangesets={visualChangesets}
             editTargeting={editTargeting}
-            connections={connections}
+            verifiedConnections={verifiedConnections}
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
           />

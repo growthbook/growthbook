@@ -1,21 +1,15 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { MdRocketLaunch } from "react-icons/md";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import Link from "next/link";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import { useCelebration } from "@/hooks/useCelebration";
 import Button from "../Button";
 import ConfirmButton from "../Modal/ConfirmButton";
 import LoadingOverlay from "../LoadingOverlay";
-import { DocLink } from "../DocLink";
 
 export function StartExperimentBanner({
   experiment,
   checklistItemsRemaining,
-  visualChangesets,
-  connections,
   mutateExperiment,
   newPhase,
   onStart,
@@ -23,8 +17,6 @@ export function StartExperimentBanner({
 }: {
   experiment: ExperimentInterfaceStringDates;
   checklistItemsRemaining: number | null;
-  visualChangesets: VisualChangesetInterface[];
-  connections: SDKConnectionInterface[];
   mutateExperiment: () => unknown | Promise<unknown>;
   newPhase?: (() => void) | null;
   onStart?: () => void;
@@ -32,19 +24,6 @@ export function StartExperimentBanner({
 }) {
   const { apiCall } = useAuth();
   const startCelebration = useCelebration();
-
-  const projectConnections = connections.filter(
-    (connection) =>
-      !connection.projects.length ||
-      connection.projects.includes(experiment.project || "")
-  );
-  const matchingConnections = projectConnections.filter(
-    (connection) =>
-      !visualChangesets.length || connection.includeVisualExperiments
-  );
-  const verifiedConnections = matchingConnections.filter(
-    (connection) => connection.connected
-  );
 
   async function startExperiment() {
     startCelebration();
@@ -98,19 +77,7 @@ export function StartExperimentBanner({
                   </div>
                 </>
               )}
-              {!verifiedConnections.length ? (
-                <div className="alert alert-danger">
-                  <strong>
-                    Before you can run an experiment, you need to{" "}
-                    <Link href="/sdks">
-                      <a href="#">integrate GrowthBook into</a>
-                    </Link>{" "}
-                    your app.{" "}
-                    <DocLink docSection="quick_start_sdks">Learn More</DocLink>
-                  </strong>
-                </div>
-              ) : null}
-              {checklistItemsRemaining === 0 && verifiedConnections.length ? (
+              {checklistItemsRemaining === 0 ? (
                 <Button
                   color="teal"
                   className="btn-lg mb-2"

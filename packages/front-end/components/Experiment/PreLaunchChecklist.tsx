@@ -31,7 +31,7 @@ export function PreLaunchChecklist({
   experiment,
   linkedFeatures,
   visualChangesets,
-  connections,
+  verifiedConnections,
   mutateExperiment,
   checklistItemsRemaining,
   setChecklistItemsRemaining,
@@ -41,7 +41,7 @@ export function PreLaunchChecklist({
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
-  connections: SDKConnectionInterface[];
+  verifiedConnections: SDKConnectionInterface[];
   mutateExperiment: () => unknown | Promise<unknown>;
   checklistItemsRemaining: number | null;
   setChecklistItemsRemaining: (value: number | null) => void;
@@ -331,19 +331,6 @@ export function PreLaunchChecklist({
     setUpdatingChecklist(false);
     mutateExperiment();
   }
-
-  const projectConnections = connections.filter(
-    (connection) =>
-      !connection.projects.length ||
-      connection.projects.includes(experiment.project || "")
-  );
-  const matchingConnections = projectConnections.filter(
-    (connection) =>
-      !visualChangesets.length || connection.includeVisualExperiments
-  );
-  const verifiedConnections = matchingConnections.filter(
-    (connection) => connection.connected
-  );
 
   useEffect(() => {
     if (data && checklist.length > 0) {
