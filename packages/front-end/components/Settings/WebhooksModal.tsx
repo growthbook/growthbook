@@ -22,9 +22,7 @@ const WebhooksModal: FC<{
 }> = ({ close, onSave, current, showSDKMode, sdkid }) => {
   const { apiCall } = useAuth();
   const [validHeaders, setValidHeaders] = useState(true);
-  const [displayHttpValidationError, setDisplayHttpValidationError] = useState(
-    false
-  );
+
   showSDKMode = showSDKMode || false;
   const methodTypes: WebhookMethod[] = [
     "POST",
@@ -75,13 +73,11 @@ const WebhooksModal: FC<{
   };
 
   const onSubmit = form.handleSubmit(async (value) => {
-    setDisplayHttpValidationError(false);
     if (value.endpoint.match(/localhost/g)) {
       throw new Error("Invalid endpoint");
     }
     if (!isValidHttp(value.endpoint)) {
-      setDisplayHttpValidationError(true);
-      return;
+      throw new Error("Invalid URL");
     }
     await handleApiCall(value);
     track(current.id ? "Edit Webhook" : "Create Webhook");
@@ -208,11 +204,6 @@ const WebhooksModal: FC<{
           </>
         }
       />
-      {displayHttpValidationError && (
-        <div className="alert alert-danger">
-          Please enter a valid URL, including the http:// or https:// prefix.
-        </div>
-      )}
       {form.watch("endpoint").match(/localhost/) && (
         <div className="alert alert-danger">
           <strong>Error: </strong>Localhost not supported directly. Try using{" "}
