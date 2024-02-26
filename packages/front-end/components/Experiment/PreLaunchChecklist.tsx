@@ -425,7 +425,6 @@ export function PreLaunchChecklist({
                             className="ml-0 pl-0 mr-2 "
                             checked={item.status === "complete"}
                             onChange={async (e) => {
-                              console.log("updating", item.key);
                               updateTaskStatus(e.target.checked, item.key);
                             }}
                           />
