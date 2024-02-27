@@ -228,9 +228,7 @@ async function findExperiments(
   }
   const experiments = (await cursor).map(toInterface);
 
-  return experiments.filter((exp) =>
-    hasReadAccess(context.readAccessFilter, exp.project)
-  );
+  return experiments.filter((exp) => hasReadAccess(context, exp.project));
 }
 
 export async function getExperimentById(
@@ -246,9 +244,7 @@ export async function getExperimentById(
 
   const experiment = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, experiment.project)
-    ? experiment
-    : null;
+  return hasReadAccess(context, experiment.project) ? experiment : null;
 }
 
 export async function getAllExperiments(
@@ -279,9 +275,7 @@ export async function getExperimentByTrackingKey(
 
   const experiment = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, experiment.project)
-    ? experiment
-    : null;
+  return hasReadAccess(context, experiment.project) ? experiment : null;
 }
 
 export async function getExperimentsByIds(
@@ -462,9 +456,7 @@ export async function getExperimentByIdea(
 
   const experiment = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, experiment.project)
-    ? experiment
-    : null;
+  return hasReadAccess(context, experiment.project) ? experiment : null;
 }
 
 export async function getExperimentsToUpdate(
@@ -554,7 +546,7 @@ export async function getPastExperimentsByDatasource(
   );
 
   const experimentsUserCanAccess = experiments.filter((exp) =>
-    hasReadAccess(context.readAccessFilter, exp.project)
+    hasReadAccess(context, exp.project)
   );
 
   return experimentsUserCanAccess.map((exp) => ({
@@ -650,7 +642,7 @@ export async function getExperimentsForActivityFeed(
   );
 
   const filteredExperiments = experiments.filter((exp) =>
-    hasReadAccess(context.readAccessFilter, exp.project)
+    hasReadAccess(context, exp.project)
   );
 
   return filteredExperiments.map((exp) => ({
@@ -677,9 +669,7 @@ const findExperiment = async ({
 
   const experiment = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, experiment.project)
-    ? experiment
-    : null;
+  return hasReadAccess(context, experiment.project) ? experiment : null;
 };
 
 // region Events

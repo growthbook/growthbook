@@ -3,7 +3,6 @@ import {
   ENV_SCOPED_PERMISSIONS,
   GLOBAL_PERMISSIONS,
   PROJECT_SCOPED_PERMISSIONS,
-  ReadAccessFilter,
 } from "shared/permissions";
 import { EventAuditUser } from "../src/events/event-types";
 import { AttributionModel, ImplementationType } from "./experiment";
@@ -290,8 +289,8 @@ export type ReqContext = {
   email: string;
   environments: string[];
   userName: string;
-  readAccessFilter: ReadAccessFilter;
   auditUser: EventAuditUser;
+  //TODO: Update this with actual type
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   checkPermissions: any;
 };

@@ -1499,7 +1499,7 @@ export async function getWebhooks(req: AuthRequest, res: Response) {
   res.status(200).json({
     status: 200,
     webhooks: webhooks.filter((webhook) =>
-      hasReadAccess(context.readAccessFilter, webhook.project)
+      hasReadAccess(context, webhook.project)
     ),
   });
 }

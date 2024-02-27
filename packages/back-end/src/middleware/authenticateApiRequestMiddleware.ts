@@ -1,9 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import {
-  getApiKeyReadAccessFilter,
-  getReadAccessFilter,
-  hasPermission,
-} from "shared/permissions";
+import { hasPermission } from "shared/permissions";
 import { ApiRequestLocals } from "../../types/api";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import {
@@ -134,11 +130,8 @@ export default function authenticateApiRequestMiddleware(
         email: req.user?.email,
         environments: getEnvironmentIdsFromOrg(org),
         userName: req.user?.name,
-        readAccessFilter: userId
-          ? getReadAccessFilter(
-              getUserPermissions(userId, req.organization, teams)
-            )
-          : getApiKeyReadAccessFilter(role),
+        //TODO: Update this with actual value
+        checkPermissions: () => true,
         auditUser: eventAudit,
       };
 

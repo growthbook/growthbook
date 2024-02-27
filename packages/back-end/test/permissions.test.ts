@@ -1,12 +1,77 @@
-import { getReadAccessFilter, hasReadAccess } from "shared/permissions";
+import { hasReadAccess, userHasPermission } from "shared/permissions";
 import {
   getUserPermissions,
   roleToPermissionMap,
 } from "../src/util/organization.util";
-import { OrganizationInterface } from "../types/organization";
+import { OrganizationInterface, Permission } from "../types/organization";
 import { TeamInterface } from "../types/team";
 import { FeatureInterface } from "../types/feature";
 import { MetricInterface } from "../types/metric";
+import { AuthRequest } from "../src/types/AuthRequest";
+import { getContextFromReq } from "../src/services/organizations";
+
+function getMockReq(
+  testOrg: OrganizationInterface
+): Pick<
+  AuthRequest,
+  | "userId"
+  | "organization"
+  | "email"
+  | "verified"
+  | "teams"
+  | "audit"
+  | "checkPermissions"
+  | "superAdmin"
+> {
+  const req: Pick<
+    AuthRequest,
+    | "userId"
+    | "organization"
+    | "email"
+    | "verified"
+    | "teams"
+    | "audit"
+    | "checkPermissions"
+    | "superAdmin"
+  > = {
+    userId: "base_user_123",
+    organization: testOrg,
+    superAdmin: false,
+    email: "base_user_123@test.com",
+    verified: true,
+    teams: [],
+    audit: async () => {
+      throw new Error("No user in request");
+    },
+    checkPermissions: (
+      permission: Permission,
+      project?: string | string[],
+      envs?: string[] | Set<string>
+    ) => {
+      if (!req.userId || !req.organization) return false;
+
+      const userPermissions = getUserPermissions(
+        req.userId,
+        req.organization,
+        req.teams
+      );
+
+      if (
+        !userHasPermission(
+          req.superAdmin || false,
+          userPermissions,
+          permission,
+          project,
+          envs ? [...envs] : undefined
+        )
+      ) {
+        throw new Error("You do not have permission to complete that action.");
+      }
+    },
+  };
+
+  return req;
+}
 
 describe("Build base user permissions", () => {
   const testOrg: OrganizationInterface = {
@@ -1242,199 +1307,6 @@ describe("Build base user permissions", () => {
   });
 });
 
-describe("Build user's readAccessPermissions object", () => {
-  const testOrg: OrganizationInterface = {
-    id: "org_sktwi1id9l7z9xkjb",
-    name: "Test Org",
-    ownerEmail: "test@test.com",
-    url: "https://test.com",
-    dateCreated: new Date(),
-    invites: [],
-    members: [
-      {
-        id: "base_user_123",
-        role: "readonly",
-        dateCreated: new Date(),
-        limitAccessByEnvironment: false,
-        environments: [],
-        projectRoles: [],
-        teams: [],
-      },
-    ],
-    settings: {
-      environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
-      ],
-    },
-  };
-
-  it("user with global no access role should have no read access", async () => {
-    const userPermissions = getUserPermissions(
-      "base_user_123",
-      {
-        ...testOrg,
-        members: [{ ...testOrg.members[0], role: "noaccess" }],
-      },
-      []
-    );
-
-    const readAccessFilter = getReadAccessFilter(userPermissions);
-
-    expect(readAccessFilter).toEqual({
-      globalReadAccess: false,
-      projects: [],
-    });
-  });
-
-  it("user with global readonly role should have global read access", async () => {
-    const userPermissions = getUserPermissions(
-      "base_user_123",
-      {
-        ...testOrg,
-        members: [{ ...testOrg.members[0], role: "readonly" }],
-      },
-      []
-    );
-
-    const readAccessFilter = getReadAccessFilter(userPermissions);
-
-    expect(readAccessFilter).toEqual({
-      globalReadAccess: true,
-      projects: [],
-    });
-  });
-
-  it("user with global readonly role, and project noaccess should have global read access, but the project should have no read access", async () => {
-    const userPermissions = getUserPermissions(
-      "base_user_123",
-      {
-        ...testOrg,
-        members: [
-          {
-            ...testOrg.members[0],
-            role: "readonly",
-            projectRoles: [
-              {
-                project: "prj_exl5jr5dl4rbw856",
-                role: "noaccess",
-                limitAccessByEnvironment: true,
-                environments: ["staging"],
-              },
-            ],
-          },
-        ],
-      },
-      []
-    );
-
-    const readAccessFilter = getReadAccessFilter(userPermissions);
-
-    expect(readAccessFilter).toEqual({
-      globalReadAccess: true,
-      projects: [
-        {
-          id: "prj_exl5jr5dl4rbw856",
-          readAccess: false,
-        },
-      ],
-    });
-  });
-
-  it("user with global noaccess role, and project collaborator should not have global read access, but the project should have read access", async () => {
-    const userPermissions = getUserPermissions(
-      "base_user_123",
-      {
-        ...testOrg,
-        members: [
-          {
-            ...testOrg.members[0],
-            role: "noaccess",
-            projectRoles: [
-              {
-                project: "prj_exl5jr5dl4rbw856",
-                role: "collaborator",
-                limitAccessByEnvironment: true,
-                environments: ["staging"],
-              },
-            ],
-          },
-        ],
-      },
-      []
-    );
-
-    const readAccessFilter = getReadAccessFilter(userPermissions);
-
-    expect(readAccessFilter).toEqual({
-      globalReadAccess: false,
-      projects: [
-        {
-          id: "prj_exl5jr5dl4rbw856",
-          readAccess: true,
-        },
-      ],
-    });
-  });
-
-  it("should build the readAccessFilter correctly for a user with multiple project roles", async () => {
-    const userPermissions = getUserPermissions(
-      "base_user_123",
-      {
-        ...testOrg,
-        members: [
-          {
-            ...testOrg.members[0],
-            role: "noaccess",
-            projectRoles: [
-              {
-                project: "prj_exl5jr5dl4rbw856",
-                role: "collaborator",
-                limitAccessByEnvironment: true,
-                environments: ["staging"],
-              },
-              {
-                project: "prj_exl5jr5dl4rbw123",
-                role: "engineer",
-                limitAccessByEnvironment: true,
-                environments: [],
-              },
-              {
-                project: "prj_exl5jr5dl4rbw456",
-                role: "engineer",
-                limitAccessByEnvironment: true,
-                environments: ["staging"],
-              },
-            ],
-          },
-        ],
-      },
-      []
-    );
-
-    const readAccessFilter = getReadAccessFilter(userPermissions);
-
-    expect(readAccessFilter).toEqual({
-      globalReadAccess: false,
-      projects: [
-        {
-          id: "prj_exl5jr5dl4rbw856",
-          readAccess: true,
-        },
-        {
-          id: "prj_exl5jr5dl4rbw123",
-          readAccess: true,
-        },
-        {
-          id: "prj_exl5jr5dl4rbw456",
-          readAccess: true,
-        },
-      ],
-    });
-  });
-});
-
 describe("hasReadAccess filter", () => {
   const testOrg: OrganizationInterface = {
     id: "org_sktwi1id9l7z9xkjb",
@@ -1464,16 +1336,12 @@ describe("hasReadAccess filter", () => {
   };
 
   it("hasReadAccess should filter out all features for user with global no access role", async () => {
-    const userPermissions = getUserPermissions(
-      "base_user_123",
-      {
-        ...testOrg,
-        members: [{ ...testOrg.members[0], role: "noaccess" }],
-      },
-      []
-    );
+    const req = getMockReq({
+      ...testOrg,
+      members: [{ ...testOrg.members[0], role: "noaccess" }],
+    });
 
-    const readAccessFilter = getReadAccessFilter(userPermissions);
+    const context = getContextFromReq(req);
 
     const features: Partial<FeatureInterface>[] = [
       {
@@ -1483,23 +1351,19 @@ describe("hasReadAccess filter", () => {
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      hasReadAccess(readAccessFilter, feature.project)
+      hasReadAccess(context, feature.project)
     );
 
     expect(filteredFeatures).toEqual([]);
   });
 
   it("hasReadAccess should not filter out all features for user with global readonly role", async () => {
-    const userPermissions = getUserPermissions(
-      "base_user_123",
-      {
-        ...testOrg,
-        members: [{ ...testOrg.members[0], role: "readonly" }],
-      },
-      []
-    );
+    const req = getMockReq({
+      ...testOrg,
+      members: [{ ...testOrg.members[0], role: "readonly" }],
+    });
 
-    const readAccessFilter = getReadAccessFilter(userPermissions);
+    const context = getContextFromReq(req);
 
     const features: Partial<FeatureInterface>[] = [
       {
@@ -1509,7 +1373,7 @@ describe("hasReadAccess filter", () => {
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      hasReadAccess(readAccessFilter, feature.project)
+      hasReadAccess(context, feature.project)
     );
 
     expect(filteredFeatures).toEqual([
@@ -1521,29 +1385,25 @@ describe("hasReadAccess filter", () => {
   });
 
   it("hasReadAccess should filter out all projects aside from the project the user has collaborator access to", async () => {
-    const userPermissions = getUserPermissions(
-      "base_user_123",
-      {
-        ...testOrg,
-        members: [
-          {
-            ...testOrg.members[0],
-            role: "noaccess",
-            projectRoles: [
-              {
-                project: "prj_exl5jr5dl4rbw856",
-                role: "collaborator",
-                limitAccessByEnvironment: true,
-                environments: ["staging"],
-              },
-            ],
-          },
-        ],
-      },
-      []
-    );
+    const req = getMockReq({
+      ...testOrg,
+      members: [
+        {
+          ...testOrg.members[0],
+          role: "noaccess",
+          projectRoles: [
+            {
+              project: "prj_exl5jr5dl4rbw856",
+              role: "collaborator",
+              limitAccessByEnvironment: true,
+              environments: ["staging"],
+            },
+          ],
+        },
+      ],
+    });
 
-    const readAccessFilter = getReadAccessFilter(userPermissions);
+    const context = getContextFromReq(req);
 
     const features: Partial<FeatureInterface>[] = [
       {
@@ -1561,7 +1421,7 @@ describe("hasReadAccess filter", () => {
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      hasReadAccess(readAccessFilter, feature.project)
+      hasReadAccess(context, feature.project)
     );
 
     expect(filteredFeatures).toEqual([
@@ -1573,29 +1433,25 @@ describe("hasReadAccess filter", () => {
   });
 
   it("hasReadAccess should filter out all projects aside from the project the user has collaborator access to", async () => {
-    const userPermissions = getUserPermissions(
-      "base_user_123",
-      {
-        ...testOrg,
-        members: [
-          {
-            ...testOrg.members[0],
-            role: "collaborator",
-            projectRoles: [
-              {
-                project: "prj_exl5jr5dl4rbw856",
-                role: "noaccess",
-                limitAccessByEnvironment: true,
-                environments: ["staging"],
-              },
-            ],
-          },
-        ],
-      },
-      []
-    );
+    const req = getMockReq({
+      ...testOrg,
+      members: [
+        {
+          ...testOrg.members[0],
+          role: "collaborator",
+          projectRoles: [
+            {
+              project: "prj_exl5jr5dl4rbw856",
+              role: "noaccess",
+              limitAccessByEnvironment: true,
+              environments: ["staging"],
+            },
+          ],
+        },
+      ],
+    });
 
-    const readAccessFilter = getReadAccessFilter(userPermissions);
+    const context = getContextFromReq(req);
 
     const features: Partial<FeatureInterface>[] = [
       {
@@ -1613,7 +1469,7 @@ describe("hasReadAccess filter", () => {
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      hasReadAccess(readAccessFilter, feature.project)
+      hasReadAccess(context, feature.project)
     );
 
     expect(filteredFeatures).toEqual([
@@ -1630,29 +1486,25 @@ describe("hasReadAccess filter", () => {
 
   // e.g. user's global role is noaccess, but they have project-level permissions for a singular project - if their collaborator permissions include atleast 1 project on the metric, they should get access
   it("hasReadAccess should allow access if user has readAccess for atleast 1 project on an experiment", async () => {
-    const userPermissions = getUserPermissions(
-      "base_user_123",
-      {
-        ...testOrg,
-        members: [
-          {
-            ...testOrg.members[0],
-            role: "noaccess",
-            projectRoles: [
-              {
-                project: "prj_exl5jr5dl4rbw856",
-                role: "collaborator",
-                limitAccessByEnvironment: true,
-                environments: ["staging"],
-              },
-            ],
-          },
-        ],
-      },
-      []
-    );
+    const req = getMockReq({
+      ...testOrg,
+      members: [
+        {
+          ...testOrg.members[0],
+          role: "noaccess",
+          projectRoles: [
+            {
+              project: "prj_exl5jr5dl4rbw856",
+              role: "collaborator",
+              limitAccessByEnvironment: true,
+              environments: ["staging"],
+            },
+          ],
+        },
+      ],
+    });
 
-    const readAccessFilter = getReadAccessFilter(userPermissions);
+    const context = getContextFromReq(req);
 
     const metrics: Partial<MetricInterface>[] = [
       {
@@ -1670,7 +1522,7 @@ describe("hasReadAccess filter", () => {
     ];
 
     const filteredMetrics = metrics.filter((metric) =>
-      hasReadAccess(readAccessFilter, metric.projects || [])
+      hasReadAccess(context, metric.projects || [])
     );
 
     expect(filteredMetrics).toEqual([
@@ -1687,35 +1539,31 @@ describe("hasReadAccess filter", () => {
 
   // The user's global role is collaborator, but they have project-level permissions for two projects that take away readaccess. If a metric is in both of the projects the user has noaccess role, AND a project the user doesn't have a specific permission for, the user should be able to access it due to their global permission
   it("hasReadAccess should not allow access if user has ", async () => {
-    const userPermissions = getUserPermissions(
-      "base_user_123",
-      {
-        ...testOrg,
-        members: [
-          {
-            ...testOrg.members[0],
-            role: "collaborator",
-            projectRoles: [
-              {
-                project: "prj_exl5jr5dl4rbw856",
-                role: "noaccess",
-                limitAccessByEnvironment: true,
-                environments: ["staging"],
-              },
-              {
-                project: "prj_exl5jr5dl4rbw123",
-                role: "noaccess",
-                limitAccessByEnvironment: true,
-                environments: ["staging"],
-              },
-            ],
-          },
-        ],
-      },
-      []
-    );
+    const req = getMockReq({
+      ...testOrg,
+      members: [
+        {
+          ...testOrg.members[0],
+          role: "collaborator",
+          projectRoles: [
+            {
+              project: "prj_exl5jr5dl4rbw856",
+              role: "noaccess",
+              limitAccessByEnvironment: true,
+              environments: ["staging"],
+            },
+            {
+              project: "prj_exl5jr5dl4rbw123",
+              role: "noaccess",
+              limitAccessByEnvironment: true,
+              environments: ["staging"],
+            },
+          ],
+        },
+      ],
+    });
 
-    const readAccessFilter = getReadAccessFilter(userPermissions);
+    const context = getContextFromReq(req);
 
     const metrics: Partial<MetricInterface>[] = [
       {
@@ -1733,7 +1581,7 @@ describe("hasReadAccess filter", () => {
     ];
 
     const filteredMetrics = metrics.filter((metric) =>
-      hasReadAccess(readAccessFilter, metric.projects || [])
+      hasReadAccess(context, metric.projects || [])
     );
 
     expect(filteredMetrics).toEqual([
@@ -1750,35 +1598,31 @@ describe("hasReadAccess filter", () => {
 
   // The user's global role is collaborator, but they have project-level permissions for two projects. If a metric is in both of the projects the user has a noaccess role for, the user shouldn't be able to access it
   it("hasReadAccess should not allow access if user has ", async () => {
-    const userPermissions = getUserPermissions(
-      "base_user_123",
-      {
-        ...testOrg,
-        members: [
-          {
-            ...testOrg.members[0],
-            role: "collaborator",
-            projectRoles: [
-              {
-                project: "prj_exl5jr5dl4rbw856",
-                role: "noaccess",
-                limitAccessByEnvironment: true,
-                environments: ["staging"],
-              },
-              {
-                project: "prj_exl5jr5dl4rbw123",
-                role: "noaccess",
-                limitAccessByEnvironment: true,
-                environments: ["staging"],
-              },
-            ],
-          },
-        ],
-      },
-      []
-    );
+    const req = getMockReq({
+      ...testOrg,
+      members: [
+        {
+          ...testOrg.members[0],
+          role: "collaborator",
+          projectRoles: [
+            {
+              project: "prj_exl5jr5dl4rbw856",
+              role: "noaccess",
+              limitAccessByEnvironment: true,
+              environments: ["staging"],
+            },
+            {
+              project: "prj_exl5jr5dl4rbw123",
+              role: "noaccess",
+              limitAccessByEnvironment: true,
+              environments: ["staging"],
+            },
+          ],
+        },
+      ],
+    });
 
-    const readAccessFilter = getReadAccessFilter(userPermissions);
+    const context = getContextFromReq(req);
 
     const metrics: Partial<MetricInterface>[] = [
       {
@@ -1796,7 +1640,7 @@ describe("hasReadAccess filter", () => {
     ];
 
     const filteredMetrics = metrics.filter((metric) =>
-      hasReadAccess(readAccessFilter, metric.projects || [])
+      hasReadAccess(context, metric.projects || [])
     );
 
     expect(filteredMetrics).toEqual([

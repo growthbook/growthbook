@@ -1,4 +1,3 @@
-import { FULL_ACCESS_PERMISSIONS } from "shared/permissions";
 import {
   updateDataSource,
   validateExposureQueriesAndAddMissingIds,
@@ -308,7 +307,13 @@ describe("dataSourceModel", () => {
               settings: {},
             },
             environments: [],
-            readAccessFilter: FULL_ACCESS_PERMISSIONS,
+            checkPermissions: () => true,
+            auditUser: {
+              type: "dashboard",
+              id: "test",
+              email: "test",
+              name: "test",
+            },
           },
           datasource,
           updates

@@ -84,9 +84,7 @@ export async function getDataSourcesByOrganization(
 
   const datasources = docs.map(toInterface);
 
-  return datasources.filter((ds) =>
-    hasReadAccess(context.readAccessFilter, ds.projects || [])
-  );
+  return datasources.filter((ds) => hasReadAccess(context, ds.projects || []));
 }
 
 export async function getDataSourceById(
@@ -109,9 +107,7 @@ export async function getDataSourceById(
 
   const datasource = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, datasource.projects)
-    ? datasource
-    : null;
+  return hasReadAccess(context, datasource.projects) ? datasource : null;
 }
 
 export async function removeProjectFromDatasources(

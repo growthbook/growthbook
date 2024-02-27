@@ -2,10 +2,6 @@ import { randomBytes } from "crypto";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import {
-  FULL_ACCESS_PERMISSIONS,
-  getReadAccessFilter,
-} from "shared/permissions";
-import {
   createOrganization,
   findAllOrganizations,
   findOrganizationById,
@@ -50,7 +46,7 @@ import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 import { logger } from "../util/logger";
-import { getDefaultRole, getUserPermissions } from "../util/organization.util";
+import { getDefaultRole } from "../util/organization.util";
 import { SegmentInterface } from "../../types/segment";
 import {
   createSegment,
@@ -102,7 +98,12 @@ export function validateLoginMethod(
   return true;
 }
 
-export function getContextFromReq(req: AuthRequest): ReqContext {
+export function getContextFromReq(
+  req: Pick<
+    AuthRequest,
+    "organization" | "userId" | "email" | "checkPermissions" | "teams" | "name"
+  >
+): ReqContext {
   if (!req.organization) {
     throw new Error("Must be part of an organization to make that request");
   }
@@ -117,9 +118,6 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
     environments: getEnvironmentIdsFromOrg(req.organization),
     checkPermissions: req.checkPermissions,
     userName: req.name || "",
-    readAccessFilter: getReadAccessFilter(
-      getUserPermissions(req.userId, req.organization, req.teams)
-    ),
     auditUser: {
       type: "dashboard",
       id: req.userId,
@@ -983,7 +981,6 @@ export function getContextForAgendaJobByOrgObject(
   return {
     org: organization,
     environments: getEnvironmentIdsFromOrg(organization),
-    readAccessFilter: FULL_ACCESS_PERMISSIONS,
     checkPermissions: () => true,
     auditUser: null,
   };

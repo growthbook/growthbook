@@ -284,7 +284,7 @@ export async function getApiKeyByIdOrKey(
 ): Promise<ApiKeyInterface | null> {
   if (!id && !key) return null;
 
-  const { org, readAccessFilter } = context;
+  const { org } = context;
 
   const doc = await ApiKeyModel.findOne(
     id ? { organization: org.id, id } : { organization: org.id, key }
@@ -294,7 +294,7 @@ export async function getApiKeyByIdOrKey(
 
   const apiKey = toInterface(doc);
 
-  return hasReadAccess(readAccessFilter, apiKey.project) ? apiKey : null;
+  return hasReadAccess(context, apiKey.project) ? apiKey : null;
 }
 
 export async function getVisualEditorApiKey(
@@ -337,7 +337,7 @@ export async function lookupOrganizationByApiKey(
 export async function getAllApiKeysByOrganization(
   context: ReqContext
 ): Promise<ApiKeyInterface[]> {
-  const { org, readAccessFilter } = context;
+  const { org } = context;
 
   const docs: ApiKeyDocument[] = await ApiKeyModel.find(
     {
@@ -353,7 +353,7 @@ export async function getAllApiKeysByOrganization(
     return json;
   });
 
-  return keys.filter((k) => hasReadAccess(readAccessFilter, k.project));
+  return keys.filter((k) => hasReadAccess(context, k.project));
 }
 
 export async function getFirstPublishableApiKey(

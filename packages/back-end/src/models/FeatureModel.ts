@@ -3,7 +3,7 @@ import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import { MergeResultChanges } from "shared/util";
-import { hasReadAccess, hasReadAccess2 } from "shared/permissions";
+import { hasReadAccess } from "shared/permissions";
 import {
   FeatureEnvironment,
   FeatureInterface,
@@ -161,9 +161,7 @@ export async function getAllFeatures(
     upgradeFeatureInterface(toInterface(m))
   );
 
-  return features.filter((feature) =>
-    hasReadAccess(context.readAccessFilter, feature.project)
-  );
+  return features.filter((feature) => hasReadAccess(context, feature.project));
 }
 
 const _undefinedTypeGuard = (x: string[] | undefined): x is string[] =>
@@ -176,7 +174,6 @@ export async function getAllFeaturesWithLinkedExperiments(
   features: FeatureInterface[];
   experiments: ExperimentInterface[];
 }> {
-  console.log("getAllFeaturesWithLinkedExperiments");
   const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
   if (project) {
     q.project = project;
@@ -185,25 +182,7 @@ export async function getAllFeaturesWithLinkedExperiments(
   const allFeatures = await FeatureModel.find(q);
 
   const features = allFeatures.filter((feature) =>
-    hasReadAccess(context.readAccessFilter, feature.project)
-  );
-
-  const featuresFilteredByReadAccess = features.filter((feature) =>
-    hasReadAccess(context.readAccessFilter, feature.project)
-  );
-
-  console.log(
-    "featuresFilteredByReadAccess length",
-    featuresFilteredByReadAccess.length
-  );
-
-  const featuresFilteredByPermission = features.filter((feature) =>
-    hasReadAccess2(context, feature.project)
-  );
-
-  console.log(
-    "featuresFilteredByPermission length",
-    featuresFilteredByPermission.length
+    hasReadAccess(context, feature.project)
   );
 
   const expIds = new Set<string>(
@@ -230,7 +209,7 @@ export async function getFeature(
   });
   if (!feature) return null;
 
-  return hasReadAccess(context.readAccessFilter, feature.project)
+  return hasReadAccess(context, feature.project)
     ? upgradeFeatureInterface(toInterface(feature))
     : null;
 }
@@ -267,9 +246,7 @@ export async function getFeaturesByIds(
     await FeatureModel.find({ organization: context.org.id, id: { $in: ids } })
   ).map((m) => upgradeFeatureInterface(toInterface(m)));
 
-  return features.filter((feature) =>
-    hasReadAccess(context.readAccessFilter, feature.project)
-  );
+  return features.filter((feature) => hasReadAccess(context, feature.project));
 }
 
 export async function createFeature(
