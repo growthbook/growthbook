@@ -3,7 +3,6 @@ import React, { useEffect, useState } from "react";
 import { FaExclamationCircle, FaQuestionCircle } from "react-icons/fa";
 import { FormProvider, useForm, useFormContext } from "react-hook-form";
 import isEqual from "lodash/isEqual";
-import { PValueCorrection } from "back-end/types/stats";
 import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
@@ -72,20 +71,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
   ).map(([value, label]) => ({ value, label }));
 
   const permissions = usePermissions();
-  const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
-  );
-  const hasSequentialTestingFeature = hasCommercialFeature(
-    "sequential-testing"
-  );
   const hasSecureAttributesFeature = hasCommercialFeature(
     "hash-secure-attributes"
   );
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
 
-  const hasCustomChecklistFeature = hasCommercialFeature(
-    "custom-launch-checklist"
-  );
   const hasCodeReferencesFeature = hasCommercialFeature("code-references");
 
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -322,104 +312,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               updateCronString={updateCronString}
               hasFileConfig={hasFileConfig()}
               hasCommercialFeature={hasCommercialFeature}
-              pastExperimentsMinLengthField={form.register(
-                "pastExperimentsMinLength",
-                {
-                  valueAsNumber: true,
-                  min: 0,
-                  max: 31,
-                }
-              )}
-              multipleExposureMinPercentField={form.register(
-                "multipleExposureMinPercent",
-                {
-                  valueAsNumber: true,
-                  min: 0,
-                  max: 100,
-                }
-              )}
-              attributionModel={form.watch("attributionModel")}
-              setAttributionModel={(v) => form.setValue("attributionModel", v)}
-              updateSchedule={form.watch("updateSchedule")}
-              updateScheduleTypeField={form.register("updateSchedule.type")}
-              updateScheduleHoursField={form.register("updateSchedule.hours")}
-              updateScheduleCronField={form.register("updateSchedule.cron")}
-              disableMultiMetricQueries={form.watch(
-                "disableMultiMetricQueries"
-              )}
-              setDisableMultiMetricQueries={(v: boolean) =>
-                form.setValue("disableMultiMetricQueries", v)
-              }
               statsEngine={form.watch("statsEngine")}
-              setStatsEngine={(v) => form.setValue("statsEngine", v)}
-              confidenceLevel={form.watch("confidenceLevel")}
-              confidenceLevelField={form.register("confidenceLevel", {
-                valueAsNumber: true,
-                min: 50,
-                max: 100,
-              })}
-              pValueThreshold={form.watch("pValueThreshold")}
-              pValueThresholdField={form.register("pValueThreshold", {
-                valueAsNumber: true,
-                min: 0,
-                max: 1,
-              })}
-              pValueCorrection={form.watch("pValueCorrection")}
-              setPValueCorrection={(v: PValueCorrection) =>
-                form.setValue("pValueCorrection", v)
-              }
-              regressionAdjustmentEnabled={form.watch(
-                "regressionAdjustmentEnabled"
-              )}
-              setRegressionAdjustmentEnabled={(v: boolean) =>
-                form.setValue("regressionAdjustmentEnabled", v)
-              }
-              regressionAdjustmentDays={form.watch("regressionAdjustmentDays")}
-              hasRegressionAdjustmentFeature={hasRegressionAdjustmentFeature}
-              regressionAdjustmentDaysField={form.register(
-                "regressionAdjustmentDays",
-                {
-                  valueAsNumber: true,
-                  validate: (v) => {
-                    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                    return !(v <= 0 || v > 100);
-                  },
-                }
-              )}
-              sequentialTestingEnabled={form.watch("sequentialTestingEnabled")}
-              setSequentialTestingEnabled={(v: boolean) =>
-                form.setValue("sequentialTestingEnabled", v)
-              }
-              hasSequentialTestingFeature={hasSequentialTestingFeature}
-              sequentialTestingTuningParameterField={form.register(
-                "sequentialTestingTuningParameter",
-                {
-                  valueAsNumber: true,
-                  validate: (v) => {
-                    return !(v <= 0);
-                  },
-                }
-              )}
-              useStickyBucketing={form.watch("useStickyBucketing")}
-              setUseStickyBucketing={(v: boolean) =>
-                form.setValue("useStickyBucketing", v)
-              }
-              hasStickyBucketFeature={hasStickyBucketFeature}
-              useFallbackAttributes={form.watch("useFallbackAttributes")}
-              setUseFallbackAttributes={(v: boolean) =>
-                form.setValue("useFallbackAttributes", v)
-              }
-              runHealthTrafficQuery={form.watch("runHealthTrafficQuery")}
-              setRunHealthTrafficQuery={(v: boolean) =>
-                form.setValue("runHealthTrafficQuery", v)
-              }
-              srmThreshold={form.watch("srmThreshold")}
-              srmThresholdField={form.register("srmThreshold", {
-                valueAsNumber: true,
-                min: 0,
-                max: 1,
-              })}
-              hasCustomChecklistFeature={hasCustomChecklistFeature}
             />
 
             <div className="divider border-bottom mb-3 mt-3" />
