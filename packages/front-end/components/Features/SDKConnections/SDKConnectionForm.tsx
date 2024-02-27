@@ -16,6 +16,7 @@ import {
   getSDKVersions,
   isSDKOutdated,
 } from "shared/sdk-versioning";
+import { filterProjectsByEnvironment } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
@@ -64,6 +65,8 @@ export default function SDKConnectionForm({
 }) {
   const environments = useEnvironments();
   const { project, projects, getProjectById } = useDefinitions();
+  const projectIds = projects.map((p) => p.id);
+
   const { apiCall } = useAuth();
   const router = useRouter();
 
@@ -163,7 +166,20 @@ export default function SDKConnectionForm({
     "visualEditor"
   );
 
-  const projectsOptions = projects.map((p) => ({
+  const selectedProjects = form.watch("projects");
+  const selectedEnvironment = environments.find(
+    (e) => e.id === form.watch("environment")
+  );
+  const environmentHasProjects =
+    (selectedEnvironment?.projects?.length ?? 0) > 0;
+  const filteredProjectIds = selectedEnvironment
+    ? filterProjectsByEnvironment(projectIds, selectedEnvironment)
+    : undefined;
+  const filteredProjects = filteredProjectIds
+    ? projects.filter((p) => filteredProjectIds.includes(p.id))
+    : projects;
+
+  const projectsOptions = filteredProjects.map((p) => ({
     label: p.name,
     value: p.id,
   }));
@@ -241,6 +257,21 @@ export default function SDKConnectionForm({
       setLanguageError(null);
     }
   }, [languages, languageError, setLanguageError]);
+
+  const projectIdsStr = JSON.stringify(projectIds);
+  const selectedProjectsStr = JSON.stringify(selectedProjects);
+  useEffect(
+    () => {
+      if (!selectedEnvironment) return;
+      if (!selectedProjects) return;
+      form.setValue(
+        "projects",
+        filterProjectsByEnvironment(selectedProjects, selectedEnvironment)
+      );
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [projectIdsStr, selectedProjectsStr, selectedEnvironment?.id]
+  );
 
   return (
     <Modal
@@ -382,7 +413,11 @@ export default function SDKConnectionForm({
             <div className="col">
               <MultiSelectField
                 label="Filter by Project"
-                placeholder="All Projects"
+                placeholder={
+                  environmentHasProjects
+                    ? "All Environment Projects"
+                    : "All Projects"
+                }
                 value={form.watch("projects") || []}
                 onChange={(projects) => form.setValue("projects", projects)}
                 options={projectsOptions}
@@ -400,6 +435,27 @@ export default function SDKConnectionForm({
               value={form.watch("environment")}
               onChange={(env) => form.setValue("environment", env)}
               options={environments.map((e) => ({ label: e.id, value: e.id }))}
+              formatOptionLabel={({ value, label }) => {
+                const selectedEnvironment = environments.find(
+                  (e) => e.id === value
+                );
+                const numProjects = selectedEnvironment?.projects?.length ?? 0;
+                return (
+                  <div className="d-flex align-items-center">
+                    <div>{label}</div>
+                    <div className="flex-1" />
+                    {numProjects > 0 ? (
+                      <div className="text-muted small">
+                        {numProjects} project{numProjects === 1 ? "" : "s"}
+                      </div>
+                    ) : (
+                      <div className="text-muted small font-italic">
+                        All projects
+                      </div>
+                    )}
+                  </div>
+                );
+              }}
             />
           </div>
         </div>

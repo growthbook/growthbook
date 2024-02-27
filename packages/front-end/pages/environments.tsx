@@ -15,6 +15,8 @@ import Button from "../components/Button";
 import MoreMenu from "../components/Dropdown/MoreMenu";
 import EnvironmentModal from "../components/Settings/EnvironmentModal";
 import DeleteButton from "../components/DeleteButton/DeleteButton";
+import {BiHide, BiShow} from "react-icons/bi";
+import {ImBlocked} from "react-icons/im";
 
 const EnvironmentsPage: FC = () => {
   const { project } = useDefinitions();
@@ -124,7 +126,7 @@ const EnvironmentsPage: FC = () => {
                     <Tooltip
                       tipPosition="bottom"
                       state={showConnections === i}
-                      popperStyle={{ marginLeft: 8, marginTop: -2 }}
+                      popperStyle={{ marginLeft: 50 }}
                       body={
                         <div
                           className="px-3 py-2"
@@ -144,8 +146,8 @@ const EnvironmentsPage: FC = () => {
                           <div className="mt-1 text-muted font-weight-bold">
                             SDK Connections using this environment
                           </div>
+                          <hr className="mt-2" />
                           <div
-                            className="mt-2"
                             style={{ maxHeight: 300, overflowY: "auto" }}
                           >
                             {sdkConnectionData?.connections?.map((c, i) => (
@@ -167,7 +169,7 @@ const EnvironmentsPage: FC = () => {
                       <>
                         <a
                           role="button"
-                          className="link-purple"
+                          className="link-purple nowrap"
                           onClick={(e) => {
                             e.preventDefault();
                             setShowConnections(
@@ -177,6 +179,7 @@ const EnvironmentsPage: FC = () => {
                         >
                           {numConnections} connection
                           {numConnections !== 1 && "s"}
+                          {showConnections === i ? (<BiHide className="ml-2" />) : (<BiShow className="ml-2" />)}
                         </a>
                       </>
                     ) : (
@@ -244,26 +247,44 @@ const EnvironmentsPage: FC = () => {
                           </Button>
                         )}
                         {environments.length > 1 && canEdit && (
-                          <DeleteButton
-                            deleteMessage="Are you you want to delete this environment?"
-                            displayName={e.id}
-                            className="dropdown-item text-danger"
-                            text="Delete"
-                            useIcon={false}
-                            onClick={async () => {
-                              await apiCall(`/organization`, {
-                                method: "PUT",
-                                body: JSON.stringify({
-                                  settings: {
-                                    environments: environments.filter(
-                                      (env) => env.id !== e.id
-                                    ),
-                                  },
-                                }),
-                              });
-                              refreshOrganization();
-                            }}
-                          />
+                          <Tooltip
+                            shouldDisplay={numConnections > 0}
+                            usePortal={true}
+                            body={
+                              <>
+                                <ImBlocked className="text-danger" /> This environment
+                                has{" "}
+                                <strong>
+                                  {numConnections} SDK Connection{numConnections !== 1 && "s"}
+                                </strong>{" "}
+                                associated. This environment cannot be deleted until{" "}
+                                {numConnections === 1 ? "it has" : "they have"} been
+                                removed.
+                              </>
+                            }
+                          >
+                            <DeleteButton
+                              deleteMessage="Are you you want to delete this environment?"
+                              displayName={e.id}
+                              className="dropdown-item text-danger"
+                              text="Delete"
+                              useIcon={false}
+                              onClick={async () => {
+                                await apiCall(`/organization`, {
+                                  method: "PUT",
+                                  body: JSON.stringify({
+                                    settings: {
+                                      environments: environments.filter(
+                                        (env) => env.id !== e.id
+                                      ),
+                                    },
+                                  }),
+                                });
+                                refreshOrganization();
+                              }}
+                              disabled={numConnections > 0}
+                            />
+                          </Tooltip>
                         )}
                       </MoreMenu>
                     </td>

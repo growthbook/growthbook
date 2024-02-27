@@ -35,6 +35,7 @@ import {
 import { updatePassword } from "../../services/users";
 import { getAllTags } from "../../models/TagModel";
 import {
+  Environment,
   Invite,
   MemberRole,
   MemberRoleWithProjects,
@@ -118,6 +119,10 @@ import { getAllFactMetricsForOrganization } from "../../models/FactMetricModel";
 import { TeamInterface } from "../../../types/team";
 import { queueSingleWebhookById } from "../../jobs/sdkWebhooks";
 import { initializeLicense } from "../../services/licenseData";
+import {
+  findSDKConnectionsByOrganization, updateSDKConnectionProjects
+} from "../../models/SdkConnectionModel";
+import {filterProjectsByEnvironment} from "shared/util";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -1133,10 +1138,12 @@ export async function putOrganization(
   req: AuthRequest<Partial<OrganizationInterface>>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { name, settings, connections, externalId } = req.body;
 
   const deletedEnvIds: string[] = [];
+  const envsWithModifiedProjects: Environment[] = [];
+  const existingEnvironments = getEnvironments(context.org);
 
   if (connections || name) {
     req.checkPermissions("organizationSettings");
@@ -1144,11 +1151,10 @@ export async function putOrganization(
   if (settings) {
     Object.keys(settings).forEach((k: keyof OrganizationSettings) => {
       if (k === "environments") {
-        const existing = getEnvironments(org);
 
         // Require permissions for any old environments that changed
         const affectedEnvs: Set<string> = new Set();
-        existing.forEach((env) => {
+        existingEnvironments.forEach((env) => {
           const oldHash = JSON.stringify(env);
           const newHash = JSON.stringify(
             settings[k]?.find((e) => e.id === env.id)
@@ -1162,10 +1168,22 @@ export async function putOrganization(
         });
 
         // Require permissions for any new environments that have been added
-        const oldIds = new Set(existing.map((env) => env.id) || []);
+        const oldIds = new Set(existingEnvironments.map((env) => env.id) || []);
         settings[k]?.forEach((env) => {
           if (!oldIds.has(env.id)) {
             affectedEnvs.add(env.id);
+          }
+        });
+
+        // Check if any environments' projects have been changed (may require SDK Connection updates)
+        existingEnvironments.forEach((env) => {
+          const oldProjects = env.projects || [];
+          const newProjects = settings[k]?.find((e) => e.id === env.id)?.projects || [];
+          if (JSON.stringify(oldProjects) !== JSON.stringify(newProjects)) {
+            envsWithModifiedProjects.push({
+              ...env,
+              projects: newProjects,
+            });
           }
         });
 
@@ -1195,18 +1213,18 @@ export async function putOrganization(
 
     if (name) {
       updates.name = name;
-      orig.name = org.name;
+      orig.name = context.org.name;
     }
     if (externalId !== undefined) {
       updates.externalId = externalId;
-      orig.externalId = org.externalId;
+      orig.externalId = context.org.externalId;
     }
     if (settings) {
       updates.settings = {
-        ...org.settings,
+        ...context.org.settings,
         ...settings,
       };
-      orig.settings = org.settings;
+      orig.settings = context.org.settings;
     }
     if (connections?.vercel) {
       const { token, configurationId, teamId } = connections.vercel;
@@ -1215,24 +1233,44 @@ export async function putOrganization(
           ...updates.connections,
           vercel: { token, configurationId, teamId },
         };
-        orig.connections = org.connections;
+        orig.connections = context.org.connections;
       }
     }
 
-    await updateOrganization(org.id, updates);
+    await updateOrganization(context.org.id, updates);
 
     await req.audit({
       event: "organization.update",
       entity: {
         object: "organization",
-        id: org.id,
+        id: context.org.id,
       },
       details: auditDetailsUpdate(orig, updates),
     });
 
     deletedEnvIds.forEach((envId) => {
-      removeEnvironmentFromSlackIntegration({ organizationId: org.id, envId });
+      removeEnvironmentFromSlackIntegration({ organizationId: context.org.id, envId });
     });
+
+    // May need to update SDK Connections to reflect project changes in environments
+    if (envsWithModifiedProjects.length) {
+      const connections = await findSDKConnectionsByOrganization(context);
+
+      for (const env of envsWithModifiedProjects) {
+        const affectedConnections = connections.filter((c) => c.environment === env.id);
+        for (const connection of affectedConnections) {
+          const newProjects = filterProjectsByEnvironment(connection.projects, env);
+          const hasChanges = JSON.stringify(connection.projects) !== JSON.stringify(newProjects);
+          if (hasChanges) {
+            await updateSDKConnectionProjects(
+              context,
+              connection,
+              newProjects
+            );
+          }
+        }
+      }
+    }
 
     res.status(200).json({
       status: 200,

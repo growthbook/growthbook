@@ -15,6 +15,7 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { evalCondition } from "@growthbook/growthbook";
 import { getValidDate } from "../dates";
 import { getMatchingRules, includeExperimentInPayload } from ".";
+import {Environment} from "back-end/types/organization";
 
 export function getValidation(feature: FeatureInterface) {
   try {
@@ -725,4 +726,18 @@ export function getParsedPrereqCondition(condition: string) {
     }
   }
   return undefined;
+}
+
+export function filterProjectsByEnvironment(
+  projects: string[],
+  environment: Environment,
+): string[] {
+  const environmentHasProjects = (environment?.projects?.length ?? 0) > 0;
+  if (environmentHasProjects && !projects.length) {
+    return environment.projects || projects;
+  }
+  return projects.filter((p) => {
+    if (!environmentHasProjects) return true;
+    return environment?.projects?.includes(p);
+  });
 }

@@ -42,10 +42,16 @@ export default function EnvironmentModal({
     });
   }, [sdkConnectionData, existing.id]);
 
-  const projectsChanged =
-    existing.id !== undefined &&
-    JSON.stringify((existing?.projects ?? []).sort()) !==
-      JSON.stringify(form.watch("projects").sort());
+  const selectedProjects = form.watch("projects") ?? [];
+  const removedProjects = (existing?.projects ?? []).filter(
+    (p) => !selectedProjects.includes(p)
+  );
+  const addedProjects = selectedProjects.filter(
+    (p) => !(existing?.projects ?? []).includes(p)
+  );
+  const hasMoreSpecificProjectFilter =
+    (removedProjects.length > 0 && selectedProjects.length > 0) ||
+    ((existing?.projects ?? []).length === 0 && addedProjects.length > 0);
 
   const { refreshOrganization } = useUser();
 
@@ -76,8 +82,7 @@ export default function EnvironmentModal({
           env.defaultState = value.defaultState;
           env.projects = value.projects;
         } else {
-          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-          if (!value.id.match(/^[A-Za-z][A-Za-z0-9_-]*$/)) {
+          if (!value.id?.match(/^[A-Za-z][A-Za-z0-9_-]*$/)) {
             throw new Error(
               "Environment id is invalid. Must start with a letter and can only contain letters, numbers, hyphens, and underscores."
             );
@@ -86,8 +91,7 @@ export default function EnvironmentModal({
             throw new Error("Environment id is already in use");
           }
           newEnvs.push({
-            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-            id: value.id.toLowerCase(),
+            id: value.id?.toLowerCase() || "",
             description: value.description,
             toggleOnList: value.toggleOnList,
             defaultState: value.defaultState,
@@ -116,8 +120,7 @@ export default function EnvironmentModal({
             environment: value.id,
           }),
         });
-
-        await onSuccess();
+        onSuccess();
       })}
     >
       {!existing.id && (
@@ -158,12 +161,12 @@ export default function EnvironmentModal({
           sort={false}
           closeMenuOnSelect={true}
         />
-        {projectsChanged && sdkConnections.length > 0 && (
+        {hasMoreSpecificProjectFilter && sdkConnections.length > 0 && (
           <div className="alert alert-warning">
-            <FaExclamationTriangle /> There{" "}
-            {sdkConnections.length === 1 ? "is" : "are"} {sdkConnections.length}{" "}
-            SDK connections using this environment. Altering the projects
-            associated may affect any existing integrations.
+            <FaExclamationTriangle className="mr-2" />
+            You have selected a more restrictive projects filter.{" "}
+            {sdkConnections.length}{" "}
+            SDK Connections using this environment may be impacted.
           </div>
         )}
       </div>
