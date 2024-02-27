@@ -58,12 +58,19 @@ type GetArchetypeAndEvalResponse = {
 };
 
 export const getArchetypeAndEval = async (
-  req: AuthRequest<null, { id: string; version: string }>,
+  req: AuthRequest<
+    {
+      scrubPrerequisites?: boolean;
+      skipRulesWithPrerequisites?: boolean;
+    },
+    { id: string; version: string }
+  >,
   res: Response<GetArchetypeAndEvalResponse | PrivateApiErrorResponse>
 ) => {
   const context = getContextFromReq(req);
   const { org, userId } = context;
   const { id, version } = req.params;
+  const { scrubPrerequisites, skipRulesWithPrerequisites } = req.body;
   const feature = await getFeature(context, id);
 
   if (!orgHasPremiumFeature(org, "archetypes")) {
@@ -104,6 +111,8 @@ export const getArchetypeAndEval = async (
           experimentMap,
           groupMap,
           revision,
+          scrubPrerequisites,
+          skipRulesWithPrerequisites,
         });
 
         if (!result) return;

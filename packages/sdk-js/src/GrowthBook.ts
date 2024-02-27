@@ -40,11 +40,12 @@ import {
   isIncluded,
   isURLTargeted,
   loadSDKVersion,
-  mergeUrlSearchParams,
+  mergeQueryStrings,
   toString,
 } from "./util";
 import { evalCondition } from "./mongrule";
 import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
+import { FeatureEvalContext } from "./types/growthbook";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -152,10 +153,6 @@ export class GrowthBook<
       this._updateAllAutoExperiments();
     } else if (context.antiFlicker) {
       this._setAntiFlicker();
-      // Fallback if GrowthBook fails to load in 3.5 seconds
-      setTimeout(() => {
-        document.body.classList.remove("gb-anti-flicker");
-      }, 3500);
     }
 
     if (context.clientKey && !context.remoteEval) {
@@ -352,6 +349,7 @@ export class GrowthBook<
 
   public async setURL(url: string) {
     this._ctx.url = url;
+    this._redirectedUrl = "";
     if (this._ctx.remoteEval) {
       await this._refreshForRemoteEval();
       this._updateAllAutoExperiments(true);
@@ -501,18 +499,12 @@ export class GrowthBook<
 
     // Apply new changes
     if (result.inExperiment) {
-      if (result.value.urlRedirect) {
-        const currUrl = new URL(this._getContextUrl());
-        const redirectUrl = new URL(result.value.urlRedirect);
-        mergeUrlSearchParams(currUrl.searchParams, redirectUrl.searchParams);
-
+      if (result.value.urlRedirect && experiment.urlPatterns) {
         const url = experiment.persistQueryString
-          ? redirectUrl.toString()
+          ? mergeQueryStrings(this._getContextUrl(), result.value.urlRedirect)
           : result.value.urlRedirect;
-        if (
-          experiment.urlPatterns &&
-          isURLTargeted(url, [experiment.urlPatterns[0]])
-        ) {
+
+        if (isURLTargeted(url, experiment.urlPatterns)) {
           this.log(
             "Skipping redirect because original URL matches redirect URL",
             {
@@ -527,10 +519,18 @@ export class GrowthBook<
           if (isBrowser) {
             this._setAntiFlicker();
             window.setTimeout(() => {
-              navigate(url);
+              try {
+                navigate(url);
+              } catch (e) {
+                console.error(e);
+              }
             }, this._ctx.navigateDelay ?? 100);
           } else {
-            navigate(url);
+            try {
+              navigate(url);
+            } catch (e) {
+              console.error(e);
+            }
           }
         }
       } else {
@@ -568,11 +568,12 @@ export class GrowthBook<
     });
 
     // Re-run all new/updated experiments
-    experiments.some((exp) => {
+    for (const exp of experiments) {
+      // There's an active redirect happening already, skip remaining tests
+      if (this._redirectedUrl) break;
+
       this._runAutoExperiment(exp, forceRerun);
-      // Break if we encounter an experiment that is redirecting
-      return exp.variations.some((v) => !!v.urlRedirect);
-    });
+    }
   }
 
   private _fireSubscriptions<T>(experiment: Experiment<T>, result: Result<T>) {
@@ -705,6 +706,26 @@ export class GrowthBook<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string
   >(id: K): FeatureResult<V | null> {
+    return this._evalFeature(id);
+  }
+
+  private _evalFeature<
+    V extends AppFeatures[K],
+    K extends string & keyof AppFeatures = string
+  >(id: K, evalCtx?: FeatureEvalContext): FeatureResult<V | null> {
+    evalCtx = evalCtx || { evaluatedFeatures: new Set() };
+
+    if (evalCtx.evaluatedFeatures.has(id)) {
+      process.env.NODE_ENV !== "production" &&
+        this.log(
+          `evalFeature: circular dependency detected: ${evalCtx.id} -> ${id}`,
+          { from: evalCtx.id, to: id }
+        );
+      return this._getFeatureResult(id, null, "cyclicPrerequisite");
+    }
+    evalCtx.evaluatedFeatures.add(id);
+    evalCtx.id = id;
+
     // Global override
     if (this._forcedFeatureValues.has(id)) {
       process.env.NODE_ENV !== "production" &&
@@ -731,7 +752,39 @@ export class GrowthBook<
 
     // Loop through the rules
     if (feature.rules) {
-      for (const rule of feature.rules) {
+      rules: for (const rule of feature.rules) {
+        // If there are prerequisite flag(s), evaluate them
+        if (rule.parentConditions) {
+          for (const parentCondition of rule.parentConditions) {
+            const parentResult = this._evalFeature(parentCondition.id, evalCtx);
+            // break out for cyclic prerequisites
+            if (parentResult.source === "cyclicPrerequisite") {
+              return this._getFeatureResult(id, null, "cyclicPrerequisite");
+            }
+
+            const evalObj = { value: parentResult.value };
+            const evaled = evalCondition(
+              evalObj,
+              parentCondition.condition || {}
+            );
+            if (!evaled) {
+              // blocking prerequisite eval failed: feature evaluation fails
+              if (parentCondition.gate) {
+                process.env.NODE_ENV !== "production" &&
+                  this.log("Feature blocked by prerequisite", { id, rule });
+                return this._getFeatureResult(id, null, "prerequisite");
+              }
+              // non-blocking prerequisite eval failed: break out of parentConditions loop, jump to the next rule
+              process.env.NODE_ENV !== "production" &&
+                this.log("Skip rule because prerequisite evaluation fails", {
+                  id,
+                  rule,
+                });
+              continue rules;
+            }
+          }
+        }
+
         // If there are filters for who is included (e.g. namespaces)
         if (rule.filters && this._isFilteredOut(rule.filters)) {
           process.env.NODE_ENV !== "production" &&
@@ -1043,6 +1096,26 @@ export class GrowthBook<
         return this._getResult(experiment, -1, false, featureId);
       }
 
+      // 8.05. Exclude if prerequisites are not met
+      if (experiment.parentConditions) {
+        for (const parentCondition of experiment.parentConditions) {
+          const parentResult = this._evalFeature(parentCondition.id);
+          // break out for cyclic prerequisites
+          if (parentResult.source === "cyclicPrerequisite") {
+            return this._getResult(experiment, -1, false, featureId);
+          }
+
+          const evalObj = { value: parentResult.value };
+          if (!evalCondition(evalObj, parentCondition.condition || {})) {
+            process.env.NODE_ENV !== "production" &&
+              this.log("Skip because prerequisite evaluation fails", {
+                id: key,
+              });
+            return this._getResult(experiment, -1, false, featureId);
+          }
+        }
+      }
+
       // 8.1. Exclude if user is not in a required group
       if (
         experiment.groups &&
@@ -1196,26 +1269,26 @@ export class GrowthBook<
   }
 
   public getDeferredTrackingCalls() {
-    return btoa(JSON.stringify(this._deferredTrackingCalls));
+    return this._deferredTrackingCalls;
   }
 
-  public fireDeferredTrackingCalls(data: string) {
-    const calls = JSON.parse(atob(data));
-    if (!Array.isArray(calls)) throw new Error("Invalid tracking data");
-    calls.forEach((call: TrackingData) => {
+  public setDeferredTrackingCalls(calls: TrackingData[]) {
+    this._deferredTrackingCalls = calls;
+  }
+
+  public fireDeferredTrackingCalls() {
+    this._deferredTrackingCalls.forEach((call: TrackingData) => {
       if (!call || !call.experiment || !call.result) {
         throw new Error("Invalid tracking data");
       }
       this._track(call.experiment, call.result);
     });
+    this._deferredTrackingCalls = [];
   }
 
   public setTrackingCallback(callback: TrackingCallback) {
     this._ctx.trackingCallback = callback;
-    this._deferredTrackingCalls.forEach((call) => {
-      this._track(call.experiment, call.result);
-    });
-    this._deferredTrackingCalls = [];
+    this.fireDeferredTrackingCalls();
   }
 
   private _track<T>(experiment: Experiment<T>, result: Result<T>) {
@@ -1364,7 +1437,7 @@ export class GrowthBook<
       return this._ctx.navigate;
     } else if (isBrowser) {
       return (url: string) => {
-        window.location.href = url;
+        window.location.replace(url);
       };
     }
     return null;
@@ -1372,10 +1445,20 @@ export class GrowthBook<
 
   private _setAntiFlicker() {
     if (!this._ctx.antiFlicker || !isBrowser) return;
-    const styleTag = document.createElement("style");
-    styleTag.innerHTML = ".gb-anti-flicker { opacity: 0 !important; }";
-    document.head.appendChild(styleTag);
-    document.body.classList.add("gb-anti-flicker");
+    try {
+      const styleTag = document.createElement("style");
+      styleTag.innerHTML =
+        ".gb-anti-flicker { opacity: 0 !important; pointer-events: none; }";
+      document.head.appendChild(styleTag);
+      document.documentElement.classList.add("gb-anti-flicker");
+
+      // Fallback if GrowthBook fails to load in specified time or 3.5 seconds
+      setTimeout(() => {
+        document.documentElement.classList.remove("gb-anti-flicker");
+      }, this._ctx.antiFlickerTimeout ?? 3500);
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   private _applyDOMChanges(changes: AutoExperimentVariation) {

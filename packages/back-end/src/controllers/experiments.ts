@@ -1315,6 +1315,7 @@ export async function postExperimentTargeting(
   const {
     condition,
     savedGroups,
+    prerequisites,
     coverage,
     hashAttribute,
     fallbackAttribute,
@@ -1358,6 +1359,7 @@ export async function postExperimentTargeting(
       ...phases[phases.length - 1],
       condition,
       savedGroups,
+      prerequisites,
       coverage,
       namespace,
       variationWeights,
@@ -1372,6 +1374,7 @@ export async function postExperimentTargeting(
     phases.push({
       condition,
       savedGroups,
+      prerequisites,
       coverage,
       dateStarted: new Date(),
       name: "Main",
@@ -2132,7 +2135,7 @@ export async function postPastExperiments(
   }
   req.checkPermissions(
     "runQueries",
-    datasourceObj?.projects?.length ? datasourceObj.projects : ""
+    datasourceObj?.projects?.length ? datasourceObj.projects : []
   );
 
   const integration = getSourceIntegrationObject(datasourceObj, true);
@@ -2209,6 +2212,16 @@ export async function postVisualChangeset(
   }
 
   const experiment = await getExperimentById(context, req.params.id);
+
+  if (req.body.urlRedirects) {
+    const variationIds = experiment?.variations.map((v) => v.id);
+    const areValidVariations = req.body.urlRedirects.every((r) => {
+      variationIds?.includes(r.variation);
+    });
+    if (!areValidVariations) {
+      throw new Error("Invalid variation IDs for urlRedirects");
+    }
+  }
 
   if (!experiment) {
     throw new Error("Could not find experiment");

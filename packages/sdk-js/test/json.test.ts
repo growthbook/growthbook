@@ -11,9 +11,9 @@ import {
 } from "../src";
 import { evalCondition } from "../src/mongrule";
 import {
-  AutoExperiment,
   StickyAssignmentsDocument,
   StickyAttributeKey,
+  TrackingData,
   VariationRange,
 } from "../src/types/growthbook";
 import {
@@ -68,8 +68,8 @@ type Cases = {
     gt: [string, string, boolean][];
     eq: [string, string, boolean][];
   };
-  // name, context, experiment, url, result
-  urlRedirect: [string, Context, AutoExperiment, string, string];
+  // name, context, result
+  urlRedirect: [string, Context, TrackingData[]][];
 };
 
 const round = (n: number) => Math.floor(n * 1e8) / 1e8;
@@ -79,6 +79,7 @@ const roundArrayArray = (arr: number[][]) => arr.map((a) => roundArray(a));
 /* eslint-disable */
 const { webcrypto } = require("node:crypto");
 import { TextEncoder, TextDecoder } from "util";
+import { sleep } from "./visual-changes.test";
 global.TextEncoder = TextEncoder;
 (global as any).TextDecoder = TextDecoder;
 /* eslint-enable */
@@ -261,4 +262,20 @@ describe("json test suite", () => {
       );
     });
   });
+
+  it.each((cases as Cases).urlRedirect)(
+    "urlRedirect[%#] %s",
+    async (name, ctx, result) => {
+      const growthbook = new GrowthBook(ctx);
+      await sleep();
+      const trackingCalls = growthbook.getDeferredTrackingCalls();
+      const actualResult = trackingCalls.map((c) => ({
+        inExperiment: c.result.inExperiment,
+        urlRedirect: c.result.value.urlRedirect,
+        urlWithParams: growthbook.getRedirectUrl(),
+      }));
+      expect(actualResult).toEqual(result);
+      growthbook.destroy();
+    }
+  );
 });

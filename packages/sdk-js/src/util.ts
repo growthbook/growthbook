@@ -329,12 +329,24 @@ export function loadSDKVersion(): string {
   return version;
 }
 
-export function mergeUrlSearchParams(
-  oldParams: URLSearchParams,
-  newParams: URLSearchParams
-): string {
-  oldParams.forEach((value, key) => {
-    newParams.append(key, value);
+export function mergeQueryStrings(oldUrl: string, newUrl: string): string {
+  let currUrl: URL;
+  let redirectUrl: URL;
+  try {
+    currUrl = new URL(oldUrl);
+    redirectUrl = new URL(newUrl);
+  } catch (e) {
+    console.error(`Unable to merge query strings: ${e}`);
+    return newUrl;
+  }
+
+  currUrl.searchParams.forEach((value, key) => {
+    // skip  if search param already exists in redirectUrl
+    if (redirectUrl.searchParams.has(key)) {
+      return;
+    }
+    redirectUrl.searchParams.set(key, value);
   });
-  return newParams.toString();
+
+  return redirectUrl.toString();
 }

@@ -54,6 +54,9 @@ async function sendMail({
   if (!isEmailEnabled() || !transporter) {
     throw new Error("Email server not configured.");
   }
+  if (typeof to !== "string") {
+    throw new Error("Email address must be a string");
+  }
 
   const headers: { [key: string]: string } = {};
 

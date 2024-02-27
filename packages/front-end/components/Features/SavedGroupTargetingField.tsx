@@ -1,8 +1,9 @@
 import { SavedGroupTargeting } from "back-end/types/feature";
+import { FaMinusCircle, FaPlusCircle } from "react-icons/fa";
+import React from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "../Forms/SelectField";
 import MultiSelectField from "../Forms/MultiSelectField";
-import { GBAddCircle } from "../Icons";
 
 export interface Props {
   value: SavedGroupTargeting[];
@@ -22,11 +23,11 @@ export default function SavedGroupTargetingField({ value, setValue }: Props) {
   const conflicts = getSavedGroupTargetingConflicts(value);
 
   return (
-    <div className="form-group">
+    <div className="form-group my-4">
       <label>Target by Saved Groups</label>
-      <div className="border bg-light p-3 mb-1">
+      <div>
         {value.length > 0 ? (
-          <div>
+          <div className="appbox bg-light px-3 py-3">
             {conflicts.length > 0 && (
               <div className="alert alert-danger">
                 <strong>Error:</strong> You have a conflict in your rules with
@@ -109,15 +110,15 @@ export default function SavedGroupTargetingField({ value, setValue }: Props) {
                         setValue(newValue);
                       }}
                     >
+                      <FaMinusCircle className="mr-1" />
                       remove
                     </button>
                   </div>
                 </div>
               );
             })}
-            <a
-              href="#"
-              className="btn btn-outline-primary"
+            <span
+              className="link-purple font-weight-bold cursor-pointer"
               onClick={(e) => {
                 e.preventDefault();
                 setValue([
@@ -129,19 +130,17 @@ export default function SavedGroupTargetingField({ value, setValue }: Props) {
                 ]);
               }}
             >
-              <span className="pr-2">
-                <GBAddCircle />
-              </span>
+              <FaPlusCircle className="mr-1" />
               Add another condition
-            </a>
+            </span>
           </div>
         ) : (
           <div>
-            <em className="text-muted mr-3">
+            <div className="font-italic text-muted mr-3">
               No saved group targeting applied.
-            </em>
-            <a
-              href="#"
+            </div>
+            <div
+              className="d-inline-block ml-1 mt-2 link-purple font-weight-bold cursor-pointer"
               onClick={(e) => {
                 e.preventDefault();
                 setValue([
@@ -153,8 +152,9 @@ export default function SavedGroupTargetingField({ value, setValue }: Props) {
                 ]);
               }}
             >
+              <FaPlusCircle className="mr-1" />
               Add group targeting
-            </a>
+            </div>
           </div>
         )}
       </div>

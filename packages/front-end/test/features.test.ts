@@ -272,6 +272,10 @@ describe("json <-> conds", () => {
     const json = stringify({ str: { $not: { $regex: null } } });
     expect(jsonToConds(json, attributeMap)).toEqual(null);
   });
+  it("string - $in operator - string contains comma", () => {
+    const json = stringify({ str: { $in: ["a,b", "c,d"] } });
+    expect(jsonToConds(json, attributeMap)).toEqual(null);
+  });
   /* TODO: This test case fails right now
   it("string - $in operator, commas", () => {
     const json = stringify({ str: { $in: ["a,", "b"] } });

@@ -16,6 +16,7 @@ interface Props {
   setShowUpgradeModal: (value: boolean) => void;
   scheduleToggleEnabled: boolean;
   setScheduleToggleEnabled: (value: boolean) => void;
+  title?: string;
 }
 
 export default function ScheduleInputs(props: Props) {
@@ -48,7 +49,10 @@ export default function ScheduleInputs(props: Props) {
         showUpgradeModal={() => props.setShowUpgradeModal(true)}
         commercialFeature="schedule-feature-flag"
         upgradeMessage="enable feature flag scheduling"
-        labelText="Add scheduling to automatically enable/disable an override rule."
+        labelText={
+          props.title ??
+          "Add scheduling to automatically enable/disable an override rule"
+        }
       />
       <div className="pb-2">
         <Toggle
