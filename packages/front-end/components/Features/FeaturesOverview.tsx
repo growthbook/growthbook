@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   FaChevronRight,
   FaDraftingCompass,

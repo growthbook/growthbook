@@ -1,7 +1,9 @@
-import React, { useState, FC, useMemo } from "react";
+import { useState, FC, useMemo } from "react";
 import { Environment } from "back-end/types/organization";
 import { isProjectListValidForProject } from "shared/util";
 import { BsXCircle } from "react-icons/bs";
+import { BiHide, BiShow } from "react-icons/bi";
+import { ImBlocked } from "react-icons/im";
 import { useAuth } from "@/services/auth";
 import { GBAddCircle } from "@/components/Icons";
 import { useEnvironments } from "@/services/features";
@@ -15,8 +17,6 @@ import Button from "../components/Button";
 import MoreMenu from "../components/Dropdown/MoreMenu";
 import EnvironmentModal from "../components/Settings/EnvironmentModal";
 import DeleteButton from "../components/DeleteButton/DeleteButton";
-import {BiHide, BiShow} from "react-icons/bi";
-import {ImBlocked} from "react-icons/im";
 
 const EnvironmentsPage: FC = () => {
   const { project } = useDefinitions();
@@ -103,7 +103,11 @@ const EnvironmentsPage: FC = () => {
               const canEdit = permissions.check("manageEnvironments", "", [
                 e.id,
               ]);
-              const numConnections = sdkConnectionsMap?.[e.id]?.length || 0;
+              const sdkConnectionIds = sdkConnectionsMap?.[e.id] || [];
+              const sdkConnections = (
+                sdkConnectionData?.connections ?? []
+              ).filter((c) => sdkConnectionIds.includes(c.id));
+              const numConnections = sdkConnectionIds.length;
               return (
                 <tr key={e.id}>
                   <td>{e.id}</td>
@@ -146,19 +150,21 @@ const EnvironmentsPage: FC = () => {
                           <div className="mt-1 text-muted font-weight-bold">
                             SDK Connections using this environment
                           </div>
-                          <hr className="mt-2" />
                           <div
+                            className="mt-2"
                             style={{ maxHeight: 300, overflowY: "auto" }}
                           >
-                            {sdkConnectionData?.connections?.map((c, i) => (
-                              <div
-                                key={i}
-                                className="my-1 text-ellipsis"
-                                style={{ maxWidth: 320 }}
-                              >
-                                <a href={`/sdks/${c.id}`}>{c.name}</a>
-                              </div>
-                            ))}
+                            <ul className="pl-3 mb-0">
+                              {sdkConnections.map((c, i) => (
+                                <li
+                                  key={i}
+                                  className="my-1"
+                                  style={{ maxWidth: 320 }}
+                                >
+                                  <a href={`/sdks/${c.id}`}>{c.name}</a>
+                                </li>
+                              ))}
+                            </ul>
                           </div>
                         </div>
                       }
@@ -179,7 +185,11 @@ const EnvironmentsPage: FC = () => {
                         >
                           {numConnections} connection
                           {numConnections !== 1 && "s"}
-                          {showConnections === i ? (<BiHide className="ml-2" />) : (<BiShow className="ml-2" />)}
+                          {showConnections === i ? (
+                            <BiHide className="ml-2" />
+                          ) : (
+                            <BiShow className="ml-2" />
+                          )}
                         </a>
                       </>
                     ) : (
@@ -252,14 +262,16 @@ const EnvironmentsPage: FC = () => {
                             usePortal={true}
                             body={
                               <>
-                                <ImBlocked className="text-danger" /> This environment
-                                has{" "}
+                                <ImBlocked className="text-danger" /> This
+                                environment has{" "}
                                 <strong>
-                                  {numConnections} SDK Connection{numConnections !== 1 && "s"}
+                                  {numConnections} SDK Connection
+                                  {numConnections !== 1 && "s"}
                                 </strong>{" "}
-                                associated. This environment cannot be deleted until{" "}
-                                {numConnections === 1 ? "it has" : "they have"} been
-                                removed.
+                                associated. This environment cannot be deleted
+                                until{" "}
+                                {numConnections === 1 ? "it has" : "they have"}{" "}
+                                been removed.
                               </>
                             }
                           >

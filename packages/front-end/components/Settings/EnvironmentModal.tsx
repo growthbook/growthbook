@@ -165,8 +165,8 @@ export default function EnvironmentModal({
           <div className="alert alert-warning">
             <FaExclamationTriangle className="mr-2" />
             You have selected a more restrictive projects filter.{" "}
-            {sdkConnections.length}{" "}
-            SDK Connections using this environment may be impacted.
+            {sdkConnections.length} SDK Connections using this environment may
+            be impacted.
           </div>
         )}
       </div>

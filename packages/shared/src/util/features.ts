@@ -13,9 +13,9 @@ import {
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { evalCondition } from "@growthbook/growthbook";
+import { Environment } from "back-end/types/organization";
 import { getValidDate } from "../dates";
 import { getMatchingRules, includeExperimentInPayload } from ".";
-import {Environment} from "back-end/types/organization";
 
 export function getValidation(feature: FeatureInterface) {
   try {
@@ -730,7 +730,7 @@ export function getParsedPrereqCondition(condition: string) {
 
 export function filterProjectsByEnvironment(
   projects: string[],
-  environment: Environment,
+  environment: Environment
 ): string[] {
   const environmentHasProjects = (environment?.projects?.length ?? 0) > 0;
   if (environmentHasProjects && !projects.length) {

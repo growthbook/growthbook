@@ -9,6 +9,7 @@ import {
   setLicense,
 } from "enterprise";
 import { hasReadAccess } from "shared/permissions";
+import { filterProjectsByEnvironment } from "shared/util";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -120,9 +121,9 @@ import { TeamInterface } from "../../../types/team";
 import { queueSingleWebhookById } from "../../jobs/sdkWebhooks";
 import { initializeLicense } from "../../services/licenseData";
 import {
-  findSDKConnectionsByOrganization, updateSDKConnectionProjects
+  findSDKConnectionsByOrganization,
+  updateSDKConnectionProjects,
 } from "../../models/SdkConnectionModel";
-import {filterProjectsByEnvironment} from "shared/util";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -1151,7 +1152,6 @@ export async function putOrganization(
   if (settings) {
     Object.keys(settings).forEach((k: keyof OrganizationSettings) => {
       if (k === "environments") {
-
         // Require permissions for any old environments that changed
         const affectedEnvs: Set<string> = new Set();
         existingEnvironments.forEach((env) => {
@@ -1178,7 +1178,8 @@ export async function putOrganization(
         // Check if any environments' projects have been changed (may require SDK Connection updates)
         existingEnvironments.forEach((env) => {
           const oldProjects = env.projects || [];
-          const newProjects = settings[k]?.find((e) => e.id === env.id)?.projects || [];
+          const newProjects =
+            settings[k]?.find((e) => e.id === env.id)?.projects || [];
           if (JSON.stringify(oldProjects) !== JSON.stringify(newProjects)) {
             envsWithModifiedProjects.push({
               ...env,
@@ -1249,7 +1250,10 @@ export async function putOrganization(
     });
 
     deletedEnvIds.forEach((envId) => {
-      removeEnvironmentFromSlackIntegration({ organizationId: context.org.id, envId });
+      removeEnvironmentFromSlackIntegration({
+        organizationId: context.org.id,
+        envId,
+      });
     });
 
     // May need to update SDK Connections to reflect project changes in environments
@@ -1257,16 +1261,18 @@ export async function putOrganization(
       const connections = await findSDKConnectionsByOrganization(context);
 
       for (const env of envsWithModifiedProjects) {
-        const affectedConnections = connections.filter((c) => c.environment === env.id);
+        const affectedConnections = connections.filter(
+          (c) => c.environment === env.id
+        );
         for (const connection of affectedConnections) {
-          const newProjects = filterProjectsByEnvironment(connection.projects, env);
-          const hasChanges = JSON.stringify(connection.projects) !== JSON.stringify(newProjects);
+          const newProjects = filterProjectsByEnvironment(
+            connection.projects,
+            env
+          );
+          const hasChanges =
+            JSON.stringify(connection.projects) !== JSON.stringify(newProjects);
           if (hasChanges) {
-            await updateSDKConnectionProjects(
-              context,
-              connection,
-              newProjects
-            );
+            await updateSDKConnectionProjects(context, connection, newProjects);
           }
         }
       }
