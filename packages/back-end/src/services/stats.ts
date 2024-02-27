@@ -1,6 +1,7 @@
 import { promisify } from "util";
 import os from "os";
 import { PythonShell } from "python-shell";
+import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
@@ -39,6 +40,7 @@ import {
 } from "../../types/experiment-snapshot";
 import { QueryMap } from "../queryRunners/QueryRunner";
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "../integrations/SqlIntegration";
+import { applyMetricOverrides } from "../util/integration";
 
 // Keep these interfaces in sync with gbstats
 export interface AnalysisSettingsForStatsEngine {
@@ -210,15 +212,27 @@ print(json.dumps({
 }
 
 export function getMetricSettingsForStatsEngine(
-  metric: ExperimentMetricInterface,
-  metricMap: Map<string, ExperimentMetricInterface>
+  metricDoc: ExperimentMetricInterface,
+  metricMap: Map<string, ExperimentMetricInterface>,
+  settings: ExperimentSnapshotSettings
 ): MetricSettingsForStatsEngine {
-  let denominator =
+  const metric = cloneDeep<ExperimentMetricInterface>(metricDoc);
+  applyMetricOverrides(metric, settings);
+
+  const denominatorDoc =
     metric.denominator && !isFactMetric(metric)
       ? metricMap.get(metric.denominator)
       : undefined;
+  let denominator: undefined | ExperimentMetricInterface = undefined;
+  if (denominatorDoc) {
+    denominator = cloneDeep<ExperimentMetricInterface>(denominatorDoc);
+    applyMetricOverrides(denominator, settings);
+  }
+
   const ratioMetric = isRatioMetric(metric, denominator);
-  const regressionAdjusted = isRegressionAdjusted(metric, denominator);
+  const regressionAdjusted =
+    settings.regressionAdjustmentEnabled &&
+    isRegressionAdjusted(metric, denominator);
   const mainMetricType = isBinomialMetric(metric) ? "binomial" : "count";
   // Fact ratio metrics contain denominator
   if (isFactMetric(metric) && ratioMetric) {
@@ -246,7 +260,7 @@ export function getMetricSettingsForStatsEngine(
 export function getMetricsAndQueryDataForStatsEngine(
   queryData: QueryMap,
   metricMap: Map<string, ExperimentMetricInterface>,
-  variations: (SnapshotSettingsVariation | ExperimentReportVariation)[]
+  settings: ExperimentSnapshotSettings
 ) {
   const queryResults: QueryResultsForStatsEngine[] = [];
   const metricSettings: Record<string, MetricSettingsForStatsEngine> = {};
@@ -271,11 +285,12 @@ export function getMetricsAndQueryDataForStatsEngine(
           }
           metricSettings[metric] = getMetricSettingsForStatsEngine(
             metricInterface,
-            metricMap
+            metricMap,
+            settings
           );
           byMetric[metric].push({
             dimension: row.dimension,
-            variation: variations[v.variation]?.id || v.variation + "",
+            variation: settings.variations[v.variation]?.id || v.variation + "",
             users: stats.count,
             count: stats.count,
             main_sum: stats.main_sum,
@@ -311,7 +326,8 @@ export function getMetricsAndQueryDataForStatsEngine(
             metricIds.push(metricId);
             metricSettings[metricId] = getMetricSettingsForStatsEngine(
               metric,
-              metricMap
+              metricMap,
+              settings
             );
           } else {
             metricIds.push(null);
@@ -328,7 +344,11 @@ export function getMetricsAndQueryDataForStatsEngine(
       // Single metric query, just return rows as-is
       const metric = metricMap.get(key);
       if (!metric) return;
-      metricSettings[key] = getMetricSettingsForStatsEngine(metric, metricMap);
+      metricSettings[key] = getMetricSettingsForStatsEngine(
+        metric,
+        metricMap,
+        settings
+      );
       queryResults.push({
         metrics: [key],
         rows: (query.result ?? []) as ExperimentMetricQueryResponseRows,
@@ -359,7 +379,7 @@ export async function analyzeExperimentResults({
   const mdat = getMetricsAndQueryDataForStatsEngine(
     queryData,
     metricMap,
-    snapshotSettings.variations
+    snapshotSettings
   );
   const { queryResults, metricSettings } = mdat;
   let { unknownVariations } = mdat;

@@ -24,26 +24,20 @@ export default function SDKWebhooks({ sdkid }) {
   ] = useState<null | Partial<WebhookInterface>>(null);
   const { apiCall } = useAuth();
   const permissions = usePermissions();
-  const { accountPlan } = useUser();
+  const { hasCommercialFeature } = useUser();
 
-  const hasWebhookPermitions = permissions.check("manageWebhooks");
-  const amountOfWebhooks = data?.webhooks?.length || 0;
-  const webhookLimits = {
-    pro: 99,
-    starter: 2,
-  };
+  const hasWebhookPermissions = permissions.check("manageWebhooks");
+  const hasWebhooks = !!data?.webhooks?.length;
   const disableWebhookCreate =
-    (accountPlan?.includes("pro") && amountOfWebhooks < webhookLimits.pro) ||
-    accountPlan?.includes("starter") ||
-    (accountPlan?.includes("unknown") &&
-      amountOfWebhooks < webhookLimits.starter);
+    hasWebhooks && !hasCommercialFeature("multiple-sdk-webhooks");
+
   const renderTableRows = () => {
     // only render table if there is data to show
     return data?.webhooks?.map((webhook) => (
       <tr key={webhook.name}>
         <td>{webhook.name}</td>
         <td>{webhook.endpoint}</td>
-        <td>{webhook.sendPayload === true ? "yes" : "no"}</td>
+        <td>{webhook.sendPayload ? "yes" : "no"}</td>
         <td>{webhook.signingKey}</td>
         <td>
           {webhook.error ? (
@@ -57,7 +51,7 @@ export default function SDKWebhooks({ sdkid }) {
             <em>never fired</em>
           )}
         </td>
-        {hasWebhookPermitions && (
+        {hasWebhookPermissions && (
           <td>
             <Button
               color="link"
@@ -74,7 +68,7 @@ export default function SDKWebhooks({ sdkid }) {
           </td>
         )}
         <td>
-          {hasWebhookPermitions && (
+          {hasWebhookPermissions && (
             <>
               <div className="col-auto">
                 <MoreMenu>
@@ -110,20 +104,28 @@ export default function SDKWebhooks({ sdkid }) {
   };
   const renderAddWebhookButton = () => (
     <>
-      {hasWebhookPermitions && (
-        <button
-          className="btn btn-primary mb-2"
-          disabled={disableWebhookCreate}
-          onClick={(e) => {
-            e.preventDefault();
-            if (!disableWebhookCreate) setCreateWebhookModalOpen({});
-          }}
+      {hasWebhookPermissions && (
+        <Tooltip
+          body={
+            disableWebhookCreate
+              ? "You can only have one webhook per SDK Connection in the free plan"
+              : ""
+          }
         >
-          <span className="h4 pr-2 m-0 d-inline-block align-top">
-            <GBAddCircle />
-          </span>
-          Add Webhook
-        </button>
+          <button
+            className="btn btn-primary mb-2"
+            disabled={disableWebhookCreate}
+            onClick={(e) => {
+              e.preventDefault();
+              if (!disableWebhookCreate) setCreateWebhookModalOpen({});
+            }}
+          >
+            <span className="h4 pr-2 m-0 d-inline-block align-top">
+              <GBAddCircle />
+            </span>
+            Add Webhook
+          </button>
+        </Tooltip>
       )}
       <Tooltip
         body={
@@ -154,7 +156,7 @@ export default function SDKWebhooks({ sdkid }) {
               <td>SEND PAYLOAD</td>
               <td>SHARED SECRET</td>
               <td>LAST SUCCESS</td>
-              {hasWebhookPermitions && <td>TEST WEBHOOK</td>}
+              {hasWebhookPermissions && <td>TEST WEBHOOK</td>}
               <td>EDIT</td>
             </tr>
           </thead>

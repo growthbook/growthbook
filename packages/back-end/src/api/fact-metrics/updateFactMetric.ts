@@ -1,12 +1,16 @@
 import z from "zod";
-import { UpdateFactMetricProps } from "../../../types/fact-table";
+import {
+  FactMetricInterface,
+  UpdateFactMetricProps,
+} from "../../../types/fact-table";
 import { UpdateFactMetricResponse } from "../../../types/openapi";
 import { createApiRequestHandler } from "../../util/handler";
 import { updateFactMetricValidator } from "../../validators/openapi";
 import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 
 export function getUpdateFactMetricPropsFromBody(
-  body: z.infer<typeof updateFactMetricValidator.bodySchema>
+  body: z.infer<typeof updateFactMetricValidator.bodySchema>,
+  factMetric: FactMetricInterface
 ): UpdateFactMetricProps {
   const {
     numerator,
@@ -41,23 +45,23 @@ export function getUpdateFactMetricPropsFromBody(
     };
   }
   if (cappingSettings) {
-    updates.capping =
-      cappingSettings.type === "none" ? "" : cappingSettings.type;
-    if (cappingSettings.value) {
-      updates.capValue = cappingSettings.value;
-    }
+    updates.cappingSettings = {
+      type: cappingSettings.type === "none" ? "" : cappingSettings.type,
+      value: cappingSettings.value ?? factMetric.cappingSettings.value,
+      ignoreZeros:
+        cappingSettings.ignoreZeros ?? factMetric.cappingSettings.ignoreZeros,
+    };
   }
   if (windowSettings) {
-    updates.hasConversionWindow = windowSettings.type !== "none";
-    if (windowSettings.delayHours) {
-      updates.conversionDelayHours = windowSettings.delayHours;
-    }
-    if (windowSettings.windowValue) {
-      updates.conversionWindowValue = windowSettings.windowValue;
-    }
-    if (windowSettings.windowUnit) {
-      updates.conversionWindowUnit = windowSettings.windowUnit;
-    }
+    updates.windowSettings = {
+      type: windowSettings.type === "none" ? "" : windowSettings.type,
+      delayHours:
+        windowSettings.delayHours ?? factMetric.windowSettings.delayHours,
+      windowValue:
+        windowSettings.windowValue ?? factMetric.windowSettings.windowValue,
+      windowUnit:
+        windowSettings.windowUnit ?? factMetric.windowSettings.windowUnit,
+    };
   }
   if (regressionAdjustmentSettings) {
     updates.regressionAdjustmentOverride =
@@ -83,7 +87,7 @@ export const updateFactMetric = createApiRequestHandler(
     if (!factMetric) {
       throw new Error("Could not find factMetric with that id");
     }
-    const updates = getUpdateFactMetricPropsFromBody(req.body);
+    const updates = getUpdateFactMetricPropsFromBody(req.body, factMetric);
 
     if (updates.projects?.length) {
       const projects = await findAllProjectsByOrganization(req.context);

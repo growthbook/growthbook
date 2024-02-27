@@ -56,9 +56,5 @@ Suppose you create a new phase with the last 7 days of an experiment. Doing this
 
 In this case, rather than utilize a "Phase" to analyze a particular date range in an experiment, you should instead focus on your **Metric** date windows (not **Experiment** date windows, which are controlled by Phases). There will be more work in the future to make this easier to achieve within GrowthBook, but for now you can:
 
-- Add a "conversion delay". If you are using the "First Exposure" attribution model, you can use the **conversion delay** setting in GrowthBook to delay tracking metric data until a number of hours or days after an exposure to prevent novelty effects.
-- Add a "lookback window". If you are using the "Experiment Duration" attribution model, you create a "lookback" version of a metric by adding a filter to your Metric like the following (for BigQuery):
-
-`timestamp BETWEEN TIMESTAMP_SUB('{{ endDate }}', INTERVAL 7 DAY) AND TIMESTAMP('{{ endDate }}')`
-
-In the Metric filter above, GrowthBook will use the end of the experiment (or the current date if the experiment is still running) in place of `{{ endDate }}`. In the future, we plan to make creating lookback metrics more hands-off in GrowthBook. You can read more about [template variables here.](/app/metrics#sql-templates)
+- Add a "metric delay". You can use the **metric delay** setting in GrowthBook to delay tracking metric data until a number of hours or days after an exposure to prevent novelty effects.
+- Use a "lookback window". In your metric settings, choose a "lookback window" and set it to 7 days.

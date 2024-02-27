@@ -74,18 +74,21 @@ properties:
       value:
         type: number
         description: When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).
+      ignoreZeros:
+        type: boolean
+        description: If true and capping is `percentile`, zeros will be ignored when calculating the percentile.
   windowSettings:
     type: object
     description: Controls the conversion window for the metric
     required:
       - type
-      - delayHours
     properties:
       type:
         type: string
         enum:
           - "none"
           - "conversion"
+          - "lookback"
       delayHours:
         type: number
         description: Wait this many hours after experiment exposure before counting conversions
@@ -108,7 +111,7 @@ properties:
         description: If false, the organization default settings will be used
       enabled:
         type: boolean
-        description: Controls whether or not regresion adjustment is applied to the metric
+        description: Controls whether or not regression adjustment is applied to the metric
       days:
         type: number
         description: Number of pre-exposure days to use for the regression adjustment

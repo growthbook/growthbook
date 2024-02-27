@@ -203,7 +203,7 @@ export const postBulkImportFacts = createApiRequestHandler(
           checkFactMetricPermission(existing);
           if (data.projects) checkFactMetricPermission(data);
 
-          const changes = getUpdateFactMetricPropsFromBody(data);
+          const changes = getUpdateFactMetricPropsFromBody(data, existing);
 
           await req.context.factMetrics.update(existing, changes);
 

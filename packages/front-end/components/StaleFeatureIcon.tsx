@@ -1,5 +1,5 @@
-import { FaTriangleExclamation } from "react-icons/fa6";
 import { StaleFeatureReason } from "shared/util";
+import { BsStopwatch } from "react-icons/bs";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import styles from "./StaleFeatureIcon.module.scss";
 
@@ -18,11 +18,12 @@ export default function StaleFeatureIcon({
 }) {
   return (
     <Tooltip
+      popperClassName="text-left"
       body={`This feature has been marked stale. ${
         (staleReason && staleReasonToMessageMap[staleReason]) ?? ""
       }`}
     >
-      <FaTriangleExclamation onClick={onClick} className={styles.staleIcon} />
+      <BsStopwatch size={18} onClick={onClick} className={styles.staleIcon} />
     </Tooltip>
   );
 }

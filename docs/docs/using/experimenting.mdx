@@ -81,22 +81,22 @@ We recommend running an experiment for at least 1 or 2 weeks to capture variatio
 Before a test is significant, GrowthBook will give you an estimated time remaining before it reaches the
 minimum thresholds. Traffic to your product is likely not uniform, and there may be differences
 
-## Attribution models / Conversion Windows
+## Metric Windows
 
 A lot can happen between when a user is exposed to an experiment, and when a metric event is
 triggered. How you want to attribute that conversion event to the experiment is adjustable within
-GrowthBook. Once a user enters an experiment for the first time, the attribution model determines
-which subsequent conversion events are included in the analysis. GrowthBook lets you choose
-between two attribution models, first exposure, and experiment duration.
+GrowthBook using metric and experiment level settings.
 
-**First Exposure** - Only include events that fall within the configured metric conversion window. For
-example, if the metric's conversion window is set to 72 hours, any conversion that happens after that is
-ignored.
+At the metric level, you can pick three different metric windows:
 
-**Experiment Duration** - Include all events that happen while the experiment is running, no matter what
-the metric's conversion window is set to.
+- None - uses as much data as possible from the user's exposure until the end of the experiment.
+- Conversion - uses only data in some window after a user's first exposure. If the metric's conversion window is set to 72 hours, any conversion that happens after that is
+  ignored.
+- Lookback - uses only data in the last window before an experiment ends.
 
-![Attribution Window Diagram](/images/using/attribution-window-diagram2.png)
+![Metric Windows](/images/metric-windows.png)
+
+You can override all Conversion windows to be No window at the experiment level using the "Conversion Window Override" in the Experiment Analysis Settings.
 
 ## Understanding results
 

@@ -2,7 +2,9 @@ import { omit } from "lodash";
 import {
   CreateFactMetricProps,
   FactMetricInterface,
+  LegacyFactMetricInterface,
 } from "../../types/fact-table";
+import { upgradeFactMetricDoc } from "../util/migrations";
 import { ApiFactMetric } from "../../types/openapi";
 import { BaseModel, ModelConfig } from "./BaseModel";
 import { getFactTable } from "./FactTableModel";
@@ -16,6 +18,10 @@ export class FactMetricDataModel extends BaseModel<FactMetricInterface> {
     globallyUniqueIds: false,
     readonlyFields: ["datasource"],
   };
+
+  protected migrate(legacyDoc: unknown): FactMetricInterface {
+    return upgradeFactMetricDoc(legacyDoc as LegacyFactMetricInterface);
+  }
 
   protected async beforeCreate(props: CreateFactMetricProps) {
     if (props.id && !props.id.match(/^fact__[-a-zA-Z0-9_]+$/)) {
@@ -87,12 +93,8 @@ export class FactMetricDataModel extends BaseModel<FactMetricInterface> {
 
   public toApiInterface(factMetric: FactMetricInterface): ApiFactMetric {
     const {
-      capValue,
-      capping,
-      conversionDelayHours,
-      conversionWindowUnit,
-      conversionWindowValue,
-      hasConversionWindow,
+      cappingSettings,
+      windowSettings,
       regressionAdjustmentDays,
       regressionAdjustmentEnabled,
       regressionAdjustmentOverride,
@@ -104,22 +106,16 @@ export class FactMetricDataModel extends BaseModel<FactMetricInterface> {
 
     return {
       ...otherFields,
-      managedBy: factMetric.managedBy || "",
-      denominator: denominator || undefined,
       cappingSettings: {
-        type: capping || "none",
-        value: capValue || 0,
+        ...cappingSettings,
+        type: cappingSettings.type || "none",
       },
       windowSettings: {
-        type: hasConversionWindow ? "conversion" : "none",
-        delayHours: conversionDelayHours || 0,
-        ...(hasConversionWindow
-          ? {
-              windowValue: conversionWindowValue || 0,
-              windowUnit: conversionWindowUnit || "hours",
-            }
-          : null),
+        ...windowSettings,
+        type: windowSettings.type || "none",
       },
+      managedBy: factMetric.managedBy || "",
+      denominator: denominator || undefined,
       regressionAdjustmentSettings: {
         override: regressionAdjustmentOverride || false,
         ...(regressionAdjustmentOverride

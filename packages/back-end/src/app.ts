@@ -558,6 +558,9 @@ app.post(
 app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
 app.put("/feature/:id/:version/rule", featuresController.putFeatureRule);
 app.delete("/feature/:id/:version/rule", featuresController.deleteFeatureRule);
+app.post("/feature/:id/prerequisite", featuresController.postPrerequisite);
+app.put("/feature/:id/prerequisite", featuresController.putPrerequisite);
+app.delete("/feature/:id/prerequisite", featuresController.deletePrerequisite);
 app.post(
   "/feature/:id/:version/reorder",
   featuresController.postFeatureMoveRule
@@ -579,6 +582,10 @@ app.get("/datasource/:id/metrics", datasourcesController.getDataSourceMetrics);
 app.put(
   "/datasource/:datasourceId/exposureQuery/:exposureQueryId",
   datasourcesController.updateExposureQuery
+);
+app.post(
+  "/datasources/fetch-bigquery-datasets",
+  datasourcesController.fetchBigQueryDatasets
 );
 
 // Information Schemas
