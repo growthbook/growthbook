@@ -170,6 +170,8 @@ export default function SDKConnectionForm({
   const selectedEnvironment = environments.find(
     (e) => e.id === form.watch("environment")
   );
+  const environmentHasProjects =
+    (selectedEnvironment?.projects?.length ?? 0) > 0;
   const filteredProjectIds = selectedEnvironment
     ? filterProjectsByEnvironment(projectIds, selectedEnvironment)
     : undefined;
@@ -411,7 +413,11 @@ export default function SDKConnectionForm({
             <div className="col">
               <MultiSelectField
                 label="Filter by Project"
-                placeholder="All Projects"
+                placeholder={
+                  environmentHasProjects
+                    ? "All Environment Projects"
+                    : "All Projects"
+                }
                 value={form.watch("projects") || []}
                 onChange={(projects) => form.setValue("projects", projects)}
                 options={projectsOptions}

@@ -1,6 +1,7 @@
 import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
+import { filterProjectsByEnvironment } from "shared/util";
 import { getFeatureDefinitions } from "../services/features";
 import { CRON_ENABLED, IS_CLOUD } from "../util/secrets";
 import { SDKPayloadKey } from "../../types/sdk-payload";
@@ -59,11 +60,18 @@ const proxyUpdate = trackJob(
       return;
     }
 
+    const environmentDoc = context.org?.settings?.environments?.find(
+      (e) => e.id === connection.environment
+    );
+    const filteredProjects = environmentDoc
+      ? filterProjectsByEnvironment(connection.projects, environmentDoc, true)
+      : connection.projects;
+
     const defs = await getFeatureDefinitions({
       context,
       capabilities: getConnectionSDKCapabilities(connection),
       environment: connection.environment,
-      projects: connection.projects,
+      projects: filteredProjects,
       encryptionKey: connection.encryptPayload
         ? connection.encryptionKey
         : undefined,

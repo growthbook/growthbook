@@ -730,10 +730,15 @@ export function getParsedPrereqCondition(condition: string) {
 
 export function filterProjectsByEnvironment(
   projects: string[],
-  environment: Environment
+  environment: Environment,
+  applyEnvironmentProjectsToAll: boolean = false
 ): string[] {
   const environmentHasProjects = (environment?.projects?.length ?? 0) > 0;
-  if (environmentHasProjects && !projects.length) {
+  if (
+    applyEnvironmentProjectsToAll &&
+    environmentHasProjects &&
+    !projects.length
+  ) {
     return environment.projects || projects;
   }
   return projects.filter((p) => {

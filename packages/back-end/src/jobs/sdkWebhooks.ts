@@ -2,6 +2,7 @@ import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import md5 from "md5";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
+import { filterProjectsByEnvironment } from "shared/util";
 import { getFeatureDefinitions } from "../services/features";
 import { CRON_ENABLED, WEBHOOKS } from "../util/secrets";
 import { SDKPayloadKey } from "../../types/sdk-payload";
@@ -242,11 +243,18 @@ export async function queueSingleWebhookById(webhookId: string) {
       connection.organization
     );
 
+    const environmentDoc = context.org?.settings?.environments?.find(
+      (e) => e.id === connection.environment
+    );
+    const filteredProjects = environmentDoc
+      ? filterProjectsByEnvironment(connection.projects, environmentDoc, true)
+      : connection.projects;
+
     const defs = await getFeatureDefinitions({
       context,
       capabilities: getConnectionSDKCapabilities(connection),
       environment: connection.environment,
-      projects: connection.projects,
+      projects: filteredProjects,
       encryptionKey: connection.encryptPayload
         ? connection.encryptionKey
         : undefined,
@@ -305,20 +313,26 @@ export async function queueGlobalWebhooks(
     for (let i = 0; i < connections.length; i++) {
       const connection = connections[i];
 
+      const environmentDoc = context.org?.settings?.environments?.find(
+        (e) => e.id === connection.environment
+      );
+      const filteredProjects = environmentDoc
+        ? filterProjectsByEnvironment(connection.projects, environmentDoc, true)
+        : connection.projects;
+
       // Skip if this SDK Connection isn't affected by the changes
       if (
         payloadKeys.some(
           (key: { environment: string; project: string }) =>
             key.environment === connection.environment &&
-            (!connection.projects.length ||
-              connection.projects.includes(key.project))
+            (!filteredProjects || filteredProjects.includes(key.project))
         )
       ) {
         const defs = await getFeatureDefinitions({
           context,
           capabilities: getConnectionSDKCapabilities(connection),
           environment: connection.environment,
-          projects: connection.projects,
+          projects: filteredProjects,
           encryptionKey: connection.encryptPayload
             ? connection.encryptionKey
             : undefined,

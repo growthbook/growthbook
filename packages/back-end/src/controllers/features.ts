@@ -1,7 +1,12 @@
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
 import { isEqual } from "lodash";
-import { MergeResultChanges, MergeStrategy, autoMerge } from "shared/util";
+import {
+  MergeResultChanges,
+  MergeStrategy,
+  autoMerge,
+  filterProjectsByEnvironment,
+} from "shared/util";
 import {
   getConnectionSDKCapabilities,
   SDKCapability,
@@ -215,11 +220,18 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       );
     }
 
+    const environmentDoc = context.org?.settings?.environments?.find(
+      (e) => e.id === environment
+    );
+    const filteredProjects = environmentDoc
+      ? filterProjectsByEnvironment(projects, environmentDoc, true)
+      : projects;
+
     const defs = await getFeatureDefinitions({
       context,
       capabilities,
       environment,
-      projects,
+      projects: filteredProjects,
       encryptionKey: encrypted ? encryptionKey : "",
       includeVisualExperiments,
       includeDraftExperiments,
@@ -297,6 +309,13 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
       );
     }
 
+    const environmentDoc = context.org?.settings?.environments?.find(
+      (e) => e.id === environment
+    );
+    const filteredProjects = environmentDoc
+      ? filterProjectsByEnvironment(projects, environmentDoc, true)
+      : projects;
+
     // Evaluate features using provided attributes
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const attributes: Record<string, any> = req.body?.attributes || {};
@@ -312,7 +331,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
       context,
       capabilities,
       environment,
-      projects,
+      projects: filteredProjects,
       encryptionKey: encrypted ? encryptionKey : "",
       includeVisualExperiments,
       includeDraftExperiments,
