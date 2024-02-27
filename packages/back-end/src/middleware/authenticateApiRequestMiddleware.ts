@@ -124,17 +124,6 @@ export default function authenticateApiRequestMiddleware(
         apiKey: id || "unknown",
       };
 
-      req.context = {
-        org,
-        userId: req.user?.id,
-        email: req.user?.email,
-        environments: getEnvironmentIdsFromOrg(org),
-        userName: req.user?.name,
-        //TODO: Update this with actual value
-        checkPermissions: () => true,
-        auditUser: eventAudit,
-      };
-
       // Check permissions for user API keys
       req.checkPermissions = (
         permission: Permission,
@@ -162,6 +151,16 @@ export default function authenticateApiRequestMiddleware(
             teams,
           });
         }
+      };
+
+      req.context = {
+        org,
+        userId: req.user?.id,
+        email: req.user?.email,
+        environments: getEnvironmentIdsFromOrg(org),
+        userName: req.user?.name,
+        checkPermissions: req.checkPermissions,
+        auditUser: eventAudit,
       };
 
       // Add user info to logger

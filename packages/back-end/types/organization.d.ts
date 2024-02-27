@@ -290,7 +290,9 @@ export type ReqContext = {
   environments: string[];
   userName: string;
   auditUser: EventAuditUser;
-  //TODO: Update this with actual type
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  checkPermissions: any;
+  checkPermissions: (
+    permission: Permission,
+    project?: string | (string | undefined)[] | undefined,
+    envs?: string[] | Set<string>
+  ) => void;
 };
