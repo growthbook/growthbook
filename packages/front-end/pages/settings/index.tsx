@@ -312,7 +312,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
               updateCronString={updateCronString}
               hasFileConfig={hasFileConfig()}
               hasCommercialFeature={hasCommercialFeature}
-              statsEngine={form.watch("statsEngine")}
             />
 
             <div className="divider border-bottom mb-3 mt-3" />
