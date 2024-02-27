@@ -1,7 +1,7 @@
 import cronstrue from "cronstrue";
 import React, { useEffect, useState } from "react";
 import { FaExclamationCircle, FaQuestionCircle } from "react-icons/fa";
-import { useForm } from "react-hook-form";
+import { FormProvider, useForm, useFormContext } from "react-hook-form";
 import isEqual from "lodash/isEqual";
 import { PValueCorrection } from "back-end/types/stats";
 import {
@@ -35,6 +35,11 @@ import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetri
 import ExperimentSettings from "@/components/GeneralSettings/ExperimentSettings";
 
 export const DEFAULT_SRM_THRESHOLD = 0.001;
+
+export const ConnectSettingsForm = ({ children }) => {
+  const methods = useFormContext();
+  return children({ ...methods });
+};
 
 function hasChanges(
   value: OrganizationSettings,
@@ -292,7 +297,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   }
 
   return (
-    <>
+    <FormProvider {...form}>
       <div className="container-fluid pagecontents">
         <h1>General Settings</h1>
 
@@ -309,14 +314,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
             refreshOrg={refreshOrganization}
           />
 
-          <NorthStarMetricSettings
-            metricIds={form.watch("northStar.metricIds")}
-            onChangeMetricIds={(metricIds) =>
-              form.setValue("northStar.metricIds", metricIds)
-            }
-            title={form.watch("northStar.title")}
-            onChangeTitle={(title) => form.setValue("northStar.title", title)}
-          />
+          <NorthStarMetricSettings />
 
           <div className="bg-white p-3 border position-relative">
             <ExperimentSettings
@@ -830,7 +828,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
           </div>
         </div>
       </div>
-    </>
+    </FormProvider>
   );
 };
 
