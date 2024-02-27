@@ -14,12 +14,18 @@ import ProjectBadges from "@/components/ProjectBadges";
 import Tooltip from "../../Tooltip/Tooltip";
 import SDKLanguageLogo from "./SDKLanguageLogo";
 import SDKConnectionForm from "./SDKConnectionForm";
+import {useEnvironments} from "@/services/features";
+import {filterProjectsByEnvironment} from "shared/util";
+import clsx from "clsx";
+import Badge from "@/components/Badge";
 
 export default function SDKConnectionsList() {
   const { data, mutate, error } = useSDKConnections();
+  const connections = data?.connections ?? [];
 
   const [modalOpen, setModalOpen] = useState(false);
 
+  const environments = useEnvironments();
   const { projects } = useDefinitions();
 
   const router = useRouter();
@@ -31,8 +37,6 @@ export default function SDKConnectionsList() {
   if (!data) {
     return <LoadingOverlay />;
   }
-
-  const connections = data.connections;
 
   return (
     <div>
@@ -84,6 +88,15 @@ export default function SDKConnectionsList() {
                 connection.connected &&
                 (!hasProxy || connection.proxy.connected);
 
+              const environment = environments.find(
+                (e) => e.id === connection.environment
+              );
+              const envProjects = environment?.projects ?? [];
+              const filteredProjectIds = environment
+                ? filterProjectsByEnvironment(connection.projects, environment, true)
+                : [];
+              const showAllEnvironmentProjects = connection.projects.length === 0 && filteredProjectIds.length > 0;
+
               return (
                 <tr
                   key={connection.id}
@@ -114,18 +127,37 @@ export default function SDKConnectionsList() {
                     </Link>
                   </td>
                   {projects.length > 0 && (
-                    <td className="d-flex align-items-center">
-                      <ProjectBadges
-                        projectIds={
-                          connection.projects.length
-                            ? connection.projects
-                            : undefined
-                        }
-                        resourceType="sdk connection"
-                      />
+                    <td>
+                      {showAllEnvironmentProjects && (
+                        <Badge
+                          content={`All env projects (${envProjects.length})`}
+                          key="All env projects"
+                          className="badge-muted-info"
+                          skipMargin={true}
+                        />
+                      )}
+                      <div className={clsx("d-flex align-items-center", { "small mt-1": showAllEnvironmentProjects })}>
+                        <ProjectBadges
+                          projectIds={
+                            filteredProjectIds.length ? filteredProjectIds : undefined
+                          }
+                          resourceType="sdk connection"
+                        />
+                      </div>
                     </td>
                   )}
-                  <td>{connection.environment}</td>
+                  <td>
+                    <div>{connection.environment}</div>
+                    {envProjects.length > 0 ? (
+                      <div className="text-muted small">
+                        {envProjects.length} project{envProjects.length === 1 ? "" : "s"}
+                      </div>
+                    ) : (
+                      <div className="text-muted small font-italic">
+                        All projects
+                      </div>
+                    )}
+                  </td>
                   <td className="text-center">
                     {connection.remoteEvalEnabled && (
                       <Tooltip
