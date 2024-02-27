@@ -24,15 +24,22 @@ const displayName = {
 
 const ResultsIndicator: FC<{
   results: Results;
-}> = ({ results }) => {
+  winnerIndex?: number;
+}> = ({ results, winnerIndex }) => {
   const color = getColorClass(results);
   const className = `results-indicator ${color} px-3 font-weight-bold text-uppercase`;
 
-  return (
+  return (<div className="row">
+    {winnerIndex && results == "won" ? (<div
+      className={`variation variation${winnerIndex} with-variation-label d-flex align-items-center`}
+    >
+      <span className="label" style={{ width: 20, height: 20 }}>
+        {winnerIndex}
+      </span></div>) : null}
     <div className={className} style={{ fontSize: "85%" }}>
-      {displayName[results]}
+        {displayName[results]}
     </div>
-  );
+    </div>);
 };
 
 export default ResultsIndicator;

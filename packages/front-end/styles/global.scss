@@ -2095,6 +2095,12 @@ li.metrics a span img {
   white-space: nowrap;
 }
 
+.impact-table {
+  .td {
+    vertical-align: middle;
+  }
+}
+
 .experiments {
   .experiment-table {
     h1,

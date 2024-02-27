@@ -1,12 +1,12 @@
 import Link from "next/link";
 import normal from "@stdlib/stats/base/dists/normal";
-import React, { useEffect, useState } from "react";
+import React, { Fragment, useEffect, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { date, getValidDate } from "shared/dates";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import Collapsible from "react-collapsible";
-import { FaPlus } from "react-icons/fa";
+import { FaArrowDown, FaArrowUp, FaPlus } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -24,20 +24,38 @@ import MetricSelector from "../Experiment/MetricSelector";
 import Field from "../Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { useForm } from "react-hook-form";
+import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import { phaseSummary } from "@/services/utils";
+import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 
-
-type group = "project" | "tag";
-
-const noneString = "%__none__%";
-const scaledImpactFormatter = Intl.NumberFormat(undefined, {
-  notation: "compact"
-})
-
-function jamesSteinAdjustment(effects: number[], se: number) {
+function jamesSteinAdjustment(effects: number[], se: number, useMean: boolean = false) {
   const Ne = effects.length;
-  const mean = effects.reduce((a, b) => a + b, 0) / Ne;
-  const adj = (Ne - 2) * Math.pow(se, 2) / effects.reduce((a, b) => a + Math.pow(b - mean, 2), 0);
-  return {mean: mean, adjustment: adj};
+  console.log("Ne")
+  console.log(Ne)
+  console.log(effects)
+  console.log(se)
+  const priorMean = useMean ? effects.reduce((a, b) => a + b, 0) / Ne : 0;
+  const adj = (Ne - 2) * Math.pow(se, 2) / effects.reduce((a, b) => a + Math.pow(b - priorMean, 2), 0);
+  console.log(adj)
+  return {mean: priorMean, adjustment: adj};
+}
+
+function formatImpact(impact: number, formatter: (value: number, options?: Intl.NumberFormatOptions | undefined) => string, formatterOptions: Intl.NumberFormatOptions) {
+ return (<><span className="expectedArrows">
+                  {(impact > 0) ? (
+                    <FaArrowUp />
+                  ) : (impact < 0) ? (
+                    <FaArrowDown />
+                  ) : null}
+                </span>{" "}
+                <span className="expected bold">
+                  {formatter(
+                    impact,
+                    {...formatterOptions, 
+                      signDisplay: 'never'
+                    }
+                  )}
+                </span></>)
 }
 
 type ExperimentImpactFilters = {
@@ -85,17 +103,14 @@ export default function ExperimentImpact({
   formatNumber;
   const formatterOptions: Intl.NumberFormatOptions = {
     currency: displayCurrency,
-    notation: "compact"
+    notation: "compact",
+    signDisplay: 'never'
   };
 
   const { apiCall } = useAuth();
 
-  const exps = experiments.filter((e) => {
-    if (e.phases[e.phases.length - 1]?.dateEnded !== undefined) {
-      return e.metrics.find((m) => m === metric) && new Date(e.phases[e.phases.length - 1].dateEnded) < getValidDate(form.watch("endDate")) && new Date(e.phases[e.phases.length - 1].dateEnded) > getValidDate(form.watch("startDate"));
-    }
-    return false;
-  });
+  const exps = experiments.filter((e) => e.metrics.find((m) => m === metric));
+
   useEffect(() => {
     const fetchSnapshots = async () => {
       const { snapshots } = await apiCall<{
@@ -114,8 +129,11 @@ export default function ExperimentImpact({
   if (!snapshots && loading) {
     return <>Loading</>;
   }
+
   type ExperimentImpact = {
     endDate: Date;
+    inSample: boolean;
+    ci0: number[];
     scaledImpact: number[];
     scaledImpactAdjusted: number[];
     scaledImpactSE: number[];
@@ -129,6 +147,13 @@ export default function ExperimentImpact({
   const experimentImpacts = new Map<string, ExperimentWithImpact>();
   console.log(exps);
   let plot: JSX.Element | null = null;
+  const expRows: JSX.Element[] = [];
+
+  let totalImpact = 0;
+  let totalAdjustedImpact = 0;
+  let selected = 0;
+  let numberExperiments = 0;
+  let completedExperiments = 0;
   if (snapshots && exps) {
     let maxUnits = 0;
     let overallSE: number | null = null;
@@ -138,8 +163,14 @@ export default function ExperimentImpact({
       console.log(s)
       const ei: ExperimentWithImpact = {experiment: e};
       if (s) {
+        const inSample = e.phases[e.phases.length - 1]?.dateEnded !== undefined && getValidDate(e.phases[e.phases.length - 1].dateEnded) < getValidDate(form.watch("endDate")) && getValidDate(e.phases[e.phases.length - 1].dateEnded) > getValidDate(form.watch("startDate"));
+        if (inSample) {
+          completedExperiments++;
+        }
         const obj: ExperimentImpact = {
           endDate: s.settings.endDate,
+          inSample: inSample,
+          ci0: [],
           scaledImpact: [],
           scaledImpactAdjusted: [],
           scaledImpactSE: [],
@@ -166,6 +197,7 @@ export default function ExperimentImpact({
               obj.scaledImpact.push(impact);
               scaledImpacts.push(impact)
               obj.scaledImpactSE.push(se);
+              obj.ci0.push(v?.metrics[metric]?.ci?.[0] ?? 0);
               obj.selected.push(e.winner === i);
               const totalUnits = v.users + res.variations[0].users;
               if (totalUnits > maxUnits && se > 0) {
@@ -182,159 +214,127 @@ export default function ExperimentImpact({
     });
 
     const adjustment = jamesSteinAdjustment(scaledImpacts, overallSE ?? 0);
-
-    let minImpact = 0;
-    let maxImpact = 0;
-    let totalImpact = 0;
-    let totalAdjustedImpact = 0;
-    let selected = 0;
-    let experiments = 0;
-    let data: {y: number, x: Date}[] = [];
+    let data: {y: number, x: Date, status: string}[] = [];
+   
     for (const [eid, e] of experimentImpacts.entries()) {
       if (e.impact) {
         const adjustedImpacts: number[] = [];
         e.impact.scaledImpact.forEach((si, i) => {
-          const adjustedImpact = adjustment.mean + adjustment.adjustment * (si - adjustment.mean);
-          if (si < minImpact) {
-            minImpact = si;
-          }
-          if (si > maxImpact) {
-            maxImpact = si;
-          }
+          const adjustedImpact = adjustment.mean + (1 - adjustment.adjustment) * (si - adjustment.mean);
+          // if (si < minImpact) {
+          //   minImpact = si;
+          // }
+          // if (si > maxImpact) {
+          //   maxImpact = si;
+          // }
           adjustedImpacts.push(adjustedImpact);
-          if (e.impact?.selected[i]) {
+          if (e.impact?.selected[i] && e.impact?.inSample) {
             selected++;
             totalImpact += si;
             totalAdjustedImpact += adjustedImpact;
           }
-          data.push({y: si, x: e.impact?.endDate ?? new Date()});
+          data.push({y: si, x: getValidDate(e.impact?.endDate), status: e.impact?.inSample ? (e.impact?.selected[i] ? "blue" : "black") : "gray"});
         });
-        experiments++;
+        numberExperiments++;
         e.impact.scaledImpactAdjusted = adjustedImpacts;
+
+        console.log(e.experiment.name)
+        console.log(e.impact)
       }
-    }
+      expRows.push(
+         <tr key={eid} className="hover-highlight">
+                    <td className="mb-1">
+              <Link href={`/experiment/${eid}`}>
+                <a className="w-100 no-link-color">
+                      <strong>{e.experiment.name}</strong>{" "}
 
-    const accessors = {
-      xAccessor: (d) => d.x,
-      yAccessor: (d) => d.y,
-    };
-    console.log(data);
-      // Get x-axis domain
-    const min = Math.min(...data.map((d) => new Date(d.x).getTime()));
-    const max = Math.max(...data.map((d) => new Date(d.x).getTime()));
-    console.log(min);
-    console.log(max);
-    plot = (<>
-      <div>
-        <div className="px-3 py-3 row align-items-center">
-                  <div className="w-25 align-items-center">
-                    <div className="text-center">Total Experiments:</div>
-                    <div className="text-center">Experiments</div>
-                    <div className="text-center">Completed: {experiments} Launched: {selected}</div>
-                  </div>
-                  <div className="w-25 align-items-center">
-                    <div className="text-center">Summed Scaled Impact</div>
-                    <div className="text-center">{formatter(totalImpact, formatterOptions)}</div>
-                  </div>
-                  <div className="w-25 align-items-center">
-                    <div className="text-center">Adjusted Scaled Impact</div>
-                    <div className="text-center">{formatter(totalAdjustedImpact, formatterOptions)}</div>
-                  </div>
+                </a>
+              </Link>
+                    </td>
+                    <td>
+                       <ExperimentStatusIndicator status={e.experiment.status} />
+                       </td>
+                       <td className="nowrap" data-title="Summary:">
+                      {e.experiment.status === "running" && e.experiment.phases[e.experiment.phases.length - 1] ? (
+                        phaseSummary(e.experiment.phases[e.experiment.phases.length - 1])
+                      ) : e.experiment.status === "stopped" && e.experiment.results ? (
+                        <ResultsIndicator results={e.experiment.results} winnerIndex={e.experiment.winner} />
+                      ) : (
+                        ""
+                      )}
+                    </td>
+
+                    <td>{formatter((e.impact?.units ?? []).reduce((sum, n) => sum + n, 0))}</td>
+                        <td>
+                          <table className="table-borderless table-sm"><tbody>
+                    {e.experiment.variations.map((v, i) => {
+                      if (i === 0) {
+                        return null;
+                      }
+                      else return (
+                      <tr>
+                        <td>
+                        <div
+        className={`variation variation${i} with-variation-label d-flex align-items-center`}
+      >
+        <span className="label" style={{ width: 20, height: 20 }}>
+          {i}
+        </span>
+        <span
+          className="d-inline-block text-ellipsis hover"
+          style={{
+            maxWidth: 150,
+          }}
+        >
+          {v.name}
+        </span></div></td>
+        <td>
+                        {e.impact?.scaledImpact[i-1] === undefined ? `N/A` : formatImpact(e.impact?.scaledImpact[i-1], formatter, formatterOptions)}
+                      </td><td><span className="plusminus ml-1">
+                    ±
+                    {Math.abs(e.impact?.ci0[i-1] ?? 0) === Infinity
+                      ? "∞"
+                      : formatter(
+                          Math.abs(((e.impact?.scaledImpact[i-1] ?? 0) - (e.impact?.ci0[i-1] ?? 0))),
+                          {...formatterOptions, signDisplay: 'never'}
+                        )}
+                  </span></td></tr>
+                    )})}</tbody></table></td>
                   
-            </div>
-            <ParentSizeModern style={{ position: "relative" }}>
-        {({ width }) => {
-          const margin = [15, 15, 50, 80];
-          const height = 200;
-          const yMax = height - margin[0] - margin[2];
-          const xMax = width - margin[1] -  margin[3];
+          </tr>
+        );
+        }
 
-          // TODO always include 0
-          const yScale = scaleLinear<number>({
-            domain: [minImpact, maxImpact],
-            range: [yMax, 0],
-            round: true,
-          });
-          const xScale = scaleTime({
-            domain: [min, max],
-            range: [0, xMax],
-            round: true,
-          });
-
-
-          const numXTicks = 10;
-          console.log(data);
-          return (
-            <>
-              <svg width={width} height={height}>
-              <Group left={margin[3]} top={margin[0]}>
-                <GridColumns
-                  scale={xScale}
-                  numTicks={numXTicks}
-                  stroke="var(--border-color-200)"
-                  height={yMax}
-                />
-                <GridRows
-                  scale={yScale}
-                  width={xMax}
-                  stroke="var(--border-color-200)"
-                />
-                {data.map((d, i) => <Circle key={i} cx={xScale(d.x)} cy={yScale(d.y)} r={5} fill="black" />)}
-                <AxisBottom
-                  top={yMax}
-                  scale={xScale}
-                  tickLength={5}
-                  tickLabelProps={() => ({
-                    fill: "var(--text-color-table)",
-                    fontSize: 11,
-                    textAnchor: "middle",
-                  })}
-                  label={"Experiment End Date"}
-                  labelClassName="h5"
-                />
-                <AxisLeft
-                  scale={yScale}
-                  tickLength={5}
-                  tickLabelProps={() => ({
-                    fill: "var(--text-color-table)",
-                    fontSize: 11,
-                    textAnchor: "middle",
-                  })}
-                  label={"Scaled Impact"}
-                  labelClassName="h5"
-                />
-              </Group>
-              </svg>
-            </>
-          );
-        }}
-      </ParentSizeModern>
-
-          </div>
-  </>);
+      // Get x-axis domain
+    const min = getValidDate(form.watch("startDate"));
+    min.setDate(min.getDate() - 1);
+    const max = getValidDate(form.watch("endDate"));
+    max.setDate(max.getDate() - 1);
   }
   console.log(form.watch("startDate"))
   return (
     <div>
-      <div className="row align-items-center p-3">
-        <div className="col-auto form-inline">
-        <div className="uppercase-title text-muted">Metric</div>
-        <div>
+       <div className="appbox p-3 bg-light table">
+        <div className="row form-inline mb-1">
+          <div className="col-auto">
+            Metric:
+          </div>
+          <div className="col-auto">
+
           <MetricSelector
             initialOption="None"
             value={metric}
             onChange={(metric) => form.setValue("metric", metric)}
             includeFacts={true}
-          />
-        </div>
-        </div>
-        <div className="col-auto form-inline">
-        <span>
-            Project:{" "}
-          </span>
+          /></div>
+          </div>
+          <div className="row form-inline mb-1">
+          <div className="col-auto">
+            Project:
+          </div>
+          <div className="col-auto">
           <SelectField
             value={form.watch("project")}
-            containerClassName={"select-dropdown-underline"}
             options={[
               {value: "", label: "All"},
               ...projects.map((p) => ({value: p.id, label: p.name}))
@@ -342,86 +342,90 @@ export default function ExperimentImpact({
             onChange={(v) => form.setValue("project", v)}
             />
         </div>
+</div>
+        <div className="row align-items-center">
         <div className="col-auto form-inline">
         <span>
             Experiment end date between{"  "}
           </span>
+          <div className="col-auto form-inline">
           <Field
               type="datetime-local"
               {...form.register("startDate")}
             />
+            </div>
             <span>{"and"}</span>
+
+          <div className="col-auto form-inline">
           <Field
               type="datetime-local"
               {...form.register("endDate")}
             />
+            </div>
         </div>
       </div>
-      <div>
+      </div>
+      {/* <div>
                     {plot}
-          </div>
-      {/*<ul className="list-unstyled simple-divider ">
-       {exps.map((test, i) => {
-        // get start and end dates by looking for min and max start dates of main and rollup phases
-        let startDate = test.dateCreated,
-          endDate;
+          </div> */}
+           <div>
 
-        test.phases.forEach((p) => {
-          if (
-            !startDate ||
-            getValidDate(p?.dateStarted ?? "") < getValidDate(startDate)
-          ) {
-            startDate = p.dateStarted ?? "";
-          }
-          if (
-            !endDate ||
-            getValidDate(p?.dateEnded ?? "") > getValidDate(endDate)
-          )
-            endDate = p.dateEnded;
-        });
-        const currentPhase = test.phases[test.phases.length - 1];
-        return (
-          <li key={i} className="w-100 hover-highlight">
-            <div key={test.id} className="d-flex">
-              <Link href={`/experiment/${test.id}`}>
-                <a className="w-100 no-link-color">
-                  <div className="d-flex w-100">
-                    <div className="mb-1">
-                      <strong>{test.name}</strong>{" "}
+  
+          <div className="d-flex flex-row align-items-end mb-1">
+          <span style={{ fontSize: "1.5em" }}><span className="font-weight-bold">{selected}</span>{" experiments with Metric "}<Fragment key={'frag'}><code>{metricInterface.name}</code></Fragment> had a variation marked as a winner.
+          </span></div>
+          <div className="d-flex flex-row align-items-end">
+          <span style={{ fontSize: "1.5em" }}>The summed impact of these winning variations is ${formatter(totalAdjustedImpact * 365, formatterOptions)} per year .
+          </span></div>
+          
+        <div className="px-3 py-3 row align-items-top">
+                <div className="col-auto text-center pr-5">
+                  <div className="row">
+                    <div className="col text-center ">
+                    <h5>Experiments</h5>
                     </div>
-                    <div style={{ flex: 1 }} />
-                    {
-                      analysisMap[test.id] ?
-                      <>
-
-<div className="">
-                        <span>
-                          { test.status}
-                        </span>
-                      </div>
-                    <div style={{ flex: 1 }} />
-                        <div className="">
-                        <span>
-                          { analysisMap[test.id].totalUnits}
-                        </span>
-                      </div>
-                    <div style={{ flex: 1 }} />1
-                      <div className="">
-                        <span>
-                          {analysisMap[test.id].scaledImpact}
-                        </span>
-                      </div></>
-                    : <></>
-                    }
-                    
                   </div>
-                </a>
-              </Link>
+                  <div className="row">
+                    <span className="text-muted">Total:</span>{numberExperiments}
+                  </div>
+                  <div className="row">
+                  <span className="text-muted">Completed:</span>{completedExperiments}
+                  </div>
+                  <div className="row">
+                  <span className="text-muted">With Winner:</span>{selected}</div>
+                  </div>
+                <div className="col-auto text-center">
+                  <div className="row">
+                    <div className="col text-center">
+                      <h5>Total Scaled Impact of Winners</h5>
+                    </div>
+                  </div>
+                  <div className="row">
+                  <div className="col-auto">
+                  <span className="text-muted">Simple Sum:</span>{formatImpact(totalImpact*365, formatter, formatterOptions)}
+                  </div>
+                  <div className="col-auto">
+                  <span className="text-muted">Adjusted Sum:</span>{formatImpact(totalAdjustedImpact*365, formatter, formatterOptions)}
+                  </div>
+                  </div>
+                  </div>
+                  
+                </div>
             </div>
-          </li>
-        );
-      })} 
-    </ul>*/}
+            
+        <table className="table">
+        <thead>
+              <tr>
+                <th>
+                  Experiment
+                </th>
+                <th>Status</th>
+                <th>Summary</th>
+                <th>Total Units</th>
+                <th>Scaled Impact</th>
+              </tr>
+            </thead><tbody>{expRows}</tbody></table>
+      
     </div>
   );
 }
