@@ -366,6 +366,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 min: 0,
                 max: 1,
               })}
+              pValueCorrection={form.watch("pValueCorrection")}
               setPValueCorrection={(v: PValueCorrection) =>
                 form.setValue("pValueCorrection", v)
               }

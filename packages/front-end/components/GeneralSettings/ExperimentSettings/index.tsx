@@ -50,6 +50,7 @@ export default function ExperimentSettings({
   confidenceLevelField,
   pValueThreshold,
   pValueThresholdField,
+  pValueCorrection,
   setPValueCorrection,
   regressionAdjustmentEnabled,
   setRegressionAdjustmentEnabled,
@@ -91,6 +92,7 @@ export default function ExperimentSettings({
   confidenceLevelField: UseFormRegisterReturn<"confidenceLevel">;
   pValueThreshold?: number;
   pValueThresholdField: UseFormRegisterReturn<"pValueThreshold">;
+  pValueCorrection?: PValueCorrection;
   setPValueCorrection: (value: PValueCorrection) => void;
   regressionAdjustmentEnabled?: boolean;
   setRegressionAdjustmentEnabled: (value: boolean) => void;
@@ -470,9 +472,10 @@ export default function ExperimentSettings({
                   <SelectField
                     label={"Multiple comparisons correction to use: "}
                     className="ml-2"
-                    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | null' is not assignable to type 'st... Remove this comment to see the full error message
-                    value={form.watch("pValueCorrection") ?? null}
-                    onChange={(value) => setPValueCorrection(value)}
+                    value={pValueCorrection ?? ""}
+                    onChange={(value) =>
+                      setPValueCorrection(value as PValueCorrection)
+                    }
                     sort={false}
                     options={[
                       {
