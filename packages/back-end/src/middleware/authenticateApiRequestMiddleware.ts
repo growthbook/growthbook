@@ -62,7 +62,7 @@ export default function authenticateApiRequestMiddleware(
   // Lookup organization by secret key and store in req
   lookupOrganizationByApiKey(secretKey)
     .then(async (apiKeyPartial) => {
-      const { organization, secret, id, userId, role } = apiKeyPartial;
+      const { organization, secret, id, userId } = apiKeyPartial;
       if (!organization) {
         throw new Error("Invalid API key");
       }
