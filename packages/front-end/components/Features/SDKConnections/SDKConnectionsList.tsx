@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { BsLightningFill } from "react-icons/bs";
 import { RxDesktop } from "react-icons/rx";
+import { filterProjectsByEnvironment } from "shared/util";
+import clsx from "clsx";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
@@ -11,13 +13,11 @@ import usePermissions from "@/hooks/usePermissions";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import StatusCircle from "@/components/Helpers/StatusCircle";
 import ProjectBadges from "@/components/ProjectBadges";
+import { useEnvironments } from "@/services/features";
+import Badge from "@/components/Badge";
 import Tooltip from "../../Tooltip/Tooltip";
 import SDKLanguageLogo from "./SDKLanguageLogo";
 import SDKConnectionForm from "./SDKConnectionForm";
-import {useEnvironments} from "@/services/features";
-import {filterProjectsByEnvironment} from "shared/util";
-import clsx from "clsx";
-import Badge from "@/components/Badge";
 
 export default function SDKConnectionsList() {
   const { data, mutate, error } = useSDKConnections();
@@ -93,9 +93,15 @@ export default function SDKConnectionsList() {
               );
               const envProjects = environment?.projects ?? [];
               const filteredProjectIds = environment
-                ? filterProjectsByEnvironment(connection.projects, environment, true)
+                ? filterProjectsByEnvironment(
+                    connection.projects,
+                    environment,
+                    true
+                  )
                 : [];
-              const showAllEnvironmentProjects = connection.projects.length === 0 && filteredProjectIds.length > 0;
+              const showAllEnvironmentProjects =
+                connection.projects.length === 0 &&
+                filteredProjectIds.length > 0;
 
               return (
                 <tr
@@ -132,14 +138,20 @@ export default function SDKConnectionsList() {
                         <Badge
                           content={`All env projects (${envProjects.length})`}
                           key="All env projects"
-                          className="badge-muted-info"
+                          className="badge-muted-info border-info"
                           skipMargin={true}
                         />
                       )}
-                      <div className={clsx("d-flex align-items-center", { "small mt-1": showAllEnvironmentProjects })}>
+                      <div
+                        className={clsx("d-flex align-items-center", {
+                          "small mt-1": showAllEnvironmentProjects,
+                        })}
+                      >
                         <ProjectBadges
                           projectIds={
-                            filteredProjectIds.length ? filteredProjectIds : undefined
+                            filteredProjectIds.length
+                              ? filteredProjectIds
+                              : undefined
                           }
                           resourceType="sdk connection"
                         />
@@ -150,7 +162,8 @@ export default function SDKConnectionsList() {
                     <div>{connection.environment}</div>
                     {envProjects.length > 0 ? (
                       <div className="text-muted small">
-                        {envProjects.length} project{envProjects.length === 1 ? "" : "s"}
+                        {envProjects.length} project
+                        {envProjects.length === 1 ? "" : "s"}
                       </div>
                     ) : (
                       <div className="text-muted small font-italic">

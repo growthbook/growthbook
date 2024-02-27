@@ -280,7 +280,7 @@ export default function SDKConnectionPage() {
                 <Badge
                   content={`All env projects (${envProjects.length})`}
                   key="All env projects"
-                  className="badge-muted-info"
+                  className="badge-muted-info border-info"
                   skipMargin={true}
                 />
               )}
