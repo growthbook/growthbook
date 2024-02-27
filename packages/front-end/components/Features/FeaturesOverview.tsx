@@ -65,11 +65,13 @@ import FixConflictsModal from "@/components/Features/FixConflictsModal";
 import Revisionlog from "@/components/Features/RevisionLog";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
+import MoreMenu from "../Dropdown/MoreMenu";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
 import { PrerequisiteAlerts } from "./PrerequisiteTargetingField";
 import PrerequisiteModal from "./PrerequisiteModal";
+import CompareRuleDiffModal from "./CompareRuleDiffModal";
 
 export default function FeaturesOverview({
   baseFeature,
@@ -122,6 +124,7 @@ export default function FeaturesOverview({
     i: number;
   } | null>(null);
   const [showDependents, setShowDependents] = useState(false);
+  const [showCompareView, setShowCompareView] = useState(false);
   const permissions = usePermissions();
 
   const [revertIndex, setRevertIndex] = useState(0);
@@ -259,6 +262,15 @@ export default function FeaturesOverview({
 
   return (
     <>
+      {showCompareView && (
+        <CompareRuleDiffModal
+          close={() => setShowCompareView(false)}
+          feature={feature}
+          version={currentVersion}
+          setVersion={setVersion}
+          mutate={mutate}
+        />
+      )}
       <div className="contents container-fluid pagecontents">
         <h3 className="mt-4 mb-3">Enabled Environments</h3>
         <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
@@ -893,7 +905,25 @@ export default function FeaturesOverview({
             />
           </div>
 
-          <h3>Override Rules</h3>
+          <div className="d-flex w-100 justify-content-between align-items-center">
+            <h3>Override Rules</h3>
+            <MoreMenu>
+              <button
+                // className="btn btn-link"
+                className="dropdown-item"
+                onClick={() => setShowCompareView(true)}
+              >
+                Compare Environments
+              </button>
+              <button
+                // className="btn btn-link"
+                className="dropdown-item"
+                onClick={() => setShowCompareView(true)}
+              >
+                Copy Environment Rules
+              </button>
+            </MoreMenu>
+          </div>
           <p>
             Add powerful logic on top of your feature. The first matching rule
             applies and overrides the default value.

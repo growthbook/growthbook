@@ -36,6 +36,7 @@ import {
   migrateDraft,
   applyRevisionChanges,
   addLinkedExperiment,
+  editFeatureRuleSet,
 } from "../models/FeatureModel";
 import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
@@ -1104,6 +1105,48 @@ export async function putFeatureRule(
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
   await editFeatureRule(revision, environment, i, rule, res.locals.eventAudit);
+
+  res.status(200).json({
+    status: 200,
+    version: revision.version,
+  });
+}
+
+export async function putRuleSet(
+  req: AuthRequest<
+    { targetEnv: string; newRules: FeatureRule[] },
+    { id: string; version: string }
+  >,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { environments } = context;
+  const { newRules, targetEnv } = req.body;
+  const { id, version } = req.params;
+
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  if (!environments.includes(targetEnv)) {
+    throw new Error("Invalid environment bro");
+  }
+
+  req.checkPermissions("manageFeatures", feature.project);
+  req.checkPermissions("createFeatureDrafts", feature.project);
+
+  const revision = await getDraftRevision(context, feature, parseInt(version));
+
+  await editFeatureRuleSet(
+    revision,
+    targetEnv,
+    newRules.map((rule) => {
+      rule.id = generateRuleId();
+      return rule;
+    }),
+    res.locals.eventAudit
+  );
 
   res.status(200).json({
     status: 200,
