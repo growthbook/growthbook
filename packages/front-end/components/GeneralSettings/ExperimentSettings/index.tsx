@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { MdInfoOutline } from "react-icons/md";
 import { FaQuestionCircle } from "react-icons/fa";
-import useSDKConnections from "@/hooks/useSDKConnections";
+import { hasFileConfig } from "@/services/env";
+import { useUser } from "@/services/UserContext";
 import Button from "@/components/Button";
 import Field from "@/components/Forms/Field";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -10,32 +10,20 @@ import SelectField from "@/components/Forms/SelectField";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
 import Toggle from "@/components/Forms/Toggle";
 import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
-import {
-  StickyBucketingToggleWarning,
-  StickyBucketingTooltip,
-} from "@/components/Features/FallbackAttributeSelector";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { ConnectSettingsForm } from "@/pages/settings";
 import StatsEngineSettings from "./StatsEngineSettings";
+import StickyBucketingSettings from "./StickyBucketingSettings";
 
 export default function ExperimentSettings({
   cronString,
   updateCronString,
-  hasFileConfig,
-  hasCommercialFeature,
 }: {
   cronString: string;
   updateCronString: (value: string) => void;
-  hasFileConfig: boolean;
   hasCommercialFeature: (feature: string) => boolean;
 }) {
   const [editChecklistOpen, setEditChecklistOpen] = useState(false);
-
-  const { data: sdkConnectionsData } = useSDKConnections();
-
-  const hasSDKWithStickyBucketing = getConnectionsSDKCapabilities({
-    connections: sdkConnectionsData?.connections ?? [],
-  }).includes("stickyBucketing");
+  const { hasCommercialFeature } = useUser();
 
   return (
     <ConnectSettingsForm>
@@ -71,7 +59,7 @@ export default function ExperimentSettings({
                     step="1"
                     min="0"
                     max="31"
-                    disabled={hasFileConfig}
+                    disabled={hasFileConfig()}
                     {...register("pastExperimentsMinLength", {
                       valueAsNumber: true,
                       min: 0,
@@ -91,7 +79,7 @@ export default function ExperimentSettings({
                     style={{
                       width: "80px",
                     }}
-                    disabled={hasFileConfig}
+                    disabled={hasFileConfig()}
                     {...register("multipleExposureMinPercent", {
                       valueAsNumber: true,
                       min: 0,
@@ -130,7 +118,7 @@ export default function ExperimentSettings({
                       label="Experiment Auto-Update Frequency"
                       className="ml-2"
                       containerClassName="mb-2 mr-2"
-                      disabled={hasFileConfig}
+                      disabled={hasFileConfig()}
                       options={[
                         {
                           display: "When results are X hours old",
@@ -157,7 +145,7 @@ export default function ExperimentSettings({
                           min={1}
                           max={168}
                           className="ml-2"
-                          disabled={hasFileConfig}
+                          disabled={hasFileConfig()}
                           {...register("updateSchedule.hours")}
                         />
                       </div>
@@ -167,7 +155,7 @@ export default function ExperimentSettings({
                         <Field
                           label="Cron String"
                           className="ml-2"
-                          disabled={hasFileConfig}
+                          disabled={hasFileConfig()}
                           {...register("updateSchedule.cron")}
                           placeholder="0 */6 * * *"
                           onFocus={(e) => {
@@ -232,89 +220,7 @@ export default function ExperimentSettings({
                   />
                 </div>
 
-                <h4 className="mt-4 mb-2">Sticky Bucketing Settings</h4>
-                <div className="appbox py-2 px-3">
-                  <div className="w-100 mt-2">
-                    <div className="d-flex">
-                      <label
-                        className="mr-2"
-                        htmlFor="toggle-useStickyBucketing"
-                      >
-                        <PremiumTooltip
-                          commercialFeature={"sticky-bucketing"}
-                          body={<StickyBucketingTooltip />}
-                        >
-                          Enable Sticky Bucketing <FaQuestionCircle />
-                        </PremiumTooltip>
-                      </label>
-                      <Toggle
-                        id={"toggle-useStickyBucketing"}
-                        value={!!watch("useStickyBucketing")}
-                        setValue={(value) => {
-                          setValue(
-                            "useStickyBucketing",
-                            hasCommercialFeature("sticky-bucketing")
-                              ? value
-                              : false
-                          );
-                        }}
-                        disabled={
-                          !watch("useStickyBucketing") &&
-                          (!hasCommercialFeature("sticky-bucketing") ||
-                            !hasSDKWithStickyBucketing)
-                        }
-                      />
-                    </div>
-                    {!watch("useStickyBucketing") && (
-                      <div className="small">
-                        <StickyBucketingToggleWarning
-                          hasSDKWithStickyBucketing={hasSDKWithStickyBucketing}
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {watch("useStickyBucketing") && (
-                    <div className="w-100 mt-4">
-                      <div className="d-flex">
-                        <label
-                          className="mr-2"
-                          htmlFor="toggle-useFallbackAttributes"
-                        >
-                          <Tooltip
-                            body={
-                              <>
-                                <div className="mb-2">
-                                  If the user&apos;s assignment attribute is not
-                                  available a fallback attribute may be used
-                                  instead. Toggle this to allow selection of a
-                                  fallback attribute when creating experiments.
-                                </div>
-                                <div>
-                                  While using a fallback attribute can improve
-                                  the consistency of the user experience, it can
-                                  also lead to statistical biases if not
-                                  implemented carefully. See the Sticky
-                                  Bucketing docs for more information.
-                                </div>
-                              </>
-                            }
-                          >
-                            Enable fallback attributes in experiments{" "}
-                            <FaQuestionCircle />
-                          </Tooltip>
-                        </label>
-                        <Toggle
-                          id={"toggle-useFallbackAttributes"}
-                          value={!!watch("useFallbackAttributes")}
-                          setValue={(value) =>
-                            setValue("useFallbackAttributes", value)
-                          }
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <StickyBucketingSettings />
 
                 <h4 className="mt-4 mb-2">Experiment Health Settings</h4>
                 <div className="appbox pt-2 px-3">
@@ -350,7 +256,7 @@ export default function ExperimentSettings({
                       className={`ml-2`}
                       containerClassName="mb-3"
                       append=""
-                      disabled={hasFileConfig}
+                      disabled={hasFileConfig()}
                       helpText={
                         <>
                           <span className="ml-2">(0.001 is default)</span>
