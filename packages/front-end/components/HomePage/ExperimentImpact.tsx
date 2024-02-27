@@ -2,7 +2,7 @@ import Link from "next/link";
 import normal from "@stdlib/stats/base/dists/normal";
 import React, { Fragment, useEffect, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { date, getValidDate } from "shared/dates";
+import { ago, date, datetime, getValidDate } from "shared/dates";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import Collapsible from "react-collapsible";
@@ -27,16 +27,13 @@ import { useForm } from "react-hook-form";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { phaseSummary } from "@/services/utils";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
+import { GBSuspicious } from "@/components/Icons";
+import { HiOutlineExclamationCircle } from "react-icons/hi";
 
 function jamesSteinAdjustment(effects: number[], se: number, useMean: boolean = false) {
   const Ne = effects.length;
-  console.log("Ne")
-  console.log(Ne)
-  console.log(effects)
-  console.log(se)
   const priorMean = useMean ? effects.reduce((a, b) => a + b, 0) / Ne : 0;
   const adj = (Ne - 2) * Math.pow(se, 2) / effects.reduce((a, b) => a + Math.pow(b - priorMean, 2), 0);
-  console.log(adj)
   return {mean: priorMean, adjustment: adj};
 }
 
@@ -101,6 +98,7 @@ export default function ExperimentImpact({
   const metricInterface = metrics.find((m) => m.id === metric);
   const formatter = metricInterface ? getExperimentMetricFormatter(metricInterface, getFactTableById, true) :
   formatNumber;
+  console.log(formatter)
   const formatterOptions: Intl.NumberFormatOptions = {
     currency: displayCurrency,
     notation: "compact",
@@ -163,7 +161,7 @@ export default function ExperimentImpact({
       console.log(s)
       const ei: ExperimentWithImpact = {experiment: e};
       if (s) {
-        const inSample = e.phases[e.phases.length - 1]?.dateEnded !== undefined && getValidDate(e.phases[e.phases.length - 1].dateEnded) < getValidDate(form.watch("endDate")) && getValidDate(e.phases[e.phases.length - 1].dateEnded) > getValidDate(form.watch("startDate"));
+        const inSample = getValidDate(e.phases[e.phases.length - 1].dateEnded) > getValidDate(form.watch("startDate")) && getValidDate(e.phases[e.phases.length - 1].dateStarted) < getValidDate(form.watch("endDate"));
         if (inSample) {
           completedExperiments++;
         }
@@ -212,7 +210,7 @@ export default function ExperimentImpact({
       experimentImpacts.set(e.id, ei);
 
     });
-
+    console.log(displayCurrency)
     const adjustment = jamesSteinAdjustment(scaledImpacts, overallSE ?? 0);
     let data: {y: number, x: Date, status: string}[] = [];
    
@@ -254,6 +252,18 @@ export default function ExperimentImpact({
                     <td>
                        <ExperimentStatusIndicator status={e.experiment.status} />
                        </td>
+                      <td className="nowrap">
+                      {e.experiment.status === "running"
+                        ? "started"
+                        : e.experiment.status === "stopped"
+                        ? "ended"
+                        : ""}{" "}
+                      {ago((e.experiment.status === "running"
+                        ? e.experiment.phases?.[e.experiment.phases?.length - 1]?.dateStarted
+                        : e.experiment.status === "stopped"
+                        ? e.experiment.phases?.[e.experiment.phases?.length - 1]?.dateEnded
+                        : e.experiment.dateCreated) ?? new Date())}
+                    </td>
                        <td className="nowrap" data-title="Summary:">
                       {e.experiment.status === "running" && e.experiment.phases[e.experiment.phases.length - 1] ? (
                         phaseSummary(e.experiment.phases[e.experiment.phases.length - 1])
@@ -304,14 +314,7 @@ export default function ExperimentImpact({
           </tr>
         );
         }
-
-      // Get x-axis domain
-    const min = getValidDate(form.watch("startDate"));
-    min.setDate(min.getDate() - 1);
-    const max = getValidDate(form.watch("endDate"));
-    max.setDate(max.getDate() - 1);
   }
-  console.log(form.watch("startDate"))
   return (
     <div>
        <div className="appbox p-3 bg-light table">
@@ -346,7 +349,7 @@ export default function ExperimentImpact({
         <div className="row align-items-center">
         <div className="col-auto form-inline">
         <span>
-            Experiment end date between{"  "}
+            Experiment latest phase running between{"  "}
           </span>
           <div className="col-auto form-inline">
           <Field
@@ -375,7 +378,11 @@ export default function ExperimentImpact({
           <span style={{ fontSize: "1.5em" }}><span className="font-weight-bold">{selected}</span>{" experiments with Metric "}<Fragment key={'frag'}><code>{metricInterface.name}</code></Fragment> had a variation marked as a winner.
           </span></div>
           <div className="d-flex flex-row align-items-end">
-          <span style={{ fontSize: "1.5em" }}>The summed impact of these winning variations is ${formatter(totalAdjustedImpact * 365, formatterOptions)} per year .
+          <span style={{ fontSize: "1.5em" }}>{`The summed impact of these winning variations is `}{(totalAdjustedImpact > 0) ? (
+                    <FaArrowUp />
+                  ) : (totalAdjustedImpact < 0) ? (
+                    <FaArrowDown />
+                  ) : null}<span className="font-weight-bold">{formatter(totalAdjustedImpact * 365, formatterOptions)}</span>{` per year. `}<HiOutlineExclamationCircle />
           </span></div>
           
         <div className="px-3 py-3 row align-items-top">
@@ -420,6 +427,7 @@ export default function ExperimentImpact({
                   Experiment
                 </th>
                 <th>Status</th>
+                <th>Date</th>
                 <th>Summary</th>
                 <th>Total Units</th>
                 <th>Scaled Impact</th>
