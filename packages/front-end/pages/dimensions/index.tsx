@@ -157,10 +157,7 @@ const DimensionsPage: FC = () => {
                       <td className="d-none d-sm-table-cell">
                         {datasource && (
                           <>
-                            <Link
-                              href={`/datasources/${datasource.id}`}
-                              legacyBehavior
-                            >
+                            <Link href={`/datasources/${datasource.id}`}>
                               {datasource.name}
                             </Link>{" "}
                             {datasource.description ? (

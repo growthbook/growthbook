@@ -181,7 +181,6 @@ export default function FactTablePage() {
           <Link
             href={`/datasources/${factTable.datasource}`}
             className="font-weight-bold"
-            legacyBehavior
           >
             {getDatasourceById(factTable.datasource)?.name || "Unknown"}
           </Link>

@@ -674,7 +674,6 @@ const EditorPage: FC = () => {
             <Link
               href={`/experiment/${data.experiment.id}`}
               className="text-light"
-              legacyBehavior
             >
               <FaChevronLeft />
             </Link>

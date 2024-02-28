@@ -35,7 +35,6 @@ export const getSavedGroupMessage = (
                     <Link
                       href={`/features/${feature}`}
                       className="btn btn-link pt-1 pb-1"
-                      legacyBehavior
                     >
                       {feature}
                     </Link>

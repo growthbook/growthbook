@@ -161,9 +161,7 @@ const IdeasPage = (): React.ReactElement => {
                             </div>
                           )}
                           <h5 className="card-title">
-                            <Link href={`/idea/${idea.id}`} legacyBehavior>
-                              {idea.text}
-                            </Link>
+                            <Link href={`/idea/${idea.id}`}>{idea.text}</Link>
                           </h5>
                         </div>
                         <div style={{ flex: 1 }}></div>

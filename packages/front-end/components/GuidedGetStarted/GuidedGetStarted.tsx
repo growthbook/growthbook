@@ -303,11 +303,7 @@ export default function GuidedGetStarted({
       render: (
         <div className="col-12 col-sm-8 col-lg-6">
           {permissions.check("manageTeam") ? (
-            <Link
-              href="/settings/team"
-              className={styles.nextStepWrapper}
-              legacyBehavior
-            >
+            <Link href="/settings/team" className={styles.nextStepWrapper}>
               <h2
                 role="button"
                 className={clsx("text-center p-4 m-1", styles.nextStepLink)}
@@ -316,11 +312,7 @@ export default function GuidedGetStarted({
               </h2>
             </Link>
           ) : (
-            <Link
-              href="/features"
-              className={styles.nextStepWrapper}
-              legacyBehavior
-            >
+            <Link href="/features" className={styles.nextStepWrapper}>
               <h2
                 role="button"
                 className={clsx("text-center p-4 m-1", styles.nextStepLink)}
@@ -329,11 +321,7 @@ export default function GuidedGetStarted({
               </h2>
             </Link>
           )}
-          <Link
-            href="/experiments"
-            className={styles.nextStepWrapper}
-            legacyBehavior
-          >
+          <Link href="/experiments" className={styles.nextStepWrapper}>
             <h2
               role="button"
               className={clsx("text-center p-4 m-1", styles.nextStepLink)}

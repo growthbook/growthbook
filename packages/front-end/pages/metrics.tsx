@@ -430,7 +430,6 @@ const MetricsPage = (): React.ReactElement => {
                     className={`${
                       metric.archived ? "text-muted" : "text-dark"
                     } font-weight-bold`}
-                    legacyBehavior
                   >
                     <MetricName id={metric.id} />
                   </Link>

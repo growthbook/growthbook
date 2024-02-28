@@ -74,9 +74,7 @@ const DataSources: FC = () => {
                 }}
               >
                 <td>
-                  <Link href={`/datasources/${d.id}`} legacyBehavior>
-                    {d.name}
-                  </Link>{" "}
+                  <Link href={`/datasources/${d.id}`}>{d.name}</Link>{" "}
                   {d.decryptionError && (
                     <Tooltip
                       body={

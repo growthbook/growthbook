@@ -174,7 +174,6 @@ const CompactResults_old: FC<{
                 <Link
                   href={getMetricLink(metric.id)}
                   className="metriclabel text-dark"
-                  legacyBehavior
                 >
                   {label}
                 </Link>

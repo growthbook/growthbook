@@ -70,7 +70,7 @@ export default function ExperimentLookupPage() {
   return (
     <div className="container p-4">
       <div className="mb-2">
-        <Link href="/experiments" legacyBehavior>
+        <Link href="/experiments">
           <FaAngleLeft />
           All Experiments
         </Link>

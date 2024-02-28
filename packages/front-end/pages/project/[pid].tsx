@@ -117,7 +117,7 @@ const ProjectPage: FC = () => {
 
       <div className="container pagecontents">
         <div className="mb-2">
-          <Link href="/projects" legacyBehavior>
+          <Link href="/projects">
             <GBCircleArrowLeft />
             Back to all projects
           </Link>

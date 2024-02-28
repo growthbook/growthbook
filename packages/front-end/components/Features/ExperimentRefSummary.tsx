@@ -43,7 +43,6 @@ function ExperimentSkipped({
               <Link
                 href={`/experiment/${experimentId}`}
                 className="btn btn-outline-primary"
-                legacyBehavior
               >
                 {cta}
               </Link>

@@ -59,7 +59,6 @@ const TeamsList: FC = () => {
                         <Link
                           href={`/settings/team/${t.id}`}
                           className="font-weight-bold"
-                          legacyBehavior
                         >
                           {t.name}
                         </Link>

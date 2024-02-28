@@ -62,7 +62,7 @@ const TeamPage: FC = () => {
       />
       <div className="container pagecontents">
         <div className="mb-4">
-          <Link href="/settings/team#teams" legacyBehavior>
+          <Link href="/settings/team#teams">
             <GBCircleArrowLeft />
             Back to all teams
           </Link>

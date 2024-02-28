@@ -47,7 +47,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
   return (
     <div>
       <div className="mb-3">
-        <Link href="/settings/webhooks" legacyBehavior>
+        <Link href="/settings/webhooks">
           <FaAngleLeft />
           All Webhooks
         </Link>

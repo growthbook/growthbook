@@ -140,7 +140,7 @@ export default function DataSourceMetrics({
               {metrics.map((metric) => {
                 return (
                   <div key={metric.id} className="card p-3 mb-3 bg-light">
-                    <Link href={getMetricLink(metric.id)} legacyBehavior>
+                    <Link href={getMetricLink(metric.id)}>
                       <div
                         className="d-flex flex-row align-items-center justify-content-between"
                         role="button"

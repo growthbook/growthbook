@@ -37,11 +37,7 @@ function FactTableLink({ id }: { id?: string }) {
   if (!factTable) return <em className="text-muted">Unknown Fact Table</em>;
 
   return (
-    <Link
-      href={`/fact-tables/${factTable.id}`}
-      className="font-weight-bold"
-      legacyBehavior
-    >
+    <Link href={`/fact-tables/${factTable.id}`} className="font-weight-bold">
       {factTable.name} <FaExternalLinkAlt />
     </Link>
   );
@@ -332,7 +328,6 @@ export default function FactMetricPage() {
           <Link
             href={`/datasources/${factMetric.datasource}`}
             className="font-weight-bold"
-            legacyBehavior
           >
             {getDatasourceById(factMetric.datasource)?.name || "Unknown"}
           </Link>

@@ -133,7 +133,7 @@ const IdeaPage = (): ReactElement => {
         )}
       <div className="mb-2 mt-2 row d-flex">
         <div className="col-auto">
-          <Link href="/ideas" legacyBehavior>
+          <Link href="/ideas">
             <FaAngleLeft />
             All Ideas
           </Link>
@@ -214,11 +214,7 @@ const IdeaPage = (): ReactElement => {
         <div className="bg-white border border-info p-3 mb-3">
           <div className="d-flex">
             <strong className="mr-3">Linked Experiment: </strong>
-            <Link
-              href={`/experiment/${data.experiment.id}`}
-              className="mr-3"
-              legacyBehavior
-            >
+            <Link href={`/experiment/${data.experiment.id}`} className="mr-3">
               <FaExternalLinkAlt /> {data.experiment.name}
             </Link>
             {data.experiment.status && (

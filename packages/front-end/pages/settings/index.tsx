@@ -695,11 +695,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 Import your data from another feature flag and/or
                 experimentation service.
               </p>
-              <Link
-                href="/importing"
-                className="btn btn-primary"
-                legacyBehavior
-              >
+              <Link href="/importing" className="btn btn-primary">
                 <FaUpload />
                 Import from another service
               </Link>

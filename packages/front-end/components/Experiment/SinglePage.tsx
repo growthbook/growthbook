@@ -128,11 +128,7 @@ function drawMetricRow(
         <div className="row">
           <div className="col-auto pr-0">-</div>
           <div className="col">
-            <Link
-              href={getMetricLink(m)}
-              className="font-weight-bold"
-              legacyBehavior
-            >
+            <Link href={getMetricLink(m)} className="font-weight-bold">
               {newMetric?.name}
               {isArchived ? (
                 <span className="text-muted small"> (archived)</span>
@@ -436,7 +432,6 @@ export default function SinglePage({
                   ? "#stopped"
                   : ""
               }`}
-              legacyBehavior
             >
               <GBCircleArrowLeft />
               Back to all experiments
@@ -710,10 +705,7 @@ export default function SinglePage({
             >
               <div>Linked features</div>
               <div>
-                <Link
-                  href={`/features/${linkedFeatures[0].feature.id}`}
-                  legacyBehavior
-                >
+                <Link href={`/features/${linkedFeatures[0].feature.id}`}>
                   <BsFlag /> {linkedFeatures[0].feature.id}
                 </Link>
                 {linkedFeatures.length > 1
@@ -922,7 +914,6 @@ export default function SinglePage({
                       verticalAlign: "middle",
                     }}
                     title={idea.text}
-                    legacyBehavior
                   >
                     <FaExternalLinkAlt /> {idea.text}
                   </Link>
@@ -1220,10 +1211,7 @@ export default function SinglePage({
                 >
                   {datasource && (
                     <Tooltip body={datasource?.description || ""}>
-                      <Link
-                        href={`/datasources/${datasource?.id}`}
-                        legacyBehavior
-                      >
+                      <Link href={`/datasources/${datasource?.id}`}>
                         {datasource?.name}
                       </Link>
                     </Tooltip>
@@ -1369,7 +1357,7 @@ export default function SinglePage({
                 ) : (
                   <div>
                     You don&apos;t have any metrics defined yet.{" "}
-                    <Link href="/metrics" legacyBehavior>
+                    <Link href="/metrics">
                       Manage Metrics
                       <FaExternalLinkAlt />
                     </Link>

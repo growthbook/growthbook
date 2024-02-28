@@ -368,7 +368,6 @@ const Layout = (): React.ReactElement => {
                 className="app-sidebar-logo active"
                 title="GrowthBook Home"
                 onClick={() => setOpen(false)}
-                legacyBehavior
               >
                 <div className={styles.sidebarlogo}>
                   {settings?.customized && settings?.logoPath ? (

@@ -366,7 +366,6 @@ const ExperimentsPage = (): React.ReactElement => {
                           <Link
                             href={`/experiment/${e.id}`}
                             className="testname"
-                            legacyBehavior
                           >
                             {e.name}
                           </Link>

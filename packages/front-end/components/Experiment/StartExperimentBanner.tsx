@@ -199,7 +199,7 @@ export function StartExperimentBanner({
     display: "Integrate the GrowthBook SDK into your app.",
     action:
       connections.length > 0 ? (
-        <Link href="/sdks" legacyBehavior>
+        <Link href="/sdks">
           Manage SDK Connections <FaExternalLinkAlt />
         </Link>
       ) : (

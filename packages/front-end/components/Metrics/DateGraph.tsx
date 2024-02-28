@@ -757,7 +757,6 @@ const DateGraph: FC<DateGraphProps> = ({
                     <Link
                       href={`/experiment/${highlightExp.id}`}
                       style={{ color: "#b3e8ff", fontSize: "12px" }}
-                      legacyBehavior
                     >
                       <strong>{highlightExp.name}</strong>
                     </Link>

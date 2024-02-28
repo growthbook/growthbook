@@ -153,9 +153,7 @@ export default function NamespaceTableRow({
                         }}
                       >
                         <td>
-                          <Link href={e.link} legacyBehavior>
-                            {e.name}
-                          </Link>
+                          <Link href={e.link}>{e.name}</Link>
                         </td>
                         <td>{e.environment}</td>
                         <td>{e.trackingKey || e.id}</td>

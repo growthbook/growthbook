@@ -124,15 +124,7 @@ export function HistoryTableRow({
         <td title={datetime(event.dateCreated)}>{ago(event.dateCreated)}</td>
         {showType && <td>{event.entity.object}</td>}
         {showName && (
-          <td>
-            {url ? (
-              <Link href={url} legacyBehavior>
-                {displayName}
-              </Link>
-            ) : (
-              displayName
-            )}
-          </td>
+          <td>{url ? <Link href={url}>{displayName}</Link> : displayName}</td>
         )}
         <td>{userDisplay}</td>
         <td>{event.event}</td>

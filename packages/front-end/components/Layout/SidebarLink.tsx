@@ -175,7 +175,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
                     }
                   )}
                 >
-                  <Link href={l.href} className="align-middle" legacyBehavior>
+                  <Link href={l.href} className="align-middle">
                     {showSubMenuIcons && (
                       <>
                         {l.Icon && <l.Icon className={styles.icon} />}

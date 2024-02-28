@@ -80,7 +80,7 @@ export default function DocumentationLinksSidebar() {
           </div>
           <p className="card-text">Add teammates to your account</p>
           <span className="action-link non-active-step">
-            <Link href="/settings/team" className="boxlink" legacyBehavior>
+            <Link href="/settings/team" className="boxlink">
               Invite team
               <FiArrowRight />
             </Link>

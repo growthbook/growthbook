@@ -82,7 +82,6 @@ export default function ExperimentReportsList({
                     <Link
                       href={`/report/${report.id}`}
                       className={`text-dark font-weight-bold`}
-                      legacyBehavior
                     >
                       {report.title}
                     </Link>
@@ -95,11 +94,7 @@ export default function ExperimentReportsList({
                     router.push(`/report/${report.id}`);
                   }}
                 >
-                  <Link
-                    href={`/report/${report.id}`}
-                    className={`text-dark`}
-                    legacyBehavior
-                  >
+                  <Link href={`/report/${report.id}`} className={`text-dark`}>
                     {report.description}
                   </Link>
                 </td>

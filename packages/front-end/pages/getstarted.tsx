@@ -109,7 +109,6 @@ const GetStartedPage = (): React.ReactElement => {
               <Link
                 href="/features?getstarted"
                 className="btn btn-primary btn-lg mx-3"
-                legacyBehavior
               >
                 <BsFlag />
                 Feature Flags
@@ -129,7 +128,6 @@ const GetStartedPage = (): React.ReactElement => {
               <Link
                 href="/experiments?getstarted"
                 className="btn btn-primary btn-lg mx-3"
-                legacyBehavior
               >
                 <GBExperiment />
                 Experimentation
