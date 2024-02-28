@@ -32,8 +32,8 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { PrerequisiteAlerts } from "@/components/Features/PrerequisiteTargetingField";
 import { DocLink } from "@/components/DocLink";
-import Modal from "../Modal";
-import SelectField from "../Forms/SelectField";
+import Modal from "@/components/Modal";
+import SelectField from "@/components/Forms/SelectField";
 
 export interface Props {
   close: () => void;

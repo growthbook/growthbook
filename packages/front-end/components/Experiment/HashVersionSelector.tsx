@@ -1,7 +1,7 @@
 import { FaQuestionCircle } from "react-icons/fa";
 import { ReactNode } from "react";
-import SelectField from "../Forms/SelectField";
-import Tooltip from "../Tooltip/Tooltip";
+import SelectField from "@/components/Forms/SelectField";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export function NewBucketingSDKList() {
   return (

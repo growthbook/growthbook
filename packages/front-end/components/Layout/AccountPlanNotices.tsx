@@ -6,8 +6,8 @@ import usePermissions from "@/hooks/usePermissions";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
-import UpgradeModal from "../Settings/UpgradeModal";
-import Tooltip from "../Tooltip/Tooltip";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function AccountPlanNotices() {
   const [upgradeModal, setUpgradeModal] = useState(false);

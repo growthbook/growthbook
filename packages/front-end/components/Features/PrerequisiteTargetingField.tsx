@@ -36,8 +36,8 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { DocLink } from "@/components/DocLink";
-import { GBAddCircle } from "../Icons";
-import SelectField from "../Forms/SelectField";
+import SelectField from "@/components/Forms/SelectField";
+import { GBAddCircle } from "@/components/Icons";
 
 export interface Props {
   value: FeaturePrerequisite[];

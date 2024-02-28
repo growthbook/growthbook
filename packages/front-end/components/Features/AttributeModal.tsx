@@ -4,16 +4,16 @@ import {
   SDKAttribute,
   SDKAttributeFormat,
   SDKAttributeType,
-} from "@/../back-end/types/organization";
+} from "@back-end/types/organization";
 import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import { useAttributeSchema } from "@/services/features";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
-import PremiumTooltip from "../Marketing/PremiumTooltip";
-import Toggle from "../Forms/Toggle";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Toggle from "@/components/Forms/Toggle";
 
 export interface Props {
   close: () => void;

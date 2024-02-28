@@ -16,8 +16,8 @@ import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
-import NewExperimentForm from "../Experiment/NewExperimentForm";
-import Button from "../Button";
+import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
+import Button from "@/components/Button";
 
 const ExperimentsGetStarted = (): React.ReactElement => {
   const { metrics, datasources, mutateDefinitions, project } = useDefinitions();

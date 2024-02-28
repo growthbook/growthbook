@@ -1,15 +1,15 @@
 import Link from "next/link";
 import React, { useState, FC } from "react";
 import { Environment } from "back-end/types/organization";
-import DeleteButton from "../components/DeleteButton/DeleteButton";
-import EnvironmentModal from "../components/Settings/EnvironmentModal";
-import { useAuth } from "../services/auth";
-import { GBAddCircle } from "../components/Icons";
-import { useEnvironments } from "../services/features";
-import { useUser } from "../services/UserContext";
-import MoreMenu from "../components/Dropdown/MoreMenu";
-import Button from "../components/Button";
-import usePermissions from "../hooks/usePermissions";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import EnvironmentModal from "@/components/Settings/EnvironmentModal";
+import { useAuth } from "@/services/auth";
+import { GBAddCircle } from "@/components/Icons";
+import { useEnvironments } from "@/services/features";
+import { useUser } from "@/services/UserContext";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import Button from "@/components/Button";
+import usePermissions from "@/hooks/usePermissions";
 
 const EnvironmentsPage: FC = () => {
   const environments = useEnvironments();

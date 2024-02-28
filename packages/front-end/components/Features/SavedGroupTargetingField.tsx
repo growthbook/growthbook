@@ -2,8 +2,8 @@ import { SavedGroupTargeting } from "back-end/types/feature";
 import { FaMinusCircle, FaPlusCircle } from "react-icons/fa";
 import React from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import SelectField from "../Forms/SelectField";
-import MultiSelectField from "../Forms/MultiSelectField";
+import SelectField from "@/components/Forms/SelectField";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 
 export interface Props {
   value: SavedGroupTargeting[];

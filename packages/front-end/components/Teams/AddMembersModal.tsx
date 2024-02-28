@@ -1,8 +1,8 @@
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import Modal from "../Modal";
-import MultiSelectField from "../Forms/MultiSelectField";
+import Modal from "@/components/Modal";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 
 export const AddMembersModal = ({
   teamId,

@@ -18,8 +18,8 @@ import {
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import clsx from "clsx";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import CompactResults_old from "../Experiment/CompactResults_old";
-import Markdown from "../Markdown/Markdown";
+import CompactResults_old from "@/components/Experiment/CompactResults_old";
+import Markdown from "@/components/Markdown/Markdown";
 import { presentationThemes, defaultTheme } from "./ShareModal";
 
 export interface Props {

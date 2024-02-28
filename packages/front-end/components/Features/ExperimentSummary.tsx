@@ -8,8 +8,8 @@ import {
   getVariationColor,
 } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
-import NewExperimentForm from "../Experiment/NewExperimentForm";
-import Modal from "../Modal";
+import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
+import Modal from "@/components/Modal";
 import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 
