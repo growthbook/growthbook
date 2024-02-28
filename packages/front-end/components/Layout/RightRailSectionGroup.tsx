@@ -1,5 +1,5 @@
 import React, { Children, CSSProperties, FC, ReactNode } from "react";
-import SortedTags from "../Tags/SortedTags";
+import SortedTags from "@/components/Tags/SortedTags";
 
 const RightRailSectionGroup: FC<{
   title?: string | ReactNode;

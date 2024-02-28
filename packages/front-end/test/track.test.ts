@@ -1,5 +1,5 @@
 import md5 from "md5";
-import { parseSnapshotDimension } from "../services/track";
+import { parseSnapshotDimension } from "@/services/track";
 
 describe("tracking dimension parser", () => {
   it("works for different input strings", () => {

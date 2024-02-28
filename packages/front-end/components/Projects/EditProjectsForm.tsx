@@ -1,8 +1,8 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "../Modal";
-import MultiSelectField from "../Forms/MultiSelectField";
+import Modal from "@/components/Modal";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 
 const EditProjectsForm: FC<{
   projects: string[];

@@ -31,13 +31,13 @@ import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { trackReport } from "@/services/track";
 import MetricsSelector, {
   MetricsSelectorTooltip,
-} from "../Experiment/MetricsSelector";
-import Field from "../Forms/Field";
-import Modal from "../Modal";
-import SelectField from "../Forms/SelectField";
-import DimensionChooser from "../Dimensions/DimensionChooser";
-import { AttributionModelTooltip } from "../Experiment/AttributionModelTooltip";
-import MetricSelector from "../Experiment/MetricSelector";
+} from "@/components/Experiment/MetricsSelector";
+import Field from "@/components/Forms/Field";
+import Modal from "@/components/Modal";
+import SelectField from "@/components/Forms/SelectField";
+import DimensionChooser from "@/components/Dimensions/DimensionChooser";
+import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
+import MetricSelector from "@/components/Experiment/MetricSelector";
 
 export default function ConfigureReport({
   report,

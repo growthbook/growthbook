@@ -4,8 +4,8 @@ import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Modal from "../Modal";
-import SelectField from "../Forms/SelectField";
+import Modal from "@/components/Modal";
+import SelectField from "@/components/Forms/SelectField";
 import ImportExperimentList from "./ImportExperimentList";
 import NewExperimentForm from "./NewExperimentForm";
 

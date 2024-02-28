@@ -4,10 +4,10 @@ import { format } from "date-fns";
 import { format as formatTimeZone } from "date-fns-tz";
 import React, { useEffect, useState } from "react";
 import { useUser } from "@/services/UserContext";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
-import Toggle from "../Forms/Toggle";
-import UpgradeLabel from "../Marketing/UpgradeLabel";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import Toggle from "@/components/Forms/Toggle";
+import UpgradeLabel from "@/components/Marketing/UpgradeLabel";
 import styles from "./ScheduleInputs.module.scss";
 
 interface Props {

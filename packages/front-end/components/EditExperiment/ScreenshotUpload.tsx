@@ -10,7 +10,7 @@ import clsx from "clsx";
 import { BiImageAdd } from "react-icons/bi";
 import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
-import LoadingOverlay from "../LoadingOverlay";
+import LoadingOverlay from "@/components/LoadingOverlay";
 import styles from "./ScreenshotUpload.module.scss";
 
 type props = {

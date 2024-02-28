@@ -2,10 +2,10 @@ import { ChangeEventHandler, FC, useState } from "react";
 import { BigQueryConnectionParams } from "back-end/types/integrations/bigquery";
 import { isCloud } from "@/services/env";
 import { useAuth } from "@/services/auth";
-import Field from "../Forms/Field";
-import Tooltip from "../Tooltip/Tooltip";
-import SelectField from "../Forms/SelectField";
-import Button from "../Button";
+import Field from "@/components/Forms/Field";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import SelectField from "@/components/Forms/SelectField";
+import Button from "@/components/Button";
 
 const BigQueryForm: FC<{
   params: Partial<BigQueryConnectionParams>;

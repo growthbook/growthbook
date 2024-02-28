@@ -2,7 +2,7 @@ import clsx from "clsx";
 import { ReactElement } from "react";
 import { FaCheck } from "react-icons/fa";
 import { FiArrowRight } from "react-icons/fi";
-import Button from "../Button";
+import Button from "@/components/Button";
 
 export type Props = {
   current: boolean;

@@ -4,14 +4,14 @@ import { IdeaInterface } from "back-end/types/idea";
 import { FaPlus, FaRegCheckSquare, FaRegSquare } from "react-icons/fa";
 import clsx from "clsx";
 import { date } from "shared/dates";
-import useApi from "../hooks/useApi";
-import LoadingOverlay from "../components/LoadingOverlay";
-import IdeaForm from "../components/Ideas/IdeaForm";
-import { useSearch } from "../services/search";
-import { useDefinitions } from "../services/DefinitionsContext";
-import { useUser } from "../services/UserContext";
-import SortedTags from "../components/Tags/SortedTags";
-import Field from "../components/Forms/Field";
+import useApi from "@/hooks/useApi";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import IdeaForm from "@/components/Ideas/IdeaForm";
+import { useSearch } from "@/services/search";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
+import SortedTags from "@/components/Tags/SortedTags";
+import Field from "@/components/Forms/Field";
 
 const IdeasPage = (): React.ReactElement => {
   const [includeArchived, setIncludeArchived] = useState(false);

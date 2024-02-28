@@ -1,5 +1,5 @@
 import { SDKLanguage } from "back-end/types/sdk-connection";
-import Code from "../Code";
+import Code from "@/components/SyntaxHighlighting/Code";
 
 export default function InstallationCodeSnippet({
   language,

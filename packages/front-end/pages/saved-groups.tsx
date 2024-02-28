@@ -6,10 +6,10 @@ import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
-import LoadingOverlay from "../components/LoadingOverlay";
-import { useDefinitions } from "../services/DefinitionsContext";
-import Modal from "../components/Modal";
-import HistoryTable from "../components/HistoryTable";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import Modal from "@/components/Modal";
+import HistoryTable from "@/components/HistoryTable";
 
 export const getSavedGroupMessage = (
   featuresUsingSavedGroups: Set<string> | undefined
