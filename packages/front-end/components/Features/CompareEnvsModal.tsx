@@ -11,6 +11,7 @@ import Tooltip from "../Tooltip/Tooltip";
 interface Props {
   isDraft: boolean;
   isLocked: boolean;
+  envs: string[];
   feature: FeatureInterface;
   close: () => void;
   version: number;
@@ -23,6 +24,7 @@ type PartialRule = Omit<FeatureRule, "id">;
 export default function CompareRulesModal({
   isLocked,
   isDraft,
+  envs,
   feature,
   close,
   version,
@@ -33,7 +35,6 @@ export default function CompareRulesModal({
   const [env2, setEnv2] = useState<string | null>(null);
   const [copyingRules, setCopyingRules] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const environments = Object.keys(feature.environmentSettings); // MKTODO: Is this right? Where is dev coming from?
   const { apiCall } = useAuth();
 
   async function handleCopyingRules(
@@ -66,7 +67,7 @@ export default function CompareRulesModal({
     setCopyingRules(false);
   }
 
-  const options = environments.map((env) => ({
+  const options = envs.map((env) => ({
     label: `${env} (${feature.environmentSettings[env].rules.length} rules)`,
     value: env,
   }));
