@@ -3,9 +3,9 @@ import { useEffect, useState } from "react";
 import ReactDiffViewer from "react-diff-viewer";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
-import Modal from "../Modal";
-import SelectField from "../Forms/SelectField";
-import Tooltip from "../Tooltip/Tooltip";
+import Modal from "@/components/Modal";
+import SelectField from "@/components/Forms/SelectField";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 interface Props {
   feature: FeatureInterface;

@@ -4,9 +4,9 @@ import ReactDiffViewer from "react-diff-viewer";
 import { FaRedo, FaRegCopy } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
-import Modal from "../Modal";
-import SelectField from "../Forms/SelectField";
-import Tooltip from "../Tooltip/Tooltip";
+import Modal from "@/components/Modal";
+import SelectField from "@/components/Forms/SelectField";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 interface Props {
   isDraft: boolean;
@@ -31,8 +31,8 @@ export default function CompareRulesModal({
   setVersion,
   mutate,
 }: Props) {
-  const [env1, setEnv1] = useState<string | null>(null);
-  const [env2, setEnv2] = useState<string | null>(null);
+  const [env1, setEnv1] = useState<string>("");
+  const [env2, setEnv2] = useState<string>("");
   const [copyingRules, setCopyingRules] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { apiCall } = useAuth();
@@ -99,10 +99,9 @@ export default function CompareRulesModal({
         <div className="row">
           <div className="col-12">
             <SelectField
-              type="dropdown"
               name="environment"
               label="Select Source Environment"
-              value={env1 || ""}
+              value={env1}
               placeholder="Select Environment..."
               options={options.filter((env) => env.value !== env2)}
               onChange={(value) => {
@@ -114,10 +113,9 @@ export default function CompareRulesModal({
           </div>
           <div className="col-12">
             <SelectField
-              type="dropdown"
               name="environment"
               label="Select Target Environment"
-              value={env2 || ""}
+              value={env2}
               placeholder="Select Environment..."
               options={options.filter((env) => env.value !== env1)}
               onChange={(value) => {
@@ -138,7 +136,7 @@ export default function CompareRulesModal({
                     ? "update the current draft version"
                     : "create a new draft version"}{" "}
                   and rules from <strong>{env1}</strong> will overwrite any
-                  existing rules on <strong>{env2}</strong>.{/* </> */}
+                  existing rules on <strong>{env2}</strong>.
                 </div>
               )}
               <div className="d-flex align-items-center justify-content-between w-100">
@@ -172,8 +170,8 @@ export default function CompareRulesModal({
                     disabled={copyingRules}
                     onClick={() => {
                       // MKTODO: This isn't resetting the SelectField's value prop
-                      setEnv1(null);
-                      setEnv2(null);
+                      setEnv1("");
+                      setEnv2("");
                     }}
                   >
                     {" "}

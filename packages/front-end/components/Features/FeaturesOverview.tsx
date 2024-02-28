@@ -65,7 +65,7 @@ import FixConflictsModal from "@/components/Features/FixConflictsModal";
 import Revisionlog from "@/components/Features/RevisionLog";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
-import MoreMenu from "../Dropdown/MoreMenu";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
