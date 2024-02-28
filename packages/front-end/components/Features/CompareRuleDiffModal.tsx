@@ -104,8 +104,8 @@ export default function CompareRuleDiffModal({
       size="max"
     >
       <div className="p-2">
-        <div className="row">
-          <div className="col-12">
+        <div>
+          <div>
             <SelectField
               name="environment"
               label="Select Source Environment"
@@ -120,7 +120,7 @@ export default function CompareRuleDiffModal({
               disabled={copyingRules}
             />
           </div>
-          <div className="col-12">
+          <div>
             <SelectField
               name="environment"
               label="Select Target Environment"
@@ -139,9 +139,9 @@ export default function CompareRuleDiffModal({
         {env1 && env2 ? (
           <>
             {canEdit ? (
-              <div className="row px-2">
+              <div>
                 {isLocked ? null : (
-                  <div className="alert alert-secondary col-12">
+                  <div className="alert alert-secondary">
                     If copied, we&apos;ll{" "}
                     {isDraft
                       ? "update the current draft version"
@@ -177,7 +177,7 @@ export default function CompareRuleDiffModal({
                   </Tooltip>
                   <Tooltip body="Reset environment selection to trigger a new comparison.">
                     <button
-                      className="btn btn-link text-decoration-none"
+                      className="btn btn-link text-decoration-none pr-0"
                       disabled={copyingRules}
                       onClick={() => {
                         setEnv1("");
