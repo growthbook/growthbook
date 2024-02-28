@@ -1,13 +1,12 @@
 import * as bq from "@google-cloud/bigquery";
 import { bigQueryCreateTableOptions } from "enterprise";
 import { getValidDate } from "shared/dates";
-import { format } from "../util/sql";
+import { format, FormatDialect } from "../util/sql";
 import { decryptDataSourceParams } from "../services/datasource";
 import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { IS_CLOUD } from "../util/secrets";
 import {
   ExternalIdCallback,
-  FormatDialect,
   InformationSchema,
   QueryResponse,
   RawInformationSchema,

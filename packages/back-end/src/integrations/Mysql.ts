@@ -2,7 +2,8 @@ import mysql, { RowDataPacket } from "mysql2/promise";
 import { ConnectionOptions } from "mysql2";
 import { MysqlConnectionParams } from "../../types/integrations/mysql";
 import { decryptDataSourceParams } from "../services/datasource";
-import { FormatDialect, QueryResponse } from "../types/Integration";
+import { FormatDialect } from "../util/sql";
+import { QueryResponse } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Mysql extends SqlIntegration {

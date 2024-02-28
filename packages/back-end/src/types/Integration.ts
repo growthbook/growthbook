@@ -1,6 +1,5 @@
 import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { FormatOptions } from "sql-formatter";
 import {
   DataSourceProperties,
   DataSourceSettings,
@@ -11,12 +10,26 @@ import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 import { MetricInterface, MetricType } from "../../types/metric";
 import { QueryStatistics } from "../../types/query";
 import { SegmentInterface } from "../../types/segment";
+import { FormatDialect } from "../util/sql";
 import { TemplateVariables } from "../../types/sql";
-import { FactTableMap, FactMetricInterface } from "../../types/fact-table";
-
-export type FormatDialect = FormatOptions["language"] | "";
+import { FactTableMap } from "../models/FactTableModel";
+import { FactMetricInterface } from "../../types/fact-table";
 
 export type ExternalIdCallback = (id: string) => Promise<void>;
+
+export class MissingDatasourceParamsError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "MissingDatasourceParamsError";
+  }
+}
+
+export class DataSourceNotSupportedError extends Error {
+  constructor() {
+    super("This data source is not supported yet.");
+    this.name = "DataSourceNotSupportedError";
+  }
+}
 
 export type MetricAggregationType = "pre" | "post" | "noWindow";
 

@@ -2,10 +2,10 @@ import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentSnapshotAnalysis } from "../../types/experiment-snapshot";
 import { Queries, QueryStatus } from "../../types/query";
 import { ExperimentReportResults, ReportInterface } from "../../types/report";
+import { FactTableMap } from "../models/FactTableModel";
 import { getReportById, updateReport } from "../models/ReportModel";
 import { getSnapshotSettingsFromReportArgs } from "../services/reports";
 import { analyzeExperimentResults } from "../services/stats";
-import { FactTableMap } from "../../types/fact-table";
 import {
   ExperimentResultsQueryParams,
   startExperimentResultQueries,

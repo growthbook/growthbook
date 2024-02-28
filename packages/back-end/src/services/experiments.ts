@@ -37,8 +37,6 @@ import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   MetricForSnapshot,
-  MetricSettingsForStatsEngine,
-  QueryResultsForStatsEngine,
   SnapshotVariation,
 } from "../../types/experiment-snapshot";
 import {
@@ -100,15 +98,17 @@ import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRu
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
 import { getFactMetric } from "../models/FactMetricModel";
+import { FactTableMap } from "../models/FactTableModel";
 import { StatsEngine } from "../../types/stats";
 import { getFeaturesByIds } from "../models/FeatureModel";
 import { getFeatureRevisionsByFeatureIds } from "../models/FeatureRevisionModel";
 import { ExperimentRefRule, FeatureRule } from "../../types/feature";
-import { FactTableMap } from "../../types/fact-table";
 import { ApiReqContext } from "../../types/api";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import {
+  MetricSettingsForStatsEngine,
+  QueryResultsForStatsEngine,
   analyzeExperimentMetric,
   analyzeExperimentResults,
   getMetricSettingsForStatsEngine,

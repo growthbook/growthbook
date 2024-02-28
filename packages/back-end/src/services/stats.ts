@@ -31,20 +31,56 @@ import {
 import { checkSrm } from "../util/stats";
 import { logger } from "../util/logger";
 import {
-  AnalysisSettingsForStatsEngine,
-  DataForStatsEngine,
   ExperimentMetricAnalysisParams,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
   ExperimentSnapshotTraffic,
   ExperimentSnapshotTrafficDimension,
-  MetricSettingsForStatsEngine,
-  QueryResultsForStatsEngine,
   SnapshotSettingsVariation,
 } from "../../types/experiment-snapshot";
 import { QueryMap } from "../queryRunners/QueryRunner";
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "../integrations/SqlIntegration";
 import { applyMetricOverrides } from "../util/integration";
+
+// Keep these interfaces in sync with gbstats
+export interface AnalysisSettingsForStatsEngine {
+  var_names: string[];
+  var_ids: string[];
+  weights: number[];
+  baseline_index: number;
+  dimension: string;
+  stats_engine: string;
+  sequential_testing_enabled: boolean;
+  sequential_tuning_parameter: number;
+  difference_type: string;
+  phase_length_days: number;
+  alpha: number;
+  max_dimensions: number;
+}
+
+export interface MetricSettingsForStatsEngine {
+  id: string;
+  name: string;
+  inverse: boolean;
+  statistic_type: "mean" | "ratio" | "mean_ra";
+  main_metric_type: "count" | "binomial";
+  denominator_metric_type?: "count" | "binomial";
+  covariate_metric_type?: "count" | "binomial";
+}
+
+export interface QueryResultsForStatsEngine {
+  rows:
+    | ExperimentMetricQueryResponseRows
+    | ExperimentFactMetricsQueryResponseRows;
+  metrics: (string | null)[];
+  sql?: string;
+}
+
+export interface DataForStatsEngine {
+  analyses: AnalysisSettingsForStatsEngine[];
+  metrics: Record<string, MetricSettingsForStatsEngine>;
+  query_results: QueryResultsForStatsEngine[];
+}
 
 export const MAX_DIMENSIONS = 20;
 

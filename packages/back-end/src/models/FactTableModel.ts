@@ -10,7 +10,6 @@ import {
   UpdateFactFilterProps,
   UpdateColumnProps,
   UpdateFactTableProps,
-  FactTableMap,
 } from "../../types/fact-table";
 import { ApiFactTable, ApiFactTableFilter } from "../../types/openapi";
 import { ReqContext } from "../../types/organization";
@@ -81,6 +80,8 @@ export async function getAllFactTablesForOrganization(
     .map((doc) => toInterface(doc))
     .filter((f) => hasReadAccess(context.readAccessFilter, f.projects || []));
 }
+
+export type FactTableMap = Map<string, FactTableInterface>;
 
 export async function getFactTableMap(
   context: ReqContext | ApiReqContext

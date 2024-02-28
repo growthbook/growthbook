@@ -6,11 +6,11 @@ import {
   getInformationSchemaById,
   updateInformationSchemaById,
 } from "../models/InformationSchemaModel";
-import { InformationSchemaError } from "../types/Integration";
 import {
   DataSourceNotSupportedError,
+  InformationSchemaError,
   MissingDatasourceParamsError,
-} from "../integrations/SqlIntegration";
+} from "../types/Integration";
 import { getContextForAgendaJobByOrgId } from "../services/organizations";
 import { trackJob } from "../services/otel";
 

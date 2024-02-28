@@ -2,7 +2,8 @@ import { snowflakeCreateTableOptions } from "enterprise";
 import { SnowflakeConnectionParams } from "../../types/integrations/snowflake";
 import { decryptDataSourceParams } from "../services/datasource";
 import { runSnowflakeQuery } from "../services/snowflake";
-import { QueryResponse, FormatDialect } from "../types/Integration";
+import { QueryResponse } from "../types/Integration";
+import { FormatDialect } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Snowflake extends SqlIntegration {

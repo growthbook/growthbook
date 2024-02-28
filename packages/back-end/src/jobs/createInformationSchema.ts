@@ -5,11 +5,11 @@ import {
   updateInformationSchemaById,
 } from "../models/InformationSchemaModel";
 import { initializeDatasourceInformationSchema } from "../services/informationSchema";
-import { InformationSchemaError } from "../types/Integration";
 import {
   DataSourceNotSupportedError,
+  InformationSchemaError,
   MissingDatasourceParamsError,
-} from "../integrations/SqlIntegration";
+} from "../types/Integration";
 import { getContextForAgendaJobByOrgId } from "../services/organizations";
 import { trackJob } from "../services/otel";
 

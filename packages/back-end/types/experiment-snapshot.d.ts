@@ -1,7 +1,7 @@
 import {
-  ExperimentFactMetricsQueryResponseRows,
-  ExperimentMetricQueryResponseRows,
-} from "../src/types/Integration";
+  MetricSettingsForStatsEngine,
+  QueryResultsForStatsEngine,
+} from "../src/services/stats";
 import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
 import { DifferenceType, StatsEngine } from "./stats";
@@ -14,46 +14,6 @@ import {
 import { DimensionInterface } from "./dimension";
 import { AttributionModel } from "./experiment";
 import { MetricWindowSettings } from "./fact-table";
-
-// Keep these interfaces in sync with gbstats
-export interface AnalysisSettingsForStatsEngine {
-  var_names: string[];
-  var_ids: string[];
-  weights: number[];
-  baseline_index: number;
-  dimension: string;
-  stats_engine: string;
-  sequential_testing_enabled: boolean;
-  sequential_tuning_parameter: number;
-  difference_type: string;
-  phase_length_days: number;
-  alpha: number;
-  max_dimensions: number;
-}
-
-export interface MetricSettingsForStatsEngine {
-  id: string;
-  name: string;
-  inverse: boolean;
-  statistic_type: "mean" | "ratio" | "mean_ra";
-  main_metric_type: "count" | "binomial";
-  denominator_metric_type?: "count" | "binomial";
-  covariate_metric_type?: "count" | "binomial";
-}
-
-export interface QueryResultsForStatsEngine {
-  rows:
-    | ExperimentMetricQueryResponseRows
-    | ExperimentFactMetricsQueryResponseRows;
-  metrics: (string | null)[];
-  sql?: string;
-}
-
-export interface DataForStatsEngine {
-  analyses: AnalysisSettingsForStatsEngine[];
-  metrics: Record<string, MetricSettingsForStatsEngine>;
-  query_results: QueryResultsForStatsEngine[];
-}
 
 export interface SnapshotMetric {
   value: number;

@@ -38,9 +38,10 @@ For more complex actions that do multiple things, you may need to call `req.chec
 
 ### Adding new permissions
 
-In `src/util/permission-constants.ts`, add the permission to either the `GLOBAL_PERMISSIONS`, `PROJECT_SCOPED_PERMISSIONS`, or `ENV_SCOPED_PERMISSIONS` constant.
+If you need to add new permissions, you'll need to update the `src/util/organization.util.ts` file in a couple places:
 
-Update `src/util/organization.util.ts` file `getRoles` function, add the permission to all roles that should have access to it.
+- Add your permission to either the `GLOBAL_PERMISSIONS`, `PROJECT_SCOPED_PERMISSIONS`, or `ENV_SCOPED_PERMISSIONS` constant
+- In the `getRoles` function, add the permission to all roles that should have access to it
 
 You'll also need to update the front-end `services/UserContext.tsx` and add it to the `DEFAULT_PERMISSIONS` constant.
 
