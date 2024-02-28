@@ -219,7 +219,7 @@ export default function ExperimentSettings({
                 Run traffic query by default
               </label>
               <Toggle
-                id={"toggle-runHealthTrafficQuery"}
+                id="toggle-runHealthTrafficQuery"
                 value={!!form.watch("runHealthTrafficQuery")}
                 setValue={(value) => {
                   form.setValue("runHealthTrafficQuery", value);
@@ -240,7 +240,7 @@ export default function ExperimentSettings({
                 }}
                 max="0.1"
                 min="0.00001"
-                className={`ml-2`}
+                className="ml-2"
                 containerClassName="mb-3"
                 append=""
                 disabled={hasFileConfig()}

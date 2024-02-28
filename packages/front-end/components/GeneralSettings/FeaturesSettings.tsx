@@ -102,7 +102,7 @@ export default function FeaturesSettings() {
         </div>
         <div>
           <Toggle
-            id={"toggle-killswitchConfirmation"}
+            id="toggle-killswitchConfirmation"
             value={!!form.watch("killswitchConfirmation")}
             setValue={(value) => {
               form.setValue("killswitchConfirmation", value);
@@ -110,7 +110,7 @@ export default function FeaturesSettings() {
           />
         </div>
         <div className="my-3">
-          <PremiumTooltip commercialFeature={"code-references"}>
+          <PremiumTooltip commercialFeature="code-references">
             <div
               className="d-inline-block h4 mt-4 mb-0"
               id="configure-code-refs"
@@ -126,7 +126,7 @@ export default function FeaturesSettings() {
           </div>
           <div className="my-2">
             <Toggle
-              id={"toggle-codeReferences"}
+              id="toggle-codeReferences"
               value={!!form.watch("codeReferencesEnabled")}
               setValue={(value) => {
                 form.setValue("codeReferencesEnabled", value);

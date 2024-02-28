@@ -89,7 +89,7 @@ export default function StickyBucketingSettings() {
                     </Tooltip>
                   </label>
                   <Toggle
-                    id={"toggle-useFallbackAttributes"}
+                    id="toggle-useFallbackAttributes"
                     value={!!watch("useFallbackAttributes")}
                     setValue={(value) =>
                       setValue("useFallbackAttributes", value)
