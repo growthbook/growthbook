@@ -71,7 +71,7 @@ import PrerequisiteStatusRow, {
 } from "./PrerequisiteStatusRow";
 import { PrerequisiteAlerts } from "./PrerequisiteTargetingField";
 import PrerequisiteModal from "./PrerequisiteModal";
-import CompareEnvsModal from "./CompareEnvsModal";
+import CompareRuleDiffModal from "./CompareRuleDiffModal";
 
 export default function FeaturesOverview({
   baseFeature,
@@ -263,7 +263,7 @@ export default function FeaturesOverview({
   return (
     <>
       {showCompareView && (
-        <CompareEnvsModal
+        <CompareRuleDiffModal
           envs={envs}
           isLocked={isLocked}
           isDraft={isDraft}
