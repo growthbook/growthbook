@@ -265,6 +265,7 @@ export default function FeaturesOverview({
       {showCompareView && (
         <CompareRuleDiffModal
           envs={envs}
+          canEdit={canEdit}
           isLocked={isLocked}
           isDraft={isDraft}
           close={() => setShowCompareView(false)}
@@ -907,24 +908,23 @@ export default function FeaturesOverview({
               feature={feature}
             />
           </div>
-
           <div className="d-flex w-100 justify-content-between align-items-center">
             <h3>Override Rules</h3>
             <MoreMenu>
               <button
-                // className="btn btn-link"
                 className="dropdown-item"
                 onClick={() => setShowCompareView(true)}
               >
                 Compare Environments
               </button>
-              <button
-                // className="btn btn-link"
-                className="dropdown-item"
-                onClick={() => setShowCompareView(true)}
-              >
-                Copy Environment Rules
-              </button>
+              {canEdit ? (
+                <button
+                  className="dropdown-item"
+                  onClick={() => setShowCompareView(true)}
+                >
+                  Copy Environment Rules
+                </button>
+              ) : null}
             </MoreMenu>
           </div>
           <p>

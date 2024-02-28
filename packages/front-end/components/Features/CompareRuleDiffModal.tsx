@@ -11,6 +11,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 interface Props {
   isDraft: boolean;
   isLocked: boolean;
+  canEdit: boolean;
   envs: string[];
   feature: FeatureInterface;
   close: () => void;
@@ -23,6 +24,7 @@ type PartialRule = Omit<FeatureRule, "id">;
 
 export default function CompareRuleDiffModal({
   isLocked,
+  canEdit,
   isDraft,
   envs,
   feature,
@@ -68,14 +70,16 @@ export default function CompareRuleDiffModal({
   }
 
   const options = envs.map((env) => ({
-    label: `${env} (${feature.environmentSettings[env].rules.length} rules)`,
+    label: `${env} (${
+      feature.environmentSettings[env]?.rules.length || "0"
+    } rules)`,
     value: env,
   }));
 
   function getDiffString(environment: string): string {
     const updatedRules: PartialRule[] = feature.environmentSettings[
       environment
-    ].rules.map((rule: FeatureRule) => {
+    ]?.rules.map((rule: FeatureRule) => {
       // We don't want to include rule.ids in the diff as they'll always be different
       const partialRule: Omit<FeatureRule, "id"> & { id?: string } = {
         ...rule,
@@ -83,6 +87,10 @@ export default function CompareRuleDiffModal({
       delete partialRule.id;
       return partialRule;
     });
+
+    if (!updatedRules) {
+      return JSON.stringify([], null, 2);
+    }
 
     return JSON.stringify(updatedRules, null, 2);
   }
@@ -103,6 +111,7 @@ export default function CompareRuleDiffModal({
               label="Select Source Environment"
               initialOption="Select Environment..."
               value={env1}
+              isClearable={true}
               options={options.filter((env) => env.value !== env2)}
               onChange={(value) => {
                 setEnv1(value);
@@ -116,6 +125,7 @@ export default function CompareRuleDiffModal({
               name="environment"
               label="Select Target Environment"
               value={env2}
+              isClearable={true}
               initialOption="Select Environment..."
               options={options.filter((env) => env.value !== env1)}
               onChange={(value) => {
@@ -128,57 +138,59 @@ export default function CompareRuleDiffModal({
         </div>
         {env1 && env2 ? (
           <>
-            <div className="row px-2">
-              {isLocked ? null : (
-                <div className="alert alert-secondary col-12">
-                  If copied, we&apos;ll{" "}
-                  {isDraft
-                    ? "update the current draft version"
-                    : "create a new draft version"}{" "}
-                  and rules from <strong>{env1}</strong> will overwrite any
-                  existing rules on <strong>{env2}</strong>.
+            {canEdit ? (
+              <div className="row px-2">
+                {isLocked ? null : (
+                  <div className="alert alert-secondary col-12">
+                    If copied, we&apos;ll{" "}
+                    {isDraft
+                      ? "update the current draft version"
+                      : "create a new draft version"}{" "}
+                    and rules from <strong>{env1}</strong> will overwrite any
+                    existing rules on <strong>{env2}</strong>.
+                  </div>
+                )}
+                <div className="d-flex align-items-center justify-content-between w-100">
+                  <Tooltip
+                    body="This version is locked and cannot be edited."
+                    shouldDisplay={isLocked}
+                  >
+                    <button
+                      className="btn btn-outline-primary"
+                      onClick={async () =>
+                        await handleCopyingRules(
+                          env2,
+                          feature.environmentSettings[env1].rules
+                        )
+                      }
+                      disabled={
+                        getDiffString(env1) === getDiffString(env2) ||
+                        copyingRules ||
+                        isLocked
+                      }
+                    >
+                      <FaRegCopy />
+                      {copyingRules
+                        ? " Copying rules..."
+                        : " Copy Rules to Target"}
+                    </button>
+                  </Tooltip>
+                  <Tooltip body="Reset environment selection to trigger a new comparison.">
+                    <button
+                      className="btn btn-link text-decoration-none"
+                      disabled={copyingRules}
+                      onClick={() => {
+                        setEnv1("");
+                        setEnv2("");
+                      }}
+                    >
+                      {" "}
+                      <FaRedo size={10} /> Compare New Selection
+                    </button>
+                  </Tooltip>
                 </div>
-              )}
-              <div className="d-flex align-items-center justify-content-between w-100">
-                <Tooltip
-                  body="This version is locked and cannot be edited."
-                  shouldDisplay={isLocked}
-                >
-                  <button
-                    className="btn btn-outline-primary"
-                    onClick={async () =>
-                      await handleCopyingRules(
-                        env2,
-                        feature.environmentSettings[env1].rules
-                      )
-                    }
-                    disabled={
-                      getDiffString(env1) === getDiffString(env2) ||
-                      copyingRules ||
-                      isLocked
-                    }
-                  >
-                    <FaRegCopy />
-                    {copyingRules
-                      ? " Copying rules..."
-                      : " Copy Rules to Target"}
-                  </button>
-                </Tooltip>
-                <Tooltip body="Reset environment selection to trigger a new comparison.">
-                  <button
-                    className="btn btn-link text-decoration-none"
-                    disabled={copyingRules}
-                    onClick={() => {
-                      setEnv1("");
-                      setEnv2("");
-                    }}
-                  >
-                    {" "}
-                    <FaRedo size={10} /> Compare New Selection
-                  </button>
-                </Tooltip>
               </div>
-            </div>
+            ) : null}
             {error ? (
               <div className="alert alert-danger mt-3">{error}</div>
             ) : null}
