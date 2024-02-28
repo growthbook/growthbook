@@ -9,6 +9,8 @@ import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip/Tooltip";
 
 interface Props {
+  isDraft: boolean;
+  isLocked: boolean;
   feature: FeatureInterface;
   close: () => void;
   version: number;
@@ -19,6 +21,8 @@ interface Props {
 type PartialRule = Omit<FeatureRule, "id">;
 
 export default function CompareRulesModal({
+  isLocked,
+  isDraft,
   feature,
   close,
   version,
@@ -28,6 +32,7 @@ export default function CompareRulesModal({
   const [env1, setEnv1] = useState<string | null>(null);
   const [env2, setEnv2] = useState<string | null>(null);
   const [copyingRules, setCopyingRules] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const environments = Object.keys(feature.environmentSettings); // MKTODO: Is this right? Where is dev coming from?
   const { apiCall } = useAuth();
 
@@ -36,23 +41,28 @@ export default function CompareRulesModal({
     newRules: FeatureRule[]
   ) {
     setCopyingRules(true);
-    const res = await apiCall<{ version: number }>(
-      `/feature/${feature.id}/${version}/copy-rule-set`,
-      {
-        method: "PUT",
-        body: JSON.stringify({
-          targetEnv,
-          newRules,
-        }),
-      }
-    );
-    track("Clone Feature Rule Set", {
-      sourceEnvironment: env1,
-      targetEnv,
-      rules: newRules,
-    });
-    await mutate();
-    res.version && setVersion(res.version);
+    setError(null);
+    try {
+      const res = await apiCall<{ version: number }>(
+        `/feature/${feature.id}/${version}/copy-rule-set`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            targetEnv,
+            newRules,
+          }),
+        }
+      );
+      track("Clone Feature Rule Set", {
+        sourceEnvironment: env1,
+        targetEnv,
+        rules: newRules,
+      });
+      await mutate();
+      res.version && setVersion(res.version);
+    } catch (e) {
+      setError(e.message);
+    }
     setCopyingRules(false);
   }
 
@@ -80,7 +90,7 @@ export default function CompareRulesModal({
     <Modal
       close={close}
       closeCta="Close"
-      header="Compare Environment Rules"
+      header="Compare Rules Across Environments"
       open={true}
       size="max"
     >
@@ -94,7 +104,10 @@ export default function CompareRulesModal({
               value={env1 || ""}
               placeholder="Select Environment..."
               options={options.filter((env) => env.value !== env2)}
-              onChange={(value) => setEnv1(value)}
+              onChange={(value) => {
+                setEnv1(value);
+                setError(null);
+              }}
               disabled={copyingRules}
             />
           </div>
@@ -106,7 +119,10 @@ export default function CompareRulesModal({
               value={env2 || ""}
               placeholder="Select Environment..."
               options={options.filter((env) => env.value !== env1)}
-              onChange={(value) => setEnv2(value)}
+              onChange={(value) => {
+                setEnv2(value);
+                setError(null);
+              }}
               disabled={copyingRules}
             />
           </div>
@@ -114,26 +130,41 @@ export default function CompareRulesModal({
         {env1 && env2 ? (
           <>
             <div className="row px-2">
-              <div className="alert alert-secondary col-12">
-                If copied, rules from <strong>{env1}</strong> will overwrite any
-                existing rules on <strong>{env2}</strong>.
-              </div>
+              {isLocked ? null : (
+                <div className="alert alert-secondary col-12">
+                  If copied, we&apos;ll{" "}
+                  {isDraft
+                    ? "update the current draft version"
+                    : "create a new draft version"}{" "}
+                  and rules from <strong>{env1}</strong> will overwrite any
+                  existing rules on <strong>{env2}</strong>.{/* </> */}
+                </div>
+              )}
               <div className="d-flex align-items-center justify-content-between w-100">
-                <button
-                  className="btn btn-outline-primary"
-                  onClick={async () =>
-                    await handleCopyingRules(
-                      env2,
-                      feature.environmentSettings[env1].rules
-                    )
-                  }
-                  disabled={
-                    getDiffString(env1) === getDiffString(env2) || copyingRules
-                  }
+                <Tooltip
+                  body="This version is locked and cannot be edited."
+                  shouldDisplay={isLocked}
                 >
-                  <FaRegCopy />
-                  {copyingRules ? " Copying rules..." : " Copy Rules to Target"}
-                </button>
+                  <button
+                    className="btn btn-outline-primary"
+                    onClick={async () =>
+                      await handleCopyingRules(
+                        env2,
+                        feature.environmentSettings[env1].rules
+                      )
+                    }
+                    disabled={
+                      getDiffString(env1) === getDiffString(env2) ||
+                      copyingRules ||
+                      isLocked
+                    }
+                  >
+                    <FaRegCopy />
+                    {copyingRules
+                      ? " Copying rules..."
+                      : " Copy Rules to Target"}
+                  </button>
+                </Tooltip>
                 <Tooltip body="Reset environment selection to trigger a new comparison.">
                   <button
                     className="btn btn-link text-decoration-none"
@@ -150,12 +181,18 @@ export default function CompareRulesModal({
                 </Tooltip>
               </div>
             </div>
+            {error ? (
+              <div className="alert alert-danger mt-3">{error}</div>
+            ) : null}
             <div className="my-3 border rounded">
               <div className="bg-light w-100 p-2">
-                <strong>Environments Compared</strong>
+                <strong>Environment Rules Compared</strong>
               </div>
               {getDiffString(env1) === getDiffString(env2) ? (
-                <div className="p-3">No difference between environments.</div>
+                <div className="p-3">
+                  The rules for <strong>{env1}</strong> and{" "}
+                  <strong>{env2}</strong> are the same.
+                </div>
               ) : (
                 <div className="d-flex w-100">
                   <ReactDiffViewer

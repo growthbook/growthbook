@@ -1130,7 +1130,7 @@ export async function putRuleSet(
   }
 
   if (!environments.includes(targetEnv)) {
-    throw new Error("Invalid environment bro");
+    throw new Error(`Invalid environment: ${targetEnv} does not exist.`);
   }
 
   req.checkPermissions("manageFeatures", feature.project);

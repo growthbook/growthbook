@@ -264,6 +264,8 @@ export default function FeaturesOverview({
     <>
       {showCompareView && (
         <CompareEnvsModal
+          isLocked={isLocked}
+          isDraft={isDraft}
           close={() => setShowCompareView(false)}
           feature={feature}
           version={currentVersion}
