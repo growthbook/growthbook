@@ -376,7 +376,7 @@ export abstract class BaseModel<T extends BaseSchema> {
   }
 
   protected async _deleteOne(doc: z.infer<T>) {
-    // TODO: permission checks
+    this.checkWritePermissions(this._getAffectedProjects(doc));
 
     await this.beforeDelete(doc);
     await this._dangerousGetCollection().deleteOne({
@@ -389,7 +389,7 @@ export abstract class BaseModel<T extends BaseSchema> {
     await this.afterDelete(doc);
   }
 
-  // eslint-disable-next-line
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _removeMongooseFields(doc: any) {
     return omit(doc, ["__v", "_id"]) as unknown;
   }
