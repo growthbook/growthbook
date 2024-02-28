@@ -3,13 +3,14 @@ import {
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { FaDesktop, FaLink, FaPlusCircle, FaRegFlag } from "react-icons/fa";
+import { FaLink, FaPlusCircle } from "react-icons/fa";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import usePermissions from "@/hooks/usePermissions";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
 import track from "@/services/track";
 import { StartExperimentBanner } from "../StartExperimentBanner";
+import AddLinkedChangesBanner from "../AddLinkedChangesBanner";
 import TargetingInfo from "./TargetingInfo";
 import { ExperimentTab } from ".";
 
@@ -59,13 +60,6 @@ export default function Implementation({
     if (experiment.status === "draft") {
       return (
         <>
-          {/* <AddLinkedChangesBanner
-            experiment={experiment}
-            numLinkedChanges={0}
-            setFeatureModal={setFeatureModal}
-            setVisualEditorModal={setVisualEditorModal}
-            setUrlRedirectModal={setUrlRedirectModal}
-          /> */}
           <div className="mt-1">
             <StartExperimentBanner
               experiment={experiment}
@@ -78,104 +72,13 @@ export default function Implementation({
               className="appbox p-4"
             />
           </div>
-          <div className="appbox p-4 my-4">
-            <h4>Select Experiment Type</h4>
-            <p>Configure options for your selected experiment type.</p>
-            <hr />
-            <div className="d-flex">
-              <span
-                className="mr-3"
-                style={{
-                  background: "#6E56CF15",
-                  borderRadius: "50%",
-                  height: "45px",
-                  width: "45px",
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
-                <FaRegFlag
-                  style={{ color: "#6E56CF", height: "24px", width: "24px" }}
-                />
-              </span>
-              <div className="flex-grow-1">
-                <div className="d-flex justify-content-between">
-                  <b>Feature Flag</b>
-                  <a href="#" onClick={() => setFeatureModal(true)}>
-                    Link Feature Flag
-                  </a>
-                </div>
-                <p className="mt-2 mb-1">
-                  Use feature flags and SDKs to make changes in your front-end,
-                  back-end or mobile application code.
-                </p>
-              </div>
-            </div>
-
-            <hr />
-            <div className="d-flex">
-              <span
-                className="mr-3"
-                style={{
-                  background: "#EBA60015",
-                  borderRadius: "50%",
-                  height: "45px",
-                  width: "45px",
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
-                <FaDesktop
-                  style={{ color: "#EBA600", height: "24px", width: "24px" }}
-                />
-              </span>
-              <div className="flex-grow-1">
-                <div className="d-flex justify-content-between">
-                  <b>Visual Editor</b>
-                  <a href="#" onClick={() => setVisualEditorModal(true)}>
-                    Launch Visual Editor
-                  </a>
-                </div>
-                <p className="mt-2 mb-1">
-                  Use our no-code browser extension to A/B test minor changes,
-                  such as headings or button text.
-                </p>
-              </div>
-            </div>
-            <hr />
-            <div className="d-flex">
-              <span
-                className="mr-3"
-                style={{
-                  background: "#11B08115",
-                  borderRadius: "50%",
-                  height: "45px",
-                  width: "45px",
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
-                <FaLink
-                  style={{ color: "#11B081", height: "24px", width: "24px" }}
-                />
-              </span>
-              <div className="flex-grow-1">
-                <div className="d-flex justify-content-between">
-                  <b>URL Redirects</b>
-                  <a href="#" onClick={() => setUrlRedirectModal(true)}>
-                    Add URL Redirects
-                  </a>
-                </div>
-                <p className="mt-2 mb-1">
-                  Use our no-code tool to A/B test URL redirects for whole
-                  pages, or to test parts of a URL.
-                </p>
-              </div>
-            </div>
-          </div>
+          <AddLinkedChangesBanner
+            experiment={experiment}
+            numLinkedChanges={0}
+            setFeatureModal={setFeatureModal}
+            setVisualEditorModal={setVisualEditorModal}
+            setUrlRedirectModal={setUrlRedirectModal}
+          />
         </>
       );
     }

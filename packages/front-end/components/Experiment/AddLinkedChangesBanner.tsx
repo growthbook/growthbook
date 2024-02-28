@@ -1,4 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { FaDesktop, FaLink, FaRegFlag } from "react-icons/fa";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
@@ -9,11 +10,13 @@ export default function AddLinkedChangesBanner({
   numLinkedChanges,
   setFeatureModal,
   setVisualEditorModal,
+  setUrlRedirectModal,
 }: {
   experiment: ExperimentInterfaceStringDates;
   numLinkedChanges: number;
   setVisualEditorModal: (state: boolean) => unknown;
   setFeatureModal: (state: boolean) => unknown;
+  setUrlRedirectModal: (state: boolean) => unknown;
 }) {
   const { hasCommercialFeature } = useUser();
   const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
@@ -24,75 +27,108 @@ export default function AddLinkedChangesBanner({
   if (numLinkedChanges > 0) return null;
 
   return (
-    <div className="alert-cool-1 text-center mb-4 px-3 py-4 position-relative">
-      <p className="h4 mb-4">
-        Implement your experiment variations using our Visual Editor, Feature
-        Flags, or URL Redirects.{" "}
-        <Tooltip
-          body={
-            <>
-              <p>
-                Use the Visual Editor to make simple visual changes to your
-                website without writing code.
-              </p>
-              <p>
-                Use Feature Flags and our SDKs to make changes within your
-                front-end, back-end, or mobile application code.
-              </p>
-              <p className="mb-0">
-                Use URL Redirects to test different versions of a page without
-                writing code.
-              </p>
-            </>
-          }
-        />
-      </p>
-      <div
-        style={{
-          margin: "0 auto",
-          maxWidth: 500,
-        }}
-      >
-        <div className="row">
-          <div className="col text-align-center">
-            {hasVisualEditorFeature ? (
-              <button
-                className="btn btn-primary btn-lg mb-3"
-                type="button"
-                onClick={() => {
-                  setVisualEditorModal(true);
-                  track("Open visual editor modal", {
-                    source: "visual-editor-ui",
-                    action: "add",
-                  });
-                }}
-              >
-                Open Visual Editor
-              </button>
-            ) : (
-              <PremiumTooltip commercialFeature={"visual-editor"}>
-                <div className="btn btn-primary btn-lg disabled">
-                  Open Visual Editor
-                </div>
-              </PremiumTooltip>
-            )}
+    <div className="appbox p-4 my-4">
+      <h4>Select Experiment Type</h4>
+      <p>Configure options for your selected experiment type.</p>
+      <hr />
+      <div className="d-flex">
+        <span
+          className="mr-3"
+          style={{
+            background: "#6E56CF15",
+            borderRadius: "50%",
+            height: "45px",
+            width: "45px",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <FaRegFlag
+            style={{ color: "#6E56CF", height: "24px", width: "24px" }}
+          />
+        </span>
+        <div className="flex-grow-1">
+          <div className="d-flex justify-content-between">
+            <b>Feature Flag</b>
+            <a href="#" onClick={() => setFeatureModal(true)}>
+              Link Feature Flag
+            </a>
           </div>
-          <div className="col text-align-center">
-            <button
-              className="btn btn-primary btn-lg mb-3"
-              type="button"
+          <p className="mt-2 mb-1">
+            Use feature flags and SDKs to make changes in your front-end,
+            back-end or mobile application code.
+          </p>
+        </div>
+      </div>
+
+      <hr />
+      <div className="d-flex">
+        <span
+          className="mr-3"
+          style={{
+            background: "#EBA60015",
+            borderRadius: "50%",
+            height: "45px",
+            width: "45px",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <FaDesktop
+            style={{ color: "#EBA600", height: "24px", width: "24px" }}
+          />
+        </span>
+        <div className="flex-grow-1">
+          <div className="d-flex justify-content-between">
+            <b>Visual Editor</b>
+            <a
+              href="#"
               onClick={() => {
-                setFeatureModal(true);
+                setVisualEditorModal(true);
+                track("Open visual editor modal", {
+                  source: "visual-editor-ui",
+                  action: "add",
+                });
               }}
             >
-              Add Feature Flag
-            </button>
+              Launch Visual Editor
+            </a>
           </div>
-          <div className="col text-align-center">
-            <button className="btn btn-primary btn-lg mb-3" type="button">
-              Setup URL Redirects
-            </button>
+          <p className="mt-2 mb-1">
+            Use our no-code browser extension to A/B test minor changes, such as
+            headings or button text.
+          </p>
+        </div>
+      </div>
+      <hr />
+      <div className="d-flex">
+        <span
+          className="mr-3"
+          style={{
+            background: "#11B08115",
+            borderRadius: "50%",
+            height: "45px",
+            width: "45px",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <FaLink style={{ color: "#11B081", height: "24px", width: "24px" }} />
+        </span>
+        <div className="flex-grow-1">
+          <div className="d-flex justify-content-between">
+            <b>URL Redirects</b>
+            <a href="#" onClick={() => setUrlRedirectModal(true)}>
+              Add URL Redirects
+            </a>
           </div>
+          <p className="mt-2 mb-1">
+            Use our no-code tool to A/B test URL redirects for whole pages, or
+            to test parts of a URL.
+          </p>
         </div>
       </div>
     </div>

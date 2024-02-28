@@ -6,6 +6,7 @@ import { useAuth } from "@/services/auth";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import Tooltip from "../Tooltip/Tooltip";
+import Toggle from "../Forms/Toggle";
 
 const UrlRedirectModal: FC<{
   mode: "add" | "edit";
@@ -20,8 +21,8 @@ const UrlRedirectModal: FC<{
   const form = useForm({
     defaultValues: {
       originUrl: visualChangeset?.urlPatterns[0].pattern ?? "",
-      destinationUrls: visualChangeset?.urlRedirects.map((r) => r.url) ?? [],
-      persistQueryString: true,
+      destinationUrls: visualChangeset?.urlRedirects?.map((r) => r.url) ?? [],
+      persistQueryString: visualChangeset?.persistQueryString || true,
     },
   });
 
@@ -34,7 +35,7 @@ const UrlRedirectModal: FC<{
       },
       urlRedirects: experiment.variations.map((v) => {
         return {
-          variation: v.name,
+          variation: v.id,
           url: value.destinationUrls[v.key],
         };
       }),
@@ -82,6 +83,7 @@ const UrlRedirectModal: FC<{
               "Currently, we support simple redirects for full URL paths. For Regex, use Feature Flags."
             }
             className="ml-1"
+            tipPosition="top"
           />
         </div>
 
@@ -96,9 +98,6 @@ const UrlRedirectModal: FC<{
         <hr className="mt-4 mb-3" />
         <div className="mt-3">
           <h4>Destination URLs</h4>
-          <p className="text-muted">
-            Leave blank if no redirect is desired for a variation.
-          </p>
           {experiment.variations.map((v, i) => (
             <div
               className={`mb-4 variation with-variation-label variation${i}`}
@@ -115,6 +114,19 @@ const UrlRedirectModal: FC<{
                   {i}
                 </span>{" "}
                 <h5>{v.name}</h5>
+                <div className="ml-auto">
+                  <Toggle
+                    id={`${v.name}_toggle_create`}
+                    label={"No redirect"}
+                    className="mr-3"
+                    value={false}
+                    setValue={(enabled) => undefined}
+                    type="toggle"
+                  />
+                  <label htmlFor={`${v.name}_toggle_redirect`} className="mr-2">
+                    No redirect
+                  </label>
+                </div>
               </div>
 
               <div>
