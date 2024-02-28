@@ -3,12 +3,10 @@ import { AuthRequest } from "../../types/AuthRequest";
 import { getContextFromReq } from "../../services/organizations";
 import {
   CreateFactFilterProps,
-  CreateFactMetricProps,
   CreateFactTableProps,
   FactMetricInterface,
   FactTableInterface,
   UpdateFactFilterProps,
-  UpdateFactMetricProps,
   UpdateColumnProps,
   UpdateFactTableProps,
   TestFactFilterProps,
@@ -324,7 +322,7 @@ export const getFactMetrics = async (
 };
 
 export const postFactMetric = async (
-  req: AuthRequest<CreateFactMetricProps>,
+  req: AuthRequest<unknown>,
   res: Response<{ status: 200; factMetric: FactMetricInterface }>
 ) => {
   const data = req.body;
@@ -339,7 +337,7 @@ export const postFactMetric = async (
 };
 
 export const putFactMetric = async (
-  req: AuthRequest<UpdateFactMetricProps, { id: string }>,
+  req: AuthRequest<unknown, { id: string }>,
   res: Response<{ status: 200 }>
 ) => {
   const data = req.body;

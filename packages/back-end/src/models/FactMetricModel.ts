@@ -19,6 +19,7 @@ export class FactMetricDataModel extends BaseModel<FactMetricSchema> {
     writePermission: "createMetrics",
     projectScoping: "multiple",
     globallyUniqueIds: false,
+    readonlyFields: ["datasource"],
   };
   protected migrate(legacyDoc: unknown): FactMetricInterface {
     return upgradeFactMetricDoc(legacyDoc as LegacyFactMetricInterface);

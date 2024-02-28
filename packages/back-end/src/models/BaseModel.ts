@@ -9,6 +9,7 @@ import { z } from "zod";
 import { isEqual, pick, uniq } from "lodash";
 import { ApiReqContext } from "../../types/api";
 import { Permission, ReqContext } from "../../types/organization";
+import { CreateProps, UpdateProps } from "../../types/models";
 
 export type BaseSchema = z.ZodObject<
   {
@@ -28,6 +29,7 @@ export interface ModelConfig<T extends BaseSchema> {
   projectScoping: "none" | "single" | "multiple";
   globallyUniqueIds?: boolean;
   skipDateUpdatedFields?: (keyof z.infer<T>)[];
+  readonlyFields?: (keyof z.infer<T>)[];
   additionalIndexes?: {
     fields: Partial<
       {
@@ -37,15 +39,6 @@ export interface ModelConfig<T extends BaseSchema> {
     unique?: boolean;
   }[];
 }
-
-type CreateProps<T extends BaseSchema> = Omit<
-  z.infer<T>,
-  "id" | "organization" | "dateCreated" | "dateUpdated"
-> & { id?: string };
-
-type UpdateProps<T extends BaseSchema> = Partial<
-  Omit<z.infer<T>, "id" | "organization" | "dateCreated" | "dateUpdated">
->;
 
 const indexesAdded: Set<string> = new Set();
 
@@ -66,14 +59,14 @@ export abstract class BaseModel<T extends BaseSchema> {
   }
   protected async beforeUpdate(
     existing: z.infer<T>,
-    updates: UpdateProps<T>,
+    updates: UpdateProps<z.infer<T>>,
     newDoc: z.infer<T>
   ) {
     // Do nothing by default
   }
   protected async afterUpdate(
     existing: z.infer<T>,
-    updates: UpdateProps<T>,
+    updates: UpdateProps<z.infer<T>>,
     newDoc: z.infer<T>
   ) {
     // Do nothing by default
@@ -94,18 +87,18 @@ export abstract class BaseModel<T extends BaseSchema> {
   }
 
   // Built-in public methods
-  public create(props: CreateProps<T>): Promise<z.infer<T>> {
+  public create(props: unknown | CreateProps<z.infer<T>>): Promise<z.infer<T>> {
     return this._createOne(props);
   }
   public update(
     existing: z.infer<T>,
-    updates: UpdateProps<T>
+    updates: unknown | UpdateProps<z.infer<T>>
   ): Promise<z.infer<T>> {
     return this._updateOne(existing, updates);
   }
   public async updateById(
     id: string,
-    updates: UpdateProps<T>
+    updates: unknown | UpdateProps<z.infer<T>>
   ): Promise<z.infer<T>> {
     const existing = await this.getById(id);
     if (!existing) {
@@ -276,7 +269,12 @@ export abstract class BaseModel<T extends BaseSchema> {
     // TODO: other field validations
   }
 
-  protected async _createOne(props: CreateProps<T>) {
+  protected async _createOne(rawData: unknown | CreateProps<z.infer<T>>) {
+    const props = this.config.schema
+      .omit({ organization: true, dateCreated: true, dateUpdated: true })
+      .partial({ id: true })
+      .parse(rawData) as CreateProps<z.infer<T>>;
+
     if (this.config.globallyUniqueIds && "id" in props) {
       throw new Error("Cannot set a custom id for this model");
     }
@@ -332,7 +330,19 @@ export abstract class BaseModel<T extends BaseSchema> {
     // TODO: check write permissions for each project passed in
   }
 
-  protected async _updateOne(doc: z.infer<T>, updates: UpdateProps<T>) {
+  protected async _updateOne(
+    doc: z.infer<T>,
+    rawUpdates: unknown | UpdateProps<z.infer<T>>
+  ) {
+    let updates = this.config.schema
+      .omit({
+        organization: true,
+        dateCreated: true,
+        dateUpdated: true,
+        id: true,
+      })
+      .parse(rawUpdates) as UpdateProps<z.infer<T>>;
+
     // Only consider updates that actually change the value
     const updatedFields = Object.entries(updates)
       .filter(([k, v]) => !isEqual(doc[k as keyof z.infer<T>], v))
@@ -353,6 +363,15 @@ export abstract class BaseModel<T extends BaseSchema> {
       throw new Error(
         "Cannot update id, organization, dateCreated, or dateUpdated"
       );
+    }
+
+    if (this.config.readonlyFields) {
+      const readonlyFields = new Set(this.config.readonlyFields);
+      if (updatedFields.some((field) => readonlyFields.has(field))) {
+        throw new Error(
+          "Cannot update readonly fields: " + [...readonlyFields].join(", ")
+        );
+      }
     }
 
     // Only set dateUpdated if at least one important field has changed

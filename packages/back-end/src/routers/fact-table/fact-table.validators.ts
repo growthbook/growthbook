@@ -126,24 +126,6 @@ export const factMetricValidator = z
   })
   .strict();
 
-export const createFactMetricPropsValidator = factMetricValidator
-  .omit({
-    organization: true,
-    dateCreated: true,
-    dateUpdated: true,
-  })
-  .partial({ id: true });
-
-export const updateFactMetricPropsValidator = factMetricValidator
-  .omit({
-    id: true,
-    organization: true,
-    dateCreated: true,
-    dateUpdated: true,
-    datasource: true,
-  })
-  .partial();
-
 export const createFactFilterPropsValidator = z
   .object({
     id: z.string().optional(),
