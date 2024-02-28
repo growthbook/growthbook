@@ -1921,7 +1921,6 @@ export async function postSnapshotsWithScaledImpactAnalysis(
     | PrivateApiErrorResponse
   >
 ) {
-
   const context = getContextFromReq(req);
   const { org } = context;
   const { ids } = req.body;
@@ -1965,11 +1964,13 @@ export async function postSnapshotsWithScaledImpactAnalysis(
         analysisSettings: scaledImpactAnalysisSettings,
         metricMap: metricMap,
         snapshot: s,
-      }).then(() => {
-        preppedSnapshots.push(s);
-    }).catch((e) => {
-      console.error(e);
-    })
+      })
+        .then(() => {
+          preppedSnapshots.push(s);
+        })
+        .catch((e) => {
+          console.error(e);
+        });
       return;
     })
   );
@@ -1979,7 +1980,6 @@ export async function postSnapshotsWithScaledImpactAnalysis(
   });
   return;
 }
-
 
 export async function deleteScreenshot(
   req: AuthRequest<{ url: string }, { id: string; variation: number }>,

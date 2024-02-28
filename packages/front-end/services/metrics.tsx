@@ -208,8 +208,8 @@ export function getExperimentMetricFormatter(
 export function getMetricFormatter(
   type: MetricType
 ): (value: number, options?: Intl.NumberFormatOptions) => string {
-  console.log("type")
-  console.log(type)
+  console.log("type");
+  console.log(type);
   if (type === "count") {
     return formatNumber;
   }
