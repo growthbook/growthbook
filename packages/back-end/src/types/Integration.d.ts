@@ -165,12 +165,13 @@ export type PastExperimentResult = {
   }[];
 };
 
+// NOTE: response rows must all be lower case to work across SQL integrations
 export type TrackedEventResponseRow = {
   event: string;
-  displayName: string;
-  hasUserId: boolean;
+  display_name: string;
+  has_user_id: boolean;
   count: number;
-  lastTrackedAt: Date | BigQueryTimestamp;
+  last_tracked_at: Date | BigQueryTimestamp;
 };
 
 export type TrackedEventData = {

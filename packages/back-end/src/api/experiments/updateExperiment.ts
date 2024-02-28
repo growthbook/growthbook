@@ -16,10 +16,7 @@ export const updateExperiment = createApiRequestHandler(
   updateExperimentValidator
 )(
   async (req): Promise<UpdateExperimentResponse> => {
-    const experiment = await getExperimentById(
-      req.organization.id,
-      req.params.id
-    );
+    const experiment = await getExperimentById(req.context, req.params.id);
     if (!experiment) {
       throw new Error("Could not find the experiment to update");
     }
@@ -27,8 +24,8 @@ export const updateExperiment = createApiRequestHandler(
     req.checkPermissions("createAnalyses", experiment.project);
 
     const datasource = await getDataSourceById(
-      experiment.datasource,
-      req.organization.id
+      req.context,
+      experiment.datasource
     );
     if (!datasource) {
       throw new Error("No datasource for this experiment was found.");
@@ -52,7 +49,7 @@ export const updateExperiment = createApiRequestHandler(
       req.body.trackingKey !== experiment.trackingKey
     ) {
       const existingByTrackingKey = await getExperimentByTrackingKey(
-        req.organization.id,
+        req.context,
         req.body.trackingKey
       );
       if (existingByTrackingKey) {
@@ -65,7 +62,6 @@ export const updateExperiment = createApiRequestHandler(
     const updatedExperiment = await updateExperimentToDb({
       context: req.context,
       experiment: experiment,
-      user: req.eventAudit,
       changes: updateExperimentApiPayloadToInterface(req.body, experiment),
     });
 

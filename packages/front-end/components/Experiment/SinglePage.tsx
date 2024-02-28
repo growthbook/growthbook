@@ -108,16 +108,15 @@ function drawMetricRow(
   );
   if (!newMetric) return null;
 
-  const conversionStart = newMetric.conversionDelayHours || 0;
+  const conversionStart = newMetric.windowSettings.delayHours || 0;
   const conversionEnd =
-    (newMetric.conversionDelayHours || 0) + getConversionWindowHours(newMetric);
+    (newMetric.windowSettings.delayHours || 0) +
+    getConversionWindowHours(newMetric.windowSettings);
 
   const hasOverrides =
+    overrideFields.includes("windowType") ||
     overrideFields.includes("conversionDelayHours") ||
     (!ignoreConversionEnd && overrideFields.includes("conversionWindowHours"));
-
-  const metricHasNoConversionWindow =
-    isFactMetric(newMetric) && !newMetric.hasConversionWindow;
 
   const isArchived = isFactMetric(metric)
     ? false
@@ -143,7 +142,7 @@ function drawMetricRow(
           <div className="small">
             <>
               {conversionStart}{" "}
-              {ignoreConversionEnd || metricHasNoConversionWindow
+              {ignoreConversionEnd || !newMetric.windowSettings.type
                 ? " hours to experiment end "
                 : "to " + conversionEnd + " hours "}
             </>
@@ -1265,14 +1264,14 @@ export default function SinglePage({
                 )}
                 {datasource && (
                   <RightRailSectionGroup
-                    title="Attribution Model"
+                    title="Conversion Window Override"
                     type="custom"
                   >
                     <AttributionModelTooltip>
                       <strong>
                         {experiment.attributionModel === "experimentDuration"
-                          ? "Experiment Duration"
-                          : "First Exposure"}
+                          ? "Ignore Conversion Windows"
+                          : "Respect Conversion Windows"}
                       </strong>{" "}
                       <FaQuestionCircle />
                     </AttributionModelTooltip>

@@ -7,7 +7,7 @@ import {
 } from "back-end/types/saved-group";
 import { useForm } from "react-hook-form";
 import { validateAndFixCondition } from "shared/util";
-import useIncrementer from "@/hooks/useIncrementer";
+import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "../../services/auth";
 import useMembers from "../../hooks/useMembers";
 import { useAttributeSchema } from "../../services/features";

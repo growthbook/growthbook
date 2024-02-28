@@ -13,6 +13,7 @@ import {
 } from "./report";
 import { DimensionInterface } from "./dimension";
 import { AttributionModel } from "./experiment";
+import { MetricWindowSettings } from "./fact-table";
 
 // Keep these interfaces in sync with gbstats
 export interface AnalysisSettingsForStatsEngine {
@@ -112,8 +113,7 @@ export interface MetricForSnapshot {
     | "datasource"
     | "aggregation"
     | "sql"
-    | "capping"
-    | "capValue"
+    | "cappingSettings"
     | "denominator"
     | "userIdTypes"
     | "type"
@@ -124,8 +124,7 @@ export interface MetricForSnapshot {
     regressionAdjustmentAvailable: boolean;
     regressionAdjustmentDays: number;
     regressionAdjustmentReason: string;
-    conversionWindowHours: number;
-    conversionDelayHours: number;
+    windowSettings: MetricWindowSettings;
   };
 }
 

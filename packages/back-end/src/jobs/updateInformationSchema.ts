@@ -11,6 +11,8 @@ import {
   DataSourceNotSupportedError,
   MissingDatasourceParamsError,
 } from "../integrations/SqlIntegration";
+import { getContextForAgendaJobByOrgId } from "../services/organizations";
+import { trackJob } from "../services/otel";
 
 const UPDATE_INFORMATION_SCHEMA_JOB_NAME = "updateInformationSchema";
 type UpdateInformationSchemaJob = Job<{
@@ -19,64 +21,64 @@ type UpdateInformationSchemaJob = Job<{
   informationSchemaId: string;
 }>;
 
+const updateInformationSchema = trackJob(
+  UPDATE_INFORMATION_SCHEMA_JOB_NAME,
+  async (job: UpdateInformationSchemaJob) => {
+    const { datasourceId, organization, informationSchemaId } = job.attrs.data;
+
+    if (!datasourceId || !organization) return;
+
+    const context = await getContextForAgendaJobByOrgId(organization);
+
+    const datasource = await getDataSourceById(context, datasourceId);
+
+    const informationSchema = await getInformationSchemaById(
+      organization,
+      informationSchemaId
+    );
+
+    if (!datasource || !informationSchema) return;
+
+    try {
+      await updateDatasourceInformationSchema(
+        datasource,
+        organization,
+        informationSchema
+      );
+    } catch (e) {
+      const error: InformationSchemaError = {
+        errorType: "generic",
+        message: e.message,
+      };
+      if (e instanceof DataSourceNotSupportedError) {
+        error.errorType = "not_supported";
+      }
+      if (e instanceof MissingDatasourceParamsError) {
+        error.errorType = "missing_params";
+      }
+      const informationSchema = await getInformationSchemaByDatasourceId(
+        datasource.id,
+        organization
+      );
+      if (informationSchema) {
+        await updateInformationSchemaById(organization, informationSchema.id, {
+          ...informationSchema,
+          status: "COMPLETE",
+          error,
+        });
+      }
+    }
+  }
+);
+
 let agenda: Agenda;
 export default function (ag: Agenda) {
   agenda = ag;
 
   agenda.define(
     UPDATE_INFORMATION_SCHEMA_JOB_NAME,
-    async (job: UpdateInformationSchemaJob) => {
-      const {
-        datasourceId,
-        organization,
-        informationSchemaId,
-      } = job.attrs.data;
 
-      if (!datasourceId || !organization) return;
-
-      const datasource = await getDataSourceById(datasourceId, organization);
-
-      const informationSchema = await getInformationSchemaById(
-        organization,
-        informationSchemaId
-      );
-
-      if (!datasource || !informationSchema) return;
-
-      try {
-        await updateDatasourceInformationSchema(
-          datasource,
-          organization,
-          informationSchema
-        );
-      } catch (e) {
-        const error: InformationSchemaError = {
-          errorType: "generic",
-          message: e.message,
-        };
-        if (e instanceof DataSourceNotSupportedError) {
-          error.errorType = "not_supported";
-        }
-        if (e instanceof MissingDatasourceParamsError) {
-          error.errorType = "missing_params";
-        }
-        const informationSchema = await getInformationSchemaByDatasourceId(
-          datasource.id,
-          organization
-        );
-        if (informationSchema) {
-          await updateInformationSchemaById(
-            organization,
-            informationSchema.id,
-            {
-              ...informationSchema,
-              status: "COMPLETE",
-              error,
-            }
-          );
-        }
-      }
-    }
+    updateInformationSchema
   );
 }
 

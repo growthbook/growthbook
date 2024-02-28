@@ -72,7 +72,6 @@ export const deleteTag = async (
   // experiments
   await removeTagFromExperiments({
     context,
-    user: res.locals.eventAudit,
     tag: id,
   });
 
@@ -80,7 +79,7 @@ export const deleteTag = async (
   await removeTagInMetrics(org.id, id);
 
   // features
-  await removeTagInFeature(org, res.locals.eventAudit, id);
+  await removeTagInFeature(context, id);
 
   // Slack integrations
   await removeTagFromSlackIntegration({ organizationId: org.id, tag: id });

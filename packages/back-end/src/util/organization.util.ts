@@ -1,5 +1,9 @@
 import { cloneDeep } from "lodash";
-import { roleSupportsEnvLimit } from "shared/permissions";
+import {
+  ALL_PERMISSIONS,
+  ENV_SCOPED_PERMISSIONS,
+  roleSupportsEnvLimit,
+} from "shared/permissions";
 import {
   MemberRole,
   MemberRoleInfo,
@@ -12,10 +16,6 @@ import {
   UserPermissions,
 } from "../../types/organization";
 import { TeamInterface } from "../../types/team";
-import {
-  ALL_PERMISSIONS,
-  ENV_SCOPED_PERMISSIONS,
-} from "./permission-constants";
 
 function hasEnvScopedPermissions(userPermission: PermissionsObject): boolean {
   const envLimitedPermissions: Permission[] = ENV_SCOPED_PERMISSIONS.map(
@@ -289,6 +289,11 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
       permissions: ["readData"],
     },
     {
+      id: "visualEditor",
+      description: "Make visual changes for an experiment",
+      permissions: ["readData", "manageVisualChanges"],
+    },
+    {
       id: "collaborator",
       description: "Add comments and contribute ideas",
       permissions: [
@@ -316,6 +321,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageSavedGroups",
         "manageArchetype",
         "runExperiments",
+        "manageVisualChanges",
       ],
     },
     {
@@ -334,6 +340,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageTags",
         "runQueries",
         "editDatasourceSettings",
+        "manageVisualChanges",
       ],
     },
     {
@@ -361,6 +368,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageFactTables",
         "runQueries",
         "editDatasourceSettings",
+        "manageVisualChanges",
       ],
     },
     {

@@ -119,6 +119,12 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
     readAccessFilter: getReadAccessFilter(
       getUserPermissions(req.userId, req.organization, req.teams)
     ),
+    auditUser: {
+      type: "dashboard",
+      id: req.userId,
+      email: req.email,
+      name: req.name || "",
+    },
   };
 }
 
@@ -606,9 +612,10 @@ function validateConfig(config: ConfigFile, organizationId: string) {
 }
 
 export async function importConfig(
-  config: ConfigFile,
-  organization: OrganizationInterface
+  context: ReqContext | ApiReqContext,
+  config: ConfigFile
 ) {
+  const organization = context.org;
   const errors = validateConfig(config, organization.id);
   if (errors.length > 0) {
     throw new Error(errors.join("\n"));
@@ -633,7 +640,7 @@ export async function importConfig(
             // Fix newlines in the private keys:
             ds.params.privateKey = ds.params?.privateKey?.replace(/\\n/g, "\n");
           }
-          const existing = await getDataSourceById(k, organization.id);
+          const existing = await getDataSourceById(context, k);
           if (existing) {
             let params = existing.params;
             // If params are changing, merge them with existing and test the connection
@@ -662,7 +669,7 @@ export async function importConfig(
                 },
               },
             };
-            await updateDataSource(existing, organization.id, updates);
+            await updateDataSource(context, existing, updates);
           } else {
             await createDataSource(
               organization.id,
@@ -692,14 +699,14 @@ export async function importConfig(
         }
 
         try {
-          const existing = await getMetricById(k, organization.id);
+          const existing = await getMetricById(context, k);
           if (existing) {
             const updates: Partial<MetricInterface> = {
               ...m,
             };
             delete updates.organization;
 
-            await updateMetric(k, updates, organization.id);
+            await updateMetric(context, existing, updates);
           } else {
             await createMetric({
               ...m,
@@ -796,10 +803,10 @@ export async function getEmailFromUserId(userId: string) {
 }
 
 export async function getExperimentOverrides(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   project?: string
 ) {
-  const experiments = await getAllExperiments(organization, project);
+  const experiments = await getAllExperiments(context, project);
   const overrides: Record<string, ExperimentOverride> = {};
   const expIdMapping: Record<string, { trackingKey: string }> = {};
 
@@ -969,6 +976,17 @@ export async function expandOrgMembers(
   return expandedMembers;
 }
 
+export function getContextForAgendaJobByOrgObject(
+  organization: OrganizationInterface
+): ApiReqContext {
+  return {
+    org: organization,
+    environments: getEnvironmentIdsFromOrg(organization),
+    readAccessFilter: FULL_ACCESS_PERMISSIONS,
+    auditUser: null,
+  };
+}
+
 export async function getContextForAgendaJobByOrgId(
   orgId: string
 ): Promise<ApiReqContext> {
@@ -976,9 +994,5 @@ export async function getContextForAgendaJobByOrgId(
 
   if (!organization) throw new Error("Organization not found");
 
-  return {
-    org: organization,
-    environments: getEnvironmentIdsFromOrg(organization),
-    readAccessFilter: FULL_ACCESS_PERMISSIONS,
-  };
+  return getContextForAgendaJobByOrgObject(organization);
 }

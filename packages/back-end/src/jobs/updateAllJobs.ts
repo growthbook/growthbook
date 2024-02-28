@@ -1,3 +1,5 @@
+import { ApiReqContext } from "../../types/api";
+import { ReqContext } from "../../types/organization";
 import {
   ProxyConnection,
   SDKConnectionInterface,
@@ -17,23 +19,24 @@ import {
 import { queueWebhook } from "./webhooks";
 
 export const triggerWebhookJobs = async (
-  orgId: string,
+  context: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[],
   environments: string[],
   isProxyEnabled: boolean,
   isFeature = true
 ) => {
-  queueWebhookUpdate(orgId, payloadKeys);
-  queueGlobalWebhooks(orgId, payloadKeys);
-  if (isProxyEnabled) queueProxyUpdate(orgId, payloadKeys);
-  queueWebhook(orgId, payloadKeys, isFeature);
-  const surrogateKeys = getSurrogateKeysFromEnvironments(orgId, [
+  queueWebhookUpdate(context, payloadKeys);
+  queueGlobalWebhooks(context, payloadKeys);
+  if (isProxyEnabled) queueProxyUpdate(context, payloadKeys);
+  queueWebhook(context.org.id, payloadKeys, isFeature);
+  const surrogateKeys = getSurrogateKeysFromEnvironments(context.org.id, [
     ...environments,
   ]);
-  await purgeCDNCache(orgId, surrogateKeys);
+  await purgeCDNCache(context.org.id, surrogateKeys);
 };
 
 export const triggerSingleSDKWebhookJobs = async (
+  orgId: string,
   connection: SDKConnectionInterface,
   otherChanges: Partial<SDKConnectionInterface>,
   newProxy: ProxyConnection,
@@ -48,7 +51,7 @@ export const triggerSingleSDKWebhookJobs = async (
         proxy: newProxy,
       } as SDKConnectionInterface;
 
-      queueSingleProxyUpdate(newConnection, IS_CLOUD);
+      queueSingleProxyUpdate(orgId, newConnection, IS_CLOUD);
     }
   }
 

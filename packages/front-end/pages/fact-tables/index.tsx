@@ -20,6 +20,7 @@ import TagsFilter, {
 import SortedTags from "@/components/Tags/SortedTags";
 import ProjectBadges from "@/components/ProjectBadges";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+import { OfficialBadge } from "@/components/Metrics/MetricName";
 
 export default function FactTablesPage() {
   const {
@@ -252,9 +253,8 @@ export default function FactTablesPage() {
                   className="cursor-pointer"
                 >
                   <td>
-                    <Link href={`/fact-tables/${f.id}`} legacyBehavior>
-                      {f.name}
-                    </Link>
+                    <Link href={`/fact-tables/${f.id}`}>{f.name}</Link>
+                    <OfficialBadge type="fact table" managedBy={f.managedBy} />
                   </td>
                   <td>{f.datasourceName}</td>
                   <td>
@@ -263,11 +263,15 @@ export default function FactTablesPage() {
                   <td className="col-2">
                     {f.projects.length > 0 ? (
                       <ProjectBadges
+                        resourceType="fact table"
                         projectIds={f.projects}
                         className="badge-ellipsis short align-middle"
                       />
                     ) : (
-                      <ProjectBadges className="badge-ellipsis short align-middle" />
+                      <ProjectBadges
+                        resourceType="fact table"
+                        className="badge-ellipsis short align-middle"
+                      />
                     )}
                   </td>
                   <td>
@@ -279,7 +283,7 @@ export default function FactTablesPage() {
                   </td>
                   <td>{f.numMetrics}</td>
                   <td>{f.numFilters}</td>
-                  <td>{date(f.dateUpdated)}</td>
+                  <td>{f.dateUpdated ? date(f.dateUpdated) : null}</td>
                 </tr>
               ))}
 

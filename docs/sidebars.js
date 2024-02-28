@@ -59,6 +59,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "features/prerequisites",
+          label: "Prerequisites",
+        },
+        {
+          type: "doc",
           id: "features/scheduling",
           label: "Scheduling",
         },
@@ -66,6 +71,11 @@ const sidebars = {
           type: "doc",
           id: "features/stale-detection",
           label: "Stale Feature Detection",
+        },
+        {
+          type: "doc",
+          id: "features/code-references",
+          label: "Code References",
         },
       ],
     },
@@ -360,7 +370,11 @@ const sidebars = {
         type: "doc",
         id: "self-host/index",
       },
-      items: ["self-host/environment-variables", "self-host/config-yml"],
+      items: [
+        "self-host/environment-variables",
+        "self-host/config-yml",
+        "self-host/production",
+      ],
     },
     /*
         {
@@ -406,12 +420,16 @@ const sidebars = {
           type: "doc",
           id: "integrations/shopify",
           label: "Shopify + GrowthBook",
-          className: "pill-new",
         },
         {
           type: "doc",
           id: "integrations/webflow",
           label: "Webflow + GrowthBook",
+        },
+        {
+          type: "doc",
+          id: "integrations/wordpress",
+          label: "WordPress + GrowthBook",
           className: "pill-new",
         },
         {
@@ -471,6 +489,12 @@ const sidebars = {
           type: "doc",
           id: "integrations/scim",
           label: "SCIM",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "integrations/github-metrics",
+          label: "GitHub (Metric Definitions)",
           className: "pill-new",
         },
       ],

@@ -78,11 +78,13 @@ function ConnectionNode({
 function ConnectionStatus({
   connected,
   error,
+  errorTxt,
   refresh,
   canRefresh,
 }: {
   connected: boolean;
   error?: boolean;
+  errorTxt?: string;
   refresh?: ReactElement;
   canRefresh: boolean;
 }) {
@@ -100,9 +102,33 @@ function ConnectionStatus({
       ) : (
         <>
           {error ? (
-            <span className="text-danger">
-              <FaExclamationTriangle /> error
-            </span>
+            <>
+              <span className="text-danger">
+                <FaExclamationTriangle /> error
+              </span>
+              {errorTxt !== undefined && (
+                <Tooltip
+                  className="ml-2"
+                  usePortal={true}
+                  body={
+                    <>
+                      <div className="mb-2">
+                        Encountered an error while trying to connect:
+                      </div>
+                      {errorTxt ? (
+                        <div className="alert alert-danger mt-2">
+                          {errorTxt}
+                        </div>
+                      ) : (
+                        <div className="alert alert-danger">
+                          <em>Unknown error</em>
+                        </div>
+                      )}
+                    </>
+                  }
+                />
+              )}
+            </>
           ) : (
             <span className="text-secondary">
               <FaQuestionCircle /> not connected
@@ -372,6 +398,7 @@ export default function SDKConnectionPage() {
               connected={connection.proxy.connected}
               canRefresh={hasPermission}
               error={!connection.proxy.connected}
+              errorTxt={connection.proxy.error}
               refresh={
                 <ProxyTestButton
                   host={connection.proxy.host}

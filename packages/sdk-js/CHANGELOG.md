@@ -1,5 +1,15 @@
 # Changelog
 
+## **0.34.0** - Feb 20, 2024
+
+- Prerequisite feature support for feature rules and experiments
+- Fix bug feature repository would cache non-2xx responses when fetching features
+
+## **0.33.0** - Jan 31, 2024
+
+- Add new `maxAge` cache setting that limits how old cached features can be before we force a re-fetch from the server. Defaults to 24 hours.
+- Fix broken visual editor preview links for multi-page experiments
+
 ## **0.32.0** - Jan 11, 2024
 
 - Fix bug when visual editor loaded before `document.body` was available

@@ -1,0 +1,20 @@
+type: object
+required:
+  - name
+  - value
+properties:
+  name:
+    type: string
+  description:
+    type: string
+    description: Description of the fact table filter
+  value:
+    type: string
+    description: The SQL expression for this filter.
+    example: "country = 'US'"
+  managedBy:
+    type: string
+    description: Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api"
+    enum:
+      - ""
+      - api

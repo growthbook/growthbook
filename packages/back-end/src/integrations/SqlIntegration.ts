@@ -87,6 +87,7 @@ export class DataSourceNotSupportedError extends Error {
 }
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
+export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -239,9 +240,10 @@ export default abstract class SqlIntegration
   formatDateTimeString(col: string): string {
     return this.castToString(col);
   }
-  selectSampleRows(table: string, limit: number): string {
+  selectStarLimit(table: string, limit: number): string {
     return `SELECT * FROM ${table} LIMIT ${limit}`;
   }
+
   hasEfficientPercentile(): boolean {
     return true;
   }
@@ -353,9 +355,8 @@ export default abstract class SqlIntegration
         GROUP BY
           d.exposure_query, d.experiment_id, d.variation_id
       )
-    SELECT
-      *
-    FROM
+    ${this.selectStarLimit(
+      `
       __variations
     WHERE
       -- Skip experiments at start of date range since it's likely missing data
@@ -364,7 +365,10 @@ export default abstract class SqlIntegration
         "start_date"
       )} > 2
     ORDER BY
-      experiment_id ASC, variation_id ASC`,
+      start_date DESC, experiment_id ASC, variation_id ASC
+      `,
+      MAX_ROWS_PAST_EXPERIMENTS_QUERY
+    )}`,
       this.getFormatDialect()
     );
   }
@@ -678,7 +682,7 @@ export default abstract class SqlIntegration
       `WITH __table as (
         ${query}
       )
-      ${this.selectSampleRows("__table", limit)}`,
+      ${this.selectStarLimit("__table", limit)}`,
       {
         startDate,
         templateVariables,
@@ -754,8 +758,10 @@ export default abstract class SqlIntegration
   private getFunnelUsersCTE(
     baseIdType: string,
     metrics: ExperimentMetricInterface[],
+    endDate: Date,
     regressionAdjusted: boolean = false,
-    ignoreConversionEnd: boolean = false,
+    cumulativeDate: boolean = false,
+    overrideConversionWindows: boolean = false,
     tablePrefix: string = "__denominator",
     initialTable: string = "__experiment"
   ) {
@@ -795,7 +801,9 @@ export default abstract class SqlIntegration
               `${prevAlias}.timestamp`,
               `${alias}.timestamp`,
               m,
-              ignoreConversionEnd
+              endDate,
+              cumulativeDate,
+              overrideConversionWindows
             );
           })
           .join("\n AND ")}
@@ -835,28 +843,52 @@ export default abstract class SqlIntegration
     baseCol: string,
     metricCol: string,
     metric: ExperimentMetricInterface,
-    ignoreConversionEnd: boolean
+    endDate: Date,
+    cumulativeDate: boolean,
+    overrideConversionWindows: boolean
   ): string {
-    const conversionDelayHours = metric.conversionDelayHours ?? 0;
-    const conversionWindowHours = getConversionWindowHours(metric);
-    return `
-      ${metricCol} >= ${this.addHours(baseCol, conversionDelayHours)}
-      ${
-        ignoreConversionEnd
-          ? ""
-          : `AND ${metricCol} <= ${this.addHours(
-              baseCol,
-              conversionDelayHours + conversionWindowHours
-            )}`
-      }`;
+    let windowHours = getConversionWindowHours(metric.windowSettings);
+    const delayHours = metric.windowSettings.delayHours ?? 0;
+
+    // all metrics have to be after the base timestamp +- delay hours
+    let metricWindow = `${metricCol} >= ${this.addHours(baseCol, delayHours)}`;
+
+    if (
+      metric.windowSettings.type === "conversion" &&
+      !overrideConversionWindows
+    ) {
+      // if conversion window, then count metrics before window ends
+      // which can extend beyond experiment end date
+      metricWindow = `${metricWindow}
+        AND ${metricCol} <= ${this.addHours(
+        baseCol,
+        delayHours + windowHours
+      )}`;
+    } else {
+      // otherwise, it must be before the experiment end date
+      metricWindow = `${metricWindow}
+      AND ${metricCol} <= ${this.toTimestamp(endDate)}`;
+    }
+
+    if (metric.windowSettings.type === "lookback") {
+      // ensure windowHours is positive
+      windowHours = windowHours < 0 ? windowHours * -1 : windowHours;
+      // also ensure for lookback windows that metric happened in last
+      // X hours of the experiment
+      metricWindow = `${metricWindow}
+      AND ${this.addHours(metricCol, windowHours)} >= 
+      ${cumulativeDate ? "dr.day" : this.toTimestamp(endDate)}`;
+    }
+
+    return metricWindow;
   }
 
   private getMetricMinDelay(metrics: ExperimentMetricInterface[]) {
     let runningDelay = 0;
     let minDelay = 0;
     metrics.forEach((m) => {
-      if (m.conversionDelayHours) {
-        const delay = runningDelay + m.conversionDelayHours;
+      if (m.windowSettings.delayHours) {
+        const delay = runningDelay + m.windowSettings.delayHours;
         if (delay < minDelay) minDelay = delay;
         runningDelay = delay;
       }
@@ -882,21 +914,23 @@ export default abstract class SqlIntegration
   private getMetricEnd(
     metrics: ExperimentMetricInterface[],
     initial?: Date,
-    ignoreConversionEnd?: boolean
+    overrideConversionWindows?: boolean
   ): Date | null {
     if (!initial) return null;
-    if (ignoreConversionEnd) return initial;
+    if (overrideConversionWindows) return initial;
 
     const metricEnd = new Date(initial);
     let runningHours = 0;
     let maxHours = 0;
     metrics.forEach((m) => {
-      const hours =
-        runningHours +
-        getConversionWindowHours(m) +
-        (m.conversionDelayHours || 0);
-      if (hours > maxHours) maxHours = hours;
-      runningHours = hours;
+      if (m.windowSettings.type === "conversion") {
+        const hours =
+          runningHours +
+          getConversionWindowHours(m.windowSettings) +
+          (m.windowSettings.delayHours || 0);
+        if (hours > maxHours) maxHours = hours;
+        runningHours = hours;
+      }
     });
 
     if (maxHours > 0) {
@@ -911,22 +945,31 @@ export default abstract class SqlIntegration
     metricAndDenominatorMetrics: ExperimentMetricInterface[],
     activationMetric: ExperimentMetricInterface | null
   ): number {
+    // Used to set an experiment end date to filter out users
+    // who have not had enough time to convert (if experimenter
+    // has selected `skipPartialData`)
     let neededHoursForConversion = 0;
     metricAndDenominatorMetrics.forEach((m) => {
-      const metricHours =
-        (m.conversionDelayHours || 0) + getConversionWindowHours(m);
-      if (funnelMetric) {
-        // funnel metric windows cab cascade, so sum each metric hours to get max
-        neededHoursForConversion += metricHours;
-      } else if (metricHours > neededHoursForConversion) {
-        neededHoursForConversion = metricHours;
+      if (m.windowSettings.type === "conversion") {
+        const metricHours =
+          (m.windowSettings.delayHours || 0) +
+          getConversionWindowHours(m.windowSettings);
+        if (funnelMetric) {
+          // funnel metric windows can cascade, so sum each metric hours to get max
+          neededHoursForConversion += metricHours;
+        } else if (metricHours > neededHoursForConversion) {
+          neededHoursForConversion = metricHours;
+        }
       }
     });
     // activation metrics windows always cascade
-    if (activationMetric) {
+    if (
+      activationMetric &&
+      activationMetric.windowSettings.type == "conversion"
+    ) {
       neededHoursForConversion +=
-        (activationMetric.conversionDelayHours || 0) +
-        getConversionWindowHours(activationMetric);
+        (activationMetric.windowSettings.delayHours || 0) +
+        getConversionWindowHours(activationMetric.windowSettings);
     }
     return neededHoursForConversion;
   }
@@ -1048,17 +1091,9 @@ export default abstract class SqlIntegration
     const timestampColumn = "e.timestamp";
     // BQ datetime cast for SELECT statements (do not use for where)
     const timestampDateTimeColumn = this.castUserDateCol(timestampColumn);
-    let ignoreConversionEnd =
+    const overrideConversionWindows =
       settings.attributionModel === "experimentDuration";
 
-    // If the fact metric doesn't have a conversion window, always treat like Experiment Duration
-    if (
-      activationMetric &&
-      isFactMetric(activationMetric) &&
-      !activationMetric.hasConversionWindow
-    ) {
-      ignoreConversionEnd = true;
-    }
     return `
     ${params.includeIdJoins ? idJoinSQL : ""}
     __rawExperiment AS (
@@ -1105,13 +1140,13 @@ export default abstract class SqlIntegration
             idJoinMap,
             startDate: this.getMetricStart(
               settings.startDate,
-              activationMetric.conversionDelayHours || 0,
+              activationMetric.windowSettings.delayHours || 0,
               0
             ),
             endDate: this.getMetricEnd(
               [activationMetric],
               settings.endDate,
-              ignoreConversionEnd
+              overrideConversionWindows
             ),
             experimentId: settings.experimentId,
             factTableMap,
@@ -1174,7 +1209,9 @@ export default abstract class SqlIntegration
                   "e.timestamp",
                   "a.timestamp",
                   activationMetric,
-                  ignoreConversionEnd
+                  settings.endDate,
+                  false,
+                  overrideConversionWindows
                 ),
                 "a.timestamp",
                 "NULL"
@@ -1280,23 +1317,28 @@ export default abstract class SqlIntegration
         FROM ${
           useUnitsTable ? `${params.unitsTableFullName}` : "__experimentUnits"
         }
-      )
-      -- One row per variation per dimension slice
-      ${[
-        "dim_exposure_date",
-        ...experimentDimensions.map((d) => `dim_exp_${d.id}`),
-        ...(activationMetric ? ["dim_activated"] : []),
-      ]
-        .map((d) =>
-          this.getUnitCountCTE(
-            d,
-            activationMetric && d !== "dim_activated"
-              ? "WHERE dim_activated = 'Activated'"
-              : ""
+      ),
+      __unitsByDimension AS (
+        -- One row per variation per dimension slice
+        ${[
+          "dim_exposure_date",
+          ...experimentDimensions.map((d) => `dim_exp_${d.id}`),
+          ...(activationMetric ? ["dim_activated"] : []),
+        ]
+          .map((d) =>
+            this.getUnitCountCTE(
+              d,
+              activationMetric && d !== "dim_activated"
+                ? "WHERE dim_activated = 'Activated'"
+                : ""
+            )
           )
-        )
-        .join("\nUNION ALL\n")}
-      LIMIT ${MAX_ROWS_UNIT_AGGREGATE_QUERY}
+          .join("\nUNION ALL\n")}
+      )
+      ${this.selectStarLimit(
+        "__unitsByDimension",
+        MAX_ROWS_UNIT_AGGREGATE_QUERY
+      )}
     `,
       this.getFormatDialect()
     );
@@ -1304,7 +1346,7 @@ export default abstract class SqlIntegration
 
   getUnitCountCTE(dimensionColumn: string, whereClause?: string): string {
     return ` -- ${dimensionColumn}
-    (SELECT
+    SELECT
       variation AS variation
       , ${dimensionColumn} AS dimension_value
       , MAX(${this.castToString(`'${dimensionColumn}'`)}) AS dimension_name
@@ -1314,7 +1356,7 @@ export default abstract class SqlIntegration
     ${whereClause ?? ""}
     GROUP BY
       variation
-      , ${dimensionColumn})`;
+      , ${dimensionColumn}`;
   }
 
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string {
@@ -1362,14 +1404,14 @@ export default abstract class SqlIntegration
       ),
       -- One row per dimension slice
       dim_values AS (
-        (SELECT
+        SELECT
           1 AS variation
           , ${this.castToString("'All'")} AS dimension_value
           , ${this.castToString("'All'")} AS dimension_name
           , COUNT(*) AS units
         FROM
           __distinctUnits
-          ) UNION ALL
+        UNION ALL
         ${params.dimensions
           .map((d) => this.getUnitCountCTE(`dim_exp_${d.id}`))
           .join("\nUNION ALL\n")}
@@ -1442,17 +1484,14 @@ export default abstract class SqlIntegration
       ? (metric.regressionAdjustmentDays ?? 0) * 24
       : 0;
 
-    let ignoreConversionEnd =
+    const overrideConversionWindows =
       settings.attributionModel === "experimentDuration";
-
-    // If a fact metric has disabled conversion windows, always use "Experiment Duration"
-    if (isFactMetric(metric) && !metric.hasConversionWindow) {
-      ignoreConversionEnd = true;
-    }
 
     // Get capping settings and final coalesce statement
     const isPercentileCapped =
-      metric.capping === "percentile" && metric.capValue && metric.capValue < 1;
+      metric.cappingSettings.type === "percentile" &&
+      metric.cappingSettings.value &&
+      metric.cappingSettings.value < 1;
     const capCoalesceMetric = this.capCoalesceValue(
       `m.${alias}_value`,
       metric,
@@ -1485,7 +1524,7 @@ export default abstract class SqlIntegration
     const metricEnd = this.getMetricEnd(
       orderedMetrics,
       settings.endDate,
-      ignoreConversionEnd
+      overrideConversionWindows
     );
 
     const raMetricSettings = {
@@ -1508,7 +1547,7 @@ export default abstract class SqlIntegration
       funnelMetric,
       regressionAdjusted,
       regressionAdjustmentHours,
-      ignoreConversionEnd,
+      overrideConversionWindows,
       isPercentileCapped,
       capCoalesceMetric,
       capCoalesceDenominator,
@@ -1645,6 +1684,7 @@ export default abstract class SqlIntegration
       valueCol: string;
       outputCol: string;
       percentile: number;
+      ignoreZeros: boolean;
     }[] = [];
     metricData
       .filter((m) => m.isPercentileCapped)
@@ -1652,13 +1692,15 @@ export default abstract class SqlIntegration
         percentileData.push({
           valueCol: `${m.alias}_value`,
           outputCol: `${m.alias}_value_cap`,
-          percentile: m.metric.capValue ?? 1,
+          percentile: m.metric.cappingSettings.value ?? 1,
+          ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
         });
         if (m.ratioMetric) {
           percentileData.push({
             valueCol: `${m.alias}_denominator`,
             outputCol: `${m.alias}_denominator_cap`,
-            percentile: m.metric.capValue ?? 1,
+            percentile: m.metric.cappingSettings.value ?? 1,
+            ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
           });
         }
       });
@@ -1754,7 +1796,8 @@ export default abstract class SqlIntegration
                 `${this.addCaseWhenTimeFilter(
                   `m.${data.alias}_value`,
                   data.metric,
-                  data.ignoreConversionEnd,
+                  data.overrideConversionWindows,
+                  settings.endDate,
                   cumulativeDate
                 )} as ${data.alias}_value
                 ${
@@ -1762,7 +1805,8 @@ export default abstract class SqlIntegration
                     ? `, ${this.addCaseWhenTimeFilter(
                         `m.${data.alias}_denominator`,
                         data.metric,
-                        data.ignoreConversionEnd,
+                        data.overrideConversionWindows,
+                        settings.endDate,
                         cumulativeDate
                       )} as ${data.alias}_denominator`
                     : ""
@@ -1996,22 +2040,19 @@ export default abstract class SqlIntegration
       ? (metric.regressionAdjustmentDays ?? 0) * 24
       : 0;
 
-    let ignoreConversionEnd =
+    const overrideConversionWindows =
       settings.attributionModel === "experimentDuration";
-
-    // If a fact metric has disabled conversion windows, always use "Experiment Duration"
-    if (isFactMetric(metric) && !metric.hasConversionWindow) {
-      ignoreConversionEnd = true;
-    }
 
     // Get capping settings and final coalesce statement
     const isPercentileCapped =
-      metric.capping === "percentile" && metric.capValue && metric.capValue < 1;
+      metric.cappingSettings.type === "percentile" &&
+      metric.cappingSettings.value &&
+      metric.cappingSettings.value < 1;
     const denominatorIsPercentileCapped =
       denominator &&
-      denominator.capping === "percentile" &&
-      denominator.capValue &&
-      denominator.capValue < 1;
+      denominator.cappingSettings.type === "percentile" &&
+      denominator.cappingSettings.value &&
+      denominator.cappingSettings.value < 1;
     const capCoalesceMetric = this.capCoalesceValue("m.value", metric, "cap");
     const capCoalesceDenominator = this.capCoalesceValue(
       "d.value",
@@ -2037,7 +2078,7 @@ export default abstract class SqlIntegration
     const metricEnd = this.getMetricEnd(
       orderedMetrics,
       settings.endDate,
-      ignoreConversionEnd
+      overrideConversionWindows
     );
 
     // Get any required identity join queries
@@ -2184,8 +2225,10 @@ export default abstract class SqlIntegration
           ? `, __denominatorUsers as (${this.getFunnelUsersCTE(
               baseIdType,
               denominatorMetrics,
+              settings.endDate,
               regressionAdjusted,
-              ignoreConversionEnd,
+              cumulativeDate,
+              overrideConversionWindows,
               "__denominator",
               "__distinctUsers"
             )})`
@@ -2209,7 +2252,8 @@ export default abstract class SqlIntegration
           ${this.addCaseWhenTimeFilter(
             "m.value",
             metric,
-            ignoreConversionEnd,
+            overrideConversionWindows,
+            settings.endDate,
             cumulativeDate
           )} as value
         FROM
@@ -2251,11 +2295,14 @@ export default abstract class SqlIntegration
                 {
                   valueCol: "value",
                   outputCol: "cap_value",
-                  percentile: metric.capValue ?? 1,
+                  percentile: metric.cappingSettings.value ?? 1,
+                  ignoreZeros: metric.cappingSettings.ignoreZeros ?? false,
                 },
               ],
               "__userMetricAgg",
-              "WHERE value IS NOT NULL"
+              `WHERE value IS NOT NULL${
+                metric.cappingSettings.ignoreZeros ? " AND value != 0" : ""
+              }`
             )}
         )
         `
@@ -2281,7 +2328,9 @@ export default abstract class SqlIntegration
                   "d.timestamp",
                   "m.timestamp",
                   denominator,
-                  ignoreConversionEnd
+                  settings.endDate,
+                  cumulativeDate,
+                  overrideConversionWindows
                 )}
                 ${
                   cumulativeDate
@@ -2305,11 +2354,17 @@ export default abstract class SqlIntegration
                     {
                       valueCol: "value",
                       outputCol: "cap_value",
-                      percentile: denominator.capValue ?? 1,
+                      percentile: denominator.cappingSettings.value ?? 1,
+                      ignoreZeros:
+                        denominator.cappingSettings.ignoreZeros ?? false,
                     },
                   ],
                   "__userDenominatorAgg",
-                  "WHERE value IS NOT NULL"
+                  `WHERE value IS NOT NULL${
+                    denominator.cappingSettings.ignoreZeros
+                      ? " AND value != 0"
+                      : ""
+                  }`
                 )}
               )
               `
@@ -2421,6 +2476,7 @@ export default abstract class SqlIntegration
       valueCol: string;
       outputCol: string;
       percentile: number;
+      ignoreZeros: boolean;
     }[],
     metricTable: string,
     where: string = ""
@@ -2428,8 +2484,11 @@ export default abstract class SqlIntegration
     return `
       SELECT
         ${values
-          .map(({ valueCol, outputCol, percentile }) => {
-            return `PERCENTILE_CONT(${percentile}) WITHIN GROUP (ORDER BY ${valueCol}) AS ${outputCol}`;
+          .map(({ valueCol, outputCol, percentile, ignoreZeros }) => {
+            const value = ignoreZeros
+              ? this.ifElse(`${valueCol} = 0`, "NULL", valueCol)
+              : valueCol;
+            return `PERCENTILE_CONT(${percentile}) WITHIN GROUP (ORDER BY ${value}) AS ${outputCol}`;
           })
           .join(",\n")}
       FROM ${metricTable}
@@ -2443,16 +2502,19 @@ export default abstract class SqlIntegration
     capTablePrefix: string = "c",
     capValueCol: string = "cap_value"
   ): string {
-    if (metric?.capping === "absolute" && metric.capValue) {
+    if (
+      metric?.cappingSettings.type === "absolute" &&
+      metric.cappingSettings.value
+    ) {
       return `LEAST(
         ${this.ensureFloat(`COALESCE(${valueCol}, 0)`)},
-        ${metric.capValue}
+        ${metric.cappingSettings.value}
       )`;
     }
     if (
-      metric?.capping === "percentile" &&
-      metric.capValue &&
-      metric.capValue < 1
+      metric?.cappingSettings.type === "percentile" &&
+      metric.cappingSettings.value &&
+      metric.cappingSettings.value < 1
     ) {
       return `LEAST(
         ${this.ensureFloat(`COALESCE(${valueCol}, 0)`)},
@@ -2700,7 +2762,7 @@ AND event_name = '${eventName}'`,
 
     const binomialSqlQuery = this.getAutoGeneratedMetricSqlQuery(
       result.event,
-      result.hasUserId,
+      result.has_user_id,
       schemaFormat,
       "binomial",
       schema
@@ -2708,7 +2770,7 @@ AND event_name = '${eventName}'`,
 
     //TODO Build some logic where based on the event, we determine what metrics to create (by default, we create binomial and count) for every event
     metricsToCreate.push({
-      name: result.displayName,
+      name: result.display_name,
       type: "binomial",
       exists: this.doesMetricExist(
         existingMetrics,
@@ -2720,14 +2782,14 @@ AND event_name = '${eventName}'`,
 
     const countSqlQuery = this.getAutoGeneratedMetricSqlQuery(
       result.event,
-      result.hasUserId,
+      result.has_user_id,
       schemaFormat,
       "count",
       schema
     );
 
     metricsToCreate.push({
-      name: `Count of ${result.displayName}`,
+      name: `Count of ${result.display_name}`,
       type: "count",
       exists: this.doesMetricExist(existingMetrics, countSqlQuery, "count"),
       sql: countSqlQuery,
@@ -2752,12 +2814,17 @@ AND event_name = '${eventName}'`,
     return `
       SELECT
         ${eventColumn} as event,
-        MAX(${displayNameColumn}) as displayName,
-        (CASE WHEN COUNT(${userIdColumn}) > 0 THEN 1 ELSE 0 END) as hasUserId,
+        MAX(${displayNameColumn}) as display_name,
+        (CASE WHEN COUNT(${userIdColumn}) > 0 THEN 1 ELSE 0 END) as has_user_id,
         COUNT (*) as count,
-        MAX(${timestampColumn}) as lastTrackedAt
+        MAX(${timestampColumn}) as last_tracked_at
       FROM
-        ${this.generateTablePath(trackedEventTableName, schema)}
+        ${this.generateTablePath(
+          trackedEventTableName,
+          schema,
+          undefined,
+          !!schema
+        )}
       WHERE ${getDateLimitClause(start, end)}
       AND ${eventColumn} NOT IN ('experiment_viewed', 'experiment_started')
       GROUP BY ${groupByColumn || eventColumn}
@@ -2828,10 +2895,13 @@ AND event_name = '${eventName}'`,
     return resultRows.map((result) => {
       const row = result as TrackedEventResponseRow;
       const processedEventData: TrackedEventData = {
-        ...row,
-        lastTrackedAt: result.lastTrackedAt.value
-          ? new Date(result.lastTrackedAt.value)
-          : new Date(result.lastTrackedAt),
+        event: row.event,
+        displayName: row.display_name,
+        hasUserId: row.has_user_id,
+        count: row.count,
+        lastTrackedAt: result.last_tracked_at.value
+          ? new Date(result.last_tracked_at.value)
+          : new Date(result.last_tracked_at),
         metricsToCreate: this.getMetricsToCreate(
           row,
           schemaFormat,
@@ -2926,7 +2996,6 @@ AND event_name = '${eventName}'`,
     if (startDate) {
       where.push(`m.timestamp >= ${this.toTimestamp(startDate)}`);
     }
-    // endDate is now meaningful if ignoreConversionEnd
     if (endDate) {
       where.push(`m.timestamp <= ${this.toTimestamp(endDate)}`);
     }
@@ -3106,7 +3175,6 @@ AND event_name = '${eventName}'`,
     if (startDate) {
       where.push(`${cols.timestamp} >= ${this.toTimestamp(startDate)}`);
     }
-    // endDate is now meaningful if ignoreConversionEnd
     if (endDate) {
       where.push(`${cols.timestamp} <= ${this.toTimestamp(endDate)}`);
     }
@@ -3237,17 +3305,19 @@ AND event_name = '${eventName}'`,
   private addCaseWhenTimeFilter(
     col: string,
     metric: ExperimentMetricInterface,
-    ignoreConversionEnd: boolean,
+    overrideConversionWindows: boolean,
+    endDate: Date,
     cumulativeDate: boolean
   ): string {
     return `${this.ifElse(
-      `
-        ${this.getConversionWindowClause(
-          "d.timestamp",
-          "m.timestamp",
-          metric,
-          ignoreConversionEnd
-        )}
+      `${this.getConversionWindowClause(
+        "d.timestamp",
+        "m.timestamp",
+        metric,
+        endDate,
+        cumulativeDate,
+        overrideConversionWindows
+      )}
         ${
           cumulativeDate ? `AND ${this.dateTrunc("m.timestamp")} <= dr.day` : ""
         }

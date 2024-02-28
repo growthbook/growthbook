@@ -71,29 +71,20 @@ Here is where much of your experiment analysis is configured. Many of the fields
 
 **Activation Metric** - A binomial metric that will filter the users in your analysis to only those who have converted on this binomial metric. This should only be used if activation is expected to be independent of experiment assignment. If an experiment affects the activation metric directly, then there is the potential for bias in your analysis.
 
-**Metric Conversion Windows** - Each user has a conversion window defined by when they were exposed to the experiment. If a user was recently exposed to the experiment, or was exposed near the end of the experiment, they may not have had the full window to convert before the analysis window closes. You may exclude these users with "In-Progress Conversions" if you want your experiment averages to only include those who have had the full window to convert.
+**Metric Conversion Windows** - Some of your metrics may have "conversion windows" defined for them. For those metrics, we build a window for each user based on when they were first exposed to the experiment. If a user's first exposure to an experiment was recent (for a running experiment) or or near the end of a stopped experiment, they may not have had the full window to convert before the analysis window closes. You may exclude these users with "In-Progress Conversions" if you want your experiment averages to only include those who have had the full window to convert.
 
-**Attribution Model**
+**Conversion Override**
 
-Attribution models deal with how we attribute metric values (conversions, counts, any arbitrary value to be aggregated at the unit level) to individual units (e.g. users). They rely on the concept of "conversion windows" which is discussed more in depth on the [Metric documentation page](metrics).
+Previously called "Attribution Model" in the UI, this setting lets you use an experiment level override to disable all conversion windows and instead use the exposure period for a user (from their first exposure until the end of the experiment) as the metric window. You can read more about Metric Windows on the [Metric documentation page](metrics).
 
-There are 2 **Attribution Models** that experiments can use:
+- **Respect Conversion Windows** - This setting ensures that all conversion windows on your metrics are respected.
+- **Ignore Conversion Windows** - This setting overrides all metrics to be as if they had no conversion windows. Lookback windows will not be overriden by this setting.
 
-- **First Exposure** uses a single conversion window based on the first time the user sees a particular experiment. The conversion window runs from the exposure timestamp + the conversion delay hours and for however many hours the conversion window is set to. For example, if the delay is 12 hours, and the window is 24 hours, then we will aggregate the metric values for each user from 12-36 hours after their first experiment exposure.
-- **Experiment Duration** uses a single conversion window that extends from their first exposure + conversion delay until the end of the experiment or phase. For example, if the delay is 12 hours, then the conversion window will extend from 12 hours after each user is bucketed until the present time or the end of the experiment/phase, if specified.
-
-This table summarizes the two models:
-
-| Attribution Model   | Conversion Window Start                | Conversion Window End                              |
-| ------------------- | -------------------------------------- | -------------------------------------------------- |
-| First Exposure      | First Exposure Date + Conversion Delay | Conversion Window Start + Conversion Window Length |
-| Experiment Duration | First Exposure Date + Conversion Delay | End of Experiment                                  |
-
-Currently, all analyses will use the "First Exposure" model by default. The _Experiment Duration_ model replaced the _All Exposures_ model in early 2023.
+For those familiar with he "Experiment Duration" attribution model, choosing "Ignore Conversion Windows" will work the same way, and you should know that you can now specify the metric window behavior on a metric-by-metric basis (see the [Metric documentation page](metrics)).
 
 ### Experiment Metrics
 
-You can add metrics as goal metrics, guardrail metrics, or both. You also can add "Metric Overrides" which provide experiment-specific controls for metrics, allowing you to override the metric's defaults for, for example, conversion windows and risk thresholds.
+You can add metrics as goal metrics, guardrail metrics, or both. You also can add "Metric Overrides" which provide experiment-specific controls for metrics, allowing you to override the metric's defaults for, for example, metric windows and risk thresholds.
 
 ### Experiment Phases
 

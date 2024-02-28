@@ -29,6 +29,7 @@ import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { findProjectById } from "../models/ProjectModel";
 import { getExperimentWatchers } from "../models/WatchModel";
 import { getFactTableMap } from "../models/FactTableModel";
+import { ApiReqContext } from "../../types/api";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -115,12 +116,12 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
   if (!experimentId || !orgId) return;
 
-  const experiment = await getExperimentById(orgId, experimentId);
-  if (!experiment) return;
-
   const context = await getContextForAgendaJobByOrgId(orgId);
 
   const { org: organization } = context;
+
+  const experiment = await getExperimentById(context, experimentId);
+  if (!experiment) return;
 
   let project = null;
   if (experiment.project) {
@@ -136,8 +137,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
   try {
     logger.info("Start Refreshing Results for experiment " + experimentId);
     const datasource = await getDataSourceById(
-      experiment.datasource || "",
-      experiment.organization
+      context,
+      experiment.datasource || ""
     );
     if (!datasource) {
       throw new Error("Error refreshing experiment, could not find datasource");
@@ -150,7 +151,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     const {
       regressionAdjustmentEnabled,
       metricRegressionAdjustmentStatuses,
-    } = await getRegressionAdjustmentInfo(experiment, organization);
+    } = await getRegressionAdjustmentInfo(context, experiment);
 
     const analysisSettings = getDefaultExperimentAnalysisSettings(
       experiment.statsEngine || scopedSettings.statsEngine.value,
@@ -159,8 +160,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       regressionAdjustmentEnabled
     );
 
-    const metricMap = await getMetricMap(organization.id);
-    const factTableMap = await getFactTableMap(organization.id);
+    const metricMap = await getMetricMap(context);
+    const factTableMap = await getFactTableMap(context);
 
     const queryRunner = await createSnapshot({
       experiment,
@@ -185,7 +186,12 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     );
 
     if (lastSnapshot) {
-      await sendSignificanceEmail(experiment, lastSnapshot, currentSnapshot);
+      await sendSignificanceEmail(
+        context,
+        experiment,
+        lastSnapshot,
+        currentSnapshot
+      );
     }
   } catch (e) {
     logger.error(e, "Failed to update experiment: " + experimentId);
@@ -194,7 +200,6 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       await updateExperiment({
         context,
         experiment,
-        user: null,
         changes: {
           autoSnapshots: false,
         },
@@ -207,6 +212,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 }
 
 async function sendSignificanceEmail(
+  context: ApiReqContext,
   experiment: ExperimentInterface,
   lastSnapshot: ExperimentSnapshotInterface,
   currentSnapshot: ExperimentSnapshotInterface
@@ -255,8 +261,7 @@ async function sendSignificanceEmail(
             // this test variation has gone significant, and won
             experimentChanges.push(
               "The metric " +
-                (await getExperimentMetricById(m, experiment.organization))
-                  ?.name +
+                (await getExperimentMetricById(context, m))?.name +
                 " for variation " +
                 experiment.variations[i].name +
                 " has reached a " +
@@ -270,8 +275,7 @@ async function sendSignificanceEmail(
             // this test variation has gone significant, and lost
             experimentChanges.push(
               "The metric " +
-                (await getExperimentMetricById(m, experiment.organization))
-                  ?.name +
+                (await getExperimentMetricById(context, m))?.name +
                 " for variation " +
                 experiment.variations[i].name +
                 " has dropped to a " +

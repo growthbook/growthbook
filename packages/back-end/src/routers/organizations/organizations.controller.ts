@@ -6,8 +6,10 @@ import {
   getAccountPlan,
   getEffectiveAccountPlan,
   getLicense,
+  orgHasPremiumFeature,
   setLicense,
 } from "enterprise";
+import { hasReadAccess } from "shared/permissions";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -136,15 +138,15 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     factTables,
     factMetrics,
   ] = await Promise.all([
-    getMetricsByOrganization(orgId),
-    getDataSourcesByOrganization(orgId),
+    getMetricsByOrganization(context),
+    getDataSourcesByOrganization(context),
     findDimensionsByOrganization(orgId),
     findSegmentsByOrganization(orgId),
     getAllTags(orgId),
     getAllSavedGroups(orgId),
     findAllProjectsByOrganization(context),
-    getAllFactTablesForOrganization(orgId),
-    getAllFactMetricsForOrganization(orgId),
+    getAllFactTablesForOrganization(context),
+    getAllFactMetricsForOrganization(context),
   ]);
 
   return res.status(200).json({
@@ -177,7 +179,8 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
 }
 
 export async function getActivityFeed(req: AuthRequest, res: Response) {
-  const { org, userId } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
   try {
     const docs = await getRecentWatchedAudits(userId, org.id);
 
@@ -192,7 +195,7 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
 
     const experimentIds = Array.from(new Set(docs.map((d) => d.entity.id)));
     const experiments = await getExperimentsForActivityFeed(
-      org.id,
+      context,
       experimentIds
     );
 
@@ -693,12 +696,13 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
       organization: null,
     });
   }
-  const { org, environments } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { environments } = context;
 
   const namespaces: NamespaceUsage = {};
 
   // Get all of the active experiments that are tied to a namespace
-  const allFeatures = await getAllFeatures(org.id);
+  const allFeatures = await getAllFeatures(context);
   allFeatures.forEach((f) => {
     environments.forEach((env) => {
       if (!f.environmentSettings?.[env]?.enabled) return;
@@ -727,7 +731,7 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
     });
   });
 
-  const allExperiments = await getAllExperiments(org.id);
+  const allExperiments = await getAllExperiments(context);
   allExperiments.forEach((e) => {
     if (!e.phases) return;
     const phase = e.phases[e.phases.length - 1];
@@ -1487,14 +1491,17 @@ export async function postApiKeyReveal(
 }
 
 export async function getWebhooks(req: AuthRequest, res: Response) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const webhooks = await WebhookModel.find({
-    organization: org.id,
+    organization: context.org.id,
     useSdkMode: { $ne: true },
   });
+
   res.status(200).json({
     status: 200,
-    webhooks,
+    webhooks: webhooks.filter((webhook) =>
+      hasReadAccess(context.readAccessFilter, webhook.project)
+    ),
   });
 }
 
@@ -1565,35 +1572,17 @@ export async function postWebhookSDK(
 ) {
   req.checkPermissions("manageWebhooks");
 
-  // enterprise is unlimited
-  const limits = {
-    pro: 99,
-    starter: 2,
-  };
   const { org } = getContextFromReq(req);
   const { name, endpoint, sdkid, sendPayload, headers, httpMethod } = req.body;
   const webhookcount = await countWebhooksByOrg(org.id);
-  if (
-    IS_CLOUD &&
-    getAccountPlan(org).includes("pro") &&
-    webhookcount > limits.pro
-  ) {
-    return res.status(426).json({
-      status: 426,
-      message: "SDK webhook limit has been reached",
-    });
+  const canAddMultipleSdkWebhooks = orgHasPremiumFeature(
+    org,
+    "multiple-sdk-webhooks"
+  );
+  if (!canAddMultipleSdkWebhooks && webhookcount > 0) {
+    throw new Error("your webhook limit has been reached");
   }
 
-  if (
-    IS_CLOUD &&
-    getAccountPlan(org).includes("starter") &&
-    webhookcount > limits.starter
-  ) {
-    return res.status(426).json({
-      status: 426,
-      message: "SDK webhook limit has been reached",
-    });
-  }
   const webhook = await createSdkWebhook({
     organization: org.id,
     name,
@@ -1692,7 +1681,7 @@ export async function postImportConfig(
 ) {
   req.checkPermissions("organizationSettings");
 
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { contents } = req.body;
 
   const config: ConfigFile = JSON.parse(contents);
@@ -1700,7 +1689,7 @@ export async function postImportConfig(
     throw new Error("Failed to parse config.yml file contents.");
   }
 
-  await importConfig(config, org);
+  await importConfig(context, config);
 
   res.status(200).json({
     status: 200,

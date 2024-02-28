@@ -27,7 +27,8 @@ import {
 } from "@/services/metrics";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import FactBadge from "@/components/FactTables/FactBadge";
+import { capitalizeFirstLetter } from "@/services/utils";
+import MetricName from "@/components/Metrics/MetricName";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -193,7 +194,9 @@ export default function FactMetricPage() {
     );
   }
 
-  const canEdit = permissions.check("createMetrics", factMetric.projects || "");
+  const canEdit =
+    !factMetric.managedBy &&
+    permissions.check("createMetrics", factMetric.projects || "");
 
   let regressionAdjustmentAvailableForMetric = true;
   let regressionAdjustmentAvailableForMetricReason = <></>;
@@ -251,8 +254,7 @@ export default function FactMetricPage() {
       <div className="row mb-3">
         <div className="col-auto">
           <h1 className="mb-0">
-            {factMetric.name}
-            <FactBadge metricId={factMetric.id} />
+            <MetricName id={factMetric.id} />
           </h1>
         </div>
         {canEdit && (
@@ -402,22 +404,40 @@ export default function FactMetricPage() {
           </div>
 
           <div className="mb-4">
-            <h3>Conversion Window</h3>
+            <h3>Metric Window</h3>
             <div className="appbox p-3 mb-3">
-              {factMetric.hasConversionWindow ? (
+              {factMetric.windowSettings.type === "conversion" ? (
                 <>
-                  <em className="font-weight-bold">Enabled</em> - Require
-                  conversions to happen within{" "}
+                  <em className="font-weight-bold">Conversion Window</em> -
+                  Require conversions to happen within{" "}
                   <strong>
-                    {factMetric.conversionWindowValue}{" "}
-                    {factMetric.conversionWindowUnit}
+                    {factMetric.windowSettings.windowValue}{" "}
+                    {factMetric.windowSettings.windowUnit}
                   </strong>{" "}
-                  of first experiment exposure.
+                  of first experiment exposure
+                  {factMetric.windowSettings.delayHours
+                    ? " plus the conversion delay"
+                    : ""}
+                  .
+                </>
+              ) : factMetric.windowSettings.type === "lookback" ? (
+                <>
+                  <em className="font-weight-bold">Lookback Window</em> -
+                  Require metric data to be in latest{" "}
+                  <strong>
+                    {factMetric.windowSettings.windowValue}{" "}
+                    {factMetric.windowSettings.windowUnit}
+                  </strong>{" "}
+                  of the experiment.
                 </>
               ) : (
                 <>
                   <em className="font-weight-bold">Disabled</em> - Include all
-                  conversions that happen while an experiment is running.
+                  metric data after first experiment exposure
+                  {factMetric.windowSettings.delayHours
+                    ? " plus the conversion delay"
+                    : ""}
+                  .
                 </>
               )}
             </div>
@@ -435,18 +455,15 @@ export default function FactMetricPage() {
               open={() => setEditOpen(true)}
               canOpen={canEdit}
             >
-              {factMetric.conversionDelayHours > 0 && (
+              {factMetric.windowSettings.delayHours > 0 && (
                 <RightRailSectionGroup type="custom" empty="" className="mt-3">
                   <ul className="right-rail-subsection list-unstyled mb-4">
                     <li className="mt-3 mb-1">
-                      <span className="uppercase-title lg">
-                        Conversion Settings
-                      </span>
+                      <span className="uppercase-title lg">Metric Delay</span>
                     </li>
                     <li className="mb-2">
-                      <span className="text-gray">Conversion Delay: </span>
                       <span className="font-weight-bold">
-                        {factMetric.conversionDelayHours} hours
+                        {factMetric.windowSettings.delayHours} hours
                       </span>
                     </li>
                   </ul>
@@ -461,19 +478,33 @@ export default function FactMetricPage() {
                       <span className="font-weight-bold">Inverse</span>
                     </li>
                   )}
-                  {factMetric.capping && factMetric.capValue && (
-                    <li className="mb-2">
-                      <span className="text-gray">
-                        Cap value ({factMetric.capping}):{" "}
-                      </span>
-                      <span className="font-weight-bold">
-                        {factMetric.capValue}{" "}
-                        {factMetric.capping === "percentile"
-                          ? `(${100 * factMetric.capValue} pctile)`
-                          : ""}{" "}
-                      </span>
-                    </li>
-                  )}
+                  {factMetric.cappingSettings.type &&
+                    factMetric.cappingSettings.value && (
+                      <>
+                        <li className="mb-2">
+                          <span className="uppercase-title lg">
+                            {capitalizeFirstLetter(
+                              factMetric.cappingSettings.type
+                            )}
+                            {" capping"}
+                          </span>
+                        </li>
+                        <li>
+                          <span className="font-weight-bold">
+                            {factMetric.cappingSettings.value}
+                          </span>{" "}
+                          {factMetric.cappingSettings.type === "percentile"
+                            ? `(${
+                                100 * factMetric.cappingSettings.value
+                              } pctile${
+                                factMetric.cappingSettings.ignoreZeros
+                                  ? ", ignoring zeros"
+                                  : ""
+                              })`
+                            : ""}{" "}
+                        </li>
+                      </>
+                    )}
                 </ul>
               </RightRailSectionGroup>
 

@@ -15,6 +15,10 @@ import { findWebhookById, findWebhooksBySdks } from "../models/WebhookModel";
 import { WebhookInterface, WebhookMethod } from "../../types/webhook";
 import { createSdkWebhookLog } from "../models/SdkWebhookLogModel";
 import { cancellableFetch } from "../util/http.util";
+import { getContextForAgendaJobByOrgId } from "../services/organizations";
+import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "../../types/api";
+import { trackJob } from "../services/otel";
 
 const SDK_WEBHOOKS_JOB_NAME = "fireWebhooks";
 type SDKWebhookJob = Job<{
@@ -22,11 +26,9 @@ type SDKWebhookJob = Job<{
   retryCount: number;
 }>;
 
-let agenda: Agenda;
-export default function addSdkWebhooksJob(ag: Agenda) {
-  agenda = ag;
-  // Fire webhooks
-  agenda.define(SDK_WEBHOOKS_JOB_NAME, async (job: SDKWebhookJob) => {
+const fireWebhooks = trackJob(
+  SDK_WEBHOOKS_JOB_NAME,
+  async (job: SDKWebhookJob) => {
     const webhookId = job.attrs.data?.webhookId;
 
     if (!webhookId) {
@@ -36,7 +38,14 @@ export default function addSdkWebhooksJob(ag: Agenda) {
       return;
     }
     await queueSingleWebhookById(webhookId);
-  });
+  }
+);
+
+let agenda: Agenda;
+export default function addSdkWebhooksJob(ag: Agenda) {
+  agenda = ag;
+  // Fire webhooks
+  agenda.define(SDK_WEBHOOKS_JOB_NAME, fireWebhooks);
   agenda.on(
     "fail:" + SDK_WEBHOOKS_JOB_NAME,
     async (error: Error, job: SDKWebhookJob) => {
@@ -78,12 +87,12 @@ export async function queueSingleWebhookJob(sdk: SDKConnectionInterface) {
   }
 }
 export async function queueWebhookUpdate(
-  orgId: string,
+  context: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[]
 ) {
   if (!CRON_ENABLED) return;
   if (!payloadKeys.length) return;
-  const connections = await findSDKConnectionsByOrganization(orgId);
+  const connections = await findSDKConnectionsByOrganization(context);
 
   if (!connections) return;
   const sdkKeys: string[] = [];
@@ -229,8 +238,12 @@ export async function queueSingleWebhookById(webhookId: string) {
       return;
     }
 
+    const context = await getContextForAgendaJobByOrgId(
+      connection.organization
+    );
+
     const defs = await getFeatureDefinitions({
-      organization: connection.organization,
+      context,
       capabilities: getConnectionSDKCapabilities(connection),
       environment: connection.environment,
       projects: connection.projects,
@@ -271,7 +284,7 @@ export async function queueSingleWebhookById(webhookId: string) {
 }
 
 export async function queueGlobalWebhooks(
-  organizationId: string,
+  context: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[]
 ) {
   for (const webhook of WEBHOOKS) {
@@ -286,7 +299,7 @@ export async function queueGlobalWebhooks(
     } = webhook;
     if (!payloadKeys.length) return;
 
-    const connections = await findSDKConnectionsByOrganization(organizationId);
+    const connections = await findSDKConnectionsByOrganization(context);
 
     if (!connections) return;
     for (let i = 0; i < connections.length; i++) {
@@ -302,7 +315,7 @@ export async function queueGlobalWebhooks(
         )
       ) {
         const defs = await getFeatureDefinitions({
-          organization: connection.organization,
+          context,
           capabilities: getConnectionSDKCapabilities(connection),
           environment: connection.environment,
           projects: connection.projects,
@@ -319,7 +332,7 @@ export async function queueGlobalWebhooks(
         const payload = JSON.stringify(defs);
         fireWebhook({
           webhookId,
-          organizationId,
+          organizationId: context.org.id,
           url,
           signingKey,
           key,

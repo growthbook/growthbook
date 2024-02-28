@@ -9,7 +9,10 @@ import {
   LegacyVariation,
 } from "../../types/experiment";
 import { ErrorResponse, ExperimentOverridesResponse } from "../../types/api";
-import { getExperimentOverrides } from "../services/organizations";
+import {
+  getContextForAgendaJobByOrgId,
+  getExperimentOverrides,
+} from "../services/organizations";
 import { getAllExperiments } from "../models/ExperimentModel";
 
 export function canAutoAssignExperiment(
@@ -46,9 +49,9 @@ export async function getExperimentConfig(
       });
     }
 
-    const { overrides, expIdMapping } = await getExperimentOverrides(
-      organization
-    );
+    const context = await getContextForAgendaJobByOrgId(organization);
+
+    const { overrides, expIdMapping } = await getExperimentOverrides(context);
 
     // TODO: add cache headers?
     res.status(200).json({
@@ -113,7 +116,9 @@ export async function getExperimentsScript(
           "Must use a Publishable API key to load the visual editor script",
       });
     }
-    const experiments = await getAllExperiments(organization);
+
+    const context = await getContextForAgendaJobByOrgId(organization);
+    const experiments = await getAllExperiments(context);
 
     const experimentData: ExperimentData[] = [];
 

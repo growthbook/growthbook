@@ -9,7 +9,7 @@ import {
 
 export const putMetric = createApiRequestHandler(putMetricValidator)(
   async (req): Promise<PutMetricResponse> => {
-    const metric = await getMetricById(req.params.id, req.organization.id);
+    const metric = await getMetricById(req.context, req.params.id);
 
     if (!metric) {
       throw new Error("Metric not found");
@@ -25,7 +25,7 @@ export const putMetric = createApiRequestHandler(putMetricValidator)(
 
     const updated = putMetricApiPayloadToMetricInterface(req.body);
 
-    await updateMetric(req.params.id, updated, req.organization.id);
+    await updateMetric(req.context, metric, updated);
 
     return {
       updatedId: req.params.id,

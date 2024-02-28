@@ -77,6 +77,7 @@ const TeamsList: FC = () => {
                             return (
                               <div key={`project-tags-${p.id}`}>
                                 <ProjectBadges
+                                  resourceType="team"
                                   projectIds={[p.id]}
                                   className="badge-ellipsis align-middle font-weight-normal"
                                 />{" "}
