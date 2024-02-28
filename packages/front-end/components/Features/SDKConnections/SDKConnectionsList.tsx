@@ -158,19 +158,7 @@ export default function SDKConnectionsList() {
                       </div>
                     </td>
                   )}
-                  <td>
-                    <div>{connection.environment}</div>
-                    {envProjects.length > 0 ? (
-                      <div className="text-muted small">
-                        {envProjects.length} project
-                        {envProjects.length === 1 ? "" : "s"}
-                      </div>
-                    ) : (
-                      <div className="text-muted small font-italic">
-                        All projects
-                      </div>
-                    )}
-                  </td>
+                  <td>{connection.environment}</td>
                   <td className="text-center">
                     {connection.remoteEvalEnabled && (
                       <Tooltip
