@@ -1,7 +1,7 @@
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import ReactDiffViewer from "react-diff-viewer";
-import { FaCopy, FaRegCopy } from "react-icons/fa";
+import { FaRedo, FaRegCopy } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import Modal from "../Modal";
@@ -27,13 +27,15 @@ export default function CompareRulesModal({
 }: Props) {
   const [env1, setEnv1] = useState<string | null>(null);
   const [env2, setEnv2] = useState<string | null>(null);
-  const environments = Object.keys(feature.environmentSettings); // Is this right? Where is dev coming from?
+  const [copyingRules, setCopyingRules] = useState(false);
+  const environments = Object.keys(feature.environmentSettings); // MKTODO: Is this right? Where is dev coming from?
   const { apiCall } = useAuth();
 
   async function handleCopyingRules(
     targetEnv: string,
     newRules: FeatureRule[]
   ) {
+    setCopyingRules(true);
     const res = await apiCall<{ version: number }>(
       `/feature/${feature.id}/${version}/copy-rule-set`,
       {
@@ -51,9 +53,8 @@ export default function CompareRulesModal({
     });
     await mutate();
     res.version && setVersion(res.version);
+    setCopyingRules(false);
   }
-
-  console.log("environments", environments);
 
   const options = environments.map((env) => ({
     label: `${env} (${feature.environmentSettings[env].rules.length} rules)`,
@@ -94,6 +95,7 @@ export default function CompareRulesModal({
               placeholder="Select Environment..."
               options={options.filter((env) => env.value !== env2)}
               onChange={(value) => setEnv1(value)}
+              disabled={copyingRules}
             />
           </div>
           <div className="col-12">
@@ -105,37 +107,57 @@ export default function CompareRulesModal({
               placeholder="Select Environment..."
               options={options.filter((env) => env.value !== env1)}
               onChange={(value) => setEnv2(value)}
+              disabled={copyingRules}
             />
           </div>
         </div>
         {env1 && env2 ? (
           <>
-            <div className="row">
+            <div className="row px-2">
               <div className="alert alert-secondary col-12">
                 If copied, rules from <strong>{env1}</strong> will overwrite any
                 existing rules on <strong>{env2}</strong>.
               </div>
-              <button
-                className="btn btn-outline-primary"
-                onClick={async () =>
-                  await handleCopyingRules(
-                    env2,
-                    feature.environmentSettings[env1].rules
-                  )
-                }
-                disabled={getDiffString(env1) === getDiffString(env2)}
-              >
-                <FaRegCopy /> Copy Rules to {env2}
-              </button>
+              <div className="d-flex align-items-center justify-content-between w-100">
+                <button
+                  className="btn btn-outline-primary"
+                  onClick={async () =>
+                    await handleCopyingRules(
+                      env2,
+                      feature.environmentSettings[env1].rules
+                    )
+                  }
+                  disabled={
+                    getDiffString(env1) === getDiffString(env2) || copyingRules
+                  }
+                >
+                  <FaRegCopy />
+                  {copyingRules ? " Copying rules..." : " Copy Rules to Target"}
+                </button>
+                <Tooltip body="Reset environment selection to trigger a new comparison.">
+                  <button
+                    className="btn btn-link text-decoration-none"
+                    disabled={copyingRules}
+                    onClick={() => {
+                      // MKTODO: This isn't resetting the SelectField's value prop
+                      setEnv1(null);
+                      setEnv2(null);
+                    }}
+                  >
+                    {" "}
+                    <FaRedo size={10} /> Compare New Selection
+                  </button>
+                </Tooltip>
+              </div>
             </div>
-            <div className="row my-3">
+            <div className="my-3 border rounded">
+              <div className="bg-light w-100 p-2">
+                <strong>Environments Compared</strong>
+              </div>
               {getDiffString(env1) === getDiffString(env2) ? (
-                <div className="alert alert-info col-12">
-                  <strong>{env1}</strong> and <strong>{env2}</strong> have
-                  identical rules.
-                </div>
+                <div className="p-3">No difference between environments.</div>
               ) : (
-                <div className="border rounded col-12">
+                <div className="d-flex w-100">
                   <ReactDiffViewer
                     oldValue={getDiffString(env1)}
                     newValue={getDiffString(env2)}
