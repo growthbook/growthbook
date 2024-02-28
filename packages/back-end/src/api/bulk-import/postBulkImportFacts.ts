@@ -11,7 +11,6 @@ import {
   getFactTableMap,
 } from "../../models/FactTableModel";
 import { findAllProjectsByOrganization } from "../../models/ProjectModel";
-import { addTags } from "../../models/TagModel";
 import { createApiRequestHandler } from "../../util/handler";
 import { postBulkImportFactsValidator } from "../../validators/openapi";
 import { getCreateMetricPropsFromBody } from "../fact-metrics/postFactMetric";
@@ -34,7 +33,7 @@ export const postBulkImportFacts = createApiRequestHandler(
 
     const factTableMap = await getFactTableMap(req.context);
 
-    const allFactMetrics = await req.context.factMetrics.getAll();
+    const allFactMetrics = await req.context.models.factMetrics.getAll();
     const factMetricMap = new Map<string, FactMetricInterface>(
       allFactMetrics.map((m) => [m.id, m])
     );
@@ -48,9 +47,6 @@ export const postBulkImportFacts = createApiRequestHandler(
 
     function checkFactTablePermission(factTable: { projects?: string[] }) {
       req.checkPermissions("manageFactTables", factTable.projects || []);
-    }
-    function checkFactMetricPermission(factMetric: { projects?: string[] }) {
-      req.checkPermissions("createMetrics", factMetric.projects || []);
     }
 
     const projects = await findAllProjectsByOrganization(req.context);
@@ -200,19 +196,14 @@ export const postBulkImportFacts = createApiRequestHandler(
         const existing = factMetricMap.get(id);
         // Update existing fact metric
         if (existing) {
-          checkFactMetricPermission(existing);
-          if (data.projects) checkFactMetricPermission(data);
-
           const changes = getUpdateFactMetricPropsFromBody(data, existing);
 
-          await req.context.factMetrics.update(existing, changes);
+          await req.context.models.factMetrics.update(existing, changes);
 
           numUpdated.factMetrics++;
         }
         // Create new fact metric
         else {
-          checkFactMetricPermission(data);
-
           const lookupFactTable = async (id: string) =>
             factTableMap.get(id) || null;
 
@@ -223,7 +214,7 @@ export const postBulkImportFacts = createApiRequestHandler(
           );
           createProps.id = id;
 
-          const newFactMetric = await req.context.factMetrics.create(
+          const newFactMetric = await req.context.models.factMetrics.create(
             createProps
           );
           factMetricMap.set(newFactMetric.id, newFactMetric);
@@ -235,7 +226,7 @@ export const postBulkImportFacts = createApiRequestHandler(
 
     // Update tags
     if (tagsToAdd.size) {
-      await addTags(req.organization.id, [...tagsToAdd]);
+      await req.context.registerTags([...tagsToAdd]);
     }
 
     return {

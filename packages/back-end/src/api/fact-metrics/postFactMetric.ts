@@ -14,7 +14,6 @@ import { getFactTable } from "../../models/FactTableModel";
 import { createApiRequestHandler } from "../../util/handler";
 import { postFactMetricValidator } from "../../validators/openapi";
 import { OrganizationInterface } from "../../../types/organization";
-import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 
 export async function getCreateMetricPropsFromBody(
   body: z.infer<typeof postFactMetricValidator.bodySchema>,
@@ -127,26 +126,16 @@ export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
 
     const lookupFactTable = async (id: string) => getFactTable(req.context, id);
 
-    if (req.body.projects?.length) {
-      const projects = await findAllProjectsByOrganization(req.context);
-      const projectIds = new Set(projects.map((p) => p.id));
-      for (const projectId of req.body.projects) {
-        if (!projectIds.has(projectId)) {
-          throw new Error(`Project ${projectId} not found`);
-        }
-      }
-    }
-
     const data = await getCreateMetricPropsFromBody(
       req.body,
       req.organization,
       lookupFactTable
     );
 
-    const factMetric = await req.context.factMetrics.create(data);
+    const factMetric = await req.context.models.factMetrics.create(data);
 
     return {
-      factMetric: req.context.factMetrics.toApiInterface(factMetric),
+      factMetric: req.context.models.factMetrics.toApiInterface(factMetric),
     };
   }
 );

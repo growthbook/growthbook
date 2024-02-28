@@ -10,13 +10,13 @@ export const getFactMetric = createApiRequestHandler(getFactMetricValidator)(
       id = `fact__${id}`;
     }
 
-    const factMetric = await req.context.factMetrics.getById(id);
+    const factMetric = await req.context.models.factMetrics.getById(id);
     if (!factMetric) {
       throw new Error("Could not find factMetric with that id");
     }
 
     return {
-      factMetric: req.context.factMetrics.toApiInterface(factMetric),
+      factMetric: req.context.models.factMetrics.toApiInterface(factMetric),
     };
   }
 );

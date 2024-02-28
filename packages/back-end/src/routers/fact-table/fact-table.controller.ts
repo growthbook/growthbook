@@ -315,7 +315,7 @@ export const getFactMetrics = async (
 ) => {
   const context = getContextFromReq(req);
 
-  const factMetrics = await context.factMetrics.getAll();
+  const factMetrics = await context.models.factMetrics.getAll();
 
   res.status(200).json({
     status: 200,
@@ -330,7 +330,7 @@ export const postFactMetric = async (
   const data = req.body;
   const context = getContextFromReq(req);
 
-  const factMetric = await context.factMetrics.create(data);
+  const factMetric = await context.models.factMetrics.create(data);
 
   res.status(200).json({
     status: 200,
@@ -345,7 +345,7 @@ export const putFactMetric = async (
   const data = req.body;
   const context = getContextFromReq(req);
 
-  await context.factMetrics.updateById(req.params.id, data);
+  await context.models.factMetrics.updateById(req.params.id, data);
 
   res.status(200).json({
     status: 200,
@@ -358,7 +358,7 @@ export const deleteFactMetric = async (
 ) => {
   const context = getContextFromReq(req);
 
-  await context.factMetrics.deleteById(req.params.id);
+  await context.models.factMetrics.deleteById(req.params.id);
 
   res.status(200).json({
     status: 200,

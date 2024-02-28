@@ -7,7 +7,7 @@ export const listFactMetrics = createApiRequestHandler(
   listFactMetricsValidator
 )(
   async (req): Promise<ListFactMetricsResponse> => {
-    const factMetrics = await req.context.factMetrics.getAll();
+    const factMetrics = await req.context.models.factMetrics.getAll();
 
     let matches = factMetrics;
     if (req.query.projectId) {
@@ -35,7 +35,7 @@ export const listFactMetrics = createApiRequestHandler(
 
     return {
       factMetrics: filtered.map((factMetric) =>
-        req.context.factMetrics.toApiInterface(factMetric)
+        req.context.models.factMetrics.toApiInterface(factMetric)
       ),
       ...returnFields,
     };

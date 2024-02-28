@@ -12,14 +12,7 @@ export const deleteFactMetric = createApiRequestHandler(
       id = `fact__${id}`;
     }
 
-    const factMetric = await req.context.factMetrics.getById(id);
-    if (!factMetric) {
-      throw new Error(
-        "Unable to delete - Could not find factMetric with that id"
-      );
-    }
-
-    await req.context.factMetrics.delete(factMetric);
+    await req.context.models.factMetrics.deleteById(id);
 
     return {
       deletedId: id,

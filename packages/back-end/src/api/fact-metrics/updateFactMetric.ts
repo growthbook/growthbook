@@ -6,7 +6,6 @@ import {
 import { UpdateFactMetricResponse } from "../../../types/openapi";
 import { createApiRequestHandler } from "../../util/handler";
 import { updateFactMetricValidator } from "../../validators/openapi";
-import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 
 export function getUpdateFactMetricPropsFromBody(
   body: z.infer<typeof updateFactMetricValidator.bodySchema>,
@@ -82,30 +81,21 @@ export const updateFactMetric = createApiRequestHandler(
   updateFactMetricValidator
 )(
   async (req): Promise<UpdateFactMetricResponse> => {
-    const factMetric = await req.context.factMetrics.getById(req.params.id);
-
+    const factMetric = await req.context.models.factMetrics.getById(
+      req.params.id
+    );
     if (!factMetric) {
       throw new Error("Could not find factMetric with that id");
     }
     const updates = getUpdateFactMetricPropsFromBody(req.body, factMetric);
 
-    if (updates.projects?.length) {
-      const projects = await findAllProjectsByOrganization(req.context);
-      const projectIds = new Set(projects.map((p) => p.id));
-      for (const projectId of updates.projects) {
-        if (!projectIds.has(projectId)) {
-          throw new Error(`Project ${projectId} not found`);
-        }
-      }
-    }
-
-    const newFactMetric = await req.context.factMetrics.update(
+    const newFactMetric = await req.context.models.factMetrics.update(
       factMetric,
       updates
     );
 
     return {
-      factMetric: req.context.factMetrics.toApiInterface(newFactMetric),
+      factMetric: req.context.models.factMetrics.toApiInterface(newFactMetric),
     };
   }
 );

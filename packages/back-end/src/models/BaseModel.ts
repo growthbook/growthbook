@@ -6,10 +6,9 @@ import { Collection } from "mongodb";
 import { hasReadAccess } from "shared/permissions";
 import omit from "lodash/omit";
 import { z } from "zod";
-import { isEqual, pick } from "lodash";
+import { isEqual, pick, uniq } from "lodash";
 import { ApiReqContext } from "../../types/api";
 import { Permission, ReqContext } from "../../types/organization";
-import { addTags, addTagsDiff } from "./TagModel";
 
 export type BaseSchema = z.ZodObject<
   {
@@ -219,10 +218,30 @@ export abstract class BaseModel<T extends BaseSchema> {
     return undefined;
   }
 
-  // eslint-disable-next-line
+  private _getAffectedProjects(doc: z.infer<T>) {
+    const projects = this._getProjectField(doc);
+    return Array.isArray(projects) ? projects : projects ? [projects] : [];
+  }
+
   protected async _standardFieldValidation(obj: Partial<z.infer<T>>) {
-    // TODO: if `project` is being set, make sure it's a valid id
-    // TODO: if `projects` is being set, make sure they are all valid ids
+    if (this.config.projectScoping === "single") {
+      if ("project" in obj && obj.project) {
+        const projects = await this.context.getProjects();
+        if (!projects.some((p) => p.id === obj.project)) {
+          throw new Error("Invalid project");
+        }
+      }
+    } else if (this.config.projectScoping === "multiple") {
+      if ("projects" in obj && obj.projects && Array.isArray(obj.projects)) {
+        const projects = await this.context.getProjects();
+        if (
+          !obj.projects.every((p) => projects.some((proj) => proj.id === p))
+        ) {
+          throw new Error("Invalid project");
+        }
+      }
+    }
+
     // TODO: if `datasource` is being set, make sure it's a valid id
     // TODO: other field validations
   }
@@ -255,7 +274,7 @@ export abstract class BaseModel<T extends BaseSchema> {
       dateUpdated: new Date(),
     } as z.infer<T>;
 
-    // TODO: permission checks
+    this.checkWritePermissions(this._getAffectedProjects(doc));
 
     // Validate the new doc (sanity check in case Typescript errors are ignored for any reason)
     this.config.schema.parse(doc);
@@ -272,11 +291,15 @@ export abstract class BaseModel<T extends BaseSchema> {
     await this.afterCreate(doc);
 
     // Add tags if needed
-    if ("tags" in doc && Array.isArray(doc.tags) && doc.tags.length > 0) {
-      await addTags(this.context.org.id, doc.tags);
+    if ("tags" in doc && Array.isArray(doc.tags)) {
+      await this.context.registerTags(doc.tags);
     }
 
     return doc;
+  }
+
+  protected checkWritePermissions(projects: string[]) {
+    // TODO: check write permissions for each project passed in
   }
 
   protected async _updateOne(doc: z.infer<T>, updates: UpdateProps<T>) {
@@ -291,8 +314,16 @@ export abstract class BaseModel<T extends BaseSchema> {
       return doc;
     }
 
-    // TODO: permission checks
-    // TODO: if updating projects, check permissions before and after
+    // Make sure the updates don't include any fields that shouldn't be updated
+    if (
+      ["id", "organization", "dateCreated", "dateUpdated"].some(
+        (k) => k in updates
+      )
+    ) {
+      throw new Error(
+        "Cannot update id, organization, dateCreated, or dateUpdated"
+      );
+    }
 
     // Only set dateUpdated if at least one important field has changed
     const setDateUpdated = updatedFields.some(
@@ -306,12 +337,20 @@ export abstract class BaseModel<T extends BaseSchema> {
 
     const newDoc = { ...doc, ...allUpdates } as z.infer<T>;
 
+    this.checkWritePermissions(
+      uniq([
+        ...this._getAffectedProjects(doc),
+        ...this._getAffectedProjects(newDoc),
+      ])
+    );
+
     // Validate the new doc (sanity check in case Typescript errors are ignored for any reason)
     this.config.schema.parse(newDoc);
 
+    await this._standardFieldValidation(updates as Partial<z.infer<T>>);
+
     await this.beforeUpdate(doc, updates, newDoc);
 
-    await this._standardFieldValidation(newDoc);
     await this.customValidation(newDoc);
 
     await this._dangerousGetCollection().updateOne(
@@ -329,17 +368,8 @@ export abstract class BaseModel<T extends BaseSchema> {
     await this.afterUpdate(doc, updates, newDoc);
 
     // Update tags if needed
-    // TODO: keep a reference of current tags in Context to make this more efficient
-    if (
-      "tags" in newDoc &&
-      Array.isArray(newDoc.tags) &&
-      newDoc.tags.length > 0
-    ) {
-      await addTagsDiff(
-        this.context.org.id,
-        (doc as z.infer<T> & { tags?: string[] }).tags || [],
-        newDoc.tags
-      );
+    if ("tags" in newDoc && Array.isArray(newDoc.tags)) {
+      await this.context.registerTags(newDoc.tags);
     }
 
     return newDoc;
