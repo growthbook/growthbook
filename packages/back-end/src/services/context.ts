@@ -15,6 +15,16 @@ import { addTags, getAllTags } from "../models/TagModel";
 import { getEnvironmentIdsFromOrg } from "./organizations";
 
 export class ReqContextClass {
+  // Models
+  public models!: {
+    factMetrics: FactMetricDataModel;
+  };
+  private addModels() {
+    this.models = {
+      factMetrics: new FactMetricDataModel(this),
+    };
+  }
+
   public org: OrganizationInterface;
   public userId = "";
   public email = "";
@@ -23,11 +33,6 @@ export class ReqContextClass {
   public environments: string[];
   public readAccessFilter: ReadAccessFilter;
   public auditUser: EventAuditUser;
-
-  // Models
-  public models: {
-    factMetrics: FactMetricDataModel;
-  };
 
   public constructor({
     org,
@@ -63,9 +68,7 @@ export class ReqContextClass {
       this.readAccessFilter = getApiKeyReadAccessFilter(role || "admin");
     }
 
-    this.models = {
-      factMetrics: new FactMetricDataModel(this),
-    };
+    this.addModels();
   }
 
   // Cache projects since they are needed many places in the code
