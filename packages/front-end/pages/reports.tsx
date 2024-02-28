@@ -162,6 +162,7 @@ const ReportsPage = (): React.ReactElement => {
                 <Link
                   href={`/report/${report.id}`}
                   className={`text-dark font-weight-bold`}
+                  legacyBehavior
                 >
                   {report.title}
                 </Link>

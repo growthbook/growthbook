@@ -639,6 +639,7 @@ export default function RuleModal({
                   <Link
                     href={`/experiment/${selectedExperiment.id}#overview`}
                     className="alert-link"
+                    legacyBehavior
                   >
                     View the Experiment
                     <FaExternalLinkAlt />

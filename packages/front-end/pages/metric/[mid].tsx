@@ -210,7 +210,9 @@ const MetricPage: FC = () => {
             res.experiments.forEach((e) => {
               experimentLinks.push(
                 // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
-                <Link href={`/experiment/${e.id}`}>{e.name}</Link>
+                <Link href={`/experiment/${e.id}`} legacyBehavior>
+                  {e.name}
+                </Link>
               );
             });
           }
@@ -224,7 +226,9 @@ const MetricPage: FC = () => {
             res.ideas.forEach((i) => {
               ideaLinks.push(
                 // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
-                <Link href={`/idea/${i.id}`}>{i.text}</Link>
+                <Link href={`/idea/${i.id}`} legacyBehavior>
+                  {i.text}
+                </Link>
               );
             });
           }
@@ -890,6 +894,7 @@ const MetricPage: FC = () => {
                     href={`/experiment/${e.id}`}
                     key={e.id}
                     className="list-group-item list-group-item-action"
+                    legacyBehavior
                   >
                     <div className="d-flex">
                       <strong className="mr-3">{e.name}</strong>

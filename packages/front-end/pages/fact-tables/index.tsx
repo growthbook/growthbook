@@ -253,7 +253,9 @@ export default function FactTablesPage() {
                   className="cursor-pointer"
                 >
                   <td>
-                    <Link href={`/fact-tables/${f.id}`}>{f.name}</Link>
+                    <Link href={`/fact-tables/${f.id}`} legacyBehavior>
+                      {f.name}
+                    </Link>
                     <OfficialBadge type="fact table" managedBy={f.managedBy} />
                   </td>
                   <td>{f.datasourceName}</td>

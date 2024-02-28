@@ -41,6 +41,7 @@ export default function SavedGroupTargetingDisplay({
                   key={id}
                   className={`border px-2 bg-light rounded mr-1`}
                   title="Manage Saved Groups"
+                  legacyBehavior
                 >
                   {getSavedGroupById(id)?.groupName || id}
                 </Link>

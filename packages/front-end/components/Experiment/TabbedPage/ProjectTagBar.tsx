@@ -126,6 +126,7 @@ export default function ProjectTagBar({
               verticalAlign: "middle",
             }}
             title={idea.text}
+            legacyBehavior
           >
             <FaExternalLinkAlt /> {idea.text}
           </Link>

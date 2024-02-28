@@ -37,7 +37,7 @@ export const ImportFromLaunchDarkly: FC<ImportFromLaunchDarklyProps> = ({
   return (
     <div className="">
       <div className="mb-4">
-        <Link href="/importing">
+        <Link href="/importing" legacyBehavior>
           <GBCircleArrowLeft />
           Back to Importing
         </Link>

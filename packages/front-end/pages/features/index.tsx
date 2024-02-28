@@ -380,6 +380,7 @@ export default function FeaturesPage() {
                       <Link
                         href={`/features/${feature.id}`}
                         className={feature.archived ? "text-muted" : ""}
+                        legacyBehavior
                       >
                         {feature.id}
                       </Link>

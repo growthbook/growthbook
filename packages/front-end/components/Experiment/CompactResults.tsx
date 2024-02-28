@@ -346,6 +346,7 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled) {
           <Link
             href={getMetricLink(metric.id)}
             className="metriclabel text-dark"
+            legacyBehavior
           >
             <MetricName id={metric.id} disableTooltip />
           </Link>

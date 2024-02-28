@@ -102,6 +102,7 @@ const ProjectsPage: FC = () => {
                       <Link
                         href={`/project/${p.id}`}
                         className="font-weight-bold"
+                        legacyBehavior
                       >
                         {p.name}
                       </Link>

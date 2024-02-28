@@ -216,7 +216,10 @@ export default function ReportPage() {
         )}
         <div className="mb-3">
           {report?.experimentId && (
-            <Link href={`/experiment/${report.experimentId}#results`}>
+            <Link
+              href={`/experiment/${report.experimentId}#results`}
+              legacyBehavior
+            >
               <GBCircleArrowLeft />
               Go to experiment results
             </Link>

@@ -129,6 +129,7 @@ export default function FactMetricList({ factTable }: Props) {
                       href={`/fact-metrics/${metric.id}`}
                       className="font-weight-bold"
                       title="View Metric"
+                      legacyBehavior
                     >
                       <MetricName id={metric.id} /> <FaExternalLinkAlt />
                     </Link>

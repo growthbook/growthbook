@@ -42,7 +42,11 @@ export const ImportFromServiceCard: FC<ImportFromServiceCardProps> = ({
         </div>
 
         <div>
-          <Link href={`importing/${path}`} className="btn btn-primary">
+          <Link
+            href={`importing/${path}`}
+            className="btn btn-primary"
+            legacyBehavior
+          >
             Import from{service}
           </Link>
         </div>

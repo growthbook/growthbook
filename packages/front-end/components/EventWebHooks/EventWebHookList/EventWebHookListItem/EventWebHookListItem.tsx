@@ -18,7 +18,12 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
   const iconForState = useIconForState(lastState);
 
   return (
-    <Link href={href} style={{ textDecoration: "none" }} className="card p-3">
+    <Link
+      href={href}
+      style={{ textDecoration: "none" }}
+      className="card p-3"
+      legacyBehavior
+    >
       <div className="d-flex justify-content-md-between align-items-center">
         <div className="mr-4">
           <h3 className="text-main">{name}</h3>

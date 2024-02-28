@@ -51,6 +51,7 @@ export default function ExperimentList({
               <Link
                 href={`/experiment/${test.id}`}
                 className="w-100 no-link-color"
+                legacyBehavior
               >
                 <div className="d-flex w-100">
                   <div className="mb-1">

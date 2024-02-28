@@ -44,6 +44,7 @@ const ActivityList: FC<{
               <Link
                 href={`/experiment/${event.entity.id}`}
                 className="no-link-color w-100"
+                legacyBehavior
               >
                 {"email" in event.user && event.user.email && (
                   <Avatar

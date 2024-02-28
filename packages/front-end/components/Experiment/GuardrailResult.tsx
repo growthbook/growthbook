@@ -76,6 +76,7 @@ const GuardrailResults: FC<{
           <Link
             href={getMetricLink(metric.id)}
             className="text-black-50 font-weight-bold"
+            legacyBehavior
           >
             {metric.name}
           </Link>

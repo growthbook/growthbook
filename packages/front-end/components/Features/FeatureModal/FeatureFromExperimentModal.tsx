@@ -402,7 +402,7 @@ export default function FeatureFromExperimentModal({
           A rule will be added to the bottom of every environment in a new draft
           revision. For more control over placement, you can add Experiment
           rules directly from the{" "}
-          <Link href={`/features/${existing}`}>
+          <Link href={`/features/${existing}`} legacyBehavior>
             Feature page
             <FaExternalLinkAlt />
           </Link>{" "}

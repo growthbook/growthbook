@@ -216,10 +216,13 @@ function getConditionParts({
 
 function ParentIdLink({ parentId }: { parentId: string }) {
   return (
-    <Link href={`/features/${parentId}`} key={`link-${parentId}`}>
-      <a className={`border px-2 bg-light rounded mr-1`} title="Manage Feature">
-        {parentId}
-      </a>
+    <Link
+      href={`/features/${parentId}`}
+      key={`link-${parentId}`}
+      className={`border px-2 bg-light rounded mr-1`}
+      title="Manage Feature"
+    >
+      {parentId}
     </Link>
   );
 }

@@ -176,7 +176,11 @@ const TopNav: FC<{
 
               {(watchedExperiments.length > 0 ||
                 watchedFeatures.length > 0) && (
-                <Link href="/activity" className="nav-link mr-1 text-secondary">
+                <Link
+                  href="/activity"
+                  className="nav-link mr-1 text-secondary"
+                  legacyBehavior
+                >
                   <FaBell />
                 </Link>
               )}

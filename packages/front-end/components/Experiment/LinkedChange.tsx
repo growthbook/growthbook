@@ -52,6 +52,7 @@ export default function LinkedChange({
                     href={`/features/${feature?.id}`}
                     className="ml-4"
                     onClick={(e) => e.stopPropagation()}
+                    legacyBehavior
                   >
                     View Feature
                     <FaExternalLinkAlt />

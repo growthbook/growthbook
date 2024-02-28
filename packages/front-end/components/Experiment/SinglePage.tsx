@@ -128,7 +128,11 @@ function drawMetricRow(
         <div className="row">
           <div className="col-auto pr-0">-</div>
           <div className="col">
-            <Link href={getMetricLink(m)} className="font-weight-bold">
+            <Link
+              href={getMetricLink(m)}
+              className="font-weight-bold"
+              legacyBehavior
+            >
               {newMetric?.name}
               {isArchived ? (
                 <span className="text-muted small"> (archived)</span>
@@ -432,6 +436,7 @@ export default function SinglePage({
                   ? "#stopped"
                   : ""
               }`}
+              legacyBehavior
             >
               <GBCircleArrowLeft />
               Back to all experiments
@@ -705,7 +710,10 @@ export default function SinglePage({
             >
               <div>Linked features</div>
               <div>
-                <Link href={`/features/${linkedFeatures[0].feature.id}`}>
+                <Link
+                  href={`/features/${linkedFeatures[0].feature.id}`}
+                  legacyBehavior
+                >
                   <BsFlag /> {linkedFeatures[0].feature.id}
                 </Link>
                 {linkedFeatures.length > 1
@@ -914,6 +922,7 @@ export default function SinglePage({
                       verticalAlign: "middle",
                     }}
                     title={idea.text}
+                    legacyBehavior
                   >
                     <FaExternalLinkAlt /> {idea.text}
                   </Link>
@@ -1360,7 +1369,7 @@ export default function SinglePage({
                 ) : (
                   <div>
                     You don&apos;t have any metrics defined yet.{" "}
-                    <Link href="/metrics">
+                    <Link href="/metrics" legacyBehavior>
                       Manage Metrics
                       <FaExternalLinkAlt />
                     </Link>

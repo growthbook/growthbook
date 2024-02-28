@@ -195,6 +195,7 @@ const PresentationPage = (): React.ReactElement => {
                   className="btn btn-primary mr-3"
                   target="_blank"
                   rel="noreferrer"
+                  legacyBehavior
                 >
                   Present
                   <svg
