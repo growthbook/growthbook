@@ -1,9 +1,7 @@
 import { omit } from "lodash";
 import {
-  CreateFactMetricProps,
   FactMetricInterface,
   LegacyFactMetricInterface,
-  UpdateFactMetricProps,
 } from "../../types/fact-table";
 import { upgradeFactMetricDoc } from "../util/migrations";
 import { ApiFactMetric } from "../../types/openapi";
@@ -22,38 +20,6 @@ export class FactMetricDataModel extends BaseModel<FactMetricSchema> {
     projectScoping: "multiple",
     globallyUniqueIds: false,
   };
-
-  public create(props: CreateFactMetricProps): Promise<FactMetricInterface> {
-    return this._createOne(props);
-  }
-  public update(
-    existing: FactMetricInterface,
-    updates: UpdateFactMetricProps
-  ): Promise<FactMetricInterface> {
-    return this._updateOne(existing, updates);
-  }
-  public async updateById(
-    id: string,
-    updates: UpdateFactMetricProps
-  ): Promise<FactMetricInterface> {
-    const existing = await this.getById(id);
-    if (!existing) {
-      throw new Error("Could not find fact metric");
-    }
-    return this._updateOne(existing, updates);
-  }
-  public delete(existing: FactMetricInterface): Promise<void> {
-    return this._deleteOne(existing);
-  }
-  public async deleteById(id: string): Promise<void> {
-    const existing = await this.getById(id);
-    if (!existing) {
-      // If it doesn't exist, maybe it was deleted already. No need to throw an error.
-      return;
-    }
-    return this._deleteOne(existing);
-  }
-
   protected migrate(legacyDoc: unknown): FactMetricInterface {
     return upgradeFactMetricDoc(legacyDoc as LegacyFactMetricInterface);
   }

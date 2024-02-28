@@ -94,6 +94,36 @@ export abstract class BaseModel<T extends BaseSchema> {
   }
 
   // Built-in public methods
+  public create(props: CreateProps<T>): Promise<z.infer<T>> {
+    return this._createOne(props);
+  }
+  public update(
+    existing: z.infer<T>,
+    updates: UpdateProps<T>
+  ): Promise<z.infer<T>> {
+    return this._updateOne(existing, updates);
+  }
+  public async updateById(
+    id: string,
+    updates: UpdateProps<T>
+  ): Promise<z.infer<T>> {
+    const existing = await this.getById(id);
+    if (!existing) {
+      throw new Error("Could not find fact metric");
+    }
+    return this._updateOne(existing, updates);
+  }
+  public delete(existing: z.infer<T>): Promise<void> {
+    return this._deleteOne(existing);
+  }
+  public async deleteById(id: string): Promise<void> {
+    const existing = await this.getById(id);
+    if (!existing) {
+      // If it doesn't exist, maybe it was deleted already. No need to throw an error.
+      return;
+    }
+    return this._deleteOne(existing);
+  }
   public getById(id: string) {
     return this._findOne({ id });
   }
