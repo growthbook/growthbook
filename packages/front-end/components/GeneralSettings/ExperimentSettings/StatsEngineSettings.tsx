@@ -31,11 +31,9 @@ export default function StatsEngineSettings() {
     statsEngine || DEFAULT_STATS_ENGINE
   );
 
+  // form loads values async, this updates the tab when it finally does
   useEffect(() => {
-    if (statsEngineTab === statsEngine) return;
     setStatsEngineTab(statsEngine);
-    // purposely leave statsEngineTab out of deps so we allow switching tab harmlessly
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statsEngine]);
 
   const highlightColor =
@@ -113,7 +111,6 @@ export default function StatsEngineSettings() {
         allowUndefined={false}
         value={form.watch("statsEngine")}
         onChange={(value) => {
-          setStatsEngineTab(value);
           form.setValue("statsEngine", value);
         }}
         labelClassName="mr-2"
