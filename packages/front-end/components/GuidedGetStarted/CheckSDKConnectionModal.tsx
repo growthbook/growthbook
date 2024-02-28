@@ -1,5 +1,5 @@
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import Modal from "../Modal";
+import Modal from "@/components/Modal";
 import CheckSDKConnectionResults from "./CheckSDKConnectionResults";
 
 type Props = {

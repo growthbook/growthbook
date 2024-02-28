@@ -2,7 +2,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { VisualChange } from "back-end/types/visual-changeset";
 import { FC, useCallback, useState } from "react";
 import Code from "@/components/SyntaxHighlighting/Code";
-import Modal from "../Modal";
+import Modal from "@/components/Modal";
 
 const EditDOMMutatonsModal: FC<{
   experiment: ExperimentInterfaceStringDates;

@@ -9,7 +9,7 @@ import Link from "next/link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import InlineCode from "../SyntaxHighlighting/InlineCode";
+import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import SavedGroupTargetingDisplay from "./SavedGroupTargetingDisplay";
 
 type ConditionWithParentId = Condition & { parentId?: string };

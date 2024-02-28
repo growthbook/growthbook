@@ -17,7 +17,7 @@ import {
 } from "@/services/experiments";
 import ResultsTable_old from "@/components/Experiment/ResultsTable_old";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
-import Toggle from "../Forms/Toggle";
+import Toggle from "@/components/Forms/Toggle";
 import UsersTable from "./UsersTable";
 
 const FULL_STATS_LIMIT = 5;

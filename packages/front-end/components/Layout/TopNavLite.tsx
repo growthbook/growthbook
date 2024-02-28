@@ -1,8 +1,8 @@
 import Head from "next/head";
 import { safeLogout } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import Avatar from "../Avatar/Avatar";
-import Button from "../Button";
+import Avatar from "@/components/Avatar/Avatar";
+import Button from "@/components/Button";
 import { ThemeToggler } from "./ThemeToggler/ThemeToggler";
 
 export default function TopNavLite() {

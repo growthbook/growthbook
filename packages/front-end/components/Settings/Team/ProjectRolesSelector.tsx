@@ -4,7 +4,7 @@ import cloneDeep from "lodash/cloneDeep";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import PremiumTooltip from "../../Marketing/PremiumTooltip";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import SingleRoleSelector from "./SingleRoleSelector";
 
 export default function ProjectRolesSelector({

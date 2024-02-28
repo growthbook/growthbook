@@ -7,8 +7,8 @@ import { FiChevronRight } from "react-icons/fi";
 import { GlobalPermission, Permission } from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "@/types/app-features";
-import { isCloud, isMultiOrg } from "../../services/env";
-import { useUser } from "../../services/UserContext";
+import { isCloud, isMultiOrg } from "@/services/env";
+import { useUser } from "@/services/UserContext";
 import styles from "./SidebarLink.module.scss";
 
 export type SidebarLinkProps = {

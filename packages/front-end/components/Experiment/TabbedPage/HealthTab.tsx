@@ -12,7 +12,7 @@ import { IssueTags, IssueValue } from "@/components/HealthTab/IssueTags";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
-import { useSnapshot } from "../SnapshotProvider";
+import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import {
   HealthTabConfigParams,
   HealthTabOnboardingModal,

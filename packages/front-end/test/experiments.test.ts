@@ -4,14 +4,14 @@ import {
   getEqualWeights,
   percentToDecimal,
   rebalance,
-} from "../services/utils";
+} from "@/services/utils";
 import {
   IndexedPValue,
   adjustPValuesBenjaminiHochberg,
   adjustPValuesHolmBonferroni,
   adjustedCI,
   setAdjustedPValuesOnResults,
-} from "../services/experiments";
+} from "@/services/experiments";
 
 describe("variation weighting functions", () => {
   it("getEqualWeights with default precision", () => {

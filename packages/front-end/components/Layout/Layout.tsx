@@ -11,10 +11,15 @@ import {
 import { FaArrowRight } from "react-icons/fa";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
-import useOrgSettings from "../../hooks/useOrgSettings";
-import { GBDatabase, GBExperiment, GBPremiumBadge, GBSettings } from "../Icons";
-import { inferDocUrl } from "../DocLink";
-import UpgradeModal from "../Settings/UpgradeModal";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import {
+  GBDatabase,
+  GBExperiment,
+  GBPremiumBadge,
+  GBSettings,
+} from "@/components/Icons";
+import { inferDocUrl } from "@/components/DocLink";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import TopNav from "./TopNav";
