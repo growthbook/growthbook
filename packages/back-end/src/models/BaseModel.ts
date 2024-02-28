@@ -258,7 +258,9 @@ export abstract class BaseModel<T extends BaseSchema> {
       if ("projects" in obj && obj.projects && Array.isArray(obj.projects)) {
         const projects = await this.context.getProjects();
         if (
-          !obj.projects.every((p) => projects.some((proj) => proj.id === p))
+          !obj.projects.every((p: string) =>
+            projects.some((proj) => proj.id === p)
+          )
         ) {
           throw new Error("Invalid project");
         }
