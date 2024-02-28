@@ -917,7 +917,7 @@ export default function FeaturesOverview({
               >
                 Compare Environments
               </button>
-              {canEdit ? (
+              {canEdit && !isLocked ? (
                 <button
                   className="dropdown-item"
                   onClick={() => setShowCompareView(true)}
