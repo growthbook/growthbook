@@ -14,7 +14,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { evalCondition } from "@growthbook/growthbook";
 import { getValidDate } from "../dates";
-import { getMatchingRules, includeExperimentInPayload } from ".";
+import { getMatchingRules, includeExperimentInPayload } from "./index";
 
 export function getValidation(feature: FeatureInterface) {
   try {

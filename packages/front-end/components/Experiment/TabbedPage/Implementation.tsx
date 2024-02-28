@@ -12,7 +12,7 @@ import track from "@/services/track";
 import { StartExperimentBanner } from "@/components/Experiment/StartExperimentBanner";
 import AddLinkedChangesBanner from "@/components/Experiment/AddLinkedChangesBanner";
 import TargetingInfo from "./TargetingInfo";
-import { ExperimentTab } from ".";
+import { ExperimentTab } from "./index";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;

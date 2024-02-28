@@ -25,7 +25,7 @@ import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
-import { ExperimentTab } from ".";
+import { ExperimentTab } from "./index";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
