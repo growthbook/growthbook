@@ -2,6 +2,7 @@ import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { useState } from "react";
 import ReactDiffViewer from "react-diff-viewer";
 import { FaRedo, FaRegCopy } from "react-icons/fa";
+import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import Modal from "@/components/Modal";
@@ -33,11 +34,19 @@ export default function CompareRuleDiffModal({
   setVersion,
   mutate,
 }: Props) {
-  const [env1, setEnv1] = useState<string>("");
-  const [env2, setEnv2] = useState<string>("");
   const [copyingRules, setCopyingRules] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { apiCall } = useAuth();
+
+  const form = useForm({
+    defaultValues: {
+      sourceEnv: "",
+      targetEnv: "",
+    },
+  });
+
+  const sourceEnv = form.watch("sourceEnv");
+  const targetEnv = form.watch("targetEnv");
 
   async function handleCopyingRules(
     targetEnv: string,
@@ -57,7 +66,7 @@ export default function CompareRuleDiffModal({
         }
       );
       track("Clone Feature Rule Set", {
-        sourceEnvironment: env1,
+        sourceEnvironment: sourceEnv,
         targetEnv,
         rules: newRules,
       });
@@ -110,11 +119,11 @@ export default function CompareRuleDiffModal({
               name="environment"
               label="Select Source Environment"
               initialOption="Select Environment..."
-              value={env1}
+              value={sourceEnv}
               isClearable={true}
-              options={options.filter((env) => env.value !== env2)}
+              options={options.filter((env) => env.value !== targetEnv)}
               onChange={(value) => {
-                setEnv1(value);
+                form.setValue("sourceEnv", value);
                 setError(null);
               }}
               disabled={copyingRules}
@@ -124,19 +133,19 @@ export default function CompareRuleDiffModal({
             <SelectField
               name="environment"
               label="Select Target Environment"
-              value={env2}
+              value={targetEnv}
               isClearable={true}
               initialOption="Select Environment..."
-              options={options.filter((env) => env.value !== env1)}
+              options={options.filter((env) => env.value !== sourceEnv)}
               onChange={(value) => {
-                setEnv2(value);
+                form.setValue("targetEnv", value);
                 setError(null);
               }}
               disabled={copyingRules}
             />
           </div>
         </div>
-        {env1 && env2 ? (
+        {sourceEnv && targetEnv ? (
           <>
             {canEdit ? (
               <div>
@@ -146,8 +155,8 @@ export default function CompareRuleDiffModal({
                     {isDraft
                       ? "update the current draft version"
                       : "create a new draft version"}{" "}
-                    and rules from <strong>{env1}</strong> will overwrite any
-                    existing rules on <strong>{env2}</strong>.
+                    and rules from <strong>{sourceEnv}</strong> will overwrite
+                    any existing rules on <strong>{targetEnv}</strong>.
                   </div>
                 )}
                 <div className="d-flex align-items-center justify-content-between w-100">
@@ -159,12 +168,12 @@ export default function CompareRuleDiffModal({
                       className="btn btn-outline-primary"
                       onClick={async () =>
                         await handleCopyingRules(
-                          env2,
-                          feature.environmentSettings[env1].rules
+                          targetEnv,
+                          feature.environmentSettings[sourceEnv].rules
                         )
                       }
                       disabled={
-                        getDiffString(env1) === getDiffString(env2) ||
+                        getDiffString(sourceEnv) === getDiffString(targetEnv) ||
                         copyingRules ||
                         isLocked
                       }
@@ -180,8 +189,8 @@ export default function CompareRuleDiffModal({
                       className="btn btn-link text-decoration-none pr-0"
                       disabled={copyingRules}
                       onClick={() => {
-                        setEnv1("");
-                        setEnv2("");
+                        form.setValue("sourceEnv", "");
+                        form.setValue("targetEnv", "");
                       }}
                     >
                       {" "}
@@ -198,16 +207,16 @@ export default function CompareRuleDiffModal({
               <div className="bg-light w-100 p-2">
                 <strong>Environment Rules Compared</strong>
               </div>
-              {getDiffString(env1) === getDiffString(env2) ? (
+              {getDiffString(sourceEnv) === getDiffString(targetEnv) ? (
                 <div className="p-3">
-                  The rules for <strong>{env1}</strong> and{" "}
-                  <strong>{env2}</strong> are the same.
+                  The rules for <strong>{sourceEnv}</strong> and{" "}
+                  <strong>{targetEnv}</strong> are the same.
                 </div>
               ) : (
                 <div className="d-flex w-100">
                   <ReactDiffViewer
-                    oldValue={getDiffString(env1)}
-                    newValue={getDiffString(env2)}
+                    oldValue={getDiffString(sourceEnv)}
+                    newValue={getDiffString(targetEnv)}
                     splitView={true}
                   />
                 </div>
