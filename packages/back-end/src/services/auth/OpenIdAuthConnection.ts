@@ -25,6 +25,7 @@ import {
   trackLoginForUser,
 } from "../users";
 import { getHttpOptions } from "../../util/http.util";
+import { logger } from "../../util/logger";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
 
 type AuthChecks = {
@@ -34,7 +35,15 @@ type AuthChecks = {
 };
 
 if (USE_PROXY) {
+  logger.info(
+    `Using proxy for SSO requests: ${JSON.stringify(getHttpOptions())}`
+  );
   custom.setHttpOptionsDefaults(getHttpOptions());
+} else {
+  logger.info("Setting SSO timeout to 15 seconds");
+  custom.setHttpOptionsDefaults({
+    timeout: 15000,
+  });
 }
 
 // Micro-Cache with a TTL of 30 seconds, avoids hitting Mongo on every request
@@ -96,29 +105,35 @@ export class OpenIdAuthConnection implements AuthConnection {
     }
 
     const params = client.callbackParams(req.originalUrl);
-    const tokenSet = await client.callback(
-      `${APP_ORIGIN}/oauth/callback`,
-      params,
-      {
-        code_verifier: checks.code_verifier,
-        state: checks.state,
+    try {
+      const tokenSet = await client.callback(
+        `${APP_ORIGIN}/oauth/callback`,
+        params,
+        {
+          code_verifier: checks.code_verifier,
+          state: checks.state,
+        }
+      );
+
+      const email = tokenSet.claims().email;
+      if (email) {
+        const trackingProperties = getAuditableUserPropertiesFromRequest(req);
+        trackLoginForUser({
+          ...trackingProperties,
+          email,
+        });
       }
-    );
 
-    const email = tokenSet.claims().email;
-    if (email) {
-      const trackingProperties = getAuditableUserPropertiesFromRequest(req);
-      trackLoginForUser({
-        ...trackingProperties,
-        email,
-      });
+      return {
+        idToken: tokenSet?.id_token || "",
+        refreshToken: tokenSet?.refresh_token || "",
+        expiresIn: this.getMaxAge(tokenSet),
+      };
+    } catch (e) {
+      logger.info(params, "SSO Callback Params");
+      logger.info(connection.metadata, "SSO Connection Metadata");
+      throw e;
     }
-
-    return {
-      idToken: tokenSet?.id_token || "",
-      refreshToken: tokenSet?.refresh_token || "",
-      expiresIn: this.getMaxAge(tokenSet),
-    };
   }
   async logout(req: Request): Promise<string> {
     const { connection } = await getConnectionFromRequest(req);

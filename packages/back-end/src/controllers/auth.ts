@@ -112,6 +112,7 @@ export async function postOAuthCallback(req: Request, res: Response) {
     return res.status(400).json({
       status: 400,
       message: "Error Signing In",
+      details: e?.message,
     });
   }
 }
