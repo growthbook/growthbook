@@ -1,88 +1,97 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import uniqid from "uniqid";
 import mongoose, { FilterQuery } from "mongoose";
 import { Collection } from "mongodb";
 import { hasReadAccess } from "shared/permissions";
 import omit from "lodash/omit";
+import { z } from "zod";
+import { isEqual, pick } from "lodash";
 import { ApiReqContext } from "../../types/api";
 import { Permission, ReqContext } from "../../types/organization";
 import { addTags, addTagsDiff } from "./TagModel";
 
-export interface AutoFields {
-  id: string;
-  organization: string;
-  dateCreated: Date | null;
-  dateUpdated: Date | null;
-}
+export type BaseSchema = z.ZodObject<
+  {
+    id: z.ZodString;
+    organization: z.ZodString;
+    dateCreated: z.ZodDate;
+    dateUpdated: z.ZodDate;
+  },
+  "strict"
+>;
 
-export interface AutoFieldsWithProject extends AutoFields {
-  project: string;
-}
-export interface AutoFieldsWithProjects extends AutoFields {
-  projects: string[];
-}
-
-export interface ModelConfig<T> {
+export interface ModelConfig<T extends BaseSchema> {
+  schema: T;
   collectionName: string;
   idPrefix?: string;
   writePermission: Permission;
   projectScoping: "none" | "single" | "multiple";
   globallyUniqueIds?: boolean;
-  readonlyFields?: (keyof T)[] | readonly (keyof T)[];
-  skipDateUpdatedFields?: (keyof T)[] | readonly (keyof T)[];
-  // TODO: the fields below are not supported yet and do nothing
+  skipDateUpdatedFields?: (keyof z.infer<T>)[];
   additionalIndexes?: {
     fields: Partial<
       {
-        [key in keyof T]: 1 | -1;
+        [key in keyof z.infer<T>]: 1 | -1;
       }
     >;
     unique?: boolean;
   }[];
 }
 
-export type CreateProps<T extends AutoFields> = Omit<
-  T,
-  "id" | "dateCreated" | "dateUpdated" | "organization"
+type CreateProps<T extends BaseSchema> = Omit<
+  z.infer<T>,
+  "id" | "organization" | "dateCreated" | "dateUpdated"
 > & { id?: string };
 
-export type UpdateProps<T extends AutoFields> = Partial<
-  Omit<T, "id" | "organization" | "dateCreated" | "dateUpdated">
+type UpdateProps<T extends BaseSchema> = Partial<
+  Omit<z.infer<T>, "id" | "organization" | "dateCreated" | "dateUpdated">
 >;
 
-export abstract class BaseModel<T extends AutoFields> {
-  protected abstract config: ModelConfig<T>;
+const indexesAdded: Set<string> = new Set();
 
+export abstract class BaseModel<T extends BaseSchema> {
+  protected abstract config: ModelConfig<T>;
   // Methods that can be overridden by subclasses
-  protected migrate(legacyDoc: unknown): T {
-    return legacyDoc as T;
+  protected migrate(legacyDoc: unknown): z.infer<T> {
+    return legacyDoc as z.infer<T>;
   }
-  // eslint-disable-next-line
-  protected async customValidation(doc: T) {
+  protected async customValidation(doc: z.infer<T>) {
     // Do nothing by default
   }
-  // eslint-disable-next-line
-  protected async beforeCreate(props: CreateProps<T>) {
+  protected async beforeCreate(props: z.infer<T>) {
     // Do nothing by default
   }
-  // eslint-disable-next-line
-  protected async afterCreate(doc: T) {
+  protected async afterCreate(doc: z.infer<T>) {
     // Do nothing by default
   }
-  // eslint-disable-next-line
-  protected async beforeUpdate(existing: T, updates: UpdateProps<T>) {
+  protected async beforeUpdate(
+    existing: z.infer<T>,
+    updates: UpdateProps<T>,
+    newDoc: z.infer<T>
+  ) {
     // Do nothing by default
   }
-  // eslint-disable-next-line
-  protected async afterUpdate(existing: T, updates: UpdateProps<T>, newDoc: T) {
+  protected async afterUpdate(
+    existing: z.infer<T>,
+    updates: UpdateProps<T>,
+    newDoc: z.infer<T>
+  ) {
     // Do nothing by default
   }
-  // eslint-disable-next-line
-  protected async beforeDelete(doc: T) {
+  protected async beforeDelete(doc: z.infer<T>) {
     // Do nothing by default
   }
-  // eslint-disable-next-line
-  protected async afterDelete(doc: T) {
+  protected async afterDelete(doc: z.infer<T>) {
     // Do nothing by default
+  }
+
+  private addIndexes() {
+    if (indexesAdded.has(this.config.collectionName)) return;
+
+    // TODO: create indexes in Mongo if they don't exist
+
+    indexesAdded.add(this.config.collectionName);
   }
 
   // Built-in public methods
@@ -98,26 +107,18 @@ export abstract class BaseModel<T extends AutoFields> {
     }
     return project ? this._find({ project }) : this._find();
   }
-  public create(props: CreateProps<T>) {
-    return this._createOne(props);
-  }
-  public update(existing: T, updates: UpdateProps<T>) {
-    return this._updateOne(existing, updates);
-  }
-  public delete(existing: T) {
-    return this._deleteOne(existing);
-  }
 
   // Internal methods
   protected context: ReqContext | ApiReqContext;
   public constructor(context: ReqContext | ApiReqContext) {
     this.context = context;
+    this.addIndexes();
   }
   protected _generateId() {
     return uniqid(this.config.idPrefix);
   }
   protected async _find(
-    query: FilterQuery<Omit<T, "organization">> = {},
+    query: FilterQuery<Omit<z.infer<T>, "organization">> = {},
     {
       sort,
       limit,
@@ -125,7 +126,7 @@ export abstract class BaseModel<T extends AutoFields> {
     }: {
       sort?: Partial<
         {
-          [key in keyof Omit<T, "organization">]: 1 | -1;
+          [key in keyof Omit<z.infer<T>, "organization">]: 1 | -1;
         }
       >;
       limit?: number;
@@ -152,7 +153,7 @@ export abstract class BaseModel<T extends AutoFields> {
       if (limit) cursor.limit(limit);
     }
 
-    const docs: T[] = [];
+    const docs: z.infer<T>[] = [];
     let i = -1;
     for await (const doc of cursor) {
       const migrated = this.migrate(this._removeMongooseFields(doc));
@@ -181,7 +182,9 @@ export abstract class BaseModel<T extends AutoFields> {
     return docs;
   }
 
-  protected async _findOne(query: FilterQuery<Omit<T, "organization">>) {
+  protected async _findOne(
+    query: FilterQuery<Omit<z.infer<T>, "organization">>
+  ) {
     const doc = await this._dangerousGetCollection().findOne({
       ...query,
       organization: this.context.org.id,
@@ -203,19 +206,21 @@ export abstract class BaseModel<T extends AutoFields> {
     return migrated;
   }
 
-  private _getProjectField(doc: T) {
+  private _getProjectField(doc: z.infer<T>) {
     if (this.config.projectScoping === "none") return undefined;
     if (this.config.projectScoping === "single") {
-      return (doc as T & { project?: string }).project || undefined;
+      return (doc as z.infer<T> & { project?: string }).project || undefined;
     }
     if (this.config.projectScoping === "multiple") {
-      return (doc as T & { projects?: string[] }).projects || undefined;
+      return (
+        (doc as z.infer<T> & { projects?: string[] }).projects || undefined
+      );
     }
     return undefined;
   }
 
   // eslint-disable-next-line
-  protected async _standardFieldValidation(obj: Partial<T>) {
+  protected async _standardFieldValidation(obj: Partial<z.infer<T>>) {
     // TODO: if `project` is being set, make sure it's a valid id
     // TODO: if `projects` is being set, make sure they are all valid ids
     // TODO: if `datasource` is being set, make sure it's a valid id
@@ -226,6 +231,15 @@ export abstract class BaseModel<T extends AutoFields> {
     if (this.config.globallyUniqueIds && "id" in props) {
       throw new Error("Cannot set a custom id for this model");
     }
+    if ("organization" in props) {
+      throw new Error("Cannot set organization field");
+    }
+    if ("dateCreated" in props) {
+      throw new Error("Cannot set dateCreated field");
+    }
+    if ("dateUpdated" in props) {
+      throw new Error("Cannot set dateUpdated field");
+    }
 
     // Add default owner if empty
     if ("owner" in props && props.owner === "") {
@@ -233,20 +247,23 @@ export abstract class BaseModel<T extends AutoFields> {
       props.owner = this.context.userId || "";
     }
 
-    await this.beforeCreate(props);
-
-    // TODO: permission checks
-
     const doc = {
       id: this._generateId(),
       ...props,
       organization: this.context.org.id,
       dateCreated: new Date(),
       dateUpdated: new Date(),
-    } as T;
+    } as z.infer<T>;
+
+    // TODO: permission checks
+
+    // Validate the new doc (sanity check in case Typescript errors are ignored for any reason)
+    this.config.schema.parse(doc);
 
     await this._standardFieldValidation(doc);
     await this.customValidation(doc);
+
+    await this.beforeCreate(doc);
 
     await this._dangerousGetCollection().insertOne(doc);
 
@@ -262,29 +279,24 @@ export abstract class BaseModel<T extends AutoFields> {
     return doc;
   }
 
-  protected async _updateOne(
-    doc: T,
-    updates: Partial<
-      Omit<T, "id" | "organization" | "dateCreated" | "dateUpdated">
-    >
-  ) {
-    // TODO: permission checks
+  protected async _updateOne(doc: z.infer<T>, updates: UpdateProps<T>) {
+    // Only consider updates that actually change the value
+    const updatedFields = Object.entries(updates)
+      .filter(([k, v]) => !isEqual(doc[k as keyof z.infer<T>], v))
+      .map(([k]) => k) as (keyof z.infer<T>)[];
+    updates = pick(updates, updatedFields);
 
-    const updatedFields = Object.keys(updates);
-
-    if (this.config.readonlyFields) {
-      for (const field of updatedFields) {
-        if (this.config.readonlyFields.includes(field as keyof T)) {
-          throw new Error(`Cannot update readonly field: ${field}`);
-        }
-      }
+    // If no updates are needed, return immediately
+    if (!updatedFields.length) {
+      return doc;
     }
 
-    await this.beforeUpdate(doc, updates);
+    // TODO: permission checks
+    // TODO: if updating projects, check permissions before and after
 
     // Only set dateUpdated if at least one important field has changed
     const setDateUpdated = updatedFields.some(
-      (field) => !this.config.skipDateUpdatedFields?.includes(field as keyof T)
+      (field) => !this.config.skipDateUpdatedFields?.includes(field)
     );
 
     const allUpdates = {
@@ -292,7 +304,12 @@ export abstract class BaseModel<T extends AutoFields> {
       ...(setDateUpdated ? { dateUpdated: new Date() } : null),
     };
 
-    const newDoc = { ...doc, ...allUpdates } as T;
+    const newDoc = { ...doc, ...allUpdates } as z.infer<T>;
+
+    // Validate the new doc (sanity check in case Typescript errors are ignored for any reason)
+    this.config.schema.parse(newDoc);
+
+    await this.beforeUpdate(doc, updates, newDoc);
 
     await this._standardFieldValidation(newDoc);
     await this.customValidation(newDoc);
@@ -320,7 +337,7 @@ export abstract class BaseModel<T extends AutoFields> {
     ) {
       await addTagsDiff(
         this.context.org.id,
-        (doc as T & { tags?: string[] }).tags || [],
+        (doc as z.infer<T> & { tags?: string[] }).tags || [],
         newDoc.tags
       );
     }
@@ -328,7 +345,7 @@ export abstract class BaseModel<T extends AutoFields> {
     return newDoc;
   }
 
-  protected async _deleteOne(doc: T) {
+  protected async _deleteOne(doc: z.infer<T>) {
     // TODO: permission checks
 
     await this.beforeDelete(doc);

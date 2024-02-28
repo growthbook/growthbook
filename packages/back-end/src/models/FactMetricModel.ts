@@ -3,28 +3,63 @@ import {
   CreateFactMetricProps,
   FactMetricInterface,
   LegacyFactMetricInterface,
+  UpdateFactMetricProps,
 } from "../../types/fact-table";
 import { upgradeFactMetricDoc } from "../util/migrations";
 import { ApiFactMetric } from "../../types/openapi";
+import { factMetricValidator } from "../routers/fact-table/fact-table.validators";
 import { BaseModel, ModelConfig } from "./BaseModel";
 import { getFactTable } from "./FactTableModel";
 
-export class FactMetricDataModel extends BaseModel<FactMetricInterface> {
-  protected config: ModelConfig<FactMetricInterface> = {
+type FactMetricSchema = typeof factMetricValidator;
+
+export class FactMetricDataModel extends BaseModel<FactMetricSchema> {
+  protected config: ModelConfig<FactMetricSchema> = {
+    schema: factMetricValidator,
     collectionName: "factmetrics",
     idPrefix: "fact__",
     writePermission: "createMetrics",
     projectScoping: "multiple",
     globallyUniqueIds: false,
-    readonlyFields: ["datasource"],
   };
+
+  public create(props: CreateFactMetricProps): Promise<FactMetricInterface> {
+    return this._createOne(props);
+  }
+  public update(
+    existing: FactMetricInterface,
+    updates: UpdateFactMetricProps
+  ): Promise<FactMetricInterface> {
+    return this._updateOne(existing, updates);
+  }
+  public async updateById(
+    id: string,
+    updates: UpdateFactMetricProps
+  ): Promise<FactMetricInterface> {
+    const existing = await this.getById(id);
+    if (!existing) {
+      throw new Error("Could not find fact metric");
+    }
+    return this._updateOne(existing, updates);
+  }
+  public delete(existing: FactMetricInterface): Promise<void> {
+    return this._deleteOne(existing);
+  }
+  public async deleteById(id: string): Promise<void> {
+    const existing = await this.getById(id);
+    if (!existing) {
+      // If it doesn't exist, maybe it was deleted already. No need to throw an error.
+      return;
+    }
+    return this._deleteOne(existing);
+  }
 
   protected migrate(legacyDoc: unknown): FactMetricInterface {
     return upgradeFactMetricDoc(legacyDoc as LegacyFactMetricInterface);
   }
 
-  protected async beforeCreate(props: CreateFactMetricProps) {
-    if (props.id && !props.id.match(/^fact__[-a-zA-Z0-9_]+$/)) {
+  protected async beforeCreate(doc: FactMetricInterface) {
+    if (!doc.id.match(/^fact__[-a-zA-Z0-9_]+$/)) {
       throw new Error(
         "Fact metric ids MUST start with 'fact__' and contain only letters, numbers, underscores, and dashes"
       );

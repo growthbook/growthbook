@@ -26,13 +26,6 @@ import {
   updateFactFilter,
 } from "../../models/FactTableModel";
 import { addTags, addTagsDiff } from "../../models/TagModel";
-import {
-  createFactMetric,
-  getAllFactMetricsForOrganization,
-  getFactMetric,
-  updateFactMetric,
-  deleteFactMetric as deleteFactMetricInDb,
-} from "../../models/FactMetricModel";
 import { getSourceIntegrationObject } from "../../services/datasource";
 import { getDataSourceById } from "../../models/DataSourceModel";
 import { DataSourceInterface } from "../../../types/datasource";
@@ -322,7 +315,7 @@ export const getFactMetrics = async (
 ) => {
   const context = getContextFromReq(req);
 
-  const factMetrics = await getAllFactMetricsForOrganization(context);
+  const factMetrics = await context.factMetrics.getAll();
 
   res.status(200).json({
     status: 200,
@@ -337,13 +330,7 @@ export const postFactMetric = async (
   const data = req.body;
   const context = getContextFromReq(req);
 
-  req.checkPermissions("createMetrics", data.projects || "");
-
-  const factMetric = await createFactMetric(context, data);
-
-  if (data.tags.length > 0) {
-    await addTags(context.org.id, data.tags);
-  }
+  const factMetric = await context.factMetrics.create(data);
 
   res.status(200).json({
     status: 200,
@@ -358,20 +345,7 @@ export const putFactMetric = async (
   const data = req.body;
   const context = getContextFromReq(req);
 
-  const factMetric = await getFactMetric(context, req.params.id);
-  if (!factMetric) {
-    throw new Error("Could not find fact metric with that id");
-  }
-
-  // Check permissions for both the existing projects and new ones (if they are being changed)
-  req.checkPermissions("createMetrics", factMetric.projects);
-  if (data.projects) {
-    req.checkPermissions("createMetrics", data.projects || "");
-  }
-
-  await updateFactMetric(context, factMetric, data);
-
-  await addTagsDiff(context.org.id, factMetric.tags, data.tags || []);
+  await context.factMetrics.updateById(req.params.id, data);
 
   res.status(200).json({
     status: 200,
@@ -384,13 +358,7 @@ export const deleteFactMetric = async (
 ) => {
   const context = getContextFromReq(req);
 
-  const factMetric = await getFactMetric(context, req.params.id);
-  if (!factMetric) {
-    throw new Error("Could not find fact metric with that id");
-  }
-  req.checkPermissions("createMetrics", factMetric.projects);
-
-  await deleteFactMetricInDb(context, factMetric);
+  await context.factMetrics.deleteById(req.params.id);
 
   res.status(200).json({
     status: 200,

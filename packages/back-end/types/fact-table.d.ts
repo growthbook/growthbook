@@ -17,6 +17,7 @@ import {
   cappingSettingsValidator,
   windowSettingsValidator,
   cappingTypeValidator,
+  factMetricValidator,
 } from "../src/routers/fact-table/fact-table.validators";
 import { TestQueryRow } from "../src/types/Integration";
 
@@ -76,37 +77,7 @@ export type ConversionWindowUnit = z.infer<
 >;
 export type MetricWindowSettings = z.infer<typeof windowSettingsValidator>;
 
-export interface FactMetricInterface {
-  id: string;
-  organization: string;
-  managedBy?: "" | "api";
-  owner: string;
-  datasource: string;
-  dateCreated: Date | null;
-  dateUpdated: Date | null;
-  name: string;
-  description: string;
-  tags: string[];
-  projects: string[];
-  inverse: boolean;
-
-  metricType: FactMetricType;
-  numerator: ColumnRef;
-  denominator: ColumnRef | null;
-
-  cappingSettings: MetricCappingSettings;
-  windowSettings: MetricWindowSettings;
-
-  maxPercentChange: number;
-  minPercentChange: number;
-  minSampleSize: number;
-  winRisk: number;
-  loseRisk: number;
-
-  regressionAdjustmentOverride: boolean;
-  regressionAdjustmentEnabled: boolean;
-  regressionAdjustmentDays: number;
-}
+export type FactMetricInterface = z.infer<typeof factMetricValidator>;
 
 export type LegacyFactMetricInterface = FactMetricInterface & {
   capping?: CappingType;
