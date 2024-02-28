@@ -101,8 +101,8 @@ export default function CompareRulesModal({
             <SelectField
               name="environment"
               label="Select Source Environment"
+              initialOption="Select Environment..."
               value={env1}
-              placeholder="Select Environment..."
               options={options.filter((env) => env.value !== env2)}
               onChange={(value) => {
                 setEnv1(value);
@@ -116,7 +116,7 @@ export default function CompareRulesModal({
               name="environment"
               label="Select Target Environment"
               value={env2}
-              placeholder="Select Environment..."
+              initialOption="Select Environment..."
               options={options.filter((env) => env.value !== env1)}
               onChange={(value) => {
                 setEnv2(value);
@@ -169,7 +169,6 @@ export default function CompareRulesModal({
                     className="btn btn-link text-decoration-none"
                     disabled={copyingRules}
                     onClick={() => {
-                      // MKTODO: This isn't resetting the SelectField's value prop
                       setEnv1("");
                       setEnv2("");
                     }}
