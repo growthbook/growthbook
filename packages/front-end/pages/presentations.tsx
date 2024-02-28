@@ -3,14 +3,14 @@ import Link from "next/link";
 import { PresentationInterface } from "back-end/types/presentation";
 import { FaPlus } from "react-icons/fa";
 import { date } from "shared/dates";
-import useApi from "../hooks/useApi";
-import LoadingOverlay from "../components/LoadingOverlay";
-import ShareModal from "../components/Share/ShareModal";
-import ConfirmModal from "../components/ConfirmModal";
-import { useAuth } from "../services/auth";
-import Modal from "../components/Modal";
-import CopyToClipboard from "../components/CopyToClipboard";
-import { useUser } from "../services/UserContext";
+import useApi from "@/hooks/useApi";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import ShareModal from "@/components/Share/ShareModal";
+import ConfirmModal from "@/components/ConfirmModal";
+import { useAuth } from "@/services/auth";
+import Modal from "@/components/Modal";
+import CopyToClipboard from "@/components/CopyToClipboard";
+import { useUser } from "@/services/UserContext";
 
 const PresentationPage = (): React.ReactElement => {
   const [openNewPresentationModal, setOpenNewPresentationModal] = useState(

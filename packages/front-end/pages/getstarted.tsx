@@ -9,11 +9,11 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { GBExperiment } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import LoadingOverlay from "../components/LoadingOverlay";
-import { useFeaturesList } from "../services/features";
-import { useDefinitions } from "../services/DefinitionsContext";
-import GuidedGetStarted from "../components/GuidedGetStarted/GuidedGetStarted";
-import styles from "../components/GuidedGetStarted/GuidedGetStarted.module.scss";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { useFeaturesList } from "@/services/features";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import GuidedGetStarted from "@/components/GuidedGetStarted/GuidedGetStarted";
+import styles from "@/components/GuidedGetStarted/GuidedGetStarted.module.scss";
 
 const GetStartedPage = (): React.ReactElement => {
   const { ready, error: definitionsError } = useDefinitions();

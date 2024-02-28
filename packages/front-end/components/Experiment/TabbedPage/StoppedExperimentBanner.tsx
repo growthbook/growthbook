@@ -11,7 +11,7 @@ import { DocLink } from "@/components/DocLink";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
 import { useAuth } from "@/services/auth";
 import Markdown from "@/components/Markdown/Markdown";
-import ResultsIndicator from "../ResultsIndicator";
+import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;

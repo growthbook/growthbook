@@ -3,7 +3,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import { validateFeatureValue } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { getFeatureDefaultValue } from "@/services/features";
-import Modal from "../Modal";
+import Modal from "@/components/Modal";
 import FeatureValueField from "./FeatureValueField";
 
 export interface Props {

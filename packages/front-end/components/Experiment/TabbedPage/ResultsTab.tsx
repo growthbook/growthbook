@@ -19,11 +19,11 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import { GBAddCircle } from "@/components/Icons";
-import Results, { ResultsMetricFilters } from "../Results";
-import { StartExperimentBanner } from "../StartExperimentBanner";
-import AnalysisForm from "../AnalysisForm";
-import ExperimentReportsList from "../ExperimentReportsList";
-import { useSnapshot } from "../SnapshotProvider";
+import Results, { ResultsMetricFilters } from "@/components/Experiment/Results";
+import { StartExperimentBanner } from "@/components/Experiment/StartExperimentBanner";
+import AnalysisForm from "@/components/Experiment/AnalysisForm";
+import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList";
+import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
 

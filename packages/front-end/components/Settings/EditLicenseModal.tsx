@@ -4,8 +4,8 @@ import { FaExclamationTriangle } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
-import Field from "../Forms/Field";
-import Modal from "../Modal";
+import Field from "@/components/Forms/Field";
+import Modal from "@/components/Modal";
 import styles from "./EditLicenseForm.module.scss";
 
 const EditLicenseModal: FC<{

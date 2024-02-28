@@ -2,7 +2,7 @@ import Link from "next/link";
 import { FiArrowRight } from "react-icons/fi";
 import usePermissions from "@/hooks/usePermissions";
 import track from "@/services/track";
-import { DocLink } from "../DocLink";
+import { DocLink } from "@/components/DocLink";
 
 export default function DocumentationLinksSidebar() {
   const permissions = usePermissions();

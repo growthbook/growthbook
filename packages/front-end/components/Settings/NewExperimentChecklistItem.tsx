@@ -1,7 +1,7 @@
 import CreatableSelect from "react-select/creatable";
 import { ChecklistTask } from "back-end/types/experimentLaunchChecklist";
-import Field from "../Forms/Field";
-import { ReactSelectProps } from "../Forms/SelectField";
+import Field from "@/components/Forms/Field";
+import { ReactSelectProps } from "@/components/Forms/SelectField";
 
 type AutoChecklistOption = {
   value: string;

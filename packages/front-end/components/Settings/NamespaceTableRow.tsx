@@ -3,9 +3,9 @@ import Link from "next/link";
 import { MouseEventHandler, useState } from "react";
 import { findGaps } from "@/services/features";
 import usePermissions from "@/hooks/usePermissions";
-import NamespaceUsageGraph from "../Features/NamespaceUsageGraph";
-import DeleteButton from "../DeleteButton/DeleteButton";
-import MoreMenu from "../Dropdown/MoreMenu";
+import NamespaceUsageGraph from "@/components/Features/NamespaceUsageGraph";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
 
 export interface Props {
   i: number;

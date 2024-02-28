@@ -19,8 +19,8 @@ import {
   pValueFormatter,
 } from "@/services/experiments";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
-import Tooltip from "../Tooltip/Tooltip";
-import MetricTooltipBody from "../Metrics/MetricTooltipBody";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
 import MetricValueColumn from "./MetricValueColumn";
 import { hasEnoughData } from "./GuardrailResult";
 

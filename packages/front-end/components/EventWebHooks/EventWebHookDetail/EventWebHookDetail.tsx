@@ -11,11 +11,14 @@ import { datetime } from "shared/dates";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import Badge from "@/components/Badge";
-import { EventWebHookEditParams, useIconForState } from "../utils";
-import { useCopyToClipboard } from "../../../hooks/useCopyToClipboard";
-import { SimpleTooltip } from "../../SimpleTooltip/SimpleTooltip";
-import useApi from "../../../hooks/useApi";
-import { EventWebHookAddEditModal } from "../EventWebHookAddEditModal/EventWebHookAddEditModal";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import useApi from "@/hooks/useApi";
+import {
+  EventWebHookEditParams,
+  useIconForState,
+} from "@/components/EventWebHooks/utils";
+import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
+import { EventWebHookAddEditModal } from "@/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
 
 type EventWebHookDetailProps = {
   eventWebHook: EventWebHookInterface;

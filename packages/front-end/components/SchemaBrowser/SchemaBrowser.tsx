@@ -1,5 +1,5 @@
-import { InformationSchemaInterface } from "@/../back-end/src/types/Integration";
-import { DataSourceInterfaceWithParams } from "@/../back-end/types/datasource";
+import { InformationSchemaInterface } from "@back-end/src/types/Integration";
+import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
 import React, { Fragment, useCallback, useEffect, useState } from "react";
 import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight, FaTable } from "react-icons/fa";
@@ -7,8 +7,8 @@ import { cloneDeep } from "lodash";
 import clsx from "clsx";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
-import { CursorData } from "../Segments/SegmentForm";
-import LoadingSpinner from "../LoadingSpinner";
+import { CursorData } from "@/components/Segments/SegmentForm";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import SchemaBrowserWrapper from "./SchemaBrowserWrapper";
 import RetryInformationSchemaCard from "./RetryInformationSchemaCard";
 import PendingInformationSchemaCard from "./PendingInformationSchemaCard";

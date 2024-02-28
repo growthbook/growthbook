@@ -4,13 +4,13 @@ import { useAuth } from "@/services/auth";
 import { useSearch } from "@/services/search";
 import usePermissions from "@/hooks/usePermissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Field from "../Forms/Field";
-import Tooltip from "../Tooltip/Tooltip";
-import { GBAddCircle } from "../Icons";
-import MoreMenu from "../Dropdown/MoreMenu";
-import DeleteButton from "../DeleteButton/DeleteButton";
-import InlineCode from "../SyntaxHighlighting/InlineCode";
-import { OfficialBadge } from "../Metrics/MetricName";
+import Field from "@/components/Forms/Field";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { GBAddCircle } from "@/components/Icons";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+import { OfficialBadge } from "@/components/Metrics/MetricName";
 import FactFilterModal from "./FactFilterModal";
 
 export interface Props {

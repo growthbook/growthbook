@@ -10,8 +10,8 @@ import {
 import { ExperimentReportVariation } from "back-end/types/report";
 import Link from "next/link";
 import { ExperimentMetricInterface, getMetricLink } from "shared/experiments";
-import Tooltip from "../Tooltip/Tooltip";
-import MetricTooltipBody from "../Metrics/MetricTooltipBody";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
 import MetricValueColumn from "./MetricValueColumn";
 
 const WARNING_CUTOFF = 0.65;

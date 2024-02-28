@@ -17,10 +17,10 @@ import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import { useCelebration } from "@/hooks/useCelebration";
 import useApi from "@/hooks/useApi";
-import Button from "../Button";
-import Tooltip from "../Tooltip/Tooltip";
-import ConfirmButton from "../Modal/ConfirmButton";
-import InitialSDKConnectionForm from "../Features/SDKConnections/InitialSDKConnectionForm";
+import Button from "@/components/Button";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import ConfirmButton from "@/components/Modal/ConfirmButton";
+import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 
 type ManualChecklist = {
   key: string;

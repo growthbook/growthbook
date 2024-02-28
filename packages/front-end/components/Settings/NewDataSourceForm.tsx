@@ -10,7 +10,7 @@ import {
   DataSourceSettings,
 } from "back-end/types/datasource";
 import { useForm } from "react-hook-form";
-import { MetricType } from "@/../back-end/types/metric";
+import { MetricType } from "@back-end/types/metric";
 import clsx from "clsx";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import Link from "next/link";
@@ -25,10 +25,10 @@ import {
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
-import SelectField from "../Forms/SelectField";
-import Field from "../Forms/Field";
-import Modal from "../Modal";
-import { GBCircleArrowLeft } from "../Icons";
+import SelectField from "@/components/Forms/SelectField";
+import Field from "@/components/Forms/Field";
+import Modal from "@/components/Modal";
+import { GBCircleArrowLeft } from "@/components/Icons";
 import EventSourceList from "./EventSourceList";
 import ConnectionSettings from "./ConnectionSettings";
 import styles from "./NewDataSourceForm.module.scss";

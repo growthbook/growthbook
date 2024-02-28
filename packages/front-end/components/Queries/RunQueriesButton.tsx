@@ -6,7 +6,7 @@ import { BsArrowRepeat } from "react-icons/bs";
 import { getValidDate } from "shared/dates";
 import { FaCircleXmark } from "react-icons/fa6";
 import { useAuth } from "@/services/auth";
-import LoadingSpinner from "../LoadingSpinner";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 function getTimeDisplay(seconds: number): string {
   if (seconds < 120) {
