@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { PValueCorrection } from "back-end/types/stats";
 import {
@@ -30,6 +30,13 @@ export default function StatsEngineSettings() {
   const [statsEngineTab, setStatsEngineTab] = useState<string>(
     statsEngine || DEFAULT_STATS_ENGINE
   );
+
+  useEffect(() => {
+    if (statsEngineTab === statsEngine) return;
+    setStatsEngineTab(statsEngine);
+    // purposely leave statsEngineTab out of deps so we allow switching tab harmlessly
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statsEngine]);
 
   const highlightColor =
     typeof confidenceLevel !== "undefined"
@@ -215,8 +222,7 @@ export default function StatsEngineSettings() {
               options={[
                 {
                   label: "None",
-                  // @ts-expect-error This has been here and I'm afraid to change it now
-                  value: null,
+                  value: "",
                 },
                 {
                   label: "Holm-Bonferroni (Control FWER)",

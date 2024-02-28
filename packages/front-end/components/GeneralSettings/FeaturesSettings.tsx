@@ -1,3 +1,4 @@
+import { isEqual } from "lodash";
 import { useEffect, useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { FaExclamationCircle, FaQuestionCircle } from "react-icons/fa";
@@ -24,6 +25,15 @@ export default function FeaturesSettings() {
   const hasCodeReferencesFeature = hasCommercialFeature("code-references");
 
   useEffect(() => {
+    if (!form) return;
+
+    const branches = codeRefsBranchesToFilterStr
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    if (isEqual(branches, form.watch("codeRefsBranchesToFilter"))) return;
+
     form.setValue(
       "codeRefsBranchesToFilter",
       codeRefsBranchesToFilterStr
