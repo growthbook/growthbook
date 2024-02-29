@@ -3,12 +3,20 @@ import { ProjectInterface } from "back-end/types/project";
 import PQueue from "p-queue";
 import { FeatureInterface } from "back-end/types/feature";
 import { FaTriangleExclamation } from "react-icons/fa6";
-import { FaCheck, FaMinusCircle, FaPlus } from "react-icons/fa";
+import {
+  FaCheck,
+  FaExternalLinkAlt,
+  FaMinusCircle,
+  FaRegWindowRestore,
+} from "react-icons/fa";
 import { MdPending } from "react-icons/md";
 import { cloneDeep } from "lodash";
+import { Environment } from "back-end/types/organization";
+import Link from "next/link";
 import {
   FeatureVariationsMap,
   getLDEnvironments,
+  getLDFeatureFlag,
   getLDFeatureFlags,
   getLDProjects,
   getTypeAndVariations,
@@ -24,7 +32,7 @@ import Button from "@/components/Button";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { ApiCallType, useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useEnvironments } from "@/services/features";
+import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useUser } from "@/services/UserContext";
 
 type ImportStatus = "invalid" | "skipped" | "pending" | "completed" | "failed";
@@ -37,6 +45,7 @@ interface FeatureImport {
     "organization" | "dateCreated" | "dateUpdated" | "version"
   >;
   error?: string;
+  exists: boolean;
 }
 
 interface ProjectImport {
@@ -68,7 +77,8 @@ interface ImportData {
 async function buildImportedData(
   apiToken: string,
   existingProjects: Map<string, ProjectInterface>,
-  existingEnvs: Set<string>
+  existingEnvs: Set<string>,
+  featureIds: Set<string>
 ): Promise<ImportData> {
   // Get projects
   const ldProjects = await getLDProjects(apiToken);
@@ -133,30 +143,49 @@ async function buildImportedData(
         });
 
         data.items.forEach((f) => {
-          try {
-            if (importedFeatureIds.has(f.key)) {
-              features.push({
-                key: f.key,
-                status: "skipped",
-                error: "Duplicate feature key",
-              });
-              return;
-            }
-
-            const feature = transformLDFeatureFlag(f, p.key, featureVarMap);
-            features.push({
-              key: feature.id,
-              status: "pending",
-              feature,
-            });
-            importedFeatureIds.add(f.key);
-          } catch (e) {
+          if (importedFeatureIds.has(f.key)) {
             features.push({
               key: f.key,
-              status: "invalid",
-              error: e.message,
+              status: "skipped",
+              error: "Duplicate feature key",
+              exists: featureIds.has(f.key),
             });
+            return;
           }
+
+          importedFeatureIds.add(f.key);
+          queue.add(async () => {
+            try {
+              const def = await getLDFeatureFlag(apiToken, p.key, f.key);
+              try {
+                const feature = transformLDFeatureFlag(
+                  def,
+                  p.key,
+                  featureVarMap
+                );
+                features.push({
+                  key: feature.id,
+                  status: "pending",
+                  feature,
+                  exists: featureIds.has(f.key),
+                });
+              } catch (e) {
+                features.push({
+                  key: f.key,
+                  status: "invalid",
+                  error: e.message,
+                  exists: featureIds.has(f.key),
+                });
+              }
+            } catch (e) {
+              features.push({
+                key: f.key,
+                status: "failed",
+                error: e.message,
+                exists: featureIds.has(f.key),
+              });
+            }
+          });
         });
       } catch (e) {
         console.error("Error fetching feature flags for project", p.key, e);
@@ -243,14 +272,40 @@ async function runImport(
     }
   });
 
-  // Import Environments
+  // Import Environments in a single API call
   queue.add(async () => {
-    // TODO: import environments in a single API call since they are all stored in the same Mongo doc
-    data.envs?.forEach((env) => {
-      if (env.status === "pending") {
-        env.status = "completed";
+    const envsToAdd: Environment[] = [];
+    data.envs?.forEach((e) => {
+      if (e.status === "pending" && e.env) {
+        envsToAdd.push({
+          id: e.env.id,
+          description: e.env.description,
+        });
       }
     });
+
+    if (envsToAdd.length > 0) {
+      try {
+        await apiCall("/environment", {
+          method: "PUT",
+          body: JSON.stringify({
+            environments: envsToAdd,
+          }),
+        });
+        data.envs?.forEach((env) => {
+          if (env.status === "pending") {
+            env.status = "completed";
+          }
+        });
+      } catch (e) {
+        data.envs?.forEach((env) => {
+          if (env.status === "pending") {
+            env.status = "failed";
+            env.error = e.message;
+          }
+        });
+      }
+    }
     update();
   });
   await queue.onIdle();
@@ -270,6 +325,7 @@ async function runImport(
               }),
             });
             f.status = "completed";
+            f.exists = true;
           } else {
             f.status = "skipped";
             f.error = "Project not created";
@@ -332,32 +388,50 @@ function ImportStatusDisplay({
   );
 }
 
-function FeatureImportSummary({ data }: { data: FeatureImport }) {
+function FeatureImportRow({ data }: { data: FeatureImport }) {
   const [open, setOpen] = useState(false);
   return (
-    <li className="mb-2">
-      <div className="d-flex">
-        <ImportStatusDisplay data={data} />
-        <span className="ml-1">{data.key}</span>
-        {data.feature?.project && (
-          <span className="badge badge-secondary ml-1">
-            {data.feature.project}
-          </span>
-        )}
-        {data.feature ? (
-          <a
-            href="#"
-            className="ml-1"
-            onClick={(e) => {
-              e.preventDefault();
-              setOpen(true);
-            }}
-            title="View Details"
-          >
-            <FaPlus />
-          </a>
-        ) : null}
-      </div>
+    <>
+      <tr>
+        <td>
+          <ImportStatusDisplay data={data} />
+        </td>
+        <td>
+          {data.feature ? (
+            <span className="badge badge-secondary">
+              {data.feature.project}
+            </span>
+          ) : null}
+        </td>
+        <td>
+          {data.exists ? (
+            <Link href={`/features/${data.key}`}>
+              <a>
+                {data.key} <FaExternalLinkAlt />
+              </a>
+            </Link>
+          ) : (
+            data.key
+          )}
+        </td>
+        <td>
+          {data.feature ? (
+            <a
+              href="#"
+              className="ml-1"
+              onClick={(e) => {
+                e.preventDefault();
+                setOpen(true);
+              }}
+            >
+              open <FaRegWindowRestore />
+            </a>
+          ) : null}
+        </td>
+        <td>
+          <em>{data.error}</em>
+        </td>
+      </tr>
       {open && data.feature && (
         <Modal
           open
@@ -374,7 +448,7 @@ function FeatureImportSummary({ data }: { data: FeatureImport }) {
           <Code language="json" code={JSON.stringify(data.feature, null, 2)} />
         </Modal>
       )}
-    </li>
+    </>
   );
 }
 
@@ -429,6 +503,11 @@ export default function ImportFromLaunchDarkly() {
     status: "init",
   });
 
+  const { features } = useFeaturesList(false);
+  const featureIds = useMemo(() => new Set(features.map((f) => f.id)), [
+    features,
+  ]);
+
   const { projects, mutateDefinitions } = useDefinitions();
   const environments = useEnvironments();
   const { refreshOrganization } = useUser();
@@ -474,7 +553,8 @@ export default function ImportFromLaunchDarkly() {
                   const d = await buildImportedData(
                     token,
                     existingProjects,
-                    existingEnvironments
+                    existingEnvironments,
+                    featureIds
                   );
                   setData(d);
                 } catch (e) {
@@ -514,19 +594,36 @@ export default function ImportFromLaunchDarkly() {
             {data.projects ? (
               <div className="appbox mb-4">
                 <ImportHeader name="Projects" items={data.projects} />
-                <div className="p-3">
+                <div>
                   <div style={{ maxHeight: 400, overflowY: "auto" }}>
-                    <ul className="m-0 p-0">
-                      {data.projects?.map((p) => (
-                        <li key={p.key} className="mb-2">
-                          <ImportStatusDisplay data={p} />
-                          {p.project?.name || p.key}
-                          <span className="badge badge-secondary ml-1">
-                            {p.key}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
+                    <table className="gbtable table w-auto">
+                      <thead>
+                        <tr>
+                          <th>Status</th>
+                          <th>Project Id</th>
+                          <th>Name</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.projects?.map((p) => (
+                          <tr key={p.key} className="mb-2">
+                            <td>
+                              <ImportStatusDisplay data={p} />
+                            </td>
+                            <td>
+                              <span className="badge badge-secondary">
+                                {p.key}
+                              </span>
+                            </td>
+                            <td>{p.project?.name || p.key}</td>
+                            <td>
+                              <em>{p.error}</em>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
@@ -534,25 +631,42 @@ export default function ImportFromLaunchDarkly() {
             {data.envs ? (
               <div className="appbox mb-4">
                 <ImportHeader name="Environmnets" items={data.envs} />
-                <div className="p-3">
-                  <div style={{ maxHeight: 400, overflowY: "auto" }}>
-                    <ul className="m-0 p-0">
+                <div style={{ maxHeight: 400, overflowY: "auto" }}>
+                  <table className="gbtable table w-auto">
+                    <thead>
+                      <tr>
+                        <th>Status</th>
+                        <th>Id</th>
+                        <th>Name</th>
+                        <th>Projects</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
                       {data.envs?.map((env) => (
-                        <li key={env.key} className="mb-2">
-                          <ImportStatusDisplay data={env} />
-                          {env.key} ({env.env?.description})
-                          {env.env?.projects.map((p) => (
-                            <span
-                              key={p}
-                              className="badge badge-secondary ml-1"
-                            >
-                              {p}
-                            </span>
-                          ))}
-                        </li>
+                        <tr key={env.key} className="mb-2">
+                          <td>
+                            <ImportStatusDisplay data={env} />
+                          </td>
+                          <td>{env.key}</td>
+                          <td>{env.env?.description}</td>
+                          <td>
+                            {env.env?.projects.map((p) => (
+                              <span
+                                key={p}
+                                className="badge badge-secondary mr-1"
+                              >
+                                {p}
+                              </span>
+                            ))}
+                          </td>
+                          <td>
+                            <em>{env.error}</em>
+                          </td>
+                        </tr>
                       ))}
-                    </ul>
-                  </div>
+                    </tbody>
+                  </table>
                 </div>
               </div>
             ) : null}
@@ -561,11 +675,22 @@ export default function ImportFromLaunchDarkly() {
                 <ImportHeader name="Features" items={data.features} />
                 <div className="p-3">
                   <div style={{ maxHeight: 400, overflowY: "auto" }}>
-                    <ul className="m-0 p-0">
-                      {data.features?.map((f) => (
-                        <FeatureImportSummary key={f.key} data={f} />
-                      ))}
-                    </ul>
+                    <table className="gbtable table w-auto">
+                      <thead>
+                        <tr>
+                          <th>Status</th>
+                          <th>Project</th>
+                          <th>Id</th>
+                          <th>Definition</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.features?.map((f, i) => (
+                          <FeatureImportRow key={i} data={f} />
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>

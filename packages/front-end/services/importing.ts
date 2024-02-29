@@ -630,4 +630,14 @@ export const getLDFeatureFlags = async (
 ): Promise<LDListFeatureFlagsResponse> =>
   getFromLD(`https://app.launchdarkly.com/api/v2/flags/${project}`, apiToken);
 
+export const getLDFeatureFlag = async (
+  apiToken: string,
+  project: string,
+  key: string
+): Promise<LDListFeatureFlagsResponse["items"][0]> =>
+  getFromLD(
+    `https://app.launchdarkly.com/api/v2/flags/${project}/${key}`,
+    apiToken
+  );
+
 // endregion LD
