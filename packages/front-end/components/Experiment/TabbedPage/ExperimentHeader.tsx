@@ -33,7 +33,7 @@ import { StartExperimentBanner } from "@/components/Experiment/StartExperimentBa
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import ExperimentActionButtons from "./ExperimentActionButtons";
-import { ExperimentTab } from "./index";
+import { ExperimentTab } from ".";
 
 export interface Props {
   tab: ExperimentTab;

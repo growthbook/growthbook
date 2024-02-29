@@ -20,7 +20,7 @@
     "unused-export-check": "npx ts-unused-exports tsconfig.json --findCompletelyUnusedFiles --allowUnusedTypes --showLineNumber",
     "generate-dummy-data": "ts-node --swc ./test/data-generator/new-generator.ts",
     "test-integration-queries": "./test/integrations/integration-query-test.sh",
-    "watch-compile": "swc src -w --out-dir dist --strip-leading-paths",
+    "watch-compile": "swc src -w --out-dir dist",
     "watch-dev": "delay 1 && nodemon --watch dist --watch '../shared/dist' --watch '../enterprise/dist' -e js ./dist/server.js",
     "migrate-encryption-key": "node dist/scripts/migrate-encryption-key.js",
     "generate-api-models": "node src/scripts/generate-doc-models-for-openapi-schemas.mjs",
@@ -98,9 +98,9 @@
     "zod": "^3.20.6"
   },
   "devDependencies": {
-    "@swc/cli": "^0.3.10",
-    "@swc/core": "^1.4.2",
-    "@swc/jest": "^0.2.26",
+    "@swc/cli": "^0.1.57",
+    "@swc/core": "^1.3.4",
+    "@swc/jest": "^0.2.23",
     "@types/async": "^3.0.2",
     "@types/async-lock": "^1.4.2",
     "@types/body-parser": "^1.19.2",

@@ -16,7 +16,7 @@ import {
   trackLoginForUser,
 } from "../users";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
-import { isNewInstallation } from "./index";
+import { isNewInstallation } from ".";
 
 const jwtCheck = jwtExpress({
   secret: JWT_SECRET,

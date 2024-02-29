@@ -5,7 +5,7 @@ import {
   Helpers,
   Polyfills,
 } from "./types/growthbook";
-import type { GrowthBook } from "./GrowthBook";
+import type { GrowthBook } from ".";
 
 type CacheEntry = {
   data: FeatureApiResponse;
