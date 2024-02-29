@@ -633,6 +633,10 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     }
   }
 
+  const filteredAttributes = settings?.attributeSchema?.filter((attribute) =>
+    hasReadAccess(context.readAccessFilter, attribute.projects || [])
+  );
+
   // Some other global org data needed by the front-end
   const apiKeys = await getAllApiKeysByOrganization(context);
   const enterpriseSSO = isEnterpriseSSO(req.loginMethod)
@@ -680,7 +684,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       freeTrialDate: org.freeTrialDate,
       discountCode: org.discountCode || "",
       slackTeam: connections?.slack?.team,
-      settings,
+      settings: { ...settings, attributeSchema: filteredAttributes },
       autoApproveMembers: org.autoApproveMembers,
       members: org.members,
       messages: messages || [],
@@ -1178,7 +1182,60 @@ export async function putOrganization(
       } else if (k === "sdkInstructionsViewed" || k === "visualEditorEnabled") {
         req.checkPermissions("manageEnvironments", "", []);
       } else if (k === "attributeSchema") {
-        req.checkPermissions("manageTargetingAttributes");
+        const existingAttributes = org.settings?.attributeSchema || [];
+        const newOrUpdatedAttributes: SDKAttribute[] =
+          settings[k]?.filter((attribute) => {
+            const index = existingAttributes.findIndex(
+              (existingAttribute) =>
+                existingAttribute.property === attribute.property
+            );
+
+            if (index === -1) {
+              // This is a new attribute trying to be created
+              return true;
+            } else {
+              // This is an existing attribute - check to see if it's being updated
+              const existingAttribute = existingAttributes[index];
+
+              // We need to check all keys of the SDKAttribute to see if there are any changes
+              const keysToCheck: (keyof SDKAttribute)[] = [
+                "datatype",
+                "archived",
+                "projects",
+                "enum",
+                "format",
+                "hashAttribute",
+              ];
+
+              return keysToCheck.some((key) => {
+                // If the key is an array, compare the length and the toString
+                if (key === "projects") {
+                  let hasChanges = false;
+
+                  if (
+                    existingAttribute[key]?.length !== attribute[key]?.length
+                  ) {
+                    hasChanges = true;
+                  } else if (
+                    existingAttribute[key]?.toString() !==
+                    attribute[key]?.toString()
+                  ) {
+                    hasChanges = true;
+                  }
+                  return hasChanges;
+                }
+                return existingAttribute[key] !== attribute[key];
+              });
+            }
+          }) || [];
+
+        // Loop through new or updated and checkPermissions for each one
+        newOrUpdatedAttributes.forEach((attribute) => {
+          req.checkPermissions(
+            "manageTargetingAttributes",
+            attribute.projects || []
+          );
+        });
       } else if (k === "northStar") {
         req.checkPermissions("manageNorthStarMetric");
       } else if (k === "namespaces") {
@@ -1253,7 +1310,7 @@ export const autoAddGroupsAttribute = async (
   // Add missing `$groups` attribute automatically if it's being referenced by a Saved Group
   const { org } = getContextFromReq(req);
 
-  req.checkPermissions("manageTargetingAttributes");
+  req.checkPermissions("manageTargetingAttributes", []);
 
   let added = false;
 

@@ -23,6 +23,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "createDatasources",
   "editDatasourceSettings",
   "runQueries",
+  "manageTargetingAttributes",
   "manageVisualChanges",
 ] as const;
 
@@ -40,7 +41,6 @@ export const GLOBAL_PERMISSIONS = [
   "manageWebhooks",
   "manageBilling",
   "manageNorthStarMetric",
-  "manageTargetingAttributes",
   "manageNamespaces",
   "manageSavedGroups",
   "manageArchetype",

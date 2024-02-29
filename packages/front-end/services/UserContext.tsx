@@ -81,7 +81,6 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   manageSavedGroups: false,
   manageArchetype: false,
   manageTags: false,
-  manageTargetingAttributes: false,
   manageTeam: false,
   manageWebhooks: false,
   manageIntegrations: false,

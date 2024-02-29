@@ -55,6 +55,7 @@ export default function SavedGroupsPage() {
   const { refreshOrganization } = useUser();
 
   const permissions = usePermissions();
+  const { project } = useDefinitions();
   const { apiCall } = useAuth();
   const attributeSchema = useAttributeSchema();
 
@@ -72,7 +73,8 @@ export default function SavedGroupsPage() {
     if (attributeSchema.some((a) => a.property === "$groups")) return;
 
     // If user has permissions to manage attributes, auto-add $groups attribute
-    if (permissions.manageTargetingAttributes) {
+    //TODO: When we make Saved Groups a project-level feature, we should pass in the Saved Groups projects below
+    if (permissions.check("manageTargetingAttributes", [])) {
       apiCall<{ added: boolean }>("/organization/auto-groups-attribute", {
         method: "POST",
       })
@@ -86,11 +88,12 @@ export default function SavedGroupsPage() {
         });
     }
   }, [
-    permissions.manageTargetingAttributes,
     apiCall,
     refreshOrganization,
     attributeSchema,
     savedGroups,
+    permissions,
+    project,
   ]);
 
   if (!savedGroups) return <LoadingOverlay />;

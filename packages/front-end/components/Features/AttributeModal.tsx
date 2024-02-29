@@ -4,7 +4,7 @@ import {
   SDKAttribute,
   SDKAttributeFormat,
   SDKAttributeType,
-} from "@back-end/types/organization";
+} from "back-end/types/organization";
 import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import { useAttributeSchema } from "@/services/features";
 import { useUser } from "@/services/UserContext";
@@ -14,6 +14,9 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Toggle from "@/components/Forms/Toggle";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export interface Props {
   close: () => void;
@@ -22,6 +25,7 @@ export interface Props {
 
 export default function AttributeModal({ close, attribute }: Props) {
   const { refreshOrganization } = useUser();
+  const { projects, project } = useDefinitions();
 
   const { apiCall } = useAuth();
 
@@ -32,6 +36,7 @@ export default function AttributeModal({ close, attribute }: Props) {
     defaultValues: {
       property: attribute || "",
       datatype: current?.datatype || "string",
+      projects: attribute ? current?.projects || [] : project ? [project] : [],
       format: current?.format || "",
       enum: current?.enum || "",
       hashAttribute: !!current?.hashAttribute,
@@ -104,12 +109,27 @@ export default function AttributeModal({ close, attribute }: Props) {
         refreshOrganization();
       })}
     >
-      <Field label="Attribute" {...form.register("property")} />
-      {attribute && form.watch("property") !== attribute && (
-        <div className="alert alert-warning">
-          Be careful changing the attribute name. Any existing targeting
-          conditions that use this attribute will NOT be updated automatically
-          and will still reference the old attribute name.
+      <Tooltip
+        shouldDisplay={!!attribute}
+        body="The attribute name cannot be changed after creation. If you need to change the name, you will need to create a new attribute and delete the old one."
+      >
+        <Field
+          label="Attribute"
+          {...form.register("property")}
+          disabled={!!attribute}
+        />
+      </Tooltip>
+      {projects?.length > 0 && (
+        <div className="form-group">
+          <MultiSelectField
+            label="Projects"
+            placeholder="All projects"
+            value={form.watch("projects") || []}
+            options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            onChange={(v) => form.setValue("projects", v)}
+            customClassName="label-overflow-ellipsis"
+            helpText="Assign this attribute to specific projects"
+          />
         </div>
       )}
       <SelectField

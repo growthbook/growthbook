@@ -134,6 +134,7 @@ export type SDKAttribute = {
   enum?: string;
   archived?: boolean;
   format?: SDKAttributeFormat;
+  projects?: string[];
 };
 
 export type SDKAttributeSchema = SDKAttribute[];

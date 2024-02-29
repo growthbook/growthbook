@@ -10,13 +10,20 @@ import { useAttributeSchema } from "@/services/features";
 import { useUser } from "@/services/UserContext";
 import AttributeModal from "@/components/Features/AttributeModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import ProjectBadges from "@/components/ProjectBadges";
 
 const FeatureAttributesPage = (): React.ReactElement => {
   const permissions = usePermissions();
   const { apiCall } = useAuth();
   let attributeSchema = useAttributeSchema(true);
+  const { project } = useDefinitions();
 
-  // null = modal closed, "" = new attribute, "my-attribute-name" = existing attribute
+  const canCreateAttributes = permissions.check(
+    "manageTargetingAttributes",
+    project
+  );
+
   const [modalData, setModalData] = useState<null | string>(null);
 
   const orderedAttributes = useMemo(
@@ -51,9 +58,16 @@ const FeatureAttributesPage = (): React.ReactElement => {
           </p>
         )}
       </td>
+      <td className="col-2">
+        <ProjectBadges
+          resourceType="attribute"
+          projectIds={(v.projects || []).length > 0 ? v.projects : undefined}
+          className="badge-ellipsis short align-middle"
+        />
+      </td>
       <td className="text-gray">{v.hashAttribute && <>yes</>}</td>
       <td>
-        {permissions.manageTargetingAttributes && (
+        {permissions.check("manageTargetingAttributes", v.projects || []) ? (
           <MoreMenu>
             {!v.archived && (
               <button
@@ -115,7 +129,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
               useIcon={false}
             />
           </MoreMenu>
-        )}
+        ) : null}
       </td>
     </tr>
   );
@@ -128,7 +142,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
             <div className="col">
               <div className="d-flex">
                 <h1>Targeting Attributes</h1>
-                {permissions.manageTargetingAttributes && (
+                {canCreateAttributes && (
                   <div className="ml-auto">
                     <button
                       className="btn btn-primary"
@@ -154,6 +168,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
               <tr>
                 <th>Attribute</th>
                 <th>Data Type</th>
+                <th>Projects</th>
                 <th>
                   Identifier{" "}
                   <Tooltip body="Any attribute that uniquely identifies a user, account, device, or similar.">
