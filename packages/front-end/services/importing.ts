@@ -25,13 +25,14 @@ export type LDListProjectsResponse = {
  */
 export const transformLDProjectsToGBProject = (
   data: LDListProjectsResponse
-): Pick<ProjectInterface, "name" | "description">[] => {
+): Pick<ProjectInterface, "id" | "name" | "description">[] => {
   return uniqBy(
     data.items.map(({ key, name }) => ({
-      name: key,
-      description: name,
+      id: key,
+      name: name,
+      description: "",
     })),
-    "name"
+    "id"
   );
 };
 
@@ -292,7 +293,7 @@ function transformLDClause(
   return null;
 }
 
-function getTypeAndVariations(
+export function getTypeAndVariations(
   data: LDListFeatureFlagsResponse["items"][0]
 ): { type: FeatureValueType; variations: string[] } {
   const valueType =
