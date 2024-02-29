@@ -2096,8 +2096,15 @@ li.metrics a span img {
 }
 
 .impact-table {
-  .td {
+  td {
     vertical-align: middle;
+  }
+}
+
+.impact-selector-table {
+  td {
+    padding-right: 15px;
+    padding-bottom: 5px;
   }
 }
 

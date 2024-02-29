@@ -82,7 +82,7 @@ export default function Dashboard({ experiments }: Props) {
         </div>
         <div className="col-xl-12 mb-4">
           <div className="list-group activity-box overflow-auto">
-            <h4>Experiment Impact</h4>
+            <h3>Experiment Impact</h3>
             <ExperimentImpact experiments={experiments} />
           </div>
         </div>

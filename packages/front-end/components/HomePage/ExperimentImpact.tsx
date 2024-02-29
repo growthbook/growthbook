@@ -19,6 +19,7 @@ import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
 import Field from "../Forms/Field";
 import MetricSelector from "../Experiment/MetricSelector";
+import { capitalizeFirstLetter } from "@/services/utils";
 
 function jamesSteinAdjustment(
   effects: number[],
@@ -45,12 +46,20 @@ type ExperimentImpact = {
 };
 
 type ExperimentWithImpact = {
+  keyVariationId?: number;
   impact?: ExperimentImpact;
-  winner: boolean;
+  summary: ExperimentSummary;
   experiment: ExperimentInterfaceStringDates;
 };
 
-type ExperimentSummary = "winners" | "other";
+type ExperimentSummary = "summary" | "winner" | "loser" | "other";
+
+type ExperimentSummaryData =  {
+  totalImpact: number,
+  totalAdjustedImpact: number,
+  experiments: ExperimentWithImpact[],
+};
+
 
 function formatImpact(
   impact: number,
@@ -65,109 +74,128 @@ function formatImpact(
       <span className="expectedArrows">
         {impact > 0 ? <FaArrowUp /> : impact < 0 ? <FaArrowDown /> : null}
       </span>{" "}
-      <span className="expected bold">
+      <span className="expected font-weight-bold">
         {formatter(impact, { ...formatterOptions, signDisplay: "never" })}
       </span>
     </>
   );
 }
 
-function ImpactTable({
-  experimentImpacts,
+function ImpactCard({
+  experimentSummaryData,
   experimentSummaryType,
   formatter,
+  formatterOptions,
 }: {
-  experimentImpacts: Map<string, ExperimentWithImpact>;
+  experimentSummaryData: ExperimentSummaryData;
   experimentSummaryType: ExperimentSummary;
   formatter: (
     value: number,
     options?: Intl.NumberFormatOptions | undefined
   ) => string;
+  formatterOptions: Intl.NumberFormatOptions
 }): React.ReactElement {
   const expRows: JSX.Element[] = [];
 
-  for (const [eid, e] of experimentImpacts.entries()) {
-    if (
-      (experimentSummaryType === "winners" && !e.winner) ||
-      (experimentSummaryType === "other" && e.winner)
-    ) {
-      continue;
-    }
+  // TODO inverse metrics!
+  experimentSummaryData.experiments.forEach((e) => {
+
+    let variations: JSX.Element[] = [];
+    e.experiment.variations.forEach((v, i) => {
+      if (i === 0) {
+        return;
+      }
+
+      if (experimentSummaryType !== "other" && i !== e.keyVariationId) {
+        return;
+      }
+      variations.push(<tr><td>
+              <div
+                className={`variation variation${i} with-variation-label d-flex align-items-center`}
+              >
+                <span
+                  className="label"
+                  style={{ width: 20, height: 20 }}
+                >
+                  {i}
+                </span>
+                <span
+                  className="d-inline-block text-ellipsis hover"
+                  style={{
+                    maxWidth: 150,
+                  }}
+                >
+                  {v.name}
+                </span>
+              </div></td>
+              <td>
+              {e.impact?.scaledImpactAdjusted[i - 1] === undefined
+                ? `N/A`
+                : formatImpact(
+                    e.impact?.scaledImpactAdjusted[i - 1] * 365,
+                    formatter,
+                    formatterOptions
+                  )}
+              <span className="plusminus ml-1">
+                ±
+                {Math.abs(e.impact?.ci0[i - 1] ?? 0) === Infinity
+                  ? "∞"
+                  : formatter(
+                      Math.abs(
+                        ((e.impact?.scaledImpact[i - 1] ?? 0) -
+                          (e.impact?.ci0[i - 1] ?? 0)) *
+                          365
+                      ),
+                      formatterOptions
+                    )}
+              </span></td>
+              </tr>);
+          });
     expRows.push(
-      <tr key={eid} className="hover-highlight">
-        <td className="mb-1">
-          <Link href={`/experiment/${eid}`}>
+      <tr key={e.experiment.id} className="hover-highlight">
+        <td className="mb-1 ">
+          <Link href={`/experiment/${e.experiment.id}`}>
             <a className="w-100 no-link-color">
               <strong>{e.experiment.name}</strong>{" "}
             </a>
           </Link>
         </td>
+
+        {experimentSummaryType === "other" ? (<td>
+          
+          <ExperimentStatusIndicator status={e.experiment.status} />
+          {e.experiment.results ? <ResultsIndicator results={e.experiment.results} /> : null}
+          </td>): null}
         <td>
+
         <table className="table-compact"><tbody>
-          {/* {(e.impact?.units ?? []).reduce((sum, n) => sum + n, 0)} */}
-              {e.experiment.variations.map((v, i) => {
-                if (i === 0 || (experimentSummaryType === "winners" && i != e.experiment.winner)) {
-                  return null;
-                } else
-                  return (<tr><td>
-                        <div
-                          className={`variation variation${i} with-variation-label d-flex align-items-center`}
-                        >
-                          <span
-                            className="label"
-                            style={{ width: 20, height: 20 }}
-                          >
-                            {i}
-                          </span>
-                          <span
-                            className="d-inline-block text-ellipsis hover"
-                            style={{
-                              maxWidth: 150,
-                            }}
-                          >
-                            {v.name}
-                          </span>
-                        </div></td><td>
-                        {e.impact?.scaledImpact[i - 1] === undefined
-                          ? `N/A`
-                          : formatImpact(
-                              e.impact?.scaledImpact[i - 1] * 365,
-                              formatter,
-                              {}
-                            )}
-                        <span className="plusminus ml-1">
-                          ±
-                          {Math.abs(e.impact?.ci0[i - 1] ?? 0) === Infinity
-                            ? "∞"
-                            : formatter(
-                                Math.abs(
-                                  ((e.impact?.scaledImpact[i - 1] ?? 0) -
-                                    (e.impact?.ci0[i - 1] ?? 0)) *
-                                    365
-                                ),
-                                { signDisplay: "never" }
-                              )}
-                        </span></td>
-                        </tr>);
-              })}
-              </tbody></table>
+          {variations}
+        </tbody></table>
         </td>
 
         
       </tr>
     );
-  }
+  })
   return (
-    <table className="table-compact">
+    <div className="col mb-3 bg-light">
+    <div className="d-flex flex-row align-items-end">
+          <span style={{ fontSize: "1.5em" }}><span className="font-weight-bold">{experimentSummaryData.experiments.length}</span>{" experiments were "}<span className="font-weight-bold">{experimentSummaryType}s</span>
+          </span></div>
+          <div className="d-flex flex-row align-items-end">
+          <span style={{ fontSize: "1.5em" }}>{formatImpact(experimentSummaryData.totalAdjustedImpact*365, formatter, formatterOptions)}{` per year is the summed impact of the winning variations. `}<HiOutlineExclamationCircle />
+          </span></div>
+    <div className="table-small table-responsive mt-3 p-3">
       <thead>
         <tr>
           <th>Experiment</th>
-          <th>Scaled Impact of Winning Variation</th>
+          {experimentSummaryType === "other" ? <th>Status</th> : null}
+          <th>Scaled Impact</th>
         </tr>
       </thead>
       <tbody>{expRows}</tbody>
-    </table>
-  );
+    </div>
+</div>);
 }
 
 type ExperimentImpactFilters = {
@@ -196,8 +224,8 @@ export default function ExperimentImpact({
     },
   });
 
-  const [experimentStatus, setExperimentStatus] = useState<"winners" | "other">(
-    "winners"
+  const [experimentStatus, setExperimentStatus] = useState<ExperimentSummary>(
+    "summary"
   );
 
   const { projects } = useDefinitions();
@@ -246,11 +274,23 @@ export default function ExperimentImpact({
   const experimentImpacts = new Map<string, ExperimentWithImpact>();
   console.log(exps);
 
-  let totalImpact = 0;
-  let totalAdjustedImpact = 0;
-  let selected = 0;
-  let numberExperiments = 0;
-  let completedExperiments = 0;
+  const summaryObj:  {winners: ExperimentSummaryData, losers: ExperimentSummaryData, others: ExperimentSummaryData} = {
+    winners: {
+      totalAdjustedImpact: 0,
+      totalImpact: 0,
+      experiments: []
+    },
+    losers: {
+      totalAdjustedImpact: 0,
+      totalImpact: 0,
+      experiments: []
+    },
+    others: {
+      totalAdjustedImpact: 0,
+      totalImpact: 0,
+      experiments: []
+    }
+  };
   if (snapshots && exps) {
     const maxUnits = 0;
     let overallSE: number | null = null;
@@ -264,12 +304,10 @@ export default function ExperimentImpact({
           getValidDate(form.watch("startDate")) &&
         getValidDate(e.phases[e.phases.length - 1].dateStarted) <
           getValidDate(form.watch("endDate"));
-      const winner = inSample && e.results === "won" && !!e.winner;
-      const ei: ExperimentWithImpact = { experiment: e, winner: winner };
+          
+      const summary = (inSample && e.results === "won" && !!e.winner) ? "winner" : ( inSample && e.results === "lost") ? "loser": "other";
+      const ei: ExperimentWithImpact = { experiment: e, summary: summary};
       if (s) {
-        if (inSample) {
-          completedExperiments++;
-        }
         const obj: ExperimentImpact = {
           endDate: s.settings.endDate,
           inSample: inSample,
@@ -314,48 +352,67 @@ export default function ExperimentImpact({
       }
       experimentImpacts.set(e.id, ei);
     });
-    console.log(displayCurrency);
-    const adjustment = jamesSteinAdjustment(scaledImpacts, overallSE ?? 0);
 
+    const adjustment = jamesSteinAdjustment(scaledImpacts, overallSE ?? 0);
+    
     for (const [eid, e] of experimentImpacts.entries()) {
+      
+      let experimentImpact: number | null = null;
+      let experimentAdjustedImpact: number | null = null;
+
       if (e.impact) {
         const adjustedImpacts: number[] = [];
         e.impact.scaledImpact.forEach((si, i) => {
           const adjustedImpact =
             adjustment.mean +
             (1 - adjustment.adjustment) * (si - adjustment.mean);
+          e.impact?.scaledImpactAdjusted.push(adjustedImpact);
           adjustedImpacts.push(adjustedImpact);
-          if (e.impact?.selected[i] && e.impact?.inSample) {
-            selected++;
-            totalImpact += si;
-            totalAdjustedImpact += adjustedImpact;
+          if (e.experiment.results === "won" && e.impact?.selected[i]) {
+            e.keyVariationId = i+1;
+            experimentImpact = si;
+            experimentAdjustedImpact = adjustedImpact
+          } else if (e.experiment.results === "lost") {
+            // only include biggest loser for "savings"
+            if (si < (experimentImpact ?? Infinity)) {
+              e.keyVariationId = i+1;
+              experimentImpact = si;
+              experimentAdjustedImpact = adjustedImpact;
+            }
           }
-        });
-        numberExperiments++;
-        e.impact.scaledImpactAdjusted = adjustedImpacts;
-
-        console.log(e.experiment.name);
-        console.log(e.impact);
-      }
+      });
+    }
+    if (e.experiment.results === "won") {
+      summaryObj.winners.totalImpact += experimentImpact ?? 0;
+      summaryObj.winners.totalAdjustedImpact += experimentAdjustedImpact ?? 0;
+      summaryObj.winners.experiments.push(e);
+    } else if (e.experiment.results === "lost") {
+      summaryObj.losers.totalImpact += experimentImpact ?? 0;
+      summaryObj.losers.totalAdjustedImpact += experimentAdjustedImpact ?? 0;
+      summaryObj.losers.experiments.push(e);
+    } else {
+      summaryObj.others.experiments.push(e);
     }
   }
+}
   return (
     <div>
-      <div className="appbox p-3 bg-light table">
-        <div className="row form-inline mb-1">
-          <div className="col-auto">Metric:</div>
-          <div className="col-auto">
+      <div className="appbox p-3 bg-light">
+          <table className="impact-selector-table">
+        <tr>
+          <td>Metric</td>
+          <td className="d-flex">
             <MetricSelector
               initialOption="None"
               value={metric}
               onChange={(metric) => form.setValue("metric", metric)}
               includeFacts={true}
             />
-          </div>
-        </div>
-        <div className="row form-inline mb-1">
-          <div className="col-auto">Project:</div>
-          <div className="col-auto">
+          </td>
+        </tr>
+        <tr>
+          <td>Project</td>
+          <td className="d-flex">
             <SelectField
               value={form.watch("project")}
               options={[
@@ -364,26 +421,27 @@ export default function ExperimentImpact({
               ]}
               onChange={(v) => form.setValue("project", v)}
             />
-          </div>
-        </div>
-        <div className="row align-items-center">
-          <div className="col-auto form-inline">
-            <span>Experiment latest phase running between{"  "}</span>
-            <div className="col-auto form-inline">
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <span>Date</span>
+          </td>
+          <td>
+            <div className="d-flex align-items-center ">
               <Field type="datetime-local" {...form.register("startDate")} />
-            </div>
-            <span>{"and"}</span>
-
-            <div className="col-auto form-inline">
+            <div className="m-2">{" to "}</div>
               <Field type="datetime-local" {...form.register("endDate")} />
-            </div>
-          </div>
-        </div>
+              </div>
+          </td>
+        </tr>
+        </table>
       </div>
       <div>
-        <ControlledTabs
+        
+      <ControlledTabs
           setActive={(s) => {
-            setExperimentStatus((s as ExperimentSummary) || "winners");
+            setExperimentStatus((s as ExperimentSummary) || "winner");
           }}
           active={experimentStatus}
           showActiveCount={true}
@@ -391,47 +449,96 @@ export default function ExperimentImpact({
           buttonsClassName="px-3 py-2 h4"
         >
           <Tab
-            key={"winners"}
-            id={"winners"}
-            display={"Winners"}
-            count={selected}
+            key={"summary"}
+            id={"summarys"}
+            display={"Summary"}
             padding={false}
           >
-            <div className="d-flex flex-row align-items-end mt-2 mb-2">
-              <span style={{ fontSize: "1.2em" }}>
-                {`The summed impact of the ${selected} winning experiments is `}
-                {totalAdjustedImpact > 0 ? (
-                  <FaArrowUp />
-                ) : totalAdjustedImpact < 0 ? (
-                  <FaArrowDown />
-                ) : null}
-                <span className="font-weight-bold">
-                  {formatter(totalAdjustedImpact * 365, formatterOptions)}
-                </span>
-                {` per year. `}
-                <HiOutlineExclamationCircle />
-              </span>
-            </div>
-            <ImpactTable
-              experimentImpacts={experimentImpacts}
-              experimentSummaryType={"winners"}
+
+    <div className="col mb-3 bg-light">
+    <div className="d-flex flex-row align-items-end">
+      <table className="table"><tbody>
+        <tr>
+          <td>
+            Winners
+          </td>
+
+          <td>
+            <span className="font-weight-bold">{summaryObj.winners.experiments.length}</span>{" experiments"}
+          </td>
+
+          <td>
+            {formatImpact(summaryObj.winners.totalAdjustedImpact*365, formatter, formatterOptions)}{" per year summed impact"}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            Losers
+          </td>
+
+          <td>
+            <span className="font-weight-bold">{summaryObj.losers.experiments.length}</span>{" experiments"}
+          </td>
+
+          <td>
+            {formatImpact(summaryObj.losers.totalAdjustedImpact*-365, formatter, formatterOptions)}{" per year summed saved impact"}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            Others (running, inconclusive)
+          </td>
+
+          <td>
+            <span className="font-weight-bold">{summaryObj.losers.experiments.length}</span>{" experiments"}
+          </td>
+          <td></td>
+        </tr>
+        </tbody></table>
+      </div>
+      </div>
+          </Tab>
+          <Tab
+            key={"winner"}
+            id={"winner"}
+            display={"Winners"}
+            padding={false}
+          >
+            <ImpactCard
+              experimentSummaryData={summaryObj.winners}
+              experimentSummaryType={"winner"}
               formatter={formatter}
+              formatterOptions={formatterOptions}
             />
           </Tab>
           <Tab
-            key={"other"}
-            id={"other"}
-            display={"Other Experiments"}
-            count={numberExperiments - selected}
+            key={"loser"}
+            id={"loser"}
+            display={"Losers"}
             padding={false}
           >
-            <ImpactTable
-              experimentImpacts={experimentImpacts}
+            <ImpactCard
+              experimentSummaryData={summaryObj.losers}
+              experimentSummaryType={"loser"}
+              formatter={formatter}
+              formatterOptions={formatterOptions}
+            />
+            </Tab>
+
+          <Tab
+            key={"other"}
+            id={"other"}
+            display={"Others"}
+            padding={false}
+          >
+            <ImpactCard
+              experimentSummaryData={summaryObj.others}
               experimentSummaryType={"other"}
               formatter={formatter}
+              formatterOptions={formatterOptions}
             />
           </Tab>
-        </ControlledTabs>
+          </ControlledTabs>
       </div>
     </div>
   );
