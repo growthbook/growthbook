@@ -26,14 +26,14 @@ import {
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Code from "@/components/SyntaxHighlighting/Code";
-import LoadingOverlay from "@/components/LoadingOverlay";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { ApiCallType, useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useUser } from "@/services/UserContext";
+import { useSessionStorage } from "@/hooks/useSessionStorage";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 type ImportStatus = "invalid" | "skipped" | "pending" | "completed" | "failed";
 
@@ -67,7 +67,7 @@ interface EnvironmentImport {
 }
 
 interface ImportData {
-  status: "init" | "loading" | "error" | "ready" | "importing" | "completed";
+  status: "init" | "fetching" | "error" | "ready" | "importing" | "completed";
   projects?: ProjectImport[];
   envs?: EnvironmentImport[];
   features?: FeatureImport[];
@@ -78,8 +78,26 @@ async function buildImportedData(
   apiToken: string,
   existingProjects: Map<string, ProjectInterface>,
   existingEnvs: Set<string>,
-  featureIds: Set<string>
-): Promise<ImportData> {
+  featureIds: Set<string>,
+  callback: (data: ImportData) => void
+): Promise<void> {
+  const data: ImportData = {
+    status: "fetching",
+    envs: [],
+    projects: [],
+    features: [],
+  };
+
+  // Debounced updater
+  let timer: number | null = null;
+  const update = () => {
+    if (timer) return;
+    timer = window.setTimeout(() => {
+      timer = null;
+      callback(cloneDeep(data));
+    }, 500);
+  };
+
   // Get projects
   const ldProjects = await getLDProjects(apiToken);
   const projects: ProjectImport[] = transformLDProjectsToGBProject(
@@ -104,8 +122,10 @@ async function buildImportedData(
       },
     };
   });
+  data.projects = projects;
+  update();
 
-  const queue = new PQueue({ concurrency: 3, autoStart: false });
+  const queue = new PQueue({ concurrency: 3 });
 
   const envs: Record<
     string,
@@ -114,18 +134,32 @@ async function buildImportedData(
       projects: string[];
     }
   > = {};
-  const features: FeatureImport[] = [];
   const importedFeatureIds: Set<string> = new Set();
+
+  function getEnvs(): EnvironmentImport[] {
+    return Object.entries(envs).map(([key, env]) => ({
+      key,
+      status: existingEnvs.has(key) ? "skipped" : "pending",
+      env: {
+        id: key,
+        description: env.name,
+        projects: env.projects,
+      },
+      error: existingEnvs.has(key) ? "Environment already exists" : undefined,
+    }));
+  }
 
   projects.map((p) => {
     // Get environments for each project
     queue.add(async () => {
       try {
-        const data = await getLDEnvironments(apiToken, p.key);
-        data.items.forEach((env) => {
+        const ldEnvs = await getLDEnvironments(apiToken, p.key);
+        ldEnvs.items.forEach((env) => {
           envs[env.key] = envs[env.key] || { name: env.name, projects: [] };
           envs[env.key].projects.push(p.key);
         });
+        data.envs = getEnvs();
+        update();
       } catch (e) {
         console.error("Error fetching environments for project", p.key, e);
       }
@@ -134,22 +168,23 @@ async function buildImportedData(
     // Get feature flags for the project
     queue.add(async () => {
       try {
-        const data = await getLDFeatureFlags(apiToken, p.key);
+        const ldFeatures = await getLDFeatureFlags(apiToken, p.key);
         // Build a map of feature key to type and variations
         // This is required for prerequisites
         const featureVarMap: FeatureVariationsMap = new Map();
-        data.items.forEach((item) => {
+        ldFeatures.items.forEach((item) => {
           featureVarMap.set(item.key, getTypeAndVariations(item));
         });
 
-        data.items.forEach((f) => {
+        ldFeatures.items.forEach((f) => {
           if (importedFeatureIds.has(f.key)) {
-            features.push({
+            data.features?.push({
               key: f.key,
               status: "skipped",
               error: "Duplicate feature key",
               exists: featureIds.has(f.key),
             });
+            update();
             return;
           }
 
@@ -163,14 +198,14 @@ async function buildImportedData(
                   p.key,
                   featureVarMap
                 );
-                features.push({
+                data.features?.push({
                   key: feature.id,
                   status: "pending",
                   feature,
                   exists: featureIds.has(f.key),
                 });
               } catch (e) {
-                features.push({
+                data.features?.push({
                   key: f.key,
                   status: "invalid",
                   error: e.message,
@@ -178,13 +213,14 @@ async function buildImportedData(
                 });
               }
             } catch (e) {
-              features.push({
+              data.features?.push({
                 key: f.key,
                 status: "failed",
                 error: e.message,
                 exists: featureIds.has(f.key),
               });
             }
+            update();
           });
         });
       } catch (e) {
@@ -193,24 +229,10 @@ async function buildImportedData(
     });
   });
 
-  queue.start();
   await queue.onIdle();
-
-  return {
-    status: "ready",
-    projects: projects,
-    envs: Object.entries(envs).map(([key, env]) => ({
-      key,
-      status: existingEnvs.has(key) ? "skipped" : "pending",
-      env: {
-        id: key,
-        description: env.name,
-        projects: env.projects,
-      },
-      error: existingEnvs.has(key) ? "Environment already exists" : undefined,
-    })),
-    features,
-  };
+  timer && clearTimeout(timer);
+  data.status = "ready";
+  callback(data);
 }
 
 async function runImport(
@@ -498,7 +520,7 @@ function ImportHeader({
 }
 
 export default function ImportFromLaunchDarkly() {
-  const [token, setToken] = useLocalStorage("ldApiToken", "");
+  const [token, setToken] = useSessionStorage("ldApiToken", "");
   const [data, setData] = useState<ImportData>({
     status: "init",
   });
@@ -546,19 +568,20 @@ export default function ImportFromLaunchDarkly() {
                 if (!token) return;
 
                 setData({
-                  status: "loading",
+                  status: "fetching",
                 });
 
                 try {
-                  const d = await buildImportedData(
+                  await buildImportedData(
                     token,
                     existingProjects,
                     existingEnvironments,
-                    featureIds
+                    featureIds,
+                    (d) => setData(d)
                   );
-                  setData(d);
                 } catch (e) {
                   setData({
+                    ...data,
                     status: "error",
                     error: e.message,
                   });
@@ -584,13 +607,14 @@ export default function ImportFromLaunchDarkly() {
       </div>
 
       <div className="position-relative">
-        {data.status === "loading" ? (
-          <LoadingOverlay />
-        ) : data.status === "error" ? (
+        {data.status === "error" ? (
           <div className="alert alert-danger">{data.error || "Error"}</div>
         ) : data.status === "init" ? null : (
           <div>
-            <h2>Status: {data.status}</h2>
+            <h2>
+              Status: {data.status}{" "}
+              {data.status === "fetching" ? <LoadingSpinner /> : null}
+            </h2>
             {data.projects ? (
               <div className="appbox mb-4">
                 <ImportHeader name="Projects" items={data.projects} />
