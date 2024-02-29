@@ -7115,13 +7115,6 @@
   dependencies:
     "@types/react" "*"
 
-"@types/react-dom@^18.2.19":
-  version "18.2.19"
-  resolved "https://registry.yarnpkg.com/@types/react-dom/-/react-dom-18.2.19.tgz#b84b7c30c635a6c26c6a6dfbb599b2da9788be58"
-  integrity sha512-aZvQL6uUbIJpjZk4U8JZGbau9KDeAwMfmhyWorxgBkqDIEf6ROjRozcmPIicqsUwPUjbkDfHKgGee1Lq65APcA==
-  dependencies:
-    "@types/react" "*"
-
 "@types/react-paginate@^7.1.1":
   version "7.1.1"
   resolved "https://registry.npmjs.org/@types/react-paginate/-/react-paginate-7.1.1.tgz"
@@ -7171,15 +7164,6 @@
   version "18.0.15"
   resolved "https://registry.npmjs.org/@types/react/-/react-18.0.15.tgz"
   integrity sha512-iz3BtLuIYH1uWdsv6wXYdhozhqj20oD4/Hk2DNXIn1kFsmp9x8d9QB6FnPhfkbhd2PgEONt9Q1x/ebkwjfFLow==
-  dependencies:
-    "@types/prop-types" "*"
-    "@types/scheduler" "*"
-    csstype "^3.0.2"
-
-"@types/react@^18.2.60":
-  version "18.2.60"
-  resolved "https://registry.yarnpkg.com/@types/react/-/react-18.2.60.tgz#df026eaef1100b6dafe420f36fecb1d209a8cee1"
-  integrity sha512-dfiPj9+k20jJrLGOu9Nf6eqxm2EyJRrq2NvwOFsfbb7sFExZ9WELPs67UImHj3Ayxg8ruTtKtNnbjaF8olPq0A==
   dependencies:
     "@types/prop-types" "*"
     "@types/scheduler" "*"

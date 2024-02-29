@@ -45,50 +45,33 @@ const ActivityList: FC<{
                 href={`/experiment/${event.entity.id}`}
                 className="no-link-color w-100"
               >
-                {"email" in event.user && event.user.email && (
-                  <Avatar
-                    email={event.user.email}
-                    className="mr-2 float-left"
-                    size={24}
-                  />
-                )}
-                <div className="d-flex flex-column flex-fill ">
-                  <div className="mb-1">
-                    <strong>
-                      {("name" in event.user && event.user.name) ||
-                        ("apiKey" in event.user && "API Key")}
-                    </strong>{" "}
-                    {eventActionMapping[event.event] || "modified"}{" "}
-                    <strong>
-                      {nameMap.get(event.entity.id) || event.entity.id}
-                    </strong>
+                <>
+                  {"email" in event.user && event.user.email && (
+                    <Avatar
+                      email={event.user.email}
+                      className="mr-2 float-left"
+                      size={24}
+                    />
+                  )}
+                  <div className="d-flex flex-column flex-fill ">
+                    <div className="mb-1">
+                      <strong>
+                        {("name" in event.user && event.user.name) ||
+                          ("apiKey" in event.user && "API Key")}
+                      </strong>{" "}
+                      {eventActionMapping[event.event] || "modified"}{" "}
+                      <strong>
+                        {nameMap.get(event.entity.id) || event.entity.id}
+                      </strong>
+                    </div>
+                    <div
+                      className="text-muted"
+                      title={datetime(event.dateCreated)}
+                    >
+                      {date(event.dateCreated)}
+                    </div>
                   </div>
-                  <div
-                    className="text-muted"
-                    title={datetime(event.dateCreated)}
-                  >
-                    {date(event.dateCreated)}
-                  </div>
-                  {/*{details &&*/}
-                  {/*  (event.event === "experiment.start" ||*/}
-                  {/*    event.event === "experiment.phase") && (*/}
-                  {/*    <small>{phaseSummary(details)}</small>*/}
-                  {/*  )}*/}
-                  {/*{event.event === "experiment.stop" && (*/}
-                  {/*  <small>*/}
-                  {/*    {details && details.reason && (*/}
-                  {/*      <span className="mr-3">*/}
-                  {/*        <strong>Reason: </strong> {details.reason}*/}
-                  {/*      </span>*/}
-                  {/*    )}*/}
-                  {/*    {details && details.results && (*/}
-                  {/*      <>*/}
-                  {/*        <strong>Result: </strong> {details.results}*/}
-                  {/*      </>*/}
-                  {/*    )}*/}
-                  {/*  </small>*/}
-                  {/*)}*/}
-                </div>
+                </>
               </Link>
             </li>
           );
