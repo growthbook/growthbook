@@ -8,6 +8,7 @@ import { ProjectInterface } from "back-end/types/project";
 import { Environment } from "back-end/types/organization";
 import { FeatureInterface } from "back-end/types/feature";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
+import uniqid from "uniqid";
 
 type TaskState = "idle" | "pending" | "error" | "completed";
 export const ImportFromLaunchDarkly = () => {
@@ -57,7 +58,10 @@ export const ImportFromLaunchDarkly = () => {
     const projectsResp = await getLDProjects(apiKey);
     if (projectsResp.items) {
       projectsResp.items.map((project) => {
-        ldps.push(project);
+        ldps.push({
+          ...project,
+          gbid: uniqid("prj_")
+        });
       });
     }
     setLdProjects(ldps);
@@ -89,7 +93,8 @@ export const ImportFromLaunchDarkly = () => {
         featuresResp.items.map((feature) => {
           ldfs.push({
             ...feature,
-            project: project.key
+            projectKey: project.key,
+            projectId: project.gbid,
           });
         });
       }
@@ -113,8 +118,9 @@ export const ImportFromLaunchDarkly = () => {
     const gbfs: Partial<FeatureInterface>[] = [];
     ldProjects.forEach((p) => {
       gbps.push({
-        name: p.name,
-        description: p.description,
+        id: p.gbid,
+        name: p.key,
+        description: p.name,
       });
     });
     for (const key in ldUniqueEnvironments) {
@@ -128,7 +134,8 @@ export const ImportFromLaunchDarkly = () => {
       ({
         _maintainer,
         environments,
-        project,
+        projectKey,
+        projectId,
         key,
         kind,
         variations,
@@ -159,7 +166,7 @@ export const ImportFromLaunchDarkly = () => {
             kind === "boolean"
               ? `${defaultValue}`
               : (variations["0"].value as string),
-          project,
+          project: projectId,
           id: key,
           description: description || name,
           owner,
@@ -288,20 +295,41 @@ export const ImportFromLaunchDarkly = () => {
           {showGbImportDetails && (
             <div>
               <div>Projects: {gbProjects.length}</div>
-              {gbProjects.map((p) => (
-                <CodeTextArea language={"json"} value={JSON.stringify(p, null, 2)} setValue={()=>{}}/>
+              {gbProjects.map((p, i) => (
+                <div key={`proj-${i}`} className="mt-2">
+                  <CodeTextArea
+                    language={"json"}
+                    value={JSON.stringify(p, null, 2)}
+                    setValue={()=>{}}
+                    maxLines={3}
+                  />
+                </div>
               ))}
               <hr/>
 
               <div>Environments: {gbEnvironments.length}</div>
-              {gbEnvironments.map((e) => (
-                <CodeTextArea language={"json"} value={JSON.stringify(e, null, 2)} setValue={()=>{}}/>
+              {gbEnvironments.map((e, i) => (
+                <div key={`env-${i}`} className="mt-2">
+                  <CodeTextArea
+                    language={"json"}
+                    value={JSON.stringify(e, null, 2)}
+                    setValue={()=>{}}
+                    maxLines={3}
+                  />
+                </div>
               ))}
               <hr/>
 
               <div>Feature flags: {gbFeatures.length}</div>
-              {gbFeatures.map((f) => (
-                <CodeTextArea language={"json"} value={JSON.stringify(f, null, 2)} setValue={()=>{}}/>
+              {gbFeatures.map((f, i) => (
+                <div key={`feature-${i}`} className="mt-2">
+                  <CodeTextArea
+                    language={"json"}
+                    value={JSON.stringify(f, null, 2)}
+                    setValue={()=>{}}
+                    maxLines={8}
+                  />
+                </div>
               ))}
             </div>
           )}
