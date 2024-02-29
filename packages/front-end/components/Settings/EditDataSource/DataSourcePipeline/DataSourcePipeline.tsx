@@ -3,7 +3,7 @@ import { FaPencilAlt } from "react-icons/fa";
 import { DataSourceType } from "back-end/types/datasource";
 import usePermissions from "@/hooks/usePermissions";
 import { checkDatasourceProjectPermissions } from "@/services/datasources";
-import { DataSourceQueryEditingModalBaseProps } from "../types";
+import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { EditDataSourcePipeline } from "./EditDataSourcePipeline";
 
 type DataSourcePipelineProps = DataSourceQueryEditingModalBaseProps;

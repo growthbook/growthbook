@@ -9,7 +9,7 @@ import RunQueriesButton, {
 } from "@/components/Queries/RunQueriesButton";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
-import DateGraph from "../Metrics/DateGraph";
+import DateGraph from "@/components/Metrics/DateGraph";
 
 const NorthStarMetricDisplay = ({
   metricId,

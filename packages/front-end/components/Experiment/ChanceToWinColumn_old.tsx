@@ -10,7 +10,7 @@ import {
   shouldHighlight as _shouldHighlight,
 } from "@/services/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import Tooltip from "../Tooltip/Tooltip";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import NotEnoughData_old from "./NotEnoughData_old";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {

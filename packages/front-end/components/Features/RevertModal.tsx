@@ -5,8 +5,8 @@ import isEqual from "lodash/isEqual";
 import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
 import { ExpandableDiff } from "./DraftModal";
 
 export interface Props {

@@ -3,9 +3,9 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { date, datetime } from "shared/dates";
 import { phaseSummary } from "@/services/utils";
 import { useAuth } from "@/services/auth";
-import Modal from "../Modal";
-import DeleteButton from "../DeleteButton/DeleteButton";
-import { GBAddCircle } from "../Icons";
+import Modal from "@/components/Modal";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { GBAddCircle } from "@/components/Icons";
 import EditPhaseModal from "./EditPhaseModal";
 import NewPhaseForm from "./NewPhaseForm";
 

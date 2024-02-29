@@ -7,10 +7,10 @@ import { RxInfoCircled, RxLoop } from "react-icons/rx";
 import { PrerequisiteStateResult } from "shared/util";
 import { condToJson, jsonToConds } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
-import CodeTextArea from "../Forms/CodeTextArea";
-import StringArrayField from "../Forms/StringArrayField";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import CodeTextArea from "@/components/Forms/CodeTextArea";
+import StringArrayField from "@/components/Forms/StringArrayField";
 import styles from "./ConditionInput.module.scss";
 
 interface Props {

@@ -13,10 +13,10 @@ import { formatTrafficSplit } from "@/services/utils";
 import { formatNumber } from "@/services/metrics";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
-} from "../Experiment/ExperimentDateGraph";
-import Toggle from "../Forms/Toggle";
-import SelectField from "../Forms/SelectField";
-import Tooltip from "../Tooltip/Tooltip";
+} from "@/components/Experiment/ExperimentDateGraph";
+import Toggle from "@/components/Forms/Toggle";
+import SelectField from "@/components/Forms/SelectField";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { transformDimensionData } from "./DimensionIssues";
 
 const numberFormatter = new Intl.NumberFormat();

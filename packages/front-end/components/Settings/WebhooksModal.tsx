@@ -6,11 +6,11 @@ import track from "@/services/track";
 import { isCloud } from "@/services/env";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
-import Field from "../Forms/Field";
-import Modal from "../Modal";
-import Toggle from "../Forms/Toggle";
-import SelectField from "../Forms/SelectField";
-import CodeTextArea from "../Forms/CodeTextArea";
+import Field from "@/components/Forms/Field";
+import Modal from "@/components/Modal";
+import Toggle from "@/components/Forms/Toggle";
+import SelectField from "@/components/Forms/SelectField";
+import CodeTextArea from "@/components/Forms/CodeTextArea";
 
 const WebhooksModal: FC<{
   close: () => void;

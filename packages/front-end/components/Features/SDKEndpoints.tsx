@@ -5,12 +5,12 @@ import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
-import DeleteButton from "../DeleteButton/DeleteButton";
-import ApiKeysModal from "../Settings/ApiKeysModal";
-import Tooltip from "../Tooltip/Tooltip";
-import MoreMenu from "../Dropdown/MoreMenu";
-import ClickToReveal from "../Settings/ClickToReveal";
-import ClickToCopy from "../Settings/ClickToCopy";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import ApiKeysModal from "@/components/Settings/ApiKeysModal";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import ClickToReveal from "@/components/Settings/ClickToReveal";
+import ClickToCopy from "@/components/Settings/ClickToCopy";
 import { getApiBaseUrl } from "./CodeSnippetModal";
 
 const SDKEndpoints: FC<{

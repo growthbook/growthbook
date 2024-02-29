@@ -6,10 +6,10 @@ import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
-import LoadingOverlay from "../components/LoadingOverlay";
-import { useDefinitions } from "../services/DefinitionsContext";
-import Modal from "../components/Modal";
-import HistoryTable from "../components/HistoryTable";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import Modal from "@/components/Modal";
+import HistoryTable from "@/components/HistoryTable";
 
 export const getSavedGroupMessage = (
   featuresUsingSavedGroups: Set<string> | undefined
@@ -32,8 +32,11 @@ export const getSavedGroupMessage = (
               return (
                 <li key={feature}>
                   <div className="d-flex">
-                    <Link href={`/features/${feature}`}>
-                      <a className="btn btn-link pt-1 pb-1">{feature}</a>
+                    <Link
+                      href={`/features/${feature}`}
+                      className="btn btn-link pt-1 pb-1"
+                    >
+                      {feature}
                     </Link>
                   </div>
                 </li>
