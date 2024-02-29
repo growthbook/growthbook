@@ -164,7 +164,6 @@ export async function analyzeExperimentMetric(
       )
     ),
   };
-  console.dir(statsData, { depth: null });
 
   const escapedStatsData = JSON.stringify(statsData).replace(/\\/g, "\\\\");
   const start = Date.now();
