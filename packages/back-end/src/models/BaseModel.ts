@@ -10,6 +10,7 @@ import { isEqual, pick, uniq } from "lodash";
 import { ApiReqContext } from "../../types/api";
 import { Permission, ReqContext } from "../../types/organization";
 import { CreateProps, UpdateProps } from "../../types/models";
+import { logger } from "../util/logger";
 
 export type BaseSchema = z.ZodObject<
   {
@@ -25,7 +26,12 @@ export interface ModelConfig<T extends BaseSchema> {
   schema: T;
   collectionName: string;
   idPrefix?: string;
-  writePermission: Permission;
+  permissions: {
+    read: Permission | Permission[];
+    create: Permission | Permission[];
+    update: Permission | Permission[];
+    delete: Permission | Permission[];
+  };
   projectScoping: "none" | "single" | "multiple";
   globallyUniqueIds?: boolean;
   skipDateUpdatedFields?: (keyof z.infer<T>)[];
@@ -80,10 +86,45 @@ export abstract class BaseModel<T extends BaseSchema> {
 
   private addIndexes() {
     if (indexesAdded.has(this.config.collectionName)) return;
-
-    // TODO: create indexes in Mongo if they don't exist
-
     indexesAdded.add(this.config.collectionName);
+
+    // Always create a unique index for organization and id
+    this._dangerousGetCollection()
+      .createIndex({ organization: 1, id: 1 }, { unique: true })
+      .catch((err) => {
+        logger.error(
+          `Error creating org/id unique index for ${this.config.collectionName}`,
+          err
+        );
+      });
+
+    // If id is globally unique, create an index for that
+    if (this.config.globallyUniqueIds) {
+      this._dangerousGetCollection()
+        .createIndex({ id: 1 }, { unique: true })
+        .catch((err) => {
+          logger.error(
+            `Error creating id unique index for ${this.config.collectionName}`,
+            err
+          );
+        });
+    }
+
+    // Create any additional indexes
+    this.config.additionalIndexes?.forEach((index) => {
+      this._dangerousGetCollection()
+        .createIndex(index.fields as { [key: string]: number }, {
+          unique: !!index.unique,
+        })
+        .catch((err) => {
+          logger.error(
+            `Error creating ${Object.keys(index.fields).join("/")} ${
+              index.unique ? "unique " : ""
+            }index for ${this.config.collectionName}`,
+            err
+          );
+        });
+    });
   }
 
   // Built-in public methods
@@ -182,12 +223,7 @@ export abstract class BaseModel<T extends BaseSchema> {
 
       // Filter out any docs the user doesn't have access to read
       if (this.config.projectScoping !== "none") {
-        if (
-          !hasReadAccess(
-            this.context.readAccessFilter,
-            this._getProjectField(migrated)
-          )
-        ) {
+        if (!this._hasPermissions([migrated], this.config.permissions.read)) {
           continue;
         }
 
@@ -215,12 +251,7 @@ export abstract class BaseModel<T extends BaseSchema> {
 
     const migrated = this.migrate(this._removeMongooseFields(doc));
     if (this.config.projectScoping !== "none") {
-      if (
-        !hasReadAccess(
-          this.context.readAccessFilter,
-          this._getProjectField(migrated)
-        )
-      ) {
+      if (!this._hasPermissions([migrated], this.config.permissions.read)) {
         return null;
       }
     }
@@ -239,6 +270,45 @@ export abstract class BaseModel<T extends BaseSchema> {
       );
     }
     return undefined;
+  }
+
+  private _hasPermissions(
+    docs: z.infer<T>[],
+    permissions: Permission | Permission[]
+  ) {
+    if (!Array.isArray(permissions)) {
+      permissions = [permissions];
+    }
+
+    const projects = uniq(
+      docs.flatMap((doc) => this._getAffectedProjects(doc))
+    );
+
+    for (const permission of permissions) {
+      if (
+        !docs.every((doc) =>
+          // TODO: support environment-scoped permission checks
+          this.context.hasPermission(
+            permission,
+            this._getProjectField(doc),
+            undefined
+          )
+        )
+      ) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  private _checkPermissions(
+    docs: z.infer<T>[],
+    permissions: Permission | Permission[]
+  ) {
+    if (!this._hasPermissions(docs, permissions)) {
+      throw new Error("You do not have permission to complete that action");
+    }
   }
 
   private _getAffectedProjects(doc: z.infer<T>) {
@@ -268,7 +338,6 @@ export abstract class BaseModel<T extends BaseSchema> {
     }
 
     // TODO: if `datasource` is being set, make sure it's a valid id
-    // TODO: other field validations
   }
 
   protected async _createOne(rawData: unknown | CreateProps<z.infer<T>>) {
@@ -304,7 +373,7 @@ export abstract class BaseModel<T extends BaseSchema> {
       dateUpdated: new Date(),
     } as z.infer<T>;
 
-    this.checkWritePermissions(this._getAffectedProjects(doc));
+    this._checkPermissions([doc], this.config.permissions.create);
 
     // Validate the new doc (sanity check in case Typescript errors are ignored for any reason)
     this.config.schema.parse(doc);
@@ -326,10 +395,6 @@ export abstract class BaseModel<T extends BaseSchema> {
     }
 
     return doc;
-  }
-
-  protected checkWritePermissions(projects: string[]) {
-    // TODO: check write permissions for each project passed in
   }
 
   protected async _updateOne(
@@ -388,12 +453,7 @@ export abstract class BaseModel<T extends BaseSchema> {
 
     const newDoc = { ...doc, ...allUpdates } as z.infer<T>;
 
-    this.checkWritePermissions(
-      uniq([
-        ...this._getAffectedProjects(doc),
-        ...this._getAffectedProjects(newDoc),
-      ])
-    );
+    this._checkPermissions([doc, newDoc], this.config.permissions.update);
 
     // Validate the new doc (sanity check in case Typescript errors are ignored for any reason)
     this.config.schema.parse(newDoc);
@@ -427,7 +487,7 @@ export abstract class BaseModel<T extends BaseSchema> {
   }
 
   protected async _deleteOne(doc: z.infer<T>) {
-    this.checkWritePermissions(this._getAffectedProjects(doc));
+    this._checkPermissions([doc], this.config.permissions.delete);
 
     await this.beforeDelete(doc);
     await this._dangerousGetCollection().deleteOne({

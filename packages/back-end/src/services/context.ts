@@ -1,12 +1,20 @@
 import {
   ReadAccessFilter,
-  getApiKeyReadAccessFilter,
   getReadAccessFilter,
+  userHasPermission,
 } from "shared/permissions";
 import { uniq } from "lodash";
-import { MemberRole, OrganizationInterface } from "../../types/organization";
+import {
+  MemberRole,
+  OrganizationInterface,
+  Permission,
+  UserPermissions,
+} from "../../types/organization";
 import { EventAuditUser } from "../events/event-types";
-import { getUserPermissions } from "../util/organization.util";
+import {
+  getUserPermissions,
+  roleToPermissionMap,
+} from "../util/organization.util";
 import { TeamInterface } from "../../types/team";
 import { FactMetricDataModel } from "../models/FactMetricModel";
 import { ProjectInterface } from "../../types/project";
@@ -29,10 +37,15 @@ export class ReqContextClass {
   public userId = "";
   public email = "";
   public userName = "";
+  public superAdmin = false;
+  public teams: TeamInterface[] = [];
+  public role?: MemberRole;
   public isApiRequest = false;
   public environments: string[];
   public readAccessFilter: ReadAccessFilter;
   public auditUser: EventAuditUser;
+
+  protected permissions: UserPermissions;
 
   public constructor({
     org,
@@ -46,6 +59,7 @@ export class ReqContextClass {
       id: string;
       email: string;
       name?: string;
+      superAdmin?: boolean;
     };
     role?: MemberRole;
     teams?: TeamInterface[];
@@ -54,21 +68,58 @@ export class ReqContextClass {
     this.org = org;
     this.environments = getEnvironmentIdsFromOrg(org);
     this.auditUser = auditUser;
+    this.teams = teams || [];
 
     this.isApiRequest = auditUser?.type === "api_key";
+    this.role = role;
 
     if (user) {
       this.userId = user.id;
       this.email = user.email;
       this.userName = user.name || "";
-      this.readAccessFilter = getReadAccessFilter(
-        getUserPermissions(user.id, org, teams || [])
-      );
+      this.permissions = getUserPermissions(user.id, org, teams || []);
+      this.superAdmin = user.superAdmin || false;
     } else {
-      this.readAccessFilter = getApiKeyReadAccessFilter(role || "admin");
+      this.permissions = {
+        global: {
+          permissions: roleToPermissionMap(role || "admin", org),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      };
     }
+    this.readAccessFilter = getReadAccessFilter(this.permissions);
 
     this.addModels();
+  }
+
+  // Check permissions
+  public hasPermission(
+    permission: Permission,
+    project?: string | (string | undefined)[] | undefined,
+    envs?: string[] | Set<string>
+  ) {
+    if (
+      !userHasPermission(
+        this.superAdmin,
+        this.permissions,
+        permission,
+        project,
+        envs ? [...envs] : undefined
+      )
+    ) {
+      return false;
+    }
+  }
+  public requirePermission(
+    permission: Permission,
+    project?: string | (string | undefined)[] | undefined,
+    envs?: string[] | Set<string>
+  ) {
+    if (!this.hasPermission(permission, project, envs)) {
+      throw new Error("You do not have permission to complete that action.");
+    }
   }
 
   // Cache projects since they are needed many places in the code

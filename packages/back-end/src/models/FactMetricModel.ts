@@ -16,7 +16,12 @@ export class FactMetricDataModel extends BaseModel<FactMetricSchema> {
     schema: factMetricValidator,
     collectionName: "factmetrics",
     idPrefix: "fact__",
-    writePermission: "createMetrics",
+    permissions: {
+      create: "createMetrics",
+      read: "readData",
+      update: "createMetrics",
+      delete: "createMetrics",
+    },
     projectScoping: "multiple",
     globallyUniqueIds: false,
     readonlyFields: ["datasource"],
