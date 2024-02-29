@@ -563,6 +563,7 @@ export default function ImportFromLaunchDarkly() {
                 <Field
                   label="API Token"
                   value={token}
+                  type="password"
                   onChange={(e) => setToken(e.target.value)}
                   helpText="Needs read access to LaunchDarkly projects, environments, and feature flags"
                 />

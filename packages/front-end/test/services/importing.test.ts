@@ -177,12 +177,14 @@ describe("importing utils", () => {
 
       expect(result).toEqual([
         {
-          name: "my-first-project",
-          description: "My First Project",
+          id: "my-first-project",
+          name: "My First Project",
+          description: "",
         },
         {
-          name: "default",
-          description: "My Default Project",
+          id: "default",
+          name: "My Default Project",
+          description: "",
         },
       ]);
     });
