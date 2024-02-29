@@ -11,13 +11,13 @@ import { useAuth } from "@/services/auth";
 import { usingSSO } from "@/services/env";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCelebrationLocalStorage } from "@/hooks/useCelebration";
-import Modal from "../Modal";
-import Avatar from "../Avatar/Avatar";
-import ChangePasswordModal from "../Auth/ChangePasswordModal";
-import Field from "../Forms/Field";
-import OverflowText from "../Experiment/TabbedPage/OverflowText";
-import Toggle from "../Forms/Toggle";
-import Tooltip from "../Tooltip/Tooltip";
+import Modal from "@/components/Modal";
+import Avatar from "@/components/Avatar/Avatar";
+import ChangePasswordModal from "@/components/Auth/ChangePasswordModal";
+import Field from "@/components/Forms/Field";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import Toggle from "@/components/Forms/Toggle";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import styles from "./TopNav.module.scss";
 import { ThemeToggler } from "./ThemeToggler/ThemeToggler";
 import AccountPlanBadge from "./AccountPlanBadge";
@@ -170,10 +170,8 @@ const TopNav: FC<{
 
               {(watchedExperiments.length > 0 ||
                 watchedFeatures.length > 0) && (
-                <Link href="/activity">
-                  <a className="nav-link mr-1 text-secondary">
-                    <FaBell />
-                  </a>
+                <Link href="/activity" className="nav-link mr-1 text-secondary">
+                  <FaBell />
                 </Link>
               )}
             </>
@@ -262,28 +260,26 @@ const TopNav: FC<{
               {datasources?.length > 0 && (
                 <>
                   <div className="dropdown-divider"></div>
-                  <Link href={"/reports"}>
-                    <a
-                      className="dropdown-item"
-                      onClick={() => {
-                        setUserDropdownOpen(false);
-                      }}
-                    >
-                      My Reports
-                    </a>
+                  <Link
+                    href={"/reports"}
+                    className="dropdown-item"
+                    onClick={() => {
+                      setUserDropdownOpen(false);
+                    }}
+                  >
+                    My Reports
                   </Link>
                 </>
               )}
               <div className="dropdown-divider"></div>
-              <Link href={"/account/personal-access-tokens"}>
-                <a
-                  className="dropdown-item"
-                  onClick={() => {
-                    setUserDropdownOpen(false);
-                  }}
-                >
-                  My Personal Access Tokens
-                </a>
+              <Link
+                href={"/account/personal-access-tokens"}
+                className="dropdown-item"
+                onClick={() => {
+                  setUserDropdownOpen(false);
+                }}
+              >
+                My Personal Access Tokens
               </Link>
               <div className="dropdown-divider"></div>
               <button

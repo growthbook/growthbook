@@ -10,7 +10,7 @@ import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
 import { FeatureInterface } from "back-end/types/feature";
 import { useRouter } from "next/router";
 import Fuse from "fuse.js";
-import { useLocalStorage } from "../hooks/useLocalStorage";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 export function useAddComputedFields<T, ExtraFields>(
   items: T[] | undefined,

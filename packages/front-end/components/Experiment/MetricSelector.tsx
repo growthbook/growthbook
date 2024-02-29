@@ -2,7 +2,7 @@ import { FC } from "react";
 import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { SelectFieldProps } from "@/components/Forms/SelectField";
-import MetricName from "../Metrics/MetricName";
+import MetricName from "@/components/Metrics/MetricName";
 import { isMetricJoinable } from "./MetricsSelector";
 
 type MetricOption = {

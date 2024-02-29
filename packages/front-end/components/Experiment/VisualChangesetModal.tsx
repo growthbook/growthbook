@@ -1,4 +1,4 @@
-import { VisualChangesetInterface } from "@/../back-end/types/visual-changeset";
+import { VisualChangesetInterface } from "@back-end/types/visual-changeset";
 import { FC, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -7,9 +7,9 @@ import { isURLTargeted, UrlTarget } from "@growthbook/growthbook";
 import SelectField from "@/components/Forms/SelectField";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Field from "../Forms/Field";
-import { GBAddCircle } from "../Icons";
-import Modal from "../Modal";
+import Field from "@/components/Forms/Field";
+import { GBAddCircle } from "@/components/Icons";
+import Modal from "@/components/Modal";
 
 const defaultType = "simple";
 

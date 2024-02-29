@@ -1,8 +1,8 @@
-import { MetricInterface } from "@/../back-end/types/metric";
+import { MetricInterface } from "@back-end/types/metric";
 import { useState } from "react";
 import { FaArchive, FaChevronRight, FaPlus, FaRegCopy } from "react-icons/fa";
 import Link from "next/link";
-import { ago, datetime } from "@/../shared/dates";
+import { ago, datetime } from "shared/dates";
 import clsx from "clsx";
 import { getMetricLink } from "shared/experiments";
 import { DocLink } from "@/components/DocLink";

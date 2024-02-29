@@ -9,8 +9,8 @@ import usePermissions from "@/hooks/usePermissions";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
 import track from "@/services/track";
-import { StartExperimentBanner } from "../StartExperimentBanner";
-import AddLinkedChangesBanner from "../AddLinkedChangesBanner";
+import { StartExperimentBanner } from "@/components/Experiment/StartExperimentBanner";
+import AddLinkedChangesBanner from "@/components/Experiment/AddLinkedChangesBanner";
 import TargetingInfo from "./TargetingInfo";
 import { ExperimentTab } from ".";
 

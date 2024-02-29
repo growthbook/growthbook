@@ -7,8 +7,8 @@ import Field from "@/components/Forms/Field";
 import TabButton from "@/components/Tabs/TabButton";
 import TabButtons from "@/components/Tabs/TabButtons";
 import SelectField from "@/components/Forms/SelectField";
-import Toggle from "../Forms/Toggle";
-import MultiSelectField from "../Forms/MultiSelectField";
+import Toggle from "@/components/Forms/Toggle";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import styles from "./AttributeForm.module.scss";
 
 export interface Props {

@@ -6,7 +6,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import MetricName from "../Metrics/MetricName";
+import MetricName from "@/components/Metrics/MetricName";
 
 type MetricOption = {
   id: string;

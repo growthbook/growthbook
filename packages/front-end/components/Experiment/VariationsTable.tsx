@@ -5,9 +5,9 @@ import {
 import { FC } from "react";
 import { useAuth } from "@/services/auth";
 import { trafficSplitPercentages } from "@/services/utils";
-import Carousel from "../Carousel";
-import ScreenshotUpload from "../EditExperiment/ScreenshotUpload";
-import AuthorizedImage from "../AuthorizedImage";
+import Carousel from "@/components/Carousel";
+import ScreenshotUpload from "@/components/EditExperiment/ScreenshotUpload";
+import AuthorizedImage from "@/components/AuthorizedImage";
 
 const imageCache = {};
 

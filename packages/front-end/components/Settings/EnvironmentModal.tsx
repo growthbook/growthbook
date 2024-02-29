@@ -8,9 +8,9 @@ import { useUser } from "@/services/UserContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
-import Toggle from "../Forms/Toggle";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
+import Toggle from "@/components/Forms/Toggle";
 
 export default function EnvironmentModal({
   existing,

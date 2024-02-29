@@ -13,9 +13,9 @@ import usePermissions from "@/hooks/usePermissions";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import StatusCircle from "@/components/Helpers/StatusCircle";
 import ProjectBadges from "@/components/ProjectBadges";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { useEnvironments } from "@/services/features";
 import Badge from "@/components/Badge";
-import Tooltip from "../../Tooltip/Tooltip";
 import SDKLanguageLogo from "./SDKLanguageLogo";
 import SDKConnectionForm from "./SDKConnectionForm";
 

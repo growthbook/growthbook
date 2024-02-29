@@ -1,8 +1,8 @@
 import { CommercialFeature } from "enterprise";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
-import Tooltip from "../Tooltip/Tooltip";
-import { GBPremiumBadge } from "../Icons";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { GBPremiumBadge } from "@/components/Icons";
 
 export default function UpgradeLabel({
   showUpgradeModal,

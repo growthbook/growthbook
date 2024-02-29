@@ -11,10 +11,15 @@ import {
 import { FaArrowRight } from "react-icons/fa";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
-import useOrgSettings from "../../hooks/useOrgSettings";
-import { GBDatabase, GBExperiment, GBPremiumBadge, GBSettings } from "../Icons";
-import { inferDocUrl } from "../DocLink";
-import UpgradeModal from "../Settings/UpgradeModal";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import {
+  GBDatabase,
+  GBExperiment,
+  GBPremiumBadge,
+  GBSettings,
+} from "@/components/Icons";
+import { inferDocUrl } from "@/components/DocLink";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import TopNav from "./TopNav";
@@ -362,38 +367,37 @@ const Layout = (): React.ReactElement => {
         <div className="">
           <div className="app-sidebar-header">
             <div className="app-sidebar-logo">
-              <Link href="/">
-                <a
-                  aria-current="page"
-                  className="app-sidebar-logo active"
-                  title="GrowthBook Home"
-                  onClick={() => setOpen(false)}
-                >
-                  <div className={styles.sidebarlogo}>
-                    {settings?.customized && settings?.logoPath ? (
-                      <>
-                        <img
-                          className={styles.userlogo}
-                          alt="GrowthBook"
-                          src={settings.logoPath}
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <img
-                          className={styles.logo}
-                          alt="GrowthBook"
-                          src="/logo/growth-book-logomark-white.svg"
-                        />
-                        <img
-                          className={styles.logotext}
-                          alt="GrowthBook"
-                          src="/logo/growth-book-name-white.svg"
-                        />
-                      </>
-                    )}
-                  </div>
-                </a>
+              <Link
+                href="/"
+                aria-current="page"
+                className="app-sidebar-logo active"
+                title="GrowthBook Home"
+                onClick={() => setOpen(false)}
+              >
+                <div className={styles.sidebarlogo}>
+                  {settings?.customized && settings?.logoPath ? (
+                    <>
+                      <img
+                        className={styles.userlogo}
+                        alt="GrowthBook"
+                        src={settings.logoPath}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <img
+                        className={styles.logo}
+                        alt="GrowthBook"
+                        src="/logo/growth-book-logomark-white.svg"
+                      />
+                      <img
+                        className={styles.logotext}
+                        alt="GrowthBook"
+                        src="/logo/growth-book-name-white.svg"
+                      />
+                    </>
+                  )}
+                </div>
               </Link>
             </div>
             <div className={styles.mainmenu}>

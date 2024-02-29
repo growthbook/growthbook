@@ -4,9 +4,9 @@ import {
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
-import Field from "../Forms/Field";
-import Modal from "../Modal";
-import { validateSavedGroupTargeting } from "../Features/SavedGroupTargetingField";
+import Field from "@/components/Forms/Field";
+import Modal from "@/components/Modal";
+import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 
 export interface Props {
   close: () => void;

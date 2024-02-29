@@ -12,11 +12,11 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import usePermissions from "../hooks/usePermissions";
-import Button from "../components/Button";
-import MoreMenu from "../components/Dropdown/MoreMenu";
-import EnvironmentModal from "../components/Settings/EnvironmentModal";
-import DeleteButton from "../components/DeleteButton/DeleteButton";
+import usePermissions from "@/hooks/usePermissions";
+import Button from "@/components/Button";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import EnvironmentModal from "@/components/Settings/EnvironmentModal";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
 
 const EnvironmentsPage: FC = () => {
   const { project } = useDefinitions();

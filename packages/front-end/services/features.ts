@@ -30,8 +30,8 @@ import isEqual from "lodash/isEqual";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
-import useOrgSettings from "../hooks/useOrgSettings";
-import useApi from "../hooks/useApi";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import useApi from "@/hooks/useApi";
 import { useDefinitions } from "./DefinitionsContext";
 
 export { generateVariationId } from "shared/util";
