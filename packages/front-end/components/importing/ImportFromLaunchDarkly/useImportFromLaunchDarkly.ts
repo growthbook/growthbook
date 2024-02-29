@@ -327,6 +327,14 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
      * only once the projects are created in GrowthBook can we start to create the dependent resources in GrowthBook
      */
     function onGBProjectsCreated() {
+      console.log("projectsCreated deps", [
+        apiToken,
+        state.projectsReady,
+        state.gbProjectsCreated,
+        state.gbEnvironments,
+        apiCall,
+        status,
+      ])
       if (status === "completed") return;
       if (!state.projectsReady) {
         return;
@@ -435,7 +443,7 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
                 const response = await apiCall<{
                   status: number;
                   message?: string;
-                }>("/environment", {
+                }>("/environmentxxx", {
                   method: "POST",
                   body: JSON.stringify({
                     environment: data,
@@ -608,7 +616,7 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
                 status: number;
                 message?: string;
                 feature: FeatureInterface;
-              }>("/feature", {
+              }>("/featurexxx", {
                 method: "POST",
                 body: JSON.stringify(data),
               });
@@ -797,6 +805,11 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
     },
     [state.gbProjects, apiToken, apiCall, existingProjectNames]
   );
+
+  useEffect(() => {
+    console.log("state", state)
+
+  }, [state])
 
   return {
     status,

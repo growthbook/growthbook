@@ -1,45 +1,187 @@
-import React, { FC, FormEvent, ReactNode, useCallback } from "react";
-import { FaUpload } from "react-icons/fa";
-import { BsCheck, BsDash, BsX } from "react-icons/bs";
 import Link from "next/link";
-import {
-  ImportTaskResults,
-  useImportFromLaunchDarkly,
-} from "@/components/importing/ImportFromLaunchDarkly/useImportFromLaunchDarkly";
+import {GBCircleArrowLeft} from "@/components/Icons";
+import {FaUpload} from "react-icons/fa";
+import React, {FormEvent, useEffect} from "react";
+import {getLDEnvironments, getLDFeatureFlags, getLDProjects} from "@/services/importing";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { GBCircleArrowLeft } from "@/components/Icons";
+import { ProjectInterface } from "back-end/types/project";
+import { Environment } from "back-end/types/organization";
+import { FeatureInterface } from "back-end/types/feature";
+import CodeTextArea from "@/components/Forms/CodeTextArea";
 
-type ImportFromLaunchDarklyProps = {
-  status: "idle" | "pending" | "completed";
-  errors: string[];
-  results: ImportTaskResults;
-  onSubmit(apiToken: string): Promise<void>;
-};
+type TaskState = "idle" | "pending" | "error" | "completed";
+export const ImportFromLaunchDarkly = () => {
 
-export const ImportFromLaunchDarkly: FC<ImportFromLaunchDarklyProps> = ({
-  onSubmit,
-  errors,
-  results,
-  status,
-}) => {
-  const handleSubmit = useCallback(
-    (evt: FormEvent<HTMLFormElement>) => {
-      evt.preventDefault();
+  const [fetchState, setFetchState] = React.useState<TaskState>("idle");
+  const [importState, setImportState] = React.useState<TaskState>("idle");
 
-      const form = evt.currentTarget as HTMLFormElement;
-      const apiKey = form.elements["api_token"].value;
+  const [ldProjects, setLdProjects] = React.useState<any[]>([]);
+  const [ldEnvironments, setLdEnvironments] = React.useState<any[]>([]);
+  const [ldUniqueEnvironments, setLdUniqueEnvironments] = React.useState<Record<string, any>>({});
+  const [ldFeatures, setLdFeatures] = React.useState<any[]>([]);
 
-      onSubmit(apiKey);
-    },
-    [onSubmit]
-  );
+  const [gbEnvironments, setGbEnvironments] = React.useState<Partial<Environment>[]>([]);
+  const [gbProjects, setGbProjects] = React.useState<Partial<ProjectInterface>[]>([]);
+  const [gbFeatures, setGbFeatures] = React.useState<Partial<FeatureInterface>[]>([]);
+  const [showGbImportDetails, setShowGbImportDetails] = React.useState(false);
+
+  const clearLdData = () => {
+    setLdProjects([]);
+    setLdEnvironments([]);
+    setLdUniqueEnvironments([]);
+    setLdFeatures([]);
+    setFetchState("idle");
+    setImportState("idle");
+    setShowGbImportDetails(false);
+  }
+  const clearGbData = () => {
+    setGbProjects([]);
+    setGbEnvironments([]);
+    setGbFeatures([]);
+    setImportState("idle");
+  }
+
+  const handleSubmit = async (evt: FormEvent<HTMLFormElement>) => {
+    evt.preventDefault();
+    if (fetchState !== "idle") {
+      return;
+    }
+    console.log("START FETCHING");
+    setFetchState("pending");
+
+    const form = evt.currentTarget as HTMLFormElement;
+    const apiKey = form.elements["api_token"].value;
+
+    // get projects
+    const ldps: any[] = [];
+    const projectsResp = await getLDProjects(apiKey);
+    if (projectsResp.items) {
+      projectsResp.items.map((project) => {
+        ldps.push(project);
+      });
+    }
+    setLdProjects(ldps);
+    await sleep();
+
+    // get environments from projects
+    const ldes: any[] = [];
+    for (const project of ldps) {
+      const environmentsResp = await getLDEnvironments(apiKey, project.key);
+      if (environmentsResp.items) {
+        environmentsResp.items.map((env) => {
+          ldes.push(env);
+        });
+      }
+      await sleep();
+    }
+    const uniqueLdes: Record<string, any> = {};
+    for (const env of ldes) {
+      uniqueLdes[env.key] = env;
+    }
+    setLdEnvironments(ldes);
+    setLdUniqueEnvironments(uniqueLdes);
+
+    // get features from projects
+    const ldfs: any[] = [];
+    for (const project of ldps) {
+      const featuresResp = await getLDFeatureFlags(apiKey, project.key);
+      if (featuresResp.items) {
+        featuresResp.items.map((feature) => {
+          ldfs.push({
+            ...feature,
+            project: project.key
+          });
+        });
+      }
+      await sleep();
+    }
+    setLdFeatures(ldfs);
+
+    setFetchState("completed");
+    console.log("END FETCHING");
+  };
+
+  useEffect(() => {
+    if (fetchState !== "completed") return;
+    console.log({
+      ldProjects,
+      ldEnvironments,
+      ldFeatures
+    })
+    const gbps: Partial<ProjectInterface>[] = [];
+    const gbes: Partial<Environment>[] = [];
+    const gbfs: Partial<FeatureInterface>[] = [];
+    ldProjects.forEach((p) => {
+      gbps.push({
+        name: p.name,
+        description: p.description,
+      });
+    });
+    for (const key in ldUniqueEnvironments) {
+      const e = ldUniqueEnvironments[key];
+      gbes.push({
+        id: e.key,
+        description: e.name,
+      });
+    }
+    ldFeatures.forEach(
+      ({
+        _maintainer,
+        environments,
+        project,
+        key,
+        kind,
+        variations,
+        name,
+        description,
+        tags,
+      }) => {
+        const envKeys = Object.keys(environments);
+
+        const defaultValue = environments[envKeys[0]].on;
+
+        const gbEnvironments: FeatureInterface["environmentSettings"] = {};
+        envKeys.forEach((envKey) => {
+          gbEnvironments[envKey] = {
+            enabled: environments[envKey].on,
+            // Note: Rules do not map 1-to-1 between GB and LD
+            rules: [],
+          };
+        });
+
+        const owner = _maintainer
+          ? `${_maintainer.firstName} ${_maintainer.lastName} (${_maintainer.email})`
+          : "(unknown - imported from LaunchDarkly)";
+
+        gbfs.push({
+          environmentSettings: gbEnvironments,
+          defaultValue:
+            kind === "boolean"
+              ? `${defaultValue}`
+              : (variations["0"].value as string),
+          project,
+          id: key,
+          description: description || name,
+          owner,
+          tags,
+          // todo: get valueType a bit better
+          valueType: kind === "boolean" ? "boolean" : "string",
+        });
+      }
+    );
+
+    setGbProjects(gbps);
+    setGbEnvironments(gbes);
+    setGbFeatures(gbfs);
+
+  }, [fetchState]);
 
   return (
-    <div className="">
+    <div>
       <div className="mb-4">
         <Link href="/importing">
           <a>
-            <GBCircleArrowLeft /> Back to Importing
+            <GBCircleArrowLeft/> Back to Importing
           </a>
         </Link>
       </div>
@@ -58,136 +200,118 @@ export const ImportFromLaunchDarkly: FC<ImportFromLaunchDarklyProps> = ({
         <li>Environments</li>
         <li>Feature flags</li>
       </ul>
-      <p>Duplicate items will not be imported.</p>
-      <p>
-        Read the{" "}
-        <a
-          target="_blank"
-          href="https://docs.growthbook.io/guide/importing"
-          rel="noreferrer"
-        >
-          documentation
-        </a>{" "}
-        for more info.
-      </p>
 
-      <form className="mt-4" onSubmit={handleSubmit}>
-        <div className="form-group">
-          <label className="text-muted font-weight-bold" htmlFor="api_token">
-            LaunchDarkly API token
-          </label>
-          <input
-            className="form-control"
-            style={{ maxWidth: 400 }}
-            type="text"
-            name="api_token"
-            id="api_token"
-            required
-          />
-        </div>
-        <button className="btn btn-primary" type="submit">
-          <FaUpload /> Start Import
-        </button>
-      </form>
+      <div className="appbox px-4 py-3">
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label className="text-muted font-weight-bold" htmlFor="api_token">
+              LaunchDarkly API token
+            </label>
+            <input
+              className="form-control"
+              style={{maxWidth: 400}}
+              type="text"
+              name="api_token"
+              id="api_token"
+              required
+            />
+          </div>
+          <button
+            className="btn btn-primary"
+            type="submit"
+            disabled={fetchState !== "idle"}
+          >
+            <FaUpload/> Start Fetch
+          </button>
+        </form>
+      </div>
 
-      {/* General errors */}
-      {errors.length > 0 && (
-        <div className="my-4">
-          {errors.map((error) => (
-            <div className="alert alert-danger" key={error}>
-              {error}
+      {["pending", "error", "completed"].includes(fetchState) && (
+        <div className="mt-4 appbox px-4 py-3">
+          <h2>1. Fetch from LD</h2>
+          {fetchState === "pending" && (
+            <h3>Fetching <LoadingSpinner/></h3>
+          )}
+          {fetchState === "error" && (
+            <h3 className="text-danger">Error fetching</h3>
+          )}
+          {fetchState === "completed" && (
+            <h3 className="text-success">Fetch completed</h3>
+          )}
+          <div>Projects: {ldProjects.length}</div>
+          <div>Environments: {Object.keys(ldUniqueEnvironments).length} unique <small>({ldEnvironments.length} by
+            project)</small></div>
+          <div>Feature flags: {ldFeatures.length}</div>
+
+          {["completed", "error"].includes(fetchState) && (
+            <div
+              className="mt-2 btn btn-danger"
+              onClick={clearLdData}
+            >
+              Clear and Restart Fetch
             </div>
-          ))}
+          )}
         </div>
       )}
 
-      {/* Loading spinner for pending state */}
-      {status === "pending" && (
-        <div className="my-4 d-sm-flex justify-content-center">
-          <LoadingSpinner />
+      {fetchState === "completed" && (
+        <div className="mt-4 appbox px-4 py-3">
+          <h2>2. Import into GB</h2>
+          {importState === "pending" && (
+            <h3>Importing <LoadingSpinner/></h3>
+          )}
+          {importState === "error" && (
+            <h3 className="text-danger">Error importing</h3>
+          )}
+          {importState === "completed" && (
+            <h3 className="text-success">Import completed</h3>
+          )}
+
+          {["completed", "error"].includes(importState) && (
+            <button
+              className="mt-2 btn btn-danger"
+              onClick={clearGbData}
+            >
+              Clear and Restart Import
+            </button>
+          )}
+
+          <div className="mt-2">
+            <a
+              role="button"
+              className="link-purple"
+              onClick={() => setShowGbImportDetails(!showGbImportDetails)}
+            >
+              {showGbImportDetails ? "Hide" : "Show"} import details
+            </a>
+          </div>
+          {showGbImportDetails && (
+            <div>
+              <div>Projects: {gbProjects.length}</div>
+              {gbProjects.map((p) => (
+                <CodeTextArea language={"json"} value={JSON.stringify(p, null, 2)} setValue={()=>{}}/>
+              ))}
+              <hr/>
+
+              <div>Environments: {gbEnvironments.length}</div>
+              {gbEnvironments.map((e) => (
+                <CodeTextArea language={"json"} value={JSON.stringify(e, null, 2)} setValue={()=>{}}/>
+              ))}
+              <hr/>
+
+              <div>Feature flags: {gbFeatures.length}</div>
+              {gbFeatures.map((f) => (
+                <CodeTextArea language={"json"} value={JSON.stringify(f, null, 2)} setValue={()=>{}}/>
+              ))}
+            </div>
+          )}
+
         </div>
       )}
-      {status === "completed" && (
-        <div className="mt-4 alert alert-info">Import complete</div>
-      )}
-
-      {/* region Project Results */}
-      {results.projects.taskResults.length > 0 && (
-        <div className="card p-4 my-4">
-          <h2>Results &rarr; Projects</h2>
-
-          {results.projects.taskResults.map((result) => (
-            <p key={result.message} className="d-sm-flex align-items-center">
-              {getIconForTaskResultState(result.status)}{" "}
-              <span className="ml-2">{result.message}</span>
-            </p>
-          ))}
-        </div>
-      )}
-      {/* endregion Project Results */}
-
-      {/* region Environment Results */}
-      {results.environments.taskResults.length > 0 && (
-        <div className="card p-4 my-4">
-          <h2>Results &rarr; Environments</h2>
-
-          {results.environments.taskResults.map((result) => (
-            <p key={result.message} className="d-sm-flex align-items-center">
-              {getIconForTaskResultState(result.status)}{" "}
-              <span className="ml-2">{result.message}</span>
-            </p>
-          ))}
-        </div>
-      )}
-      {/* endregion Environment Results */}
-
-      {/* region Feature Results */}
-      {results.features.taskResults.length > 0 && (
-        <div className="card p-4 my-4">
-          <h2>Results &rarr; Features</h2>
-
-          {results.features.taskResults.map((result) => (
-            <p key={result.message} className="d-sm-flex align-items-center">
-              {getIconForTaskResultState(result.status)}{" "}
-              <span className="ml-2">{result.message}</span>
-            </p>
-          ))}
-        </div>
-      )}
-      {/* endregion Feature Results */}
     </div>
   );
-};
+}
 
-const getIconForTaskResultState = (
-  state: "failed" | "completed" | "ignored"
-): ReactNode => {
-  switch (state) {
-    case "completed":
-      return <BsCheck className="d-block text-success" />;
-    case "failed":
-      return <BsX className="d-block text-danger" />;
-    case "ignored":
-      return <BsDash className="d-block text-muted" />;
-    default:
-      return null;
-  }
-};
-
-export const ImportFromLaunchDarklyContainer = () => {
-  const {
-    errors,
-    performImport,
-    results,
-    status,
-  } = useImportFromLaunchDarkly();
-
-  return (
-    <ImportFromLaunchDarkly
-      errors={errors}
-      results={results}
-      onSubmit={performImport}
-      status={status}
-    />
-  );
-};
+async function sleep(ms: number = 500) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
