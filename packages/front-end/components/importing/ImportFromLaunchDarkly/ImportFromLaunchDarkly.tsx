@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { ProjectInterface } from "back-end/types/project";
 import PQueue from "p-queue";
 import { FeatureInterface } from "back-end/types/feature";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { FaCheck, FaMinusCircle, FaPlus } from "react-icons/fa";
 import { MdPending } from "react-icons/md";
+import { cloneDeep } from "lodash";
 import {
   FeatureVariationsMap,
   getLDEnvironments,
@@ -21,6 +22,10 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { ApiCallType, useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useEnvironments } from "@/services/features";
+import { useUser } from "@/services/UserContext";
 
 type ImportStatus = "invalid" | "skipped" | "pending" | "completed" | "failed";
 
@@ -60,9 +65,35 @@ interface ImportData {
   error?: string;
 }
 
-async function buildImportedData(apiToken: string): Promise<ImportData> {
+async function buildImportedData(
+  apiToken: string,
+  existingProjects: Map<string, ProjectInterface>,
+  existingEnvs: Set<string>
+): Promise<ImportData> {
   // Get projects
-  const projects = await getLDProjects(apiToken);
+  const ldProjects = await getLDProjects(apiToken);
+  const projects: ProjectImport[] = transformLDProjectsToGBProject(
+    ldProjects
+  ).map((p) => {
+    const existing = existingProjects.get(p.name);
+    if (existing) {
+      return {
+        key: p.id,
+        status: "skipped",
+        project: existing,
+        error: "Project already exists",
+      };
+    }
+
+    return {
+      key: p.id,
+      status: "pending",
+      project: {
+        ...p,
+        id: "",
+      },
+    };
+  });
 
   const queue = new PQueue({ concurrency: 3, autoStart: false });
 
@@ -76,15 +107,11 @@ async function buildImportedData(apiToken: string): Promise<ImportData> {
   const features: FeatureImport[] = [];
   const importedFeatureIds: Set<string> = new Set();
 
-  projects.items.map((p) => {
+  projects.map((p) => {
     // Get environments for each project
     queue.add(async () => {
       try {
         const data = await getLDEnvironments(apiToken, p.key);
-        console.log("Environments API response", {
-          project: p.key,
-          data,
-        });
         data.items.forEach((env) => {
           envs[env.key] = envs[env.key] || { name: env.name, projects: [] };
           envs[env.key].projects.push(p.key);
@@ -98,11 +125,6 @@ async function buildImportedData(apiToken: string): Promise<ImportData> {
     queue.add(async () => {
       try {
         const data = await getLDFeatureFlags(apiToken, p.key);
-        console.log("Feature flag API response", {
-          project: p.key,
-          data,
-        });
-
         // Build a map of feature key to type and variations
         // This is required for prerequisites
         const featureVarMap: FeatureVariationsMap = new Map();
@@ -147,22 +169,124 @@ async function buildImportedData(apiToken: string): Promise<ImportData> {
 
   return {
     status: "ready",
-    projects: transformLDProjectsToGBProject(projects).map((p) => ({
-      key: p.id,
-      status: "pending",
-      project: p,
-    })),
+    projects: projects,
     envs: Object.entries(envs).map(([key, env]) => ({
       key,
-      status: "pending",
+      status: existingEnvs.has(key) ? "skipped" : "pending",
       env: {
         id: key,
         description: env.name,
         projects: env.projects,
       },
+      error: existingEnvs.has(key) ? "Environment already exists" : undefined,
     })),
     features,
   };
+}
+
+async function runImport(
+  data: ImportData,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  apiCall: ApiCallType<any>,
+  callback: (data: ImportData) => void
+) {
+  // We will mutate this shared object and sync it back to the component periodically
+  data = cloneDeep(data);
+
+  // Debounced updater
+  let timer: number | null = null;
+  const update = () => {
+    if (timer) return;
+    timer = window.setTimeout(() => {
+      timer = null;
+      callback(cloneDeep(data));
+    }, 500);
+  };
+
+  data.status = "importing";
+  update();
+
+  const queue = new PQueue({ concurrency: 3 });
+
+  // Import projects
+  data.projects?.forEach((p) => {
+    if (p.status === "pending") {
+      queue.add(async () => {
+        try {
+          const res: { project: ProjectInterface } = await apiCall(
+            "/projects",
+            {
+              method: "POST",
+              body: JSON.stringify({
+                name: p.project?.name,
+                description: p.project?.description,
+              }),
+            }
+          );
+          p.status = "completed";
+          p.project = res.project;
+        } catch (e) {
+          p.status = "failed";
+          p.error = e.message;
+        }
+        update();
+      });
+    }
+  });
+  await queue.onIdle();
+
+  // Mapping of project key to project id
+  const projectMap = new Map<string, string>();
+  data.projects?.forEach((p) => {
+    if (p.project && (p.status === "completed" || p.status === "skipped")) {
+      projectMap.set(p.key, p.project.id);
+    }
+  });
+
+  // Import Environments
+  queue.add(async () => {
+    // TODO: import environments in a single API call since they are all stored in the same Mongo doc
+    data.envs?.forEach((env) => {
+      if (env.status === "pending") {
+        env.status = "completed";
+      }
+    });
+    update();
+  });
+  await queue.onIdle();
+
+  // TODO: import features
+  data.features?.forEach((f) => {
+    if (f.status === "pending") {
+      queue.add(async () => {
+        try {
+          const projectId = projectMap.get(f.feature?.project || "");
+          if (projectId) {
+            await apiCall(`/feature/${f.key}/sync`, {
+              method: "POST",
+              body: JSON.stringify({
+                ...f.feature,
+                project: projectId,
+              }),
+            });
+            f.status = "completed";
+          } else {
+            f.status = "skipped";
+            f.error = "Project not created";
+          }
+        } catch (e) {
+          f.status = "failed";
+          f.error = e.message;
+        }
+        update();
+      });
+    }
+  });
+  await queue.onIdle();
+
+  data.status = "completed";
+  timer && clearTimeout(timer);
+  callback(data);
 }
 
 function ImportStatusDisplay({
@@ -173,29 +297,37 @@ function ImportStatusDisplay({
     error?: string;
   };
 }) {
+  const color = ["failed", "invalid"].includes(data.status)
+    ? "danger"
+    : data.status === "completed"
+    ? "success"
+    : data.status === "skipped"
+    ? "secondary"
+    : "purple";
+
   return (
     <Tooltip
       body={
-        data.error ? (
-          <div>
-            <strong>{data.status}</strong>: {data.error}
-          </div>
-        ) : (
-          data.status
-        )
+        <div>
+          <strong>{data.status}</strong>{" "}
+          {data.error ? <>: {data.error}</> : null}
+        </div>
       }
     >
-      {data.status === "invalid" ? (
-        <FaTriangleExclamation className="text-danger" />
-      ) : data.status === "skipped" ? (
-        <FaMinusCircle className="text-secondary" />
-      ) : data.status === "pending" ? (
-        <MdPending className="text-purple" />
-      ) : data.status === "completed" ? (
-        <FaCheck className="text-success" />
-      ) : data.status === "failed" ? (
-        <FaTriangleExclamation className="text-danger" />
-      ) : null}
+      <span className={`text-${color} mr-3`}>
+        {data.status === "invalid" ? (
+          <FaTriangleExclamation />
+        ) : data.status === "skipped" ? (
+          <FaMinusCircle />
+        ) : data.status === "pending" ? (
+          <MdPending />
+        ) : data.status === "completed" ? (
+          <FaCheck />
+        ) : data.status === "failed" ? (
+          <FaTriangleExclamation />
+        ) : null}
+        <span className="ml-1">{data.status}</span>
+      </span>
     </Tooltip>
   );
 }
@@ -203,7 +335,7 @@ function ImportStatusDisplay({
 function FeatureImportSummary({ data }: { data: FeatureImport }) {
   const [open, setOpen] = useState(false);
   return (
-    <li>
+    <li className="mb-2">
       <div className="d-flex">
         <ImportStatusDisplay data={data} />
         <span className="ml-1">{data.key}</span>
@@ -220,6 +352,7 @@ function FeatureImportSummary({ data }: { data: FeatureImport }) {
               e.preventDefault();
               setOpen(true);
             }}
+            title="View Details"
           >
             <FaPlus />
           </a>
@@ -245,13 +378,76 @@ function FeatureImportSummary({ data }: { data: FeatureImport }) {
   );
 }
 
+function ImportHeader({
+  name,
+  items,
+}: {
+  name: string;
+  items: { status: ImportStatus }[];
+}) {
+  const countsByStatus = items.reduce((acc, item) => {
+    acc[item.status] = (acc[item.status] || 0) + 1;
+    return acc;
+  }, {} as Record<ImportStatus, number>);
+
+  return (
+    <div className="bg-light p-3 border-bottom">
+      <div className="row">
+        <div className="col-auto">
+          <h3 className="mb-0">{name}</h3>
+        </div>
+        <div className="col-auto">
+          <span className="badge badge-info badge-pill">{items.length}</span>{" "}
+          total
+        </div>
+        <div className="col-auto">
+          <span className="badge badge-success badge-pill">
+            {countsByStatus["completed"] || 0}
+          </span>{" "}
+          imported
+        </div>
+        <div className="col-auto">
+          <span className="badge badge-secondary badge-pill">
+            {countsByStatus["skipped"] || 0}
+          </span>{" "}
+          skipped
+        </div>
+        <div className="col-auto">
+          <span className="badge badge-danger badge-pill">
+            {(countsByStatus["failed"] || 0) + (countsByStatus["invalid"] || 0)}
+          </span>{" "}
+          failed
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ImportFromLaunchDarkly() {
   const [token, setToken] = useLocalStorage("ldApiToken", "");
   const [data, setData] = useState<ImportData>({
     status: "init",
   });
 
-  const step = ["init", "loading", "error"].includes(data.status) ? 1 : 2;
+  const { projects, mutateDefinitions } = useDefinitions();
+  const environments = useEnvironments();
+  const { refreshOrganization } = useUser();
+
+  const existingEnvironments = useMemo(
+    () => new Set(environments.map((e) => e.id)),
+    [environments]
+  );
+  const existingProjects = useMemo(
+    () => new Map(projects.map((p) => [p.name, p])),
+    [projects]
+  );
+  const { apiCall } = useAuth();
+
+  const step = ["init", "loading", "error"].includes(data.status)
+    ? 1
+    : data.status === "ready"
+    ? 2
+    : 3;
 
   return (
     <div>
@@ -275,7 +471,11 @@ export default function ImportFromLaunchDarkly() {
                 });
 
                 try {
-                  const d = await buildImportedData(token);
+                  const d = await buildImportedData(
+                    token,
+                    existingProjects,
+                    existingEnvironments
+                  );
                   setData(d);
                 } catch (e) {
                   setData({
@@ -285,17 +485,19 @@ export default function ImportFromLaunchDarkly() {
                 }
               }}
             >
-              Step 1: Preview
+              Step 1: Fetch from LaunchDarkly
             </Button>
             <Button
               className="ml-2"
               color={step === 2 ? "primary" : "outline-primary"}
               disabled={step < 2}
               onClick={async () => {
-                console.log("running");
+                await runImport(data, apiCall, (d) => setData(d));
+                mutateDefinitions();
+                refreshOrganization();
               }}
             >
-              Step 2: Run Import
+              Step 2: Import to GrowthBook
             </Button>
           </div>
         </div>
@@ -309,50 +511,65 @@ export default function ImportFromLaunchDarkly() {
         ) : data.status === "init" ? null : (
           <div>
             <h2>Status: {data.status}</h2>
-            <div className="appbox p-3">
-              <h3>Projects</h3>
-              <div style={{ maxHeight: 400, overflowY: "auto" }}>
-                <ul>
-                  {data.projects?.map((p) => (
-                    <li key={p.key}>
-                      <ImportStatusDisplay data={p} />
-                      {p.project?.name || p.key}
-                      <span className="badge badge-secondary ml-1">
-                        {p.key}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-            <div className="appbox p-3">
-              <h3>Environments</h3>
-              <div style={{ maxHeight: 400, overflowY: "auto" }}>
-                <ul>
-                  {data.envs?.map((env) => (
-                    <li key={env.key}>
-                      <ImportStatusDisplay data={env} />
-                      {env.key} ({env.env?.description})
-                      {env.env?.projects.map((p) => (
-                        <span key={p} className="badge badge-secondary ml-1">
-                          {p}
-                        </span>
+            {data.projects ? (
+              <div className="appbox mb-4">
+                <ImportHeader name="Projects" items={data.projects} />
+                <div className="p-3">
+                  <div style={{ maxHeight: 400, overflowY: "auto" }}>
+                    <ul className="m-0 p-0">
+                      {data.projects?.map((p) => (
+                        <li key={p.key} className="mb-2">
+                          <ImportStatusDisplay data={p} />
+                          {p.project?.name || p.key}
+                          <span className="badge badge-secondary ml-1">
+                            {p.key}
+                          </span>
+                        </li>
                       ))}
-                    </li>
-                  ))}
-                </ul>
+                    </ul>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="appbox p-3">
-              <h3>Features</h3>
-              <div style={{ maxHeight: 400, overflowY: "auto" }}>
-                <ul>
-                  {data.features?.map((f) => (
-                    <FeatureImportSummary key={f.key} data={f} />
-                  ))}
-                </ul>
+            ) : null}
+            {data.envs ? (
+              <div className="appbox mb-4">
+                <ImportHeader name="Environmnets" items={data.envs} />
+                <div className="p-3">
+                  <div style={{ maxHeight: 400, overflowY: "auto" }}>
+                    <ul className="m-0 p-0">
+                      {data.envs?.map((env) => (
+                        <li key={env.key} className="mb-2">
+                          <ImportStatusDisplay data={env} />
+                          {env.key} ({env.env?.description})
+                          {env.env?.projects.map((p) => (
+                            <span
+                              key={p}
+                              className="badge badge-secondary ml-1"
+                            >
+                              {p}
+                            </span>
+                          ))}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
               </div>
-            </div>
+            ) : null}
+            {data.features ? (
+              <div className="appbox mb-4">
+                <ImportHeader name="Features" items={data.features} />
+                <div className="p-3">
+                  <div style={{ maxHeight: 400, overflowY: "auto" }}>
+                    <ul className="m-0 p-0">
+                      {data.features?.map((f) => (
+                        <FeatureImportSummary key={f.key} data={f} />
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
       </div>
