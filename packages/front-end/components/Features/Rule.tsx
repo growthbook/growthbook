@@ -132,9 +132,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 Experiment:{" "}
                 <strong className="mr-3">{linkedExperiment.name}</strong>{" "}
                 <Link href={`/experiment/${linkedExperiment.id}`}>
-                  <a>
-                    View Experiment <FaExternalLinkAlt />
-                  </a>
+                  View Experiment
+                  <FaExternalLinkAlt />
                 </Link>
               </div>
             ) : (

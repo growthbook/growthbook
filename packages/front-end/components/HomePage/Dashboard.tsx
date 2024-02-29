@@ -45,8 +45,8 @@ export default function Dashboard({ experiments }: Props) {
             <div className="list-group activity-box fixed-height overflow-auto">
               <h4 className="">
                 Recent Activity{" "}
-                <Link href="/activity">
-                  <a className="float-right h6">See all</a>
+                <Link href="/activity" className="float-right h6">
+                  See all
                 </Link>
               </h4>
               <ActivityList num={3} />
@@ -56,8 +56,8 @@ export default function Dashboard({ experiments }: Props) {
             <div className="list-group activity-box fixed-height overflow-auto">
               <h4>
                 Running Experiments
-                <Link href={`/experiments`}>
-                  <a className="float-right h6">See all</a>
+                <Link href={`/experiments`} className="float-right h6">
+                  See all
                 </Link>
               </h4>
               <ExperimentList
@@ -71,8 +71,8 @@ export default function Dashboard({ experiments }: Props) {
             <div className="list-group activity-box fixed-height overflow-auto ">
               <h4>
                 Recent Ideas{" "}
-                <Link href={`/ideas`}>
-                  <a className="float-right h6">See all</a>
+                <Link href={`/ideas`} className="float-right h6">
+                  See all
                 </Link>
               </h4>
               <IdeasFeed num={5} />

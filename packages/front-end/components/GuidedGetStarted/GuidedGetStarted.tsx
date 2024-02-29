@@ -73,10 +73,8 @@ export default function GuidedGetStarted({
       additionalCta: (
         <>
           {permissions.manageTeam && (
-            <Link href="/settings/team">
-              <a className="font-weight-bold">
-                Not an engineer? Invite a developer to get started.
-              </a>
+            <Link href="/settings/team" className="font-weight-bold">
+              Not an engineer? Invite a developer to get started.
             </Link>
           )}
         </>

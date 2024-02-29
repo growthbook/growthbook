@@ -200,9 +200,7 @@ export function StartExperimentBanner({
     action:
       connections.length > 0 ? (
         <Link href="/sdks">
-          <a>
-            Manage SDK Connections <FaExternalLinkAlt />
-          </a>
+          Manage SDK Connections <FaExternalLinkAlt />
         </Link>
       ) : (
         <a

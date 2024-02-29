@@ -178,10 +178,11 @@ export default function FactTablePage() {
         </div>
         <div className="col-auto">
           Data source:{" "}
-          <Link href={`/datasources/${factTable.datasource}`}>
-            <a className="font-weight-bold">
-              {getDatasourceById(factTable.datasource)?.name || "Unknown"}
-            </a>
+          <Link
+            href={`/datasources/${factTable.datasource}`}
+            className="font-weight-bold"
+          >
+            {getDatasourceById(factTable.datasource)?.name || "Unknown"}
           </Link>
         </div>
       </div>

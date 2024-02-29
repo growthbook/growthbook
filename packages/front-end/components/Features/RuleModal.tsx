@@ -636,10 +636,12 @@ export default function RuleModal({
             <div className="appbox px-3 pt-3 bg-light">
               {!canEditTargeting && (
                 <div className="alert alert-info">
-                  <Link href={`/experiment/${selectedExperiment.id}#overview`}>
-                    <a className="alert-link">
-                      View the Experiment <FaExternalLinkAlt />
-                    </a>
+                  <Link
+                    href={`/experiment/${selectedExperiment.id}#overview`}
+                    className="alert-link"
+                  >
+                    View the Experiment
+                    <FaExternalLinkAlt />
                   </Link>{" "}
                   to make changes to assignment or targeting conditions.
                 </div>

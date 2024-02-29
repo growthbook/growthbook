@@ -136,9 +136,8 @@ export default function SDKEndpointSelector({ apiKey, setApiKey }: Props) {
         {permissions.check("manageEnvironments", "", []) && (
           <div>
             <Link href="/environments">
-              <a>
-                Manage environments and endpoints <FaExternalLinkAlt />
-              </a>
+              Manage environments and endpoints
+              <FaExternalLinkAlt />
             </Link>
           </div>
         )}
