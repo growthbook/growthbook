@@ -76,6 +76,7 @@ interface ImportData {
 
 async function buildImportedData(
   apiToken: string,
+  intervalCap: number,
   existingProjects: Map<string, ProjectInterface>,
   existingEnvs: Set<string>,
   featureIds: Set<string>,
@@ -125,7 +126,7 @@ async function buildImportedData(
   data.projects = projects;
   update();
 
-  const queue = new PQueue({ concurrency: 3 });
+  const queue = new PQueue({ interval: 10000, intervalCap: intervalCap });
 
   const envs: Record<
     string,
@@ -521,6 +522,7 @@ function ImportHeader({
 
 export default function ImportFromLaunchDarkly() {
   const [token, setToken] = useSessionStorage("ldApiToken", "");
+  const [intervalCap, setIntervalCap] = useState(50);
   const [data, setData] = useState<ImportData>({
     status: "init",
   });
@@ -556,11 +558,25 @@ export default function ImportFromLaunchDarkly() {
         <div className="row">
           <div className="col">
             <h2>Launch Darkly Importer</h2>
-            <Field
-              label="API Token"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-            />
+            <div className="row">
+              <div className="col">
+                <Field
+                  label="API Token"
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  helpText="Needs read access to LaunchDarkly projects, environments, and feature flags"
+                />
+              </div>
+              <div className="col-auto">
+                <Field
+                  label="Max requests per 10 secs"
+                  type="number"
+                  value={intervalCap}
+                  helpText="Lower this if you are getting rate limited"
+                  onChange={(e) => setIntervalCap(parseInt(e.target.value))}
+                />
+              </div>
+            </div>
             <Button
               type="button"
               color={step === 1 ? "primary" : "outline-primary"}
@@ -574,6 +590,7 @@ export default function ImportFromLaunchDarkly() {
                 try {
                   await buildImportedData(
                     token,
+                    intervalCap,
                     existingProjects,
                     existingEnvironments,
                     featureIds,
