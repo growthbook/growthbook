@@ -300,7 +300,17 @@ export const ImportFromLaunchDarkly = () => {
                   <CodeTextArea
                     language={"json"}
                     value={JSON.stringify(p, null, 2)}
-                    setValue={()=>{}}
+                    setValue={(value)=>{
+                      try {
+                        const o = JSON.parse(value);
+                        setGbProjects([
+                          ...gbProjects.slice(0, i),
+                          o,
+                          ...gbProjects.slice(i + 1)
+                        ])
+                      } catch(e) {
+                      }
+                    }}
                     maxLines={3}
                   />
                 </div>
@@ -313,7 +323,16 @@ export const ImportFromLaunchDarkly = () => {
                   <CodeTextArea
                     language={"json"}
                     value={JSON.stringify(e, null, 2)}
-                    setValue={()=>{}}
+                    setValue={(value)=>{
+                      try {
+                        const o = JSON.parse(value);
+                        setGbEnvironments([
+                          ...gbEnvironments.slice(0, i),
+                          o,
+                          ...gbEnvironments.slice(i + 1)
+                        ])
+                      } catch (e) {}
+                    }}
                     maxLines={3}
                   />
                 </div>
@@ -326,7 +345,17 @@ export const ImportFromLaunchDarkly = () => {
                   <CodeTextArea
                     language={"json"}
                     value={JSON.stringify(f, null, 2)}
-                    setValue={()=>{}}
+                    setValue={(value)=>{
+                      try {
+                        const o = JSON.parse(value);
+                        setGbFeatures([
+                          ...gbFeatures.slice(0, i),
+                          o,
+                          ...gbFeatures.slice(i + 1)
+                        ])
+                      } catch(e) {
+                      }
+                    }}
                     maxLines={8}
                   />
                 </div>
