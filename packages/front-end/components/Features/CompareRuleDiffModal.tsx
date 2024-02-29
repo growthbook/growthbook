@@ -74,8 +74,9 @@ export default function CompareRuleDiffModal({
       res.version && setVersion(res.version);
     } catch (e) {
       setError(e.message);
+    } finally {
+      setCopyingRules(false);
     }
-    setCopyingRules(false);
   }
 
   const options = envs.map((env) => ({
@@ -89,11 +90,8 @@ export default function CompareRuleDiffModal({
     const updatedRules: PartialRule[] = feature.environmentSettings[
       environment
     ]?.rules.map((rule: FeatureRule) => {
-      // We don't want to include rule.ids in the diff as they'll always be different
-      const partialRule: Omit<FeatureRule, "id"> & { id?: string } = {
-        ...rule,
-      };
-      delete partialRule.id;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Remove the id as it will always be different
+      const { id: _, ...partialRule } = rule;
       return partialRule;
     });
 

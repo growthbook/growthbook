@@ -1138,15 +1138,15 @@ export async function putRuleSet(
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
-  await editFeatureRuleSet(
+  await editFeatureRuleSet({
     revision,
-    targetEnv,
-    newRules.map((rule) => {
+    environment: targetEnv,
+    rules: newRules.map((rule) => {
       rule.id = generateRuleId();
       return rule;
     }),
-    res.locals.eventAudit
-  );
+    user: res.locals.eventAudit,
+  });
 
   res.status(200).json({
     status: 200,

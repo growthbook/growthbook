@@ -687,12 +687,17 @@ export async function editFeatureRule(
   });
 }
 
-export async function editFeatureRuleSet(
-  revision: FeatureRevisionInterface,
-  environment: string,
-  rules: FeatureRule[],
-  user: EventAuditUser
-) {
+export async function editFeatureRuleSet({
+  revision,
+  environment,
+  rules,
+  user,
+}: {
+  revision: FeatureRevisionInterface;
+  environment: string;
+  rules: FeatureRule[];
+  user: EventAuditUser;
+}) {
   const changes = { rules: revision.rules || {} };
   changes.rules[environment] = rules;
 
