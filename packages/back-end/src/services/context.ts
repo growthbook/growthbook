@@ -20,6 +20,8 @@ import { FactMetricDataModel } from "../models/FactMetricModel";
 import { ProjectInterface } from "../../types/project";
 import { findAllProjectsByOrganization } from "../models/ProjectModel";
 import { addTags, getAllTags } from "../models/TagModel";
+import { AuditInterface } from "../../types/audit";
+import { insertAudit } from "../models/AuditModel";
 import { getEnvironmentIdsFromOrg } from "./organizations";
 
 export class ReqContextClass {
@@ -44,6 +46,7 @@ export class ReqContextClass {
   public environments: string[];
   public readAccessFilter: ReadAccessFilter;
   public auditUser: EventAuditUser;
+  public apiKey?: string;
 
   protected permissions: UserPermissions;
 
@@ -53,6 +56,7 @@ export class ReqContextClass {
     teams,
     user,
     role,
+    apiKey,
   }: {
     org: OrganizationInterface;
     user?: {
@@ -61,6 +65,7 @@ export class ReqContextClass {
       name?: string;
       superAdmin?: boolean;
     };
+    apiKey?: string;
     role?: MemberRole;
     teams?: TeamInterface[];
     auditUser: EventAuditUser;
@@ -72,6 +77,7 @@ export class ReqContextClass {
 
     this.isApiRequest = auditUser?.type === "api_key";
     this.role = role;
+    this.apiKey = apiKey;
 
     if (user) {
       this.userId = user.id;
@@ -120,6 +126,33 @@ export class ReqContextClass {
     if (!this.hasPermission(permission, project, envs)) {
       throw new Error("You do not have permission to complete that action.");
     }
+  }
+
+  public async auditLog(
+    data: Omit<AuditInterface, "user" | "id" | "organization" | "dateCreated">
+  ) {
+    const auditUser = this.userId
+      ? {
+          id: this.userId,
+          email: this.email,
+          name: this.userName || "",
+        }
+      : this.apiKey
+      ? {
+          apiKey: this.apiKey,
+        }
+      : null;
+
+    if (!auditUser) {
+      throw new Error("Must have user or apiKey in context to audit log");
+    }
+
+    await insertAudit({
+      ...data,
+      user: auditUser,
+      organization: this.org.id,
+      dateCreated: new Date(),
+    });
   }
 
   // Cache projects since they are needed many places in the code

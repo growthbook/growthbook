@@ -186,7 +186,9 @@ export async function processJWT(
     };
     res.locals.eventAudit = eventAudit;
 
-    req.audit = async (data: Partial<AuditInterface>) => {
+    req.audit = async (
+      data: Omit<AuditInterface, "user" | "organization" | "dateCreated" | "id">
+    ) => {
       await insertAudit({
         ...data,
         user: {
@@ -194,7 +196,7 @@ export async function processJWT(
           email: user.email,
           name: user.name || "",
         },
-        organization: req.organization?.id,
+        organization: req.organization?.id || "",
         dateCreated: new Date(),
       });
     };

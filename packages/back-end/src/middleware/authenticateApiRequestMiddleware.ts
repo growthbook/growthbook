@@ -128,6 +128,7 @@ export default function authenticateApiRequestMiddleware(
         teams,
         user: req.user,
         role: role as MemberRole | undefined,
+        apiKey: id,
       });
 
       // Check permissions for user API keys

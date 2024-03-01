@@ -50,7 +50,7 @@ const toInterface = (doc: AuditDocument): AuditInterface => {
 };
 
 export async function insertAudit(
-  data: Partial<AuditInterface>
+  data: Omit<AuditInterface, "id">
 ): Promise<AuditInterface> {
   const auditDoc = await AuditModel.create({
     ...data,
