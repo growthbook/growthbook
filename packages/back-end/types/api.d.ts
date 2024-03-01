@@ -4,9 +4,10 @@ import {
 } from "@growthbook/growthbook";
 import { EventAuditUser } from "../src/events/event-types";
 import { PermissionFunctions } from "../src/types/AuthRequest";
+import { ReqContextClass } from "../src/services/context";
 import { AuditInterface } from "./audit";
 import { ExperimentStatus } from "./experiment";
-import { OrganizationInterface, ReqContext } from "./organization";
+import { OrganizationInterface } from "./organization";
 import { UserInterface } from "./user";
 
 export interface ExperimentOverride {
@@ -43,22 +44,14 @@ export interface ErrorResponse {
   error: string;
 }
 
-// req.user is not always guaranteed within API requests
-export type ApiReqContext = Omit<
-  ReqContext,
-  "userName" | "userId" | "email"
-> & {
-  userId?: string;
-  email?: string;
-  userName?: string;
-};
-
 export type ApiRequestLocals = PermissionFunctions & {
   apiKey: string;
   user?: UserInterface;
   organization: OrganizationInterface;
   eventAudit: EventAuditUser;
-  audit: (data: Partial<AuditInterface>) => Promise<void>;
+  audit: (
+    data: Omit<AuditInterface, "user" | "organization" | "dateCreated" | "id">
+  ) => Promise<void>;
   context: ApiReqContext;
 };
 
@@ -73,3 +66,5 @@ export interface PrivateApiErrorResponse {
   status: number;
   message: string;
 }
+
+export type ApiReqContext = ReqContextClass;
