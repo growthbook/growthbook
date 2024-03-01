@@ -48,6 +48,9 @@ export default class Databricks extends SqlIntegration {
   ensureFloat(col: string): string {
     return `cast(${col} as double)`;
   }
+  escapeStringLiteral(value: string): string {
+    return value.replace(/'/g, `\\'`);
+  }
 
   getDefaultDatabase(): string {
     return this.params.catalog;
