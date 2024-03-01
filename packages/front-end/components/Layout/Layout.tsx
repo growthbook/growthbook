@@ -227,6 +227,9 @@ const navlinks: SidebarLinkProps[] = [
         name: "Admin",
         href: "/admin",
         path: /^admin/,
+        // TODO I think we want to get rid of this since we'll want to show this
+        // menu if they are super admin, regardless of being multiorg or not.
+        // multiOrgOnly: true,
         divider: true,
         filter: ({ superAdmin, isMultiOrg }) => superAdmin && isMultiOrg,
       },
