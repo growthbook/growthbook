@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { RxDesktop } from "react-icons/rx";
+import { RxLightningBolt } from "react-icons/rx";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { datetime, ago } from "shared/dates";
@@ -369,9 +369,9 @@ const ExperimentsPage = (): React.ReactElement => {
                           {e.hasVisualChangesets ? (
                             <Tooltip
                               className="d-flex align-items-center ml-2"
-                              body="Visual experiment"
+                              body="Auto Experiment"
                             >
-                              <RxDesktop className="text-blue" />
+                              <RxLightningBolt className="text-blue" />
                             </Tooltip>
                           ) : null}
                           {(e.linkedFeatures || []).length > 0 ? (

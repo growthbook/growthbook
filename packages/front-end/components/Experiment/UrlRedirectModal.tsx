@@ -1,7 +1,9 @@
 import { VisualChangesetInterface } from "@/../back-end/types/visual-changeset";
-import { FC } from "react";
+import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { isURLTargeted } from "@growthbook/growthbook";
+import { FaExclamationCircle } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
@@ -21,18 +23,28 @@ const UrlRedirectModal: FC<{
   const form = useForm({
     defaultValues: {
       originUrl: visualChangeset?.urlPatterns[0].pattern ?? "",
-      destinationUrls: visualChangeset?.urlRedirects?.map((r) => r.url) ?? [],
+      destinationUrls: visualChangeset?.urlRedirects?.map((r) => r.url) ?? [""],
       persistQueryString: visualChangeset?.persistQueryString || true,
     },
   });
 
+  const [noRedirectToggle, setNoRedirectToggle] = useState<boolean[]>(
+    form.watch("originUrl")
+      ? form.watch("destinationUrls").map((u) => !u)
+      : [true]
+  );
+
   const onSubmit = form.handleSubmit(async (value) => {
+    console.log("hellooooo");
+    console.log({ value });
     const payload = {
-      urlPatterns: {
-        type: "simple",
-        pattern: value.originUrl,
-        include: true,
-      },
+      urlPatterns: [
+        {
+          type: "simple",
+          pattern: value.originUrl,
+          include: true,
+        },
+      ],
       urlRedirects: experiment.variations.map((v) => {
         return {
           variation: v.id,
@@ -58,6 +70,15 @@ const UrlRedirectModal: FC<{
       mutate();
     }
   });
+
+  const handleNoRedirectToggle = (i: number, enabled: boolean) => {
+    const newArray = [...noRedirectToggle];
+    newArray[i] = enabled;
+    if (enabled) {
+      form.setValue(`destinationUrls.${i}`, "");
+    }
+    setNoRedirectToggle(newArray);
+  };
 
   return (
     <Modal
@@ -93,54 +114,91 @@ const UrlRedirectModal: FC<{
           containerClassName="mb-2"
           {...form.register("originUrl", {
             required: true,
+            // minLength: {
+            //   value: 1,
+            //   message: "You must specify an origin url for a redirect",
+            // },
           })}
         />
         <hr className="mt-4 mb-3" />
         <div className="mt-3">
           <h4>Destination URLs</h4>
-          {experiment.variations.map((v, i) => (
-            <div
-              className={`mb-4 variation with-variation-label variation${i}`}
-              key={v.key}
-            >
-              <div className="d-flex align-items-baseline">
-                <span
-                  className="label"
-                  style={{
-                    width: 18,
-                    height: 18,
-                  }}
-                >
-                  {i}
-                </span>{" "}
-                <h5>{v.name}</h5>
-                <div className="ml-auto">
-                  <Toggle
-                    id={`${v.name}_toggle_create`}
-                    label={"No redirect"}
-                    className="mr-3"
-                    value={false}
-                    setValue={(enabled) => undefined}
-                    type="toggle"
+          {experiment.variations.map((v, i) => {
+            const destinationMatchesOrigin =
+              !!form.watch("originUrl") &&
+              form.watch(`destinationUrls.${i}`) &&
+              (isURLTargeted(form.watch("originUrl"), [
+                {
+                  include: true,
+                  type: "simple",
+                  pattern: form.watch(`destinationUrls.${i}`),
+                },
+              ]) ||
+                form.watch("originUrl") === form.watch(`destinationUrls.${i}`));
+
+            return (
+              <div
+                className={`mb-4 variation with-variation-label variation${i}`}
+                key={v.key}
+              >
+                <div className="d-flex align-items-baseline">
+                  <span
+                    className="label"
+                    style={{
+                      width: 18,
+                      height: 18,
+                    }}
+                  >
+                    {i}
+                  </span>{" "}
+                  <h5>{v.name}</h5>
+                  <div className="ml-auto">
+                    <Toggle
+                      id={`${v.name}_toggle_create`}
+                      label={"No redirect"}
+                      className="mr-3"
+                      value={noRedirectToggle[i]}
+                      setValue={(enabled) => handleNoRedirectToggle(i, enabled)}
+                      type="toggle"
+                    />
+                    <label
+                      htmlFor={`${v.name}_toggle_redirect`}
+                      className="mr-2"
+                    >
+                      No redirect
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <Field
+                    required
+                    disabled={noRedirectToggle[i]}
+                    placeholder={
+                      noRedirectToggle[i]
+                        ? form.watch("originUrl")
+                        : "Enter destination URL for users in this variation"
+                    }
+                    containerClassName="mb-2"
+                    {...form.register(`destinationUrls.${i}`, {
+                      required: true,
+                      // minLength: {
+                      //   value: noRedirectToggle[i] ? 0 : 1,
+                      //   message:
+                      //     "You must specify a destination URL for this variation or select 'No Redirect'",
+                      // },
+                    })}
                   />
-                  <label htmlFor={`${v.name}_toggle_redirect`} className="mr-2">
-                    No redirect
-                  </label>
+                  {destinationMatchesOrigin && (
+                    <div className="alert alert-warning mt-3">
+                      <FaExclamationCircle /> This destination url matches the
+                      original URL and will not result in a redirect
+                    </div>
+                  )}
                 </div>
               </div>
-
-              <div>
-                <Field
-                  required
-                  placeholder="Enter destination URL for users in this variation"
-                  containerClassName="mb-2"
-                  {...form.register(`destinationUrls.${i}`, {
-                    required: true,
-                  })}
-                />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
         <hr className="mt-4" />
         <div className="d-flex align-items-baseline my-1">

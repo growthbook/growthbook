@@ -91,9 +91,10 @@ import StatusIndicator from "./StatusIndicator";
 import ExpandablePhaseSummary from "./ExpandablePhaseSummary";
 import VariationsTable from "./VariationsTable";
 import VisualChangesetModal from "./VisualChangesetModal";
-import AddLinkedChangesBanner from "./AddLinkedChangesBanner";
+import AddLinkedChangesBanner from "./LinkedChanges/AddLinkedChangesBanner";
 import { StartExperimentBanner } from "./StartExperimentBanner";
 import { HashVersionTooltip } from "./HashVersionSelector";
+import UrlRedirectModal from "./UrlRedirectModal";
 
 function drawMetricRow(
   m: string,
@@ -284,6 +285,7 @@ export default function SinglePage({
   const [watchersModal, setWatchersModal] = useState(false);
   const [visualEditorModal, setVisualEditorModal] = useState(false);
   const [featureModal, setFeatureModal] = useState(false);
+  const [urlRedirectModal, setUrlRedirectModal] = useState(false);
 
   const permissions = usePermissions();
   const { apiCall } = useAuth();
@@ -495,6 +497,15 @@ export default function SinglePage({
             await openVisualEditor(vc, apiCall);
           }}
           cta="Open Visual Editor"
+        />
+      )}
+      {urlRedirectModal && (
+        <UrlRedirectModal
+          mode="add"
+          experiment={experiment}
+          mutate={mutate}
+          close={() => setUrlRedirectModal(false)}
+          cta="Add Redirect"
         />
       )}
       {statusModal && (
@@ -838,6 +849,7 @@ export default function SinglePage({
         experiment={experiment}
         setFeatureModal={setFeatureModal}
         setVisualEditorModal={setVisualEditorModal}
+        setUrlRedirectModal={setUrlRedirectModal}
         numLinkedChanges={numLinkedChanges}
       />
 

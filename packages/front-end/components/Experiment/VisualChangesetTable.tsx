@@ -30,7 +30,7 @@ type Props = {
   visualChangesets: VisualChangesetInterface[];
   mutate: () => void;
   canEditVisualChangesets: boolean;
-  setVisualEditorModal: (v: boolean) => void;
+  setVisualEditorModal?: (v: boolean) => void;
 };
 
 const isLegacyVariation = (v: Partial<LegacyVariation>): v is LegacyVariation =>
@@ -359,7 +359,9 @@ export const VisualChangesetTable: FC<Props> = ({
         );
       })}
 
-      {canEditVisualChangesets && experiment.status === "draft" ? (
+      {setVisualEditorModal &&
+      canEditVisualChangesets &&
+      experiment.status === "draft" ? (
         <div className="my-2">
           {hasVisualEditorFeature ? (
             <button

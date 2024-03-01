@@ -313,6 +313,13 @@ export default function TabbedPage({
             editTags={!viewingOldPhase ? editTags : undefined}
             idea={idea}
           />
+          <SetupTabOverview
+            experiment={experiment}
+            mutate={mutate}
+            safeToEdit={safeToEdit}
+            editVariations={!viewingOldPhase ? editVariations : undefined}
+            disableEditing={viewingOldPhase}
+          />
           <Implementation
             experiment={experiment}
             mutate={mutate}
@@ -324,13 +331,6 @@ export default function TabbedPage({
             linkedFeatures={linkedFeatures}
             connections={connections}
             setTab={setTabAndScroll}
-          />
-          <SetupTabOverview
-            experiment={experiment}
-            mutate={mutate}
-            safeToEdit={safeToEdit}
-            editVariations={!viewingOldPhase ? editVariations : undefined}
-            disableEditing={viewingOldPhase}
           />
           {experiment.status !== "draft" && (
             <div className="mt-3 mb-2 text-center d-print-none">

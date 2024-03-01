@@ -3,14 +3,17 @@ import {
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { FaLink, FaPlusCircle } from "react-icons/fa";
+import { FaPlusCircle } from "react-icons/fa";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import usePermissions from "@/hooks/usePermissions";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
 import track from "@/services/track";
 import { StartExperimentBanner } from "../StartExperimentBanner";
-import AddLinkedChangesBanner from "../AddLinkedChangesBanner";
+import AddLinkedChangesBanner from "../LinkedChanges/AddLinkedChangesBanner";
+import RedirectLinkedChanges from "../LinkedChanges/RedirectLinkedChanges";
+import FeatureLinkedChanges from "../LinkedChanges/FeatureLinkedChanges";
+import VisualLinkedChanges from "../LinkedChanges/VisualLinkedChanges";
 import TargetingInfo from "./TargetingInfo";
 import { ExperimentTab } from ".";
 
@@ -53,6 +56,9 @@ export default function Implementation({
     canEditExperiment &&
     permissions.check("runExperiments", experiment.project, []);
 
+  const canAddLinkedChanges =
+    hasVisualEditorPermission && experiment.status === "draft";
+
   const hasLinkedChanges =
     visualChangesets.length > 0 || linkedFeatures.length > 0;
 
@@ -84,9 +90,10 @@ export default function Implementation({
     }
     return (
       <div className="alert alert-info mb-0">
-        This experiment has no directly linked feature flag or visual editor
-        changes. Randomization, targeting, and implementation is either being
-        managed by an external system or via legacy Feature Flags in GrowthBook.
+        This experiment has no directly linked feature flag, visual editor
+        changes, or redirects. Randomization, targeting, and implementation is
+        either being managed by an external system or via legacy Feature Flags
+        in GrowthBook.
       </div>
     );
   }
@@ -98,7 +105,7 @@ export default function Implementation({
       </div>
       {/* <div className="row">
         <div className={hasLinkedChanges ? "col mb-3" : "col"}> */}
-      <div className="appbox p-3 h-100 mb-2">
+      {/* <div className="appbox p-3 h-100 mb-2">
         {(experiment.status === "draft" || linkedFeatures.length > 0) && (
           <div className="mb-4">
             <div className="h4 mb-2">
@@ -134,91 +141,41 @@ export default function Implementation({
             </div>
             <VisualChangesetTable
               experiment={experiment}
-              visualChangesets={visualChangesets.filter((c) => !c.urlRedirects)}
+              visualChangesets={visualChangesets.filter(
+                (c) => !c.urlRedirects?.length
+              )}
               mutate={mutate}
               canEditVisualChangesets={hasVisualEditorPermission}
               setVisualEditorModal={setVisualEditorModal}
             />
           </div>
         )}
-      </div>
-      <div className="appbox p-3 mb-2">
-        <div className="d-flex mb-2">
-          <span
-            className="mr-3"
-            style={{
-              background: "#11B08115",
-              borderRadius: "50%",
-              height: "45px",
-              width: "45px",
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            <FaLink
-              style={{ color: "#11B081", height: "24px", width: "24px" }}
-            />
-          </span>
-          <div className="flex-grow-1">
-            <div className="d-flex justify-content-between">
-              <h4 className="mb-0 mt-auto">URL Redirects</h4>
-              <button
-                className="btn btn-link align-self-center"
-                onClick={() => {
-                  setUrlRedirectModal(true);
-                }}
-              >
-                <FaPlusCircle className="mr-1" />
-                Add URL Redirect
-              </button>
-            </div>
-          </div>
-        </div>
-        <div className="appbox p-3 mb-0">
-          <div className="d-flex justify-content-between">
-            <h5 className="mt-2">Original URL</h5>
-            <button
-              className="btn btn-link"
-              onClick={() => {
-                setUrlRedirectModal(true);
-              }}
-            >
-              Edit{" "}
-            </button>
-          </div>
-
-          <span>{visualChangesets[0].urlPatterns[0].pattern}</span>
-          <hr />
-          <h5>Redirects</h5>
-          {visualChangesets[0].urlRedirects.map((v, i) => (
-            <div
-              className={
-                i === experiment.variations.length - 1
-                  ? `mb-0 variation with-variation-label variation${i}`
-                  : `mb-4 variation with-variation-label variation${i}`
-              }
-              key={i}
-            >
-              <div className="d-flex align-items-baseline">
-                <span
-                  className="label"
-                  style={{
-                    width: 18,
-                    height: 18,
-                  }}
-                >
-                  {i}
-                </span>
-                <div className="col pl-0">
-                  <h5 className="mb-0">{v.variation}</h5>
-                  <span>{v.url}</span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      </div> */}
+      <VisualLinkedChanges
+        setVisualEditorModal={setVisualEditorModal}
+        visualChangesets={visualChangesets.filter(
+          (c) => !c.urlRedirects?.length
+        )}
+        canAddChanges={canAddLinkedChanges}
+        canEditVisualChangesets={hasVisualEditorPermission}
+        mutate={mutate}
+        experiment={experiment}
+      />
+      <FeatureLinkedChanges
+        setFeatureModal={setFeatureModal}
+        linkedFeatures={linkedFeatures}
+        experiment={experiment}
+        canAddChanges={canAddLinkedChanges}
+      />
+      <RedirectLinkedChanges
+        setUrlRedirectModal={setUrlRedirectModal}
+        visualChangesets={visualChangesets.filter(
+          (c) => c.urlRedirects?.length
+        )}
+        experiment={experiment}
+        canAddChanges={canAddLinkedChanges}
+        mutate={mutate}
+      />
       {/* </div> */}
       {/* {hasLinkedChanges && (
           <div className="col-md-4 col-lg-4 col-12 mb-3">

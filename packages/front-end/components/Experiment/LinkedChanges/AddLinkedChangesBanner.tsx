@@ -2,8 +2,8 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FaDesktop, FaLink, FaRegFlag } from "react-icons/fa";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
-import PremiumTooltip from "../Marketing/PremiumTooltip";
-import Tooltip from "../Tooltip/Tooltip";
+import PremiumTooltip from "../../Marketing/PremiumTooltip";
+import { ICON_PROPERTIES } from "./constants";
 
 export default function AddLinkedChangesBanner({
   experiment,
@@ -35,7 +35,7 @@ export default function AddLinkedChangesBanner({
         <span
           className="mr-3"
           style={{
-            background: "#6E56CF15",
+            background: `${ICON_PROPERTIES["feature-flag"].color}15`,
             borderRadius: "50%",
             height: "45px",
             width: "45px",
@@ -45,7 +45,11 @@ export default function AddLinkedChangesBanner({
           }}
         >
           <FaRegFlag
-            style={{ color: "#6E56CF", height: "24px", width: "24px" }}
+            style={{
+              color: ICON_PROPERTIES["feature-flag"].color,
+              height: "24px",
+              width: "24px",
+            }}
           />
         </span>
         <div className="flex-grow-1">
@@ -67,7 +71,7 @@ export default function AddLinkedChangesBanner({
         <span
           className="mr-3"
           style={{
-            background: "#EBA60015",
+            background: `${ICON_PROPERTIES["visual-editor"].color}15`,
             borderRadius: "50%",
             height: "45px",
             width: "45px",
@@ -77,24 +81,36 @@ export default function AddLinkedChangesBanner({
           }}
         >
           <FaDesktop
-            style={{ color: "#EBA600", height: "24px", width: "24px" }}
+            style={{
+              color: ICON_PROPERTIES["visual-editor"].color,
+              height: "24px",
+              width: "24px",
+            }}
           />
         </span>
         <div className="flex-grow-1">
           <div className="d-flex justify-content-between">
             <b>Visual Editor</b>
-            <a
-              href="#"
-              onClick={() => {
-                setVisualEditorModal(true);
-                track("Open visual editor modal", {
-                  source: "visual-editor-ui",
-                  action: "add",
-                });
-              }}
-            >
-              Launch Visual Editor
-            </a>
+            {hasVisualEditorFeature ? (
+              <div
+                className="btn btn-link p-0"
+                onClick={() => {
+                  setVisualEditorModal(true);
+                  track("Open visual editor modal", {
+                    source: "visual-editor-ui",
+                    action: "add",
+                  });
+                }}
+              >
+                Launch Visual Editor
+              </div>
+            ) : (
+              <PremiumTooltip commercialFeature={"visual-editor"}>
+                <div className="btn btn-link p-0 disabled">
+                  Launch Visual Editor
+                </div>
+              </PremiumTooltip>
+            )}
           </div>
           <p className="mt-2 mb-1">
             Use our no-code browser extension to A/B test minor changes, such as
@@ -107,7 +123,7 @@ export default function AddLinkedChangesBanner({
         <span
           className="mr-3"
           style={{
-            background: "#11B08115",
+            background: `${ICON_PROPERTIES["redirects"].color}15`,
             borderRadius: "50%",
             height: "45px",
             width: "45px",
@@ -116,14 +132,31 @@ export default function AddLinkedChangesBanner({
             alignItems: "center",
           }}
         >
-          <FaLink style={{ color: "#11B081", height: "24px", width: "24px" }} />
+          <FaLink
+            style={{
+              color: ICON_PROPERTIES["redirects"].color,
+              height: "24px",
+              width: "24px",
+            }}
+          />
         </span>
         <div className="flex-grow-1">
           <div className="d-flex justify-content-between">
             <b>URL Redirects</b>
-            <a href="#" onClick={() => setUrlRedirectModal(true)}>
-              Add URL Redirects
-            </a>
+            {hasVisualEditorFeature ? (
+              <div
+                className="btn btn-link p-0"
+                onClick={() => setUrlRedirectModal(true)}
+              >
+                Add URL Redirects
+              </div>
+            ) : (
+              <PremiumTooltip commercialFeature={"redirects"}>
+                <div className="btn btn-link p-0 disabled">
+                  Add URL Redirects
+                </div>
+              </PremiumTooltip>
+            )}
           </div>
           <p className="mt-2 mb-1">
             Use our no-code tool to A/B test URL redirects for whole pages, or
