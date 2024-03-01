@@ -377,10 +377,11 @@ export default function FeaturesPage() {
                       />
                     </td>
                     <td>
-                      <Link href={`/features/${feature.id}`}>
-                        <a className={feature.archived ? "text-muted" : ""}>
-                          {feature.id}
-                        </a>
+                      <Link
+                        href={`/features/${feature.id}`}
+                        className={feature.archived ? "text-muted" : ""}
+                      >
+                        {feature.id}
                       </Link>
                     </td>
                     {showProjectColumn && (

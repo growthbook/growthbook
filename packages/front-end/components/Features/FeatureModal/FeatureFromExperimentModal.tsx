@@ -403,9 +403,8 @@ export default function FeatureFromExperimentModal({
           revision. For more control over placement, you can add Experiment
           rules directly from the{" "}
           <Link href={`/features/${existing}`}>
-            <a>
-              Feature page <FaExternalLinkAlt />
-            </a>
+            Feature page
+            <FaExternalLinkAlt />
           </Link>{" "}
           instead.
         </div>

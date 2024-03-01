@@ -234,7 +234,7 @@ gb.WithAttributes(growthbook.Attributes${JSON.stringify(
           )
             .replace(/null/g, "nil")
             .replace(/\n(\t+)\}/, ",\n$1}")})
-            `.trim()}
+        `.trim()}
         />
       </>
     );

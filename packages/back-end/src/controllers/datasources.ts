@@ -725,7 +725,7 @@ export async function testLimitedQuery(
     });
   }
   req.checkPermissions(
-    "editDatasourceSettings",
+    "runQueries",
     datasource?.projects?.length ? datasource.projects : ""
   );
 

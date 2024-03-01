@@ -190,34 +190,30 @@ const PresentationPage = (): React.ReactElement => {
                     </div>
                   </>
                 )}
-                <Link href={`/present/${pres.id}`}>
-                  <a
-                    className="btn btn-primary mr-3"
-                    target="_blank"
-                    rel="noreferrer"
+                <Link
+                  href={`/present/${pres.id}`}
+                  className="btn btn-primary mr-3"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Present
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="#fff"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    width="22"
                   >
-                    Present
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="#fff"
-                      height="22"
-                      viewBox="0 0 24 24"
-                      width="22"
-                    >
-                      <path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18c.62-.39.62-1.29 0-1.69L9.54 5.98C8.87 5.55 8 6.03 8 6.82z" />
-                    </svg>
-                  </a>
+                    <path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18c.62-.39.62-1.29 0-1.69L9.54 5.98C8.87 5.55 8 6.03 8 6.82z" />
+                  </svg>
                 </Link>
                 <Link
                   href={`/present/${pres.id}?exportMode=true&printMode=true`}
+                  className="btn btn-outline-primary mr-3"
+                  target="_blank"
+                  rel="noreferrer"
                 >
-                  <a
-                    className="btn btn-outline-primary mr-3"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Print view
-                  </a>
+                  Print view
                 </Link>
                 <a
                   className="btn btn-outline-primary mr-3"

@@ -561,13 +561,11 @@ const ShareModal = ({
     // );
   });
 
-  const presThemes = [];
+  const presThemes: { value: string; label: string }[] = [];
   for (const [key, value] of Object.entries(presentationThemes)) {
     if (value.show) {
       presThemes.push({
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string' is not assignable to type 'never'.
         value: key,
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string' is not assignable to type 'never'.
         label: value.title,
       });
     }

@@ -32,11 +32,7 @@ function EventDetails({
 
   // Link to ad-hoc report
   if (eventType === "experiment.analysis" && json.report) {
-    return (
-      <Link href={`/report/${json.report}`}>
-        <a>View Report</a>
-      </Link>
-    );
+    return <Link href={`/report/${json.report}`}>View Report</Link>;
   }
 
   // Diff (create, update, delete)
