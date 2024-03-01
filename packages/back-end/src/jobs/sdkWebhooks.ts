@@ -246,9 +246,11 @@ export async function queueSingleWebhookById(webhookId: string) {
     const environmentDoc = context.org?.settings?.environments?.find(
       (e) => e.id === connection.environment
     );
-    const filteredProjects = environmentDoc
-      ? filterProjectsByEnvironment(connection.projects, environmentDoc, true)
-      : connection.projects;
+    const filteredProjects = filterProjectsByEnvironment(
+      connection.projects,
+      environmentDoc,
+      true
+    );
 
     const defs = await getFeatureDefinitions({
       context,
@@ -316,9 +318,11 @@ export async function queueGlobalWebhooks(
       const environmentDoc = context.org?.settings?.environments?.find(
         (e) => e.id === connection.environment
       );
-      const filteredProjects = environmentDoc
-        ? filterProjectsByEnvironment(connection.projects, environmentDoc, true)
-        : connection.projects;
+      const filteredProjects = filterProjectsByEnvironment(
+        connection.projects,
+        environmentDoc,
+        true
+      );
 
       // Skip if this SDK Connection isn't affected by the changes
       if (

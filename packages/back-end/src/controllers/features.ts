@@ -223,9 +223,11 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     const environmentDoc = context.org?.settings?.environments?.find(
       (e) => e.id === environment
     );
-    const filteredProjects = environmentDoc
-      ? filterProjectsByEnvironment(projects, environmentDoc, true)
-      : projects;
+    const filteredProjects = filterProjectsByEnvironment(
+      projects,
+      environmentDoc,
+      true
+    );
 
     const defs = await getFeatureDefinitions({
       context,
@@ -312,9 +314,11 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
     const environmentDoc = context.org?.settings?.environments?.find(
       (e) => e.id === environment
     );
-    const filteredProjects = environmentDoc
-      ? filterProjectsByEnvironment(projects, environmentDoc, true)
-      : projects;
+    const filteredProjects = filterProjectsByEnvironment(
+      projects,
+      environmentDoc,
+      true
+    );
 
     // Evaluate features using provided attributes
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

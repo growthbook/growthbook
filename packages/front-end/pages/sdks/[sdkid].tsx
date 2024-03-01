@@ -172,9 +172,11 @@ export default function SDKConnectionPage() {
     (e) => e.id === connection?.environment
   );
   const envProjects = environment?.projects ?? [];
-  const filteredProjectIds = environment
-    ? filterProjectsByEnvironment(connection?.projects ?? [], environment, true)
-    : [];
+  const filteredProjectIds = filterProjectsByEnvironment(
+    connection?.projects ?? [],
+    environment,
+    true
+  );
   const showAllEnvironmentProjects =
     (connection?.projects?.length ?? 0) === 0 && filteredProjectIds.length > 0;
 

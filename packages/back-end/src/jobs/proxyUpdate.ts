@@ -63,9 +63,11 @@ const proxyUpdate = trackJob(
     const environmentDoc = context.org?.settings?.environments?.find(
       (e) => e.id === connection.environment
     );
-    const filteredProjects = environmentDoc
-      ? filterProjectsByEnvironment(connection.projects, environmentDoc, true)
-      : connection.projects;
+    const filteredProjects = filterProjectsByEnvironment(
+      connection.projects,
+      environmentDoc,
+      true
+    );
 
     const defs = await getFeatureDefinitions({
       context,

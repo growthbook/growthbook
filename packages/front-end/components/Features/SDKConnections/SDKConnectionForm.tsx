@@ -172,12 +172,13 @@ export default function SDKConnectionForm({
   );
   const environmentHasProjects =
     (selectedEnvironment?.projects?.length ?? 0) > 0;
-  const filteredProjectIds = selectedEnvironment
-    ? filterProjectsByEnvironment(projectIds, selectedEnvironment)
-    : undefined;
-  const filteredProjects = filteredProjectIds
-    ? projects.filter((p) => filteredProjectIds.includes(p.id))
-    : projects;
+  const filteredProjectIds = filterProjectsByEnvironment(
+    projectIds,
+    selectedEnvironment
+  );
+  const filteredProjects = projects.filter((p) =>
+    filteredProjectIds.includes(p.id)
+  );
 
   const projectsOptions = filteredProjects.map((p) => ({
     label: p.name,
@@ -408,25 +409,7 @@ export default function SDKConnectionForm({
           />
         </div>
 
-        <div className="row">
-          {projectsOptions.length > 0 && (
-            <div className="col">
-              <MultiSelectField
-                label="Filter by Project"
-                placeholder={
-                  environmentHasProjects
-                    ? "All Environment Projects"
-                    : "All Projects"
-                }
-                value={form.watch("projects") || []}
-                onChange={(projects) => form.setValue("projects", projects)}
-                options={projectsOptions}
-                sort={false}
-                closeMenuOnSelect={true}
-              />
-            </div>
-          )}
-
+        <div className="row" style={{ gap: "1.5rem" }}>
           <div className="col">
             <SelectField
               label="Environment"
@@ -458,6 +441,24 @@ export default function SDKConnectionForm({
               }}
             />
           </div>
+
+          {projectsOptions.length > 0 && (
+            <div className="col">
+              <MultiSelectField
+                label="Filter by Project"
+                placeholder={
+                  environmentHasProjects
+                    ? "All Environment Projects"
+                    : "All Projects"
+                }
+                value={form.watch("projects") || []}
+                onChange={(projects) => form.setValue("projects", projects)}
+                options={projectsOptions}
+                sort={false}
+                closeMenuOnSelect={true}
+              />
+            </div>
+          )}
         </div>
 
         {languageEnvironment !== "backend" && (

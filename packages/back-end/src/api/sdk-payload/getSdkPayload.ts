@@ -29,9 +29,11 @@ export const getSdkPayload = createApiRequestHandler()(
     const environmentDoc = req.context.org?.settings?.environments?.find(
       (e) => e.id === environment
     );
-    const filteredProjects = environmentDoc
-      ? filterProjectsByEnvironment(projects, environmentDoc, true)
-      : projects;
+    const filteredProjects = filterProjectsByEnvironment(
+      projects,
+      environmentDoc,
+      true
+    );
 
     const defs = await getFeatureDefinitions({
       context: req.context,
