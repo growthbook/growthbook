@@ -114,10 +114,10 @@ const UrlRedirectModal: FC<{
           containerClassName="mb-2"
           {...form.register("originUrl", {
             required: true,
-            // minLength: {
-            //   value: 1,
-            //   message: "You must specify an origin url for a redirect",
-            // },
+            minLength: {
+              value: 1,
+              message: "You must specify an origin url for a redirect",
+            },
           })}
         />
         <hr className="mt-4 mb-3" />
@@ -181,12 +181,11 @@ const UrlRedirectModal: FC<{
                     }
                     containerClassName="mb-2"
                     {...form.register(`destinationUrls.${i}`, {
-                      required: true,
-                      // minLength: {
-                      //   value: noRedirectToggle[i] ? 0 : 1,
-                      //   message:
-                      //     "You must specify a destination URL for this variation or select 'No Redirect'",
-                      // },
+                      minLength: {
+                        value: noRedirectToggle[i] ? 0 : 1,
+                        message:
+                          "You must specify a destination URL for this variation or select 'No Redirect'",
+                      },
                     })}
                   />
                   {destinationMatchesOrigin && (
