@@ -2215,9 +2215,11 @@ export async function postVisualChangeset(
 
   if (req.body.urlRedirects) {
     const variationIds = experiment?.variations.map((v) => v.id);
-    const areValidVariations = req.body.urlRedirects.every((r) => {
-      variationIds?.includes(r.variation);
-    });
+    const reqVariationIds = req.body.urlRedirects.map((r) => r.variation);
+
+    const areValidVariations = variationIds?.every((v) =>
+      reqVariationIds.includes(v)
+    );
     if (!areValidVariations) {
       throw new Error("Invalid variation IDs for urlRedirects");
     }
