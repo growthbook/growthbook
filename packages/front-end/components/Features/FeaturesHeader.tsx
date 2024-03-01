@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import { useMemo, useState } from "react";
 import { FeatureInterface } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { isFeatureStale } from "shared/util";
+import {filterEnvironmentsByFeature, isFeatureStale} from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaHome, FaExclamationTriangle, FaCode } from "react-icons/fa";
 import { ImBlocked } from "react-icons/im";
@@ -64,7 +64,8 @@ export default function FeaturesHeader({
 
   const { organization } = useUser();
   const permissions = usePermissions();
-  const environments = useEnvironments();
+  const allEnvironments = useEnvironments();
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envs = environments.map((e) => e.id);
   const { apiCall } = useAuth();
   const {

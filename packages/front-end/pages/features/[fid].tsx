@@ -5,6 +5,7 @@ import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
+  filterEnvironmentsByFeature,
   getDependentExperiments,
   getDependentFeatures,
   mergeRevision,
@@ -32,8 +33,7 @@ export default function FeaturePage() {
   const [version, setVersion] = useState<number | null>(null);
 
   const { features } = useFeaturesList(false);
-  const environments = useEnvironments();
-  const envs = environments.map((e) => e.id);
+  const allEnvironments = useEnvironments();
 
   let extraQueryString = "";
   // Version being forced via querystring
@@ -109,7 +109,7 @@ export default function FeaturePage() {
     // If we can't find the revision, create a dummy revision just so the page can render
     // This is for old features that don't have any revision history saved
     const rules: Record<string, FeatureRule[]> = {};
-    environments.forEach((env) => {
+    allEnvironments.forEach((env) => {
       rules[env.id] = baseFeature.environmentSettings?.[env.id]?.rules || [];
     });
 
@@ -129,7 +129,7 @@ export default function FeaturePage() {
       version: baseFeature.version,
       prerequisites: baseFeature.prerequisites || [],
     };
-  }, [revisions, version, environments, baseFeature]);
+  }, [revisions, version, allEnvironments, baseFeature]);
 
   const feature = useMemo(() => {
     if (!revision || !baseFeature) return null;
@@ -137,10 +137,15 @@ export default function FeaturePage() {
       ? mergeRevision(
           baseFeature,
           revision,
-          environments.map((e) => e.id)
+          allEnvironments.map((e) => e.id)
         )
       : baseFeature;
-  }, [baseFeature, revision, environments]);
+  }, [baseFeature, revision, allEnvironments]);
+
+  const environments = feature
+    ? filterEnvironmentsByFeature(allEnvironments, feature)
+    : [];
+  const envs = environments.map((e) => e.id);
 
   const dependentFeatures = useMemo(() => {
     if (!feature || !features) return [];

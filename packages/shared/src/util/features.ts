@@ -537,7 +537,8 @@ export function getDefaultPrerequisiteCondition(
 export function isFeatureCyclic(
   feature: FeatureInterface,
   featuresMap: Map<string, FeatureInterface>,
-  revision?: FeatureRevisionInterface
+  revision?: FeatureRevisionInterface,
+  envs?: string[],
 ): [boolean, string | null] {
   const visited = new Set<string>();
   const stack = new Set<string>();
@@ -548,6 +549,9 @@ export function isFeatureCyclic(
       newFeature.environmentSettings[env].rules = revision?.rules?.[env] || [];
     }
   }
+  if (!envs) {
+    envs = Object.keys(newFeature.environmentSettings || {});
+  }
 
   const visit = (feature: FeatureInterface): [boolean, string | null] => {
     if (stack.has(feature.id)) return [true, feature.id];
@@ -557,7 +561,10 @@ export function isFeatureCyclic(
     visited.add(feature.id);
 
     const prerequisiteIds = (feature.prerequisites || []).map((p) => p.id);
-    for (const env of Object.values(feature.environmentSettings || {})) {
+    for (const eid in (feature.environmentSettings || {})) {
+      if (!envs?.includes(eid)) continue;
+      const env = feature.environmentSettings?.[eid];
+      if (!env?.rules) continue;
       for (const rule of env.rules || []) {
         if (rule.prerequisites?.length) {
           const rulePrerequisiteIds = rule.prerequisites.map((p) => p.id);
@@ -595,7 +602,7 @@ export function evaluatePrerequisiteState(
 ): PrerequisiteStateResult {
   let isTopLevel = true;
   if (!skipCyclicCheck) {
-    if (isFeatureCyclic(feature, featuresMap)[0])
+    if (isFeatureCyclic(feature, featuresMap, undefined, [env])[0])
       return { state: "cyclic", value: null };
   }
 
@@ -746,4 +753,25 @@ export function filterProjectsByEnvironment(
     if (!environmentHasProjects) return true;
     return environment?.projects?.includes(p);
   });
+}
+
+export function featureHasEnvironment(
+  feature: FeatureInterface,
+  environment: Environment
+): boolean {
+  const featureProjects = feature.project ? [feature.project] : [];
+  if (featureProjects.length === 0) return true;
+  const filteredProjects = filterProjectsByEnvironment(
+    featureProjects,
+    environment,
+    true
+  );
+  return filteredProjects.length > 0;
+}
+
+export function filterEnvironmentsByFeature(
+  environments: Environment[],
+  feature: FeatureInterface
+): Environment[] {
+  return environments.filter((env) => featureHasEnvironment(feature, env))
 }

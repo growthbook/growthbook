@@ -160,7 +160,8 @@ export default function PrerequisiteTargetingField({
         wouldBeCyclic = isFeatureCyclic(
           newFeature,
           featuresMap,
-          newRevision
+          newRevision,
+          environments
         )[0];
       }
       wouldBeCyclicStates[f.id] = wouldBeCyclic;
