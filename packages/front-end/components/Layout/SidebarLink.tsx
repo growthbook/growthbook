@@ -7,8 +7,8 @@ import { FiChevronRight } from "react-icons/fi";
 import { GlobalPermission, Permission } from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "@/types/app-features";
-import { isCloud, isMultiOrg } from "../../services/env";
-import { useUser } from "../../services/UserContext";
+import { isCloud, isMultiOrg } from "@/services/env";
+import { useUser } from "@/services/UserContext";
 import styles from "./SidebarLink.module.scss";
 
 export type SidebarLinkProps = {
@@ -175,23 +175,21 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
                     }
                   )}
                 >
-                  <Link href={l.href}>
-                    <a className="align-middle">
-                      {showSubMenuIcons && (
-                        <>
-                          {l.Icon && <l.Icon className={styles.icon} />}
-                          {l.icon && (
-                            <span>
-                              <img src={`/icons/${l.icon}`} />
-                            </span>
-                          )}
-                        </>
-                      )}
-                      {l.name}
-                      {l.beta && (
-                        <div className="badge badge-purple ml-2">beta</div>
-                      )}
-                    </a>
+                  <Link href={l.href} className="align-middle">
+                    {showSubMenuIcons && (
+                      <>
+                        {l.Icon && <l.Icon className={styles.icon} />}
+                        {l.icon && (
+                          <span>
+                            <img src={`/icons/${l.icon}`} />
+                          </span>
+                        )}
+                      </>
+                    )}
+                    {l.name}
+                    {l.beta && (
+                      <div className="badge badge-purple ml-2">beta</div>
+                    )}
                   </Link>
                 </li>
               );

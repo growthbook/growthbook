@@ -7,7 +7,7 @@ slug: build-your-own
 
 # Build Your Own SDK
 
-**Latest spec version: 0.5.3 [View Changelog](#changelog)**
+**Latest spec version: 0.5.4 [View Changelog](#changelog)**
 
 This guide is meant for library authors looking to build a GrowthBook SDK in a currently unsupported language.
 
@@ -70,6 +70,24 @@ The syntax is inspired by MongoDB queries. Here is an example:
 }
 ```
 
+### ParentCondition
+
+A **ParentCondition** defines a prerequisite. It consists of a parent feature's **id** (`string`), a **condition** (`Condition`), and an optional **gate** (`boolean`) flag.
+
+Instead of evaluating against attributes, the condition evaluates against the returned value of the parent feature. The condition will always reference a "value" property. Here is an example of a gating prerequisite where the parent feature must be toggled on:
+
+```
+{
+  "id": "parent-feature",
+  "condition": {
+    "value": {
+      "$exists": true
+    }
+  },
+  "gate": true
+}
+```
+
 ### Context
 
 **Context** object passed into the GrowthBook constructor. Has a number of optional properties:
@@ -99,12 +117,16 @@ Defines a single **Experiment**. Has a number of properties:
 - **namespace** (`Namespace`) - Adds the experiment to a namespace
 - **force** (`integer`) - All users included in the experiment will be forced into the specific variation index
 - **hashAttribute** (`string`) - What user attribute should be used to assign variations (defaults to `id`)
+- **fallbackAttribute** (`string`) - When using sticky bucketing, can be used as a fallback to assign variations
 - **hashVersion** (`integer`) - The hash version to use (default to `1`)
 - **meta** (`VariationMeta[]`) - Meta info about the variations
 - **filters** (`Filter[]`) - Array of filters to apply
 - **seed** (`string`) - The hash seed to use
 - **name** (`string`) - Human-readable name for the experiment
 - **phase** (`string`) - Id of the current experiment phase
+- **disableStickyBucketing** (`boolean`) - If true, sticky bucketing will be disabled for this experiment. (Note: sticky bucketing is only available if a StickyBucketingService is provided in the Context)
+- **bucketVersion** (`integer`) - An sticky bucket version number that can be used to force a re-bucketing of users (default to `0`)
+- **minBucketVersion** (`integer`) - Any users with a sticky bucket version less than this will be excluded from the experiment
 
 The only required properties are `key` and `variations`. Everything else is optional.
 
@@ -123,6 +145,7 @@ The result of running an **Experiment** given a specific **Context**
 - **bucket** (`float`) - The hash value used to assign a variation (float from `0` to `1`)
 - **name** (`string` or `null`) - The human-readable name of the assigned variation
 - **passthrough** (`boolean`) - Used for holdout groups
+- **stickyBucketUsed** (`boolean`) - If sticky bucketing was used to assign a variation
 
 The `variationId` and `value` should always be set, even when `inExperiment` is false.
 
@@ -173,6 +196,7 @@ The result of evaluating a **Feature**. Has a number of properties:
 Overrides the defaultValue of a **Feature**. Has a number of optional properties
 
 - **condition** (`Condition`) - Optional targeting condition
+- **parentConditions** (`ParentCondition[]`) - Each item defines a prerequisite where a `condition` must evaluate against a parent feature's value (identified by `id`). If `gate` is true, then this is a blocking feature-level prerequisite; otherwise it applies to the current rule only.
 - **coverage** (`float`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
 - **force** (`any`) - Immediately force a specific value (ignore every other option besides condition and coverage)
 - **variations** (`any[]`) - Run an experiment (A/B test) and randomly choose between these variations
@@ -782,11 +806,25 @@ There are a few ordered steps to evaluate a feature
 1. If the key doesn't exist in `context.features`
    1. Return `getFeatureResult(null, "unknownFeature")`
 2. Loop through the feature rules (if any)
-   1. If the rule has `filters` defined
+   1. If the rule has `parentConditions` (prerequisites) defined, loop through each one:
+      1. Call `evalFeature` on the parent condition
+         - If a cycle is detected, break out of feature evaluation and return `getFeatureResult(null, "cyclicPrerequisite")`
+      2. Using the evaluated parent's result, create an object
+         ```ts
+         const evalObj = { "value": parentResult.value }
+         ```
+      3. Evaluate this object against the parentCondition's condition:
+         ```ts
+         evalCondition(evalObj, parentResult.value);
+         ```
+      4. If any of the parentConditions fail evaluation then:
+         - If `parentCondition.gate` is true (a blocking prerequisite), return `getFeatureResult(null, "prerequisite")`
+         - Otherwise, skip this rule and continue to the next one
+   2. If the rule has `filters` defined
       1. if `isFilteredOut(rule.filters)`, skip this rule and continue to the next one
-   2. If the rule has a `condition`
+   3. If the rule has a `condition`
       1. If `evalCondition(context.attributes, rule.condition)` is false, skip this rule and continue to the next one
-   3. If `rule.force` is set
+   4. If `rule.force` is set
       1. If not `isIncludedInRollout`, skip this rule and continue to the next one
          ```ts
          if (!isIncludedInRollout(
@@ -801,14 +839,14 @@ There are a few ordered steps to evaluate a feature
          ```
       2. If `rule.tracks` is set, fire the `TrackingCallback` for each element in the `rule.tracks` array.
       3. Return `getFeatureResult(rule.force, "force")`
-   4. Otherwise, convert the rule to an Experiment object
+   5. Otherwise, convert the rule to an Experiment object
       ```ts
       const exp = {
         variations: rule.variations,
         key: rule.key || featureKey,
       };
       ```
-   5. Copy over additional settings from the rule to `exp` if defined:
+   6. Copy over additional settings from the rule to `exp` if defined:
       - `coverage`
       - `weights`
       - `hashAttribute`
@@ -825,12 +863,12 @@ There are a few ordered steps to evaluate a feature
       - `hashVersion`
       - `filters`
       - `condition`
-   6. Run the experiment
+   7. Run the experiment
       ```ts
       result = run(exp);
       ```
-   7. If `result.inExperiment` is false OR `result.passthrough` is true, skip this rule and continue to the next one
-   8. Otherwise, return
+   8. If `result.inExperiment` is false OR `result.passthrough` is true, skip this rule and continue to the next one
+   9. Otherwise, return
       ```ts
       return getFeatureResult(result.value, "experiment", exp, result);
       ```
@@ -891,13 +929,15 @@ There are a bunch of ordered steps to run an experiment:
          return getExperimentResult(experiment);
         }
         ```
-8.  If `experiment.condition` is set, return if it evaluates to false
+8.  Return if any conditions are not met, return
+    1. If `experiment.condition` is set, return if it evaluates to false
     ```ts
     if (!evalCondition(context.attributes, experiment.condition)) {
       return getExperimentResult(experiment);
     }
     ```
-    8.1 Apply any url targeting based on experiment.urlPatterns, return if no match
+    2.  If `experiment.parentConditions` is set (prerequisites), return if any of them evaluate to false. See the corresponding logic in **evalFeature** for more details. (Note that the `gate` flag should not be set in an experiment)
+    3.  Apply any url targeting based on experiment.urlPatterns, return if no match
 9.  Choose a variation
     1.  If a sticky bucket value exists, use it.
         1. If the found sticky bucket version is blocked (doesn't exceed `experiment.minBucketVersion`), then skip enrollment
@@ -1175,3 +1215,6 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - New `fallbackAttribute`, `disableStickyBucketing`, `bucketVersion`, `minBucketVersion`, properties of FeatureRules
   - New `fallbackAttribute`, `disableStickyBucketing`, `bucketVersion`, `minBucketVersion`, properties of Experiments
   - Add `stickyBucketUsed` to ExperimentResult object
+- **v0.5.4** 2024-02-23
+  - New `parentConditions` property of FeatureRules
+  - New `parentConditions` property of Experiments

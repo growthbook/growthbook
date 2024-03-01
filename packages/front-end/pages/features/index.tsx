@@ -1,10 +1,10 @@
 import Link from "next/link";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { ago, datetime } from "shared/dates";
-import { isFeatureStale } from "shared/util";
+import { isFeatureStale, StaleFeatureReason } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -72,6 +72,7 @@ export default function FeaturesPage() {
   const { project, getProjectById } = useDefinitions();
   const settings = useOrgSettings();
   const environments = useEnvironments();
+  const envs = environments.map((e) => e.id);
   const { features, experiments, loading, error, mutate } = useFeaturesList();
 
   const { usage, usageDomain } = useRealtimeData(
@@ -113,6 +114,26 @@ export default function FeaturesPage() {
     localStorageKey: "features",
   });
 
+  const start = (currentPage - 1) * NUM_PER_PAGE;
+  const end = start + NUM_PER_PAGE;
+  const featureItems = items.slice(start, end);
+
+  const staleFeatures = useMemo(() => {
+    const staleFeatures: Record<
+      string,
+      { stale: boolean; reason?: StaleFeatureReason }
+    > = {};
+    featureItems.forEach((feature) => {
+      staleFeatures[feature.id] = isFeatureStale({
+        feature,
+        features,
+        experiments,
+        environments: envs,
+      });
+    });
+    return staleFeatures;
+  }, [featureItems, features, experiments, envs]);
+
   // Reset to page 1 when a filter is applied
   useEffect(() => {
     setCurrentPage(1);
@@ -140,9 +161,6 @@ export default function FeaturesPage() {
     return <LoadingOverlay />;
   }
 
-  const start = (currentPage - 1) * NUM_PER_PAGE;
-  const end = start + NUM_PER_PAGE;
-
   // If "All Projects" is selected is selected and some experiments are in a project, show the project column
   const showProjectColumn = !project && features.some((f) => f.project);
 
@@ -168,8 +186,6 @@ export default function FeaturesPage() {
             router.push(url);
             mutate({
               features: [...features, feature],
-              // we don't care about updating linked experiments since its only
-              // used for stale feature detection
               linkedExperiments: experiments,
             });
           }}
@@ -285,10 +301,21 @@ export default function FeaturesPage() {
                 {showProjectColumn && <th>Project</th>}
                 <SortableTH field="tags">Tags</SortableTH>
                 {toggleEnvs.map((en) => (
-                  <th key={en.id}>{en.id}</th>
+                  <th key={en.id} className="text-center">
+                    {en.id}
+                  </th>
                 ))}
-                <th>Value When Enabled</th>
-                <th>Overrides Rules</th>
+                <th>Prerequisites</th>
+                <th>
+                  Default
+                  <br />
+                  Value
+                </th>
+                <th>
+                  Overrides
+                  <br />
+                  Rules
+                </th>
                 <th>Version</th>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
                 {showGraphs && (
@@ -302,7 +329,7 @@ export default function FeaturesPage() {
               </tr>
             </thead>
             <tbody>
-              {items.slice(start, end).map((feature) => {
+              {featureItems.map((feature) => {
                 let rules: FeatureRule[] = [];
                 environments.forEach(
                   (e) => (rules = rules.concat(getRules(feature, e.id)))
@@ -325,12 +352,17 @@ export default function FeaturesPage() {
                   ? getProjectById(projectId)?.name || null
                   : null;
                 const projectIsDeReferenced = projectId && !projectName;
-                const { stale, reason: staleReason } = isFeatureStale(
-                  feature,
-                  experiments.filter((e) =>
-                    feature.linkedExperiments?.includes(e.id)
-                  )
+                const { stale, reason: staleReason } = staleFeatures?.[
+                  feature.id
+                ] || { stale: false };
+                const topLevelPrerequisites =
+                  feature.prerequisites?.length || 0;
+                const prerequisiteRules = rules.reduce(
+                  (acc, rule) => acc + (rule.prerequisites?.length || 0),
+                  0
                 );
+                const totalPrerequisites =
+                  topLevelPrerequisites + prerequisiteRules;
 
                 return (
                   <tr
@@ -345,10 +377,11 @@ export default function FeaturesPage() {
                       />
                     </td>
                     <td>
-                      <Link href={`/features/${feature.id}`}>
-                        <a className={feature.archived ? "text-muted" : ""}>
-                          {feature.id}
-                        </a>
+                      <Link
+                        href={`/features/${feature.id}`}
+                        className={feature.archived ? "text-muted" : ""}
+                      >
+                        {feature.id}
                       </Link>
                     </td>
                     {showProjectColumn && (
@@ -372,7 +405,7 @@ export default function FeaturesPage() {
                       <SortedTags tags={feature?.tags || []} />
                     </td>
                     {toggleEnvs.map((en) => (
-                      <td key={en.id} className="position-relative">
+                      <td key={en.id} className="position-relative text-center">
                         <EnvironmentToggle
                           feature={feature}
                           environment={en.id}
@@ -381,21 +414,48 @@ export default function FeaturesPage() {
                       </td>
                     ))}
                     <td>
+                      {totalPrerequisites > 0 && (
+                        <div style={{ lineHeight: "16px" }}>
+                          <div className="text-dark">
+                            {totalPrerequisites} total
+                          </div>
+                          <div className="nowrap text-muted">
+                            <small>
+                              {topLevelPrerequisites > 0 && (
+                                <>{topLevelPrerequisites} top level</>
+                              )}
+                              {prerequisiteRules > 0 && (
+                                <>
+                                  <>
+                                    {topLevelPrerequisites > 0 && ", "}
+                                    {prerequisiteRules} rules
+                                  </>
+                                </>
+                              )}
+                            </small>
+                          </div>
+                        </div>
+                      )}
+                    </td>
+                    <td>
                       <ValueDisplay
                         value={getFeatureDefaultValue(feature) || ""}
                         type={feature.valueType}
                         full={false}
+                        additionalStyle={{ maxWidth: 120, fontSize: "11px" }}
                       />
                     </td>
                     <td>
-                      {firstRule && (
-                        <span className="text-dark">{firstRule.type}</span>
-                      )}
-                      {totalRules > 1 && (
-                        <small className="text-muted ml-1">
-                          +{totalRules - 1} more
-                        </small>
-                      )}
+                      <div style={{ lineHeight: "16px" }}>
+                        {firstRule && (
+                          <span className="text-dark">{firstRule.type}</span>
+                        )}
+                        {totalRules > 1 && (
+                          <small className="text-muted ml-1">
+                            +{totalRules - 1} more
+                          </small>
+                        )}
+                      </div>
                     </td>
                     <td style={{ textAlign: "center" }}>
                       {version}

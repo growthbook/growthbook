@@ -1,7 +1,7 @@
 import { FeatureValueType } from "back-end/types/feature";
 import { ReactNode } from "react";
-import Field from "../Forms/Field";
-import Toggle from "../Forms/Toggle";
+import Field from "@/components/Forms/Field";
+import Toggle from "@/components/Forms/Toggle";
 
 export interface Props {
   valueType: FeatureValueType;
@@ -36,8 +36,8 @@ export default function FeatureValueField({
             }}
             type="featureValue"
           />
-          <span className="text-muted pl-2">
-            <strong>{value === "true" ? "on" : "off"}</strong>
+          <span className="text-gray font-weight-bold pl-2">
+            {value === "true" ? "TRUE" : "FALSE"}
           </span>
         </div>
         {helpText && <small className="text-muted">{helpText}</small>}

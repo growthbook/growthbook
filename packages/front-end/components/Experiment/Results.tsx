@@ -5,7 +5,7 @@ import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { getValidDate, ago } from "shared/dates";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { ExperimentSnapshotInterface } from "@/../back-end/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "@back-end/types/experiment-snapshot";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";

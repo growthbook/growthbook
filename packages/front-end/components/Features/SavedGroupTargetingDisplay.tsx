@@ -36,13 +36,13 @@ export default function SavedGroupTargetingDisplay({
             <div>
               {s.ids.length > 1 && "( "}
               {s.ids.map((id) => (
-                <Link href="/saved-groups" key={id}>
-                  <a
-                    className={`border px-2 bg-light rounded mr-1`}
-                    title="Manage Saved Groups"
-                  >
-                    {getSavedGroupById(id)?.groupName || id}
-                  </a>
+                <Link
+                  href="/saved-groups"
+                  key={id}
+                  className={`border px-2 bg-light rounded mr-1`}
+                  title="Manage Saved Groups"
+                >
+                  {getSavedGroupById(id)?.groupName || id}
                 </Link>
               ))}
               {s.ids.length > 1 && ")"}

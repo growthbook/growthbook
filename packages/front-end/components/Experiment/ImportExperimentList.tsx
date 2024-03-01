@@ -395,7 +395,7 @@ const ImportExperimentList: FC<{
                         <Link
                           href={`/experiment/${data.existing[e.trackingKey]}`}
                         >
-                          <a>imported</a>
+                          imported
                         </Link>
                       ) : (
                         <button

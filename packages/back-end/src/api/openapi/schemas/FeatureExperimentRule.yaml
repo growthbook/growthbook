@@ -28,8 +28,6 @@ properties:
     type: number
   minBucketVersion:
     type: number
-  excludeBlockedBucketUsers:
-    type: boolean
   namespace:
     type: obect
     required:

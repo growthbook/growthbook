@@ -2,7 +2,7 @@ import React, { forwardRef } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { FaArrowsAlt } from "react-icons/fa";
-import { ExperimentValue, FeatureValueType } from "@/../back-end/types/feature";
+import { ExperimentValue, FeatureValueType } from "@back-end/types/feature";
 import clsx from "clsx";
 import {
   decimalToPercent,
@@ -14,9 +14,9 @@ import {
   getVariationColor,
   getVariationDefaultName,
 } from "@/services/features";
-import MoreMenu from "../Dropdown/MoreMenu";
-import Field from "../Forms/Field";
-import Tooltip from "../Tooltip/Tooltip";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import Field from "@/components/Forms/Field";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import FeatureValueField from "./FeatureValueField";
 import styles from "./VariationsInput.module.scss";
 

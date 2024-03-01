@@ -9,7 +9,7 @@ import RunQueriesButton, {
 } from "@/components/Queries/RunQueriesButton";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
-import DateGraph from "../Metrics/DateGraph";
+import DateGraph from "@/components/Metrics/DateGraph";
 
 const NorthStarMetricDisplay = ({
   metricId,
@@ -81,7 +81,7 @@ const NorthStarMetricDisplay = ({
         ) : (
           <div className="mb-4">
             <h4 className="my-3">{metric.name}</h4>
-            {permissions.check("runQueries", metric.projects || "") && (
+            {permissions.check("runQueries", metric.projects || []) && (
               <form
                 onSubmit={async (e) => {
                   e.preventDefault();

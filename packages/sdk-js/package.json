@@ -1,6 +1,6 @@
 {
   "name": "@growthbook/growthbook",
-  "version": "0.33.0",
+  "version": "0.34.0",
   "license": "MIT",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -65,7 +65,7 @@
     "rollup": "^2.56.3",
     "rollup-plugin-terser": "^7.0.2",
     "ts-jest": "^27.0.5",
-    "typescript": "4.7.4"
+    "typescript": "5.3.3"
   },
   "browserslist": [
     "defaults",

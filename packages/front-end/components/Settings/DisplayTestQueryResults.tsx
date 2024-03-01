@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
-import Code from "../SyntaxHighlighting/Code";
-import ControlledTabs from "../Tabs/ControlledTabs";
-import Tab from "../Tabs/Tab";
+import Code from "@/components/SyntaxHighlighting/Code";
+import ControlledTabs from "@/components/Tabs/ControlledTabs";
+import Tab from "@/components/Tabs/Tab";
 
 export type Props = {
   results: Record<string, unknown>[];

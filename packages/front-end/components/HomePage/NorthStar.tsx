@@ -7,9 +7,9 @@ import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Toggle from "@/components/Forms/Toggle";
-import Modal from "../Modal";
-import MetricsSelector from "../Experiment/MetricsSelector";
-import Field from "../Forms/Field";
+import Modal from "@/components/Modal";
+import MetricsSelector from "@/components/Experiment/MetricsSelector";
+import Field from "@/components/Forms/Field";
 import NorthStarMetricDisplay from "./NorthStarMetricDisplay";
 
 const NorthStar: FC<{
@@ -63,20 +63,23 @@ const NorthStar: FC<{
   return (
     <>
       {hasNorthStar && (
-        <div
-          className="list-group activity-box mb-3"
-          style={{ position: "relative" }}
-        >
+        <div className="list-group activity-box mb-3 position-relative">
           {permissions.manageNorthStarMetric && (
             <a
-              className="cursor-pointer"
-              style={{ position: "absolute", top: "10px", right: "10px" }}
+              role="button"
+              className="p-1"
+              style={{
+                position: "absolute",
+                top: "10px",
+                right: "10px",
+                zIndex: 1,
+              }}
               onClick={(e) => {
                 e.preventDefault();
                 setOpenNorthStarModal(true);
               }}
             >
-              <BsGear />
+              <BsGear size={16} />
             </a>
           )}
           <div className="row">

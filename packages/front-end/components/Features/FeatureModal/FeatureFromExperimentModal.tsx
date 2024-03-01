@@ -27,7 +27,7 @@ import { useWatching } from "@/services/WatchProvider";
 import usePermissions from "@/hooks/usePermissions";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import SelectField from "@/components/Forms/SelectField";
-import FeatureValueField from "../FeatureValueField";
+import FeatureValueField from "@/components/Features/FeatureValueField";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -403,9 +403,8 @@ export default function FeatureFromExperimentModal({
           revision. For more control over placement, you can add Experiment
           rules directly from the{" "}
           <Link href={`/features/${existing}`}>
-            <a>
-              Feature page <FaExternalLinkAlt />
-            </a>
+            Feature page
+            <FaExternalLinkAlt />
           </Link>{" "}
           instead.
         </div>

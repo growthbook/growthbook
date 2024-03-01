@@ -84,6 +84,7 @@
     "no-console": [
       "warn"
     ],
+    "no-restricted-imports": "off",
     "react/react-in-jsx-scope": "off",
     "react/prop-types": "off",
     "react-hooks/rules-of-hooks": "error",
@@ -108,6 +109,14 @@
     },
     {
       "files": [
+        "./packages/front-end/**/*.ts*"
+      ],
+      "rules": {
+        "no-restricted-imports": ["error", {"patterns": ["..*"]}]
+      }
+    },
+    {
+      "files": [
         "./packages/docs/pages/_app.tsx",
         "./packages/front-end/components/Auth/InAppHelp.tsx",
         "./packages/front-end/components/Dimensions/DimensionChooser.tsx",
@@ -116,7 +125,6 @@
         "./packages/front-end/components/Experiment/NewExperimentForm.tsx",
         "./packages/front-end/components/Experiment/VisualEditorScriptMissing.tsx",
         "./packages/front-end/components/Features/CodeSnippetModal.tsx",
-        "./packages/front-end/components/Features/ConditionInput.tsx",
         "./packages/front-end/components/Features/DraftModal.tsx",
         "./packages/front-end/components/Features/RuleList.tsx",
         "./packages/front-end/components/Forms/SelectField.tsx",

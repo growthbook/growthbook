@@ -8,9 +8,21 @@ import {
   FeatureRule as FeatureDefinitionRule,
   AutoExperiment,
   GrowthBook,
+  ParentConditionInterface,
 } from "@growthbook/growthbook";
-import { validateCondition, validateFeatureValue } from "shared/util";
-import { scrubFeatures, SDKCapability } from "shared/sdk-versioning";
+import {
+  evalDeterministicPrereqValue,
+  evaluatePrerequisiteState,
+  PrerequisiteStateResult,
+  validateCondition,
+  validateFeatureValue,
+} from "shared/util";
+import {
+  scrubExperiments,
+  scrubFeatures,
+  SDKCapability,
+} from "shared/sdk-versioning";
+import cloneDeep from "lodash/cloneDeep";
 import {
   ApiReqContext,
   AutoExperimentWithProject,
@@ -26,6 +38,7 @@ import {
   RolloutRule,
   FeatureTestResult,
   ExperimentRefRule,
+  FeaturePrerequisite,
 } from "../../types/feature";
 import { getAllFeatures } from "../models/FeatureModel";
 import {
@@ -60,19 +73,28 @@ import { getEnvironmentIdsFromOrg, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
 
-function generatePayload({
+export function generateFeaturesPayload({
   features,
   experimentMap,
   environment,
   groupMap,
+  prereqStateCache = {},
 }: {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
   environment: string;
   groupMap: GroupMap;
+  prereqStateCache?: Record<string, Record<string, PrerequisiteStateResult>>;
 }): Record<string, FeatureDefinition> {
+  prereqStateCache[environment] = prereqStateCache[environment] || {};
+
   const defs: Record<string, FeatureDefinition> = {};
-  features.forEach((feature) => {
+  const newFeatures = reduceFeaturesWithPrerequisites(
+    features,
+    environment,
+    prereqStateCache
+  );
+  newFeatures.forEach((feature) => {
     const def = getFeatureDefinition({
       feature,
       environment,
@@ -92,19 +114,32 @@ export type VisualExperiment = {
   visualChangeset: VisualChangesetInterface;
 };
 
-function generateVisualExperimentsPayload({
+export function generateVisualExperimentsPayload({
   visualExperiments,
-  // environment,
   groupMap,
+  features,
+  environment,
+  prereqStateCache = {},
 }: {
-  visualExperiments: Array<VisualExperiment>;
-  // environment: string,
+  visualExperiments: VisualExperiment[];
   groupMap: GroupMap;
+  features: FeatureInterface[];
+  environment: string;
+  prereqStateCache?: Record<string, Record<string, PrerequisiteStateResult>>;
 }): AutoExperimentWithProject[] {
+  prereqStateCache[environment] = prereqStateCache[environment] || {};
+
   const isValidSDKExperiment = (
     e: AutoExperimentWithProject | null
   ): e is AutoExperimentWithProject => !!e;
-  const sdkExperiments: Array<AutoExperimentWithProject | null> = visualExperiments.map(
+
+  const newVisualExperiments = reduceExperimentsWithPrerequisites(
+    visualExperiments,
+    features,
+    environment,
+    prereqStateCache
+  );
+  const sdkExperiments: Array<AutoExperimentWithProject | null> = newVisualExperiments.map(
     ({ experiment: e, visualChangeset: v }) => {
       if (e.status === "stopped" && e.excludeFromPayload) return null;
 
@@ -119,6 +154,17 @@ function generateVisualExperimentsPayload({
         phase?.condition,
         phase?.savedGroups
       );
+
+      const prerequisites = (phase?.prerequisites ?? [])
+        ?.map((p) => {
+          const condition = getParsedCondition(groupMap, p.condition);
+          if (!condition) return null;
+          return {
+            id: p.id,
+            condition,
+          };
+        })
+        .filter(Boolean) as ParentConditionInterface[];
 
       if (!phase) return null;
 
@@ -159,6 +205,10 @@ function generateVisualExperimentsPayload({
         condition,
         coverage: phase.coverage,
       };
+
+      if (prerequisites.length) {
+        exp.parentConditions = prerequisites;
+      }
 
       return exp;
     }
@@ -252,26 +302,34 @@ export async function refreshSDKPayloadCache(
     new Set(payloadKeys.map((k) => k.environment))
   );
 
+  const prereqStateCache: Record<
+    string,
+    Record<string, PrerequisiteStateResult>
+  > = {};
+
   const promises: (() => Promise<void>)[] = [];
-  for (const env of environments) {
-    const featureDefinitions = generatePayload({
+  for (const environment of environments) {
+    const featureDefinitions = generateFeaturesPayload({
       features: allFeatures,
-      environment: env,
+      environment: environment,
       groupMap,
       experimentMap,
+      prereqStateCache,
     });
 
     const experimentsDefinitions = generateVisualExperimentsPayload({
       visualExperiments: allVisualExperiments,
-      // environment: key.environment,
       groupMap,
+      features: allFeatures,
+      environment,
+      prereqStateCache,
     });
 
     promises.push(async () => {
-      logger.debug(`Updating SDK Payload for ${context.org.id} ${env}`);
+      logger.debug(`Updating SDK Payload for ${context.org.id} ${environment}`);
       await updateSDKPayload({
         organization: context.org.id,
-        environment: env,
+        environment: environment,
         featureDefinitions,
         experimentsDefinitions,
       });
@@ -381,6 +439,7 @@ async function getFeatureDefinitionsResponse({
   }
 
   features = scrubFeatures(features, capabilities);
+  experiments = scrubExperiments(experiments, capabilities);
 
   if (!encryptionKey) {
     return {
@@ -503,11 +562,17 @@ export async function getFeatureDefinitions({
   const groupMap = await getSavedGroupMap(org);
   const experimentMap = await getAllPayloadExperiments(context);
 
-  const featureDefinitions = generatePayload({
+  const prereqStateCache: Record<
+    string,
+    Record<string, PrerequisiteStateResult>
+  > = {};
+
+  const featureDefinitions = generateFeaturesPayload({
     features,
     environment,
     groupMap,
     experimentMap,
+    prereqStateCache,
   });
 
   const allVisualExperiments = await getAllVisualExperiments(
@@ -518,8 +583,10 @@ export async function getFeatureDefinitions({
   // Generate visual experiments
   const experimentsDefinitions = generateVisualExperimentsPayload({
     visualExperiments: allVisualExperiments,
-    // environment: key.environment,
     groupMap,
+    features,
+    environment,
+    prereqStateCache,
   });
 
   // Cache in Mongo
@@ -552,6 +619,8 @@ export function evaluateFeature({
   groupMap,
   experimentMap,
   revision,
+  scrubPrerequisites = true,
+  skipRulesWithPrerequisites = true,
 }: {
   feature: FeatureInterface;
   attributes: ArchetypeAttributeValues;
@@ -559,6 +628,8 @@ export function evaluateFeature({
   experimentMap: Map<string, ExperimentInterface>;
   environments: Environment[];
   revision: FeatureRevisionInterface;
+  scrubPrerequisites?: boolean;
+  skipRulesWithPrerequisites?: boolean;
 }) {
   const results: FeatureTestResult[] = [];
 
@@ -589,14 +660,49 @@ export function evaluateFeature({
         returnRuleId: true,
       });
       if (definition) {
+        // Prerequisite scrubbing:
+        const rulesWithPrereqs: FeatureDefinitionRule[] = [];
+        if (scrubPrerequisites) {
+          definition.rules = definition.rules
+            ? (definition?.rules
+                ?.map((rule) => {
+                  if (rule?.parentConditions?.length) {
+                    rulesWithPrereqs.push(rule);
+                    if (rule.parentConditions.some((pc) => !!pc.gate)) {
+                      return null;
+                    }
+                    if (skipRulesWithPrerequisites) {
+                      // make rule invalid so it is skipped
+                      delete rule.force;
+                      delete rule.variations;
+                    }
+                    delete rule.parentConditions;
+                  }
+                  return rule;
+                })
+                .filter(Boolean) as FeatureDefinitionRule[])
+            : undefined;
+        }
+
         thisEnvResult.featureDefinition = definition;
-        const log: [string, never][] = [];
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const log: [string, any][] = [];
         const gb = new GrowthBook({
           features: {
             [feature.id]: definition,
           },
           attributes: attributes,
-          log: (msg: string, ctx: never) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          log: (msg: string, ctx: any) => {
+            const ruleId = ctx?.rule?.id ?? null;
+            if (ruleId && rulesWithPrereqs.find((r) => r.id === ruleId)) {
+              if (skipRulesWithPrerequisites) {
+                msg = "Skip rule with prerequisite targeting";
+              } else {
+                msg += " (prerequisite targeting passed)";
+              }
+            }
             log.push([msg, ctx]);
           },
         });
@@ -1046,4 +1152,205 @@ export const updateInterfaceEnvSettingsFromApiEnvSettings = (
       },
     };
   }, existing);
+};
+
+// Only keep features that are "on" or "conditional". For "on" features, remove any top level prerequisites
+export const reduceFeaturesWithPrerequisites = (
+  features: FeatureInterface[],
+  environment: string,
+  prereqStateCache: Record<string, Record<string, PrerequisiteStateResult>> = {}
+): FeatureInterface[] => {
+  prereqStateCache[environment] = prereqStateCache[environment] || {};
+
+  const newFeatures: FeatureInterface[] = [];
+
+  const featuresMap = new Map(features.map((f) => [f.id, f]));
+
+  // block "always off" features, or remove "always on" prereqs
+  for (const feature of features) {
+    const newFeature = cloneDeep(feature);
+    let removeFeature = false;
+
+    const newPrerequisites: FeaturePrerequisite[] = [];
+    for (const prereq of newFeature.prerequisites || []) {
+      let state: PrerequisiteStateResult = {
+        state: "deterministic",
+        value: null,
+      };
+      if (prereqStateCache[environment][prereq.id]) {
+        state = prereqStateCache[environment][prereq.id];
+      } else {
+        const prereqFeature = featuresMap.get(prereq.id);
+        if (prereqFeature) {
+          state = evaluatePrerequisiteState(
+            prereqFeature,
+            featuresMap,
+            environment,
+            undefined,
+            true
+          );
+        }
+        prereqStateCache[environment][prereq.id] = state;
+      }
+
+      switch (state.state) {
+        case "conditional":
+          // keep the feature and the prerequisite
+          newPrerequisites.push(prereq);
+          break;
+        case "cyclic":
+          removeFeature = true;
+          break;
+        case "deterministic": {
+          const evaled = evalDeterministicPrereqValue(
+            state.value ?? null,
+            prereq.condition
+          );
+          if (evaled === "fail") {
+            removeFeature = true;
+          }
+          break;
+        }
+      }
+    }
+    if (!removeFeature) {
+      newFeature.prerequisites = newPrerequisites;
+      newFeatures.push(newFeature);
+    }
+  }
+
+  // block "always off" rules, or reduce "always on" rules
+  for (let i = 0; i < newFeatures.length; i++) {
+    const feature = newFeatures[i];
+    if (!feature.environmentSettings[environment]?.rules) continue;
+
+    const newFeatureRules: FeatureRule[] = [];
+
+    for (
+      let i = 0;
+      i < feature.environmentSettings[environment].rules.length;
+      i++
+    ) {
+      const rule = feature.environmentSettings[environment].rules[i];
+      const {
+        removeRule,
+        newPrerequisites,
+      } = getInlinePrerequisitesReductionInfo(
+        rule.prerequisites || [],
+        featuresMap,
+        environment,
+        prereqStateCache
+      );
+      if (!removeRule) {
+        rule.prerequisites = newPrerequisites;
+        newFeatureRules.push(rule);
+      }
+    }
+    newFeatures[i].environmentSettings[environment].rules = newFeatureRules;
+  }
+
+  return newFeatures;
+};
+
+export const reduceExperimentsWithPrerequisites = (
+  visualExperiments: VisualExperiment[],
+  features: FeatureInterface[],
+  environment: string,
+  prereqStateCache: Record<string, Record<string, PrerequisiteStateResult>> = {}
+): VisualExperiment[] => {
+  prereqStateCache[environment] = prereqStateCache[environment] || {};
+
+  const featuresMap = new Map(features.map((f) => [f.id, f]));
+
+  const newVisualExperiments: VisualExperiment[] = [];
+  for (const visualExperiment of visualExperiments) {
+    const phaseIndex = visualExperiment.experiment.phases.length - 1;
+    const phase: ExperimentPhase | null =
+      visualExperiment.experiment.phases?.[phaseIndex] ?? null;
+    if (!phase) continue;
+    const newVisualExperiment = cloneDeep(visualExperiment);
+
+    const {
+      removeRule,
+      newPrerequisites,
+    } = getInlinePrerequisitesReductionInfo(
+      phase.prerequisites || [],
+      featuresMap,
+      environment,
+      prereqStateCache
+    );
+    if (!removeRule) {
+      newVisualExperiment.experiment.phases[
+        phaseIndex
+      ].prerequisites = newPrerequisites;
+      newVisualExperiments.push(newVisualExperiment);
+    }
+  }
+  return newVisualExperiments;
+};
+
+const getInlinePrerequisitesReductionInfo = (
+  prerequisites: FeaturePrerequisite[],
+  featuresMap: Map<string, FeatureInterface>,
+  environment: string,
+  prereqStateCache: Record<string, Record<string, PrerequisiteStateResult>> = {}
+): {
+  removeRule: boolean;
+  newPrerequisites: FeaturePrerequisite[];
+} => {
+  prereqStateCache[environment] = prereqStateCache[environment] || {};
+
+  let removeRule = false;
+  const newPrerequisites: FeaturePrerequisite[] = [];
+
+  for (const pc of prerequisites) {
+    const prereqFeature = featuresMap.get(pc.id);
+    let state: PrerequisiteStateResult = {
+      state: "deterministic",
+      value: null,
+    };
+    if (prereqStateCache[environment][pc.id]) {
+      state = prereqStateCache[environment][pc.id];
+    } else {
+      if (prereqFeature) {
+        state = evaluatePrerequisiteState(
+          prereqFeature,
+          featuresMap,
+          environment,
+          undefined,
+          true
+        );
+      }
+      prereqStateCache[environment][pc.id] = state;
+    }
+
+    switch (state.state) {
+      case "conditional":
+        // keep the rule and prerequisite
+        break;
+      case "cyclic":
+        // remove the rule
+        removeRule = true;
+        continue;
+      case "deterministic": {
+        const evaled = evalDeterministicPrereqValue(
+          state.value ?? null,
+          pc.condition
+        );
+        if (evaled === "fail") {
+          // remove the rule
+          removeRule = true;
+        }
+        continue;
+      }
+    }
+
+    // only keep the prerequisite if switch logic hasn't prevented it
+    newPrerequisites.push(pc);
+  }
+
+  return {
+    removeRule,
+    newPrerequisites,
+  };
 };

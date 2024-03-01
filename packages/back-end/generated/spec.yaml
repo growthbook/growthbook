@@ -96,6 +96,9 @@ tags:
   - name: fact-metrics
     x-displayName: Fact Metrics
     description: Fact Metrics are metrics built on top of Fact Table definitions
+  - name: code-references
+    x-displayName: Code References
+    description: 'Intended for use with our code reference CI utility, [`gb-find-code-refs`](https://github.com/growthbook/gb-find-code-refs).'
   - name: DataSource_model
     x-displayName: DataSource
     description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
@@ -215,7 +218,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/features \
-              -d '{ id: "test-01", description: "A cool feature", ... }'
+              -d '{ "id": "test-01", "description": "A cool feature", ... }'
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -231,6 +234,7 @@ paths:
               properties:
                 id:
                   type: string
+                  minLength: 1
                   description: 'A unique key name for the feature. Feature keys can only include letters, numbers, hyphens, and underscores.'
                 archived:
                   type: boolean
@@ -459,7 +463,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/features/test-01 \
-              -d '{ description: "A cool feature flag", ... }'
+              -d '{ "description": "A cool feature flag", ... }'
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -515,9 +519,8 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/features/my-feature/toggle \
-              -u secret_abc123DEF456: \
-              -d "environments[production]"=false \
-              -d reason="Kill switch activated"
+              -d '{ "reason": "Kill switch activated", "environments": { "production": false } }' \
+              -u secret_abc123DEF456:
       requestBody:
         required: true
         content:
@@ -553,6 +556,27 @@ paths:
                 properties:
                   feature:
                     $ref: '#/components/schemas/Feature'
+  /feature-keys:
+    get:
+      summary: Get list of feature keys
+      tags:
+        - features
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      operationId: getFeatureKeys
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/feature-keys?projectId=prj_5l652 \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
   /projects:
     get:
       summary: Get all projects
@@ -876,7 +900,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/experiments \
-              -d '{ name: "test_experiment", "owner": "weijie.ou@example.com" ... }'
+              -d '{"name": "test_experiment", "owner": "weijie.ou@example.com", ...}'
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -887,7 +911,6 @@ paths:
               required:
                 - name
                 - variations
-                - owner
                 - datasourceId
                 - trackingKey
                 - assignmentQueryId
@@ -952,8 +975,6 @@ paths:
                   type: number
                 minBucketVersion:
                   type: number
-                excludeBlockedBucketUsers:
-                  type: boolean
                 releasedVariationId:
                   type: string
                 excludeFromPayload:
@@ -1114,7 +1135,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/experiments/exp_1234 \
-              -d '{ name: "test_experiment", "owner": "weijie.ou@example.com" ... }'
+              -d '{ "name": "test_experiment", "owner": "weijie.ou@example.com", ... }' \
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -1179,8 +1200,6 @@ paths:
                   type: number
                 minBucketVersion:
                   type: number
-                excludeBlockedBucketUsers:
-                  type: boolean
                 releasedVariationId:
                   type: string
                 excludeFromPayload:
@@ -1380,7 +1399,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/metrics \
-              -d '{ datasourceId: "ds_abc123", ... }'
+              -d '{ "datasourceId": "ds_abc123", ... }'
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -1661,9 +1680,8 @@ paths:
         - lang: cURL
           source: |
             curl -XPUT https://api.growthbook.io/api/v1/metrics/met_123abc \
-              -u secret_abc123DEF456 \
-              -H "Content-Type: application/json" \
-              -d '{"name": "net revenue", "description":"revenue minus lacroix spend"}'
+              -d '{"name": "net revenue", "description":"revenue minus lacroix spend"}' \
+              -u secret_abc123DEF456:
       requestBody:
         required: true
         content:
@@ -1989,9 +2007,8 @@ paths:
         - lang: cURL
           source: |
             curl -XPUT https://api.growthbook.io/api/v1/visual-changesets/vc_123abc
-              -u secret_abc123DEF456 \
-              -H "Content-Type: application/json" \
-                                                 -d '{"editorUrl": "https://docs.growthbook.io", "urlPatterns":"[{ ... }]"}'
+              -d '{"editorUrl": "https://docs.growthbook.io", "urlPatterns":"[{ ... }]"}' \
+              -u secret_abc123DEF456:
       responses:
         '200':
           content:
@@ -2018,9 +2035,8 @@ paths:
         - lang: cURL
           source: |
             curl -XPOST https://api.growthbook.io/api/v1/visual-changesets/vc_123abc/visual-change \
-              -u secret_abc123DEF456 \
-              -H "Content-Type: application/json" \
-              -d '{"variation": "v_123abc", "domMutations":"[]"}'
+              -d '{"variation": "v_123abc", "domMutations":"[]"}' \
+              -u secret_abc123DEF456:
       responses:
         '200':
           content:
@@ -2045,9 +2061,8 @@ paths:
         - lang: cURL
           source: |
             curl -XPUT https://api.growthbook.io/api/v1/visual-changesets/vc_123abc/visual-change/vch_abc123 \
-              -u secret_abc123DEF456 \
-              -H "Content-Type: application/json" \
-              -d '{"variation": "v_123abc", "domMutations":"[]"}'
+              -d '{"variation": "v_123abc", "domMutations":"[]"}' \
+              -u secret_abc123DEF456:
       responses:
         '200':
           content:
@@ -2098,9 +2113,8 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/saved-groups \
-              -H "Content-Type: application/json" \
-              -u secret_abc123DEF456: \
-              -d '{"name": "interal-users", "values": ["userId-123", "userId-345", "userId-678"], "attributeKey": "userId", "owner": ""}'
+              -d '{"name": "interal-users", "values": ["userId-123", "userId-345", "userId-678"], "attributeKey": "userId", "owner": ""}' \
+              -u secret_abc123DEF456:
       requestBody:
         required: true
         content:
@@ -2179,9 +2193,8 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
-              -H "Content-Type: application/json" \
-              -u secret_abc123DEF456: \
-              -d '{"values": [ "userId-123", "userId-345" ]}'
+              -d '{"values": [ "userId-123", "userId-345" ]}' \
+              -u secret_abc123DEF456:
       requestBody:
         required: true
         content:
@@ -2282,7 +2295,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/organizations \
-              -d '{ name: "My Subsidiary" }' \
+              -d '{ "name": "My Subsidiary" }' \
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -2322,8 +2335,7 @@ paths:
         - lang: cURL
           source: |
             curl -X PUT https://api.growthbook.io/api/v1/organizations/org_abc123 \
-              -d '{ name: "My Subsidiary" }' \
-              -d '{ externalId: "subsidiary-123" }'
+              -d '{ "name": "My Subsidiary", "externalId": "subsidiary-123" }' \
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -3211,6 +3223,65 @@ paths:
                     type: integer
                   factMetricsUpdated:
                     type: integer
+  /code-refs:
+    post:
+      tags:
+        - code-references
+      summary: Submit list of code references
+      operationId: postCodeRefs
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/code-refs \
+              -d '{ "startingLineNumber": 16, "lines": "...", "flagKey": "..." }' \
+              -u secret_abc123DEF456
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - branch
+                - repoName
+                - refs
+              properties:
+                branch:
+                  type: string
+                repoName:
+                  type: string
+                refs:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - filePath
+                      - startingLineNumber
+                      - lines
+                      - flagKey
+                      - contentHash
+                    properties:
+                      filePath:
+                        type: string
+                      startingLineNumber:
+                        type: integer
+                      lines:
+                        type: string
+                      flagKey:
+                        type: string
+                      contentHash:
+                        type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  featuresUpdated:
+                    type: array
+                    items:
+                      type: string
 components:
   parameters:
     id:
@@ -3263,6 +3334,30 @@ components:
       description: Specify a specific fact table
       schema:
         type: string
+    repo:
+      name: repo
+      in: query
+      required: true
+      description: Fully qualified name of repo either in GitHub or some other version control platform.
+      schema:
+        type: string
+    branch:
+      name: branch
+      in: query
+      required: true
+      description: Name of branch for git repo.
+      schema:
+        type: string
+    platform:
+      name: platform
+      in: query
+      description: Name of versino control platform like GitHub or Gitlab.
+      schema:
+        type: string
+        enum:
+          - github
+          - gitlab
+          - bitbucket
   schemas:
     PaginationFields:
       type: object
@@ -3648,6 +3743,18 @@ components:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/FeatureEnvironment'
+        prerequisites:
+          type: array
+          items:
+            type: object
+            required:
+              - parentId
+              - parentCondition
+            properties:
+              parentId:
+                type: string
+              parentCondition:
+                type: string
         revision:
           type: object
           required:
@@ -3877,8 +3984,6 @@ components:
           type: number
         minBucketVersion:
           type: number
-        excludeBlockedBucketUsers:
-          type: boolean
         namespace:
           type: obect
           required:
@@ -4079,8 +4184,6 @@ components:
           type: number
         minBucketVersion:
           type: number
-        excludeBlockedBucketUsers:
-          type: boolean
         variations:
           type: array
           items:
@@ -4937,6 +5040,7 @@ x-tagGroups:
       - organizations
       - fact-tables
       - fact-metrics
+      - code-references
   - name: Models
     tags:
       - DataSource_model

@@ -4,10 +4,10 @@ import { format } from "date-fns";
 import { format as formatTimeZone } from "date-fns-tz";
 import React, { useEffect, useState } from "react";
 import { useUser } from "@/services/UserContext";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
-import Toggle from "../Forms/Toggle";
-import UpgradeLabel from "../Marketing/UpgradeLabel";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import Toggle from "@/components/Forms/Toggle";
+import UpgradeLabel from "@/components/Marketing/UpgradeLabel";
 import styles from "./ScheduleInputs.module.scss";
 
 interface Props {
@@ -16,6 +16,7 @@ interface Props {
   setShowUpgradeModal: (value: boolean) => void;
   scheduleToggleEnabled: boolean;
   setScheduleToggleEnabled: (value: boolean) => void;
+  title?: string;
 }
 
 export default function ScheduleInputs(props: Props) {
@@ -48,7 +49,10 @@ export default function ScheduleInputs(props: Props) {
         showUpgradeModal={() => props.setShowUpgradeModal(true)}
         commercialFeature="schedule-feature-flag"
         upgradeMessage="enable feature flag scheduling"
-        labelText="Add scheduling to automatically enable/disable an override rule."
+        labelText={
+          props.title ??
+          "Add scheduling to automatically enable/disable an override rule"
+        }
       />
       <div className="pb-2">
         <Toggle

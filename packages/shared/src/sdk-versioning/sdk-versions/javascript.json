@@ -1,6 +1,10 @@
 {
   "versions": [
     {
+      "version": "0.34.0",
+      "capabilities": ["prerequisites"]
+    },
+    {
       "version": "0.33.0"
     },
     {

@@ -32,9 +32,11 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { trackSnapshot } from "@/services/track";
 import VariationChooser from "@/components/Experiment/VariationChooser";
 import BaselineChooser from "@/components/Experiment/BaselineChooser";
-import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
-import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
-import DimensionChooser from "../Dimensions/DimensionChooser";
+import RunQueriesButton, {
+  getQueryStatus,
+} from "@/components/Queries/RunQueriesButton";
+import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
+import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import AnalysisForm from "./AnalysisForm";
 import RefreshSnapshotButton from "./RefreshSnapshotButton";
 import ResultMoreMenu from "./ResultMoreMenu";
@@ -158,16 +160,6 @@ export default function AnalysisSettingsBar({
           {newUi && setVariationFilter && setBaselineRow ? (
             <>
               <div className="col-auto form-inline pr-5">
-                <VariationChooser
-                  variations={experiment.variations}
-                  variationFilter={variationFilter ?? []}
-                  setVariationFilter={setVariationFilter}
-                  baselineRow={baselineRow ?? 0}
-                  dropdownEnabled={snapshot?.dimension !== "pre:date"}
-                />
-                <em className="text-muted mx-3" style={{ marginTop: 15 }}>
-                  vs
-                </em>
                 <BaselineChooser
                   variations={experiment.variations}
                   setVariationFilter={setVariationFilter}
@@ -182,6 +174,16 @@ export default function AnalysisSettingsBar({
                     !manualSnapshot && snapshot?.dimension !== "pre:date"
                   }
                   dimension={dimension}
+                />
+                <em className="text-muted mx-3" style={{ marginTop: 15 }}>
+                  vs
+                </em>
+                <VariationChooser
+                  variations={experiment.variations}
+                  variationFilter={variationFilter ?? []}
+                  setVariationFilter={setVariationFilter}
+                  baselineRow={baselineRow ?? 0}
+                  dropdownEnabled={snapshot?.dimension !== "pre:date"}
                 />
               </div>
             </>

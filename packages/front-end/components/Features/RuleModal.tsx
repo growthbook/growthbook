@@ -5,13 +5,23 @@ import {
   FeatureRule,
   ScheduleRule,
 } from "back-end/types/feature";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { date } from "shared/dates";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { getMatchingRules, includeExperimentInPayload } from "shared/util";
-import { FaBell, FaExternalLinkAlt } from "react-icons/fa";
+import {
+  getMatchingRules,
+  includeExperimentInPayload,
+  isFeatureCyclic,
+} from "shared/util";
+import {
+  FaBell,
+  FaExclamationTriangle,
+  FaExternalLinkAlt,
+} from "react-icons/fa";
 import Link from "next/link";
+import cloneDeep from "lodash/cloneDeep";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import {
   NewExperimentRefRule,
   generateVariationId,
@@ -28,17 +38,18 @@ import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import useIncrementer from "@/hooks/useIncrementer";
-import Field from "../Forms/Field";
-import Modal from "../Modal";
-import { useAuth } from "../../services/auth";
-import SelectField from "../Forms/SelectField";
-import UpgradeModal from "../Settings/UpgradeModal";
-import StatusIndicator from "../Experiment/StatusIndicator";
-import Toggle from "../Forms/Toggle";
-import { getNewExperimentDatasourceDefaults } from "../Experiment/NewExperimentForm";
-import TargetingInfo from "../Experiment/TabbedPage/TargetingInfo";
-import EditTargetingModal from "../Experiment/EditTargetingModal";
+import { useIncrementer } from "@/hooks/useIncrementer";
+import { useAuth } from "@/services/auth";
+import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
+import Field from "@/components/Forms/Field";
+import Modal from "@/components/Modal";
+import SelectField from "@/components/Forms/SelectField";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
+import StatusIndicator from "@/components/Experiment/StatusIndicator";
+import Toggle from "@/components/Forms/Toggle";
+import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
+import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
+import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import RolloutPercentInput from "./RolloutPercentInput";
 import ConditionInput from "./ConditionInput";
 import FeatureValueField from "./FeatureValueField";
@@ -56,6 +67,7 @@ export interface Props {
   i: number;
   environment: string;
   defaultType?: string;
+  revisions?: FeatureRevisionInterface[];
 }
 
 export default function RuleModal({
@@ -67,6 +79,7 @@ export default function RuleModal({
   defaultType = "force",
   version,
   setVersion,
+  revisions,
 }: Props) {
   const attributeSchema = useAttributeSchema();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -138,6 +151,38 @@ export default function RuleModal({
 
   const experimentId = form.watch("experimentId");
   const selectedExperiment = experimentsMap.get(experimentId) || null;
+
+  const prerequisites = form.watch("prerequisites") || [];
+  const [isCyclic, cyclicFeatureId] = useMemo(() => {
+    if (!prerequisites.length) return [false, null];
+    const newFeature = cloneDeep(feature);
+    const revision = revisions?.find((r) => r.version === version);
+    const newRevision = cloneDeep(revision);
+    if (newRevision) {
+      // merge form values into revision
+      const newRule = form.getValues() as FeatureRule;
+      newRevision.rules[environment][i] = newRule;
+    }
+    const featuresMap = new Map(features.map((f) => [f.id, f]));
+    return isFeatureCyclic(newFeature, featuresMap, newRevision);
+  }, [
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    JSON.stringify(prerequisites),
+    prerequisites.length,
+    features,
+    feature,
+    revisions,
+    version,
+    environment,
+    form,
+    i,
+  ]);
+
+  const [
+    prerequisiteTargetingSdkIssues,
+    setPrerequisiteTargetingSdkIssues,
+  ] = useState(false);
+  const canSubmit = !isCyclic && !prerequisiteTargetingSdkIssues;
 
   if (showUpgradeModal) {
     return (
@@ -232,7 +277,11 @@ export default function RuleModal({
       close={close}
       size="lg"
       cta="Save"
-      header={rule ? "Edit Override Rule" : "New Override Rule"}
+      ctaEnabled={canSubmit}
+      bodyClassName="px-4"
+      header={`${
+        rule ? "Edit Override Rule" : "New Override Rule"
+      } in ${environment}`}
       submit={form.handleSubmit(async (values) => {
         const ruleAction = i === rules.length ? "add" : "edit";
 
@@ -328,6 +377,7 @@ export default function RuleModal({
                 {
                   condition: values.condition || "",
                   savedGroups: values.savedGroups || [],
+                  prerequisites: values.prerequisites || [],
                   coverage: values.coverage ?? 1,
                   dateStarted: new Date().toISOString().substr(0, 16),
                   name: "Main",
@@ -399,6 +449,7 @@ export default function RuleModal({
 
             delete (values as FeatureRule).condition;
             delete (values as FeatureRule).savedGroups;
+            delete (values as FeatureRule).prerequisites;
             // eslint-disable-next-line
             delete (values as any).value;
           }
@@ -426,6 +477,7 @@ export default function RuleModal({
             type: values.type,
             hasCondition: values.condition && values.condition.length > 2,
             hasSavedGroups: !!values.savedGroups?.length,
+            hasPrerequisites: !!values.prerequisites?.length,
             hasDescription: values.description.length > 0,
           });
 
@@ -450,6 +502,7 @@ export default function RuleModal({
             type: values.type,
             hasCondition: values.condition && values.condition.length > 2,
             hasSavedGroups: !!values.savedGroups?.length,
+            hasPrerequisites: !!values.prerequisites?.length,
             hasDescription: values.description.length > 0,
             error: e.message,
           });
@@ -462,22 +515,30 @@ export default function RuleModal({
     >
       <div className="alert alert-info">
         {rules[i] ? "Changes here" : "New rules"} will be added to a draft
-        revision. You will have a chance to review them first before making them
-        live.
+        revision. You will be able to review them before making them live.
       </div>
-      <h3>{environment}</h3>
-      <SelectField
-        label="Type of Rule"
-        readOnly={!!rules[i]}
-        disabled={!!rules[i]}
-        value={type}
-        sort={false}
-        onChange={(v) => {
-          changeRuleType(v);
-        }}
-        options={ruleTypeOptions}
-      />
-      {showNewExperimentRuleMessage ? (
+
+      <div className="form-group mt-3">
+        <label>Rule Type</label>
+        {!rules[i] ? (
+          <SelectField
+            readOnly={!!rules[i]}
+            value={type}
+            sort={false}
+            onChange={(v) => {
+              changeRuleType(v);
+            }}
+            options={ruleTypeOptions}
+          />
+        ) : (
+          <div className="border rounded py-2 px-3">
+            {ruleTypeOptions.find((r) => r.value === type)?.label || type}
+            <Field type={"hidden"} {...form.register("type")} />
+          </div>
+        )}
+      </div>
+
+      {showNewExperimentRuleMessage && (
         <div className="appbox p-3 bg-light">
           <h4 className="text-purple">
             <FaBell /> We&apos;ve changed how Experiment rules work!
@@ -495,7 +556,8 @@ export default function RuleModal({
             existing ones will continue to behave how they used to.
           </div>
         </div>
-      ) : null}
+      )}
+
       {type === "experiment-ref" && (
         <div>
           {experimentOptions.length > 0 ? (
@@ -574,10 +636,12 @@ export default function RuleModal({
             <div className="appbox px-3 pt-3 bg-light">
               {!canEditTargeting && (
                 <div className="alert alert-info">
-                  <Link href={`/experiment/${selectedExperiment.id}#overview`}>
-                    <a className="alert-link">
-                      View the Experiment <FaExternalLinkAlt />
-                    </a>
+                  <Link
+                    href={`/experiment/${selectedExperiment.id}#overview`}
+                    className="alert-link"
+                  >
+                    View the Experiment
+                    <FaExternalLinkAlt />
                   </Link>{" "}
                   to make changes to assignment or targeting conditions.
                 </div>
@@ -613,30 +677,19 @@ export default function RuleModal({
           )}
         </div>
       )}
+
       {type === "experiment-ref-new" && (
         <Field label="Experiment Name" {...form.register("name")} required />
       )}
+
       {type !== "experiment-ref" && (
-        <>
-          <Field
-            label="Description (optional)"
-            textarea
-            minRows={1}
-            {...form.register("description")}
-            placeholder="Short human-readable description of the rule"
-          />
-          <SavedGroupTargetingField
-            value={form.watch("savedGroups") || []}
-            setValue={(savedGroups) =>
-              form.setValue("savedGroups", savedGroups)
-            }
-          />
-          <ConditionInput
-            defaultValue={form.watch("condition") || ""}
-            onChange={(value) => form.setValue("condition", value)}
-            key={conditionKey}
-          />
-        </>
+        <Field
+          label="Description"
+          textarea
+          minRows={1}
+          {...form.register("description")}
+          placeholder="Short human-readable description of the rule"
+        />
       )}
       {type === "force" && (
         <FeatureValueField
@@ -647,57 +700,127 @@ export default function RuleModal({
           valueType={feature.valueType}
         />
       )}
+
       {type === "rollout" && (
         <div>
           <FeatureValueField
-            label="Value to Rollout"
+            label="Value to roll out"
             id="value"
             value={form.watch("value")}
             setValue={(v) => form.setValue("value", v)}
             valueType={feature.valueType}
           />
-          <RolloutPercentInput
-            value={form.watch("coverage") || 0}
-            setValue={(coverage) => {
-              form.setValue("coverage", coverage);
-            }}
-          />
-          <SelectField
-            label="Assign value based on attribute"
-            options={attributeSchema
-              .filter((s) => !hasHashAttributes || s.hashAttribute)
-              .map((s) => ({ label: s.property, value: s.property }))}
-            value={form.watch("hashAttribute")}
-            onChange={(v) => {
-              form.setValue("hashAttribute", v);
-            }}
-            helpText={
-              "Will be hashed together with the Tracking Key to determine which variation to assign"
-            }
-          />
+          <div className="appbox mt-4 mb-4 px-3 pt-3 bg-light">
+            <RolloutPercentInput
+              value={form.watch("coverage") || 0}
+              setValue={(coverage) => {
+                form.setValue("coverage", coverage);
+              }}
+              className="mb-1"
+            />
+            <SelectField
+              label="Assign value based on attribute"
+              options={attributeSchema
+                .filter((s) => !hasHashAttributes || s.hashAttribute)
+                .map((s) => ({ label: s.property, value: s.property }))}
+              value={form.watch("hashAttribute")}
+              onChange={(v) => {
+                form.setValue("hashAttribute", v);
+              }}
+              helpText={
+                "Will be hashed together with the Tracking Key to determine which variation to assign"
+              }
+            />
+          </div>
         </div>
       )}
+
+      {(type !== "experiment-ref" && type !== "experiment-ref-new") ||
+      rule?.scheduleRules?.length ? (
+        <ScheduleInputs
+          defaultValue={defaultValues.scheduleRules || []}
+          onChange={(value) => form.setValue("scheduleRules", value)}
+          scheduleToggleEnabled={scheduleToggleEnabled}
+          setScheduleToggleEnabled={setScheduleToggleEnabled}
+          setShowUpgradeModal={setShowUpgradeModal}
+          title="Add scheduling to automatically enable/disable this rule"
+        />
+      ) : null}
+
       {(type === "experiment" || type === "experiment-ref-new") && (
-        <div>
-          <Field
-            label="Tracking Key"
-            {...form.register(`trackingKey`)}
-            placeholder={feature.id}
-            helpText="Unique identifier for this experiment, used to track impressions and analyze results"
-          />
-          <SelectField
-            label="Assign value based on attribute"
-            options={attributeSchema
-              .filter((s) => !hasHashAttributes || s.hashAttribute)
-              .map((s) => ({ label: s.property, value: s.property }))}
-            value={form.watch("hashAttribute")}
-            onChange={(v) => {
-              form.setValue("hashAttribute", v);
-            }}
-            helpText={
-              "Will be hashed together with the Tracking Key to determine which variation to assign"
+        <>
+          <div className="mt-4 mb-4">
+            <Field
+              label="Tracking Key"
+              {...form.register(`trackingKey`)}
+              placeholder={feature.id}
+              helpText="Unique identifier for this experiment, used to track impressions and analyze results"
+            />
+            <SelectField
+              label="Assign value based on attribute"
+              options={attributeSchema
+                .filter((s) => !hasHashAttributes || s.hashAttribute)
+                .map((s) => ({ label: s.property, value: s.property }))}
+              value={form.watch("hashAttribute")}
+              onChange={(v) => {
+                form.setValue("hashAttribute", v);
+              }}
+              helpText={
+                "Will be hashed together with the Tracking Key to determine which variation to assign"
+              }
+            />
+          </div>
+          <hr />
+        </>
+      )}
+
+      {!(
+        type === "experiment" ||
+        type === "experiment-ref" ||
+        type === "experiment-ref-new"
+      ) && <hr />}
+
+      {type !== "experiment-ref" && (
+        <div className="mt-4">
+          <SavedGroupTargetingField
+            value={form.watch("savedGroups") || []}
+            setValue={(savedGroups) =>
+              form.setValue("savedGroups", savedGroups)
             }
           />
+          <hr />
+          <ConditionInput
+            defaultValue={form.watch("condition") || ""}
+            onChange={(value) => form.setValue("condition", value)}
+            key={conditionKey}
+          />
+          <hr />
+          <PrerequisiteTargetingField
+            value={form.watch("prerequisites") || []}
+            setValue={(prerequisites) =>
+              form.setValue("prerequisites", prerequisites)
+            }
+            feature={feature}
+            revisions={revisions}
+            version={version}
+            environments={[environment]}
+            setPrerequisiteTargetingSdkIssues={
+              setPrerequisiteTargetingSdkIssues
+            }
+          />
+          {(type === "experiment" || type === "experiment-ref-new") && <hr />}
+        </div>
+      )}
+      {isCyclic && (
+        <div className="alert alert-danger">
+          <FaExclamationTriangle /> A prerequisite (
+          <code>{cyclicFeatureId}</code>) creates a circular dependency. Remove
+          this prerequisite to continue.
+        </div>
+      )}
+
+      {(type === "experiment" || type === "experiment-ref-new") && (
+        <div>
           <FeatureVariationsInput
             defaultValue={getFeatureDefaultValue(feature)}
             valueType={feature.valueType}
@@ -730,7 +853,7 @@ export default function RuleModal({
           )}
         </div>
       )}
-      {type === "experiment-ref-new" ? (
+      {type === "experiment-ref-new" && (
         <div className="mb-3">
           <Toggle
             value={form.watch("autoStart")}
@@ -760,15 +883,7 @@ export default function RuleModal({
             </div>
           )}
         </div>
-      ) : type !== "experiment-ref" || rule?.scheduleRules?.length ? (
-        <ScheduleInputs
-          defaultValue={defaultValues.scheduleRules || []}
-          onChange={(value) => form.setValue("scheduleRules", value)}
-          scheduleToggleEnabled={scheduleToggleEnabled}
-          setScheduleToggleEnabled={setScheduleToggleEnabled}
-          setShowUpgradeModal={setShowUpgradeModal}
-        />
-      ) : null}
+      )}
     </Modal>
   );
 }

@@ -4,8 +4,8 @@ import { BsQuestionLg, BsXLg } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
-import { GBPremiumBadge } from "../Icons";
-import UpgradeModal from "../Settings/UpgradeModal";
+import { GBPremiumBadge } from "@/components/Icons";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 
 export default function InAppHelp() {
   const config = useFeature("pylon-config").value;

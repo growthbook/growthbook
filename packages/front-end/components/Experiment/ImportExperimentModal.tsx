@@ -4,7 +4,8 @@ import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Modal from "../Modal";
+import Modal from "@/components/Modal";
+import SelectField from "@/components/Forms/SelectField";
 import ImportExperimentList from "./ImportExperimentList";
 import NewExperimentForm from "./NewExperimentForm";
 
@@ -29,6 +30,7 @@ const ImportExperimentModal: FC<{
   ] = useState<null | Partial<ExperimentInterfaceStringDates>>(
     initialValue ?? null
   );
+  const [error, setError] = useState<string | null>(null);
   const [importModal, setImportModal] = useState<boolean>(importMode);
   const [datasourceId, setDatasourceId] = useState(() => {
     const validDatasources = datasources
@@ -53,6 +55,7 @@ const ImportExperimentModal: FC<{
   const { apiCall } = useAuth();
 
   const getImportId = async () => {
+    setError(null);
     if (datasourceId) {
       try {
         const res = await apiCall<{ id: string }>("/experiments/import", {
@@ -65,6 +68,9 @@ const ImportExperimentModal: FC<{
           setImportId(res.id);
         }
       } catch (e) {
+        setError(
+          e.message ?? "An error occurred. Please refresh and try again."
+        );
         console.error(e);
       }
     }
@@ -115,6 +121,17 @@ const ImportExperimentModal: FC<{
           importId={importId}
         />
       )}
+      {error ? (
+        <>
+          <div className="alert alert-danger">{error}</div>
+          <SelectField
+            label="Choose a Data Source"
+            value={datasourceId}
+            onChange={(value) => setDatasourceId(value)}
+            options={datasources.map((d) => ({ label: d.name, value: d.id }))}
+          />
+        </>
+      ) : null}
     </Modal>
   );
 };

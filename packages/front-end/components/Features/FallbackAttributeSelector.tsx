@@ -7,7 +7,7 @@ import {
   FaQuestionCircle,
 } from "react-icons/fa";
 import { FaGear } from "react-icons/fa6";
-import { getConnectionsSDKCapabilities } from "shared/dist/sdk-versioning";
+import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAttributeSchema } from "@/services/features";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -16,8 +16,8 @@ import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { DocLink } from "@/components/DocLink";
-import SelectField from "../Forms/SelectField";
-import Toggle from "../Forms/Toggle";
+import SelectField from "@/components/Forms/SelectField";
+import Toggle from "@/components/Forms/Toggle";
 
 export interface Props {
   // eslint-disable-next-line
@@ -37,9 +37,9 @@ export default function FallbackAttributeSelector({ form }: Props) {
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
 
   const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithStickyBucketing = getConnectionsSDKCapabilities(
-    sdkConnectionsData?.connections || []
-  ).includes("stickyBucketing");
+  const hasSDKWithStickyBucketing = getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections || [],
+  }).includes("stickyBucketing");
 
   const attributeSchema = useAttributeSchema();
   const hasHashAttributes =

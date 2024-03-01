@@ -5,13 +5,14 @@ import track from "@/services/track";
 import usePermissions from "@/hooks/usePermissions";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
-import Toggle from "../Forms/Toggle";
+import Toggle from "@/components/Forms/Toggle";
 
 export interface Props {
   feature: FeatureInterface;
   environment: string;
   mutate: () => void;
   id?: string;
+  className?: string;
 }
 
 export default function EnvironmentToggle({
@@ -19,6 +20,7 @@ export default function EnvironmentToggle({
   environment,
   mutate,
   id = "",
+  className = "mr-1",
 }: Props) {
   const [toggling, setToggling] = useState(false);
 
@@ -101,6 +103,7 @@ export default function EnvironmentToggle({
           }
         }}
         type="environment"
+        className={className}
       />
     </>
   );

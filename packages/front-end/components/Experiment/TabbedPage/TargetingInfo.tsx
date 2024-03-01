@@ -9,7 +9,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { formatTrafficSplit } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
-import { HashVersionTooltip } from "../HashVersionSelector";
+import { HashVersionTooltip } from "@/components/Experiment/HashVersionSelector";
 
 export interface Props {
   phaseIndex?: number | null;
@@ -58,6 +58,10 @@ export default function TargetingInfo({
       JSON.stringify(phase.savedGroups || []);
   const hasConditionChanges =
     showChanges && changes?.condition !== phase.condition;
+  const hasPrerequisiteChanges =
+    showChanges &&
+    JSON.stringify(changes?.prerequisites || []) !==
+      JSON.stringify(phase.prerequisites || []);
   const hasCoverageChanges =
     showChanges && changes?.coverage !== phase.coverage;
   const hasVariationWeightsChanges =
@@ -139,7 +143,8 @@ export default function TargetingInfo({
             {(!showChanges ||
               showFullTargetingInfo ||
               hasSavedGroupsChanges ||
-              hasConditionChanges) && (
+              hasConditionChanges ||
+              hasPrerequisiteChanges) && (
               <>
                 <div className="mb-3">
                   <div className="mb-1">
@@ -215,6 +220,49 @@ export default function TargetingInfo({
                         <div>
                           {changes?.condition && changes.condition !== "{}" ? (
                             <ConditionDisplay condition={changes.condition} />
+                          ) : (
+                            <em>None</em>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="mb-3">
+                  <div className="mb-1">
+                    <strong>Prerequisite targeting</strong>
+                  </div>
+                  <div className="d-flex">
+                    <div
+                      className={clsx("d-flex", {
+                        "text-danger font-weight-bold": hasPrerequisiteChanges,
+                      })}
+                    >
+                      {hasPrerequisiteChanges && (
+                        <div className="text-center mx-1" style={{ width: 20 }}>
+                          Δ
+                        </div>
+                      )}
+                      <div>
+                        {phase.prerequisites?.length ? (
+                          <ConditionDisplay
+                            prerequisites={phase.prerequisites}
+                          />
+                        ) : (
+                          <em>None</em>
+                        )}
+                      </div>
+                    </div>
+                    {hasPrerequisiteChanges && (
+                      <div className="font-weight-bold text-success d-flex ml-4">
+                        <div className="text-center mx-1" style={{ width: 20 }}>
+                          →
+                        </div>
+                        <div>
+                          {changes?.prerequisites?.length ? (
+                            <ConditionDisplay
+                              prerequisites={changes.prerequisites}
+                            />
                           ) : (
                             <em>None</em>
                           )}

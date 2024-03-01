@@ -406,6 +406,9 @@ async function fetchFeatures(
     // TODO: auto-retry if status code indicates a temporary error
     promise = fetcher
       .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP error: ${res.status}`);
+        }
         if (res.headers.get("x-sse-support") === "enabled") {
           supportsSSE.add(key);
         }

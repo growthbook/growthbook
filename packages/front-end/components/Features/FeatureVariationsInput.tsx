@@ -11,8 +11,8 @@ import {
   generateVariationId,
   getDefaultVariationValue,
 } from "@/services/features";
-import { GBAddCircle } from "../Icons";
-import Tooltip from "../Tooltip/Tooltip";
+import { GBAddCircle } from "@/components/Icons";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import styles from "./VariationsInput.module.scss";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import {

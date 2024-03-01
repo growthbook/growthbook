@@ -1,5 +1,5 @@
 import { ReactNode, FC, useState, ReactElement } from "react";
-import Modal from "../Modal";
+import Modal from "@/components/Modal";
 
 const ConfirmButton: FC<{
   onClick: () => Promise<void>;
@@ -8,6 +8,7 @@ const ConfirmButton: FC<{
   ctaColor?: string;
   cta?: string;
   children: ReactNode;
+  disabled?: boolean;
 }> = ({
   onClick,
   modalHeader,
@@ -15,6 +16,7 @@ const ConfirmButton: FC<{
   cta = "Yes",
   ctaColor = "primary",
   children,
+  disabled = false,
 }) => {
   const [confirming, setConfirming] = useState(false);
   return (
@@ -36,7 +38,7 @@ const ConfirmButton: FC<{
       <span
         onClick={(e) => {
           e.preventDefault();
-          setConfirming(true);
+          !disabled && setConfirming(true);
         }}
       >
         {children}
