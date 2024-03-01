@@ -170,10 +170,8 @@ const TopNav: FC<{
 
               {(watchedExperiments.length > 0 ||
                 watchedFeatures.length > 0) && (
-                <Link href="/activity">
-                  <a className="nav-link mr-1 text-secondary">
-                    <FaBell />
-                  </a>
+                <Link href="/activity" className="nav-link mr-1 text-secondary">
+                  <FaBell />
                 </Link>
               )}
             </>
@@ -262,28 +260,26 @@ const TopNav: FC<{
               {datasources?.length > 0 && (
                 <>
                   <div className="dropdown-divider"></div>
-                  <Link href={"/reports"}>
-                    <a
-                      className="dropdown-item"
-                      onClick={() => {
-                        setUserDropdownOpen(false);
-                      }}
-                    >
-                      My Reports
-                    </a>
+                  <Link
+                    href={"/reports"}
+                    className="dropdown-item"
+                    onClick={() => {
+                      setUserDropdownOpen(false);
+                    }}
+                  >
+                    My Reports
                   </Link>
                 </>
               )}
               <div className="dropdown-divider"></div>
-              <Link href={"/account/personal-access-tokens"}>
-                <a
-                  className="dropdown-item"
-                  onClick={() => {
-                    setUserDropdownOpen(false);
-                  }}
-                >
-                  My Personal Access Tokens
-                </a>
+              <Link
+                href={"/account/personal-access-tokens"}
+                className="dropdown-item"
+                onClick={() => {
+                  setUserDropdownOpen(false);
+                }}
+              >
+                My Personal Access Tokens
               </Link>
               <div className="dropdown-divider"></div>
               <button

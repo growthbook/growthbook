@@ -241,8 +241,8 @@ export default function ResultsTab({
                         metrics and stats engine to automatically analyze your
                         experiment results.
                       </p>
-                      <Link href="/datasources">
-                        <a className="btn btn-primary">Connect to your Data</a>
+                      <Link href="/datasources" className="btn btn-primary">
+                        Connect to your Data
                       </Link>
                     </>
                   )}

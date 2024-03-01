@@ -23,6 +23,7 @@ COPY packages/sdk-js/package.json ./packages/sdk-js/package.json
 COPY packages/sdk-react/package.json ./packages/sdk-react/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
 COPY packages/enterprise/package.json ./packages/enterprise/package.json
+COPY patches ./patches
 # Yarn install with dev dependencies (will be cached as long as dependencies don't change)
 RUN yarn install --frozen-lockfile --ignore-optional
 # Build the app and do a clean install with only production dependencies
