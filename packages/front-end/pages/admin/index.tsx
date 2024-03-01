@@ -1,149 +1,18 @@
 import { FC, useCallback, useEffect, useState } from "react";
 import { OrganizationInterface } from "back-end/types/organization";
-import clsx from "clsx";
-import {
-  FaAngleDown,
-  FaAngleRight,
-  FaPencilAlt,
-  FaPlus,
-  FaSearch,
-} from "react-icons/fa";
-import { date } from "shared/dates";
-import stringify from "json-stringify-pretty-compact";
-import Collapsible from "react-collapsible";
+import { FaPlus, FaSearch } from "react-icons/fa";
 import Field from "@/components/Forms/Field";
 import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
-import Code from "@/components/SyntaxHighlighting/Code";
 import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
 import { isCloud, isMultiOrg } from "@/services/env";
-import EditOrganization from "@/components/Admin/EditOrganization";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import CreateOrganization from "@/components/Admin/CreateOrganization";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import { useAuth } from "@/services/auth";
+import OrganizationRow from "./OrganizationRow";
 
 const numberFormatter = new Intl.NumberFormat();
-
-function OrganizationRow({
-  organization,
-  current,
-  switchTo,
-  showExternalId,
-  onEdit,
-}: {
-  organization: OrganizationInterface;
-  switchTo: (organization: OrganizationInterface) => void;
-  current: boolean;
-  showExternalId: boolean;
-  onEdit: () => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const [editOrgModalOpen, setEditOrgModalOpen] = useState(false);
-
-  const { settings, members, ...otherAttributes } = organization;
-
-  return (
-    <>
-      {editOrgModalOpen && (
-        <EditOrganization
-          id={organization.id}
-          currentName={organization.name}
-          currentExternalId={organization.externalId || ""}
-          showExternalId={!isCloud()}
-          onEdit={onEdit}
-          close={() => setEditOrgModalOpen(false)}
-        />
-      )}
-      <tr
-        className={clsx({
-          "table-warning": current,
-        })}
-      >
-        <td>
-          <a
-            className={clsx("mb-1 h5")}
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              switchTo(organization);
-            }}
-          >
-            {organization.name}
-          </a>
-        </td>
-        <td>{organization.ownerEmail}</td>
-        <td>{date(organization.dateCreated)}</td>
-        <td>
-          <small>{organization.id}</small>
-        </td>
-        {showExternalId && (
-          <td>
-            <small>{organization.externalId}</small>
-          </td>
-        )}
-        <td className="p-0 text-center">
-          <a
-            href="#"
-            className="d-block w-100 h-100"
-            onClick={(e) => {
-              e.preventDefault();
-              setEditOrgModalOpen(true);
-            }}
-            style={{ lineHeight: "40px" }}
-          >
-            <FaPencilAlt />
-          </a>
-        </td>
-        <td style={{ width: 40 }} className="p-0 text-center">
-          <a
-            href="#"
-            className="d-block w-100 h-100"
-            onClick={(e) => {
-              e.preventDefault();
-              setExpanded(!expanded);
-            }}
-            style={{ fontSize: "1.2em", lineHeight: "40px" }}
-          >
-            {expanded ? <FaAngleDown /> : <FaAngleRight />}
-          </a>
-        </td>
-      </tr>
-      {expanded && (
-        <tr>
-          <td colSpan={5} className="bg-light">
-            <div className="mb-3">
-              <h3>Info</h3>
-              <Code language="json" code={stringify(otherAttributes)} />
-            </div>
-            <div className="mb-3">
-              <Collapsible
-                trigger={
-                  <h3>
-                    Settings <FaAngleRight className="chevron" />
-                  </h3>
-                }
-                transitionTime={150}
-              >
-                <Code language="json" code={stringify(settings)} />
-              </Collapsible>
-            </div>
-            <Collapsible
-              trigger={
-                <h3>
-                  Members <FaAngleRight className="chevron" />
-                </h3>
-              }
-              transitionTime={150}
-            >
-              <Code language="json" code={stringify(members)} />
-            </Collapsible>
-          </td>
-        </tr>
-      )}
-    </>
-  );
-}
 
 const Admin: FC = () => {
   const [page, setPage] = useState(1);
