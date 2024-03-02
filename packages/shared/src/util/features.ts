@@ -538,7 +538,7 @@ export function isFeatureCyclic(
   feature: FeatureInterface,
   featuresMap: Map<string, FeatureInterface>,
   revision?: FeatureRevisionInterface,
-  envs?: string[],
+  envs?: string[]
 ): [boolean, string | null] {
   const visited = new Set<string>();
   const stack = new Set<string>();
@@ -561,7 +561,7 @@ export function isFeatureCyclic(
     visited.add(feature.id);
 
     const prerequisiteIds = (feature.prerequisites || []).map((p) => p.id);
-    for (const eid in (feature.environmentSettings || {})) {
+    for (const eid in feature.environmentSettings || {}) {
       if (!envs?.includes(eid)) continue;
       const env = feature.environmentSettings?.[eid];
       if (!env?.rules) continue;
@@ -773,5 +773,5 @@ export function filterEnvironmentsByFeature(
   environments: Environment[],
   feature: FeatureInterface
 ): Environment[] {
-  return environments.filter((env) => featureHasEnvironment(feature, env))
+  return environments.filter((env) => featureHasEnvironment(feature, env));
 }

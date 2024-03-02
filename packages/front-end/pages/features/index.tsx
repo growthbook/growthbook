@@ -4,7 +4,12 @@ import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { ago, datetime } from "shared/dates";
-import {featureHasEnvironment, filterEnvironmentsByFeature, isFeatureStale, StaleFeatureReason} from "shared/util";
+import {
+  featureHasEnvironment,
+  filterEnvironmentsByFeature,
+  isFeatureStale,
+  StaleFeatureReason,
+} from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -123,7 +128,10 @@ export default function FeaturesPage() {
       { stale: boolean; reason?: StaleFeatureReason }
     > = {};
     featureItems.forEach((feature) => {
-      const featureEnvironments = filterEnvironmentsByFeature(environments, feature);
+      const featureEnvironments = filterEnvironmentsByFeature(
+        environments,
+        feature
+      );
       const envs = featureEnvironments.map((e) => e.id);
       staleFeatures[feature.id] = isFeatureStale({
         feature,

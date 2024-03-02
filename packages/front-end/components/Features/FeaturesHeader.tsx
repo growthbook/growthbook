@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import { useMemo, useState } from "react";
 import { FeatureInterface } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import {filterEnvironmentsByFeature, isFeatureStale} from "shared/util";
+import { filterEnvironmentsByFeature, isFeatureStale } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaHome, FaExclamationTriangle, FaCode } from "react-icons/fa";
 import { ImBlocked } from "react-icons/im";
