@@ -62,6 +62,10 @@ export default function Implementation({
   const hasLinkedChanges =
     visualChangesets.length > 0 || linkedFeatures.length > 0;
 
+  const visualChanges = visualChangesets.filter((c) => !c.urlRedirects?.length);
+
+  const redirects = visualChangesets.filter((c) => c.urlRedirects?.length);
+
   if (!hasLinkedChanges) {
     if (experiment.status === "draft") {
       return (
@@ -176,21 +180,31 @@ export default function Implementation({
         canAddChanges={canAddLinkedChanges}
         mutate={mutate}
       />
+      <AddLinkedChangesBanner
+        experiment={experiment}
+        numLinkedChanges={0}
+        linkedFeatures={linkedFeatures.length > 0}
+        linkedRedirects={redirects.length > 0}
+        visualChanges={visualChanges.length > 0}
+        setFeatureModal={setFeatureModal}
+        setVisualEditorModal={setVisualEditorModal}
+        setUrlRedirectModal={setUrlRedirectModal}
+      />
       {/* </div> */}
       {/* {hasLinkedChanges && (
-          <div className="col-md-4 col-lg-4 col-12 mb-3">
-            <div className="appbox p-3 h-100 mb-0">
-              <TargetingInfo
-                experiment={experiment}
-                editTargeting={editTargeting}
-                phaseIndex={phases.length - 1}
-              />
-            </div>
+        <div className="col-md-4 col-lg-4 col-12 mb-3">
+          <div className="appbox p-3 h-100 mb-0">
+            <TargetingInfo
+              experiment={experiment}
+              editTargeting={editTargeting}
+              phaseIndex={phases.length - 1}
+            />
           </div>
-        )} */}
+        </div>
+      )} */}
       {/* </div> */}
       {hasLinkedChanges && (
-        <div className="appbox p-3 h-100 mb-0">
+        <div className="appbox p-3 h-100 mb-2">
           <TargetingInfo
             experiment={experiment}
             editTargeting={editTargeting}

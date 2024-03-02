@@ -12,7 +12,7 @@ export interface Props {
   type: LinkedChange;
   canAddChanges: boolean;
   children: JSX.Element;
-  changeCount?: number;
+  changeCount: number;
   experimentStatus: ExperimentStatus;
   onAddChange: () => void;
 }
@@ -30,7 +30,8 @@ export default function LinkedChangesContainer({
   const hasFeature = type === "feature-flag" || hasVisualEditorFeature;
 
   // Don't display linked changes section if none have been added and experiment is no longer a draft
-  if (experimentStatus !== "draft" && changeCount === 0) return null;
+  if ((experimentStatus !== "draft" && changeCount === 0) || changeCount === 0)
+    return null;
 
   const { component: Icon, color } = ICON_PROPERTIES[type];
   const { header, addButtonCopy } = LINKED_CHANGE_CONTAINER_PROPERTIES[type];

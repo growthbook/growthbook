@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { diffChars } from "diff";
+import { useAuth } from "@/services/auth";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import UrlRedirectModal from "../UrlRedirectModal";
 import LinkedChangesContainer from "./LinkedChangesContainer";
 
@@ -15,10 +18,44 @@ interface RedirectLinkedChangesProps {
 interface RedirectProps {
   visualChangeset: VisualChangesetInterface;
   experiment: ExperimentInterfaceStringDates;
+  canEdit: boolean;
   mutate: () => void;
 }
 
-const Redirect = ({ visualChangeset, experiment, mutate }: RedirectProps) => {
+function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
+  const differences = diffChars(url1, url2);
+  const filtered = differences.filter((d) => !d.removed);
+
+  try {
+    const parsedUrl1 = new URL(url1);
+    const parsedUrl2 = new URL(url2);
+
+    if (parsedUrl1.hostname === parsedUrl2.hostname) {
+      return (
+        <>
+          {filtered.map((part, index) => {
+            if (part.added) {
+              return <b key={index}>{part.value}</b>;
+            } else {
+              return <span>{part.value}</span>;
+            }
+          })}
+        </>
+      );
+    } else return <span>{url2}</span>;
+  } catch {
+    console.error("Failed to parse URL to for redirect diff");
+    return <span>{url2}</span>;
+  }
+}
+
+const Redirect = ({
+  visualChangeset,
+  experiment,
+  mutate,
+  canEdit,
+}: RedirectProps) => {
+  const { apiCall } = useAuth();
   const [editingRedirect, setEditingRedirect] = useState<boolean>(false);
 
   return (
@@ -35,14 +72,28 @@ const Redirect = ({ visualChangeset, experiment, mutate }: RedirectProps) => {
       <div className="appbox p-3 mb-0">
         <div className="d-flex justify-content-between">
           <h5 className="mt-2">Original URL</h5>
-          <button
-            className="btn btn-link"
-            onClick={() => {
-              setEditingRedirect(true);
-            }}
-          >
-            Edit{" "}
-          </button>
+          {canEdit && (
+            <div>
+              <button
+                className="btn btn-link"
+                onClick={() => {
+                  setEditingRedirect(true);
+                }}
+              >
+                Edit{" "}
+              </button>
+              <DeleteButton
+                className="btn-sm ml-4"
+                onClick={async () => {
+                  await apiCall(`/visual-changesets/${visualChangeset.id}`, {
+                    method: "DELETE",
+                  });
+                  mutate();
+                }}
+                displayName="URL Redirect"
+              />
+            </div>
+          )}
         </div>
 
         <span>{visualChangeset.urlPatterns[0].pattern}</span>
@@ -71,7 +122,10 @@ const Redirect = ({ visualChangeset, experiment, mutate }: RedirectProps) => {
                 <h5 className="mb-0">{v.name}</h5>
                 {visualChangeset.urlRedirects &&
                 visualChangeset.urlRedirects[i]?.url ? (
-                  <span>{visualChangeset.urlRedirects[i].url}</span>
+                  <UrlDifferenceRenderer
+                    url1={visualChangeset.urlPatterns[0].pattern}
+                    url2={visualChangeset.urlRedirects[i].url}
+                  />
                 ) : (
                   <i className="text-muted">No redirect</i>
                 )}
@@ -108,6 +162,7 @@ export default function RedirectLinkedChanges({
               visualChangeset={v}
               experiment={experiment}
               mutate={mutate}
+              canEdit={canAddChanges}
             />
           </div>
         ))}

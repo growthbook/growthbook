@@ -35,8 +35,6 @@ const UrlRedirectModal: FC<{
   );
 
   const onSubmit = form.handleSubmit(async (value) => {
-    console.log("hellooooo");
-    console.log({ value });
     const payload = {
       urlPatterns: [
         {
