@@ -4,10 +4,10 @@ import {
   GLOBAL_PERMISSIONS,
   PROJECT_SCOPED_PERMISSIONS,
 } from "shared/permissions";
-import { ReqContextClass } from "../src/services/context";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
 import { MetricCappingSettings, MetricWindowSettings } from "./fact-table";
+import type { ReqContextInterface } from "./context";
 
 export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
 export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
@@ -283,4 +283,4 @@ export type NamespaceUsage = Record<
   }[]
 >;
 
-export type ReqContext = ReqContextClass;
+export type ReqContext = ReqContextInterface;

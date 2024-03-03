@@ -24,9 +24,10 @@ import { addTags, getAllTags } from "../models/TagModel";
 import { AuditInterface } from "../../types/audit";
 import { insertAudit } from "../models/AuditModel";
 import { logger } from "../util/logger";
+import { ReqContextInterface } from "../../types/context";
 import { getEnvironmentIdsFromOrg } from "./organizations";
 
-export class ReqContextClass {
+export class ReqContextClass implements ReqContextInterface {
   public org: OrganizationInterface;
   public userId = "";
   public email = "";

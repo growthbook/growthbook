@@ -4,11 +4,11 @@ import {
 } from "@growthbook/growthbook";
 import { EventAuditUser } from "../src/events/event-types";
 import { PermissionFunctions } from "../src/types/AuthRequest";
-import { ReqContextClass } from "../src/services/context";
 import { AuditInterface } from "./audit";
 import { ExperimentStatus } from "./experiment";
 import { OrganizationInterface } from "./organization";
 import { UserInterface } from "./user";
+import type { ReqContextInterface } from "./context";
 
 export interface ExperimentOverride {
   weights?: number[];
@@ -67,4 +67,4 @@ export interface PrivateApiErrorResponse {
   message: string;
 }
 
-export type ApiReqContext = ReqContextClass;
+export type ApiReqContext = ReqContextInterface;
