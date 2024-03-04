@@ -981,6 +981,8 @@ export function getContextForAgendaJobByOrgObject(
   return new ReqContextClass({
     org: organization,
     auditUser: null,
+    // TODO: Limit background job permissions to the user who created the job
+    role: "admin",
   });
 }
 

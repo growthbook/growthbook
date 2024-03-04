@@ -94,9 +94,13 @@ export class ReqContextClass implements ReqContextInterface {
     }
     // If an API key or background job is making this request
     else {
+      if (!role) {
+        throw new Error("Role must be provided for API key or background job");
+      }
+
       this.permissions = {
         global: {
-          permissions: roleToPermissionMap(role || "admin", org),
+          permissions: roleToPermissionMap(role, org),
           limitAccessByEnvironment: false,
           environments: [],
         },
