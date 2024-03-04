@@ -9,6 +9,7 @@ import { getAllMetricRegressionAdjustmentStatuses } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
+import { isURLTargeted } from "@growthbook/growthbook";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
@@ -24,6 +25,8 @@ import {
   createExperiment,
   deleteExperimentByIdForOrganization,
   getAllExperiments,
+  getAllPayloadExperiments,
+  getAllVisualExperiments,
   getExperimentById,
   getExperimentByTrackingKey,
   getPastExperimentsByDatasource,
@@ -81,7 +84,11 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "../../types/experiment-snapshot";
-import { VisualChangesetInterface } from "../../types/visual-changeset";
+import {
+  URLRedirect,
+  VisualChangesetInterface,
+  VisualChangesetURLPattern,
+} from "../../types/visual-changeset";
 import { ApiReqContext, PrivateApiErrorResponse } from "../../types/api";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
 import {
@@ -2197,6 +2204,55 @@ export async function postPastExperiments(
   }
 }
 
+async function _validateRedirect(
+  origin: VisualChangesetURLPattern[],
+  destinations: URLRedirect[],
+  context: ReqContext,
+  experiment: ExperimentInterface
+) {
+  const payloadExperiments = await getAllPayloadExperiments(context);
+  const visualChangesets = await getAllVisualExperiments(
+    context,
+    payloadExperiments
+  );
+  const originUrl = origin[0].pattern;
+
+  const existingRedirects = visualChangesets.reduce((filtered, exp) => {
+    if (
+      exp.visualChangeset.urlRedirects?.length &&
+      exp.visualChangeset.urlPatterns.length
+    ) {
+      filtered.push(exp.visualChangeset);
+    }
+    return filtered;
+  }, [] as VisualChangesetInterface[]);
+
+  existingRedirects.forEach((existing) => {
+    if (isURLTargeted(originUrl, existing.urlPatterns)) {
+      throw new Error("Origin URL matches an existing redirect's origin URL.");
+    }
+    existing.urlRedirects?.forEach((r) => {
+      if (isURLTargeted(r.url, origin)) {
+        throw new Error(
+          "Origin URL targets the destination url of an existing redirect."
+        );
+      }
+    });
+    destinations.forEach((dest) => {
+      if (isURLTargeted(dest.url, existing.urlPatterns)) {
+        const variationName = experiment?.variations.find(
+          (v) => v.id === dest.variation
+        )?.name;
+        throw new Error(
+          variationName
+            ? `Origin URL of an existing redirect targets the destination URL for "${variationName}" in this redirect.`
+            : "Origin URL of an existing redirect targets a destination URL in this redirect."
+        );
+      }
+    });
+  });
+}
+
 export async function postVisualChangeset(
   req: AuthRequest<Partial<VisualChangesetInterface>, { id: string }>,
   res: Response
@@ -2213,6 +2269,10 @@ export async function postVisualChangeset(
 
   const experiment = await getExperimentById(context, req.params.id);
 
+  if (!experiment) {
+    throw new Error("Could not find experiment");
+  }
+
   if (req.body.urlRedirects) {
     const variationIds = experiment?.variations.map((v) => v.id);
     const reqVariationIds = req.body.urlRedirects.map((r) => r.variation);
@@ -2223,10 +2283,11 @@ export async function postVisualChangeset(
     if (!areValidVariations) {
       throw new Error("Invalid variation IDs for urlRedirects");
     }
-  }
 
-  if (!experiment) {
-    throw new Error("Could not find experiment");
+    const origin = req.body.urlPatterns;
+    const destinations = req.body.urlRedirects;
+
+    await _validateRedirect(origin, destinations, context, experiment);
   }
 
   const envs = getAffectedEnvsForExperiment({
@@ -2266,6 +2327,16 @@ export async function putVisualChangeset(
     context,
     visualChangeset.experiment
   );
+  if (!experiment) {
+    throw new Error("Could not find experiment");
+  }
+
+  if (req.body.urlRedirects) {
+    const origin = req.body.urlPatterns ?? visualChangeset.urlPatterns;
+    const destinations = req.body.urlRedirects;
+
+    await _validateRedirect(origin, destinations, context, experiment);
+  }
 
   const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
   req.checkPermissions("runExperiments", experiment?.project || "", envs);
