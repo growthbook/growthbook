@@ -471,10 +471,6 @@ app.post(
   reportsController.postReportFromSnapshot
 );
 app.post(
-  "/experiments/:id/visual-changeset",
-  experimentsController.postVisualChangeset
-);
-app.post(
   "/experiments/launch-checklist",
   experimentLaunchChecklistController.postExperimentLaunchChecklist
 );
@@ -492,6 +488,10 @@ app.put(
 );
 
 // Visual Changesets
+app.post(
+  "/experiments/:id/visual-changeset",
+  experimentsController.postVisualChangeset
+);
 app.put("/visual-changesets/:id", experimentsController.putVisualChangeset);
 app.delete(
   "/visual-changesets/:id",
