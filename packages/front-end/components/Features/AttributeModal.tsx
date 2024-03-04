@@ -111,6 +111,7 @@ export default function AttributeModal({
       >
         <Field
           label="Attribute"
+          required
           {...form.register("property")}
           disabled={!!attribute}
         />

@@ -8,12 +8,23 @@ const router = express.Router();
 
 const AttributeController = wrapController(rawAttributesController);
 
+const dataTypes = [
+  "boolean",
+  "string",
+  "number",
+  "secureString",
+  "enum",
+  "string[]",
+  "number[]",
+  "secureString[]",
+] as const;
+
 router.post(
   "/",
   validateRequestMiddleware({
     body: z.object({
       property: z.string(),
-      datatype: z.string(), // can this do enums?
+      datatype: z.enum(dataTypes),
       projects: z.array(z.string()),
       format: z.string(),
       enum: z.string(),
@@ -33,7 +44,7 @@ router.put(
       .strict(),
     body: z.object({
       property: z.string(),
-      datatype: z.string(), // can this do enums?
+      datatype: z.enum(dataTypes),
       projects: z.array(z.string()),
       format: z.string(),
       enum: z.string(),
