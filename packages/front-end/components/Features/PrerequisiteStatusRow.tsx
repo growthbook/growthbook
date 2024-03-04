@@ -16,8 +16,8 @@ import track from "@/services/track";
 import usePermissions from "@/hooks/usePermissions";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ValueDisplay from "@/components/Features/ValueDisplay";
-import DeleteButton from "../DeleteButton/DeleteButton";
-import MoreMenu from "../Dropdown/MoreMenu";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
 
 interface Props {
   i: number;
@@ -45,17 +45,27 @@ export default function PrerequisiteStatusRow({
   const { apiCall } = useAuth();
 
   const envs = environments.map((e) => e.id);
+  const envsStr = JSON.stringify(envs);
 
-  const prereqStatesAndDefaults = useMemo(() => {
-    if (!parentFeature) return null;
-    const states: Record<string, PrerequisiteStateResult> = {};
-    const defaultValues: Record<string, string> = {};
-    envs.forEach((env) => {
-      states[env] = evaluatePrerequisiteState(parentFeature, features, env);
-      defaultValues[env] = parentFeature.defaultValue;
-    });
-    return { states, defaultValues };
-  }, [parentFeature, features, envs]);
+  const prereqStatesAndDefaults = useMemo(
+    () => {
+      if (!parentFeature) return null;
+      const states: Record<string, PrerequisiteStateResult> = {};
+      const defaultValues: Record<string, string> = {};
+      const featuresMap = new Map(features.map((f) => [f.id, f]));
+      envs.forEach((env) => {
+        states[env] = evaluatePrerequisiteState(
+          parentFeature,
+          featuresMap,
+          env
+        );
+        defaultValues[env] = parentFeature.defaultValue;
+      });
+      return { states, defaultValues };
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [parentFeature, features, envsStr]
+  );
 
   return (
     <tr>

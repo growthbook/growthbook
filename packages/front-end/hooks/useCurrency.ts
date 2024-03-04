@@ -1,4 +1,4 @@
-import { supportedCurrencies } from "@/pages/settings";
+import { supportedCurrencies } from "@/services/settings";
 import { useUser } from "@/services/UserContext";
 
 export function useCurrency(): string {

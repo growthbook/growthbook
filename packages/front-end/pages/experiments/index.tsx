@@ -363,8 +363,11 @@ const ExperimentsPage = (): React.ReactElement => {
                     >
                       <div className="d-flex flex-column">
                         <div className="d-flex">
-                          <Link href={`/experiment/${e.id}`}>
-                            <a className="testname">{e.name}</a>
+                          <Link
+                            href={`/experiment/${e.id}`}
+                            className="testname"
+                          >
+                            {e.name}
                           </Link>
                           {e.hasVisualChangesets ? (
                             <Tooltip

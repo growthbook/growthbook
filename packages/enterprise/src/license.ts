@@ -43,7 +43,8 @@ export type CommercialFeature =
   | "code-references"
   | "prerequisites"
   | "prerequisite-targeting"
-  | "redirects";
+  | "redirects"
+  | "multiple-sdk-webhooks";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface LicenseInterface {
@@ -116,6 +117,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "code-references",
     "prerequisites",
     "redirects",
+    "multiple-sdk-webhooks",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -135,6 +137,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "code-references",
     "prerequisites",
     "redirects",
+    "multiple-sdk-webhooks",
   ]),
   enterprise: new Set<CommercialFeature>([
     "scim",
@@ -164,6 +167,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "prerequisites",
     "prerequisite-targeting",
     "redirects",
+    "multiple-sdk-webhooks",
   ]),
 };
 

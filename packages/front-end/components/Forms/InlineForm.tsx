@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import { ReactElement, useState } from "react";
-import LoadingOverlay from "../LoadingOverlay";
-import LoadingSpinner from "../LoadingSpinner";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function InlineForm({
   editing,

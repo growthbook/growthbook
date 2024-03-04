@@ -10,10 +10,10 @@ import { useForm } from "react-hook-form";
 import { useState } from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
-import MarkdownInput from "../Markdown/MarkdownInput";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
 
 export interface Props {
   factTable: FactTableInterface;

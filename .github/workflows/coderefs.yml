@@ -1,0 +1,23 @@
+name: Find feature flag code references
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "packages/**"
+jobs:
+  codeRefs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # This value must be set if the lookback configuration option is
+          # defined for find-code-refs. Read more: 
+          # https://github.com/growthbook/gb-find-code-refs#searching-for-unused-flags-extinctions
+          fetch-depth: 11 
+      - name: GrowthBook Code References
+        uses: growthbook/coderefs-action@2.11.5-14
+        with:
+          apiKey: ${{ secrets.GB_API_TOKEN }}
+          apiHost: ${{ secrets.GB_API_HOST }}

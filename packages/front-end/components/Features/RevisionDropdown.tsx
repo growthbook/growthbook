@@ -1,8 +1,8 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { ago } from "shared/dates";
-import SelectField from "../Forms/SelectField";
-import AuditUser from "../Avatar/AuditUser";
+import SelectField from "@/components/Forms/SelectField";
+import AuditUser from "@/components/Avatar/AuditUser";
 
 export interface Props {
   feature: FeatureInterface;

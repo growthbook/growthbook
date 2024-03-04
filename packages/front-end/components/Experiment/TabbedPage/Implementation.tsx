@@ -9,13 +9,13 @@ import usePermissions from "@/hooks/usePermissions";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
 import track from "@/services/track";
-import { StartExperimentBanner } from "../StartExperimentBanner";
-import AddLinkedChangesBanner from "../LinkedChanges/AddLinkedChangesBanner";
-import RedirectLinkedChanges from "../LinkedChanges/RedirectLinkedChanges";
-import FeatureLinkedChanges from "../LinkedChanges/FeatureLinkedChanges";
-import VisualLinkedChanges from "../LinkedChanges/VisualLinkedChanges";
+import { StartExperimentBanner } from "@/components/Experiment/StartExperimentBanner";
+import AddLinkedChangesBanner from "@/components/Experiment/AddLinkedChangesBanner";
+import RedirectLinkedChanges from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
+import FeatureLinkedChanges from "@/components/Experiment/LinkedChanges/FeatureLinkedChanges";
+import VisualLinkedChanges from "@/components/Experiment/LinkedChanges/VisualLinkedChanges";
+import { ExperimentTab } from "@/components/Experiment/TabbedPage";
 import TargetingInfo from "./TargetingInfo";
-import { ExperimentTab } from ".";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;

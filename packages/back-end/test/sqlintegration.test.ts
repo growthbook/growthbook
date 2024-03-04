@@ -2,8 +2,9 @@ import BigQuery from "../src/integrations/BigQuery";
 import { MetricInterface } from "../types/metric";
 
 describe("bigquery integration", () => {
+  const bqIntegration = new BigQuery("", {});
+
   it("builds the correct aggregate metric column", () => {
-    const bqIntegration = new BigQuery("", {});
     const baseMetric: MetricInterface = {
       datasource: "",
       dateCreated: new Date(),
@@ -213,5 +214,10 @@ describe("bigquery integration", () => {
         activationMetric
       )
     ).toEqual(92);
+  });
+  it("escape single quotes and backslash correctly", () => {
+    expect(bqIntegration["escapeStringLiteral"](`test\\'string`)).toEqual(
+      `test\\\\\\'string`
+    );
   });
 });

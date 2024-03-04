@@ -3,7 +3,7 @@ import { StylesConfig } from "react-select";
 import { TagInterface } from "back-end/types/tag";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
-import MultiSelectField from "../Forms/MultiSelectField";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { isLight } from "./Tag";
 
 export interface ColorOption {
