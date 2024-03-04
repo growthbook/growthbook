@@ -9,6 +9,7 @@ import {
 import { getLicenseMetaData, initializeLicense } from "../services/licenseData";
 import { getUserLicenseCodes } from "../services/users";
 import { findUsersByIds, updateUserById } from "../models/UserModel";
+import { getContextFromReq } from "../services/organizations";
 
 export async function getOrganizations(
   req: AuthRequest<never, never, { page?: string; search?: string }>,
@@ -119,9 +120,29 @@ export async function updateUser(
       status: 403,
       message: "Only super admins can access this endpoint",
     });
+
   const { userId } = req.params;
   const updates = req.body;
+
+  // TODO Is there an easier way to do this?
+  if (Object.keys(updates).includes("superAdmin")) {
+    const context = getContextFromReq(req);
+    const memberIds = context.org.members.map((m) => m.id);
+    if (
+      !context.userId ||
+      !memberIds.length ||
+      !memberIds.includes(context.userId)
+    ) {
+      return res.status(403).json({
+        status: 403,
+        message:
+          "Only super admins that are members of an org can update its users to super admin status",
+      });
+    }
+  }
+
   const updated = await updateUserById(userId, updates);
+
   return res.status(200).json({
     updated,
   });

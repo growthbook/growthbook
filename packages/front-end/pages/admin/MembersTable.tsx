@@ -25,6 +25,7 @@ export default function MembersTable({
     if (!acc[m.id]) acc[m.id] = m;
     return acc;
   }, {} as Record<string, Member>);
+  const isMemberOf = userId ? Object.keys(membersById).includes(userId) : false;
   const setSuperAdminAccess = async (confirmation: SuperAdminConfirmation) => {
     try {
       await apiCall<{
@@ -71,7 +72,7 @@ export default function MembersTable({
               </td>
               <td>
                 <span>{u.superAdmin ? "✅" : "❌"}</span>
-                {u.id !== userId ? (
+                {isMemberOf && u.id !== userId ? (
                   <span className="ml-2" style={{ fontSize: "0.8rem" }}>
                     <a
                       href="#"
@@ -99,7 +100,7 @@ export default function MembersTable({
         } Super Admin Access`}
         yesText="Yes, I'm sure"
         noText="Nevermind"
-        modalState={!!confirm}
+        modalState={isMemberOf && !!confirm}
         setModalState={() => setConfirm(null)}
         onConfirm={() => {
           if (!confirm) return;
