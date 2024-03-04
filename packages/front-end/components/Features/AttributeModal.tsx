@@ -94,17 +94,14 @@ export default function AttributeModal({ close, attribute }: Props) {
         refreshOrganization();
       })}
     >
-      <Tooltip
-        shouldDisplay={!!attribute}
-        body="The attribute name cannot be changed after creation. If you need to change the name, you will need to create a new attribute and delete the old one."
-      >
-        <Field
-          label="Attribute"
-          required
-          {...form.register("property")}
-          disabled={!!attribute}
-        />
-      </Tooltip>
+      <Field label="Attribute" {...form.register("property")} />
+      {attribute && form.watch("property") !== attribute ? (
+        <div className="alert alert-warning">
+          Be careful changing the attribute name. Any existing targeting
+          conditions that use this attribute will NOT be updated automatically
+          and will still reference the old attribute name.
+        </div>
+      ) : null}
       {projects?.length > 0 && (
         <div className="form-group">
           <MultiSelectField
