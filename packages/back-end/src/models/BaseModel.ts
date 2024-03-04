@@ -3,7 +3,6 @@
 import uniqid from "uniqid";
 import mongoose, { FilterQuery } from "mongoose";
 import { Collection } from "mongodb";
-import { hasReadAccess } from "shared/permissions";
 import omit from "lodash/omit";
 import { z } from "zod";
 import { isEqual, pick, uniq } from "lodash";

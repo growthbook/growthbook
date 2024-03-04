@@ -2,6 +2,7 @@ import type { ReadAccessFilter } from "shared/permissions";
 import type pino from "pino";
 import type { Request } from "express";
 import type { EventAuditUser } from "../src/events/event-types";
+import type { FactMetricDataModel } from "../src/models/FactMetricModel";
 import { MemberRole, OrganizationInterface, Permission } from "./organization";
 import { TeamInterface } from "./team";
 import { AuditInterface } from "./audit";
@@ -22,6 +23,9 @@ export interface ReqContextInterface {
   apiKey?: string;
   req?: Request;
   logger: pino.BaseLogger;
+  models: {
+    factMetrics: FactMetricDataModel;
+  };
 
   hasPermission(
     permission: Permission,
