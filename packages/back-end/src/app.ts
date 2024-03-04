@@ -657,6 +657,7 @@ app.get("/admin/organizations", adminController.getOrganizations);
 app.get("/admin/license", adminController.getLicenseData);
 app.get("/admin/license-report", adminController.getLicenseReport);
 app.get("/admin/organization/:orgId/users", adminController.getUsersForOrg);
+app.post("/admin/user/:userId", adminController.updateUser);
 
 // Meta info
 app.get("/meta/ai", (req, res) => {
