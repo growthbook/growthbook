@@ -3,19 +3,17 @@ import { useState, useMemo, useRef } from "react";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { autoMerge, mergeResultHasChanges } from "shared/util";
 import { useForm } from "react-hook-form";
-import { ReviewSubmittedType } from "@/../back-end/src/models/FeatureRevisionModel";
-
 import { EventAuditUserLoggedIn } from "back-end/src/events/event-types";
 import { getCurrentUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
-import Button from "../Button";
-import RadioSelector from "../Forms/RadioSelector";
-import { ExpandableDiff } from "./DraftModal";
-import Revisionlog from "./RevisionLog";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
+import Button from "@/components/Button";
+import RadioSelector from "@/components/Forms/RadioSelector";
+import { ExpandableDiff } from "@/components/Features/DraftModal";
+import Revisionlog from "@/components/Features/RevisionLog";
 export interface Props {
   feature: FeatureInterface;
   version: number;
@@ -25,6 +23,7 @@ export interface Props {
   onPublish?: () => void;
   onDiscard?: () => void;
 }
+type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
 export default function RequestReviewModal({
   feature,
