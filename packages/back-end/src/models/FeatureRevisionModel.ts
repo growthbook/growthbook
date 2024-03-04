@@ -109,21 +109,6 @@ export async function hasDraft(
   return doc ? true : false;
 }
 
-export async function pendingReview(
-  organization: string,
-  feature: FeatureInterface,
-  excludeVersions: number[] = []
-): Promise<boolean> {
-  const doc = await FeatureRevisionModel.findOne({
-    organization,
-    featureId: feature.id,
-    status: { $in: ["pending-review", "changes-requested"] },
-    version: { $nin: excludeVersions },
-  });
-
-  return doc ? true : false;
-}
-
 export async function getRevision(
   organization: string,
   featureId: string,
@@ -376,7 +361,7 @@ export async function markRevisionAsReviewRequested(
       $set: {
         status: "pending-review",
         datePublished: null,
-        dateUpdated: null,
+        dateUpdated: new Date(),
         comment: comment,
       },
       $push: {
@@ -423,7 +408,7 @@ export async function submitReviewAndComments(
       $set: {
         status,
         datePublished: null,
-        dateUpdated: null,
+        dateUpdated: new Date(),
         comment: comment ?? revision.comment,
       },
       $push: {

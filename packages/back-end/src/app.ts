@@ -584,10 +584,7 @@ app.post(
   featuresController.postFeatureReviewOrComment
 );
 
-app.get(
-  "/feature/revisions/draftAndReview",
-  featuresController.getDraftandReviewRevisions
-);
+app.get("/revision/feature", featuresController.getDraftandReviewRevisions);
 
 // Data Sources
 app.get("/datasources", datasourcesController.getDataSources);

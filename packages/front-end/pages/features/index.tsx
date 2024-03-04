@@ -529,7 +529,7 @@ export default function FeaturesPage() {
           </div>
         </Tab>
         <Tab id="drafts" display="Drafts" padding={false} lazy={true}>
-          <FeaturesDraftTable />
+          <FeaturesDraftTable features={features} />
         </Tab>
       </Tabs>
     </div>

@@ -89,8 +89,6 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   superDelete: false,
   viewEvents: false,
   readData: false,
-  bypassApprovalChecks: false,
-  canReview: false,
 };
 
 export interface UserContextValue {

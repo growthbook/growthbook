@@ -6,10 +6,10 @@ import { useForm } from "react-hook-form";
 import { ReviewSubmittedType } from "@/../back-end/src/models/FeatureRevisionModel";
 
 import { EventAuditUserLoggedIn } from "back-end/src/events/event-types";
-import { useEnvironments } from "@/services/features";
-import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
 import { getCurrentUser } from "@/services/UserContext";
+import usePermissions from "@/hooks/usePermissions";
+import { useAuth } from "@/services/auth";
+import { useEnvironments } from "@/services/features";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import Button from "../Button";
@@ -45,7 +45,10 @@ export default function RequestReviewModal({
   const scrollToComment = () => {
     commentRef?.current?.scrollIntoView();
   };
-  const canAdminPublish = permissions.check("bypassApprovalChecks");
+  const canAdminPublish = permissions.check(
+    "bypassApprovalChecks",
+    feature.project
+  );
   const revision = revisions.find((r) => r.version === version);
   const isPendingReview =
     revision?.status === "pending-review" ||
@@ -54,7 +57,7 @@ export default function RequestReviewModal({
   const canReview =
     isPendingReview &&
     createdBy?.id !== user?.id &&
-    permissions.check("canReview");
+    permissions.check("canReview", feature.project);
   const approved = revision?.status === "approved" || adminPublish;
   const baseRevision = revisions.find(
     (r) => r.version === revision?.baseVersion
@@ -225,10 +228,7 @@ export default function RequestReviewModal({
             </div>
             {canAdminPublish && (
               <div className="mt-3 ml-1">
-                <div
-                  className="d-flex"
-                  style={{ color: "rgba(5, 5, 73, 0.65)" }}
-                >
+                <div className="d-flex">
                   <input
                     type="checkbox"
                     className="mr-2"

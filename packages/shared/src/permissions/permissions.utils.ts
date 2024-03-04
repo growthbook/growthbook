@@ -13,6 +13,8 @@ export const ENV_SCOPED_PERMISSIONS = [
 export const PROJECT_SCOPED_PERMISSIONS = [
   "readData",
   "addComments",
+  "bypassApprovalChecks",
+  "canReview",
   "createFeatureDrafts",
   "manageFeatures",
   "manageProjects",
@@ -45,8 +47,6 @@ export const GLOBAL_PERMISSIONS = [
   "manageSavedGroups",
   "manageArchetype",
   "viewEvents",
-  "bypassApprovalChecks",
-  "canReview",
 ] as const;
 
 export const ALL_PERMISSIONS = [

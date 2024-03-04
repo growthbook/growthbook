@@ -543,6 +543,7 @@ export async function postFeatureRequestReview(
   if (!feature) {
     throw new Error("Could not find feature");
   }
+  req.checkPermissions("createFeatureDrafts", feature.project);
 
   const revision = await getRevision(
     context.org.id,
@@ -578,7 +579,7 @@ export async function postFeatureReviewOrComment(
   if (!feature) {
     throw new Error("Could not find feature");
   }
-  req.checkPermissions("canReview");
+  req.checkPermissions("canReview", feature.project);
 
   const revision = await getRevision(
     context.org.id,
@@ -645,7 +646,7 @@ export async function postFeaturePublish(
     "approved",
   ];
   if (adminOverride && org.settings?.requireReviews) {
-    req.checkPermissions("bypassApprovalChecks");
+    req.checkPermissions("bypassApprovalChecks", feature.project);
   }
   if (!revision) {
     throw new Error("Could not find feature revision");
@@ -1345,30 +1346,9 @@ export async function getDraftandReviewRevisions(
     "changes-requested",
     "pending-review",
   ]);
-  const featuresAndRevisions: {
-    revision: FeatureRevisionInterface;
-    feature: FeatureInterface | null;
-  }[] = [];
-
-  for (const revision of revisions) {
-    if (revision) {
-      const feature = await getFeature(context, revision.featureId);
-      // we need to filter out features that are created after the revision
-      // eg someone deletes a feature with revisions and creates a new one with the same id
-      if (
-        feature &&
-        feature.dateCreated.getTime() <= revision.dateCreated.getTime()
-      ) {
-        featuresAndRevisions.push({
-          revision,
-          feature,
-        });
-      }
-    }
-  }
   res.status(200).json({
     status: 200,
-    featuresAndRevisions,
+    revisions,
   });
 }
 

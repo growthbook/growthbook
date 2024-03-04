@@ -1,6 +1,6 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { ago, datetime } from "shared/dates";
 import { EventAuditUserLoggedIn } from "back-end/src/events/event-types";
@@ -16,15 +16,17 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Pagination from "@/components/Pagination";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import LoadingOverlay from "@/components/LoadingOverlay";
-
-export default function FeaturesDraftTable() {
+export interface Props {
+  features: FeatureInterface[];
+}
+type FeaturesAndRevisions = FeatureRevisionInterface & {
+  feature: FeatureInterface;
+};
+export default function FeaturesDraftTable({ features }: Props) {
   const draftAndReviewData = useApi<{
     status: number;
-    featuresAndRevisions: {
-      feature: FeatureInterface;
-      revision: FeatureRevisionInterface;
-    }[];
-  }>(`/feature/revisions/draftAndReview`);
+    revisions: FeatureRevisionInterface[];
+  }>(`/revision/feature`);
   const [currentPage, setCurrentPage] = useState(1);
 
   const NUM_PER_PAGE = 20;
@@ -44,26 +46,37 @@ export default function FeaturesDraftTable() {
         return;
     }
   };
-  const featuresAndRevisions = useAddComputedFields(
-    data?.featuresAndRevisions,
-    (featureAndRevision) => {
-      const createdBy = featureAndRevision?.revision
-        ?.createdBy as EventAuditUserLoggedIn | null;
-      return {
-        id: featureAndRevision?.feature?.id,
-        tags: featureAndRevision?.feature?.tags,
-        status: featureAndRevision?.revision?.status,
-        version: featureAndRevision?.revision?.version,
-        dateUpdated: featureAndRevision?.revision?.dateUpdated,
-        project: featureAndRevision?.feature?.project,
-        creator: createdBy?.name,
-        comment: featureAndRevision?.revision?.comment,
-      };
-    }
+
+  const featuresAndRevisions = data?.revisions.reduce<FeaturesAndRevisions[]>(
+    (result, revision) => {
+      const feature = features.find((f) => f.id === revision.featureId);
+      if (feature && feature?.dateCreated <= revision.dateCreated) {
+        result.push({
+          ...revision,
+          feature,
+        });
+      }
+      return result;
+    },
+    []
   );
 
+  const revisions = useAddComputedFields(featuresAndRevisions, (revision) => {
+    const createdBy = revision?.createdBy as EventAuditUserLoggedIn | null;
+    return {
+      id: revision.feature?.id,
+      tags: revision.feature?.tags,
+      status: revision?.status,
+      version: revision?.version,
+      dateUpdated: revision?.dateUpdated,
+      project: revision.feature?.project,
+      creator: createdBy?.name,
+      comment: revision?.comment,
+    };
+  });
+
   const { searchInputProps, items, SortableTH } = useSearch({
-    items: featuresAndRevisions,
+    items: revisions,
     defaultSortField: "id",
     searchFields: ["id^3", "comment", "tags^2", "status", "creator"],
     transformQuery: removeEnvFromSearchTerm,
@@ -107,7 +120,7 @@ export default function FeaturesDraftTable() {
           </thead>
           <tbody>
             {items.slice(start, end).map((featureAndRevision) => {
-              const projectId = featureAndRevision.feature.project;
+              const projectId = featureAndRevision.project;
               const projectName = projectId
                 ? getProjectById(projectId)?.name || null
                 : null;
@@ -159,7 +172,7 @@ export default function FeaturesDraftTable() {
             })}
           </tbody>
         </table>
-        {Math.ceil(featuresAndRevisions.length / NUM_PER_PAGE) > 1 && (
+        {Math.ceil(revisions.length / NUM_PER_PAGE) > 1 && (
           <Pagination
             numItemsTotal={items.length}
             currentPage={currentPage}

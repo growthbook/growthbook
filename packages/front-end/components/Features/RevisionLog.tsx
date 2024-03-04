@@ -45,14 +45,13 @@ function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
       return valueContainsData ? <Code language="json" code={value} /> : null;
     }
   };
-  const openClickClassNames = clsx("d-flex p-3", {
+  const openClickClassNames = clsx("d-flex p-3 revision-log-header", {
     "cursor-pointer ": !(!!comment || !valueContainsData),
   });
   return (
-    <div className={`appbox mb-0 ${first ? "" : "mt-3"}`}>
+    <div className={`appbox mb-0 ${first ? "" : "mt-3"} revision-log`}>
       <div
         className={openClickClassNames}
-        style={{ backgroundColor: "#EDE9FE" }}
         onClick={(e) => {
           e.preventDefault();
           if (!(!valueContainsData || !!comment)) {
@@ -60,7 +59,7 @@ function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
           }
         }}
       >
-        <h4 className="mb-0" style={{ color: "#050549" }}>
+        <h4 className="mb-0">
           {log.action} {log.subject}
         </h4>
         {!(!valueContainsData || !!comment) && (
@@ -71,11 +70,7 @@ function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
       </div>
       <div className="p-3">
         {!valueContainsData ||
-          (!!comment && (
-            <div className="mb-3 " style={{ color: "rgba(5, 5, 73, 0.65)" }}>
-              {openContent()}
-            </div>
-          ))}
+          (!!comment && <div className="mb-3 ">{openContent()}</div>)}
         {open && openContent()}
         <div className="d-flex">
           {log.user?.type === "dashboard" && (
