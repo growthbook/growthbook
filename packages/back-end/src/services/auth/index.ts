@@ -221,6 +221,9 @@ export function validatePasswordFormat(password?: string): string {
   if (password.length < 8) {
     throw new Error("Password must be at least 8 characters.");
   }
+  if (password.length > 255) {
+    throw new Error("Password must be less than 256 characters.");
+  }
 
   return password;
 }
