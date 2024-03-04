@@ -39,23 +39,17 @@ const Admin: FC = () => {
     [apiCall]
   );
 
-  if (!superAdmin) {
+  if (!superAdmin)
     return (
       <div className="alert alert-danger">
         Only super admins can view this page
       </div>
     );
-  }
 
   return (
     <div className="container-fluid p-3 pagecontents">
       <h1>GrowthBook Admin</h1>
-      {!isCloud() && (
-        <div>
-          <ShowLicenseInfo showInput={false} />{" "}
-          <div className="divider border-bottom mb-3 mt-3" />
-        </div>
-      )}
+
       <OrgsTable
         loading={loading}
         error={error}
@@ -63,6 +57,13 @@ const Admin: FC = () => {
         total={total}
         loadOrgs={loadOrgs}
       />
+
+      {!isCloud() && (
+        <div>
+          <ShowLicenseInfo showInput={false} />{" "}
+          <div className="divider border-bottom mb-3 mt-3" />
+        </div>
+      )}
     </div>
   );
 };
