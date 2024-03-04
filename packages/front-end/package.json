@@ -23,6 +23,7 @@
     "@jitsu/sdk-js": "^2.2.0",
     "@jukben/emoji-search": "^2.0.1",
     "@popperjs/core": "^2.11.5",
+    "@radix-ui/themes": "^2.0.3",
     "@sentry/react": "^7.14.2",
     "@stdlib/stats": "^0.1.1",
     "@visx/axis": "^2.1.0",

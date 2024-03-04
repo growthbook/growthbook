@@ -101,7 +101,7 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
       const themeFromStorage = localStorage.getItem(STORAGE_KEY_THEME);
 
       if (themeFromStorage === "dark" || themeFromStorage === "light") {
-        document.documentElement.className = `theme--${themeFromStorage}`;
+        document.documentElement.className = `theme--${themeFromStorage} ${themeFromStorage}-theme`;
         setPreferredTheme(themeFromStorage);
       }
     } catch (e) {

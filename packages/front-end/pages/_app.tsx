@@ -1,11 +1,14 @@
 import { AppProps } from "next/app";
 import "../styles/global.scss";
+import "@radix-ui/themes/styles.css";
+import "../styles/theme-config.css";
 import Head from "next/head";
 import { useEffect, useState } from "react";
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
 import { PageHeadProvider } from "@/components/Layout/PageHead";
+import { RadixTheme } from "@/services/RadixTheme";
 import { AuthProvider } from "../services/auth";
 import ProtectedPage from "../components/ProtectedPage";
 import { DefinitionsProvider } from "../services/DefinitionsContext";
@@ -88,37 +91,43 @@ function App({
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       {ready ? (
-        preAuth ? (
-          <Component {...pageProps} />
-        ) : (
-          <PageHeadProvider>
-            <AuthProvider>
-              <AppearanceUIThemeProvider>
-                <GrowthBookProvider growthbook={growthbook}>
-                  <ProtectedPage organizationRequired={organizationRequired}>
-                    {organizationRequired ? (
-                      <DefinitionsProvider>
-                        {!liteLayout && <Layout />}
-                        <main className={`main ${parts[0]}`}>
-                          <OrganizationMessagesContainer />
-                          <DemoDataSourceGlobalBannerContainer />
-                          <Component {...pageProps} />
-                        </main>
-                      </DefinitionsProvider>
-                    ) : (
-                      <div>
-                        <TopNavLite />
-                        <main className="container mt-5">
-                          <Component {...pageProps} />
-                        </main>
-                      </div>
-                    )}
-                  </ProtectedPage>
-                </GrowthBookProvider>
-              </AppearanceUIThemeProvider>
-            </AuthProvider>
-          </PageHeadProvider>
-        )
+        <>
+          {preAuth ? (
+            <Component {...pageProps} />
+          ) : (
+            <PageHeadProvider>
+              <AuthProvider>
+                <AppearanceUIThemeProvider>
+                  <GrowthBookProvider growthbook={growthbook}>
+                    <RadixTheme>
+                      <ProtectedPage
+                        organizationRequired={organizationRequired}
+                      >
+                        {organizationRequired ? (
+                          <DefinitionsProvider>
+                            {!liteLayout && <Layout />}
+                            <main className={`main ${parts[0]}`}>
+                              <OrganizationMessagesContainer />
+                              <DemoDataSourceGlobalBannerContainer />
+                              <Component {...pageProps} />
+                            </main>
+                          </DefinitionsProvider>
+                        ) : (
+                          <div>
+                            <TopNavLite />
+                            <main className="container mt-5">
+                              <Component {...pageProps} />
+                            </main>
+                          </div>
+                        )}
+                      </ProtectedPage>
+                    </RadixTheme>
+                  </GrowthBookProvider>
+                </AppearanceUIThemeProvider>
+              </AuthProvider>
+            </PageHeadProvider>
+          )}
+        </>
       ) : error ? (
         <div className="container mt-3">
           <div className="alert alert-danger">
