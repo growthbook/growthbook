@@ -15,19 +15,16 @@ import Toggle from "@/components/Forms/Toggle";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { useUser } from "@/services/UserContext";
 
 export interface Props {
   close: () => void;
-  setAttributesForView: (attributes: SDKAttribute[]) => void;
   attribute?: string;
 }
 
-export default function AttributeModal({
-  close,
-  setAttributesForView,
-  attribute,
-}: Props) {
+export default function AttributeModal({ close, attribute }: Props) {
   const { projects, project } = useDefinitions();
+  const { refreshOrganization } = useUser();
 
   const { apiCall } = useAuth();
 
@@ -80,29 +77,21 @@ export default function AttributeModal({
         }
 
         const url = attribute ? `/attribute/${attribute}` : `/attribute`;
-        try {
-          const res = await apiCall<{
-            status: number;
-            attributeSchema: SDKAttribute[];
-          }>(url, {
-            method: attribute ? "PUT" : "POST",
-            body: JSON.stringify({
-              property: value.property,
-              datatype: value.datatype,
-              projects: value.projects,
-              format: value.format,
-              enum: value.enum,
-              hashAttribute: value.hashAttribute,
-            }),
-          });
-          setAttributesForView(res.attributeSchema);
-        } catch (e) {
-          throw new Error(
-            `Failed to ${attribute ? "update" : "create"} attribute: ${
-              e.message
-            }`
-          );
-        }
+
+        await apiCall<{
+          status: number;
+        }>(url, {
+          method: attribute ? "PUT" : "POST",
+          body: JSON.stringify({
+            property: value.property,
+            datatype: value.datatype,
+            projects: value.projects,
+            format: value.format,
+            enum: value.enum,
+            hashAttribute: value.hashAttribute,
+          }),
+        });
+        refreshOrganization();
       })}
     >
       <Tooltip

@@ -11,6 +11,7 @@ import AttributeModal from "@/components/Features/AttributeModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
+import { useUser } from "@/services/UserContext";
 
 const FeatureAttributesPage = (): React.ReactElement => {
   const permissions = usePermissions();
@@ -24,10 +25,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
   );
 
   const [modalData, setModalData] = useState<null | string>(null);
-
-  const [attributesForView, setAttributesForView] = useState(
-    () => attributeSchema || []
-  );
+  const { refreshOrganization } = useUser();
 
   const drawRow = (v: SDKAttribute, i: number) => (
     <tr className={v.archived ? "disabled" : ""} key={i}>
@@ -71,26 +69,21 @@ const FeatureAttributesPage = (): React.ReactElement => {
               className="dropdown-item"
               onClick={async (e) => {
                 e.preventDefault();
-                try {
-                  const res = await apiCall<{
-                    res: number;
-                    attributeSchema: SDKAttribute[];
-                  }>(`/attribute/${v.property}`, {
-                    method: "PUT",
-                    body: JSON.stringify({
-                      property: v.property,
-                      datatype: v.datatype,
-                      projects: v.projects,
-                      format: v.format,
-                      enum: v.enum,
-                      hashAttribute: v.hashAttribute,
-                      archived: !v.archived,
-                    }),
-                  });
-                  setAttributesForView(res.attributeSchema);
-                } catch (e) {
-                  console.error(e);
-                }
+                await apiCall<{
+                  res: number;
+                }>(`/attribute/${v.property}`, {
+                  method: "PUT",
+                  body: JSON.stringify({
+                    property: v.property,
+                    datatype: v.datatype,
+                    projects: v.projects,
+                    format: v.format,
+                    enum: v.enum,
+                    hashAttribute: v.hashAttribute,
+                    archived: !v.archived,
+                  }),
+                });
+                refreshOrganization();
               }}
             >
               {v.archived ? "Unarchive" : "Archive"}
@@ -99,13 +92,12 @@ const FeatureAttributesPage = (): React.ReactElement => {
               displayName="Attribute"
               className="dropdown-item text-danger"
               onClick={async () => {
-                const res = await apiCall<{
+                await apiCall<{
                   status: number;
-                  attributeSchema: SDKAttribute[];
                 }>(`/attribute/${v.property}`, {
                   method: "DELETE",
                 });
-                setAttributesForView(res.attributeSchema);
+                refreshOrganization();
               }}
               text="Delete"
               useIcon={false}
@@ -163,8 +155,8 @@ const FeatureAttributesPage = (): React.ReactElement => {
               </tr>
             </thead>
             <tbody>
-              {attributesForView?.length > 0 ? (
-                <>{attributesForView.map((v, i) => drawRow(v, i))}</>
+              {attributeSchema?.length > 0 ? (
+                <>{attributeSchema.map((v, i) => drawRow(v, i))}</>
               ) : (
                 <>
                   <tr>
@@ -181,7 +173,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
       {modalData !== null && (
         <AttributeModal
           close={() => setModalData(null)}
-          setAttributesForView={setAttributesForView}
           attribute={modalData}
         />
       )}

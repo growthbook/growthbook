@@ -7,7 +7,7 @@ import { auditDetailsUpdate } from "../../services/audit";
 
 export const postAttribute = async (
   req: AuthRequest<SDKAttribute>,
-  res: Response<{ status: number; attributeSchema: SDKAttribute[] }>
+  res: Response<{ status: number }>
 ) => {
   const {
     property,
@@ -71,23 +71,12 @@ export const postAttribute = async (
   });
   return res.status(200).json({
     status: 200,
-    attributeSchema: [
-      ...attributeSchema,
-      {
-        property,
-        datatype,
-        projects,
-        format,
-        enum: enumValue,
-        hashAttribute,
-      },
-    ],
   });
 };
 
 export const putAttribute = async (
   req: AuthRequest<SDKAttribute, { id: string }>,
-  res: Response<{ status: number; attributeSchema: SDKAttribute[] }>
+  res: Response<{ status: number }>
 ) => {
   const {
     property,
@@ -153,13 +142,12 @@ export const putAttribute = async (
   });
   return res.status(200).json({
     status: 200,
-    attributeSchema,
   });
 };
 
 export const deleteAttribute = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: number; attributeSchema: SDKAttribute[] }>
+  res: Response<{ status: number }>
 ) => {
   const { org } = getContextFromReq(req);
   const { id } = req.params;
@@ -204,6 +192,5 @@ export const deleteAttribute = async (
   });
   return res.status(200).json({
     status: 200,
-    attributeSchema: updatedArr,
   });
 };
