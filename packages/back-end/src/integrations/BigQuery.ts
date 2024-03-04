@@ -148,7 +148,7 @@ export default class BigQuery extends SqlIntegration {
     return `cast(${col} as string)`;
   }
   escapeStringLiteral(value: string): string {
-    return value.replace(/'/g, `\\'`);
+    return value.replace(/(['\\])/g, "\\$1");
   }
   castUserDateCol(column: string): string {
     return `CAST(${column} as DATETIME)`;

@@ -49,7 +49,7 @@ export default class Databricks extends SqlIntegration {
     return `cast(${col} as double)`;
   }
   escapeStringLiteral(value: string): string {
-    return value.replace(/'/g, `\\'`);
+    return value.replace(/(['\\])/g, "\\$1");
   }
 
   getDefaultDatabase(): string {
