@@ -22,6 +22,12 @@ export class FactMetricDataModel extends BaseModel<FactMetricSchema> {
       update: "createMetrics",
       delete: "createMetrics",
     },
+    auditLog: {
+      entity: "metric",
+      createEvent: "metric.create",
+      updateEvent: "metric.update",
+      deleteEvent: "metric.delete",
+    },
     projectScoping: "multiple",
     globallyUniqueIds: false,
     readonlyFields: ["datasource"],

@@ -11,6 +11,13 @@ import { ApiReqContext } from "../../types/api";
 import { Permission, ReqContext } from "../../types/organization";
 import { CreateProps, UpdateProps } from "../../types/models";
 import { logger } from "../util/logger";
+import { EventType } from "../../types/audit";
+import { EntityType } from "../types/Audit";
+import {
+  auditDetailsCreate,
+  auditDetailsDelete,
+  auditDetailsUpdate,
+} from "../services/audit";
 
 export type BaseSchema = z.ZodObject<
   {
@@ -31,6 +38,12 @@ export interface ModelConfig<T extends BaseSchema> {
     create: Permission | Permission[];
     update: Permission | Permission[];
     delete: Permission | Permission[];
+  };
+  auditLog: {
+    entity: EntityType;
+    createEvent: EventType;
+    updateEvent: EventType;
+    deleteEvent: EventType;
   };
   projectScoping: "none" | "single" | "multiple";
   globallyUniqueIds?: boolean;
@@ -385,7 +398,23 @@ export abstract class BaseModel<T extends BaseSchema> {
 
     await this._dangerousGetCollection().insertOne(doc);
 
-    // TODO: audit log
+    try {
+      await this.context.auditLog({
+        entity: {
+          object: this.config.auditLog.entity,
+          id: doc.id,
+          name:
+            ("name" in doc && typeof doc.name === "string" && doc.name) || "",
+        },
+        event: this.config.auditLog.createEvent,
+        details: auditDetailsCreate(doc),
+      });
+    } catch (e) {
+      this.context.logger.error(
+        e,
+        `Error creating audit log for ${this.config.auditLog.createEvent}`
+      );
+    }
 
     await this.afterCreate(doc);
 
@@ -399,7 +428,10 @@ export abstract class BaseModel<T extends BaseSchema> {
 
   protected async _updateOne(
     doc: z.infer<T>,
-    rawUpdates: unknown | UpdateProps<z.infer<T>>
+    rawUpdates: unknown | UpdateProps<z.infer<T>>,
+    options?: {
+      auditEvent?: EventType;
+    }
   ) {
     let updates = this.config.schema
       .omit({
@@ -474,7 +506,27 @@ export abstract class BaseModel<T extends BaseSchema> {
       }
     );
 
-    // TODO: audit log
+    const auditEvent = options?.auditEvent || this.config.auditLog.updateEvent;
+    try {
+      await this.context.auditLog({
+        entity: {
+          object: this.config.auditLog.entity,
+          id: doc.id,
+          name:
+            ("name" in newDoc &&
+              typeof newDoc.name === "string" &&
+              newDoc.name) ||
+            "",
+        },
+        event: auditEvent,
+        details: auditDetailsUpdate(doc, newDoc),
+      });
+    } catch (e) {
+      this.context.logger.error(
+        e,
+        `Error creating audit log for ${auditEvent}`
+      );
+    }
 
     await this.afterUpdate(doc, updates, newDoc);
 
@@ -495,7 +547,23 @@ export abstract class BaseModel<T extends BaseSchema> {
       id: doc.id,
     });
 
-    // TODO: audit log
+    try {
+      await this.context.auditLog({
+        entity: {
+          object: this.config.auditLog.entity,
+          id: doc.id,
+          name:
+            ("name" in doc && typeof doc.name === "string" && doc.name) || "",
+        },
+        event: this.config.auditLog.deleteEvent,
+        details: auditDetailsDelete(doc),
+      });
+    } catch (e) {
+      this.context.logger.error(
+        e,
+        `Error creating audit log for ${this.config.auditLog.deleteEvent}`
+      );
+    }
 
     await this.afterDelete(doc);
   }
