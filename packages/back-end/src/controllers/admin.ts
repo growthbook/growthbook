@@ -1,9 +1,13 @@
 import crypto from "crypto";
 import { Response } from "express";
 import { AuthRequest } from "../types/AuthRequest";
-import { findAllOrganizations } from "../models/OrganizationModel";
+import {
+  findAllOrganizations,
+  findOrganizationById,
+} from "../models/OrganizationModel";
 import { getLicenseMetaData, initializeLicense } from "../services/licenseData";
 import { getUserLicenseCodes } from "../services/users";
+import { findUsersByIds } from "../models/UserModel";
 
 export async function getOrganizations(
   req: AuthRequest<never, never, { page?: string; search?: string }>,
@@ -75,5 +79,32 @@ export async function getLicenseReport(req: AuthRequest, res: Response) {
     status: 200,
     ...report,
     signature: hmac.update(JSON.stringify(report)).digest("hex"),
+  });
+}
+
+export async function getUsersForOrg(
+  req: AuthRequest<unknown, { orgId: string }>,
+  res: Response
+) {
+  if (!req.superAdmin)
+    return res.status(403).json({
+      status: 403,
+      message: "Only super admins can access this endpoint",
+    });
+
+  const { orgId } = req.params;
+
+  const org = await findOrganizationById(orgId);
+
+  if (!org)
+    return res.status(400).json({
+      status: 400,
+      message: "org not found",
+    });
+
+  const userIds = org.members.map((m) => m.id);
+  const users = await findUsersByIds(userIds);
+  return res.status(200).json({
+    users,
   });
 }

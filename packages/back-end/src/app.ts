@@ -656,6 +656,7 @@ app.use("/teams", teamRouter);
 app.get("/admin/organizations", adminController.getOrganizations);
 app.get("/admin/license", adminController.getLicenseData);
 app.get("/admin/license-report", adminController.getLicenseReport);
+app.get("/admin/organization/:orgId/users", adminController.getUsersForOrg);
 
 // Meta info
 app.get("/meta/ai", (req, res) => {

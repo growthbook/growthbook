@@ -42,6 +42,13 @@ export async function findUserById(id: string): Promise<UserInterface | null> {
   return user ? user.toJSON<UserDocument>() : null;
 }
 
+export async function findUsersByIds(ids: string[]): Promise<UserInterface[]> {
+  const users: UserDocument[] = await UserModel.find({
+    id: { $in: ids },
+  });
+  return users.map((u) => u.toJSON<UserDocument>());
+}
+
 export async function deleteUser(id: string): Promise<void> {
   await UserModel.deleteOne({ id });
 }
