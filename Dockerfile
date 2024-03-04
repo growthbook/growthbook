@@ -1,5 +1,5 @@
 ARG PYTHON_MAJOR=3.11
-ARG NODE_MAJOR=18
+ARG NODE_MAJOR=20
 
 # Build the python gbstats package
 FROM python:${PYTHON_MAJOR}-slim AS pybuild
