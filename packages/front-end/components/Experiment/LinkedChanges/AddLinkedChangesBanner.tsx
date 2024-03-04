@@ -1,10 +1,8 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FaDesktop, FaLink, FaRegFlag } from "react-icons/fa";
-import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import PremiumTooltip from "../../Marketing/PremiumTooltip";
 import { ICON_PROPERTIES } from "./constants";
 
 export default function AddLinkedChangesBanner({

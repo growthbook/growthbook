@@ -1,6 +1,10 @@
 {
   "versions": [
     {
+      "version": "0.35.0",
+      "capabilities": ["urlRedirects"]
+    },
+    {
       "version": "0.34.0",
       "capabilities": ["prerequisites"]
     },

@@ -3,14 +3,10 @@ import {
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { FaPlusCircle } from "react-icons/fa";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import usePermissions from "@/hooks/usePermissions";
-import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
-import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
-import track from "@/services/track";
 import { StartExperimentBanner } from "@/components/Experiment/StartExperimentBanner";
-import AddLinkedChangesBanner from "@/components/Experiment/AddLinkedChangesBanner";
+import AddLinkedChangesBanner from "@/components/Experiment/LinkedChanges/AddLinkedChangesBanner";
 import RedirectLinkedChanges from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
 import FeatureLinkedChanges from "@/components/Experiment/LinkedChanges/FeatureLinkedChanges";
 import VisualLinkedChanges from "@/components/Experiment/LinkedChanges/VisualLinkedChanges";
@@ -107,54 +103,6 @@ export default function Implementation({
       <div className="pl-1 mb-3">
         <h2>Implementation</h2>
       </div>
-      {/* <div className="row">
-        <div className={hasLinkedChanges ? "col mb-3" : "col"}> */}
-      {/* <div className="appbox p-3 h-100 mb-2">
-        {(experiment.status === "draft" || linkedFeatures.length > 0) && (
-          <div className="mb-4">
-            <div className="h4 mb-2">
-              Linked Features{" "}
-              <small className="text-muted">({linkedFeatures.length})</small>
-            </div>
-            {linkedFeatures.map((info, i) => (
-              <LinkedFeatureFlag info={info} experiment={experiment} key={i} />
-            ))}
-            {experiment.status === "draft" && hasVisualEditorPermission && (
-              <button
-                className="btn btn-link"
-                type="button"
-                onClick={() => {
-                  setFeatureModal(true);
-                  track("Open linked feature modal", {
-                    source: "linked-changes",
-                    action: "add",
-                  });
-                }}
-              >
-                <FaPlusCircle className="mr-1" />
-                Add Feature Flag
-              </button>
-            )}
-          </div>
-        )}
-        {(experiment.status === "draft" || visualChangesets.length > 0) && (
-          <div>
-            <div className="h4 mb-2">
-              Visual Editor Changes{" "}
-              <small className="text-muted">({visualChangesets.length})</small>
-            </div>
-            <VisualChangesetTable
-              experiment={experiment}
-              visualChangesets={visualChangesets.filter(
-                (c) => !c.urlRedirects?.length
-              )}
-              mutate={mutate}
-              canEditVisualChangesets={hasVisualEditorPermission}
-              setVisualEditorModal={setVisualEditorModal}
-            />
-          </div>
-        )}
-      </div> */}
       <VisualLinkedChanges
         setVisualEditorModal={setVisualEditorModal}
         visualChangesets={visualChangesets.filter(

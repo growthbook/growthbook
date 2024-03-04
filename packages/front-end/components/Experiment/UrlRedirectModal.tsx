@@ -1,4 +1,4 @@
-import { VisualChangesetInterface } from "@/../back-end/types/visual-changeset";
+import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -11,10 +11,10 @@ import {
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import Field from "../Forms/Field";
-import Modal from "../Modal";
-import Tooltip from "../Tooltip/Tooltip";
-import Toggle from "../Forms/Toggle";
+import Field from "@/components/Forms/Field";
+import Modal from "@/components/Modal";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import Toggle from "@/components/Forms/Toggle";
 
 const UrlRedirectSdkAlert = ({
   hasSDKWithRedirects,
