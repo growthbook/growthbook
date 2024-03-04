@@ -11,19 +11,19 @@ module.exports = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  headers: () => ([
+  headers: () => [
     {
-      source: '/(.*)',
+      source: "/(.*)",
       headers: [
         {
-          key: 'Content-Security-Policy',
-          value: cspHeader.replace(/\n/g, ''),
+          key: "Content-Security-Policy",
+          value: cspHeader.replace(/\n/g, ""),
         },
         {
-          key: 'X-Frame-Options',
-          value: 'deny',
+          key: "X-Frame-Options",
+          value: "deny",
         },
       ],
     },
-  ]),
+  ],
 };
