@@ -59,7 +59,7 @@ const MetricsPage = (): React.ReactElement => {
   const {
     getDatasourceById,
     mutateDefinitions,
-    metrics: inlineMetrics,
+    _metricsIncludingArchived: inlineMetrics,
     factMetrics,
     project,
     ready,
@@ -265,7 +265,7 @@ const MetricsPage = (): React.ReactElement => {
     );
   }
 
-  const hasArchivedMetrics = filteredMetrics.find((m) => m.archived);
+  const hasArchivedMetrics = filteredMetrics.some((m) => m.archived);
 
   return (
     <div className="container-fluid py-3 p-3 pagecontents">
@@ -425,14 +425,13 @@ const MetricsPage = (): React.ReactElement => {
                 className={metric.archived ? "text-muted" : ""}
               >
                 <td>
-                  <Link href={getMetricLink(metric.id)}>
-                    <a
-                      className={`${
-                        metric.archived ? "text-muted" : "text-dark"
-                      } font-weight-bold`}
-                    >
-                      <MetricName id={metric.id} />
-                    </a>
+                  <Link
+                    href={getMetricLink(metric.id)}
+                    className={`${
+                      metric.archived ? "text-muted" : "text-dark"
+                    } font-weight-bold`}
+                  >
+                    <MetricName id={metric.id} />
                   </Link>
                 </td>
                 <td>{metric.type}</td>

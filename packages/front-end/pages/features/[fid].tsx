@@ -183,6 +183,7 @@ export default function FeaturePage() {
 
       <FeaturesHeader
         feature={feature}
+        features={features}
         experiments={experiments}
         mutate={mutate}
         tab={tab}

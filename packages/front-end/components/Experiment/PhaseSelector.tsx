@@ -2,7 +2,7 @@ import { date } from "shared/dates";
 import clsx from "clsx";
 import { phaseSummary } from "@/services/utils";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import SelectField from "../Forms/SelectField";
+import SelectField from "@/components/Forms/SelectField";
 import { useSnapshot } from "./SnapshotProvider";
 
 export interface Props {

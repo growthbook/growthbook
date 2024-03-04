@@ -177,15 +177,26 @@ export default function FeaturesOverview({
   }, [revisions, revision, feature, environments]);
 
   const prerequisites = feature?.prerequisites || [];
+  const envsStr = JSON.stringify(envs);
 
-  const prereqStates = useMemo(() => {
-    if (!feature) return null;
-    const states: Record<string, PrerequisiteStateResult> = {};
-    envs.forEach((env) => {
-      states[env] = evaluatePrerequisiteState(feature, features, env, true);
-    });
-    return states;
-  }, [feature, features, envs]);
+  const prereqStates = useMemo(
+    () => {
+      if (!feature) return null;
+      const states: Record<string, PrerequisiteStateResult> = {};
+      const featuresMap = new Map(features.map((f) => [f.id, f]));
+      envs.forEach((env) => {
+        states[env] = evaluatePrerequisiteState(
+          feature,
+          featuresMap,
+          env,
+          true
+        );
+      });
+      return states;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [feature, features, envsStr]
+  );
 
   if (!baseFeature || !feature || !revision) {
     return <LoadingOverlay />;

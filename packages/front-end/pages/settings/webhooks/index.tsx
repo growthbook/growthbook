@@ -1,7 +1,7 @@
 import Link from "next/link";
 import React, { FC } from "react";
 import { EventWebHooksPage } from "@/components/EventWebHooks/EventWebHooksPage";
-import usePermissions from "../../../hooks/usePermissions";
+import usePermissions from "@/hooks/usePermissions";
 
 const WebhooksPage: FC = () => {
   const permissions = usePermissions();

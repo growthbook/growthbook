@@ -6,8 +6,8 @@ import {
   isNullUndefinedOrEmpty,
 } from "@/services/utils";
 import { ExperimentTableRow } from "@/services/experiments";
-import Markdown from "../Markdown/Markdown";
-import SortedTags from "../Tags/SortedTags";
+import Markdown from "@/components/Markdown/Markdown";
+import SortedTags from "@/components/Tags/SortedTags";
 import styles from "./MetricToolTipBody.module.scss";
 import MetricName from "./MetricName";
 

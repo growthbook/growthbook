@@ -1164,6 +1164,8 @@ export const reduceFeaturesWithPrerequisites = (
 
   const newFeatures: FeatureInterface[] = [];
 
+  const featuresMap = new Map(features.map((f) => [f.id, f]));
+
   // block "always off" features, or remove "always on" prereqs
   for (const feature of features) {
     const newFeature = cloneDeep(feature);
@@ -1178,11 +1180,11 @@ export const reduceFeaturesWithPrerequisites = (
       if (prereqStateCache[environment][prereq.id]) {
         state = prereqStateCache[environment][prereq.id];
       } else {
-        const prereqFeature = features.find((f) => f.id === prereq.id);
+        const prereqFeature = featuresMap.get(prereq.id);
         if (prereqFeature) {
           state = evaluatePrerequisiteState(
             prereqFeature,
-            features,
+            featuresMap,
             environment,
             undefined,
             true
@@ -1235,7 +1237,7 @@ export const reduceFeaturesWithPrerequisites = (
         newPrerequisites,
       } = getInlinePrerequisitesReductionInfo(
         rule.prerequisites || [],
-        features,
+        featuresMap,
         environment,
         prereqStateCache
       );
@@ -1258,6 +1260,8 @@ export const reduceExperimentsWithPrerequisites = (
 ): VisualExperiment[] => {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
+  const featuresMap = new Map(features.map((f) => [f.id, f]));
+
   const newVisualExperiments: VisualExperiment[] = [];
   for (const visualExperiment of visualExperiments) {
     const phaseIndex = visualExperiment.experiment.phases.length - 1;
@@ -1271,7 +1275,7 @@ export const reduceExperimentsWithPrerequisites = (
       newPrerequisites,
     } = getInlinePrerequisitesReductionInfo(
       phase.prerequisites || [],
-      features,
+      featuresMap,
       environment,
       prereqStateCache
     );
@@ -1285,9 +1289,9 @@ export const reduceExperimentsWithPrerequisites = (
   return newVisualExperiments;
 };
 
-export const getInlinePrerequisitesReductionInfo = (
+const getInlinePrerequisitesReductionInfo = (
   prerequisites: FeaturePrerequisite[],
-  features: FeatureInterface[],
+  featuresMap: Map<string, FeatureInterface>,
   environment: string,
   prereqStateCache: Record<string, Record<string, PrerequisiteStateResult>> = {}
 ): {
@@ -1300,7 +1304,7 @@ export const getInlinePrerequisitesReductionInfo = (
   const newPrerequisites: FeaturePrerequisite[] = [];
 
   for (const pc of prerequisites) {
-    const prereqFeature = features.find((f) => f.id === pc.id);
+    const prereqFeature = featuresMap.get(pc.id);
     let state: PrerequisiteStateResult = {
       state: "deterministic",
       value: null,
@@ -1311,7 +1315,7 @@ export const getInlinePrerequisitesReductionInfo = (
       if (prereqFeature) {
         state = evaluatePrerequisiteState(
           prereqFeature,
-          features,
+          featuresMap,
           environment,
           undefined,
           true

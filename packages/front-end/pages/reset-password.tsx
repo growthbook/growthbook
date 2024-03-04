@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { ReactElement, useEffect, useState } from "react";
-import LoadingOverlay from "../components/LoadingOverlay";
-import Modal from "../components/Modal";
-import { getApiHost, usingSSO } from "../services/env";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import Modal from "@/components/Modal";
+import { getApiHost, usingSSO } from "@/services/env";
 
 export default function ResetPasswordPage(): ReactElement {
   const router = useRouter();

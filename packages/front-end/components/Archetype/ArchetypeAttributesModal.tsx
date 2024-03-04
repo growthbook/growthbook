@@ -7,7 +7,7 @@ import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
-import Modal from "../Modal";
+import Modal from "@/components/Modal";
 
 const ArchetypeAttributesModal: FC<{
   close: () => void;

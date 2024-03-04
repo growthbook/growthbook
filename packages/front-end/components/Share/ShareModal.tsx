@@ -21,16 +21,16 @@ import { useUser } from "@/services/UserContext";
 import { useSearch } from "@/services/search";
 import track from "@/services/track";
 import { useExperiments } from "@/hooks/useExperiments";
-import ResultsIndicator from "../Experiment/ResultsIndicator";
-import Tab from "../Tabs/Tab";
-import Tabs from "../Tabs/Tabs";
-import Page from "../Modal/Page";
-import PagedModal from "../Modal/PagedModal";
-import Tooltip from "../Tooltip/Tooltip";
-import LoadingSpinner from "../LoadingSpinner";
-import SortedTags from "../Tags/SortedTags";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
+import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
+import Tab from "@/components/Tabs/Tab";
+import Tabs from "@/components/Tabs/Tabs";
+import Page from "@/components/Modal/Page";
+import PagedModal from "@/components/Modal/PagedModal";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import SortedTags from "@/components/Tags/SortedTags";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
 import Preview from "./Preview";
 
 export const presentationThemes = {
@@ -561,13 +561,11 @@ const ShareModal = ({
     // );
   });
 
-  const presThemes = [];
+  const presThemes: { value: string; label: string }[] = [];
   for (const [key, value] of Object.entries(presentationThemes)) {
     if (value.show) {
       presThemes.push({
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string' is not assignable to type 'never'.
         value: key,
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string' is not assignable to type 'never'.
         label: value.title,
       });
     }

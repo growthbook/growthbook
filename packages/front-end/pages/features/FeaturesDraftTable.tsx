@@ -134,7 +134,7 @@ export default function FeaturesDraftTable({ features }: Props) {
                     <Link
                       href={`/features/${featureAndRevision.id}?v=${featureAndRevision?.version}`}
                     >
-                      <a>{featureAndRevision.id}</a>
+                      {featureAndRevision.id}
                     </Link>
                   </td>
                   <td>

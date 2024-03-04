@@ -18,9 +18,9 @@ import {
 import { useAuth } from "@/services/auth";
 import { useConfigJson } from "@/services/config";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Field from "../Forms/Field";
-import Page from "../Modal/Page";
-import PagedModal from "../Modal/PagedModal";
+import Field from "@/components/Forms/Field";
+import Page from "@/components/Modal/Page";
+import PagedModal from "@/components/Modal/PagedModal";
 import UploadConfigYml from "./UploadConfigYml";
 
 function sanitizeSecrets(d: DataSourceInterfaceWithParams) {

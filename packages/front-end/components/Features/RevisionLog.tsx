@@ -10,9 +10,9 @@ import { useMemo, useState } from "react";
 import stringify from "json-stringify-pretty-compact";
 import clsx from "clsx";
 import useApi from "@/hooks/useApi";
-import LoadingOverlay from "../LoadingOverlay";
-import Avatar from "../Avatar/Avatar";
-import Code from "../SyntaxHighlighting/Code";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import Avatar from "@/components/Avatar/Avatar";
+import Code from "@/components/SyntaxHighlighting/Code";
 
 export interface Props {
   feature: FeatureInterface;

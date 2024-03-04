@@ -6,11 +6,11 @@ import { FaGitAlt, FaExternalLinkAlt } from "react-icons/fa";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
-import Button from "../Button";
-import PremiumTooltip from "../Marketing/PremiumTooltip";
-import Tooltip from "../Tooltip/Tooltip";
-import { GBPremiumBadge } from "../Icons";
-import UpgradeModal from "../Settings/UpgradeModal";
+import Button from "@/components/Button";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { GBPremiumBadge } from "@/components/Icons";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 
 const generatePlatformUrl = (
   platformUrl: string,
