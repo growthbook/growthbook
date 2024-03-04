@@ -14,7 +14,6 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Toggle from "@/components/Forms/Toggle";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 
 export interface Props {
