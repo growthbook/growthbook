@@ -38,9 +38,22 @@ router.put(
       format: z.string(),
       enum: z.string(),
       hashAttribute: z.boolean().optional(),
+      archived: z.boolean().optional(),
     }),
   }),
   AttributeController.putAttribute
+);
+
+router.delete(
+  "/:id",
+  validateRequestMiddleware({
+    params: z
+      .object({
+        id: z.string(),
+      })
+      .strict(),
+  }),
+  AttributeController.deleteAttribute
 );
 
 export { router as AttributeRouter };

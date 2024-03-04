@@ -1,13 +1,11 @@
 import { useForm } from "react-hook-form";
 import {
-  OrganizationSettings,
   SDKAttribute,
   SDKAttributeFormat,
   SDKAttributeType,
 } from "back-end/types/organization";
 import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import { useAttributeSchema } from "@/services/features";
-import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -20,11 +18,15 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 
 export interface Props {
   close: () => void;
+  setAttributesForView: (attributes: SDKAttribute[]) => void;
   attribute?: string;
 }
 
-export default function AttributeModal({ close, attribute }: Props) {
-  const { refreshOrganization } = useUser();
+export default function AttributeModal({
+  close,
+  setAttributesForView,
+  attribute,
+}: Props) {
   const { projects, project } = useDefinitions();
 
   const { apiCall } = useAuth();
@@ -78,19 +80,29 @@ export default function AttributeModal({ close, attribute }: Props) {
         }
 
         const url = attribute ? `/attribute/${attribute}` : `/attribute`;
-        await apiCall(url, {
-          method: attribute ? "PUT" : "POST",
-          body: JSON.stringify({
-            property: value.property,
-            datatype: value.datatype,
-            projects: value.projects,
-            format: value.format,
-            enum: value.enum,
-            hashAttribute: value.hashAttribute,
-          }),
-        });
-
-        refreshOrganization();
+        try {
+          const res = await apiCall<{
+            status: number;
+            attributeSchema: SDKAttribute[];
+          }>(url, {
+            method: attribute ? "PUT" : "POST",
+            body: JSON.stringify({
+              property: value.property,
+              datatype: value.datatype,
+              projects: value.projects,
+              format: value.format,
+              enum: value.enum,
+              hashAttribute: value.hashAttribute,
+            }),
+          });
+          setAttributesForView(res.attributeSchema);
+        } catch (e) {
+          throw new Error(
+            `Failed to ${attribute ? "update" : "create"} attribute: ${
+              e.message
+            }`
+          );
+        }
       })}
     >
       <Tooltip

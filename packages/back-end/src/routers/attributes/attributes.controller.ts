@@ -2,6 +2,7 @@ import type { Response } from "express";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getContextFromReq } from "../../services/organizations";
 import {
+  SDKAttribute,
   SDKAttributeFormat,
   SDKAttributeType,
 } from "../../../types/organization";
@@ -17,7 +18,7 @@ export const postAttribute = async (
     enum: string;
     hashAttribute: boolean;
   }>,
-  res: Response<{ status: number }>
+  res: Response<{ status: number; attributeSchema: SDKAttribute[] }>
 ) => {
   const {
     property,
@@ -81,6 +82,17 @@ export const postAttribute = async (
   });
   return res.status(200).json({
     status: 200,
+    attributeSchema: [
+      ...attributeSchema,
+      {
+        property,
+        datatype,
+        projects,
+        format,
+        enum: enumValue,
+        hashAttribute,
+      },
+    ],
   });
 };
 
@@ -93,10 +105,11 @@ export const putAttribute = async (
       format: SDKAttributeFormat;
       enum: string;
       hashAttribute: boolean;
+      archived: boolean;
     },
     { id: string }
   >,
-  res: Response<{ status: number }>
+  res: Response<{ status: number; attributeSchema: SDKAttribute[] }>
 ) => {
   const {
     property,
@@ -105,8 +118,8 @@ export const putAttribute = async (
     format,
     enum: enumValue,
     hashAttribute,
+    archived,
   } = req.body;
-
   // Check permissions for new projects
   req.checkPermissions("manageTargetingAttributes", projects);
 
@@ -135,6 +148,7 @@ export const putAttribute = async (
     format,
     enum: enumValue,
     hashAttribute,
+    archived,
   };
 
   await updateOrganization(org.id, {
@@ -161,5 +175,57 @@ export const putAttribute = async (
   });
   return res.status(200).json({
     status: 200,
+    attributeSchema,
+  });
+};
+
+export const deleteAttribute = async (
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{ status: number; attributeSchema: SDKAttribute[] }>
+) => {
+  const { org } = getContextFromReq(req);
+  const { id } = req.params;
+
+  const attributeSchema = org.settings?.attributeSchema || [];
+
+  const index = attributeSchema.findIndex((a) => a.property === id);
+
+  if (index === -1) {
+    throw new Error("Attribute not found");
+  }
+
+  // Check permissions on existing project list
+  req.checkPermissions(
+    "manageTargetingAttributes",
+    attributeSchema[index].projects
+  );
+
+  const updatedArr = attributeSchema.filter((a) => a.property !== id);
+
+  await updateOrganization(org.id, {
+    settings: {
+      ...org.settings,
+      attributeSchema: updatedArr,
+    },
+  });
+
+  await req.audit({
+    event: "attribute.delete",
+    entity: {
+      object: "organization",
+      id: org.id,
+    },
+    details: auditDetailsUpdate(
+      { settings: { attributeSchema: org.settings?.attributeSchema || [] } },
+      {
+        settings: {
+          attributeSchema: updatedArr,
+        },
+      }
+    ),
+  });
+  return res.status(200).json({
+    status: 200,
+    attributeSchema: updatedArr,
   });
 };

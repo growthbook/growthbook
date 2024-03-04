@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useState } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
 import { SDKAttribute } from "back-end/types/organization";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -7,7 +7,6 @@ import usePermissions from "@/hooks/usePermissions";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
-import { useUser } from "@/services/UserContext";
 import AttributeModal from "@/components/Features/AttributeModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -16,7 +15,7 @@ import ProjectBadges from "@/components/ProjectBadges";
 const FeatureAttributesPage = (): React.ReactElement => {
   const permissions = usePermissions();
   const { apiCall } = useAuth();
-  let attributeSchema = useAttributeSchema(true);
+  const attributeSchema = useAttributeSchema(true);
   const { project } = useDefinitions();
 
   const canCreateAttributes = permissions.check(
@@ -26,20 +25,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
 
   const [modalData, setModalData] = useState<null | string>(null);
 
-  const orderedAttributes = useMemo(
-    () => [
-      ...attributeSchema.filter((o) => !o.archived),
-      ...attributeSchema.filter((o) => o.archived),
-    ],
-    [attributeSchema]
+  const [attributesForView, setAttributesForView] = useState(
+    () => attributeSchema || []
   );
-
-  const [attributesForView, setAttributesForView] = useState(orderedAttributes);
-  const { refreshOrganization } = useUser();
-
-  useEffect(() => {
-    setAttributesForView(orderedAttributes);
-  }, [orderedAttributes]);
 
   const drawRow = (v: SDKAttribute, i: number) => (
     <tr className={v.archived ? "disabled" : ""} key={i}>
@@ -83,29 +71,26 @@ const FeatureAttributesPage = (): React.ReactElement => {
               className="dropdown-item"
               onClick={async (e) => {
                 e.preventDefault();
-
-                // update attributes as they render in the view (do not reorder after changing archived state)
-                setAttributesForView(
-                  attributesForView.map((attribute) =>
-                    attribute.property === v.property
-                      ? { ...attribute, archived: !v.archived }
-                      : attribute
-                  )
-                );
-
-                // update SDK attributes while preserving original order
-                attributeSchema = attributeSchema.map((attribute) =>
-                  attribute.property === v.property
-                    ? { ...attribute, archived: !v.archived }
-                    : attribute
-                );
-                await apiCall(`/organization`, {
-                  method: "PUT",
-                  body: JSON.stringify({
-                    settings: { attributeSchema },
-                  }),
-                });
-                await refreshOrganization();
+                try {
+                  const res = await apiCall<{
+                    res: number;
+                    attributeSchema: SDKAttribute[];
+                  }>(`/attribute/${v.property}`, {
+                    method: "PUT",
+                    body: JSON.stringify({
+                      property: v.property,
+                      datatype: v.datatype,
+                      projects: v.projects,
+                      format: v.format,
+                      enum: v.enum,
+                      hashAttribute: v.hashAttribute,
+                      archived: !v.archived,
+                    }),
+                  });
+                  setAttributesForView(res.attributeSchema);
+                } catch (e) {
+                  console.error(e);
+                }
               }}
             >
               {v.archived ? "Unarchive" : "Archive"}
@@ -114,16 +99,13 @@ const FeatureAttributesPage = (): React.ReactElement => {
               displayName="Attribute"
               className="dropdown-item text-danger"
               onClick={async () => {
-                const newAttributeSchema = attributeSchema.filter(
-                  (attribute) => attribute.property !== v.property
-                );
-                await apiCall(`/organization`, {
-                  method: "PUT",
-                  body: JSON.stringify({
-                    settings: { attributeSchema: newAttributeSchema },
-                  }),
+                const res = await apiCall<{
+                  status: number;
+                  attributeSchema: SDKAttribute[];
+                }>(`/attribute/${v.property}`, {
+                  method: "DELETE",
                 });
-                await refreshOrganization();
+                setAttributesForView(res.attributeSchema);
               }}
               text="Delete"
               useIcon={false}
@@ -199,6 +181,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
       {modalData !== null && (
         <AttributeModal
           close={() => setModalData(null)}
+          setAttributesForView={setAttributesForView}
           attribute={modalData}
         />
       )}
