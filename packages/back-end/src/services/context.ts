@@ -4,8 +4,8 @@ import {
   userHasPermission,
 } from "shared/permissions";
 import { uniq } from "lodash";
-import pino from "pino";
-import { Request } from "express";
+import type pino from "pino";
+import type { Request } from "express";
 import {
   MemberRole,
   OrganizationInterface,

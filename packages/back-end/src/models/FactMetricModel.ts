@@ -3,9 +3,9 @@ import {
   FactMetricInterface,
   LegacyFactMetricInterface,
 } from "../../types/fact-table";
-import { upgradeFactMetricDoc } from "../util/migrations";
 import { ApiFactMetric } from "../../types/openapi";
 import { factMetricValidator } from "../routers/fact-table/fact-table.validators";
+import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 import { BaseModel, ModelConfig } from "./BaseModel";
 import { getFactTable } from "./FactTableModel";
 
@@ -32,8 +32,36 @@ export class FactMetricDataModel extends BaseModel<FactMetricSchema> {
     globallyUniqueIds: false,
     readonlyFields: ["datasource"],
   };
+
+  public static upgradeFactMetricDoc(
+    doc: LegacyFactMetricInterface
+  ): FactMetricInterface {
+    const newDoc: FactMetricInterface = { ...doc };
+
+    if (doc.windowSettings === undefined) {
+      newDoc.windowSettings = {
+        type: doc.hasConversionWindow ? "conversion" : "",
+        windowValue:
+          doc.conversionWindowValue || DEFAULT_CONVERSION_WINDOW_HOURS,
+        windowUnit: doc.conversionWindowUnit || "hours",
+        delayHours: doc.conversionDelayHours || 0,
+      };
+    }
+
+    if (doc.cappingSettings === undefined) {
+      newDoc.cappingSettings = {
+        type: doc.capping || "",
+        value: doc.capValue || 0,
+      };
+    }
+
+    return newDoc;
+  }
+
   protected migrate(legacyDoc: unknown): FactMetricInterface {
-    return upgradeFactMetricDoc(legacyDoc as LegacyFactMetricInterface);
+    return FactMetricDataModel.upgradeFactMetricDoc(
+      legacyDoc as LegacyFactMetricInterface
+    );
   }
 
   protected async beforeCreate(doc: FactMetricInterface) {
