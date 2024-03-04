@@ -1,23 +1,12 @@
 import type { Response } from "express";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getContextFromReq } from "../../services/organizations";
-import {
-  SDKAttribute,
-  SDKAttributeFormat,
-  SDKAttributeType,
-} from "../../../types/organization";
+import { SDKAttribute } from "../../../types/organization";
 import { updateOrganization } from "../../models/OrganizationModel";
 import { auditDetailsUpdate } from "../../services/audit";
 
 export const postAttribute = async (
-  req: AuthRequest<{
-    property: string;
-    datatype: SDKAttributeType;
-    projects: string[];
-    format: SDKAttributeFormat;
-    enum: string;
-    hashAttribute: boolean;
-  }>,
+  req: AuthRequest<SDKAttribute>,
   res: Response<{ status: number; attributeSchema: SDKAttribute[] }>
 ) => {
   const {
@@ -97,18 +86,7 @@ export const postAttribute = async (
 };
 
 export const putAttribute = async (
-  req: AuthRequest<
-    {
-      property: string;
-      datatype: SDKAttributeType;
-      projects: string[];
-      format: SDKAttributeFormat;
-      enum: string;
-      hashAttribute: boolean;
-      archived: boolean;
-    },
-    { id: string }
-  >,
+  req: AuthRequest<SDKAttribute, { id: string }>,
   res: Response<{ status: number; attributeSchema: SDKAttribute[] }>
 ) => {
   const {
@@ -120,9 +98,6 @@ export const putAttribute = async (
     hashAttribute,
     archived,
   } = req.body;
-  // Check permissions for new projects
-  req.checkPermissions("manageTargetingAttributes", projects);
-
   const { org } = getContextFromReq(req);
   const { id } = req.params;
 
@@ -133,6 +108,9 @@ export const putAttribute = async (
   if (index === -1) {
     throw new Error("Attribute not found");
   }
+
+  // Check permissions for new projects
+  req.checkPermissions("manageTargetingAttributes", projects);
 
   // Check permissions on existing project list
   req.checkPermissions(

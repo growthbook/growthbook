@@ -1183,7 +1183,7 @@ export async function putOrganization(
         req.checkPermissions("manageEnvironments", "", []);
       } else if (k === "attributeSchema") {
         throw new Error(
-          "Not supported: Cannot update organization attributes."
+          "Not supported: Updating organization attributes not supported via this route."
         );
       } else if (k === "northStar") {
         req.checkPermissions("manageNorthStarMetric");

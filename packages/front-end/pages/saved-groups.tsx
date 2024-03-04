@@ -58,7 +58,6 @@ export default function SavedGroupsPage() {
   const { refreshOrganization } = useUser();
 
   const permissions = usePermissions();
-  const { project } = useDefinitions();
   const { apiCall } = useAuth();
   const attributeSchema = useAttributeSchema();
 
@@ -90,14 +89,7 @@ export default function SavedGroupsPage() {
           // Ignore errors
         });
     }
-  }, [
-    apiCall,
-    refreshOrganization,
-    attributeSchema,
-    savedGroups,
-    permissions,
-    project,
-  ]);
+  }, [apiCall, refreshOrganization, attributeSchema, savedGroups, permissions]);
 
   if (!savedGroups) return <LoadingOverlay />;
 
