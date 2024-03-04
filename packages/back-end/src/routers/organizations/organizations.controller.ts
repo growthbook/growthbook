@@ -1182,60 +1182,89 @@ export async function putOrganization(
       } else if (k === "sdkInstructionsViewed" || k === "visualEditorEnabled") {
         req.checkPermissions("manageEnvironments", "", []);
       } else if (k === "attributeSchema") {
-        const existingAttributes = org.settings?.attributeSchema || [];
-        const newOrUpdatedAttributes: SDKAttribute[] =
-          settings[k]?.filter((attribute) => {
-            const index = existingAttributes.findIndex(
-              (existingAttribute) =>
-                existingAttribute.property === attribute.property
-            );
+        throw new Error(
+          "Not supported: Cannot update organization attributes."
+        );
+        // const newAttributesFromRequest = settings[k] || [];
 
-            if (index === -1) {
-              // This is a new attribute trying to be created
-              return true;
-            } else {
-              // This is an existing attribute - check to see if it's being updated
-              const existingAttribute = existingAttributes[index];
+        // const attributesToCheckPermissionsFor: SDKAttribute[] =
+        //   newAttributesFromRequest.filter((attribute) => {
+        //     const index = existingAttributes.findIndex(
+        //       (existingAttribute) =>
+        //         existingAttribute.property === attribute.property
+        //     );
 
-              // We need to check all keys of the SDKAttribute to see if there are any changes
-              const keysToCheck: (keyof SDKAttribute)[] = [
-                "datatype",
-                "archived",
-                "projects",
-                "enum",
-                "format",
-                "hashAttribute",
-              ];
+        //     if (index === -1) {
+        //       console.log("a new attribute was added:", attribute.property);
+        //       // This is a new attribute trying to be created
+        //       return true;
+        //     } else {
+        //       // This is an existing attribute - check to see if it's being updated
+        //       const existingAttribute = existingAttributes[index];
 
-              return keysToCheck.some((key) => {
-                // If the key is an array, compare the length and the toString
-                if (key === "projects") {
-                  let hasChanges = false;
+        //       // We need to check all keys of the SDKAttribute to see if there are any changes
+        //       const keysToCheck: (keyof SDKAttribute)[] = [
+        //         "datatype",
+        //         "archived",
+        //         "projects",
+        //         "enum",
+        //         "format",
+        //         "hashAttribute",
+        //       ];
 
-                  if (
-                    existingAttribute[key]?.length !== attribute[key]?.length
-                  ) {
-                    hasChanges = true;
-                  } else if (
-                    existingAttribute[key]?.toString() !==
-                    attribute[key]?.toString()
-                  ) {
-                    hasChanges = true;
-                  }
-                  return hasChanges;
-                }
-                return existingAttribute[key] !== attribute[key];
-              });
-            }
-          }) || [];
+        //       return keysToCheck.some((key) => {
+        //         // If the key is an array, compare the length and the toString
+        //         if (key === "projects") {
+        //           let hasChanges = false;
+        //           const existingProjects = existingAttribute[key] || [];
+        //           const updatedProjects = attribute[key] || [];
+        //           if (existingProjects.length !== updatedProjects.length) {
+        //             hasChanges = true;
+        //           } else if (
+        //             existingProjects.toString() !== updatedProjects.toString()
+        //           ) {
+        //             hasChanges = true;
+        //           }
+        //           if (hasChanges) {
+        //             console.log("attribute projects were updated");
+        //             console.log("existingAttribute[key]", existingProjects);
+        //             console.log("updated attribute[key]", updatedProjects);
+        //           }
+        //           return hasChanges;
+        //         }
+        //         if (existingAttribute[key] !== attribute[key]) {
+        //           console.log(
+        //             `attribute ${attribute.property}'s ${key} was updated`
+        //           );
+        //         }
+        //         return existingAttribute[key] !== attribute[key];
+        //       });
+        //     }
+        //   }) || [];
 
-        // Loop through new or updated and checkPermissions for each one
-        newOrUpdatedAttributes.forEach((attribute) => {
-          req.checkPermissions(
-            "manageTargetingAttributes",
-            attribute.projects || []
-          );
-        });
+        // if (existingAttributes.length > newAttributesFromRequest.length) {
+        //   console.log("atleast 1 attribute was deleted");
+        //   // Atleast 1 attribute was deleted, need to add the deleted attributes to the attributesToCheckPermissionsFor array
+        //   existingAttributes.forEach((existingAttribute) => {
+        //     const index = newAttributesFromRequest.findIndex(
+        //       (attribute) => attribute.property === existingAttribute.property
+        //     );
+        //     if (index === -1) {
+        //       console.log(
+        //         `attribute ${existingAttribute.property} was deleted`
+        //       );
+        //       attributesToCheckPermissionsFor.push(existingAttribute);
+        //     }
+        //   });
+        // }
+
+        // // Loop through new or updated and checkPermissions for each one
+        // attributesToCheckPermissionsFor.forEach((attribute) => {
+        //   req.checkPermissions(
+        //     "manageTargetingAttributes",
+        //     attribute.projects || []
+        //   );
+        // });
       } else if (k === "northStar") {
         req.checkPermissions("manageNorthStarMetric");
       } else if (k === "namespaces") {

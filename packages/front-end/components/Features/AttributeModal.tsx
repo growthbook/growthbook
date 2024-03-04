@@ -70,39 +70,23 @@ export default function AttributeModal({ close, attribute }: Props) {
           value.hashAttribute = false;
         }
 
-        const attributeSchema = [...schema];
-
-        // Editing
-        if (attribute) {
-          const i = schema.findIndex((s) => s.property === attribute);
-          if (i >= 0) {
-            attributeSchema[i] = value;
-          } else {
-            attributeSchema.push(value);
-          }
-        }
-        // Creating
-        else {
-          attributeSchema.push(value);
-        }
-
         // Make sure this attribute name doesn't conflict with any existing attributes
-        if (
-          attributeSchema.filter((s) => s.property === value.property).length >
-          1
-        ) {
+        if (!attribute && schema.some((s) => s.property === value.property)) {
           throw new Error(
             "That attribute name is already being used. Please choose another one."
           );
         }
 
-        const settings: Pick<OrganizationSettings, "attributeSchema"> = {
-          attributeSchema,
-        };
-        await apiCall(`/organization`, {
-          method: "PUT",
+        const url = attribute ? `/attribute/${attribute}` : `/attribute`;
+        await apiCall(url, {
+          method: attribute ? "PUT" : "POST",
           body: JSON.stringify({
-            settings,
+            property: value.property,
+            datatype: value.datatype,
+            projects: value.projects,
+            format: value.format,
+            enum: value.enum,
+            hashAttribute: value.hashAttribute,
           }),
         });
 
