@@ -3,12 +3,68 @@ import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isURLTargeted } from "@growthbook/growthbook";
-import { FaExclamationCircle } from "react-icons/fa";
+import {
+  FaExclamationCircle,
+  FaExclamationTriangle,
+  FaExternalLinkAlt,
+} from "react-icons/fa";
+import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { useAuth } from "@/services/auth";
+import useSDKConnections from "@/hooks/useSDKConnections";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import Tooltip from "../Tooltip/Tooltip";
 import Toggle from "../Forms/Toggle";
+
+const UrlRedirectSdkAlert = ({
+  hasSDKWithRedirects,
+}: {
+  hasSDKWithRedirects: boolean;
+}) => {
+  return (
+    <div
+      className={`mt-2 mb-3 alert ${
+        hasSDKWithRedirects ? "alert-warning" : "alert-danger"
+      }`}
+    >
+      <div>
+        <FaExclamationTriangle className="mr-1" />
+        {hasSDKWithRedirects ? (
+          <>
+            Some of your{" "}
+            <a href="/sdks" target="_blank">
+              SDK Connections <FaExternalLinkAlt />
+            </a>{" "}
+            in this project may not support URL redirects.
+          </>
+        ) : (
+          <>
+            None of your{" "}
+            <a href="/sdks" className="text-normal" target="_blank">
+              SDK Connections <FaExternalLinkAlt />
+            </a>{" "}
+            in this project support URL redirects. Either upgrade your SDKs or
+            add a supported SDK.
+          </>
+        )}{" "}
+        <Tooltip
+          body={
+            <>
+              URL Redirects are only supported in the following SDKs and
+              versions:
+              <ul className="mb-1">
+                {/* TODO: adjust with correct versions */}
+                <li>Javascript &gt;= 0.33.0</li>
+                <li>React &gt;= 0.23.0</li>
+                <li>Node &gt;= 0.23.0</li>
+              </ul>
+            </>
+          }
+        />
+      </div>
+    </div>
+  );
+};
 
 const UrlRedirectModal: FC<{
   mode: "add" | "edit";
@@ -19,6 +75,16 @@ const UrlRedirectModal: FC<{
   cta?: string;
 }> = ({ mode, experiment, visualChangeset, mutate, close, cta }) => {
   const { apiCall } = useAuth();
+  const { data: sdkConnectionsData } = useSDKConnections();
+  const hasSDKWithRedirects = getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+    project: experiment.project ?? "",
+  }).includes("urlRedirects");
+  const hasSDKWithNoRedirects = !getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+    mustMatchAllConnections: true,
+    project: experiment.project ?? "",
+  }).includes("urlRedirects");
 
   const form = useForm({
     defaultValues: {
@@ -81,6 +147,11 @@ const UrlRedirectModal: FC<{
   return (
     <Modal
       open
+      disabledMessage={
+        !hasSDKWithRedirects
+          ? "None of the SDK connections in this project support URL redirects"
+          : undefined
+      }
       close={close}
       size="lg"
       header={
@@ -93,8 +164,12 @@ const UrlRedirectModal: FC<{
       }
       submit={onSubmit}
       cta={cta}
+      ctaEnabled={hasSDKWithRedirects}
     >
       <div className="mx-3 mt-3">
+        {hasSDKWithNoRedirects && (
+          <UrlRedirectSdkAlert hasSDKWithRedirects={hasSDKWithRedirects} />
+        )}
         <div className="d-flex align-items-baseline">
           <h4>Original URL</h4>
           <Tooltip
