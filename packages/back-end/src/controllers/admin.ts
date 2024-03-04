@@ -1,10 +1,11 @@
 import { Response } from "express";
 import { AuthRequest } from "../types/AuthRequest";
+import { UserInterface } from "../../types/user";
 import {
   findAllOrganizations,
   findOrganizationById,
 } from "../models/OrganizationModel";
-import { findUsersByIds } from "../models/UserModel";
+import { findUsersByIds, updateUserById } from "../models/UserModel";
 
 export async function getOrganizations(
   req: AuthRequest<never, never, { page?: string; search?: string }>,
@@ -54,5 +55,22 @@ export async function getUsersForOrg(
   const users = await findUsersByIds(userIds);
   return res.status(200).json({
     users,
+  });
+}
+
+export async function updateUser(
+  req: AuthRequest<Partial<UserInterface>, { userId: string }>,
+  res: Response
+) {
+  if (!req.superAdmin)
+    return res.status(403).json({
+      status: 403,
+      message: "Only super admins can access this endpoint",
+    });
+  const { userId } = req.params;
+  const updates = req.body;
+  const updated = await updateUserById(userId, updates);
+  return res.status(200).json({
+    updated,
   });
 }

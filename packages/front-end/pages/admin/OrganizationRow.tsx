@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { OrganizationInterface } from "@back-end/types/organization";
 import { UserInterface } from "@back-end/types/user";
 import clsx from "clsx";
@@ -6,11 +6,11 @@ import { FaAngleDown, FaAngleRight, FaPencilAlt } from "react-icons/fa";
 import { date } from "shared/dates";
 import stringify from "json-stringify-pretty-compact";
 import Collapsible from "react-collapsible";
-import Code from "@/components/SyntaxHighlighting/Code";
+import useApi from "@/hooks/useApi";
 import { isCloud } from "@/services/env";
-import { useAuth } from "@/services/auth";
 import EditOrganization from "@/components/Admin/EditOrganization";
-import MembersRow from "./MembersRow";
+import Code from "@/components/SyntaxHighlighting/Code";
+import MembersTable from "./MembersTable";
 
 export default function OrganizationRow({
   organization,
@@ -25,32 +25,15 @@ export default function OrganizationRow({
   showExternalId: boolean;
   onEdit: () => void;
 }) {
-  const { apiCall } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [editOrgModalOpen, setEditOrgModalOpen] = useState(false);
-  const [users, setUsers] = useState<UserInterface[]>([]);
-  const [usersError, setUsersError] = useState("");
-  const usersById = users.reduce((acc, user) => {
-    if (!acc[user.id]) acc[user.id] = user;
-    return acc;
-  }, {} as Record<string, UserInterface>);
 
   const { settings, members, ...otherAttributes } = organization;
 
-  useEffect(() => {
-    if (!expanded) return;
-    const fetch = async () => {
-      try {
-        const res = await apiCall<{
-          users: UserInterface[];
-        }>(`/admin/organization/${organization.id}/users`);
-        setUsers(res.users);
-      } catch (e) {
-        setUsersError(`Error fetching users: ${e}`);
-      }
-    };
-    fetch();
-  }, [organization.id, apiCall, expanded]);
+  const { data, error: usersError, mutate } = useApi<{
+    users: UserInterface[];
+  }>(`/admin/organization/${organization.id}/users`);
+  const users = data?.users || [];
 
   return (
     <>
@@ -145,12 +128,11 @@ export default function OrganizationRow({
               }
               transitionTime={150}
             >
-              {members.map((m) => (
-                <MembersRow key={m.id} member={m} user={usersById[m.id]} />
-              ))}
+              <MembersTable users={users} members={members} mutate={mutate} />
               {usersError && (
                 <div>
-                  There was an error fetching users for this row: {usersError}
+                  There was an error fetching users for this row:{" "}
+                  {usersError.message}
                 </div>
               )}
             </Collapsible>
