@@ -118,9 +118,8 @@ const ProjectPage: FC = () => {
       <div className="container pagecontents">
         <div className="mb-2">
           <Link href="/projects">
-            <a>
-              <GBCircleArrowLeft /> Back to all projects
-            </a>
+            <GBCircleArrowLeft />
+            Back to all projects
           </Link>
         </div>
         <div className="d-flex align-items-center mb-2">

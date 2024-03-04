@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/react";
-import { EnvironmentInitValue } from "../pages/api/init";
+import { EnvironmentInitValue } from "@/./pages/api/init";
 
 const env: EnvironmentInitValue = {
   telemetry: "enable",

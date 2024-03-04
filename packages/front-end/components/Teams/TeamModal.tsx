@@ -4,7 +4,7 @@ import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import { Team } from "@/services/UserContext";
-import RoleSelector from "../Settings/Team/RoleSelector";
+import RoleSelector from "@/components/Settings/Team/RoleSelector";
 
 export default function TeamModal({
   existing,

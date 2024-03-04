@@ -2,8 +2,8 @@ import { FC, ReactElement } from "react";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "../Modal";
-import SelectField from "../Forms/SelectField";
+import Modal from "@/components/Modal";
+import SelectField from "@/components/Forms/SelectField";
 
 const EditProjectForm: FC<{
   apiEndpoint: string;

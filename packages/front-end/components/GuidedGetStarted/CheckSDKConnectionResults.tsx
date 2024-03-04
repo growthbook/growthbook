@@ -2,7 +2,7 @@ import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import clsx from "clsx";
 import { BsArrowRepeat } from "react-icons/bs";
 import { FaCheck } from "react-icons/fa";
-import Button from "../Button";
+import Button from "@/components/Button";
 import styles from "./CheckSDKConnectionResults.module.scss";
 
 type Props = {

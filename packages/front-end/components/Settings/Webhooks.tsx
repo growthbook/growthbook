@@ -5,10 +5,10 @@ import { ago } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import DeleteButton from "../DeleteButton/DeleteButton";
-import LoadingOverlay from "../LoadingOverlay";
-import Tooltip from "../Tooltip/Tooltip";
-import { DocLink } from "../DocLink";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { DocLink } from "@/components/DocLink";
 import WebhooksModal from "./WebhooksModal";
 
 const Webhooks: FC = () => {

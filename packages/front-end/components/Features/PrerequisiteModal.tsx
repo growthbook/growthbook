@@ -32,8 +32,8 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { PrerequisiteAlerts } from "@/components/Features/PrerequisiteTargetingField";
 import { DocLink } from "@/components/DocLink";
-import Modal from "../Modal";
-import SelectField from "../Forms/SelectField";
+import Modal from "@/components/Modal";
+import SelectField from "@/components/Forms/SelectField";
 
 export interface Props {
   close: () => void;
@@ -86,7 +86,9 @@ export default function PrerequisiteModal({
     const revision = revisions?.find((r) => r.version === version);
     newFeature.prerequisites = [...prerequisites];
     newFeature.prerequisites[i] = form.getValues();
-    return isFeatureCyclic(newFeature, features, revision);
+
+    const featuresMap = new Map(features.map((f) => [f.id, f]));
+    return isFeatureCyclic(newFeature, featuresMap, revision);
   }, [
     parentFeatureId,
     features,
@@ -104,17 +106,18 @@ export default function PrerequisiteModal({
       Record<string, PrerequisiteStateResult>
     > = {};
     const wouldBeCyclicStates: Record<string, boolean> = {};
+    const featuresMap = new Map(features.map((f) => [f.id, f]));
+
     for (const f of features) {
       // get current states:
       const states: Record<string, PrerequisiteStateResult> = {};
       envs.forEach((env) => {
-        states[env] = evaluatePrerequisiteState(f, features, env);
+        states[env] = evaluatePrerequisiteState(f, featuresMap, env);
       });
       featuresStates[f.id] = states;
 
       // check if selecting this would be cyclic:
       const newFeature = cloneDeep(feature);
-      const newFeatures = cloneDeep(features);
       const revision = revisions?.find((r) => r.version === version);
       newFeature.prerequisites = [...prerequisites];
       newFeature.prerequisites[i] = {
@@ -123,7 +126,7 @@ export default function PrerequisiteModal({
       };
       wouldBeCyclicStates[f.id] = isFeatureCyclic(
         newFeature,
-        newFeatures,
+        featuresMap,
         revision
       )[0];
     }

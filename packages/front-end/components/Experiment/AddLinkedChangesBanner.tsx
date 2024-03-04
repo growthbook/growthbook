@@ -1,8 +1,8 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
-import PremiumTooltip from "../Marketing/PremiumTooltip";
-import Tooltip from "../Tooltip/Tooltip";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function AddLinkedChangesBanner({
   experiment,

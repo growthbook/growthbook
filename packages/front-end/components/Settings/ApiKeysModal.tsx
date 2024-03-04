@@ -3,10 +3,10 @@ import { useForm } from "react-hook-form";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
-import Modal from "../Modal";
-import track from "../../services/track";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
+import track from "@/services/track";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
 import EncryptionToggle from "./EncryptionToggle";
 import UpgradeModal from "./UpgradeModal";
 

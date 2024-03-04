@@ -3,7 +3,7 @@ import { MemberRoleWithProjects } from "back-end/types/organization";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import UpgradeModal from "../UpgradeModal";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 import RoleSelector from "./RoleSelector";
 
 const AddOrphanedUserModal: FC<{

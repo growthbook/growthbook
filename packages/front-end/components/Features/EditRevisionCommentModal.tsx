@@ -2,8 +2,8 @@ import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { useState } from "react";
 import { useAuth } from "@/services/auth";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
 
 export interface Props {
   feature: FeatureInterface;

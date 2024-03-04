@@ -1,7 +1,7 @@
 import { FeatureValueType } from "back-end/types/feature";
 import { ReactNode } from "react";
-import Field from "../Forms/Field";
-import Toggle from "../Forms/Toggle";
+import Field from "@/components/Forms/Field";
+import Toggle from "@/components/Forms/Toggle";
 
 export interface Props {
   valueType: FeatureValueType;

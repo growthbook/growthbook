@@ -1,9 +1,9 @@
 import { MemberRole } from "back-end/types/organization";
 import { useCallback, useMemo } from "react";
-import Button from "../components/Button";
-import LoadingOverlay from "../components/LoadingOverlay";
-import useApi from "../hooks/useApi";
-import { useAuth, redirectWithTimeout } from "../services/auth";
+import Button from "@/components/Button";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import useApi from "@/hooks/useApi";
+import { useAuth, redirectWithTimeout } from "@/services/auth";
 
 const InvitationPage = (): React.ReactElement => {
   const { apiCall } = useAuth();
