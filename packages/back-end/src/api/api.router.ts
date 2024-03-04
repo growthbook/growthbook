@@ -26,7 +26,10 @@ import { postCopyTransform } from "./openai/postCopyTransform";
 import { getFeatureKeys } from "./features/getFeatureKeys";
 
 const router = Router();
-
+let test;
+if (test) {
+  test = 1;
+}
 let openapiSpec: string;
 router.get("/openapi.yaml", (req, res) => {
   if (!openapiSpec) {
