@@ -4,6 +4,8 @@ import {
   userHasPermission,
 } from "shared/permissions";
 import { uniq } from "lodash";
+import pino from "pino";
+import { Request } from "express";
 import {
   MemberRole,
   OrganizationInterface,
@@ -22,9 +24,15 @@ import { findAllProjectsByOrganization } from "../models/ProjectModel";
 import { addTags, getAllTags } from "../models/TagModel";
 import { AuditInterface } from "../../types/audit";
 import { insertAudit } from "../models/AuditModel";
-import { getEnvironmentIdsFromOrg } from "./organizations";
 
-export class ReqContextClass {
+import { logger } from "../util/logger";
+import { ReqContextInterface } from "../../types/context";
+import {
+  getEnvironmentIdsFromOrg,
+  getEnvironmentIdsFromOrg,
+} from "./organizations";
+
+export class ReqContextClass implements ReqContextInterface {
   // Models
   public models!: {
     factMetrics: FactMetricDataModel;
@@ -47,6 +55,8 @@ export class ReqContextClass {
   public readAccessFilter: ReadAccessFilter;
   public auditUser: EventAuditUser;
   public apiKey?: string;
+  public req?: Request;
+  public logger: pino.BaseLogger;
 
   protected permissions: UserPermissions;
 
@@ -57,6 +67,7 @@ export class ReqContextClass {
     user,
     role,
     apiKey,
+    req,
   }: {
     org: OrganizationInterface;
     user?: {
@@ -69,6 +80,7 @@ export class ReqContextClass {
     role?: MemberRole;
     teams?: TeamInterface[];
     auditUser: EventAuditUser;
+    req?: Request;
   }) {
     this.org = org;
     this.environments = getEnvironmentIdsFromOrg(org);
@@ -78,17 +90,33 @@ export class ReqContextClass {
     this.isApiRequest = auditUser?.type === "api_key";
     this.role = role;
     this.apiKey = apiKey;
+    this.req = req;
 
+    if (this.req && this.req.log) {
+      this.logger = this.req.log;
+    } else {
+      this.logger = logger;
+    }
+
+    this.environments = getEnvironmentIdsFromOrg(org);
+
+    // If a specific user is making this request
     if (user) {
       this.userId = user.id;
       this.email = user.email;
       this.userName = user.name || "";
-      this.permissions = getUserPermissions(user.id, org, teams || []);
       this.superAdmin = user.superAdmin || false;
-    } else {
+      this.permissions = getUserPermissions(user.id, org, teams || []);
+    }
+    // If an API key or background job is making this request
+    else {
+      if (!role) {
+        throw new Error("Role must be provided for API key or background job");
+      }
+
       this.permissions = {
         global: {
-          permissions: roleToPermissionMap(role || "admin", org),
+          permissions: roleToPermissionMap(role, org),
           limitAccessByEnvironment: false,
           environments: [],
         },
@@ -106,18 +134,16 @@ export class ReqContextClass {
     project?: string | (string | undefined)[] | undefined,
     envs?: string[] | Set<string>
   ) {
-    if (
-      !userHasPermission(
-        this.superAdmin,
-        this.permissions,
-        permission,
-        project,
-        envs ? [...envs] : undefined
-      )
-    ) {
-      return false;
-    }
+    return userHasPermission(
+      this.superAdmin,
+      this.permissions,
+      permission,
+      project,
+      envs ? [...envs] : undefined
+    );
   }
+
+  // Helper if you want to throw an error if the user does not have permission
   public requirePermission(
     permission: Permission,
     project?: string | (string | undefined)[] | undefined,
@@ -128,6 +154,7 @@ export class ReqContextClass {
     }
   }
 
+  // Record an audit log entry
   public async auditLog(
     data: Omit<AuditInterface, "user" | "id" | "organization" | "dateCreated">
   ) {
@@ -142,11 +169,9 @@ export class ReqContextClass {
           apiKey: this.apiKey,
         }
       : null;
-
     if (!auditUser) {
       throw new Error("Must have user or apiKey in context to audit log");
     }
-
     await insertAudit({
       ...data,
       user: auditUser,

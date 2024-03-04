@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
+import { Request } from "express";
 import {
   createOrganization,
   findAllOrganizations,
@@ -119,8 +120,10 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
       id: req.userId,
       email: req.email,
       name: req.name || "",
+      superAdmin: req.superAdmin,
     },
     teams: req.teams,
+    req: req as Request,
   });
 }
 
@@ -978,6 +981,8 @@ export function getContextForAgendaJobByOrgObject(
   return new ReqContextClass({
     org: organization,
     auditUser: null,
+    // TODO: Limit background job permissions to the user who created the job
+    role: "admin",
   });
 }
 

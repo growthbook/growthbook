@@ -16,7 +16,6 @@ import {
   roleToPermissionMap,
 } from "../util/organization.util";
 import { ApiKeyInterface } from "../../types/apikey";
-import { insertAudit } from "../models/AuditModel";
 import { getTeamsForOrganization } from "../models/TeamModel";
 import { TeamInterface } from "../../types/team";
 import { getUserById } from "../services/users";
@@ -129,6 +128,7 @@ export default function authenticateApiRequestMiddleware(
         user: req.user,
         role: role as MemberRole | undefined,
         apiKey: id,
+        req,
       });
 
       // Check permissions for user API keys
@@ -167,14 +167,7 @@ export default function authenticateApiRequestMiddleware(
 
       // Add audit method to req
       req.audit = async (data) => {
-        await insertAudit({
-          ...data,
-          user: {
-            apiKey: req.apiKey,
-          },
-          organization: org.id,
-          dateCreated: new Date(),
-        });
+        await req.context.auditLog(data);
       };
 
       // init license for org if it exists
