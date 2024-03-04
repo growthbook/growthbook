@@ -6,7 +6,7 @@ import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import usePermissions from "@/hooks/usePermissions";
 import { StartExperimentBanner } from "@/components/Experiment/StartExperimentBanner";
-import AddLinkedChangesBanner from "@/components/Experiment/LinkedChanges/AddLinkedChangesBanner";
+import AddLinkedChanges from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
 import RedirectLinkedChanges from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
 import FeatureLinkedChanges from "@/components/Experiment/LinkedChanges/FeatureLinkedChanges";
 import VisualLinkedChanges from "@/components/Experiment/LinkedChanges/VisualLinkedChanges";
@@ -66,7 +66,7 @@ export default function Implementation({
     if (experiment.status === "draft") {
       return (
         <>
-          <AddLinkedChangesBanner
+          <AddLinkedChanges
             experiment={experiment}
             numLinkedChanges={0}
             setFeatureModal={setFeatureModal}
@@ -128,7 +128,7 @@ export default function Implementation({
         canAddChanges={canAddLinkedChanges}
         mutate={mutate}
       />
-      <AddLinkedChangesBanner
+      <AddLinkedChanges
         experiment={experiment}
         numLinkedChanges={0}
         linkedFeatures={linkedFeatures.length > 0}

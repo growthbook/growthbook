@@ -91,7 +91,7 @@ import StatusIndicator from "./StatusIndicator";
 import ExpandablePhaseSummary from "./ExpandablePhaseSummary";
 import VariationsTable from "./VariationsTable";
 import VisualChangesetModal from "./VisualChangesetModal";
-import AddLinkedChangesBanner from "./LinkedChanges/AddLinkedChangesBanner";
+import AddLinkedChanges from "./LinkedChanges/AddLinkedChanges";
 import { StartExperimentBanner } from "./StartExperimentBanner";
 import { HashVersionTooltip } from "./HashVersionSelector";
 import UrlRedirectModal from "./UrlRedirectModal";
@@ -840,7 +840,7 @@ export default function SinglePage({
         </div>
       )}
 
-      <AddLinkedChangesBanner
+      <AddLinkedChanges
         experiment={experiment}
         setFeatureModal={setFeatureModal}
         setVisualEditorModal={setVisualEditorModal}

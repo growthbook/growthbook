@@ -5,7 +5,7 @@ import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { ICON_PROPERTIES } from "./constants";
 
-export default function AddLinkedChangesBanner({
+export default function AddLinkedChanges({
   experiment,
   numLinkedChanges,
   linkedFeatures,
