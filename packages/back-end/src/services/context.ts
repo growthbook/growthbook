@@ -24,13 +24,9 @@ import { findAllProjectsByOrganization } from "../models/ProjectModel";
 import { addTags, getAllTags } from "../models/TagModel";
 import { AuditInterface } from "../../types/audit";
 import { insertAudit } from "../models/AuditModel";
-
 import { logger } from "../util/logger";
 import { ReqContextInterface } from "../../types/context";
-import {
-  getEnvironmentIdsFromOrg,
-  getEnvironmentIdsFromOrg,
-} from "./organizations";
+import { getEnvironmentIdsFromOrg } from "./organizations";
 
 export class ReqContextClass implements ReqContextInterface {
   // Models
@@ -83,7 +79,6 @@ export class ReqContextClass implements ReqContextInterface {
     req?: Request;
   }) {
     this.org = org;
-    this.environments = getEnvironmentIdsFromOrg(org);
     this.auditUser = auditUser;
     this.teams = teams || [];
 
