@@ -1,8 +1,9 @@
-import React, { FC, useState } from "react";
+import React, { FC, useEffect, useState } from "react";
 import { FaCheck, FaTimes } from "react-icons/fa";
 import { ExpandedMember } from "back-end/types/organization";
 import { datetime } from "shared/dates";
 import { RxIdCard } from "react-icons/rx";
+import router from "next/router";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -32,7 +33,7 @@ const MemberList: FC<{
   canInviteMembers = true,
   maxHeight = null,
 }) => {
-  const [inviting, setInviting] = useState(false);
+  const [inviting, setInviting] = useState(!!router.query["just-subscribed"]);
   const { apiCall } = useAuth();
   const { userId, users } = useUser();
   const [roleModal, setRoleModal] = useState<string>("");
@@ -42,6 +43,12 @@ const MemberList: FC<{
   );
   const { projects } = useDefinitions();
   const environments = useEnvironments();
+
+  const openInviteModal = !!router.query["just-subscribed"];
+
+  useEffect(() => {
+    setInviting(!!router.query["just-subscribed"]);
+  }, [openInviteModal]);
 
   const onInvite = () => {
     setInviting(true);

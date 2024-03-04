@@ -16,6 +16,14 @@ export const LICENSE_SERVER =
 const logger = pino();
 
 export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
+const accountPlans: Set<AccountPlan> = new Set([
+  "oss",
+  "starter",
+  "pro",
+  "pro_sso",
+  "enterprise",
+]);
+
 export type CommercialFeature =
   | "scim"
   | "sso"
@@ -53,6 +61,7 @@ export interface LicenseInterface {
   seats: number; // Maximum number of seats on the license
   dateCreated: string; // Date the license was issued
   dateExpires: string; // Date the license expires
+  emailVerified: boolean; // True if the email has been verified
   isTrial: boolean; // True if this is a trial license
   plan: AccountPlan; // The assigned plan (pro, enterprise, etc.) for this license
   seatsInUse: number; // Number of seats currently in use
@@ -63,6 +72,23 @@ export interface LicenseInterface {
     tooltipText: string; // The text to show in the tooltip
     showAllUsers: boolean; // True if all users should see the notice rather than just the admins
   };
+  stripeSubscription?: {
+    id: string;
+    qty: number;
+    trialEnd: Date | null;
+    status: Stripe.Subscription.Status;
+    current_period_end: number;
+    cancel_at: number | null;
+    canceled_at: number | null;
+    cancel_at_period_end: boolean;
+    planNickname: string | null;
+    priceId?: string;
+    price?: number; // The price of the license
+    discountAmount?: number; // The amount of the discount
+    discountMessage?: string; // The message of the discount
+    hasPaymentMethod?: boolean;
+  };
+  freeTrialDate?: Date; // Date the free trial was started
   installationUsers: {
     [installationId: string]: { date: string; userHashes: string[] };
   }; // Map of first 7 chars of user email shas to the last time they were in a usage request
@@ -169,6 +195,7 @@ export const accountFeatures: CommercialFeaturesMap = {
 
 type MinimalOrganization = {
   id: string;
+  licenseKey?: string;
   enterprise?: boolean;
   restrictAuthSubPrefix?: string;
   restrictLoginMethod?: string;
@@ -188,6 +215,9 @@ export function isActiveSubscriptionStatus(
 // use getEffectiveAccountPlan() instead.
 export function getAccountPlan(org: MinimalOrganization): AccountPlan {
   if (stringToBoolean(process.env.IS_CLOUD)) {
+    if (org.licenseKey) {
+      return getLicense(org.licenseKey)?.plan || "starter";
+    }
     if (org.enterprise) return "enterprise";
     if (org.restrictAuthSubPrefix || org.restrictLoginMethod) return "pro_sso";
     if (isActiveSubscriptionStatus(org.subscription?.status)) return "pro";
@@ -195,7 +225,7 @@ export function getAccountPlan(org: MinimalOrganization): AccountPlan {
   }
 
   // For self-hosted deployments
-  return getLicense()?.plan || "oss";
+  return getLicense(org.licenseKey)?.plan || "oss";
 }
 
 function planHasPremiumFeature(
@@ -304,10 +334,16 @@ export async function getVerifiedLicenseData(
 }
 
 function checkIfEnvVarSettingsAreAllowedByLicense(license: LicenseInterface) {
-  // Trying to use SSO, but the plan doesn't support it
+  // These are checks that only apply to self-hosted instances
+  if (stringToBoolean(process.env.IS_CLOUD)) {
+    return;
+  }
+
   if (process.env.SSO_CONFIG && !planHasPremiumFeature(license.plan, "sso")) {
+    // Trying to use SSO, but the plan doesn't support it
     throw new Error(`Your License Key does not support SSO.`);
   }
+
   // Trying to use IS_MULTI_ORG, but the plan doesn't support it
   if (
     stringToBoolean(process.env.IS_MULTI_ORG) &&
@@ -376,6 +412,182 @@ async function getLicenseDataFromMongoCache(
   );
 }
 
+function getAgentOptions() {
+  const use_proxy =
+    !!process.env.http_proxy ||
+    !!process.env.https_proxy ||
+    !!process.env.HTTPS_PROXY;
+  return use_proxy ? { agent: new ProxyAgent() } : {};
+}
+
+export class LicenseServerError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+    this.name = "LicenseServerError";
+  }
+}
+
+async function callLicenseServer(url: string, body: string) {
+  const agentOptions = getAgentOptions();
+
+  const options = {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body,
+    ...agentOptions,
+  };
+
+  let serverResult;
+  try {
+    serverResult = await fetch(url, options);
+  } catch (e) {
+    logger.error(
+      "Could not connect to license server. Make sure to whitelist 75.2.109.47."
+    );
+    throw new LicenseServerError(
+      "Could not connect to license server. Make sure to whitelist 75.2.109.47.",
+      500
+    );
+  }
+
+  if (!serverResult.ok) {
+    const errorText = await serverResult.text();
+    logger.error(`License Server error (${serverResult.status}): ${errorText}`);
+    throw new LicenseServerError(errorText, serverResult.status);
+  }
+
+  return await serverResult.json();
+}
+
+export async function postVerifyEmailToLicenseServer(
+  emailVerificationToken: string
+) {
+  const url = `${LICENSE_SERVER}license/verify-email`;
+  return callLicenseServer(
+    url,
+    JSON.stringify({
+      emailVerificationToken,
+    })
+  );
+}
+
+export async function postNewProTrialSubscriptionToLicenseServer(
+  organizationId: string,
+  companyName: string,
+  name: string,
+  email: string,
+  seats: number
+) {
+  const url = `${LICENSE_SERVER}subscription/new-pro-trial`;
+  return callLicenseServer(
+    url,
+    JSON.stringify({
+      organizationId,
+      companyName,
+      name,
+      email,
+      seats,
+      appOrigin: process.env.APP_ORIGIN,
+      cloudSecret: process.env.CLOUD_SECRET,
+    })
+  );
+}
+
+export async function postNewProSubscriptionToLicenseServer(
+  organizationId: string,
+  companyName: string,
+  ownerEmail: string,
+  name: string,
+  seats: number,
+  returnUrl: string
+) {
+  const url = `${LICENSE_SERVER}subscription/new`;
+  return callLicenseServer(
+    url,
+    JSON.stringify({
+      appOrigin: process.env.APP_ORIGIN,
+      cloudSecret: process.env.CLOUD_SECRET,
+      organizationId,
+      companyName,
+      ownerEmail,
+      name,
+      seats,
+      returnUrl,
+    })
+  );
+}
+
+export async function postNewSubscriptionSuccessToLicenseServer(
+  checkoutSessionId: string
+): Promise<LicenseInterface> {
+  const url = `${LICENSE_SERVER}subscription/success`;
+  return await callLicenseServer(
+    url,
+    JSON.stringify({
+      checkoutSessionId,
+    })
+  );
+}
+
+export async function postCreateBillingSessionToLicenseServer(
+  licenseId: string
+): Promise<{ url: string; status: number }> {
+  const url = `${LICENSE_SERVER}subscription/manage`;
+  return await callLicenseServer(
+    url,
+    JSON.stringify({
+      appOrigin: process.env.APP_ORIGIN,
+      licenseId,
+    })
+  );
+}
+
+export async function postCreateTrialEnterpriseLicenseToLicenseServer(
+  email: string,
+  name: string,
+  organizationId: string,
+  companyName: string,
+  context: {
+    organizationCreated: Date;
+    currentSeats: number;
+    currentPlan: AccountPlan;
+    currentBuild: string;
+    ctaSource: string;
+  }
+) {
+  const url = `${LICENSE_SERVER}license/new-enterprise-trial`;
+  return await callLicenseServer(
+    url,
+    JSON.stringify({
+      email,
+      name,
+      organizationId,
+      companyName,
+      context,
+      appOrigin: process.env.APP_ORIGIN,
+      cloudSecret: process.env.CLOUD_SECRET,
+    })
+  );
+}
+
+export async function postResendTrialLicenseEmailToLicenseServer(
+  organizationId: string
+) {
+  const url = `${LICENSE_SERVER}license/resend-license-email`;
+  return await callLicenseServer(
+    url,
+    JSON.stringify({
+      organizationId,
+      appOrigin: process.env.APP_ORIGIN,
+    })
+  );
+}
+
 async function getLicenseDataFromServer(
   licenseId: string,
   userLicenseCodes: string[],
@@ -383,11 +595,7 @@ async function getLicenseDataFromServer(
 ): Promise<LicenseInterface> {
   logger.info("Getting license data from server for " + licenseId);
   const url = `${LICENSE_SERVER}license/${licenseId}/check`;
-  const use_proxy =
-    !!process.env.http_proxy ||
-    !!process.env.https_proxy ||
-    !!process.env.HTTPS_PROXY;
-  const agentOptions = use_proxy ? { agent: new ProxyAgent() } : {};
+  const agentOptions = getAgentOptions();
 
   const options = {
     method: "PUT",
@@ -453,10 +661,10 @@ export interface LicenseMetaData {
 }
 
 const lock = new AsyncLock();
-let licenseData: Partial<LicenseInterface> | null = null;
-let cacheDate: Date | null = null;
+
 // in-memory cache to avoid hitting the license server on every request
 const keyToLicenseData: Record<string, Partial<LicenseInterface>> = {};
+const keyToCacheDate: Record<string, Date> = {};
 
 export async function licenseInit(
   licenseKey?: string,
@@ -467,7 +675,6 @@ export async function licenseInit(
   const key = licenseKey || process.env.LICENSE_KEY || null;
 
   if (!key) {
-    licenseData = null;
     return;
   }
 
@@ -477,69 +684,100 @@ export async function licenseInit(
   // By acquiring a lock we make sure to only call the license server once, the remaining
   // calls will be able to read from the cache.
   await lock.acquire(key, async () => {
-    if (
-      !forceRefresh &&
-      key &&
-      keyToLicenseData[key] &&
-      (cacheDate === null || cacheDate > oneDayAgo)
-    ) {
-      licenseData = keyToLicenseData[key];
-    } else if (key.startsWith("license_") && userLicenseCodes && metaData) {
-      licenseData = await getLicenseDataFromServer(
-        key,
-        userLicenseCodes,
-        metaData
-      );
-      cacheDate = new Date();
-    } else {
-      // Old style: the key itself has the encrypted license data in it.
-      licenseData = await getVerifiedLicenseData(key);
-    }
+    try {
+      // Only refetch the license data if forceRefresh is true
+      // or if the license data is not in the cache
+      // or if the cache date exists and is older than 1 day
+      if (
+        forceRefresh ||
+        !keyToLicenseData[key] ||
+        (keyToCacheDate[key] !== null && keyToCacheDate[key] <= oneDayAgo)
+      ) {
+        if (key.startsWith("license_")) {
+          if (!userLicenseCodes || !metaData) {
+            throw new Error(
+              "Missing userLicenseCodes or metaData for license key"
+            );
+          }
 
-    keyToLicenseData[key] = licenseData;
+          keyToLicenseData[key] = await getLicenseDataFromServer(
+            key,
+            userLicenseCodes,
+            metaData
+          );
+
+          keyToCacheDate[key] = new Date();
+        } else {
+          // Old style: the key itself has the encrypted license data in it.
+          keyToLicenseData[key] = await getVerifiedLicenseData(key);
+        }
+      }
+    } catch (e) {
+      // Hack to get the stack trace to show the original call to licenseInit
+      // as AsyncLock seems to swallow the top of the stack frame.
+      const tempError = new Error();
+      Error.captureStackTrace(tempError, licenseInit);
+      e.stack += "\n" + tempError.stack?.split("\n").slice(1).join("\n");
+      throw e;
+    }
   });
 
+  // If an organization replaces an expired org.licenseKey with an env var
+  // for license key that is not expired, use the env var license key instead.
   if (
     process.env.LICENSE_KEY &&
     key != process.env.LICENSE_KEY &&
     new Date(keyToLicenseData[key]?.dateExpires || "") < new Date()
   ) {
-    return licenseInit(
+    const result = await licenseInit(
       process.env.LICENSE_KEY,
       userLicenseCodes,
       metaData,
       forceRefresh
     );
-  } else {
-    return keyToLicenseData[key];
+    if (result) {
+      keyToLicenseData[key] = result;
+    }
   }
+
+  return keyToLicenseData[key];
 }
 
-export function getLicense() {
-  return licenseData;
-}
-export async function setLicense(l: Partial<LicenseInterface> | null) {
-  // make sure we trust that l is already verified before setting:
-  licenseData = l;
+export function getLicense(key?: string) {
+  if (!key) {
+    if (process.env.LICENSE_KEY) {
+      key = process.env.LICENSE_KEY;
+    } else {
+      return null;
+    }
+  }
+  return keyToLicenseData[key];
 }
 
 export function resetInMemoryLicenseCache(): void {
-  licenseData = null;
-  cacheDate = null;
   Object.keys(keyToLicenseData).forEach((key) => {
+    delete keyToLicenseData[key];
+  });
+  Object.keys(keyToCacheDate).forEach((key) => {
     delete keyToLicenseData[key];
   });
 }
 
-function shouldLimitAccess(orgId: string): boolean {
-  if (shouldLimitAccessDueToExpiredLicense()) {
+function shouldLimitAccess(org: MinimalOrganization): boolean {
+  const licenseData = getLicense(org.licenseKey);
+
+  if (!licenseData || shouldLimitAccessDueToExpiredLicense(licenseData)) {
+    return true;
+  }
+
+  if (!licenseData.emailVerified) {
     return true;
   }
 
   if (
-    orgId &&
+    org.id &&
     licenseData?.organizationId &&
-    orgId !== licenseData.organizationId
+    org.id !== licenseData.organizationId
   ) {
     return true;
   }
@@ -552,24 +790,37 @@ function shouldLimitAccess(orgId: string): boolean {
 }
 
 export function getEffectiveAccountPlan(org: MinimalOrganization): AccountPlan {
-  if (process.env.IS_CLOUD) {
-    return getAccountPlan(org);
-  }
-  const hasError = shouldLimitAccess(org.id);
-  const basicPlan = "oss";
+  let basicPlan: AccountPlan;
 
+  if (stringToBoolean(process.env.IS_CLOUD)) {
+    if (!org.licenseKey) {
+      return getAccountPlan(org);
+    }
+    basicPlan = "starter";
+  } else {
+    basicPlan = "oss";
+  }
+
+  const hasError = shouldLimitAccess(org);
   if (hasError) {
     return basicPlan;
   }
 
-  return getLicense()?.plan || basicPlan;
+  const license = getLicense(org.licenseKey);
+  if (!license?.plan || !accountPlans.has(license?.plan)) {
+    return basicPlan;
+  }
+
+  return license.plan;
 }
 
 /**
  * Checks if the license is expired.
  * @returns {boolean} True if the license is expired, false otherwise.
  */
-function shouldLimitAccessDueToExpiredLicense(): boolean {
+function shouldLimitAccessDueToExpiredLicense(
+  licenseData: Partial<LicenseInterface>
+): boolean {
   // If licenseData is not available, consider it as not expired
   if (!licenseData) {
     return false;

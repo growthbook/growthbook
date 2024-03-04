@@ -3,7 +3,6 @@ import { SubscriptionQuote } from "back-end/types/organization";
 import { useEffect, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { useAuth } from "@/services/auth";
-import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "./usePermissions";
 
@@ -13,7 +12,11 @@ export default function useStripeSubscription() {
     "self-serve-billing-overage-warning-banner"
   ).on;
 
-  const { organization } = useUser();
+  const { organization, license } = useUser();
+
+  //TODO: Remove this once we have moved the license off the organization
+  const stripeSubscription =
+    organization?.subscription || license?.stripeSubscription;
 
   const freeSeats = organization?.freeSeats || 3;
 
@@ -24,20 +27,19 @@ export default function useStripeSubscription() {
 
   useEffect(() => {
     if (!permissions.manageBilling) return;
-    if (!isCloud()) return;
 
     apiCall<{ quote: SubscriptionQuote }>(`/subscription/quote`)
       .then((data) => {
         setQuote(data.quote);
       })
       .catch((e) => console.error(e));
-  }, [freeSeats, isCloud(), permissions.manageBilling]);
+  }, [freeSeats, permissions.manageBilling]);
 
   const activeAndInvitedUsers = quote?.activeAndInvitedUsers || 0;
 
-  const subscriptionStatus = organization?.subscription?.status;
+  const subscriptionStatus = stripeSubscription?.status;
 
-  const hasPaymentMethod = organization?.subscription?.hasPaymentMethod;
+  const hasPaymentMethod = stripeSubscription?.hasPaymentMethod;
 
   // We will treat past_due as active so as to not interrupt users
   const hasActiveSubscription = ["active", "trialing", "past_due"].includes(
@@ -45,24 +47,24 @@ export default function useStripeSubscription() {
   );
 
   const nextBillDate = new Date(
-    (organization?.subscription?.current_period_end || 0) * 1000
+    (stripeSubscription?.current_period_end || 0) * 1000
   ).toDateString();
 
   const dateToBeCanceled = new Date(
-    (organization?.subscription?.cancel_at || 0) * 1000
+    (stripeSubscription?.cancel_at || 0) * 1000
   ).toDateString();
 
   const cancelationDate = new Date(
-    (organization?.subscription?.canceled_at || 0) * 1000
+    (stripeSubscription?.canceled_at || 0) * 1000
   ).toDateString();
 
-  const pendingCancelation = organization?.subscription?.cancel_at_period_end;
+  const pendingCancelation = stripeSubscription?.cancel_at_period_end;
 
   const disableSelfServeBilling =
     organization?.disableSelfServeBilling || false;
 
   // eslint-disable-next-line
-  let trialEnd = (organization?.subscription?.trialEnd || null) as any;
+  let trialEnd = (stripeSubscription?.trialEnd || null) as any;
   if (typeof trialEnd === "number") {
     trialEnd = getValidDate(trialEnd * 1000);
   }
@@ -82,9 +84,9 @@ export default function useStripeSubscription() {
     showSeatOverageBanner,
     loading: !quote || !organization,
     canSubscribe:
-      isCloud() &&
       !disableSelfServeBilling &&
-      !organization?.enterprise &&
+      !organization?.enterprise && //TODO: Remove this once we have moved the license off the organization
+      license?.plan != "enterprise" &&
       selfServePricingEnabled &&
       !hasActiveSubscription,
   };

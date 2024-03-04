@@ -37,7 +37,8 @@ export default function AccountPlanNotices() {
   }
 
   // GrowthBook Cloud-specific Notices
-  if (isCloud() && permissions.manageBilling) {
+  // TODO: Get rid of this logic once we have migrated all organizations to use the license key
+  if (isCloud() && permissions.manageBilling && !license) {
     // On an active trial
     const trialRemaining = trialEnd ? daysLeft(trialEnd) : -1;
     if (subscriptionStatus === "trialing" && trialRemaining >= 0) {
@@ -98,8 +99,8 @@ export default function AccountPlanNotices() {
     }
   }
 
-  // Self-hosted-specific Notices
-  if (!isCloud() && license) {
+  // Notices for accounts using a license key
+  if (license) {
     // Trial license is up
     const licenseTrialRemaining = license.isTrial
       ? daysLeft(license.dateExpires)
@@ -120,23 +121,50 @@ export default function AccountPlanNotices() {
         </Tooltip>
       );
     }
-    if (licenseTrialRemaining >= 0) {
+    if (!license.emailVerified && license.plan) {
       return (
-        <Tooltip
-          body={
-            <>
-              Contact sales@growthbook.io if you need more time or would like to
-              upgrade
-            </>
-          }
-        >
-          <div className="alert alert-warning py-1 px-2 mb-0 d-none d-md-block mr-1">
-            <span className="badge badge-warning">{licenseTrialRemaining}</span>{" "}
+        <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
+          Check your email. Verify your account to activate your {license.plan}{" "}
+          {license.isTrial ? "trial" : "license"}.
+        </div>
+      );
+    }
+
+    if (licenseTrialRemaining >= 0) {
+      if (license.plan === "enterprise") {
+        return (
+          <Tooltip
+            body={
+              <>
+                Contact sales@growthbook.io if you need more time or would like
+                to upgrade
+              </>
+            }
+          >
+            <div className="alert alert-warning py-1 px-2 mb-0 d-none d-md-block mr-1">
+              <span className="badge badge-warning">
+                {licenseTrialRemaining}
+              </span>{" "}
+              day
+              {licenseTrialRemaining === 1 ? "" : "s"} left in trial
+            </div>
+          </Tooltip>
+        );
+      } else {
+        return (
+          <button
+            className="alert alert-warning py-1 px-2 mb-0 d-none d-md-block mr-1"
+            onClick={(e) => {
+              e.preventDefault();
+              router.push("/settings/billing");
+            }}
+          >
+            <div className="badge badge-warning">{licenseTrialRemaining}</div>{" "}
             day
             {licenseTrialRemaining === 1 ? "" : "s"} left in trial
-          </div>
-        </Tooltip>
-      );
+          </button>
+        );
+      }
     }
 
     // License expired

@@ -10,9 +10,12 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
 import PendingMemberList from "@/components/Settings/Team/PendingMemberList";
-import { isMultiOrg } from "@/services/env";
+import { isCloud, isMultiOrg } from "@/services/env";
 import AutoApproveMembersToggle from "@/components/Settings/Team/AutoApproveMembersToggle";
 import UpdateDefaultRoleForm from "@/components/Settings/Team/UpdateDefaultRoleForm";
+import VerifyingEmailModal from "../UpgradeModal/VerifyingEmailModal";
+import PleaseVerifyEmailModal from "../UpgradeModal/PleaseVerifyEmailModal";
+import LicenseSuccessModal from "../UpgradeModal/LicenseSuccessModal";
 
 export const MembersTabView: FC = () => {
   const {
@@ -30,6 +33,7 @@ export const MembersTabView: FC = () => {
 
   const router = useRouter();
   const { apiCall } = useAuth();
+  const { license } = useUser();
 
   // Will be set when redirected here after Stripe Checkout
   const checkoutSessionId = String(
@@ -71,11 +75,19 @@ export const MembersTabView: FC = () => {
 
   return (
     <div className="container-fluid pagecontents">
-      {justSubscribed && (
-        <div className="alert alert-success mb-4">
-          <h3>Welcome to GrowthBook Pro!</h3>
-          <div>You can now invite more team members to your account.</div>
-        </div>
+      <VerifyingEmailModal />
+      {justSubscribed && !isCloud() && !license?.emailVerified && (
+        <PleaseVerifyEmailModal close={close} plan="Pro" isTrial={false} />
+      )}
+      {justSubscribed && (isCloud() || license?.emailVerified) && (
+        <LicenseSuccessModal
+          plan={license?.plan === "enterprise" ? "Enterprise" : "Pro"}
+          close={() => setJustSubscribed(false)}
+          header={`🎉 Welcome to Growthbook ${
+            license?.plan === "enterprise" ? "Enterprise" : "Pro"
+          }`}
+          isTrial={license?.isTrial}
+        />
       )}
       <SSOSettings ssoConnection={ssoConnection || null} />
       <h1>Team Members</h1>
