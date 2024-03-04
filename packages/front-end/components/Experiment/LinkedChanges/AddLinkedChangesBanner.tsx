@@ -30,8 +30,8 @@ export default function AddLinkedChangesBanner({
 
   if (experiment.status !== "draft") return null;
   if (experiment.archived) return null;
-  // // Already has linked changes
-  // if (numLinkedChanges > 0) return null;
+  // Already has linked changes
+  if (numLinkedChanges && numLinkedChanges > 0) return null;
 
   return (
     <div className="appbox p-4 my-4">

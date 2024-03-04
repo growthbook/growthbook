@@ -1,6 +1,7 @@
 import track from "@/services/track";
-import LinkedFeatureFlag from "../LinkedFeatureFlag";
-import LinkedChangesContainer from "./LinkedChangesContainer";
+
+import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
+import LinkedChangesContainer from "@/components/Experiment/LinkedChanges/LinkedChangesContainer";
 
 export default function FeatureLinkedChanges({
   setFeatureModal,

@@ -4,8 +4,8 @@ import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { diffChars } from "diff";
 import { useAuth } from "@/services/auth";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import UrlRedirectModal from "../UrlRedirectModal";
-import LinkedChangesContainer from "./LinkedChangesContainer";
+import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
+import LinkedChangesContainer from "@/components/Experiment/LinkedChanges/LinkedChangesContainer";
 
 interface RedirectLinkedChangesProps {
   setUrlRedirectModal: (boolean) => void;
