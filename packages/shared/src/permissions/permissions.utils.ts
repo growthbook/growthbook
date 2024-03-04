@@ -83,7 +83,7 @@ export const userHasPermission = (
   superAdmin: boolean,
   userPermissions: UserPermissions,
   permission: Permission,
-  project?: string | string[],
+  project?: string | (string | undefined)[] | undefined,
   envs?: string[]
 ): boolean => {
   if (superAdmin) {
