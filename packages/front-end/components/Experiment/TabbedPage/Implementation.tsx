@@ -66,6 +66,13 @@ export default function Implementation({
     if (experiment.status === "draft") {
       return (
         <>
+          <AddLinkedChangesBanner
+            experiment={experiment}
+            numLinkedChanges={0}
+            setFeatureModal={setFeatureModal}
+            setVisualEditorModal={setVisualEditorModal}
+            setUrlRedirectModal={setUrlRedirectModal}
+          />
           <div className="mt-1">
             <StartExperimentBanner
               experiment={experiment}
@@ -78,13 +85,6 @@ export default function Implementation({
               className="appbox p-4"
             />
           </div>
-          <AddLinkedChangesBanner
-            experiment={experiment}
-            numLinkedChanges={0}
-            setFeatureModal={setFeatureModal}
-            setVisualEditorModal={setVisualEditorModal}
-            setUrlRedirectModal={setUrlRedirectModal}
-          />
         </>
       );
     }
