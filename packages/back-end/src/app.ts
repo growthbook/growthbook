@@ -684,6 +684,7 @@ app.use("/teams", teamRouter);
 
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);
+app.get("/admin/organization/:orgId/users", adminController.getUsersForOrg);
 
 // License
 app.get("/license", licenseController.getLicenseData);
