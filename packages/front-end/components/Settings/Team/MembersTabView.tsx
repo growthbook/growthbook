@@ -13,9 +13,9 @@ import PendingMemberList from "@/components/Settings/Team/PendingMemberList";
 import { isCloud, isMultiOrg } from "@/services/env";
 import AutoApproveMembersToggle from "@/components/Settings/Team/AutoApproveMembersToggle";
 import UpdateDefaultRoleForm from "@/components/Settings/Team/UpdateDefaultRoleForm";
-import VerifyingEmailModal from "../UpgradeModal/VerifyingEmailModal";
-import PleaseVerifyEmailModal from "../UpgradeModal/PleaseVerifyEmailModal";
-import LicenseSuccessModal from "../UpgradeModal/LicenseSuccessModal";
+import VerifyingEmailModal from "@/components/Settings/UpgradeModal/VerifyingEmailModal";
+import PleaseVerifyEmailModal from "@/components/Settings/UpgradeModal/PleaseVerifyEmailModal";
+import LicenseSuccessModal from "@/components/Settings/UpgradeModal/LicenseSuccessModal";
 
 export const MembersTabView: FC = () => {
   const {
