@@ -1,7 +1,7 @@
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { getValidDate } from "shared/dates";
+import { date, getValidDate } from "shared/dates";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
@@ -32,6 +32,13 @@ function jamesSteinAdjustment(
     effects.reduce((a, b) => a + Math.pow(b - priorMean, 2), 0);
   return { mean: priorMean, adjustment: adj };
 }
+
+type ExperimentImpactFilters = {
+  startDate: string;
+  endDate: string;
+  project: string;
+  metric: string;
+};
 
 type ExperimentImpact = {
   endDate: Date;
@@ -79,7 +86,7 @@ function formatImpact(
   );
 }
 
-function ImpactCard({
+function ImpactTab({
   experimentSummaryData,
   experimentSummaryType,
   formatter,
@@ -164,13 +171,21 @@ function ImpactCard({
             </a>
           </Link>
         </td>
+
         <td>
-          {experimentSummaryType === "other" ? (
-            <ExperimentStatusIndicator status={e.experiment.status} />
-          ) : null}
+          {e.experiment.status === "stopped"
+            ? date(
+                e.experiment.phases[e.experiment.phases.length - 1].dateEnded ??
+                  ""
+              )
+            : "N/A"}
+        </td>
+        <td>
           {e.experiment.results ? (
             <ResultsIndicator results={e.experiment.results} />
-          ) : null}
+          ) : (
+            <ExperimentStatusIndicator status={e.experiment.status} />
+          )}
         </td>
         <td>
           <table>{variations}</table>
@@ -218,6 +233,7 @@ function ImpactCard({
         <thead>
           <tr>
             <th>Experiment</th>
+            <th>Date Ended</th>
             <th>Status</th>
             <th>
               {experimentSummaryType === "winner"
@@ -235,13 +251,6 @@ function ImpactCard({
   );
 }
 
-type ExperimentImpactFilters = {
-  startDate: string;
-  endDate: string;
-  project: string;
-  metric: string;
-};
-
 export default function ExperimentImpact({
   experiments,
 }: {
@@ -251,11 +260,11 @@ export default function ExperimentImpact({
   const now = new Date();
   const defaultStartDate = new Date(now);
   defaultStartDate.setDate(defaultStartDate.getDate() - 180);
-  console.log(defaultStartDate);
+
   const form = useForm<ExperimentImpactFilters>({
     defaultValues: {
       startDate: defaultStartDate.toISOString().substring(0, 16),
-      endDate: now.toISOString().substring(0, 16),
+      endDate: "",
       project: "",
       metric: settings.northStar?.metricIds?.[0] ?? "",
     },
@@ -265,15 +274,15 @@ export default function ExperimentImpact({
     "summary"
   );
 
-  const { projects } = useDefinitions();
-
   const [snapshots, setSnapshots] = useState<ExperimentSnapshotInterface[]>();
   const [loading, setLoading] = useState(true);
-  const { metrics, getFactTableById } = useDefinitions();
+  const { metrics, project, projects, getFactTableById } = useDefinitions();
   const displayCurrency = useCurrency();
 
   const metric = form.watch("metric");
+  const selectedProject = form.watch("project");
 
+  // TODO just set form.setValue("project", project) when a project is selected in left nav
   const metricInterface = metrics.find((m) => m.id === metric);
   const formatter = metricInterface
     ? getExperimentMetricFormatter(metricInterface, getFactTableById, true)
@@ -287,7 +296,17 @@ export default function ExperimentImpact({
 
   const { apiCall } = useAuth();
 
-  const exps = experiments.filter((e) => e.metrics.find((m) => m === metric));
+  const exps = experiments
+    .filter((e) => e.metrics.find((m) => m === metric))
+    .sort(
+      (a, b) =>
+        getValidDate(
+          b.phases[b.phases.length - 1].dateEnded ?? new Date()
+        ).getTime() -
+        getValidDate(
+          a.phases[a.phases.length - 1].dateEnded ?? new Date()
+        ).getTime()
+    );
 
   useEffect(() => {
     const fetchSnapshots = async () => {
@@ -307,6 +326,7 @@ export default function ExperimentImpact({
   if (!snapshots && loading) {
     return <>Loading</>;
   }
+  console.log(project);
 
   const experimentImpacts = new Map<string, ExperimentWithImpact>();
   console.log(exps);
@@ -332,6 +352,7 @@ export default function ExperimentImpact({
       experiments: [],
     },
   };
+  console.log(selectedProject);
   if (snapshots && exps) {
     const maxUnits = 0;
     let overallSE: number | null = null;
@@ -339,12 +360,18 @@ export default function ExperimentImpact({
     exps.forEach((e) => {
       const s = snapshots.find((s) => s.experiment === e.id);
       console.log(s);
+      console.log(e.project);
       const inSample =
         !!s &&
-        getValidDate(e.phases[e.phases.length - 1].dateEnded) >
+        // ended and end date is in range
+        ((getValidDate(e.phases[e.phases.length - 1].dateEnded) >
           getValidDate(form.watch("startDate")) &&
-        getValidDate(e.phases[e.phases.length - 1].dateStarted) <
-          getValidDate(form.watch("endDate"));
+          getValidDate(e.phases[e.phases.length - 1].dateStarted) <
+            getValidDate(form.watch("endDate") ?? new Date())) ||
+          (e.status === "running" &&
+            (!form.watch("endDate") ||
+              getValidDate(form.watch("endDate")) > new Date()))) &&
+        (e.project === selectedProject || selectedProject === "");
 
       const summary =
         inSample && e.results === "won" && !!e.winner
@@ -378,7 +405,6 @@ export default function ExperimentImpact({
           res.variations.forEach((v, i) => {
             if (i !== 0) {
               // TODO what if control is winner?
-              // TODO effect of adding all branches?
               const se = v?.metrics[metric]?.uplift?.stddev ?? 0;
               const impact = v?.metrics[metric]?.expected ?? 0;
               obj.scaledImpact.push(impact);
@@ -427,20 +453,22 @@ export default function ExperimentImpact({
           }
         });
       }
-      if (e.experiment.results === "won") {
+      console.log(e.experiment.results);
+      if (e.experiment.results === "won" && e.impact?.inSample) {
         summaryObj.winners.totalImpact += experimentImpact ?? 0;
         summaryObj.winners.totalAdjustedImpact += experimentAdjustedImpact ?? 0;
         summaryObj.winners.experiments.push(e);
-      } else if (e.experiment.results === "lost") {
+      } else if (e.experiment.results === "lost" && e.impact?.inSample) {
         // invert sign of lost impact
         summaryObj.losers.totalImpact -= experimentImpact ?? 0;
         summaryObj.losers.totalAdjustedImpact -= experimentAdjustedImpact ?? 0;
         summaryObj.losers.experiments.push(e);
-      } else {
+      } else if (e.impact?.inSample) {
         summaryObj.others.experiments.push(e);
       }
     }
   }
+  // TODO null state when all arrays are empty
   return (
     <div>
       <div className="appbox p-3 bg-light">
@@ -452,6 +480,7 @@ export default function ExperimentImpact({
                 initialOption="None"
                 value={metric}
                 onChange={(metric) => form.setValue("metric", metric)}
+                project={project ? project : undefined}
                 includeFacts={true}
               />
             </td>
@@ -460,10 +489,13 @@ export default function ExperimentImpact({
             <td>Project</td>
             <td className="d-flex">
               <SelectField
-                value={form.watch("project")}
+                value={project ? project : selectedProject}
                 options={[
-                  { value: "", label: "All" },
-                  ...projects.map((p) => ({ value: p.id, label: p.name })),
+                  ...(project ? [] : [{ value: "", label: "All" }]),
+                  // TODO grey out projects that metric is not in
+                  ...projects
+                    .filter((p) => project === "" || p.id === project)
+                    .map((p) => ({ value: p.id, label: p.name })),
                 ]}
                 onChange={(v) => form.setValue("project", v)}
               />
@@ -552,7 +584,7 @@ export default function ExperimentImpact({
                     )}
                   </div>
                   <div className="text-muted">
-                    {" per year summed saved impact "}
+                    {" summed saved impact per year"}
                     <HiOutlineExclamationCircle />
                   </div>
                 </div>
@@ -582,7 +614,7 @@ export default function ExperimentImpact({
             count={summaryObj.winners.experiments.length}
             padding={false}
           >
-            <ImpactCard
+            <ImpactTab
               experimentSummaryData={summaryObj.winners}
               experimentSummaryType={"winner"}
               formatter={formatter}
@@ -596,7 +628,7 @@ export default function ExperimentImpact({
             count={summaryObj.losers.experiments.length}
             padding={false}
           >
-            <ImpactCard
+            <ImpactTab
               experimentSummaryData={summaryObj.losers}
               experimentSummaryType={"loser"}
               formatter={formatter}
@@ -611,7 +643,7 @@ export default function ExperimentImpact({
             count={summaryObj.others.experiments.length}
             padding={false}
           >
-            <ImpactCard
+            <ImpactTab
               experimentSummaryData={summaryObj.others}
               experimentSummaryType={"other"}
               formatter={formatter}
