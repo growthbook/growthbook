@@ -173,6 +173,9 @@ export abstract class BaseModel<T extends BaseSchema> {
   public getById(id: string) {
     return this._findOne({ id });
   }
+  public getByIds(ids: string[]) {
+    return this._find({ id: { $in: ids } });
+  }
   public getAll() {
     return this._find();
   }
