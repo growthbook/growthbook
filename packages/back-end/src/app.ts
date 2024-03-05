@@ -93,6 +93,7 @@ import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.rou
 import { tagRouter } from "./routers/tag/tag.router";
 import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
 import { ArchetypeRouter } from "./routers/archetype/archetype.router";
+import { AttributeRouter } from "./routers/attributes/attributes.router";
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
@@ -371,6 +372,8 @@ app.use("/tag", tagRouter);
 app.use("/saved-groups", savedGroupRouter);
 
 app.use("/archetype", ArchetypeRouter);
+
+app.use("/attribute", AttributeRouter);
 
 // Ideas
 app.get("/ideas", ideasController.getIdeas);

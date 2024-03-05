@@ -81,7 +81,6 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   manageSavedGroups: false,
   manageArchetype: false,
   manageTags: false,
-  manageTargetingAttributes: false,
   manageTeam: false,
   manageWebhooks: false,
   manageIntegrations: false,
@@ -238,17 +237,6 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     (data?.superAdmin && "admin") ||
     (user?.role ?? currentOrg?.organization?.settings?.defaultRole?.role);
 
-  // Build out permissions object for backwards-compatible `permissions.manageTeams` style usage
-  const permissionsObj: Record<GlobalPermission, boolean> = {
-    ...DEFAULT_PERMISSIONS,
-  };
-
-  for (const permission in permissionsObj) {
-    permissionsObj[permission] =
-      currentOrg?.currentUserPermissions?.global.permissions[permission] ||
-      false;
-  }
-
   // Update current user data for telemetry data
   useEffect(() => {
     currentUser = {
@@ -343,6 +331,27 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     [currentOrg, data?.superAdmin, data?.userId]
   );
 
+  const permissions = useMemo(() => {
+    // Build out permissions object for backwards-compatible `permissions.manageTeams` style usage
+    const permissions: Record<GlobalPermission, boolean> = {
+      ...DEFAULT_PERMISSIONS,
+    };
+
+    for (const permission in permissions) {
+      permissions[permission] =
+        currentOrg?.currentUserPermissions?.global.permissions[permission] ||
+        false;
+    }
+
+    return {
+      ...permissions,
+      check: permissionsCheck,
+    };
+  }, [
+    currentOrg?.currentUserPermissions?.global.permissions,
+    permissionsCheck,
+  ]);
+
   return (
     <UserContext.Provider
       value={{
@@ -360,10 +369,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         },
         refreshOrganization: refreshOrganization as () => Promise<void>,
         roles: currentOrg?.roles || [],
-        permissions: {
-          ...permissionsObj,
-          check: permissionsCheck,
-        },
+        permissions,
         settings: currentOrg?.organization?.settings || {},
         license: data?.license,
         enterpriseSSO: currentOrg?.enterpriseSSO || undefined,
