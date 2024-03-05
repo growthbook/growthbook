@@ -78,8 +78,6 @@ export async function deleteMetric(
   req: AuthRequest<null, { id: string }>,
   res: Response<unknown, EventAuditUserForResponseLocals>
 ) {
-  req.checkPermissions("createAnalyses", "");
-
   const context = getContextFromReq(req);
   const { id } = req.params;
 
@@ -92,6 +90,11 @@ export async function deleteMetric(
     });
     return;
   }
+
+  req.checkPermissions(
+    "createAnalyses",
+    metric?.projects?.length ? metric.projects : ""
+  );
 
   req.checkPermissions(
     "createMetrics",
