@@ -10,7 +10,7 @@ import {
   eventWebHookEventOptions,
   EventWebHookModalMode,
   notificationEventNames,
-} from "../utils";
+} from "@/components/EventWebHooks/utils";
 
 type EventWebHookAddEditModalProps = {
   isOpen: boolean;

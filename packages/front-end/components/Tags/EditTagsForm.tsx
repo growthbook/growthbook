@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "../Modal";
+import Modal from "@/components/Modal";
 import TagsInput from "./TagsInput";
 
 const EditTagsForm: FC<{

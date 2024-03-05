@@ -1,4 +1,4 @@
-import { useUser } from "../services/UserContext";
+import { useUser } from "@/services/UserContext";
 
 export default function usePermissions() {
   const { permissions } = useUser();

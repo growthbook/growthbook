@@ -6,6 +6,7 @@ import {
   getAccountPlan,
   getEffectiveAccountPlan,
   getLicense,
+  orgHasPremiumFeature,
   setLicense,
 } from "enterprise";
 import { hasReadAccess } from "shared/permissions";
@@ -1571,35 +1572,17 @@ export async function postWebhookSDK(
 ) {
   req.checkPermissions("manageWebhooks");
 
-  // enterprise is unlimited
-  const limits = {
-    pro: 99,
-    starter: 2,
-  };
   const { org } = getContextFromReq(req);
   const { name, endpoint, sdkid, sendPayload, headers, httpMethod } = req.body;
   const webhookcount = await countWebhooksByOrg(org.id);
-  if (
-    IS_CLOUD &&
-    getAccountPlan(org).includes("pro") &&
-    webhookcount > limits.pro
-  ) {
-    return res.status(426).json({
-      status: 426,
-      message: "SDK webhook limit has been reached",
-    });
+  const canAddMultipleSdkWebhooks = orgHasPremiumFeature(
+    org,
+    "multiple-sdk-webhooks"
+  );
+  if (!canAddMultipleSdkWebhooks && webhookcount > 0) {
+    throw new Error("your webhook limit has been reached");
   }
 
-  if (
-    IS_CLOUD &&
-    getAccountPlan(org).includes("starter") &&
-    webhookcount > limits.starter
-  ) {
-    return res.status(426).json({
-      status: 426,
-      message: "SDK webhook limit has been reached",
-    });
-  }
   const webhook = await createSdkWebhook({
     organization: org.id,
     name,

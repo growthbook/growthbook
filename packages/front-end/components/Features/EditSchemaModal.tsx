@@ -7,7 +7,7 @@ import stringify from "json-stringify-pretty-compact";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import Toggle from "@/components/Forms/Toggle";
-import Modal from "../Modal";
+import Modal from "@/components/Modal";
 
 export interface Props {
   feature: FeatureInterface;

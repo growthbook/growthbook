@@ -30,9 +30,9 @@ import {
   sortAndFilterMetricsByTags,
 } from "@/components/Experiment/Results";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
-import Tooltip from "../Tooltip/Tooltip";
-import MetricTooltipBody from "../Metrics/MetricTooltipBody";
-import MetricName from "../Metrics/MetricName";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
+import MetricName from "@/components/Metrics/MetricName";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -343,10 +343,11 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled) {
                 }
           }
         >
-          <Link href={getMetricLink(metric.id)}>
-            <a className="metriclabel text-dark">
-              <MetricName id={metric.id} disableTooltip />
-            </a>
+          <Link
+            href={getMetricLink(metric.id)}
+            className="metriclabel text-dark"
+          >
+            <MetricName id={metric.id} disableTooltip />
           </Link>
         </span>
       </Tooltip>

@@ -12,8 +12,8 @@ import { getValidDate } from "shared/dates";
 import { isFactMetricId } from "shared/experiments";
 import { FaBoltLightning } from "react-icons/fa6";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Code from "../SyntaxHighlighting/Code";
-import Tooltip from "../Tooltip/Tooltip";
+import Code from "@/components/SyntaxHighlighting/Code";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import QueryStatsRow from "./QueryStatsRow";
 
 const ExpandableQuery: FC<{

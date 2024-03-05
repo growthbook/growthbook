@@ -29,7 +29,7 @@ import FeatureImplementationModal from "@/components/Features/FeatureImplementat
 import FeatureModal from "@/components/Features/FeatureModal";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 import { FeatureTab } from "@/pages/features/[fid]";
-import MoreMenu from "../Dropdown/MoreMenu";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
 
 export default function FeaturesHeader({
   feature,

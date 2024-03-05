@@ -99,8 +99,11 @@ const ProjectsPage: FC = () => {
                 >
                   <td>
                     {canManage ? (
-                      <Link href={`/project/${p.id}`}>
-                        <a className="font-weight-bold">{p.name}</a>
+                      <Link
+                        href={`/project/${p.id}`}
+                        className="font-weight-bold"
+                      >
+                        {p.name}
                       </Link>
                     ) : (
                       <span className="font-weight-bold">{p.name}</span>

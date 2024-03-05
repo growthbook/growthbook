@@ -1,10 +1,10 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { useState } from "react";
 import { SDKLanguage } from "back-end/types/sdk-connection";
-import Modal from "../Modal";
-import { DocLink } from "../DocLink";
-import BooleanFeatureCodeSnippet from "../SyntaxHighlighting/Snippets/BooleanFeatureCodeSnippet";
-import MultivariateFeatureCodeSnippet from "../SyntaxHighlighting/Snippets/MultivariateFeatureCodeSnippet";
+import Modal from "@/components/Modal";
+import { DocLink } from "@/components/DocLink";
+import BooleanFeatureCodeSnippet from "@/components/SyntaxHighlighting/Snippets/BooleanFeatureCodeSnippet";
+import MultivariateFeatureCodeSnippet from "@/components/SyntaxHighlighting/Snippets/MultivariateFeatureCodeSnippet";
 import { languageMapping } from "./SDKConnections/SDKLanguageLogo";
 import SDKLanguageSelector from "./SDKConnections/SDKLanguageSelector";
 import InitialSDKConnectionForm from "./SDKConnections/InitialSDKConnectionForm";

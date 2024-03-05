@@ -10,8 +10,8 @@ import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import useMembers from "@/hooks/useMembers";
-import EditSqlModal from "../SchemaBrowser/EditSqlModal";
-import Code from "../SyntaxHighlighting/Code";
+import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
+import Code from "@/components/SyntaxHighlighting/Code";
 
 const DimensionForm: FC<{
   close: () => void;

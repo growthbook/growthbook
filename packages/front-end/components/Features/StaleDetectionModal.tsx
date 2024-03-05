@@ -1,6 +1,6 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { useAuth } from "@/services/auth";
-import Modal from "../Modal";
+import Modal from "@/components/Modal";
 
 export default function StaleDetectionModal({
   close,

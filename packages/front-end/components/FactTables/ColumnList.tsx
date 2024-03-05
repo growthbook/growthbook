@@ -7,10 +7,10 @@ import { useAuth } from "@/services/auth";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import usePermissions from "@/hooks/usePermissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Field from "../Forms/Field";
-import Tooltip from "../Tooltip/Tooltip";
-import Button from "../Button";
-import { GBEdit } from "../Icons";
+import Field from "@/components/Forms/Field";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import Button from "@/components/Button";
+import { GBEdit } from "@/components/Icons";
 import ColumnModal from "./ColumnModal";
 
 export interface Props {

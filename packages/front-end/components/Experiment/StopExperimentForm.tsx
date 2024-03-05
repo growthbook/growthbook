@@ -4,15 +4,15 @@ import {
   ExperimentResultsType,
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
-import { experimentHasLinkedChanges } from "@/../shared/util";
+import { experimentHasLinkedChanges } from "shared/util";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import SelectField from "@/components/Forms/SelectField";
-import Modal from "../Modal";
-import MarkdownInput from "../Markdown/MarkdownInput";
-import Field from "../Forms/Field";
-import Toggle from "../Forms/Toggle";
-import { DocLink } from "../DocLink";
+import Modal from "@/components/Modal";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import Field from "@/components/Forms/Field";
+import Toggle from "@/components/Forms/Toggle";
+import { DocLink } from "@/components/DocLink";
 
 const StopExperimentForm: FC<{
   experiment: ExperimentInterfaceStringDates;

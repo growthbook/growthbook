@@ -15,9 +15,9 @@ import { getRules, useEnvironments } from "@/services/features";
 import usePermissions from "@/hooks/usePermissions";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Button from "../Button";
-import DeleteButton from "../DeleteButton/DeleteButton";
-import MoreMenu from "../Dropdown/MoreMenu";
+import Button from "@/components/Button";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
@@ -132,9 +132,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 Experiment:{" "}
                 <strong className="mr-3">{linkedExperiment.name}</strong>{" "}
                 <Link href={`/experiment/${linkedExperiment.id}`}>
-                  <a>
-                    View Experiment <FaExternalLinkAlt />
-                  </a>
+                  View Experiment
+                  <FaExternalLinkAlt />
                 </Link>
               </div>
             ) : (
