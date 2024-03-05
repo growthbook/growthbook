@@ -1933,9 +1933,10 @@ export async function postSnapshotsWithScaledImpactAnalysis(
   }
   const metricMap = await getMetricMap(context);
 
+  // get latest snapshot for latest phase without dimensions but with results
   let snapshotsPromises: Promise<ExperimentSnapshotInterface | null>[] = [];
   snapshotsPromises = ids.map(async (i) => {
-    return await _getSnapshot(context, i);
+    return await _getSnapshot(context, i, undefined, undefined, true);
   });
   const snapshots = await Promise.all(snapshotsPromises);
 
@@ -1944,7 +1945,8 @@ export async function postSnapshotsWithScaledImpactAnalysis(
     snapshots.map(async (s) => {
       if (!s) return;
       const defaultAnalysis = getSnapshotAnalysis(s);
-      if (!defaultAnalysis) return; // TODO edge cases where latest snapshot differs from whats in results UI? is it possible?
+      if (!defaultAnalysis) return;
+
       const scaledImpactAnalysisSettings: ExperimentSnapshotAnalysisSettings = {
         ...defaultAnalysis.settings,
         differenceType: "scaled",
@@ -1953,11 +1955,12 @@ export async function postSnapshotsWithScaledImpactAnalysis(
         preppedSnapshots.push(s);
         return;
       }
+
       const experiment = await getExperimentById(context, s.experiment);
       if (!experiment) return;
+
       addCoverageToSnapshotIfMissing(s, experiment);
 
-      // TRY
       createSnapshotAnalysis({
         experiment: experiment,
         organization: org,
