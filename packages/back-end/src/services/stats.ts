@@ -168,6 +168,7 @@ export async function analyzeExperimentMetric(
   };
 
   const escapedStatsData = JSON.stringify(statsData).replace(/\\/g, "\\\\");
+
   const start = Date.now();
   const cpus = os.cpus();
   const result = await promisify(PythonShell.runString)(

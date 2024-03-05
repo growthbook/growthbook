@@ -1969,7 +1969,7 @@ export async function postSnapshotsWithScaledImpactAnalysis(
           preppedSnapshots.push(s);
         })
         .catch((e) => {
-          console.error(e);
+          req.log.error(e);
         });
       return;
     })

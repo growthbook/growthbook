@@ -17,8 +17,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
-import Field from "../Forms/Field";
-import MetricSelector from "../Experiment/MetricSelector";
+import Field from "@/components/Forms/Field";
+import MetricSelector from "@/components/Experiment/MetricSelector";
 
 function jamesSteinAdjustment(
   effects: number[],
