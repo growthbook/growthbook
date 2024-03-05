@@ -482,7 +482,6 @@ export function validateCondition(condition?: string): ValidateConditionReturn {
   if (!condition || condition === "{}") {
     return { success: true, empty: true };
   }
-
   try {
     const res = JSON.parse(condition);
     if (!res || typeof res !== "object") {
