@@ -51,14 +51,16 @@ function withLicenseServerErrorHandling(
 
 export const postNewProTrialSubscription = withLicenseServerErrorHandling(
   async function (
-    req: AuthRequest<{ qty: number; name: string; email?: string }>,
+    req: AuthRequest<{ name: string; email?: string }>,
     res: Response
   ) {
     req.checkPermissions("manageBilling");
 
-    const { qty, name: nameFromForm, email: emailFromForm } = req.body;
+    const { name: nameFromForm, email: emailFromForm } = req.body;
 
     const { org, userName, email } = getContextFromReq(req);
+
+    const qty = getNumberOfUniqueMembersAndInvites(org);
 
     const result = await postNewProTrialSubscriptionToLicenseServer(
       org.id,
@@ -81,12 +83,8 @@ export const postNewProTrialSubscription = withLicenseServerErrorHandling(
 );
 
 export const postNewProSubscription = withLicenseServerErrorHandling(
-  async function (
-    req: AuthRequest<{ qty: number; returnUrl: string }>,
-    res: Response
-  ) {
+  async function (req: AuthRequest<{ returnUrl: string }>, res: Response) {
     req.checkPermissions("manageBilling");
-    const { qty } = req.body;
 
     let { returnUrl } = req.body;
 
@@ -96,13 +94,7 @@ export const postNewProSubscription = withLicenseServerErrorHandling(
 
     const { org, userName } = getContextFromReq(req);
 
-    const desiredQty = getNumberOfUniqueMembersAndInvites(org);
-
-    if (desiredQty !== qty) {
-      throw new Error(
-        "Number of users is out of date. Please refresh the page and try again."
-      );
-    }
+    const qty = getNumberOfUniqueMembersAndInvites(org);
 
     const result = await postNewProSubscriptionToLicenseServer(
       org.id,

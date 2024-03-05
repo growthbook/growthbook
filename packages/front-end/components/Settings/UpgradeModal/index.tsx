@@ -48,8 +48,7 @@ export default function UpgradeModal({ close, source }: Props) {
   const { organization, refreshOrganization } = useUser();
 
   const currentUsers =
-    (organization.members?.length || 0) +
-    (organization.pendingMembers?.length || 0);
+    (organization.members?.length || 0) + (organization.invites?.length || 0);
 
   const licensePlanText =
     (accountPlan === "enterprise"
@@ -110,7 +109,6 @@ export default function UpgradeModal({ close, source }: Props) {
         }>(`/subscription/new`, {
           method: "POST",
           body: JSON.stringify({
-            qty: currentUsers,
             returnUrl: window.location.pathname,
           }),
         });
@@ -149,7 +147,6 @@ export default function UpgradeModal({ close, source }: Props) {
       }>(`/subscription/new-pro-trial`, {
         method: "POST",
         body: JSON.stringify({
-          qty: currentUsers,
           name: name,
           email: email,
         }),
@@ -329,8 +326,10 @@ export default function UpgradeModal({ close, source }: Props) {
                   <span>You are currently using the </span>
                   <b className="mx-1"> {licensePlanText} </b> version of
                   Growthbook with{" "}
-                  <Link href="/settings/team" className="mx-1 font-weight-bold">
-                    {currentUsers} team members
+                  <Link href="/settings/team">
+                    <a className="mx-1 font-weight-bold">
+                      {currentUsers} team members
+                    </a>
                   </Link>
                   ↗
                 </div>
@@ -349,8 +348,10 @@ export default function UpgradeModal({ close, source }: Props) {
                     You have <b>{daysLeft(license.dateExpires)} days</b> left in
                     your {licensePlanText} of Growthbook with{" "}
                   </span>
-                  <Link href="/settings/team" className="mx-1 font-weight-bold">
-                    {currentUsers} team members
+                  <Link href="/settings/team">
+                    <a className="mx-1 font-weight-bold">
+                      {currentUsers} team members
+                    </a>
                   </Link>
                   ↗
                 </div>
