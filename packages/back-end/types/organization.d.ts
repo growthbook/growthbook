@@ -3,12 +3,11 @@ import {
   ENV_SCOPED_PERMISSIONS,
   GLOBAL_PERMISSIONS,
   PROJECT_SCOPED_PERMISSIONS,
-  ReadAccessFilter,
 } from "shared/permissions";
-import { EventAuditUser } from "../src/events/event-types";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
 import { MetricCappingSettings, MetricWindowSettings } from "./fact-table";
+import type { ReqContextInterface } from "./context";
 
 export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
 export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
@@ -285,12 +284,4 @@ export type NamespaceUsage = Record<
   }[]
 >;
 
-export type ReqContext = {
-  org: OrganizationInterface;
-  userId: string;
-  email: string;
-  environments: string[];
-  userName: string;
-  readAccessFilter: ReadAccessFilter;
-  auditUser: EventAuditUser;
-};
+export type ReqContext = ReqContextInterface;
