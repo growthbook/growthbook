@@ -1,13 +1,14 @@
 import { omit } from "lodash";
 import {
   FactMetricInterface,
+  FactTableInterface,
   LegacyFactMetricInterface,
 } from "../../types/fact-table";
 import { ApiFactMetric } from "../../types/openapi";
 import { factMetricValidator } from "../routers/fact-table/fact-table.validators";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 import { BaseModel, ModelConfig } from "./BaseModel";
-import { getFactTable } from "./FactTableModel";
+import { getFactTableMap } from "./FactTableModel";
 
 type FactMetricSchema = typeof factMetricValidator;
 
@@ -84,11 +85,19 @@ export class FactMetricDataModel extends BaseModel<FactMetricSchema> {
     }
   }
 
+  // TODO: Once we migrate fact tables to new data model, we can use that instead
+  private _factTableMap: Map<string, FactTableInterface> | null = null;
+  private async getFactTableMap() {
+    if (!this._factTableMap) {
+      this._factTableMap = await getFactTableMap(this.context);
+    }
+    return this._factTableMap;
+  }
+
   protected async customValidation(data: FactMetricInterface): Promise<void> {
-    const numeratorFactTable = await getFactTable(
-      this.context,
-      data.numerator.factTableId
-    );
+    const factTableMap = await this.getFactTableMap();
+
+    const numeratorFactTable = factTableMap.get(data.numerator.factTableId);
     if (!numeratorFactTable) {
       throw new Error("Could not find numerator fact table");
     }
@@ -106,8 +115,7 @@ export class FactMetricDataModel extends BaseModel<FactMetricSchema> {
         throw new Error("Denominator required for ratio metric");
       }
       if (data.denominator.factTableId !== data.numerator.factTableId) {
-        const denominatorFactTable = await getFactTable(
-          this.context,
+        const denominatorFactTable = factTableMap.get(
           data.denominator.factTableId
         );
         if (!denominatorFactTable) {
