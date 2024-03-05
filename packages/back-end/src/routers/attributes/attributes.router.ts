@@ -4,11 +4,7 @@ import { wrapController } from "../wrapController";
 import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
 import * as rawAttributesController from "./attributes.controller";
 
-const router = express.Router();
-
-const AttributeController = wrapController(rawAttributesController);
-
-const dataTypes = [
+export const attributeDataTypes = [
   "boolean",
   "string",
   "number",
@@ -19,12 +15,16 @@ const dataTypes = [
   "secureString[]",
 ] as const;
 
+const router = express.Router();
+
+const AttributeController = wrapController(rawAttributesController);
+
 router.post(
   "/",
   validateRequestMiddleware({
     body: z.object({
       property: z.string(),
-      datatype: z.enum(dataTypes),
+      datatype: z.enum(attributeDataTypes),
       projects: z.array(z.string()),
       format: z.string(),
       enum: z.string(),
@@ -35,34 +35,28 @@ router.post(
 );
 
 router.put(
-  "/:id",
+  "/",
   validateRequestMiddleware({
-    params: z
-      .object({
-        id: z.string(),
-      })
-      .strict(),
     body: z.object({
       property: z.string(),
-      datatype: z.enum(dataTypes),
+      datatype: z.enum(attributeDataTypes),
       projects: z.array(z.string()),
       format: z.string(),
       enum: z.string(),
       hashAttribute: z.boolean().optional(),
       archived: z.boolean().optional(),
+      previousName: z.string().optional(),
     }),
   }),
   AttributeController.putAttribute
 );
 
 router.delete(
-  "/:id",
+  "/",
   validateRequestMiddleware({
-    params: z
-      .object({
-        id: z.string(),
-      })
-      .strict(),
+    body: z.object({
+      id: z.string(),
+    }),
   }),
   AttributeController.deleteAttribute
 );

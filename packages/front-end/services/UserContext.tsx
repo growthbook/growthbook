@@ -237,16 +237,20 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     (data?.superAdmin && "admin") ||
     (user?.role ?? currentOrg?.organization?.settings?.defaultRole?.role);
 
-  // Build out permissions object for backwards-compatible `permissions.manageTeams` style usage
-  const permissionsObj: Record<GlobalPermission, boolean> = {
-    ...DEFAULT_PERMISSIONS,
-  };
+  const permissionsObj = useMemo(() => {
+    // Build out permissions object for backwards-compatible `permissions.manageTeams` style usage
+    const permissions: Record<GlobalPermission, boolean> = {
+      ...DEFAULT_PERMISSIONS,
+    };
 
-  for (const permission in permissionsObj) {
-    permissionsObj[permission] =
-      currentOrg?.currentUserPermissions?.global.permissions[permission] ||
-      false;
-  }
+    for (const permission in permissions) {
+      permissions[permission] =
+        currentOrg?.currentUserPermissions?.global.permissions[permission] ||
+        false;
+    }
+
+    return permissions;
+  }, [currentOrg?.currentUserPermissions?.global.permissions]);
 
   // Update current user data for telemetry data
   useEffect(() => {

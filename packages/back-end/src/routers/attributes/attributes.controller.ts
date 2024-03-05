@@ -75,7 +75,7 @@ export const postAttribute = async (
 };
 
 export const putAttribute = async (
-  req: AuthRequest<SDKAttribute, { id: string }>,
+  req: AuthRequest<SDKAttribute & { previousName?: string }>,
   res: Response<{ status: number }>
 ) => {
   const {
@@ -86,13 +86,16 @@ export const putAttribute = async (
     enum: enumValue,
     hashAttribute,
     archived,
+    previousName,
   } = req.body;
   const { org } = getContextFromReq(req);
-  const { id } = req.params;
 
   const attributeSchema = org.settings?.attributeSchema || [];
 
-  const index = attributeSchema.findIndex((a) => a.property === id);
+  // If the name is being changed, we need to access the attribute via its previous name
+  const index = attributeSchema.findIndex(
+    (a) => a.property === (previousName ? previousName : property)
+  );
 
   if (index === -1) {
     throw new Error("Attribute not found");
@@ -107,6 +110,16 @@ export const putAttribute = async (
     attributeSchema[index].projects
   );
 
+  // If the name is being changed, check if the new name already exists
+  if (
+    previousName &&
+    property !== previousName &&
+    attributeSchema.some((a) => a.property === property)
+  ) {
+    throw new Error("An attribute with that name already exists");
+  }
+
+  // Update the attribute
   attributeSchema[index] = {
     ...attributeSchema[index],
     property,
@@ -146,11 +159,11 @@ export const putAttribute = async (
 };
 
 export const deleteAttribute = async (
-  req: AuthRequest<null, { id: string }>,
+  req: AuthRequest<{ id: string }>,
   res: Response<{ status: number }>
 ) => {
   const { org } = getContextFromReq(req);
-  const { id } = req.params;
+  const { id } = req.body;
 
   const attributeSchema = org.settings?.attributeSchema || [];
 

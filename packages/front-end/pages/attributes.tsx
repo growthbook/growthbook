@@ -69,19 +69,20 @@ const FeatureAttributesPage = (): React.ReactElement => {
               className="dropdown-item"
               onClick={async (e) => {
                 e.preventDefault();
+                const updatedAttribute: SDKAttribute = {
+                  property: v.property,
+                  datatype: v.datatype,
+                  projects: v.projects,
+                  format: v.format,
+                  enum: v.enum,
+                  hashAttribute: v.hashAttribute,
+                  archived: !v.archived,
+                };
                 await apiCall<{
                   res: number;
-                }>(`/attribute/${v.property}`, {
+                }>("/attribute", {
                   method: "PUT",
-                  body: JSON.stringify({
-                    property: v.property,
-                    datatype: v.datatype,
-                    projects: v.projects,
-                    format: v.format,
-                    enum: v.enum,
-                    hashAttribute: v.hashAttribute,
-                    archived: !v.archived,
-                  }),
+                  body: JSON.stringify(updatedAttribute),
                 });
                 refreshOrganization();
               }}
@@ -94,8 +95,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
               onClick={async () => {
                 await apiCall<{
                   status: number;
-                }>(`/attribute/${v.property}`, {
+                }>("/attribute/", {
                   method: "DELETE",
+                  body: JSON.stringify({ id: v.property }),
                 });
                 refreshOrganization();
               }}

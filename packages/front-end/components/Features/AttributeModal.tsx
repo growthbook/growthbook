@@ -68,27 +68,35 @@ export default function AttributeModal({ close, attribute }: Props) {
           value.hashAttribute = false;
         }
 
-        // Make sure this attribute name doesn't conflict with any existing attributes
-        if (!attribute && schema.some((s) => s.property === value.property)) {
+        if (
+          (!attribute || (attribute && value.property !== attribute)) &&
+          schema.some((s) => s.property === value.property)
+        ) {
           throw new Error(
             "That attribute name is already being used. Please choose another one."
           );
         }
 
-        const url = attribute ? `/attribute/${attribute}` : `/attribute`;
+        const attributeObj: SDKAttribute & { previousName?: string } = {
+          property: value.property,
+          datatype: value.datatype,
+          projects: value.projects,
+          format: value.format,
+          enum: value.enum,
+          hashAttribute: value.hashAttribute,
+        };
+
+        // If the attribute name is changed, we need to pass in the original name
+        // as that's how we access the attribute in the backend
+        if (attribute && attribute !== value.property) {
+          attributeObj.previousName = attribute;
+        }
 
         await apiCall<{
           status: number;
-        }>(url, {
+        }>("/attribute", {
           method: attribute ? "PUT" : "POST",
-          body: JSON.stringify({
-            property: value.property,
-            datatype: value.datatype,
-            projects: value.projects,
-            format: value.format,
-            enum: value.enum,
-            hashAttribute: value.hashAttribute,
-          }),
+          body: JSON.stringify(attributeObj),
         });
         refreshOrganization();
       })}

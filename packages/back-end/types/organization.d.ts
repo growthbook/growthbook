@@ -4,6 +4,7 @@ import {
   GLOBAL_PERMISSIONS,
   PROJECT_SCOPED_PERMISSIONS,
 } from "shared/permissions";
+import { attributeDataTypes } from "../src/routers/attributes/attributes.router";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
 import { MetricCappingSettings, MetricWindowSettings } from "./fact-table";
@@ -116,15 +117,7 @@ export interface Namespaces {
 
 export type SDKAttributeFormat = "" | "version";
 
-export type SDKAttributeType =
-  | "string"
-  | "number"
-  | "boolean"
-  | "string[]"
-  | "number[]"
-  | "enum"
-  | "secureString"
-  | "secureString[]";
+export type SDKAttributeType = typeof attributeDataTypes[number];
 
 export type SDKAttribute = {
   property: string;
