@@ -221,7 +221,7 @@ export default function RequestReviewModal({
                 isPendingReview ? "amber" : "gray"
               }`}
             >
-              <div>Publishing to the prod environment requires approval.</div>
+              <div>Publishing requires approval.</div>
             </div>
             {canAdminPublish && (
               <div className="mt-3 ml-1">
