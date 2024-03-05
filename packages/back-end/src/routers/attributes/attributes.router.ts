@@ -2,18 +2,8 @@ import express from "express";
 import { z } from "zod";
 import { wrapController } from "../wrapController";
 import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
+import { attributeDataTypes } from "../../util/organization.util";
 import * as rawAttributesController from "./attributes.controller";
-
-export const attributeDataTypes = [
-  "boolean",
-  "string",
-  "number",
-  "secureString",
-  "enum",
-  "string[]",
-  "number[]",
-  "secureString[]",
-] as const;
 
 const router = express.Router();
 
