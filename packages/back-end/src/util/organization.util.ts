@@ -391,3 +391,14 @@ export function getDefaultRole(
     }
   );
 }
+
+export const attributeDataTypes = [
+  "boolean",
+  "string",
+  "number",
+  "secureString",
+  "enum",
+  "string[]",
+  "number[]",
+  "secureString[]",
+] as const;
