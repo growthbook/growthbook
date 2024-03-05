@@ -352,16 +352,6 @@ export abstract class BaseModel<T extends BaseSchema> {
         }
       }
     }
-    if (
-      "datasource" in obj &&
-      typeof obj.datasource === "string" &&
-      obj.datasource
-    ) {
-      const datasources = await this.context.getDataSources();
-      if (!datasources.some((d) => d.id === obj.datasource)) {
-        throw new Error("Invalid datasource");
-      }
-    }
   }
 
   protected async _createOne(rawData: unknown | CreateProps<z.infer<T>>) {
