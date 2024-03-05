@@ -16,6 +16,7 @@ import { EventAuditUser } from "../events/event-types";
 import {
   getUserPermissions,
   roleToPermissionMap,
+  getEnvironmentIdsFromOrg,
 } from "../util/organization.util";
 import { TeamInterface } from "../../types/team";
 import { FactMetricDataModel } from "../models/FactMetricModel";
@@ -25,10 +26,8 @@ import { addTags, getAllTags } from "../models/TagModel";
 import { AuditInterface } from "../../types/audit";
 import { insertAudit } from "../models/AuditModel";
 import { logger } from "../util/logger";
-import { ReqContextInterface } from "../../types/context";
-import { getEnvironmentIdsFromOrg } from "./organizations";
 
-export class ReqContextClass implements ReqContextInterface {
+export class ReqContextClass {
   // Models
   public models!: {
     factMetrics: FactMetricDataModel;

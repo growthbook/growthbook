@@ -68,6 +68,11 @@ import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
 import { getUsersByIds } from "./users";
 import { ReqContextClass } from "./context";
 
+export {
+  getEnvironments,
+  getEnvironmentIdsFromOrg,
+} from "../util/organization.util";
+
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
 }
@@ -125,28 +130,6 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
     teams: req.teams,
     req: req as Request,
   });
-}
-
-export function getEnvironmentIdsFromOrg(org: OrganizationInterface): string[] {
-  return getEnvironments(org).map((e) => e.id);
-}
-
-export function getEnvironments(org: OrganizationInterface) {
-  if (!org.settings?.environments || !org.settings?.environments?.length) {
-    return [
-      {
-        id: "dev",
-        description: "",
-        toggleOnList: true,
-      },
-      {
-        id: "production",
-        description: "",
-        toggleOnList: true,
-      },
-    ];
-  }
-  return org.settings.environments;
 }
 
 export async function getConfidenceLevelsForOrg(id: string) {
