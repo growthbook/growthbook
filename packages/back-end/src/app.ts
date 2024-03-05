@@ -547,6 +547,14 @@ app.post(
   "/feature/:id/:version/publish",
   featuresController.postFeaturePublish
 );
+app.post(
+  "/feature/:id/:version/request",
+  featuresController.postFeatureRequestReview
+);
+app.post(
+  "/feature/:id/:version/submit-review",
+  featuresController.postFeatureReviewOrComment
+);
 app.get("/feature/:id/:version/log", featuresController.getRevisionLog);
 app.post("/feature/:id/archive", featuresController.postFeatureArchive);
 app.post("/feature/:id/toggle", featuresController.postFeatureToggle);
@@ -574,6 +582,12 @@ app.post(
   "/feature/:id/toggleStaleDetection",
   featuresController.toggleStaleFFDetectionForFeature
 );
+app.post(
+  "/feature/:id/:version/comment",
+  featuresController.postFeatureReviewOrComment
+);
+
+app.get("/revision/feature", featuresController.getDraftandReviewRevisions);
 
 // Data Sources
 app.get("/datasources", datasourcesController.getDataSources);

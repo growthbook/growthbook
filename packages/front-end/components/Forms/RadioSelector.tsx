@@ -14,8 +14,35 @@ const RadioSelector: FC<{
   }[];
   value: string;
   labelWidth?: number | string;
+  descriptionNewLine?: boolean;
   setValue: (value: string) => void;
-}> = ({ name, options, value, labelWidth = 70, setValue }) => {
+}> = ({
+  name,
+  options,
+  value,
+  labelWidth = 70,
+  setValue,
+  descriptionNewLine = false,
+}) => {
+  const renderLabelData = ({ key, display, description, sub, tooltip }) => (
+    <>
+      <strong style={{ width: labelWidth, paddingRight: 5 }}>
+        {display || key}
+      </strong>
+      <div style={{ flex: 1 }}>
+        {description}
+        {sub && (
+          <div>
+            <small>{sub}</small>
+          </div>
+        )}
+      </div>
+      {tooltip && (
+        <FaInfoCircle title={tooltip} className="d-none d-lg-block" />
+      )}
+    </>
+  );
+
   return (
     <div>
       {options.map(({ key, display, description, sub, tooltip, enabled }) => (
@@ -37,19 +64,12 @@ const RadioSelector: FC<{
                   }
                 }}
               />
-              <strong style={{ width: labelWidth, paddingRight: 5 }}>
-                {display || key}
-              </strong>
-              <div style={{ flex: 1 }}>
-                {description}
-                {sub && (
-                  <div>
-                    <small>{sub}</small>
-                  </div>
-                )}
-              </div>
-              {tooltip && (
-                <FaInfoCircle title={tooltip} className="d-none d-lg-block" />
+              {descriptionNewLine ? (
+                <div>
+                  {renderLabelData({ key, display, description, sub, tooltip })}
+                </div>
+              ) : (
+                renderLabelData({ key, display, description, sub, tooltip })
               )}
             </div>
           </label>
