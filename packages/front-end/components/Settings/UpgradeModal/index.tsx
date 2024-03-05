@@ -326,10 +326,8 @@ export default function UpgradeModal({ close, source }: Props) {
                   <span>You are currently using the </span>
                   <b className="mx-1"> {licensePlanText} </b> version of
                   Growthbook with{" "}
-                  <Link href="/settings/team">
-                    <a className="mx-1 font-weight-bold">
-                      {currentUsers} team members
-                    </a>
+                  <Link href="/settings/team" className="mx-1 font-weight-bold">
+                    {currentUsers} team members
                   </Link>
                   ↗
                 </div>
@@ -348,10 +346,8 @@ export default function UpgradeModal({ close, source }: Props) {
                     You have <b>{daysLeft(license.dateExpires)} days</b> left in
                     your {licensePlanText} of Growthbook with{" "}
                   </span>
-                  <Link href="/settings/team">
-                    <a className="mx-1 font-weight-bold">
-                      {currentUsers} team members
-                    </a>
+                  <Link href="/settings/team" className="mx-1 font-weight-bold">
+                    {currentUsers} team members
                   </Link>
                   ↗
                 </div>
