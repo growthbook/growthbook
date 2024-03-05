@@ -13,26 +13,29 @@ import { getFactTableMap } from "./FactTableModel";
 type FactMetricSchema = typeof factMetricValidator;
 
 export class FactMetricDataModel extends BaseModel<FactMetricSchema> {
-  protected config: ModelConfig<FactMetricSchema> = {
-    schema: factMetricValidator,
-    collectionName: "factmetrics",
-    idPrefix: "fact__",
-    permissions: {
-      create: "createMetrics",
-      read: "readData",
-      update: "createMetrics",
-      delete: "createMetrics",
-    },
-    auditLog: {
-      entity: "metric",
-      createEvent: "metric.create",
-      updateEvent: "metric.update",
-      deleteEvent: "metric.delete",
-    },
-    projectScoping: "multiple",
-    globallyUniqueIds: false,
-    readonlyFields: ["datasource"],
-  };
+  protected getConfig() {
+    const config: ModelConfig<FactMetricSchema> = {
+      schema: factMetricValidator,
+      collectionName: "factmetrics",
+      idPrefix: "fact__",
+      permissions: {
+        create: "createMetrics",
+        read: "readData",
+        update: "createMetrics",
+        delete: "createMetrics",
+      },
+      auditLog: {
+        entity: "metric",
+        createEvent: "metric.create",
+        updateEvent: "metric.update",
+        deleteEvent: "metric.delete",
+      },
+      projectScoping: "multiple",
+      globallyUniqueIds: false,
+      readonlyFields: ["datasource"],
+    };
+    return config;
+  }
 
   public static upgradeFactMetricDoc(
     doc: LegacyFactMetricInterface

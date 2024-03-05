@@ -61,8 +61,22 @@ export interface ModelConfig<T extends BaseSchema> {
 const indexesAdded: Set<string> = new Set();
 
 export abstract class BaseModel<T extends BaseSchema> {
-  protected abstract config: ModelConfig<T>;
-  // Methods that can be overridden by subclasses
+  protected context: ReqContext | ApiReqContext;
+  public constructor(context: ReqContext | ApiReqContext) {
+    this.context = context;
+    this.config = this.getConfig();
+    this.addIndexes();
+  }
+
+  /***************
+   * Required methods that MUST be overridden by subclasses
+   ***************/
+  protected config: ModelConfig<T>;
+  protected abstract getConfig(): ModelConfig<T>;
+
+  /***************
+   * Optional methods that can be overridden by subclasses as needed
+   ***************/
   protected migrate(legacyDoc: unknown): z.infer<T> {
     return legacyDoc as z.infer<T>;
   }
@@ -96,50 +110,24 @@ export abstract class BaseModel<T extends BaseSchema> {
     // Do nothing by default
   }
 
-  private addIndexes() {
-    if (indexesAdded.has(this.config.collectionName)) return;
-    indexesAdded.add(this.config.collectionName);
-
-    // Always create a unique index for organization and id
-    this._dangerousGetCollection()
-      .createIndex({ organization: 1, id: 1 }, { unique: true })
-      .catch((err) => {
-        logger.error(
-          `Error creating org/id unique index for ${this.config.collectionName}`,
-          err
-        );
-      });
-
-    // If id is globally unique, create an index for that
-    if (this.config.globallyUniqueIds) {
-      this._dangerousGetCollection()
-        .createIndex({ id: 1 }, { unique: true })
-        .catch((err) => {
-          logger.error(
-            `Error creating id unique index for ${this.config.collectionName}`,
-            err
-          );
-        });
-    }
-
-    // Create any additional indexes
-    this.config.additionalIndexes?.forEach((index) => {
-      this._dangerousGetCollection()
-        .createIndex(index.fields as { [key: string]: number }, {
-          unique: !!index.unique,
-        })
-        .catch((err) => {
-          logger.error(
-            `Error creating ${Object.keys(index.fields).join("/")} ${
-              index.unique ? "unique " : ""
-            }index for ${this.config.collectionName}`,
-            err
-          );
-        });
-    });
+  /***************
+   * Built-in public methods
+   ***************/
+  public getById(id: string) {
+    return this._findOne({ id });
   }
-
-  // Built-in public methods
+  public getByIds(ids: string[]) {
+    return this._find({ id: { $in: ids } });
+  }
+  public getAll() {
+    return this._find();
+  }
+  public getAllByProject(project: string | undefined) {
+    if (this.config.projectScoping === "none") {
+      throw new Error("This model does not support projects");
+    }
+    return project ? this._find({ project }) : this._find();
+  }
   public create(props: unknown | CreateProps<z.infer<T>>): Promise<z.infer<T>> {
     return this._createOne(props);
   }
@@ -170,28 +158,10 @@ export abstract class BaseModel<T extends BaseSchema> {
     }
     return this._deleteOne(existing);
   }
-  public getById(id: string) {
-    return this._findOne({ id });
-  }
-  public getByIds(ids: string[]) {
-    return this._find({ id: { $in: ids } });
-  }
-  public getAll() {
-    return this._find();
-  }
-  public getAllByProject(project: string | undefined) {
-    if (this.config.projectScoping === "none") {
-      throw new Error("This model does not support projects");
-    }
-    return project ? this._find({ project }) : this._find();
-  }
 
-  // Internal methods
-  protected context: ReqContext | ApiReqContext;
-  public constructor(context: ReqContext | ApiReqContext) {
-    this.context = context;
-    this.addIndexes();
-  }
+  /***************
+   * Internal methods that can be used by subclasses
+   ***************/
   protected _generateId() {
     return uniqid(this.config.idPrefix);
   }
@@ -272,86 +242,6 @@ export abstract class BaseModel<T extends BaseSchema> {
     }
 
     return migrated;
-  }
-
-  private _getProjectField(doc: z.infer<T>) {
-    if (this.config.projectScoping === "none") return undefined;
-    if (this.config.projectScoping === "single") {
-      return (doc as z.infer<T> & { project?: string }).project || undefined;
-    }
-    if (this.config.projectScoping === "multiple") {
-      return (
-        (doc as z.infer<T> & { projects?: string[] }).projects || undefined
-      );
-    }
-    return undefined;
-  }
-
-  private _hasPermissions(
-    docs: z.infer<T>[],
-    permissions: Permission | Permission[]
-  ) {
-    if (!Array.isArray(permissions)) {
-      permissions = [permissions];
-    }
-
-    const projects = uniq(
-      docs.flatMap((doc) => this._getAffectedProjects(doc))
-    );
-
-    for (const permission of permissions) {
-      if (
-        !docs.every((doc) =>
-          // TODO: support environment-scoped permission checks
-          this.context.hasPermission(
-            permission,
-            this._getProjectField(doc),
-            undefined
-          )
-        )
-      ) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  private _requirePermissions(
-    docs: z.infer<T>[],
-    permissions: Permission | Permission[]
-  ) {
-    if (!this._hasPermissions(docs, permissions)) {
-      throw new Error("You do not have permission to complete that action");
-    }
-  }
-
-  private _getAffectedProjects(doc: z.infer<T>) {
-    const projects = this._getProjectField(doc);
-    return Array.isArray(projects) ? projects : projects ? [projects] : [];
-  }
-
-  protected async _standardFieldValidation(obj: Partial<z.infer<T>>) {
-    // Validate common foreign key references
-    if (this.config.projectScoping === "single") {
-      if ("project" in obj && obj.project) {
-        const projects = await this.context.getProjects();
-        if (!projects.some((p) => p.id === obj.project)) {
-          throw new Error("Invalid project");
-        }
-      }
-    } else if (this.config.projectScoping === "multiple") {
-      if ("projects" in obj && obj.projects && Array.isArray(obj.projects)) {
-        const projects = await this.context.getProjects();
-        if (
-          !obj.projects.every((p: string) =>
-            projects.some((proj) => proj.id === p)
-          )
-        ) {
-          throw new Error("Invalid project");
-        }
-      }
-    }
   }
 
   protected async _createOne(rawData: unknown | CreateProps<z.infer<T>>) {
@@ -564,11 +454,6 @@ export abstract class BaseModel<T extends BaseSchema> {
     await this.afterDelete(doc);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _removeMongooseFields(doc: any) {
-    return omit(doc, ["__v", "_id"]) as unknown;
-  }
-
   private _collection: Collection | null = null;
   protected _dangerousGetCollection() {
     if (!this._collection) {
@@ -578,5 +463,136 @@ export abstract class BaseModel<T extends BaseSchema> {
       );
     }
     return this._collection;
+  }
+
+  /***************
+   * Private methods
+   ***************/
+  private addIndexes() {
+    if (indexesAdded.has(this.config.collectionName)) return;
+    indexesAdded.add(this.config.collectionName);
+
+    // Always create a unique index for organization and id
+    this._dangerousGetCollection()
+      .createIndex({ organization: 1, id: 1 }, { unique: true })
+      .catch((err) => {
+        logger.error(
+          `Error creating org/id unique index for ${this.config.collectionName}`,
+          err
+        );
+      });
+
+    // If id is globally unique, create an index for that
+    if (this.config.globallyUniqueIds) {
+      this._dangerousGetCollection()
+        .createIndex({ id: 1 }, { unique: true })
+        .catch((err) => {
+          logger.error(
+            `Error creating id unique index for ${this.config.collectionName}`,
+            err
+          );
+        });
+    }
+
+    // Create any additional indexes
+    this.config.additionalIndexes?.forEach((index) => {
+      this._dangerousGetCollection()
+        .createIndex(index.fields as { [key: string]: number }, {
+          unique: !!index.unique,
+        })
+        .catch((err) => {
+          logger.error(
+            `Error creating ${Object.keys(index.fields).join("/")} ${
+              index.unique ? "unique " : ""
+            }index for ${this.config.collectionName}`,
+            err
+          );
+        });
+    });
+  }
+
+  private _getProjectField(doc: z.infer<T>) {
+    if (this.config.projectScoping === "none") return undefined;
+    if (this.config.projectScoping === "single") {
+      return (doc as z.infer<T> & { project?: string }).project || undefined;
+    }
+    if (this.config.projectScoping === "multiple") {
+      return (
+        (doc as z.infer<T> & { projects?: string[] }).projects || undefined
+      );
+    }
+    return undefined;
+  }
+
+  private _hasPermissions(
+    docs: z.infer<T>[],
+    permissions: Permission | Permission[]
+  ) {
+    if (!Array.isArray(permissions)) {
+      permissions = [permissions];
+    }
+
+    const projects = uniq(
+      docs.flatMap((doc) => this._getAffectedProjects(doc))
+    );
+
+    for (const permission of permissions) {
+      if (
+        !docs.every((doc) =>
+          // TODO: support environment-scoped permission checks
+          this.context.hasPermission(
+            permission,
+            this._getProjectField(doc),
+            undefined
+          )
+        )
+      ) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  private _requirePermissions(
+    docs: z.infer<T>[],
+    permissions: Permission | Permission[]
+  ) {
+    if (!this._hasPermissions(docs, permissions)) {
+      throw new Error("You do not have permission to complete that action");
+    }
+  }
+
+  private _getAffectedProjects(doc: z.infer<T>) {
+    const projects = this._getProjectField(doc);
+    return Array.isArray(projects) ? projects : projects ? [projects] : [];
+  }
+
+  private async _standardFieldValidation(obj: Partial<z.infer<T>>) {
+    // Validate common foreign key references
+    if (this.config.projectScoping === "single") {
+      if ("project" in obj && obj.project) {
+        const projects = await this.context.getProjects();
+        if (!projects.some((p) => p.id === obj.project)) {
+          throw new Error("Invalid project");
+        }
+      }
+    } else if (this.config.projectScoping === "multiple") {
+      if ("projects" in obj && obj.projects && Array.isArray(obj.projects)) {
+        const projects = await this.context.getProjects();
+        if (
+          !obj.projects.every((p: string) =>
+            projects.some((proj) => proj.id === p)
+          )
+        ) {
+          throw new Error("Invalid project");
+        }
+      }
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _removeMongooseFields(doc: any) {
+    return omit(doc, ["__v", "_id"]) as unknown;
   }
 }
