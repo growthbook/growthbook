@@ -37,7 +37,9 @@ export type AuthRequest<
   superAdmin?: boolean;
   organization?: OrganizationInterface;
   teams: TeamInterface[];
-  audit: (data: Partial<AuditInterface>) => Promise<void>;
+  audit: (
+    data: Omit<AuditInterface, "organization" | "id" | "user" | "dateCreated">
+  ) => Promise<void>;
 } & PermissionFunctions;
 
 export type ResponseWithStatusAndError<T = unknown> = Response<

@@ -13,11 +13,11 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import usePermissions from "@/hooks/usePermissions";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
-import FeatureModal from "../Features/FeatureModal";
-import NewDataSourceForm from "../Settings/NewDataSourceForm";
-import { DocLink, DocSection } from "../DocLink";
-import InitialSDKConnectionForm from "../Features/SDKConnections/InitialSDKConnectionForm";
-import MetricForm from "../Metrics/MetricForm";
+import FeatureModal from "@/components/Features/FeatureModal";
+import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
+import { DocLink, DocSection } from "@/components/DocLink";
+import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
+import MetricForm from "@/components/Metrics/MetricForm";
 import styles from "./GuidedGetStarted.module.scss";
 import GetStartedSteps from "./GetStartedSteps";
 import SuccessCard from "./SuccessCard";
@@ -73,10 +73,8 @@ export default function GuidedGetStarted({
       additionalCta: (
         <>
           {permissions.manageTeam && (
-            <Link href="/settings/team">
-              <a className="font-weight-bold">
-                Not an engineer? Invite a developer to get started.
-              </a>
+            <Link href="/settings/team" className="font-weight-bold">
+              Not an engineer? Invite a developer to get started.
             </Link>
           )}
         </>

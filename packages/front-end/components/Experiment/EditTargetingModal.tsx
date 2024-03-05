@@ -23,15 +23,15 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
-import Field from "../Forms/Field";
-import Modal from "../Modal";
-import FeatureVariationsInput from "../Features/FeatureVariationsInput";
-import ConditionInput from "../Features/ConditionInput";
-import NamespaceSelector from "../Features/NamespaceSelector";
-import SelectField from "../Forms/SelectField";
+import FeatureVariationsInput from "@/components//Features/FeatureVariationsInput";
+import ConditionInput from "@/components//Features/ConditionInput";
+import NamespaceSelector from "@/components//Features/NamespaceSelector";
+import SelectField from "@/components//Forms/SelectField";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
-} from "../Features/SavedGroupTargetingField";
+} from "@/components/Features/SavedGroupTargetingField";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";

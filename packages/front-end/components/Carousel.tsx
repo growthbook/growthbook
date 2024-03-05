@@ -37,7 +37,7 @@ const Carousel: FC<{
   if (modalOpen) {
     const orig = Children.toArray(children)[current];
     if (orig && isValidElement(orig)) {
-      currentChild = cloneElement(orig, {
+      currentChild = cloneElement(orig as ReactElement<HTMLDivElement>, {
         style: { ...orig.props.style, height: "100%" },
       });
     }

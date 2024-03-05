@@ -1,5 +1,5 @@
 import useSWR from "swr";
-import { useAuth } from "../services/auth";
+import { useAuth } from "@/services/auth";
 
 export default function useApi<Response = unknown>(path: string | null) {
   const { apiCall } = useAuth();

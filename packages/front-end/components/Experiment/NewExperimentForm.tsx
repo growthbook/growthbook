@@ -33,18 +33,18 @@ import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "@/components/Experiment/HashVersionSelector";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
-import MarkdownInput from "../Markdown/MarkdownInput";
-import TagsInput from "../Tags/TagsInput";
-import Page from "../Modal/Page";
-import PagedModal from "../Modal/PagedModal";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
-import FeatureVariationsInput from "../Features/FeatureVariationsInput";
-import ConditionInput from "../Features/ConditionInput";
-import NamespaceSelector from "../Features/NamespaceSelector";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import TagsInput from "@/components/Tags/TagsInput";
+import Page from "@/components/Modal/Page";
+import PagedModal from "@/components/Modal/PagedModal";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
+import ConditionInput from "@/components/Features/ConditionInput";
+import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
-} from "../Features/SavedGroupTargetingField";
+} from "@/components/Features/SavedGroupTargetingField";
 import MetricsSelector, { MetricsSelectorTooltip } from "./MetricsSelector";
 
 const weekAgo = new Date();

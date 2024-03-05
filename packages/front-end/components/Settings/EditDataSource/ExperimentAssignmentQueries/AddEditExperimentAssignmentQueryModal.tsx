@@ -12,9 +12,9 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Modal from "../../../Modal";
-import Field from "../../../Forms/Field";
-import EditSqlModal from "../../../SchemaBrowser/EditSqlModal";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
+import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;

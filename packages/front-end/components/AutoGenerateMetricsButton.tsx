@@ -1,4 +1,4 @@
-import { DataSourceInterfaceWithParams } from "@/../back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
 import { FaPlus } from "react-icons/fa";
 import clsx from "clsx";
 import { useMemo } from "react";

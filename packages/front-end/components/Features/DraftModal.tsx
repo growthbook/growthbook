@@ -7,9 +7,9 @@ import { autoMerge, mergeResultHasChanges } from "shared/util";
 import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
-import Modal from "../Modal";
-import Button from "../Button";
-import Field from "../Forms/Field";
+import Modal from "@/components/Modal";
+import Button from "@/components/Button";
+import Field from "@/components/Forms/Field";
 
 export interface Props {
   feature: FeatureInterface;

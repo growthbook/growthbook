@@ -94,7 +94,11 @@ At the metric level, you can pick three different metric windows:
   ignored.
 - Lookback - uses only data in the last window before an experiment ends.
 
+Here's a representation of how these metric windows work for a hypothetical user:
 ![Metric Windows](/images/metric-windows.png)
+
+Here's a second example for a hypothetical User 2, who joins the experiment late. Notice that the conversion window can extend beyond the experiment end date.
+![Metric Windows (User 2)](/images/metric-windows-user-2.png)
 
 You can override all Conversion windows to be No window at the experiment level using the "Conversion Window Override" in the Experiment Analysis Settings.
 

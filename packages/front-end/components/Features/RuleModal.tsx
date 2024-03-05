@@ -45,15 +45,15 @@ import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "@/components/Experiment/HashVersionSelector";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
-import Field from "../Forms/Field";
-import Modal from "../Modal";
-import SelectField from "../Forms/SelectField";
-import UpgradeModal from "../Settings/UpgradeModal";
-import StatusIndicator from "../Experiment/StatusIndicator";
-import Toggle from "../Forms/Toggle";
-import { getNewExperimentDatasourceDefaults } from "../Experiment/NewExperimentForm";
-import TargetingInfo from "../Experiment/TabbedPage/TargetingInfo";
-import EditTargetingModal from "../Experiment/EditTargetingModal";
+import Field from "@/components/Forms/Field";
+import Modal from "@/components/Modal";
+import SelectField from "@/components/Forms/SelectField";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
+import StatusIndicator from "@/components/Experiment/StatusIndicator";
+import Toggle from "@/components/Forms/Toggle";
+import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
+import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
+import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import RolloutPercentInput from "./RolloutPercentInput";
 import ConditionInput from "./ConditionInput";
 import FeatureValueField from "./FeatureValueField";
@@ -173,7 +173,8 @@ export default function RuleModal({
       const newRule = form.getValues() as FeatureRule;
       newRevision.rules[environment][i] = newRule;
     }
-    return isFeatureCyclic(newFeature, features, newRevision);
+    const featuresMap = new Map(features.map((f) => [f.id, f]));
+    return isFeatureCyclic(newFeature, featuresMap, newRevision);
   }, [
     // eslint-disable-next-line react-hooks/exhaustive-deps
     JSON.stringify(prerequisites),
@@ -645,10 +646,12 @@ export default function RuleModal({
             <div className="appbox px-3 pt-3 bg-light">
               {!canEditTargeting && (
                 <div className="alert alert-info">
-                  <Link href={`/experiment/${selectedExperiment.id}#overview`}>
-                    <a className="alert-link">
-                      View the Experiment <FaExternalLinkAlt />
-                    </a>
+                  <Link
+                    href={`/experiment/${selectedExperiment.id}#overview`}
+                    className="alert-link"
+                  >
+                    View the Experiment
+                    <FaExternalLinkAlt />
                   </Link>{" "}
                   to make changes to assignment or targeting conditions.
                 </div>

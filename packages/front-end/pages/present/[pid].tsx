@@ -8,7 +8,7 @@ import useSwitchOrg from "@/services/useSwitchOrg";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
 const DynamicPresentation = dynamic(
-  () => import("../../components/Share/Presentation"),
+  () => import("@/components/Share/Presentation"),
   {
     ssr: false,
     //loading: () => (<p>Loading...</p>) // this causes a lint error

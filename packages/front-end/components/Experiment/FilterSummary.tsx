@@ -8,8 +8,8 @@ import { FaQuestionCircle } from "react-icons/fa";
 import { datetime } from "shared/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
-import Modal from "../Modal";
-import Code from "../SyntaxHighlighting/Code";
+import Modal from "@/components/Modal";
+import Code from "@/components/SyntaxHighlighting/Code";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 
 const FilterSummary: FC<{

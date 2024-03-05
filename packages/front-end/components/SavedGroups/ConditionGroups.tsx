@@ -6,13 +6,13 @@ import { useAuth } from "@/services/auth";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
 import { getSavedGroupMessage } from "@/pages/saved-groups";
-import LoadingOverlay from "../LoadingOverlay";
-import Button from "../Button";
-import { GBAddCircle } from "../Icons";
-import Field from "../Forms/Field";
-import MoreMenu from "../Dropdown/MoreMenu";
-import DeleteButton from "../DeleteButton/DeleteButton";
-import ConditionDisplay from "../Features/ConditionDisplay";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import Button from "@/components/Button";
+import { GBAddCircle } from "@/components/Icons";
+import Field from "@/components/Forms/Field";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupForm from "./SavedGroupForm";
 
 export interface Props {

@@ -10,8 +10,8 @@ import {
 import { ExperimentReportVariation } from "back-end/types/report";
 import Link from "next/link";
 import { ExperimentMetricInterface, getMetricLink } from "shared/experiments";
-import Tooltip from "../Tooltip/Tooltip";
-import MetricTooltipBody from "../Metrics/MetricTooltipBody";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
 import MetricValueColumn from "./MetricValueColumn";
 
 const WARNING_CUTOFF = 0.65;
@@ -73,8 +73,11 @@ const GuardrailResults: FC<{
           body={<MetricTooltipBody metric={metric} />}
           tipPosition="right"
         >
-          <Link href={getMetricLink(metric.id)}>
-            <a className="text-black-50 font-weight-bold">{metric.name}</a>
+          <Link
+            href={getMetricLink(metric.id)}
+            className="text-black-50 font-weight-bold"
+          >
+            {metric.name}
           </Link>
         </Tooltip>
       </div>

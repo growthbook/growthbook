@@ -3,8 +3,8 @@ import { ReactNode } from "react";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import SelectField from "../Forms/SelectField";
-import Tooltip from "../Tooltip/Tooltip";
+import SelectField from "@/components/Forms/SelectField";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export function NewBucketingSDKList() {
   return (
