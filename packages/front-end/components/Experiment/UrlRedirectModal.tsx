@@ -164,7 +164,7 @@ const UrlRedirectModal: FC<{
       }
       submit={onSubmit}
       cta={cta}
-      ctaEnabled={hasSDKWithRedirects}
+      ctaEnabled={!hasSDKWithRedirects}
     >
       <div className="mx-3 mt-3">
         {hasSDKWithNoRedirects && (

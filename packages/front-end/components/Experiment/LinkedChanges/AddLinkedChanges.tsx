@@ -1,25 +1,113 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { FaDesktop, FaLink, FaRegFlag } from "react-icons/fa";
+import { CommercialFeature } from "enterprise";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
-import { ICON_PROPERTIES } from "./constants";
+import { ICON_PROPERTIES, LinkedChange } from "./constants";
+
+const LINKED_CHANGE_COPY = {
+  "feature-flag": {
+    header: "Feature Flag",
+    cta: "Link Feature Flag",
+    description:
+      "Use feature flags and SDKs to make changes in your front-end, back-end or mobile application code.",
+    commercialFeature: false,
+  },
+  "visual-editor": {
+    header: "Visual Editor",
+    cta: "Launch Visual Editor",
+    description:
+      "Use our no-code browser extension to A/B test minor changes,such as headings or button text.",
+    commercialFeature: true,
+  },
+  redirects: {
+    header: "URL Redirects",
+    cta: "Add URL Redirects",
+    description:
+      "Use our no-code tool to A/B test URL redirects for whole pages, or to test parts of a URL.",
+    commercialFeature: true,
+  },
+};
+
+const AddLinkedChangeRow = ({
+  type,
+  setModal,
+  hasVisualEditorFeature,
+}: {
+  type: LinkedChange;
+  setModal: (boolean) => void;
+  hasVisualEditorFeature: boolean;
+}) => {
+  const { header, cta, description, commercialFeature } = LINKED_CHANGE_COPY[
+    type
+  ];
+  const { component: Icon, color } = ICON_PROPERTIES[type];
+
+  return (
+    <div className="d-flex">
+      <span
+        className="mr-3"
+        style={{
+          background: `${color}15`,
+          borderRadius: "50%",
+          height: "45px",
+          width: "45px",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <Icon
+          style={{
+            color: color,
+            height: "24px",
+            width: "24px",
+          }}
+        />
+      </span>
+      <div className="flex-grow-1">
+        <div className="d-flex justify-content-between">
+          <b>{header}</b>
+          {!commercialFeature || hasVisualEditorFeature ? (
+            <div
+              className="btn btn-link p-0"
+              onClick={() => {
+                setModal(true);
+                track(`Open ${type} modal`, {
+                  source: "add-linked-changes",
+                  action: "add",
+                });
+              }}
+            >
+              {cta}
+            </div>
+          ) : (
+            <PremiumTooltip commercialFeature={type as CommercialFeature}>
+              <div className="btn btn-link p-0 disabled">{cta}</div>
+            </PremiumTooltip>
+          )}
+        </div>
+        <p className="mt-2 mb-1">{description}</p>
+      </div>
+    </div>
+  );
+};
 
 export default function AddLinkedChanges({
   experiment,
   numLinkedChanges,
-  linkedFeatures,
-  visualChanges,
-  linkedRedirects,
+  hasLinkedFeatures,
+  hasVisualChanges,
+  hasLinkedRedirects,
   setFeatureModal,
   setVisualEditorModal,
   setUrlRedirectModal,
 }: {
   experiment: ExperimentInterfaceStringDates;
   numLinkedChanges: number;
-  linkedFeatures?: boolean;
-  visualChanges?: boolean;
-  linkedRedirects?: boolean;
+  hasLinkedFeatures?: boolean;
+  hasVisualChanges?: boolean;
+  hasLinkedRedirects?: boolean;
   setVisualEditorModal: (state: boolean) => unknown;
   setFeatureModal: (state: boolean) => unknown;
   setUrlRedirectModal: (state: boolean) => unknown;
@@ -33,9 +121,28 @@ export default function AddLinkedChanges({
   // Already has linked changes
   if (numLinkedChanges && numLinkedChanges > 0) return null;
 
+  const sections = {
+    "feature-flag": {
+      render: !hasLinkedFeatures,
+      setModal: setFeatureModal,
+    },
+    "visual-editor": {
+      render: !hasVisualChanges,
+      setModal: setVisualEditorModal,
+    },
+    redirects: {
+      render: !hasLinkedRedirects,
+      setModal: setUrlRedirectModal,
+    },
+  };
+
+  const possibleSections = Object.keys(sections);
+
+  const sectionsToRender = possibleSections.filter((s) => sections[s].render);
+
   return (
     <div className="appbox p-4 my-4">
-      {linkedFeatures || visualChanges || linkedRedirects ? (
+      {sectionsToRender.length < possibleSections.length ? (
         <>
           <h4>Add Experiment Types</h4>
         </>
@@ -46,152 +153,20 @@ export default function AddLinkedChanges({
         </>
       )}
       <hr />
-      {!linkedFeatures && (
-        <>
-          <div className="d-flex">
-            <span
-              className="mr-3"
-              style={{
-                background: `${ICON_PROPERTIES["feature-flag"].color}15`,
-                borderRadius: "50%",
-                height: "45px",
-                width: "45px",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-              }}
-            >
-              <FaRegFlag
-                style={{
-                  color: ICON_PROPERTIES["feature-flag"].color,
-                  height: "24px",
-                  width: "24px",
-                }}
+      <>
+        {sectionsToRender.map((s, i) => {
+          return (
+            <div key={s}>
+              <AddLinkedChangeRow
+                type={s as LinkedChange}
+                setModal={sections[s].setModal}
+                hasVisualEditorFeature={hasVisualEditorFeature}
               />
-            </span>
-            <div className="flex-grow-1">
-              <div className="d-flex justify-content-between">
-                <b>Feature Flag</b>
-                <a href="#" onClick={() => setFeatureModal(true)}>
-                  Link Feature Flag
-                </a>
-              </div>
-              <p className="mt-2 mb-1">
-                Use feature flags and SDKs to make changes in your front-end,
-                back-end or mobile application code.
-              </p>
+              {i < sectionsToRender.length - 1 && <hr />}
             </div>
-          </div>
-        </>
-      )}
-
-      {!visualChanges && (
-        <>
-          <hr />
-          <div className="d-flex">
-            <span
-              className="mr-3"
-              style={{
-                background: `${ICON_PROPERTIES["visual-editor"].color}15`,
-                borderRadius: "50%",
-                height: "45px",
-                width: "45px",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-              }}
-            >
-              <FaDesktop
-                style={{
-                  color: ICON_PROPERTIES["visual-editor"].color,
-                  height: "24px",
-                  width: "24px",
-                }}
-              />
-            </span>
-            <div className="flex-grow-1">
-              <div className="d-flex justify-content-between">
-                <b>Visual Editor</b>
-                {hasVisualEditorFeature ? (
-                  <div
-                    className="btn btn-link p-0"
-                    onClick={() => {
-                      setVisualEditorModal(true);
-                      track("Open visual editor modal", {
-                        source: "visual-editor-ui",
-                        action: "add",
-                      });
-                    }}
-                  >
-                    Launch Visual Editor
-                  </div>
-                ) : (
-                  <PremiumTooltip commercialFeature={"visual-editor"}>
-                    <div className="btn btn-link p-0 disabled">
-                      Launch Visual Editor
-                    </div>
-                  </PremiumTooltip>
-                )}
-              </div>
-              <p className="mt-2 mb-1">
-                Use our no-code browser extension to A/B test minor changes,
-                such as headings or button text.
-              </p>
-            </div>
-          </div>
-        </>
-      )}
-
-      {!linkedRedirects && (
-        <>
-          <hr />
-          <div className="d-flex">
-            <span
-              className="mr-3"
-              style={{
-                background: `${ICON_PROPERTIES["redirects"].color}15`,
-                borderRadius: "50%",
-                height: "45px",
-                width: "45px",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-              }}
-            >
-              <FaLink
-                style={{
-                  color: ICON_PROPERTIES["redirects"].color,
-                  height: "24px",
-                  width: "24px",
-                }}
-              />
-            </span>
-            <div className="flex-grow-1">
-              <div className="d-flex justify-content-between">
-                <b>URL Redirects</b>
-                {hasVisualEditorFeature ? (
-                  <div
-                    className="btn btn-link p-0"
-                    onClick={() => setUrlRedirectModal(true)}
-                  >
-                    Add URL Redirects
-                  </div>
-                ) : (
-                  <PremiumTooltip commercialFeature={"redirects"}>
-                    <div className="btn btn-link p-0 disabled">
-                      Add URL Redirects
-                    </div>
-                  </PremiumTooltip>
-                )}
-              </div>
-              <p className="mt-2 mb-1">
-                Use our no-code tool to A/B test URL redirects for whole pages,
-                or to test parts of a URL.
-              </p>
-            </div>
-          </div>
-        </>
-      )}
+          );
+        })}
+      </>
     </div>
   );
 }

@@ -131,9 +131,9 @@ export default function Implementation({
       <AddLinkedChanges
         experiment={experiment}
         numLinkedChanges={0}
-        linkedFeatures={linkedFeatures.length > 0}
-        linkedRedirects={redirects.length > 0}
-        visualChanges={visualChanges.length > 0}
+        hasLinkedFeatures={linkedFeatures.length > 0}
+        hasLinkedRedirects={redirects.length > 0}
+        hasVisualChanges={visualChanges.length > 0}
         setFeatureModal={setFeatureModal}
         setVisualEditorModal={setVisualEditorModal}
         setUrlRedirectModal={setUrlRedirectModal}
