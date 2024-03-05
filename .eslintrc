@@ -170,7 +170,8 @@
         "./packages/front-end/**/*",
         "./packages/back-end/test/**/*",
         "./packages/back-end/src/scripts/**/*",
-        "./packages/back-end/**/*.test.{ts,tsx,js,jsx}"
+        "./packages/back-end/**/*.test.{ts,tsx,js,jsx}",
+        "./packages/shared/src/sdk-versioning/sdk-report.ts"
       ]
     }
   ]

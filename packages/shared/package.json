@@ -14,7 +14,8 @@
     "build": "yarn build:clean && yarn build:typescript",
     "test": "jest --forceExit --verbose --detectOpenHandles",
     "clean": "rimraf node_modules",
-    "type-check": "tsc --pretty --noEmit"
+    "type-check": "tsc --pretty --noEmit",
+    "generate-sdk-report": "ts-node --swc ./src/sdk-versioning/sdk-report.ts ./src/sdk-versioning/CAPABILITIES.md"
   },
   "dependencies": {
     "@growthbook/growthbook": "^0.36.0",
@@ -34,7 +35,8 @@
     "cross-env": "^7.0.3",
     "jest": "^27.1.1",
     "rimraf": "^3.0.2",
-    "typescript": "5.3.3"
+    "typescript": "5.3.3",
+    "ts-node": "^10.9.1"
   },
   "license": "MIT"
 }
