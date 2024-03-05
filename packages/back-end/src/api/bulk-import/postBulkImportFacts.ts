@@ -198,7 +198,11 @@ export const postBulkImportFacts = createApiRequestHandler(
         if (existing) {
           const changes = getUpdateFactMetricPropsFromBody(data, existing);
 
-          await req.context.models.factMetrics.update(existing, changes);
+          const newFactMetric = await req.context.models.factMetrics.update(
+            existing,
+            changes
+          );
+          factMetricMap.set(existing.id, newFactMetric);
 
           numUpdated.factMetrics++;
         }

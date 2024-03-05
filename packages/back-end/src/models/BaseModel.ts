@@ -314,7 +314,7 @@ export abstract class BaseModel<T extends BaseSchema> {
     return true;
   }
 
-  private _checkPermissions(
+  private _requirePermissions(
     docs: z.infer<T>[],
     permissions: Permission | Permission[]
   ) {
@@ -385,10 +385,7 @@ export abstract class BaseModel<T extends BaseSchema> {
       dateUpdated: new Date(),
     } as z.infer<T>;
 
-    this._checkPermissions([doc], this.config.permissions.create);
-
-    // Validate the new doc (sanity check in case Typescript errors are ignored for any reason)
-    this.config.schema.parse(doc);
+    this._requirePermissions([doc], this.config.permissions.create);
 
     await this._standardFieldValidation(doc);
     await this.customValidation(doc);
@@ -439,6 +436,7 @@ export abstract class BaseModel<T extends BaseSchema> {
         dateUpdated: true,
         id: true,
       })
+      .partial()
       .parse(rawUpdates) as UpdateProps<z.infer<T>>;
 
     // Only consider updates that actually change the value
@@ -484,10 +482,7 @@ export abstract class BaseModel<T extends BaseSchema> {
 
     const newDoc = { ...doc, ...allUpdates } as z.infer<T>;
 
-    this._checkPermissions([doc, newDoc], this.config.permissions.update);
-
-    // Validate the new doc (sanity check in case Typescript errors are ignored for any reason)
-    this.config.schema.parse(newDoc);
+    this._requirePermissions([doc, newDoc], this.config.permissions.update);
 
     await this._standardFieldValidation(updates as Partial<z.infer<T>>);
 
@@ -538,7 +533,7 @@ export abstract class BaseModel<T extends BaseSchema> {
   }
 
   protected async _deleteOne(doc: z.infer<T>) {
-    this._checkPermissions([doc], this.config.permissions.delete);
+    this._requirePermissions([doc], this.config.permissions.delete);
 
     await this.beforeDelete(doc);
     await this._dangerousGetCollection().deleteOne({
