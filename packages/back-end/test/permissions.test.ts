@@ -8,6 +8,211 @@ import { TeamInterface } from "../types/team";
 import { FeatureInterface } from "../types/feature";
 import { MetricInterface } from "../types/metric";
 
+const baseUserPermissions = {
+  addComments: false,
+  createAnalyses: false,
+  createDatasources: false,
+  createDimensions: false,
+  createFeatureDrafts: false,
+  createIdeas: false,
+  createMetrics: false,
+  createPresentations: false,
+  createSegments: false,
+  editDatasourceSettings: false,
+  manageApiKeys: false,
+  manageArchetype: false,
+  manageBilling: false,
+  manageEnvironments: false,
+  manageFactTables: false,
+  manageFeatures: false,
+  manageIntegrations: false,
+  manageNamespaces: false,
+  manageNorthStarMetric: false,
+  manageProjects: false,
+  manageSavedGroups: false,
+  manageTags: false,
+  manageTargetingAttributes: false,
+  manageTeam: false,
+  manageVisualChanges: false,
+  manageWebhooks: false,
+  organizationSettings: false,
+  publishFeatures: false,
+  readData: false,
+  runExperiments: false,
+  runQueries: false,
+  superDelete: false,
+  viewEvents: false,
+};
+
+describe("Test roleToPermissionMap", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("Should build permissions array for a noaccess user correctly", () => {
+    const permissions = roleToPermissionMap("noaccess", testOrg);
+    expect(permissions).toEqual(baseUserPermissions);
+  });
+
+  it("Should build permissions array for a readonly user correctly", () => {
+    const permissions = roleToPermissionMap("readonly", testOrg);
+    expect(permissions).toEqual({ ...baseUserPermissions, readData: true });
+  });
+
+  it("Should build permissions array for a visualEditor user correctly", () => {
+    const permissions = roleToPermissionMap("visualEditor", testOrg);
+    expect(permissions).toEqual({
+      ...baseUserPermissions,
+      readData: true,
+      manageVisualChanges: true,
+    });
+  });
+
+  it("Should build permissions array for a collaborator user correctly", () => {
+    const permissions = roleToPermissionMap("collaborator", testOrg);
+    expect(permissions).toEqual({
+      ...baseUserPermissions,
+      readData: true,
+      addComments: true,
+      createIdeas: true,
+      createPresentations: true,
+    });
+  });
+
+  it("Should build permissions array for an engineer user correctly", () => {
+    const permissions = roleToPermissionMap("engineer", testOrg);
+    expect(permissions).toEqual({
+      ...baseUserPermissions,
+      readData: true,
+      addComments: true,
+      createIdeas: true,
+      createPresentations: true,
+      publishFeatures: true,
+      manageFeatures: true,
+      manageTags: true,
+      createFeatureDrafts: true,
+      manageTargetingAttributes: true,
+      manageEnvironments: true,
+      manageNamespaces: true,
+      manageSavedGroups: true,
+      manageArchetype: true,
+      runExperiments: true,
+      manageVisualChanges: true,
+    });
+  });
+
+  it("Should build permissions array for an analyst user correctly", () => {
+    const permissions = roleToPermissionMap("analyst", testOrg);
+    expect(permissions).toEqual({
+      ...baseUserPermissions,
+      readData: true,
+      addComments: true,
+      createIdeas: true,
+      createPresentations: true,
+      createAnalyses: true,
+      manageTags: true,
+      manageVisualChanges: true,
+      createDimensions: true,
+      createMetrics: true,
+      createSegments: true,
+      manageFactTables: true,
+      runQueries: true,
+      editDatasourceSettings: true,
+    });
+  });
+
+  it("Should build permissions array for an experimenter user correctly", () => {
+    const permissions = roleToPermissionMap("experimenter", testOrg);
+    expect(permissions).toEqual({
+      ...baseUserPermissions,
+      readData: true,
+      addComments: true,
+      createIdeas: true,
+      createPresentations: true,
+      createAnalyses: true,
+      manageTags: true,
+      manageVisualChanges: true,
+      createDimensions: true,
+      createMetrics: true,
+      createSegments: true,
+      manageFactTables: true,
+      runQueries: true,
+      editDatasourceSettings: true,
+      publishFeatures: true,
+      manageFeatures: true,
+      createFeatureDrafts: true,
+      manageTargetingAttributes: true,
+      manageEnvironments: true,
+      manageNamespaces: true,
+      manageSavedGroups: true,
+      manageArchetype: true,
+      runExperiments: true,
+    });
+  });
+
+  it("Should build permissions array for an admin user correctly", () => {
+    const permissions = roleToPermissionMap("admin", testOrg);
+    expect(permissions).toEqual({
+      readData: true,
+      addComments: true,
+      createFeatureDrafts: true,
+      manageFeatures: true,
+      manageProjects: true,
+      createAnalyses: true,
+      createIdeas: true,
+      createMetrics: true,
+      manageFactTables: true,
+      createDatasources: true,
+      editDatasourceSettings: true,
+      runQueries: true,
+      manageVisualChanges: true,
+      createPresentations: true,
+      createDimensions: true,
+      createSegments: true,
+      organizationSettings: true,
+      superDelete: true,
+      manageTeam: true,
+      manageTags: true,
+      manageApiKeys: true,
+      manageIntegrations: true,
+      manageWebhooks: true,
+      manageBilling: true,
+      manageNorthStarMetric: true,
+      manageTargetingAttributes: true,
+      manageNamespaces: true,
+      manageSavedGroups: true,
+      manageArchetype: true,
+      viewEvents: true,
+      publishFeatures: true,
+      manageEnvironments: true,
+      runExperiments: true,
+    });
+  });
+});
+
 describe("Build base user permissions", () => {
   const testOrg: OrganizationInterface = {
     id: "org_sktwi1id9l7z9xkjb",
