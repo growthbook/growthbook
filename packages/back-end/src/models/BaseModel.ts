@@ -58,6 +58,8 @@ export interface ModelConfig<T extends BaseSchema> {
   }[];
 }
 
+// Global set to track which collections we've added indexes to already
+// We only need to add indexes once at server start-up
 const indexesAdded: Set<string> = new Set();
 
 export abstract class BaseModel<T extends BaseSchema> {
