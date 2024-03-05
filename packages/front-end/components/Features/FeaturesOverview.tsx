@@ -1237,7 +1237,7 @@ export default function FeaturesOverview({
         )}
         {reviewModal && revision && (
           <RequestReviewModal
-            feature={feature}
+            feature={baseFeature}
             revisions={revisions}
             version={revision.version}
             close={() => setReviewModal(false)}

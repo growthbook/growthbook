@@ -1,5 +1,5 @@
 import { FeatureInterface } from "back-end/types/feature";
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo } from "react";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { autoMerge, mergeResultHasChanges } from "shared/util";
 import { useForm } from "react-hook-form";
@@ -39,11 +39,6 @@ export default function RequestReviewModal({
   const { apiCall } = useAuth();
   const user = getCurrentUser();
   const permissions = usePermissions();
-
-  const commentRef = useRef<HTMLInputElement>(null);
-  const scrollToComment = () => {
-    commentRef?.current?.scrollIntoView();
-  };
   const canAdminPublish = permissions.check(
     "bypassApprovalChecks",
     feature.project
@@ -241,17 +236,6 @@ export default function RequestReviewModal({
                 </div>
               </div>
             )}
-            {!canReview && (
-              <div className="text-right">
-                <div
-                  onClick={scrollToComment}
-                  style={{ cursor: "pointer" }}
-                  className="text-purple mt-3"
-                >
-                  Leave a comment
-                </div>
-              </div>
-            )}
             <div className="list-group mb-4 mt-4">
               <h4 className="mb-3">Diffs by Enviroment</h4>
               {resultDiffs.map((diff) => (
@@ -268,12 +252,11 @@ export default function RequestReviewModal({
                   textarea
                   placeholder="Summary of changes..."
                   value={comment}
-                  ref={commentRef}
                   onChange={(e) => {
                     setComment(e.target.value);
                   }}
                 />
-                {(!canReview || approved) && (
+                {((!canReview && revision?.status !== "draft") || approved) && (
                   <Button
                     onClick={async () => {
                       try {
