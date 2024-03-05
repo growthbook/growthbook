@@ -104,6 +104,33 @@ export default function CompareRuleDiffModal({
     return JSON.stringify(updatedRules, null, 2);
   }
 
+  const customDiffTheme = {
+    variables: {
+      light: {
+        addedBackground: "#FFF9ED",
+        removedBackground: "#FFF9ED",
+        addedGutterBackground: "#FFF9ED",
+        removedGutterBackground: "#FFF9ED",
+        wordAddedBackground: "#FFF9ED",
+        wordRemovedBackground: "#FFF9ED",
+      },
+      dark: {
+        addedBackground: "#915930",
+        removedBackground: "#915930",
+        addedGutterBackground: "#915930",
+        removedGutterBackground: "#915930",
+        wordAddedBackground: "#915930",
+        wordRemovedBackground: "#915930",
+        diffViewerTitleColor: "white",
+        codeFoldContentColor: "white",
+        gutterColor: "white",
+        addedGutterColor: "white",
+        removedGutterColor: "white",
+      },
+    },
+    marker: { pre: { opacity: "0" } },
+  };
+
   return (
     <Modal
       close={close}
@@ -206,31 +233,7 @@ export default function CompareRuleDiffModal({
                     oldValue={getDiffString(sourceEnv)}
                     newValue={getDiffString(targetEnv)}
                     splitView={true}
-                    styles={{
-                      variables: {
-                        light: {
-                          addedBackground: "#FFF9ED",
-                          removedBackground: "#FFF9ED",
-                          addedGutterBackground: "#FFF9ED",
-                          removedGutterBackground: "#FFF9ED",
-                          wordAddedBackground: "#FFF9ED",
-                          wordRemovedBackground: "#FFF9ED",
-                        },
-                        dark: {
-                          addedBackground: "#915930",
-                          removedBackground: "#915930",
-                          addedGutterBackground: "#915930",
-                          removedGutterBackground: "#915930",
-                          wordAddedBackground: "#915930",
-                          wordRemovedBackground: "#915930",
-                          diffViewerTitleColor: "white",
-                          codeFoldContentColor: "white",
-                          gutterColor: "white",
-                          addedGutterColor: "white",
-                          removedGutterColor: "white",
-                        },
-                      },
-                    }}
+                    styles={customDiffTheme}
                     useDarkTheme={theme === "dark" ? true : false}
                   />
                 </div>
