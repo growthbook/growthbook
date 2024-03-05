@@ -37,6 +37,7 @@ export default function RequestReviewModal({
   const [showSubmitReview, setShowSumbmitReview] = useState(false);
   const [adminPublish, setAdminPublish] = useState(false);
   const revisionLogRef = useRef<MutateLog>(null);
+  const commentInputRef = useRef<HTMLInputElement>(null);
 
   const { apiCall } = useAuth();
   const user = getCurrentUser();
@@ -258,6 +259,7 @@ export default function RequestReviewModal({
                   textarea
                   placeholder="Summary of changes..."
                   value={comment}
+                  ref={commentInputRef}
                   onChange={(e) => {
                     setComment(e.target.value);
                   }}
@@ -282,6 +284,7 @@ export default function RequestReviewModal({
                       setComment("");
                       await revisionLogRef?.current?.mutateLog();
                       await mutate();
+                      commentInputRef?.current?.scrollIntoView();
                       // close();
                     }}
                   >
