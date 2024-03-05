@@ -26,6 +26,8 @@ import { addTags, getAllTags } from "../models/TagModel";
 import { AuditInterface } from "../../types/audit";
 import { insertAudit } from "../models/AuditModel";
 import { logger } from "../util/logger";
+import { DataSourceInterface } from "../../types/datasource";
+import { getDataSourcesByOrganization } from "../models/DataSourceModel";
 
 export class ReqContextClass {
   // Models
@@ -181,6 +183,15 @@ export class ReqContextClass {
       this._projects = await findAllProjectsByOrganization(this);
     }
     return this._projects;
+  }
+
+  // Cache data sources since they are needed many places in the code
+  private _dataSources: DataSourceInterface[] | null = null;
+  public async getDataSources() {
+    if (this._dataSources === null) {
+      this._dataSources = await getDataSourcesByOrganization(this);
+    }
+    return this._dataSources;
   }
 
   // Tags can be created on the fly, so we cache which ones already exist

@@ -332,6 +332,7 @@ export abstract class BaseModel<T extends BaseSchema> {
   }
 
   protected async _standardFieldValidation(obj: Partial<z.infer<T>>) {
+    // Validate common foreign key references
     if (this.config.projectScoping === "single") {
       if ("project" in obj && obj.project) {
         const projects = await this.context.getProjects();
@@ -351,8 +352,16 @@ export abstract class BaseModel<T extends BaseSchema> {
         }
       }
     }
-
-    // TODO: if `datasource` is being set, make sure it's a valid id
+    if (
+      "datasource" in obj &&
+      typeof obj.datasource === "string" &&
+      obj.datasource
+    ) {
+      const datasources = await this.context.getDataSources();
+      if (!datasources.some((d) => d.id === obj.datasource)) {
+        throw new Error("Invalid datasource");
+      }
+    }
   }
 
   protected async _createOne(rawData: unknown | CreateProps<z.infer<T>>) {
