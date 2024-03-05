@@ -237,21 +237,6 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     (data?.superAdmin && "admin") ||
     (user?.role ?? currentOrg?.organization?.settings?.defaultRole?.role);
 
-  const permissionsObj = useMemo(() => {
-    // Build out permissions object for backwards-compatible `permissions.manageTeams` style usage
-    const permissions: Record<GlobalPermission, boolean> = {
-      ...DEFAULT_PERMISSIONS,
-    };
-
-    for (const permission in permissions) {
-      permissions[permission] =
-        currentOrg?.currentUserPermissions?.global.permissions[permission] ||
-        false;
-    }
-
-    return permissions;
-  }, [currentOrg?.currentUserPermissions?.global.permissions]);
-
   // Update current user data for telemetry data
   useEffect(() => {
     currentUser = {
@@ -346,6 +331,27 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     [currentOrg, data?.superAdmin, data?.userId]
   );
 
+  const permissions = useMemo(() => {
+    // Build out permissions object for backwards-compatible `permissions.manageTeams` style usage
+    const permissions: Record<GlobalPermission, boolean> = {
+      ...DEFAULT_PERMISSIONS,
+    };
+
+    for (const permission in permissions) {
+      permissions[permission] =
+        currentOrg?.currentUserPermissions?.global.permissions[permission] ||
+        false;
+    }
+
+    return {
+      ...permissions,
+      check: permissionsCheck,
+    };
+  }, [
+    currentOrg?.currentUserPermissions?.global.permissions,
+    permissionsCheck,
+  ]);
+
   return (
     <UserContext.Provider
       value={{
@@ -363,10 +369,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         },
         refreshOrganization: refreshOrganization as () => Promise<void>,
         roles: currentOrg?.roles || [],
-        permissions: {
-          ...permissionsObj,
-          check: permissionsCheck,
-        },
+        permissions,
         settings: currentOrg?.organization?.settings || {},
         license: data?.license,
         enterpriseSSO: currentOrg?.enterpriseSSO || undefined,
