@@ -46,21 +46,20 @@ type ExperimentImpact = {
   ci0: number[];
   scaledImpact: number[];
   scaledImpactAdjusted: number[];
-  scaledImpactSE: number[];
-  units: number[];
   selected: boolean[];
 };
 
 type ExperimentWithImpact = {
   keyVariationId?: number;
   impact?: ExperimentImpact;
-  summary: ExperimentSummary;
+  type: ExperimentImpactType;
   experiment: ExperimentInterfaceStringDates;
 };
 
-type ExperimentSummary = "summary" | "winner" | "loser" | "other";
+type ExperimentImpactType = "winner" | "loser" | "other";
+type ExperimentImpactTab = ExperimentImpactType | "summary";
 
-type ExperimentSummaryData = {
+type ExperimentImpactData = {
   totalImpact: number;
   totalAdjustedImpact: number;
   experiments: ExperimentWithImpact[];
@@ -87,13 +86,13 @@ function formatImpact(
 }
 
 function ImpactTab({
-  experimentSummaryData,
-  experimentSummaryType,
+  experimentImpactData,
+  experimentImpactType,
   formatter,
   formatterOptions,
 }: {
-  experimentSummaryData: ExperimentSummaryData;
-  experimentSummaryType: ExperimentSummary;
+  experimentImpactData: ExperimentImpactData;
+  experimentImpactType: ExperimentImpactType;
   formatter: (
     value: number,
     options?: Intl.NumberFormatOptions | undefined
@@ -103,7 +102,7 @@ function ImpactTab({
   const expRows: JSX.Element[] = [];
 
   // TODO inverse metrics!
-  experimentSummaryData.experiments.forEach((e) => {
+  experimentImpactData.experiments.forEach((e) => {
     const variations: JSX.Element[] = [];
     const impacts: JSX.Element[] = [];
     e.experiment.variations.forEach((v, i) => {
@@ -111,7 +110,7 @@ function ImpactTab({
         return;
       }
 
-      if (experimentSummaryType !== "other" && i !== e.keyVariationId) {
+      if (experimentImpactType !== "other" && i !== e.keyVariationId) {
         return;
       }
       variations.push(
@@ -165,10 +164,11 @@ function ImpactTab({
     expRows.push(
       <tr key={e.experiment.id} className="hover-highlight">
         <td className="mb-1 ">
-          <Link href={`/experiment/${e.experiment.id}`}>
-            <a className="w-100 no-link-color">
-              <strong>{e.experiment.name}</strong>{" "}
-            </a>
+          <Link
+            className="w-100 no-link-color"
+            href={`/experiment/${e.experiment.id}`}
+          >
+            <strong>{e.experiment.name}</strong>{" "}
           </Link>
         </td>
 
@@ -202,26 +202,26 @@ function ImpactTab({
       <div className="d-flex flex-row align-items-end">
         <span style={{ fontSize: "1.5em" }}>
           <span className="font-weight-bold">
-            {experimentSummaryData.experiments.length}
+            {experimentImpactData.experiments.length}
           </span>
           {" experiments were "}
           <span className="font-weight-bold">
-            {experimentSummaryType !== "other"
-              ? `${experimentSummaryType}s`
+            {experimentImpactType !== "other"
+              ? `${experimentImpactType}s`
               : "inconclusive or are running"}
           </span>
         </span>
       </div>
-      {experimentSummaryType !== "other" ? (
+      {experimentImpactType !== "other" ? (
         <div className="d-flex flex-row align-items-end">
           <span style={{ fontSize: "1.5em" }}>
             {formatImpact(
-              experimentSummaryData.totalAdjustedImpact * 365,
+              experimentImpactData.totalAdjustedImpact * 365,
               formatter,
               formatterOptions
             )}
             {` per year is the summed impact ${
-              experimentSummaryType === "winner"
+              experimentImpactType === "winner"
                 ? "of the winning variations."
                 : "of not shipping the worst variation."
             } `}
@@ -236,9 +236,9 @@ function ImpactTab({
             <th>Date Ended</th>
             <th>Status</th>
             <th>
-              {experimentSummaryType === "winner"
+              {experimentImpactType === "winner"
                 ? "Winning Variation"
-                : experimentSummaryType === "loser"
+                : experimentImpactType === "loser"
                 ? "Worst Variation"
                 : "Variation"}
             </th>
@@ -256,9 +256,12 @@ export default function ExperimentImpact({
 }: {
   experiments: ExperimentInterfaceStringDates[];
 }): React.ReactElement {
+  const { apiCall } = useAuth();
   const settings = useOrgSettings();
+
   const now = new Date();
   const defaultStartDate = new Date(now);
+  // last 180 days by default
   defaultStartDate.setDate(defaultStartDate.getDate() - 180);
 
   const form = useForm<ExperimentImpactFilters>({
@@ -270,9 +273,7 @@ export default function ExperimentImpact({
     },
   });
 
-  const [experimentStatus, setExperimentStatus] = useState<ExperimentSummary>(
-    "summary"
-  );
+  const [impactTab, setImpactTab] = useState<ExperimentImpactTab>("summary");
 
   const [snapshots, setSnapshots] = useState<ExperimentSnapshotInterface[]>();
   const [loading, setLoading] = useState(true);
@@ -293,8 +294,6 @@ export default function ExperimentImpact({
     notation: "compact",
     signDisplay: "never",
   };
-
-  const { apiCall } = useAuth();
 
   const exps = experiments
     .filter((e) => e.metrics.find((m) => m === metric))
@@ -326,15 +325,13 @@ export default function ExperimentImpact({
   if (!snapshots && loading) {
     return <>Loading</>;
   }
-  console.log(project);
 
   const experimentImpacts = new Map<string, ExperimentWithImpact>();
-  console.log(exps);
 
   const summaryObj: {
-    winners: ExperimentSummaryData;
-    losers: ExperimentSummaryData;
-    others: ExperimentSummaryData;
+    winners: ExperimentImpactData;
+    losers: ExperimentImpactData;
+    others: ExperimentImpactData;
   } = {
     winners: {
       totalAdjustedImpact: 0,
@@ -352,15 +349,18 @@ export default function ExperimentImpact({
       experiments: [],
     },
   };
-  console.log(selectedProject);
+
   if (snapshots && exps) {
     const maxUnits = 0;
     let overallSE: number | null = null;
-    const scaledImpacts: number[] = [];
+    const allScaledImpacts: number[] = [];
     exps.forEach((e) => {
       const s = snapshots.find((s) => s.experiment === e.id);
-      console.log(s);
-      console.log(e.project);
+
+      // Experiments to actually use in overall impact and in
+      // tabs. We filter here instead of filtering `exp` because
+      // we use the full set of experiments for the James-Stein
+      // adjustment
       const inSample =
         !!s &&
         // ended and end date is in range
@@ -371,6 +371,7 @@ export default function ExperimentImpact({
           (e.status === "running" &&
             (!form.watch("endDate") ||
               getValidDate(form.watch("endDate")) > new Date()))) &&
+        // and in selected project
         (e.project === selectedProject || selectedProject === "");
 
       const summary =
@@ -379,7 +380,7 @@ export default function ExperimentImpact({
           : inSample && e.results === "lost"
           ? "loser"
           : "other";
-      const ei: ExperimentWithImpact = { experiment: e, summary: summary };
+      const ei: ExperimentWithImpact = { experiment: e, type: summary };
       if (s) {
         const obj: ExperimentImpact = {
           endDate: s.settings.endDate,
@@ -387,9 +388,7 @@ export default function ExperimentImpact({
           ci0: [],
           scaledImpact: [],
           scaledImpactAdjusted: [],
-          scaledImpactSE: [],
           selected: [],
-          units: [],
         };
         const defaultSettings = getSnapshotAnalysis(s)?.settings;
         const scaledAnalysis = defaultSettings
@@ -400,7 +399,7 @@ export default function ExperimentImpact({
           : null;
 
         if (scaledAnalysis && scaledAnalysis.results.length) {
-          // no dim so always one row:
+          // no dim so always get first value
           const res = scaledAnalysis.results[0];
           res.variations.forEach((v, i) => {
             if (i !== 0) {
@@ -408,15 +407,13 @@ export default function ExperimentImpact({
               const se = v?.metrics[metric]?.uplift?.stddev ?? 0;
               const impact = v?.metrics[metric]?.expected ?? 0;
               obj.scaledImpact.push(impact);
-              scaledImpacts.push(impact);
-              obj.scaledImpactSE.push(se);
+              allScaledImpacts.push(impact);
               obj.ci0.push(v?.metrics[metric]?.ci?.[0] ?? 0);
               obj.selected.push(e.winner === i);
               const totalUnits = v.users + res.variations[0].users;
               if (totalUnits > maxUnits && se > 0) {
                 overallSE = se;
               }
-              obj.units.push(v.users + res.variations[0].users);
             }
           });
         }
@@ -425,7 +422,7 @@ export default function ExperimentImpact({
       experimentImpacts.set(e.id, ei);
     });
 
-    const adjustment = jamesSteinAdjustment(scaledImpacts, overallSE ?? 0);
+    const adjustment = jamesSteinAdjustment(allScaledImpacts, overallSE ?? 0);
 
     for (const e of experimentImpacts.values()) {
       let experimentImpact: number | null = null;
@@ -468,7 +465,6 @@ export default function ExperimentImpact({
       }
     }
   }
-  // TODO null state when all arrays are empty
   return (
     <div>
       <div className="appbox p-3 bg-light">
@@ -515,12 +511,13 @@ export default function ExperimentImpact({
           </tr>
         </table>
       </div>
+      {/* TODO null state when all arrays are empty */}
       <div>
         <ControlledTabs
           setActive={(s) => {
-            setExperimentStatus((s as ExperimentSummary) || "winner");
+            setImpactTab((s as ExperimentImpactTab) || "summary");
           }}
-          active={experimentStatus}
+          active={impactTab}
           showActiveCount={true}
           newStyle={false}
           buttonsClassName="px-3 py-2 h4"
@@ -533,7 +530,7 @@ export default function ExperimentImpact({
           >
             <div className="col mb-3 bg-light">
               <div className="row" style={{ fontSize: "1.5em" }}>
-                <div className="col-auto mr-3 align-items-center justify-content-center text-center">
+                <div className="col-auto mr-3 text-center">
                   <div className="d-flex mb-2 align-items-center justify-content-center">
                     <div
                       className={`badge-success rounded-circle mr-1`}
@@ -560,7 +557,7 @@ export default function ExperimentImpact({
                     <HiOutlineExclamationCircle />
                   </div>
                 </div>
-                <div className="col-auto mr-3 align-items-center text-center">
+                <div className="col-auto mr-3 text-center">
                   <div className="d-flex mb-2 align-items-center justify-content-center">
                     <div
                       className={`badge-danger rounded-circle mr-1`}
@@ -588,7 +585,7 @@ export default function ExperimentImpact({
                     <HiOutlineExclamationCircle />
                   </div>
                 </div>
-                <div className="col-auto mr-3 align-items-center text-center">
+                <div className="col-auto mr-3 text-center">
                   <div className="d-flex mb-2 align-items-center justify-content-center">
                     <div
                       className={`badge-secondary rounded-circle mr-1`}
@@ -615,8 +612,8 @@ export default function ExperimentImpact({
             padding={false}
           >
             <ImpactTab
-              experimentSummaryData={summaryObj.winners}
-              experimentSummaryType={"winner"}
+              experimentImpactData={summaryObj.winners}
+              experimentImpactType={"winner"}
               formatter={formatter}
               formatterOptions={formatterOptions}
             />
@@ -629,8 +626,8 @@ export default function ExperimentImpact({
             padding={false}
           >
             <ImpactTab
-              experimentSummaryData={summaryObj.losers}
-              experimentSummaryType={"loser"}
+              experimentImpactData={summaryObj.losers}
+              experimentImpactType={"loser"}
               formatter={formatter}
               formatterOptions={formatterOptions}
             />
@@ -644,8 +641,8 @@ export default function ExperimentImpact({
             padding={false}
           >
             <ImpactTab
-              experimentSummaryData={summaryObj.others}
-              experimentSummaryType={"other"}
+              experimentImpactData={summaryObj.others}
+              experimentImpactType={"other"}
               formatter={formatter}
               formatterOptions={formatterOptions}
             />
