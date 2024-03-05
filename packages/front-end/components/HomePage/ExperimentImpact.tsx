@@ -351,6 +351,7 @@ export default function ExperimentImpact({
   };
 
   if (snapshots && exps) {
+    // use largest experiment for population sampling variance
     const maxUnits = 0;
     let overallSE: number | null = null;
     const allScaledImpacts: number[] = [];
@@ -375,11 +376,12 @@ export default function ExperimentImpact({
         (e.project === selectedProject || selectedProject === "");
 
       const summary =
-        inSample && e.results === "won" && !!e.winner
+        e.results === "won" && !!e.winner
           ? "winner"
-          : inSample && e.results === "lost"
+          : e.results === "lost"
           ? "loser"
           : "other";
+
       const ei: ExperimentWithImpact = { experiment: e, type: summary };
       if (s) {
         const obj: ExperimentImpact = {
@@ -450,18 +452,22 @@ export default function ExperimentImpact({
           }
         });
       }
-      console.log(e.experiment.results);
-      if (e.experiment.results === "won" && e.impact?.inSample) {
-        summaryObj.winners.totalImpact += experimentImpact ?? 0;
-        summaryObj.winners.totalAdjustedImpact += experimentAdjustedImpact ?? 0;
-        summaryObj.winners.experiments.push(e);
-      } else if (e.experiment.results === "lost" && e.impact?.inSample) {
-        // invert sign of lost impact
-        summaryObj.losers.totalImpact -= experimentImpact ?? 0;
-        summaryObj.losers.totalAdjustedImpact -= experimentAdjustedImpact ?? 0;
-        summaryObj.losers.experiments.push(e);
-      } else if (e.impact?.inSample) {
-        summaryObj.others.experiments.push(e);
+
+      if (e.impact?.inSample) {
+        if (e.experiment.results === "won") {
+          summaryObj.winners.totalImpact += experimentImpact ?? 0;
+          summaryObj.winners.totalAdjustedImpact +=
+            experimentAdjustedImpact ?? 0;
+          summaryObj.winners.experiments.push(e);
+        } else if (e.experiment.results === "lost") {
+          // invert sign of lost impact
+          summaryObj.losers.totalImpact -= experimentImpact ?? 0;
+          summaryObj.losers.totalAdjustedImpact -=
+            experimentAdjustedImpact ?? 0;
+          summaryObj.losers.experiments.push(e);
+        } else {
+          summaryObj.others.experiments.push(e);
+        }
       }
     }
   }
