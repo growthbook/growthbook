@@ -6,7 +6,12 @@ import {
 import { FaCodeCommit } from "react-icons/fa6";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { ago, date } from "shared/dates";
-import { useMemo, useState } from "react";
+import React, {
+  MutableRefObject,
+  useImperativeHandle,
+  useMemo,
+  useState,
+} from "react";
 import stringify from "json-stringify-pretty-compact";
 import clsx from "clsx";
 import useApi from "@/hooks/useApi";
@@ -14,9 +19,14 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Avatar from "@/components/Avatar/Avatar";
 import Code from "@/components/SyntaxHighlighting/Code";
 
+export type MutateLog = {
+  mutateLog: () => Promise<void>;
+};
+
 export interface Props {
   feature: FeatureInterface;
   revision: FeatureRevisionInterface;
+  ref?: MutableRefObject<unknown>;
 }
 
 function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
@@ -88,10 +98,18 @@ function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
   );
 }
 
-export default function Revisionlog({ feature, revision }: Props) {
-  const { data, error } = useApi<{ log: RevisionLog[] }>(
+const Revisionlog: React.ForwardRefRenderFunction<MutateLog, Props> = (
+  { feature, revision },
+  ref
+) => {
+  const { data, error, mutate } = useApi<{ log: RevisionLog[] }>(
     `/feature/${feature.id}/${revision.version}/log`
   );
+  useImperativeHandle(ref, () => ({
+    async mutateLog() {
+      await mutate();
+    },
+  }));
 
   const logs = useMemo(() => {
     if (!data) return [];
@@ -147,4 +165,5 @@ export default function Revisionlog({ feature, revision }: Props) {
       ))}
     </div>
   );
-}
+};
+export default React.forwardRef(Revisionlog);

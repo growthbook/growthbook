@@ -1,5 +1,5 @@
 import { FeatureInterface } from "back-end/types/feature";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { autoMerge, mergeResultHasChanges } from "shared/util";
 import { useForm } from "react-hook-form";
@@ -13,7 +13,7 @@ import Field from "@/components/Forms/Field";
 import Button from "@/components/Button";
 import RadioSelector from "@/components/Forms/RadioSelector";
 import { ExpandableDiff } from "@/components/Features/DraftModal";
-import Revisionlog from "@/components/Features/RevisionLog";
+import Revisionlog, { MutateLog } from "@/components/Features/RevisionLog";
 export interface Props {
   feature: FeatureInterface;
   version: number;
@@ -36,6 +36,8 @@ export default function RequestReviewModal({
   const environments = useEnvironments();
   const [showSubmitReview, setShowSumbmitReview] = useState(false);
   const [adminPublish, setAdminPublish] = useState(false);
+  const revisionLogRef = useRef<MutateLog>(null);
+
   const { apiCall } = useAuth();
   const user = getCurrentUser();
   const permissions = usePermissions();
@@ -244,7 +246,11 @@ export default function RequestReviewModal({
             </div>
             <h4 className="mb-3"> Change Request Log</h4>
 
-            <Revisionlog feature={feature} revision={revision} />
+            <Revisionlog
+              feature={feature}
+              revision={revision}
+              ref={revisionLogRef}
+            />
             {(!canReview || approved) && (
               <div className="mt-3" id="comment-section">
                 <Field
@@ -274,8 +280,9 @@ export default function RequestReviewModal({
                         throw e;
                       }
                       setComment("");
+                      await revisionLogRef?.current?.mutateLog();
                       await mutate();
-                      close();
+                      // close();
                     }}
                   >
                     Comment
