@@ -1,13 +1,14 @@
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { useState } from "react";
 import ReactDiffViewer from "react-diff-viewer";
-import { FaRedo, FaRegCopy } from "react-icons/fa";
+import { FaRegCopy } from "react-icons/fa";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import Modal from "@/components/Modal";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 
 interface Props {
   isDraft: boolean;
@@ -37,6 +38,7 @@ export default function CompareRuleDiffModal({
   const [copyingRules, setCopyingRules] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { apiCall } = useAuth();
+  const { theme } = useAppearanceUITheme();
 
   const form = useForm({
     defaultValues: {
@@ -149,12 +151,11 @@ export default function CompareRuleDiffModal({
               <div>
                 {isLocked ? null : (
                   <div className="alert alert-secondary">
-                    If copied, we&apos;ll{" "}
+                    If copied, rules from <strong>{sourceEnv}</strong> will
+                    overwrite any existing rules on <strong>{targetEnv}</strong>
                     {isDraft
-                      ? "update the current draft version"
-                      : "create a new draft version"}{" "}
-                    and rules from <strong>{sourceEnv}</strong> will overwrite
-                    any existing rules on <strong>{targetEnv}</strong>.
+                      ? " for this draft version."
+                      : " in a new draft version."}
                   </div>
                 )}
                 <div className="d-flex align-items-center justify-content-between w-100">
@@ -179,20 +180,7 @@ export default function CompareRuleDiffModal({
                       <FaRegCopy />
                       {copyingRules
                         ? " Copying rules..."
-                        : " Copy Rules to Target"}
-                    </button>
-                  </Tooltip>
-                  <Tooltip body="Reset environment selection to trigger a new comparison.">
-                    <button
-                      className="btn btn-link text-decoration-none pr-0"
-                      disabled={copyingRules}
-                      onClick={() => {
-                        form.setValue("sourceEnv", "");
-                        form.setValue("targetEnv", "");
-                      }}
-                    >
-                      {" "}
-                      <FaRedo size={10} /> Compare New Selection
+                        : " Copy Rules to Target Environment"}
                     </button>
                   </Tooltip>
                 </div>
@@ -203,7 +191,7 @@ export default function CompareRuleDiffModal({
             ) : null}
             <div className="my-3 border rounded">
               <div className="bg-light w-100 p-2">
-                <strong>Environment Rules Compared</strong>
+                <strong>Compare Environment Rules</strong>
               </div>
               {getDiffString(sourceEnv) === getDiffString(targetEnv) ? (
                 <div className="p-3">
@@ -213,9 +201,37 @@ export default function CompareRuleDiffModal({
               ) : (
                 <div className="d-flex w-100">
                   <ReactDiffViewer
+                    leftTitle={`Source Environment: ${sourceEnv}`}
+                    rightTitle={`Target Environment: ${targetEnv}`}
                     oldValue={getDiffString(sourceEnv)}
                     newValue={getDiffString(targetEnv)}
                     splitView={true}
+                    styles={{
+                      variables: {
+                        light: {
+                          addedBackground: "#FFF9ED",
+                          removedBackground: "#FFF9ED",
+                          addedGutterBackground: "#FFF9ED",
+                          removedGutterBackground: "#FFF9ED",
+                          wordAddedBackground: "#FFF9ED",
+                          wordRemovedBackground: "#FFF9ED",
+                        },
+                        dark: {
+                          addedBackground: "#915930",
+                          removedBackground: "#915930",
+                          addedGutterBackground: "#915930",
+                          removedGutterBackground: "#915930",
+                          wordAddedBackground: "#915930",
+                          wordRemovedBackground: "#915930",
+                          diffViewerTitleColor: "white",
+                          codeFoldContentColor: "white",
+                          gutterColor: "white",
+                          addedGutterColor: "white",
+                          removedGutterColor: "white",
+                        },
+                      },
+                    }}
+                    useDarkTheme={theme === "dark" ? true : false}
                   />
                 </div>
               )}
