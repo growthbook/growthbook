@@ -633,6 +633,10 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     }
   }
 
+  const filteredAttributes = settings?.attributeSchema?.filter((attribute) =>
+    hasReadAccess(context.readAccessFilter, attribute.projects || [])
+  );
+
   // Some other global org data needed by the front-end
   const apiKeys = await getAllApiKeysByOrganization(context);
   const enterpriseSSO = isEnterpriseSSO(req.loginMethod)
@@ -680,7 +684,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       freeTrialDate: org.freeTrialDate,
       discountCode: org.discountCode || "",
       slackTeam: connections?.slack?.team,
-      settings,
+      settings: { ...settings, attributeSchema: filteredAttributes },
       autoApproveMembers: org.autoApproveMembers,
       members: org.members,
       messages: messages || [],
@@ -1178,7 +1182,9 @@ export async function putOrganization(
       } else if (k === "sdkInstructionsViewed" || k === "visualEditorEnabled") {
         req.checkPermissions("manageEnvironments", "", []);
       } else if (k === "attributeSchema") {
-        req.checkPermissions("manageTargetingAttributes");
+        throw new Error(
+          "Not supported: Updating organization attributes not supported via this route."
+        );
       } else if (k === "northStar") {
         req.checkPermissions("manageNorthStarMetric");
       } else if (k === "namespaces") {
@@ -1253,7 +1259,7 @@ export const autoAddGroupsAttribute = async (
   // Add missing `$groups` attribute automatically if it's being referenced by a Saved Group
   const { org } = getContextFromReq(req);
 
-  req.checkPermissions("manageTargetingAttributes");
+  req.checkPermissions("manageTargetingAttributes", []);
 
   let added = false;
 

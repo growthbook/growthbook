@@ -84,6 +84,7 @@ export const resolvers: Record<
   loseRisk: genMetricOverrideResolver("loseRisk"),
   secureAttributeSalt: genDefaultResolver("secureAttributeSalt"),
   killswitchConfirmation: genDefaultResolver("killswitchConfirmation"),
+  requireReviews: genDefaultResolver("requireReviews"),
 };
 
 const scopeSettings = (

@@ -40,6 +40,7 @@ export type CommercialFeature =
   | "no-access-role"
   | "teams"
   | "sticky-bucketing"
+  | "require-approvals"
   | "code-references"
   | "prerequisites"
   | "prerequisite-targeting"
@@ -160,6 +161,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "custom-launch-checklist",
     "no-access-role",
     "sticky-bucketing",
+    "require-approvals",
     "code-references",
     "prerequisites",
     "prerequisite-targeting",
