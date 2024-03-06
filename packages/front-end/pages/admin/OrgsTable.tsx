@@ -106,7 +106,7 @@ export default function OrgsTable({
                 showExternalId={!isCloud()}
                 key={o.id}
                 current={o.id === orgId}
-                onEdit={() => {
+                onUpdate={() => {
                   loadOrgs(page, query);
                 }}
                 switchTo={(org) => {
