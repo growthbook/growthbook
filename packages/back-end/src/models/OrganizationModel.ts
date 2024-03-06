@@ -376,3 +376,8 @@ export function toOrganizationApiInterface(
     dateCreated: dateCreated?.toISOString() || "",
   };
 }
+
+export function deleteOrganization() {
+  // TODO delete all related models
+  // probably should wait for jeremy's data model PR to merge before moving forward
+}

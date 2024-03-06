@@ -2,7 +2,12 @@ import { useState } from "react";
 import { OrganizationInterface } from "@back-end/types/organization";
 import { UserInterface } from "@back-end/types/user";
 import clsx from "clsx";
-import { FaAngleDown, FaAngleRight, FaPencilAlt } from "react-icons/fa";
+import {
+  FaAngleDown,
+  FaAngleRight,
+  FaPencilAlt,
+  FaTrash,
+} from "react-icons/fa";
 import { date } from "shared/dates";
 import stringify from "json-stringify-pretty-compact";
 import Collapsible from "react-collapsible";
@@ -10,6 +15,7 @@ import useApi from "@/hooks/useApi";
 import { isCloud } from "@/services/env";
 import EditOrganization from "@/components/Admin/EditOrganization";
 import Code from "@/components/SyntaxHighlighting/Code";
+import DeleteOrganization from "@/components/Admin/DeleteOrganization";
 import MembersTable from "./MembersTable";
 
 export default function OrganizationRow({
@@ -17,16 +23,17 @@ export default function OrganizationRow({
   current,
   switchTo,
   showExternalId,
-  onEdit,
+  onUpdate,
 }: {
   organization: OrganizationInterface;
   switchTo: (organization: OrganizationInterface) => void;
   current: boolean;
   showExternalId: boolean;
-  onEdit: () => void;
+  onUpdate: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editOrgModalOpen, setEditOrgModalOpen] = useState(false);
+  const [deleteOrgModalOpen, setDeleteOrgModalOpen] = useState(false);
 
   const { settings, members, ...otherAttributes } = organization;
 
@@ -43,8 +50,16 @@ export default function OrganizationRow({
           currentName={organization.name}
           currentExternalId={organization.externalId || ""}
           showExternalId={!isCloud()}
-          onEdit={onEdit}
+          onEdit={onUpdate}
           close={() => setEditOrgModalOpen(false)}
+        />
+      )}
+      {deleteOrgModalOpen && (
+        <DeleteOrganization
+          id={organization.id}
+          currentName={organization.name}
+          onDelete={onUpdate}
+          close={() => setDeleteOrgModalOpen(false)}
         />
       )}
       <tr
@@ -77,7 +92,7 @@ export default function OrganizationRow({
         <td className="p-0 text-center">
           <a
             href="#"
-            className="d-block w-100 h-100"
+            className="w-100 h-100 mx-2"
             onClick={(e) => {
               e.preventDefault();
               setEditOrgModalOpen(true);
@@ -85,6 +100,17 @@ export default function OrganizationRow({
             style={{ lineHeight: "40px" }}
           >
             <FaPencilAlt />
+          </a>
+          <a
+            href="#"
+            className="w-100 h-100 mx-2 text-danger"
+            onClick={(e) => {
+              e.preventDefault();
+              setDeleteOrgModalOpen(true);
+            }}
+            style={{ lineHeight: "40px" }}
+          >
+            <FaTrash />
           </a>
         </td>
         <td style={{ width: 40 }} className="p-0 text-center">
