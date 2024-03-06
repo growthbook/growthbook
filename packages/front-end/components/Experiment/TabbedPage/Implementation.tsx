@@ -152,11 +152,12 @@ export default function Implementation({
       )} */}
       {/* </div> */}
       {hasLinkedChanges && (
-        <div className="appbox p-3 h-100 mb-2">
+        <div className="appbox p-3 h-100 mb-4">
           <TargetingInfo
             experiment={experiment}
             editTargeting={editTargeting}
             phaseIndex={phases.length - 1}
+            horizontalView
           />
         </div>
       )}

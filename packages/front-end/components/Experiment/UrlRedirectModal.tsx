@@ -16,6 +16,27 @@ import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Toggle from "@/components/Forms/Toggle";
 
+function validateUrl(
+  urlString: string
+): { isValid: boolean; message?: string } {
+  try {
+    const url = new URL(urlString);
+    if (url.pathname.includes("*")) {
+      return { isValid: false, message: "Please remove any wildcards" };
+    }
+    if (url.protocol === "http:" || url.protocol === "https:") {
+      return { isValid: true };
+    }
+
+    return { isValid: false, message: "Please specify a valid protocol" };
+  } catch (_) {
+    if (!urlString.startsWith("http") && !urlString.startsWith("https")) {
+      return { isValid: false, message: "Please specify a valid protocol" };
+    }
+    return { isValid: false, message: "Invalid URL" };
+  }
+}
+
 const UrlRedirectSdkAlert = ({
   hasSDKWithRedirects,
 }: {
@@ -91,8 +112,12 @@ const UrlRedirectModal: FC<{
       originUrl: visualChangeset?.urlPatterns[0].pattern ?? "",
       destinationUrls: visualChangeset?.urlRedirects?.map((r) => r.url) ?? [""],
       persistQueryString: visualChangeset?.persistQueryString || true,
+      circularDependencyCheck: true,
     },
   });
+  const {
+    formState: { errors },
+  } = form;
 
   const [noRedirectToggle, setNoRedirectToggle] = useState<boolean[]>(
     form.watch("originUrl")
@@ -133,6 +158,7 @@ const UrlRedirectModal: FC<{
       });
       mutate();
     }
+    close();
   });
 
   const handleNoRedirectToggle = (i: number, enabled: boolean) => {
@@ -146,6 +172,7 @@ const UrlRedirectModal: FC<{
 
   return (
     <Modal
+      autoCloseOnSubmit={false}
       open
       disabledMessage={
         !hasSDKWithRedirects
@@ -187,12 +214,20 @@ const UrlRedirectModal: FC<{
           containerClassName="mb-2"
           {...form.register("originUrl", {
             required: true,
-            minLength: {
-              value: 1,
-              message: "You must specify an origin url for a redirect",
+            validate: {
+              isValidUrl: (v) => {
+                const validator = validateUrl(v);
+                return validator.isValid ? true : validator.message;
+              },
             },
           })}
         />
+        {errors.originUrl && errors.originUrl.message && (
+          <div className="alert alert-warning mt-3">
+            <FaExclamationCircle /> {errors.originUrl.message}
+          </div>
+        )}
+
         <hr className="mt-4 mb-3" />
         <div className="mt-3">
           <h4>Destination URLs</h4>
@@ -254,19 +289,28 @@ const UrlRedirectModal: FC<{
                     }
                     containerClassName="mb-2"
                     {...form.register(`destinationUrls.${i}`, {
-                      minLength: {
-                        value: noRedirectToggle[i] ? 0 : 1,
-                        message:
-                          "You must specify a destination URL for this variation or select 'No Redirect'",
+                      required: noRedirectToggle[i]
+                        ? false
+                        : "Please enter a destination URL or select 'No redirect'",
+                      validate: {
+                        doesNotMatchOrigin: (_v) =>
+                          !destinationMatchesOrigin ||
+                          "This destination url matches the original URL and will not result in a redirect",
+                        isValidUrl: (v) => {
+                          if (noRedirectToggle[i]) return true;
+                          const validator = validateUrl(v);
+                          return validator.isValid ? true : validator.message;
+                        },
                       },
                     })}
                   />
-                  {destinationMatchesOrigin && (
-                    <div className="alert alert-warning mt-3">
-                      <FaExclamationCircle /> This destination url matches the
-                      original URL and will not result in a redirect
-                    </div>
-                  )}
+                  {errors.destinationUrls?.[i] &&
+                    errors.destinationUrls?.[i]?.message && (
+                      <div className="alert alert-warning mt-3">
+                        <FaExclamationCircle />{" "}
+                        {errors.destinationUrls?.[i]?.message}
+                      </div>
+                    )}
                 </div>
               </div>
             );
@@ -284,6 +328,18 @@ const UrlRedirectModal: FC<{
             <p>
               Keep this enabled to allow users’ queries, such as search terms,
               to carry over when redirecting.
+            </p>
+          </div>
+          <input
+            type="checkbox"
+            {...form.register("circularDependencyCheck")}
+            id={"toggle-circularDependencyCheck"}
+          />
+          <div className="text-muted ml-2">
+            <b>Circular Dependency Check</b>
+            <p>
+              Keep this enabled to make sure your redirect does not conflict
+              with any existing redirects
             </p>
           </div>
         </div>

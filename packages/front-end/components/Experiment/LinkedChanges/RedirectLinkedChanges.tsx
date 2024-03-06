@@ -37,7 +37,7 @@ function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
             if (part.added) {
               return <b key={index}>{part.value}</b>;
             } else {
-              return <span>{part.value}</span>;
+              return <span key={index}>{part.value}</span>;
             }
           })}
         </>

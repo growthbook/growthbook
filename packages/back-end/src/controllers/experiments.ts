@@ -2208,7 +2208,8 @@ async function _validateRedirect(
   origin: VisualChangesetURLPattern[],
   destinations: URLRedirect[],
   context: ReqContext,
-  experiment: ExperimentInterface
+  experiment: ExperimentInterface,
+  visualChangesetId?: string
 ) {
   const payloadExperiments = await getAllPayloadExperiments(context);
   const visualChangesets = await getAllVisualExperiments(
@@ -2220,7 +2221,8 @@ async function _validateRedirect(
   const existingRedirects = visualChangesets.reduce((filtered, exp) => {
     if (
       exp.visualChangeset.urlRedirects?.length &&
-      exp.visualChangeset.urlPatterns.length
+      exp.visualChangeset.urlPatterns.length &&
+      exp.visualChangeset.id !== visualChangesetId
     ) {
       filtered.push(exp.visualChangeset);
     }
@@ -2335,7 +2337,13 @@ export async function putVisualChangeset(
     const origin = req.body.urlPatterns ?? visualChangeset.urlPatterns;
     const destinations = req.body.urlRedirects;
 
-    await _validateRedirect(origin, destinations, context, experiment);
+    await _validateRedirect(
+      origin,
+      destinations,
+      context,
+      experiment,
+      visualChangeset.id
+    );
   }
 
   const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
