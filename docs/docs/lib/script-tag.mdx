@@ -44,7 +44,7 @@ window.growthbook_config.backgroundSync = false;
 </script>
 ```
 
-If you need low level access to the GrowthBook SDK instance for any reason, you can pass a callback function to a `window.growthbook_queue` array. This will be called as soon as the GrowthBook SDK instance is ready and works before or after you add the script tag.
+If you need low level access to the GrowthBook SDK instance for any reason, you can use a callback function. This will be called as soon as the GrowthBook SDK instance is ready. If you push to the queue after GrowthBook has already loaded, the callback will be invoked immediately.
 
 ```html
 <script>

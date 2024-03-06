@@ -89,7 +89,7 @@ function getUtmAttributes() {
 }
 
 function getDataLayerVariables() {
-  if (!window.dataLayer) return {};
+  if (!window.dataLayer || !window.dataLayer.forEach) return {};
   const obj: Record<string, unknown> = {};
   window.dataLayer.forEach((item: unknown) => {
     // Skip empty and non-object entries
