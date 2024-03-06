@@ -426,6 +426,7 @@ export const transformLDFeatureFlag = (
           condition: "",
           enabled: true,
           value: offVariation,
+          savedGroups: [],
         });
       });
     }
@@ -446,6 +447,7 @@ export const transformLDFeatureFlag = (
         }),
         enabled: true,
         value: variationValues[target.variation],
+        savedGroups: [],
       });
     });
 
@@ -487,6 +489,7 @@ export const transformLDFeatureFlag = (
               weight: v.weight / totalWeight,
             })),
             coverage: coverage,
+            savedGroups: [],
           });
           return;
         }
@@ -502,6 +505,7 @@ export const transformLDFeatureFlag = (
           condition: JSON.stringify(cond),
           enabled: true,
           value: variationValues[rule.variation],
+          savedGroups: [],
         });
       } catch (e) {
         console.error("Error transforming rule", e, {
@@ -523,6 +527,7 @@ export const transformLDFeatureFlag = (
         enabled: true,
         value: variationValues[fallthrough],
         condition: "{}",
+        savedGroups: [],
       });
     }
 

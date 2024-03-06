@@ -10,9 +10,10 @@ import {
   FaRegWindowRestore,
 } from "react-icons/fa";
 import { MdPending } from "react-icons/md";
-import { cloneDeep } from "lodash";
+import { cloneDeep, isEqual } from "lodash";
 import { Environment } from "back-end/types/organization";
 import Link from "next/link";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import {
   FeatureVariationsMap,
   getLDEnvironments,
@@ -37,15 +38,17 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 
 type ImportStatus = "invalid" | "skipped" | "pending" | "completed" | "failed";
 
+type PartialFeature = Omit<
+  FeatureInterface,
+  "organization" | "dateCreated" | "dateUpdated" | "version"
+>;
+
 interface FeatureImport {
   key: string;
   status: ImportStatus;
-  feature?: Omit<
-    FeatureInterface,
-    "organization" | "dateCreated" | "dateUpdated" | "version"
-  >;
+  feature?: PartialFeature;
   error?: string;
-  exists: boolean;
+  existing?: FeatureInterface;
 }
 
 interface ProjectImport {
@@ -74,14 +77,72 @@ interface ImportData {
   error?: string;
 }
 
+function getFeatureComp(existing: PartialFeature, incoming: PartialFeature) {
+  const envSettings1 = existing.environmentSettings || {};
+  const envSettings2 = incoming.environmentSettings || {};
+
+  // Get intersection of environments
+  const envs = Object.keys(envSettings1).filter((e) => e in envSettings2);
+
+  return [
+    {
+      description: existing.description,
+      defaultValue: existing.defaultValue,
+      tags: existing.tags,
+      owner: existing.owner,
+      rules: Object.fromEntries(
+        Object.entries(envSettings1)
+          .filter(([e]) => envs.includes(e))
+          .map(([e, v]) => [e, v.rules])
+      ),
+    },
+    {
+      description: incoming.description,
+      defaultValue: incoming.defaultValue,
+      tags: incoming.tags,
+      owner: incoming.owner,
+      rules: Object.fromEntries(
+        Object.entries(envSettings2)
+          .filter(([e]) => envs.includes(e))
+          .map(([e, v]) => [e, v.rules])
+      ),
+    },
+  ];
+}
+function isDifferent(feature1: PartialFeature, feature2: PartialFeature) {
+  const featureComp = getFeatureComp(feature1, feature2);
+  return !isEqual(featureComp[0], featureComp[1]);
+}
+function FeatureDiff({
+  existing,
+  incoming,
+}: {
+  existing: PartialFeature;
+  incoming: PartialFeature;
+}) {
+  const featureComp = getFeatureComp(existing, incoming);
+  const a = JSON.stringify(featureComp[0], null, 2);
+  const b = JSON.stringify(featureComp[1], null, 2);
+
+  return (
+    <ReactDiffViewer
+      oldValue={a}
+      newValue={b}
+      compareMethod={DiffMethod.LINES}
+    />
+  );
+}
+
 async function buildImportedData(
   apiToken: string,
   intervalCap: number,
   existingProjects: Map<string, ProjectInterface>,
   existingEnvs: Set<string>,
-  featureIds: Set<string>,
+  features: FeatureInterface[],
   callback: (data: ImportData) => void
 ): Promise<void> {
+  const featuresMap = new Map(features.map((f) => [f.id, f]));
+
   const data: ImportData = {
     status: "fetching",
     envs: [],
@@ -183,7 +244,7 @@ async function buildImportedData(
               key: f.key,
               status: "skipped",
               error: "Duplicate feature key",
-              exists: featureIds.has(f.key),
+              existing: featuresMap.get(f.key),
             });
             update();
             return;
@@ -199,18 +260,31 @@ async function buildImportedData(
                   p.key,
                   featureVarMap
                 );
-                data.features?.push({
-                  key: feature.id,
-                  status: "pending",
-                  feature,
-                  exists: featureIds.has(f.key),
-                });
+
+                // Check if anything substantial has changed
+                const existing = featuresMap.get(f.key);
+                if (existing && !isDifferent(existing, feature)) {
+                  data.features?.push({
+                    key: f.key,
+                    status: "skipped",
+                    error: "No changes",
+                    feature,
+                    existing,
+                  });
+                } else {
+                  data.features?.push({
+                    key: feature.id,
+                    status: "pending",
+                    feature,
+                    existing,
+                  });
+                }
               } catch (e) {
                 data.features?.push({
                   key: f.key,
                   status: "invalid",
                   error: e.message,
-                  exists: featureIds.has(f.key),
+                  existing: featuresMap.get(f.key),
                 });
               }
             } catch (e) {
@@ -218,7 +292,7 @@ async function buildImportedData(
                 key: f.key,
                 status: "failed",
                 error: e.message,
-                exists: featureIds.has(f.key),
+                existing: featuresMap.get(f.key),
               });
             }
             update();
@@ -333,22 +407,24 @@ async function runImport(
   });
   await queue.onIdle();
 
-  // TODO: import features
   data.features?.forEach((f) => {
     if (f.status === "pending") {
       queue.add(async () => {
         try {
           const projectId = projectMap.get(f.feature?.project || "");
           if (projectId) {
-            await apiCall(`/feature/${f.key}/sync`, {
-              method: "POST",
-              body: JSON.stringify({
-                ...f.feature,
-                project: projectId,
-              }),
-            });
+            const res: { feature: FeatureInterface } = await apiCall(
+              `/feature/${f.key}/sync`,
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  ...f.feature,
+                  project: projectId,
+                }),
+              }
+            );
             f.status = "completed";
-            f.exists = true;
+            f.existing = res.feature;
           } else {
             f.status = "skipped";
             f.error = "Project not created";
@@ -411,7 +487,13 @@ function ImportStatusDisplay({
   );
 }
 
-function FeatureImportRow({ data }: { data: FeatureImport }) {
+function FeatureImportRow({
+  data,
+  skip,
+}: {
+  data: FeatureImport;
+  skip: () => void;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -427,7 +509,7 @@ function FeatureImportRow({ data }: { data: FeatureImport }) {
           ) : null}
         </td>
         <td>
-          {data.exists ? (
+          {data.existing ? (
             <Link href={`/features/${data.key}`}>
               {data.key} <FaExternalLinkAlt />
             </Link>
@@ -450,7 +532,19 @@ function FeatureImportRow({ data }: { data: FeatureImport }) {
           ) : null}
         </td>
         <td>
-          <em>{data.error}</em>
+          {data.error ? (
+            <em>{data.error}</em>
+          ) : data.status === "pending" ? (
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                skip();
+              }}
+            >
+              skip
+            </a>
+          ) : null}
         </td>
       </tr>
       {open && data.feature && (
@@ -466,7 +560,25 @@ function FeatureImportRow({ data }: { data: FeatureImport }) {
               {data.feature.project}
             </span>
           </h3>
-          <Code language="json" code={JSON.stringify(data.feature, null, 2)} />
+
+          {data.status === "pending" && data.existing ? (
+            <>
+              <p>The feature already exists and will be updated as follows:</p>
+              <FeatureDiff existing={data.existing} incoming={data.feature} />
+            </>
+          ) : (
+            <>
+              {!data.existing ? (
+                <p>
+                  The feature does not exist yet and will be created as follows:
+                </p>
+              ) : null}
+              <Code
+                language="json"
+                code={JSON.stringify(data.feature, null, 2)}
+              />
+            </>
+          )}
         </Modal>
       )}
     </>
@@ -491,21 +603,26 @@ function ImportHeader({
         <div className="col-auto">
           <h3 className="mb-0">{name}</h3>
         </div>
-        <div className="col-auto">
-          <span className="badge badge-info badge-pill">{items.length}</span>{" "}
-          total
+        <div className="col-auto mr-4">
+          <strong>{items.length}</strong> total
         </div>
         <div className="col-auto">
-          <span className="badge badge-success badge-pill">
-            {countsByStatus["completed"] || 0}
+          <span className="badge badge-info badge-pill">
+            {countsByStatus["pending"] || 0}
           </span>{" "}
-          imported
+          pending
         </div>
         <div className="col-auto">
           <span className="badge badge-secondary badge-pill">
             {countsByStatus["skipped"] || 0}
           </span>{" "}
           skipped
+        </div>
+        <div className="col-auto">
+          <span className="badge badge-success badge-pill">
+            {countsByStatus["completed"] || 0}
+          </span>{" "}
+          imported
         </div>
         <div className="col-auto">
           <span className="badge badge-danger badge-pill">
@@ -525,11 +642,7 @@ export default function ImportFromLaunchDarkly() {
     status: "init",
   });
 
-  const { features } = useFeaturesList(false);
-  const featureIds = useMemo(() => new Set(features.map((f) => f.id)), [
-    features,
-  ]);
-
+  const { features, mutate: mutateFeatures } = useFeaturesList(false);
   const { projects, mutateDefinitions } = useDefinitions();
   const environments = useEnvironments();
   const { refreshOrganization } = useUser();
@@ -592,7 +705,7 @@ export default function ImportFromLaunchDarkly() {
                     intervalCap,
                     existingProjects,
                     existingEnvironments,
-                    featureIds,
+                    features,
                     (d) => setData(d)
                   );
                 } catch (e) {
@@ -613,6 +726,7 @@ export default function ImportFromLaunchDarkly() {
               onClick={async () => {
                 await runImport(data, apiCall, (d) => setData(d));
                 mutateDefinitions();
+                mutateFeatures();
                 refreshOrganization();
               }}
             >
@@ -727,7 +841,15 @@ export default function ImportFromLaunchDarkly() {
                       </thead>
                       <tbody>
                         {data.features?.map((f, i) => (
-                          <FeatureImportRow key={i} data={f} />
+                          <FeatureImportRow
+                            key={i}
+                            data={f}
+                            skip={() => {
+                              f.status = "skipped";
+                              f.error = "Manually skipped";
+                              setData(cloneDeep(data));
+                            }}
+                          />
                         ))}
                       </tbody>
                     </table>
