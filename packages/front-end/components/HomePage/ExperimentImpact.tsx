@@ -1,12 +1,16 @@
 import Link from "next/link";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { date, getValidDate } from "shared/dates";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+} from "back-end/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { useForm } from "react-hook-form";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
+import { BsArrowRepeat } from "react-icons/bs";
 import SelectField from "@/components/Forms/SelectField";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
@@ -19,6 +23,7 @@ import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
 import Field from "@/components/Forms/Field";
 import MetricSelector from "@/components/Experiment/MetricSelector";
+import Button from "@/components/Button";
 
 function jamesSteinAdjustment(
   effects: number[],
@@ -43,10 +48,12 @@ type ExperimentImpactFilters = {
 type ExperimentImpact = {
   endDate: Date;
   inSample: boolean;
-  ci0: number[];
-  scaledImpact: number[];
-  scaledImpactAdjusted: number[];
-  selected: boolean[];
+  variations: {
+    scaledImpact: number;
+    scaledImpactAdjusted?: number;
+    ci0?: number;
+    selected: boolean;
+  }[];
 };
 
 type ExperimentWithImpact = {
@@ -101,7 +108,6 @@ function ImpactTab({
 }): React.ReactElement {
   const expRows: JSX.Element[] = [];
 
-  // TODO inverse metrics!
   experimentImpactData.experiments.forEach((e) => {
     const variations: JSX.Element[] = [];
     const impacts: JSX.Element[] = [];
@@ -113,6 +119,7 @@ function ImpactTab({
       if (experimentImpactType !== "other" && i !== e.keyVariationId) {
         return;
       }
+      const impact = e.impact?.variations[i - 1];
       variations.push(
         <tr>
           <td>
@@ -137,22 +144,20 @@ function ImpactTab({
       impacts.push(
         <tr>
           <td>
-            {e.impact?.scaledImpactAdjusted[i - 1] === undefined
-              ? `N/A`
-              : formatImpact(
-                  e.impact?.scaledImpactAdjusted[i - 1] * 365,
+            {impact
+              ? formatImpact(
+                  (impact?.scaledImpactAdjusted ?? 0) * 365,
                   formatter,
                   formatterOptions
-                )}
+                )
+              : `N/A`}
             <span className="plusminus ml-1">
               ±
-              {Math.abs(e.impact?.ci0[i - 1] ?? 0) === Infinity
+              {Math.abs(impact?.ci0 ?? 0) === Infinity
                 ? "∞"
                 : formatter(
                     Math.abs(
-                      ((e.impact?.scaledImpact[i - 1] ?? 0) -
-                        (e.impact?.ci0[i - 1] ?? 0)) *
-                        365
+                      ((impact?.scaledImpact ?? 0) - (impact?.ci0 ?? 0)) * 365
                     ),
                     formatterOptions
                   )}
@@ -295,8 +300,95 @@ export default function ExperimentImpact({
     signDisplay: "never",
   };
 
+  // 1 get all snapshots
+  // 2 check for snapshots w/o impact
+  // 3 if snapshots exist w/o impact analysis object:
+  //   upgrade those snapshots with scaled impact, then post
+  // 4 if snapshots exist w impact analysis object but status is not success:
+  //   warning text at bottom w/ retry button
+  const [
+    experimentsWithBrokenImpact,
+    setExperimentsWithBrokenImpact,
+  ] = useState<string[]>([]);
+
+  const fetchSnapshots = useCallback(async () => {
+    const { snapshots } = await apiCall<{
+      snapshots: ExperimentSnapshotInterface[];
+    }>(
+      `/experiments/snapshots/?ids=${experiments
+        .map((e) => encodeURIComponent(e.id))
+        .join(",")}`,
+      {
+        method: "GET",
+      }
+    );
+    setSnapshots(snapshots);
+  }, [apiCall, experiments]);
+  const updateSnapshots = useCallback(
+    async (ids: string[]) => {
+      await apiCall<{
+        snapshots: ExperimentSnapshotInterface[];
+      }>("/experiments/snapshots/scaled/", {
+        method: "POST",
+        body: JSON.stringify({
+          ids: ids,
+        }),
+      });
+    },
+    [apiCall]
+  );
+
+  useEffect(() => {
+    setLoading(true);
+
+    // 1 gets latest non-dimension snapshot from latest phase
+    fetchSnapshots();
+
+    // 2 check for snapshots w/o impact
+    const experimentsWithNoImpact: string[] = [];
+    const experimentsWithBrokenImpact: string[] = [];
+    // 2 check for snapshots w/o impact
+    experiments.forEach((e) => {
+      const s = (snapshots ?? []).find((s) => s.experiment === e.id);
+      if (!s) {
+        experimentsWithNoImpact.push(e.id);
+        return;
+      }
+      // get first analysis as that is always the "default"
+      const defaultAnalysis = getSnapshotAnalysis(s);
+      if (!defaultAnalysis) {
+        experimentsWithNoImpact.push(e.id);
+        return;
+      }
+      const scaledImpactAnalysisSettings: ExperimentSnapshotAnalysisSettings = {
+        ...defaultAnalysis.settings,
+        differenceType: "scaled",
+      };
+      const scaledAnalysis = getSnapshotAnalysis(
+        s,
+        scaledImpactAnalysisSettings
+      );
+      if (!scaledAnalysis) {
+        experimentsWithNoImpact.push(e.id);
+      } else if (scaledAnalysis.status !== "success") {
+        experimentsWithBrokenImpact.push(e.id);
+      }
+    });
+    setExperimentsWithBrokenImpact(experimentsWithBrokenImpact);
+
+    // 3 missing impact
+    if (experimentsWithNoImpact.length) {
+      updateSnapshots(experimentsWithNoImpact);
+      fetchSnapshots();
+    }
+
+    setLoading(false);
+  }, [apiCall, experiments, fetchSnapshots, snapshots, updateSnapshots]);
+
   const exps = experiments
-    .filter((e) => e.metrics.find((m) => m === metric))
+    .filter((e) =>
+      [...e.metrics, ...(e.guardrails ?? [])].find((m) => m === metric)
+    )
     .sort(
       (a, b) =>
         getValidDate(
@@ -307,49 +399,16 @@ export default function ExperimentImpact({
         ).getTime()
     );
 
-  useEffect(() => {
-    const fetchSnapshots = async () => {
-      const { snapshots } = await apiCall<{
-        snapshots: ExperimentSnapshotInterface[];
-      }>("/experiments/snapshots/scaled/", {
-        method: "POST",
-        body: JSON.stringify({
-          ids: experiments.map((e) => e.id),
-        }),
-      });
-      setSnapshots(snapshots);
-      setLoading(false);
-    };
-    fetchSnapshots();
-  }, [apiCall, experiments]);
   if (!snapshots && loading) {
     return <>Loading</>;
   }
 
   const experimentImpacts = new Map<string, ExperimentWithImpact>();
-
-  const summaryObj: {
+  let summaryObj: {
     winners: ExperimentImpactData;
     losers: ExperimentImpactData;
     others: ExperimentImpactData;
-  } = {
-    winners: {
-      totalAdjustedImpact: 0,
-      totalImpact: 0,
-      experiments: [],
-    },
-    losers: {
-      totalAdjustedImpact: 0,
-      totalImpact: 0,
-      experiments: [],
-    },
-    others: {
-      totalAdjustedImpact: 0,
-      totalImpact: 0,
-      experiments: [],
-    },
-  };
-
+  } | null = null;
   if (snapshots && exps) {
     // use largest experiment for population sampling variance
     const maxUnits = 0;
@@ -387,10 +446,7 @@ export default function ExperimentImpact({
         const obj: ExperimentImpact = {
           endDate: s.settings.endDate,
           inSample: inSample,
-          ci0: [],
-          scaledImpact: [],
-          scaledImpactAdjusted: [],
-          selected: [],
+          variations: [],
         };
         const defaultSettings = getSnapshotAnalysis(s)?.settings;
         const scaledAnalysis = defaultSettings
@@ -405,13 +461,15 @@ export default function ExperimentImpact({
           const res = scaledAnalysis.results[0];
           res.variations.forEach((v, i) => {
             if (i !== 0) {
-              // TODO what if control is winner?
               const se = v?.metrics[metric]?.uplift?.stddev ?? 0;
               const impact = v?.metrics[metric]?.expected ?? 0;
-              obj.scaledImpact.push(impact);
+              obj.variations.push({
+                scaledImpact: impact,
+                selected: e.winner === i,
+                ci0: v?.metrics[metric]?.ci?.[0],
+              });
               allScaledImpacts.push(impact);
-              obj.ci0.push(v?.metrics[metric]?.ci?.[0] ?? 0);
-              obj.selected.push(e.winner === i);
+
               const totalUnits = v.users + res.variations[0].users;
               if (totalUnits > maxUnits && se > 0) {
                 overallSE = se;
@@ -426,34 +484,48 @@ export default function ExperimentImpact({
 
     const adjustment = jamesSteinAdjustment(allScaledImpacts, overallSE ?? 0);
 
+    summaryObj = {
+      winners: {
+        totalAdjustedImpact: 0,
+        totalImpact: 0,
+        experiments: [],
+      },
+      losers: {
+        totalAdjustedImpact: 0,
+        totalImpact: 0,
+        experiments: [],
+      },
+      others: {
+        totalAdjustedImpact: 0,
+        totalImpact: 0,
+        experiments: [],
+      },
+    };
     for (const e of experimentImpacts.values()) {
-      let experimentImpact: number | null = null;
-      let experimentAdjustedImpact: number | null = null;
+      if (e?.impact?.inSample) {
+        let experimentImpact: number | null = null;
+        let experimentAdjustedImpact: number | null = null;
 
-      if (e.impact) {
-        const adjustedImpacts: number[] = [];
-        e.impact.scaledImpact.forEach((si, i) => {
+        e.impact.variations.forEach((v, vi) => {
           const adjustedImpact =
             adjustment.mean +
-            (1 - adjustment.adjustment) * (si - adjustment.mean);
-          e.impact?.scaledImpactAdjusted.push(adjustedImpact);
-          adjustedImpacts.push(adjustedImpact);
-          if (e.experiment.results === "won" && e.impact?.selected[i]) {
-            e.keyVariationId = i + 1;
-            experimentImpact = si;
-            experimentAdjustedImpact = adjustedImpact;
+            (1 - adjustment.adjustment) * (v.scaledImpact - adjustment.mean);
+          v.scaledImpactAdjusted = adjustedImpact;
+
+          if (e.experiment.results === "won" && v.selected) {
+            e.keyVariationId = vi + 1;
+            experimentImpact = v.scaledImpact;
+            experimentAdjustedImpact = v.scaledImpactAdjusted;
           } else if (e.experiment.results === "lost") {
             // only include biggest loser for "savings"
-            if (si < (experimentImpact ?? Infinity)) {
-              e.keyVariationId = i + 1;
-              experimentImpact = si;
-              experimentAdjustedImpact = adjustedImpact;
+            if (v.scaledImpact < (experimentImpact ?? Infinity)) {
+              e.keyVariationId = vi + 1;
+              experimentImpact = v.scaledImpact;
+              experimentAdjustedImpact = v.scaledImpactAdjusted;
             }
           }
         });
-      }
 
-      if (e.impact?.inSample) {
         if (e.experiment.results === "won") {
           summaryObj.winners.totalImpact += experimentImpact ?? 0;
           summaryObj.winners.totalAdjustedImpact +=
@@ -518,143 +590,161 @@ export default function ExperimentImpact({
         </table>
       </div>
       {/* TODO null state when all arrays are empty */}
-      <div>
-        <ControlledTabs
-          setActive={(s) => {
-            setImpactTab((s as ExperimentImpactTab) || "summary");
-          }}
-          active={impactTab}
-          showActiveCount={true}
-          newStyle={false}
-          buttonsClassName="px-3 py-2 h4"
-        >
-          <Tab
-            key={"summary"}
-            id={"summarys"}
-            display={"Summary"}
-            padding={false}
+      {summaryObj ? (
+        <div>
+          <ControlledTabs
+            setActive={(s) => {
+              setImpactTab((s as ExperimentImpactTab) || "summary");
+            }}
+            active={impactTab}
+            showActiveCount={true}
+            newStyle={false}
+            buttonsClassName="px-3 py-2 h4"
           >
-            <div className="col mb-3 bg-light">
-              <div className="row" style={{ fontSize: "1.5em" }}>
-                <div className="col-auto mr-3 text-center">
-                  <div className="d-flex mb-2 align-items-center justify-content-center">
-                    <div
-                      className={`badge-success rounded-circle mr-1`}
-                      style={{ width: 10, height: 10 }}
-                    />
-                    <span className="font-weight-bold">Winners</span>
-                  </div>
-                  <div className="mb-2">
-                    <span className="font-weight-bold">
-                      {summaryObj.winners.experiments.length}
-                    </span>
-                    {" experiments"}
-                  </div>
+            <Tab
+              key={"summary"}
+              id={"summary"}
+              display={"Summary"}
+              padding={false}
+            >
+              <div className="col mb-3 bg-light">
+                <div className="row" style={{ fontSize: "1.5em" }}>
+                  <div className="col-auto mr-3 text-center">
+                    <div className="d-flex mb-2 align-items-center justify-content-center">
+                      <div
+                        className={`badge-success rounded-circle mr-1`}
+                        style={{ width: 10, height: 10 }}
+                      />
+                      <span className="font-weight-bold">Winners</span>
+                    </div>
+                    <div className="mb-2">
+                      <span className="font-weight-bold">
+                        {summaryObj.winners.experiments.length}
+                      </span>
+                      {" experiments"}
+                    </div>
 
-                  <div>
-                    {formatImpact(
-                      summaryObj.winners.totalAdjustedImpact * 365,
-                      formatter,
-                      formatterOptions
-                    )}
+                    <div>
+                      {formatImpact(
+                        summaryObj.winners.totalAdjustedImpact * 365,
+                        formatter,
+                        formatterOptions
+                      )}
+                    </div>
+                    <div className="text-muted">
+                      {"summed impact per year "}
+                      <HiOutlineExclamationCircle />
+                    </div>
                   </div>
-                  <div className="text-muted">
-                    {"summed impact per year "}
-                    <HiOutlineExclamationCircle />
-                  </div>
-                </div>
-                <div className="col-auto mr-3 text-center">
-                  <div className="d-flex mb-2 align-items-center justify-content-center">
-                    <div
-                      className={`badge-danger rounded-circle mr-1`}
-                      style={{ width: 10, height: 10 }}
-                    />
-                    <span className="font-weight-bold">Losers</span>
-                  </div>
+                  <div className="col-auto mr-3 text-center">
+                    <div className="d-flex mb-2 align-items-center justify-content-center">
+                      <div
+                        className={`badge-danger rounded-circle mr-1`}
+                        style={{ width: 10, height: 10 }}
+                      />
+                      <span className="font-weight-bold">Losers</span>
+                    </div>
 
-                  <div className="mb-2">
-                    <span className="font-weight-bold">
-                      {summaryObj.losers.experiments.length}
-                    </span>
-                    {" experiments"}
-                  </div>
+                    <div className="mb-2">
+                      <span className="font-weight-bold">
+                        {summaryObj.losers.experiments.length}
+                      </span>
+                      {" experiments"}
+                    </div>
 
-                  <div>
-                    {formatImpact(
-                      summaryObj.losers.totalAdjustedImpact * 365,
-                      formatter,
-                      formatterOptions
-                    )}
+                    <div>
+                      {formatImpact(
+                        summaryObj.losers.totalAdjustedImpact * 365,
+                        formatter,
+                        formatterOptions
+                      )}
+                    </div>
+                    <div className="text-muted">
+                      {" summed saved impact per year"}
+                      <HiOutlineExclamationCircle />
+                    </div>
                   </div>
-                  <div className="text-muted">
-                    {" summed saved impact per year"}
-                    <HiOutlineExclamationCircle />
-                  </div>
-                </div>
-                <div className="col-auto mr-3 text-center">
-                  <div className="d-flex mb-2 align-items-center justify-content-center">
-                    <div
-                      className={`badge-secondary rounded-circle mr-1`}
-                      style={{ width: 10, height: 10 }}
-                    />
-                    <span className="font-weight-bold">Others</span>
-                  </div>
+                  <div className="col-auto mr-3 text-center">
+                    <div className="d-flex mb-2 align-items-center justify-content-center">
+                      <div
+                        className={`badge-secondary rounded-circle mr-1`}
+                        style={{ width: 10, height: 10 }}
+                      />
+                      <span className="font-weight-bold">Others</span>
+                    </div>
 
-                  <div>
-                    <span className="font-weight-bold">
-                      {summaryObj.losers.experiments.length}
-                    </span>
-                    {" experiments"}
+                    <div>
+                      <span className="font-weight-bold">
+                        {summaryObj.others.experiments.length}
+                      </span>
+                      {" experiments"}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </Tab>
-          <Tab
-            key={"winner"}
-            id={"winner"}
-            display={"Winners"}
-            count={summaryObj.winners.experiments.length}
-            padding={false}
-          >
-            <ImpactTab
-              experimentImpactData={summaryObj.winners}
-              experimentImpactType={"winner"}
-              formatter={formatter}
-              formatterOptions={formatterOptions}
-            />
-          </Tab>
-          <Tab
-            key={"loser"}
-            id={"loser"}
-            display={"Losers"}
-            count={summaryObj.losers.experiments.length}
-            padding={false}
-          >
-            <ImpactTab
-              experimentImpactData={summaryObj.losers}
-              experimentImpactType={"loser"}
-              formatter={formatter}
-              formatterOptions={formatterOptions}
-            />
-          </Tab>
+            </Tab>
+            <Tab
+              key={"winner"}
+              id={"winner"}
+              display={"Winners"}
+              count={summaryObj.winners.experiments.length}
+              padding={false}
+            >
+              <ImpactTab
+                experimentImpactData={summaryObj.winners}
+                experimentImpactType={"winner"}
+                formatter={formatter}
+                formatterOptions={formatterOptions}
+              />
+            </Tab>
+            <Tab
+              key={"loser"}
+              id={"loser"}
+              display={"Losers"}
+              count={summaryObj.losers.experiments.length}
+              padding={false}
+            >
+              <ImpactTab
+                experimentImpactData={summaryObj.losers}
+                experimentImpactType={"loser"}
+                formatter={formatter}
+                formatterOptions={formatterOptions}
+              />
+            </Tab>
 
-          <Tab
-            key={"other"}
-            id={"other"}
-            display={"Others"}
-            count={summaryObj.others.experiments.length}
-            padding={false}
+            <Tab
+              key={"other"}
+              id={"other"}
+              display={"Others"}
+              count={summaryObj.others.experiments.length}
+              padding={false}
+            >
+              <ImpactTab
+                experimentImpactData={summaryObj.others}
+                experimentImpactType={"other"}
+                formatter={formatter}
+                formatterOptions={formatterOptions}
+              />
+            </Tab>
+          </ControlledTabs>
+        </div>
+      ) : null}
+      {/* TODO */}
+      {experimentsWithBrokenImpact.length ? (
+        <div>
+          Some experiments could not have impact computed
+          <Button
+            onClick={() => {
+              setLoading(true);
+              updateSnapshots(experimentsWithBrokenImpact);
+              fetchSnapshots();
+              setLoading(false);
+            }}
           >
-            <ImpactTab
-              experimentImpactData={summaryObj.others}
-              experimentImpactType={"other"}
-              formatter={formatter}
-              formatterOptions={formatterOptions}
-            />
-          </Tab>
-        </ControlledTabs>
-      </div>
+            <BsArrowRepeat />
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }
