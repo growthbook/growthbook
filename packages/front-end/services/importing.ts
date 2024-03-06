@@ -420,7 +420,7 @@ export const transformLDFeatureFlag = (
           prerequisites: [
             {
               id: key,
-              condition: JSON.stringify(invertedCondition),
+              condition: JSON.stringify({ value: invertedCondition }),
             },
           ],
           condition: "",

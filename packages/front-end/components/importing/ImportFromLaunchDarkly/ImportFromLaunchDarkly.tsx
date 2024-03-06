@@ -258,7 +258,7 @@ async function runImport(
   data.status = "importing";
   update();
 
-  const queue = new PQueue({ concurrency: 3 });
+  const queue = new PQueue({ concurrency: 6 });
 
   // Import projects
   data.projects?.forEach((p) => {
