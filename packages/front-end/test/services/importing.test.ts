@@ -796,7 +796,7 @@ describe("importing utils", () => {
                   type: "force",
                   prerequisites: [
                     {
-                      condition: JSON.stringify({ $ne: "b" }),
+                      condition: JSON.stringify({ value: { $ne: "b" } }),
                       id: "ff-test-multiple-rules",
                     },
                   ],
