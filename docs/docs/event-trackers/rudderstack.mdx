@@ -1,33 +1,33 @@
 ---
-title: GrowthBook and Rudderstack
-description: Learn how to use GrowthBook with Rudderstack to easily add A/B testing to your application
-sidebar_label: Rudderstack
+title: GrowthBook and RudderStack
+description: Learn how to use GrowthBook with RudderStack to easily add A/B testing to your application
+sidebar_label: RudderStack
 slug: /guide/rudderstack
 ---
 
-# Configuring GrowthBook to work with Rudderstack
+# Configuring GrowthBook to work with RudderStack
 
-GrowthBook supports Rudderstack as an event source for easily adding A/B testing to your application. This document is a
-how-to guide for setting up Rudderstack with your application, connecting Rudderstack to BigQuery and then connecting
+GrowthBook supports RudderStack as an event source for easily adding A/B testing to your application. This document is a
+how-to guide for setting up RudderStack with your application, connecting RudderStack to BigQuery and then connecting
 GrowthBook to this data.
 
-## 1. Setup Rudderstack
+## 1. Setup RudderStack
 
-If you have already set up Rudderstack, you can skip this step. Rudderstack allows you to send events from your application to any data destination, including BigQuery, which is what we're going to use it for here.
+If you have already set up RudderStack, you can skip this step. RudderStack allows you to send events from your application to any data destination, including BigQuery, which is what we're going to use it for here.
 
-Once you have a Rudderstack account, you need to create a BigQuery bucket for the event data to be stored. You can follow the [directions from Rudderstack](https://www.rudderstack.com/docs/destinations/storage-platforms/google-cloud-storage/), but the short version is:
+Once you have a RudderStack account, you need to create a BigQuery bucket for the event data to be stored. You can follow the [directions from RudderStack](https://www.rudderstack.com/docs/destinations/storage-platforms/google-cloud-storage/), but the short version is:
 
 - From the Google Cloud console for BigQuery, create a new bucket (or you can also use an already existing bucket).
-- Create a new service account under [IAM & Admin -> Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts) for Rudderstack to connect to this bucket.
+- Create a new service account under [IAM & Admin -> Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts) for RudderStack to connect to this bucket.
 - Give Storage `Object Admin` role access to the newly created service account.
 - Under the `actions` menu on the service account you just created, click on manage keys to create a new key. Choose key
   type as JSON. This will cause a JSON key file to be downloaded to your computer.
 
-With the bucket created, we can create a Rudderstack warehouse destination.
+With the bucket created, we can create a RudderStack warehouse destination.
 
 <img
   src="/images/guides/rudderstack-1-addwarehouse.png"
-  alt="Add a data warehouse destination for Rudderstack"
+  alt="Add a data warehouse destination for RudderStack"
   style={{ width: 500, margin: "0 auto 20px" }}
 />
 
@@ -53,7 +53,7 @@ Once you've created the destination, you should see it successfully connect
   style={{ width: 500, margin: "0 auto" }}
 />
 
-And it will show up as a connected destination on your Rudderstack Connect dashboard.
+And it will show up as a connected destination on your RudderStack Connect dashboard.
 
 <img
   src="/images/guides/rudderstack-4.5-bigQueryDestination.png"
@@ -67,11 +67,11 @@ is best practice to create another service account for GrowthBook to connect to 
 (We have a complete guide on how to do this here: [Setting up BigQuery as a data source](/guide/bigquery))
 
 Navigate to Analysis -> Data Sources from within GrowthBook and click on 'Add Data Source'
-Button. From the window that pops up, select Rudderstack:
+Button. From the window that pops up, select RudderStack:
 
 <img
   src="/images/new-data-sources-modal.png"
-  alt="Choose Rudderstack data schema"
+  alt="Choose RudderStack data schema"
   style={{ width: 500, margin: "0 auto" }}
 />
 
@@ -84,7 +84,7 @@ After choosing RudderStack you'll be presented with a connection window to conne
 />
 
 When successfully connected, you'll be redirected to the data source page. You'll see all the connection
-options for BigQuery as well as the queries used. By choosing Rudderstack as you added the data source, GrowthBook
+options for BigQuery as well as the queries used. By choosing RudderStack as you added the data source, GrowthBook
 will pre-populate the experiment exposure query which is need to determine which user saw which experiment variation.
 Depending on your needs, you may still need to adjust these queries - for instance if you're tracking both
 `anonymous_id` and `user_id`, you'll need to add the `user_id` query.
@@ -100,11 +100,11 @@ Metrics are added from the Analysis -> Metrics menu.
 
 <img
   src="/images/guides/metrics-addmetric.png"
-  alt="Choose Rudderstack data schema"
+  alt="Choose RudderStack data schema"
   style={{ width: 500, margin: "0 auto 20px" }}
 />
 
 <img
   src="/images/guides/metrics-metricoverview.png"
-  alt="Choose Rudderstack data schema"
+  alt="Choose RudderStack data schema"
 />

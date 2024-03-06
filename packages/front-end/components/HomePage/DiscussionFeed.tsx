@@ -3,9 +3,9 @@ import { useRouter } from "next/router";
 import { date } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
-import LoadingOverlay from "../LoadingOverlay";
-import Avatar from "../Avatar/Avatar";
-import Markdown from "../Markdown/Markdown";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import Avatar from "@/components/Avatar/Avatar";
+import Markdown from "@/components/Markdown/Markdown";
 
 const DiscussionFeed: FC<{
   num?: number;

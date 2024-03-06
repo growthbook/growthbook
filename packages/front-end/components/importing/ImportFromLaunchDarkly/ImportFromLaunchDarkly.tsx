@@ -429,9 +429,7 @@ function FeatureImportRow({ data }: { data: FeatureImport }) {
         <td>
           {data.exists ? (
             <Link href={`/features/${data.key}`}>
-              <a>
-                {data.key} <FaExternalLinkAlt />
-              </a>
+              {data.key} <FaExternalLinkAlt />
             </Link>
           ) : (
             data.key

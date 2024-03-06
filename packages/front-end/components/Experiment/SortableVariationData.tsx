@@ -4,7 +4,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { forwardRef } from "react";
 import { FaArrowsAlt } from "react-icons/fa";
 import { MdDeleteForever } from "react-icons/md";
-import Field from "../Forms/Field";
+import Field from "@/components/Forms/Field";
 
 interface SortableProps {
   variation: Variation;

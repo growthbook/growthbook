@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { QueryLanguage } from "back-end/types/datasource";
-import Modal from "../Modal";
-import Code from "../SyntaxHighlighting/Code";
+import Modal from "@/components/Modal";
+import Code from "@/components/SyntaxHighlighting/Code";
 
 const QueryModal: FC<{
   queries: string[];

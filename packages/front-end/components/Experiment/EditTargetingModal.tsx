@@ -9,6 +9,7 @@ import isEqual from "lodash/isEqual";
 import React, { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
 import { MdInfoOutline } from "react-icons/md";
+import useSDKConnections from "@/hooks/useSDKConnections";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import { getEqualWeights } from "@/services/utils";
@@ -22,16 +23,18 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
-import Field from "../Forms/Field";
-import Modal from "../Modal";
-import FeatureVariationsInput from "../Features/FeatureVariationsInput";
-import ConditionInput from "../Features/ConditionInput";
-import NamespaceSelector from "../Features/NamespaceSelector";
-import SelectField from "../Forms/SelectField";
+import FeatureVariationsInput from "@/components//Features/FeatureVariationsInput";
+import ConditionInput from "@/components//Features/ConditionInput";
+import NamespaceSelector from "@/components//Features/NamespaceSelector";
+import SelectField from "@/components//Forms/SelectField";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
-} from "../Features/SavedGroupTargetingField";
-import HashVersionSelector from "./HashVersionSelector";
+} from "@/components/Features/SavedGroupTargetingField";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
+import HashVersionSelector, {
+  allConnectionsSupportBucketingV2,
+} from "./HashVersionSelector";
 
 export type ChangeType =
   | "targeting"
@@ -70,6 +73,12 @@ export default function EditTargetingModal({
   const [releasePlan, setReleasePlan] = useState<ReleasePlan | undefined>();
   const [changesConfirmed, setChangesConfirmed] = useState(false);
 
+  const { data: sdkConnectionsData } = useSDKConnections();
+  const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
+    sdkConnectionsData?.connections,
+    experiment.project
+  );
+
   const [
     prerequisiteTargetingSdkIssues,
     setPrerequisiteTargetingSdkIssues,
@@ -87,7 +96,7 @@ export default function EditTargetingModal({
     coverage: lastPhase?.coverage ?? 1,
     hashAttribute: experiment.hashAttribute || "id",
     fallbackAttribute: experiment.fallbackAttribute || "",
-    hashVersion: experiment.hashVersion || 2,
+    hashVersion: experiment.hashVersion || (hasSDKWithNoBucketingV2 ? 1 : 2),
     disableStickyBucketing: experiment.disableStickyBucketing ?? false,
     bucketVersion: experiment.bucketVersion || 1,
     minBucketVersion: experiment.minBucketVersion || 0,
@@ -444,6 +453,7 @@ function TargetingForm({
           <HashVersionSelector
             value={form.watch("hashVersion")}
             onChange={(v) => form.setValue("hashVersion", v)}
+            project={experiment.project}
           />
         </>
       )}

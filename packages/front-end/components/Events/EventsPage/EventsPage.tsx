@@ -10,7 +10,7 @@ import useApi from "@/hooks/useApi";
 import { useDownloadDataExport } from "@/hooks/useDownloadDataExport";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import LoadingSpinner from "../../LoadingSpinner";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { EventsTableRow } from "./EventsTableRow";
 
 type EventsPageProps = {

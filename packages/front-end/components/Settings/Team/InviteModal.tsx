@@ -9,7 +9,7 @@ import useStripeSubscription from "@/hooks/useStripeSubscription";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import StringArrayField from "@/components/Forms/StringArrayField";
-import UpgradeModal from "../UpgradeModal";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 import RoleSelector from "./RoleSelector";
 import InviteModalSubscriptionInfo from "./InviteModalSubscriptionInfo";
 

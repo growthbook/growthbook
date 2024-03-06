@@ -96,6 +96,9 @@ tags:
   - name: fact-metrics
     x-displayName: Fact Metrics
     description: Fact Metrics are metrics built on top of Fact Table definitions
+  - name: code-references
+    x-displayName: Code References
+    description: Intended for use with our code reference CI utility, [`gb-find-code-refs`](https://github.com/growthbook/gb-find-code-refs).
 paths:
   /features:
     get:
@@ -109,6 +112,9 @@ paths:
       $ref: "./paths/updateFeature.yaml"
   /features/{id}/toggle:
     $ref: "./paths/toggleFeature.yaml"
+  /feature-keys:
+    get:
+      $ref: "./paths/getFeatureKeys.yaml"
   /projects:
     $ref: "./paths/listProjects.yaml"
   /projects/{id}:
@@ -223,6 +229,9 @@ paths:
   /bulk-import/facts:
     post:
       $ref: "./paths/postBulkImportFacts.yaml"
+  /code-refs:
+    post:
+      $ref: "./paths/postCodeRefs.yaml"
   # PLOP_INSERT_PATHS_HERE
 components:
   parameters:

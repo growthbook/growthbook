@@ -59,6 +59,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "features/prerequisites",
+          label: "Prerequisites",
+        },
+        {
+          type: "doc",
           id: "features/scheduling",
           label: "Scheduling",
         },
@@ -66,6 +71,11 @@ const sidebars = {
           type: "doc",
           id: "features/stale-detection",
           label: "Stale Feature Detection",
+        },
+        {
+          type: "doc",
+          id: "features/code-references",
+          label: "Code References",
         },
       ],
     },

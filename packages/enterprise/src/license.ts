@@ -40,8 +40,11 @@ export type CommercialFeature =
   | "no-access-role"
   | "teams"
   | "sticky-bucketing"
+  | "require-approvals"
+  | "code-references"
   | "prerequisites"
-  | "prerequisite-targeting";
+  | "prerequisite-targeting"
+  | "multiple-sdk-webhooks";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface LicenseInterface {
@@ -111,7 +114,9 @@ export const accountFeatures: CommercialFeaturesMap = {
     "livechat",
     "remote-evaluation",
     "sticky-bucketing",
+    "code-references",
     "prerequisites",
+    "multiple-sdk-webhooks",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -128,7 +133,9 @@ export const accountFeatures: CommercialFeaturesMap = {
     "livechat",
     "remote-evaluation",
     "sticky-bucketing",
+    "code-references",
     "prerequisites",
+    "multiple-sdk-webhooks",
   ]),
   enterprise: new Set<CommercialFeature>([
     "scim",
@@ -154,8 +161,11 @@ export const accountFeatures: CommercialFeaturesMap = {
     "custom-launch-checklist",
     "no-access-role",
     "sticky-bucketing",
+    "require-approvals",
+    "code-references",
     "prerequisites",
     "prerequisite-targeting",
+    "multiple-sdk-webhooks",
   ]),
 };
 

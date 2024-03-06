@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import fetch from "node-fetch";
 import { FaExclamationTriangle, FaRegCheckCircle } from "react-icons/fa";
-import { useUser } from "../../../services/UserContext";
-import track from "../../../services/track";
-import Field from "../../Forms/Field";
-import LoadingSpinner from "../../LoadingSpinner";
-import { getNumberOfUniqueMembersAndInvites } from "../../../services/organizations";
-import { getGrowthBookBuild } from "../../../services/env";
+import { useUser } from "@/services/UserContext";
+import track from "@/services/track";
+import { getNumberOfUniqueMembersAndInvites } from "@/services/organizations";
+import { getGrowthBookBuild } from "@/services/env";
+import Field from "@/components/Forms/Field";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 const LICENSE_KEY_API_URL = "https://license.growthbook.io/api";
 

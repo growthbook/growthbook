@@ -5,8 +5,8 @@ import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { BsArrowRepeat } from "react-icons/bs";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa";
 import { ago, datetime } from "shared/dates";
-import { useDefinitions } from "../services/DefinitionsContext";
-import useApi from "../hooks/useApi";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import useApi from "@/hooks/useApi";
 import Button from "./Button";
 import Code from "./SyntaxHighlighting/Code";
 import LoadingOverlay from "./LoadingOverlay";
@@ -32,11 +32,7 @@ function EventDetails({
 
   // Link to ad-hoc report
   if (eventType === "experiment.analysis" && json.report) {
-    return (
-      <Link href={`/report/${json.report}`}>
-        <a>View Report</a>
-      </Link>
-    );
+    return <Link href={`/report/${json.report}`}>View Report</Link>;
   }
 
   // Diff (create, update, delete)

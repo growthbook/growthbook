@@ -24,9 +24,9 @@ import {
 } from "@/components/Experiment/EditTargetingModal";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import { StickyBucketingTooltip } from "@/components/Features/FallbackAttributeSelector";
-import SelectField from "../Forms/SelectField";
-import Tooltip from "../Tooltip/Tooltip";
-import { DocLink } from "../DocLink";
+import SelectField from "@/components/Forms/SelectField";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { DocLink } from "@/components/DocLink";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;

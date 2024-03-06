@@ -1,10 +1,10 @@
 import Link from "next/link";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { ago, datetime } from "shared/dates";
-import { isFeatureStale } from "shared/util";
+import { isFeatureStale, StaleFeatureReason } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -45,12 +45,14 @@ import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
+import Tab from "@/components/Tabs/Tab";
+import Tabs from "@/components/Tabs/Tabs";
+import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
 
 export default function FeaturesPage() {
   const router = useRouter();
-
   const [modalOpen, setModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showArchived, setShowArchived] = useState(false);
@@ -72,6 +74,7 @@ export default function FeaturesPage() {
   const { project, getProjectById } = useDefinitions();
   const settings = useOrgSettings();
   const environments = useEnvironments();
+  const envs = environments.map((e) => e.id);
   const { features, experiments, loading, error, mutate } = useFeaturesList();
 
   const { usage, usageDomain } = useRealtimeData(
@@ -104,152 +107,10 @@ export default function FeaturesPage() {
     },
     [showArchived, tagsFilter.tags, environments]
   );
-  const { searchInputProps, items, SortableTH } = useSearch({
-    items: features,
-    defaultSortField: "id",
-    searchFields: ["id^3", "description", "tags^2", "defaultValue"],
-    transformQuery: removeEnvFromSearchTerm,
-    filterResults,
-    localStorageKey: "features",
-  });
 
-  // Reset to page 1 when a filter is applied
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [items.length]);
-
-  // Reset featureToDuplicate when modal is closed
-  useEffect(() => {
-    if (modalOpen) return;
-    setFeatureToDuplicate(null);
-  }, [modalOpen]);
-
-  const { data } = useSDKConnections();
-  const connections = data?.connections || [];
-  const hasActiveConnection =
-    connections.some((c) => c.connected) || !!settings?.sdkInstructionsViewed;
-
-  if (error) {
+  const renderFeaturesTable = () => {
     return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
-  }
-  if (loading) {
-    return <LoadingOverlay />;
-  }
-
-  const start = (currentPage - 1) * NUM_PER_PAGE;
-  const end = start + NUM_PER_PAGE;
-
-  // If "All Projects" is selected is selected and some experiments are in a project, show the project column
-  const showProjectColumn = !project && features.some((f) => f.project);
-
-  // Ignore the demo datasource
-  const hasFeatures = features.some(
-    (f) =>
-      f.project !==
-      getDemoDatasourceProjectIdForOrganization(organization.id || "")
-  );
-
-  const toggleEnvs = environments.filter((en) => en.toggleOnList);
-  const showArchivedToggle = features.some((f) => f.archived);
-  const stepsRequired = !hasActiveConnection || !hasFeatures;
-
-  return (
-    <div className="contents container pagecontents">
-      {modalOpen && (
-        <FeatureModal
-          cta={featureToDuplicate ? "Duplicate" : "Create"}
-          close={() => setModalOpen(false)}
-          onSuccess={async (feature) => {
-            const url = `/features/${feature.id}${hasFeatures ? "" : "?first"}`;
-            router.push(url);
-            mutate({
-              features: [...features, feature],
-              // we don't care about updating linked experiments since its only
-              // used for stale feature detection
-              linkedExperiments: experiments,
-            });
-          }}
-          featureToDuplicate={featureToDuplicate || undefined}
-        />
-      )}
-      {featureToToggleStaleDetection && (
-        <StaleDetectionModal
-          close={() => setFeatureToToggleStaleDetection(null)}
-          feature={featureToToggleStaleDetection}
-          mutate={mutate}
-        />
-      )}
-      <div className="row mb-3">
-        <div className="col">
-          <h1>Features</h1>
-        </div>
-        {features.length > 0 &&
-          permissions.check("manageFeatures", project) &&
-          permissions.check("createFeatureDrafts", project) && (
-            <div className="col-auto">
-              <button
-                className="btn btn-primary float-right"
-                onClick={() => {
-                  setModalOpen(true);
-                  track("Viewed Feature Modal", {
-                    source: "feature-list",
-                  });
-                }}
-                type="button"
-              >
-                <span className="h4 pr-2 m-0 d-inline-block align-top">
-                  <GBAddCircle />
-                </span>
-                Add Feature
-              </button>
-            </div>
-          )}
-      </div>
-      <p>
-        Features enable you to change your app&apos;s behavior from within the
-        GrowthBook UI. For example, turn on/off a sales banner or change the
-        title of your pricing page.{" "}
-      </p>
-      {stepsRequired || showSteps ? (
-        <div className="mb-3">
-          <h4>
-            Setup Steps
-            {!stepsRequired && (
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setShowSteps(false);
-                }}
-                style={{ fontSize: "0.8em" }}
-                className="ml-3"
-              >
-                hide
-              </a>
-            )}
-          </h4>
-          <FeaturesGetStarted features={features} />
-          {features.length > 0 && <h4 className="mt-3">All Features</h4>}
-        </div>
-      ) : (
-        <div className="mb-3">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setShowSteps(true);
-            }}
-          >
-            Show Setup Steps
-          </a>
-        </div>
-      )}
-
-      {features.length > 0 && (
+      features.length > 0 && (
         <div>
           <div className="row mb-2 align-items-center">
             <div className="col-auto">
@@ -313,7 +174,7 @@ export default function FeaturesPage() {
               </tr>
             </thead>
             <tbody>
-              {items.slice(start, end).map((feature) => {
+              {featureItems.map((feature) => {
                 let rules: FeatureRule[] = [];
                 environments.forEach(
                   (e) => (rules = rules.concat(getRules(feature, e.id)))
@@ -336,12 +197,9 @@ export default function FeaturesPage() {
                   ? getProjectById(projectId)?.name || null
                   : null;
                 const projectIsDeReferenced = projectId && !projectName;
-                const { stale, reason: staleReason } = isFeatureStale(
-                  feature,
-                  experiments.filter((e) =>
-                    feature.linkedExperiments?.includes(e.id)
-                  )
-                );
+                const { stale, reason: staleReason } = staleFeatures?.[
+                  feature.id
+                ] || { stale: false };
                 const topLevelPrerequisites =
                   feature.prerequisites?.length || 0;
                 const prerequisiteRules = rules.reduce(
@@ -364,10 +222,11 @@ export default function FeaturesPage() {
                       />
                     </td>
                     <td>
-                      <Link href={`/features/${feature.id}`}>
-                        <a className={feature.archived ? "text-muted" : ""}>
-                          {feature.id}
-                        </a>
+                      <Link
+                        href={`/features/${feature.id}`}
+                        className={feature.archived ? "text-muted" : ""}
+                      >
+                        {feature.id}
                       </Link>
                     </td>
                     {showProjectColumn && (
@@ -423,7 +282,7 @@ export default function FeaturesPage() {
                         </div>
                       )}
                     </td>
-                    <td>
+                    <td style={{ minWidth: 90 }}>
                       <ValueDisplay
                         value={getFeatureDefaultValue(feature) || ""}
                         type={feature.valueType}
@@ -510,13 +369,182 @@ export default function FeaturesPage() {
             />
           )}
         </div>
-      )}
+      )
+    );
+  };
 
-      <div className="alert alert-info mt-5">
-        Looking for <strong>Attributes</strong>, <strong>Namespaces</strong>,{" "}
-        <strong>Environments</strong>, or <strong>Saved Groups</strong>? They
-        have moved to the <Link href="/sdks">SDK Configuration</Link> tab.
+  const { searchInputProps, items, SortableTH } = useSearch({
+    items: features,
+    defaultSortField: "id",
+    searchFields: ["id^3", "description", "tags^2", "defaultValue"],
+    transformQuery: removeEnvFromSearchTerm,
+    filterResults,
+    localStorageKey: "features",
+  });
+  const start = (currentPage - 1) * NUM_PER_PAGE;
+  const end = start + NUM_PER_PAGE;
+  const featureItems = items.slice(start, end);
+
+  const staleFeatures = useMemo(() => {
+    const staleFeatures: Record<
+      string,
+      { stale: boolean; reason?: StaleFeatureReason }
+    > = {};
+    featureItems.forEach((feature) => {
+      staleFeatures[feature.id] = isFeatureStale({
+        feature,
+        features,
+        experiments,
+        environments: envs,
+      });
+    });
+    return staleFeatures;
+  }, [featureItems, features, experiments, envs]);
+
+  // Reset to page 1 when a filter is applied
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [items.length]);
+
+  // Reset featureToDuplicate when modal is closed
+  useEffect(() => {
+    if (modalOpen) return;
+    setFeatureToDuplicate(null);
+  }, [modalOpen]);
+
+  const { data } = useSDKConnections();
+  const connections = data?.connections || [];
+  const hasActiveConnection =
+    connections.some((c) => c.connected) || !!settings?.sdkInstructionsViewed;
+
+  if (error) {
+    return (
+      <div className="alert alert-danger">
+        An error occurred: {error.message}
       </div>
+    );
+  }
+  if (loading) {
+    return <LoadingOverlay />;
+  }
+
+  // If "All Projects" is selected is selected and some experiments are in a project, show the project column
+  const showProjectColumn = !project && features.some((f) => f.project);
+
+  // Ignore the demo datasource
+  const hasFeatures = features.some(
+    (f) =>
+      f.project !==
+      getDemoDatasourceProjectIdForOrganization(organization.id || "")
+  );
+
+  const toggleEnvs = environments.filter((en) => en.toggleOnList);
+  const showArchivedToggle = features.some((f) => f.archived);
+  const stepsRequired = !hasActiveConnection || !hasFeatures;
+
+  return (
+    <div className="contents container pagecontents">
+      {modalOpen && (
+        <FeatureModal
+          cta={featureToDuplicate ? "Duplicate" : "Create"}
+          close={() => setModalOpen(false)}
+          onSuccess={async (feature) => {
+            const url = `/features/${feature.id}${hasFeatures ? "" : "?first"}`;
+            router.push(url);
+            mutate({
+              features: [...features, feature],
+              linkedExperiments: experiments,
+            });
+          }}
+          featureToDuplicate={featureToDuplicate || undefined}
+        />
+      )}
+      {featureToToggleStaleDetection && (
+        <StaleDetectionModal
+          close={() => setFeatureToToggleStaleDetection(null)}
+          feature={featureToToggleStaleDetection}
+          mutate={mutate}
+        />
+      )}
+      <div className="row mb-3">
+        <div className="col">
+          <h1>Features</h1>
+        </div>
+        {features.length > 0 &&
+          permissions.check("manageFeatures", project) &&
+          permissions.check("createFeatureDrafts", project) && (
+            <div className="col-auto">
+              <button
+                className="btn btn-primary float-right"
+                onClick={() => {
+                  setModalOpen(true);
+                  track("Viewed Feature Modal", {
+                    source: "feature-list",
+                  });
+                }}
+                type="button"
+              >
+                <span className="h4 pr-2 m-0 d-inline-block align-top">
+                  <GBAddCircle />
+                </span>
+                Add Feature
+              </button>
+            </div>
+          )}
+      </div>
+      <p>
+        Features enable you to change your app&apos;s behavior from within the
+        GrowthBook UI. For example, turn on/off a sales banner or change the
+        title of your pricing page.{" "}
+      </p>
+      {stepsRequired || showSteps ? (
+        <div className="mb-3">
+          <h4>
+            Setup Steps
+            {!stepsRequired && (
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowSteps(false);
+                }}
+                style={{ fontSize: "0.8em" }}
+                className="ml-3"
+              >
+                hide
+              </a>
+            )}
+          </h4>
+          <FeaturesGetStarted features={features} />
+          {features.length > 0 && <h4 className="mt-3">All Features</h4>}
+        </div>
+      ) : (
+        <div className="mb-3">
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              setShowSteps(true);
+            }}
+          >
+            Show Setup Steps
+          </a>
+        </div>
+      )}
+      <Tabs newStyle={true} defaultTab="all-features">
+        <Tab id="all-features" display="All Features" padding={false}>
+          {renderFeaturesTable()}
+          <div className="alert alert-info mt-5">
+            Looking for <strong>Attributes</strong>, <strong>Namespaces</strong>
+            , <strong>Environments</strong>, or <strong>Saved Groups</strong>?
+            They have moved to the <Link href="/sdks">SDK Configuration</Link>{" "}
+            tab.
+          </div>
+        </Tab>
+        <Tab id="drafts" display="Drafts" padding={false} lazy={true}>
+          <FeaturesDraftTable features={features} />
+        </Tab>
+      </Tabs>
     </div>
   );
 }

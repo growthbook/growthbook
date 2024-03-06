@@ -15,7 +15,7 @@ import {
 } from "@/services/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
-import Tooltip from "../Tooltip/Tooltip";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import NotEnoughData_old from "./NotEnoughData_old";
 
 const PValueColumn_old: FC<{

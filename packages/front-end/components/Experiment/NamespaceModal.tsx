@@ -1,8 +1,8 @@
 import { useForm } from "react-hook-form";
 import { Namespaces } from "back-end/types/organization";
 import { useAuth } from "@/services/auth";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
 
 export default function NamespaceModal({
   close,

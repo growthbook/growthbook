@@ -19,8 +19,8 @@ import {
   pValueFormatter,
 } from "@/services/experiments";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
-import Tooltip from "../Tooltip/Tooltip";
-import MetricTooltipBody from "../Metrics/MetricTooltipBody";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
 import MetricValueColumn from "./MetricValueColumn";
 import { hasEnoughData } from "./GuardrailResult";
 
@@ -72,8 +72,11 @@ const HeaderResult: FC<{
       {status === "danger" && <FaExclamation className="mr-1" />}
       {status === "secondary" && <FaQuestionCircle className="mr-1" />}
       <Tooltip body={<MetricTooltipBody metric={metric} />} tipPosition="right">
-        <Link href={getMetricLink(metric.id)}>
-          <a className="text-black-50 font-weight-bold">{metric.name}</a>
+        <Link
+          href={getMetricLink(metric.id)}
+          className="text-black-50 font-weight-bold"
+        >
+          {metric.name}
         </Link>
       </Tooltip>
     </div>

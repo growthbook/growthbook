@@ -175,62 +175,115 @@ const areRulesOneSided = (
   return rolloutRulesOnesided && forceRulesOnesided;
 };
 
-export function isFeatureStale(
-  feature: FeatureInterface,
-  linkedExperiments: ExperimentInterfaceStringDates[] | undefined = []
-): { stale: boolean; reason?: StaleFeatureReason } {
-  try {
-    if (feature.neverStale) return { stale: false };
-
-    if (feature.linkedExperiments?.length !== linkedExperiments.length) {
-      // eslint-disable-next-line no-console
-      console.error("isFeatureStale: linkedExperiments length mismatch");
-      return { stale: false, reason: "error" };
+interface IsFeatureStaleInterface {
+  feature: FeatureInterface;
+  features?: FeatureInterface[];
+  experiments?: ExperimentInterfaceStringDates[];
+  environments?: string[];
+}
+export function isFeatureStale({
+  feature,
+  features,
+  experiments = [],
+  environments = [],
+}: IsFeatureStaleInterface): { stale: boolean; reason?: StaleFeatureReason } {
+  const featuresMap = new Map<string, FeatureInterface>();
+  if (features) {
+    for (const f of features) {
+      featuresMap.set(f.id, f);
     }
-
-    const linkedExperimentIds = linkedExperiments.map((e) => e.id);
-    if (
-      !linkedExperimentIds.every((id) =>
-        feature.linkedExperiments?.includes(id)
-      )
-    ) {
-      // eslint-disable-next-line no-console
-      console.error("isFeatureStale: linkedExperiments id mismatch");
-      return { stale: false, reason: "error" };
-    }
-
-    const twoWeeksAgo = subWeeks(new Date(), 2);
-    const dateUpdated = getValidDate(feature.dateUpdated);
-    const stale = dateUpdated < twoWeeksAgo;
-
-    if (!stale) return { stale };
-
-    // features with draft revisions are not stale
-    if (feature.hasDrafts) return { stale: false };
-
-    const envSettings = Object.values(feature.environmentSettings ?? {});
-
-    const enabledEnvs = envSettings.filter((e) => e.enabled);
-    const enabledRules = enabledEnvs
-      .map((e) => e.rules)
-      .flat()
-      .filter((r) => r.enabled);
-
-    if (enabledRules.length === 0) return { stale, reason: "no-rules" };
-
-    // If there's at least one active experiment, it's not stale
-    if (linkedExperiments.some((e) => includeExperimentInPayload(e)))
-      return { stale: false };
-
-    if (areRulesOneSided(enabledRules))
-      return { stale, reason: "rules-one-sided" };
-
-    return { stale: false };
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error("Error calculating stale feature", e);
-    return { stale: false };
   }
+  const experimentMap = new Map<string, ExperimentInterfaceStringDates>();
+  for (const e of experiments) {
+    experimentMap.set(e.id, e);
+  }
+
+  const visitedFeatures = new Set<string>();
+
+  if (!features) {
+    features = [feature];
+  }
+  if (!environments.length) {
+    environments = Object.keys(feature.environmentSettings);
+  }
+
+  const visit = (
+    feature: FeatureInterface
+  ): { stale: boolean; reason?: StaleFeatureReason } => {
+    if (visitedFeatures.has(feature.id)) {
+      return { stale: false };
+    }
+    visitedFeatures.add(feature.id);
+
+    try {
+      if (feature.neverStale) return { stale: false };
+
+      const linkedExperiments = (feature?.linkedExperiments ?? [])
+        .map((id) => experimentMap.get(id))
+        .filter(Boolean) as ExperimentInterfaceStringDates[];
+
+      const twoWeeksAgo = subWeeks(new Date(), 2);
+      const dateUpdated = getValidDate(feature.dateUpdated);
+      const stale = dateUpdated < twoWeeksAgo;
+
+      if (!stale) return { stale };
+
+      // features with draft revisions are not stale
+      if (feature.hasDrafts) return { stale: false };
+
+      // features with fresh dependents are not stale
+      if (features && features.length > 1) {
+        const dependentFeatures = getDependentFeatures(
+          feature,
+          features,
+          environments
+        );
+        const hasNonStaleDependentFeatures = dependentFeatures.some((id) => {
+          const f = featuresMap.get(id);
+          if (!f) return true;
+          return !visit(f).stale;
+        });
+        if (dependentFeatures.length && hasNonStaleDependentFeatures) {
+          return { stale: false };
+        }
+      }
+      const dependentExperiments = getDependentExperiments(
+        feature,
+        experiments
+      );
+      const hasNonStaleDependentExperiments = dependentExperiments.some((e) =>
+        includeExperimentInPayload(e)
+      );
+      if (dependentExperiments.length && hasNonStaleDependentExperiments) {
+        return { stale: false };
+      }
+
+      const envSettings = Object.values(feature.environmentSettings ?? {});
+
+      const enabledEnvs = envSettings.filter((e) => e.enabled);
+      const enabledRules = enabledEnvs
+        .map((e) => e.rules)
+        .flat()
+        .filter((r) => r.enabled);
+
+      if (enabledRules.length === 0) return { stale, reason: "no-rules" };
+
+      // If there's at least one active experiment, it's not stale
+      if (linkedExperiments.some((e) => includeExperimentInPayload(e)))
+        return { stale: false };
+
+      if (areRulesOneSided(enabledRules))
+        return { stale, reason: "rules-one-sided" };
+
+      return { stale: false };
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error("Error calculating stale feature", e);
+      return { stale: false };
+    }
+  };
+
+  return visit(feature);
 }
 
 export interface MergeConflict {
@@ -482,7 +535,7 @@ export function getDefaultPrerequisiteCondition(
 
 export function isFeatureCyclic(
   feature: FeatureInterface,
-  features: FeatureInterface[],
+  featuresMap: Map<string, FeatureInterface>,
   revision?: FeatureRevisionInterface
 ): [boolean, string | null] {
   const visited = new Set<string>();
@@ -513,7 +566,7 @@ export function isFeatureCyclic(
     }
 
     for (const prerequisiteId of prerequisiteIds) {
-      const parentFeature = features.find((f) => f.id === prerequisiteId);
+      const parentFeature = featuresMap.get(prerequisiteId);
       if (parentFeature && visit(parentFeature)[0])
         return [true, prerequisiteId];
     }
@@ -534,14 +587,14 @@ export type PrerequisiteStateResult = {
 };
 export function evaluatePrerequisiteState(
   feature: FeatureInterface,
-  features: FeatureInterface[],
+  featuresMap: Map<string, FeatureInterface>,
   env: string,
   skipRootConditions: boolean = false,
   skipCyclicCheck: boolean = false
 ): PrerequisiteStateResult {
   let isTopLevel = true;
   if (!skipCyclicCheck) {
-    if (isFeatureCyclic(feature, features)[0])
+    if (isFeatureCyclic(feature, featuresMap)[0])
       return { state: "cyclic", value: null };
   }
 
@@ -588,9 +641,7 @@ export function evaluatePrerequisiteState(
     isTopLevel = false;
     const prerequisites = feature.prerequisites || [];
     for (const prerequisite of prerequisites) {
-      const prerequisiteFeature = features.find(
-        (f) => f.id === prerequisite.id
-      );
+      const prerequisiteFeature = featuresMap.get(prerequisite.id);
       if (!prerequisiteFeature) {
         // todo: consider returning info about missing feature
         state = "deterministic";

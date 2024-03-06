@@ -13,6 +13,8 @@ export const ENV_SCOPED_PERMISSIONS = [
 export const PROJECT_SCOPED_PERMISSIONS = [
   "readData",
   "addComments",
+  "bypassApprovalChecks",
+  "canReview",
   "createFeatureDrafts",
   "manageFeatures",
   "manageProjects",
@@ -23,6 +25,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "createDatasources",
   "editDatasourceSettings",
   "runQueries",
+  "manageTargetingAttributes",
   "manageVisualChanges",
 ] as const;
 
@@ -40,7 +43,6 @@ export const GLOBAL_PERMISSIONS = [
   "manageWebhooks",
   "manageBilling",
   "manageNorthStarMetric",
-  "manageTargetingAttributes",
   "manageNamespaces",
   "manageSavedGroups",
   "manageArchetype",
@@ -83,7 +85,7 @@ export const userHasPermission = (
   superAdmin: boolean,
   userPermissions: UserPermissions,
   permission: Permission,
-  project?: string | string[],
+  project?: string | (string | undefined)[] | undefined,
   envs?: string[]
 ): boolean => {
   if (superAdmin) {

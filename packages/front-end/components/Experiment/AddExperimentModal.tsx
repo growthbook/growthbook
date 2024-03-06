@@ -5,7 +5,7 @@ import clsx from "clsx";
 import track from "@/services/track";
 import usePermissions from "@/hooks/usePermissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "../Modal";
+import Modal from "@/components/Modal";
 import styles from "./AddExperimentModal.module.scss";
 import ImportExperimentModal from "./ImportExperimentModal";
 import NewExperimentForm from "./NewExperimentForm";

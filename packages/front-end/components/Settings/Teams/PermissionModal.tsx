@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 import { Team } from "@/services/UserContext";
-import RoleSelector from "../Team/RoleSelector";
+import RoleSelector from "@/components/Settings/Team/RoleSelector";
 
 export const PermissionsModal = ({
   team,

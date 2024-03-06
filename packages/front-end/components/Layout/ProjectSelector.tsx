@@ -7,8 +7,8 @@ import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import { useSearch } from "@/services/search";
 import usePermissions from "@/hooks/usePermissions";
-import Dropdown from "../Dropdown/Dropdown";
-import DropdownLink from "../Dropdown/DropdownLink";
+import Dropdown from "@/components/Dropdown/Dropdown";
+import DropdownLink from "@/components/Dropdown/DropdownLink";
 import LetterAvatar from "./LetterAvatar";
 
 const demoBadge = {
