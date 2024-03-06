@@ -5,8 +5,10 @@ import {
   findAllOrganizations,
   findOrganizationById,
 } from "../models/OrganizationModel";
+import { getUserById } from "../services/users";
 import { findUsersByIds, updateUserById } from "../models/UserModel";
 import { getContextFromReq } from "../services/organizations";
+import { auditDetailsUpdate } from "../services/audit";
 
 export async function getOrganizations(
   req: AuthRequest<never, never, { page?: string; search?: string }>,
@@ -72,6 +74,15 @@ export async function updateUser(
   const { userId } = req.params;
   const updates = req.body;
 
+  const user = await getUserById(userId);
+
+  if (!user) {
+    return res.status(400).json({
+      status: 400,
+      message: "User not found",
+    });
+  }
+
   // TODO Is there an easier way to do this?
   if (Object.keys(updates).includes("superAdmin")) {
     const context = getContextFromReq(req);
@@ -90,6 +101,15 @@ export async function updateUser(
   }
 
   const updated = await updateUserById(userId, updates);
+
+  req.audit({
+    event: "admin.user.update",
+    entity: {
+      object: "user",
+      id: userId,
+    },
+    details: auditDetailsUpdate(user, updated),
+  });
 
   return res.status(200).json({
     updated,
