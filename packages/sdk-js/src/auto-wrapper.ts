@@ -3,6 +3,9 @@ import { Context, GrowthBook } from "./index";
 declare global {
   interface Window {
     _growthbook?: GrowthBook;
+    growthbook_queue?:
+      | Array<(gb: GrowthBook) => void>
+      | { push: (cb: (gb: GrowthBook) => void) => void };
     growthbook_config?: Context;
     // eslint-disable-next-line
     dataLayer?: any[];
@@ -201,6 +204,21 @@ document.addEventListener("gb_refresh", () => {
 window.setTimeout(() => {
   const event = new CustomEvent("gb_loaded");
   document.dispatchEvent(event);
+
+  // Process any queued callbacks
+  if (window.growthbook_queue) {
+    if (Array.isArray(window.growthbook_queue)) {
+      window.growthbook_queue.forEach((cb) => {
+        cb(gb);
+      });
+    }
+  }
+  // Replace the queue with a function that immediately calls the callback
+  window.growthbook_queue = {
+    push: (cb: (gb: GrowthBook) => void) => {
+      cb(gb);
+    },
+  };
 }, 0);
 
 // Store a reference in window to enable more advanced use cases

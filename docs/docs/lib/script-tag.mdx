@@ -14,9 +14,9 @@ This option is quick and easy and can be accomplished without any engineering re
 
 ## Installation
 
-For this, you will need a **Client Key** from an SDK Connection in GrowthBook. This will start with `sdk-`.
+For this, you will need a **Client Key** from an SDK Connection within GrowthBook. This will start with `sdk-`.
 
-Add the following script tag to your website and replace `YOUR_CLIENT_KEY_HERE` with your actual client key:
+Add the following script tag to your website and replace `YOUR_CLIENT_KEY_HERE` with your actual Client Key:
 
 ```html
 <script async
@@ -44,7 +44,17 @@ window.growthbook_config.backgroundSync = false;
 </script>
 ```
 
-And lastly, you can access the GrowthBook SDK instance at `window._growthbook` if you need low level access for any reason.
+If you need low level access to the GrowthBook SDK instance for any reason, you can pass a callback function to a `window.growthbook_queue` array. This will be called as soon as the GrowthBook SDK instance is ready and works before or after you add the script tag.
+
+```html
+<script>
+window.growthbook_queue = window.growthbook_queue || [];
+window.growthbook_queue.push((gb) => {
+  // Do whatever you need with the GrowthBook instance here
+  console.log(gb.getAttributes());
+})
+</script>
+```
 
 ## Targeting Attributes
 
@@ -80,17 +90,17 @@ window.growthbook_config.attributes = {
 </script>
 ```
 
-You can also set custom attributes later, after the script is finished loading. Please note, this may cause flickering in your experiments if you reference these custom attributes in your experiment targeting.
+You can also set custom attributes later, after the script tag has been added. Please note, this may cause flickering in your experiments if you reference these custom attributes in your experiment targeting.
 
 ```html
 <script>
-// Can be called any time after the script has loaded
-if (window._growthbook) {
-  window._growthbook.updateAttributes({
+window.growthbook_queue = window.growthbook_queue || [];
+window.growthbook_queue.push((gb) => {
+  gb.updateAttributes({
     country: "US",
     otherCustomAttribute: 12,
   });
-}
+});
 </script>
 ```
 
@@ -130,6 +140,8 @@ We send the following event to the Data Layer. You will need to add a trigger ba
 }
 ```
 
+We have a walkthrough tutorial on how to configure this in our [GTM Guide](/guide/google-tag-manager-and-growthbook#tracking-via-datalayer-and-gtm)
+
 ### Others
 
 For any other event tracking system (or if the built-in ones above do not meet your requirements), you can define your own custom tracking callback function. This must be defined BEFORE loading the main GrowthBook snippet on the page.
@@ -144,17 +156,6 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
   })
 };
 </script>
-```
-
-You can override some settings by adding `data-*` attributes directly to the script tag. Here's an example of overriding the API host and setting a decryption key:
-
-```html
-<script async
-  data-api-host="https://growthbook-api.example.com"
-  data-client-key="YOUR_CLIENT_KEY_HERE"
-  data-decryption-key="YOUR_DECRYPTION_KEY_HERE"
-  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
-></script>
 ```
 
 ## Using Feature Flags
@@ -173,14 +174,14 @@ function applyFeatureFlags(gb) {
   }
 }
 
-// Pass this into GrowthBook BEFORE loading the snippet
-window.growthbook_config = window.growthbook_config || {};
-window.growthbook_config.renderer = applyFeatureFlags;
+// Wait for the GrowthBook SDK to load before running
+window.growthbook_queue = window.growthbook_queue || [];
+window.growthbook_queue.push((gb) => {
+  // Call your function the first time
+  applyFeatureFlags(gb);
+
+  // Tell the SDK to call your function any time features change in the future
+  gb.setRenderer(applyFeatureFlags);
+});
 </script>
 ```
-
-:::note
-
-If you are going to be using feature flags extensively, we highly recommend doing a full integration with the [JavaScript SDK](/lib/js) instead for maximum flexibility.
-
-:::
