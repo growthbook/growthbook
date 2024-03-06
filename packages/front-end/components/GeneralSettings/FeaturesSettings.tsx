@@ -21,6 +21,7 @@ export default function FeaturesSettings() {
   const hasSecureAttributesFeature = hasCommercialFeature(
     "hash-secure-attributes"
   );
+  const hasRequireApprovals = hasCommercialFeature("require-approvals");
 
   const hasCodeReferencesFeature = hasCommercialFeature("code-references");
 
@@ -109,6 +110,24 @@ export default function FeaturesSettings() {
             }}
           />
         </div>
+        {hasRequireApprovals && (
+          <>
+            <div className="mt-4">
+              <label className="mr-1" htmlFor="toggle-require-reviews">
+                Require approval to publish changes:
+              </label>
+            </div>
+            <div>
+              <Toggle
+                id={"toggle-require-reviews"}
+                value={!!form.watch("requireReviews")}
+                setValue={(value) => {
+                  form.setValue("requireReviews", value);
+                }}
+              />
+            </div>
+          </>
+        )}
         <div className="my-3">
           <PremiumTooltip commercialFeature="code-references">
             <div
