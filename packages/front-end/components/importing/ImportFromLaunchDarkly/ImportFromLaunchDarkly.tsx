@@ -490,9 +490,11 @@ function ImportStatusDisplay({
 function FeatureImportRow({
   data,
   skip,
+  overallStatus,
 }: {
   data: FeatureImport;
   skip: () => void;
+  overallStatus: ImportData["status"];
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -534,7 +536,7 @@ function FeatureImportRow({
         <td>
           {data.error ? (
             <em>{data.error}</em>
-          ) : data.status === "pending" ? (
+          ) : data.status === "pending" && overallStatus === "ready" ? (
             <a
               href="#"
               onClick={(e) => {
@@ -849,6 +851,7 @@ export default function ImportFromLaunchDarkly() {
                               f.error = "Manually skipped";
                               setData(cloneDeep(data));
                             }}
+                            overallStatus={data.status}
                           />
                         ))}
                       </tbody>
