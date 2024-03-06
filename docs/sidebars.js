@@ -374,6 +374,7 @@ const sidebars = {
         "self-host/environment-variables",
         "self-host/config-yml",
         "self-host/production",
+        "self-host/multi-org",
       ],
     },
     /*

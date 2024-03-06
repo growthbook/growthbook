@@ -1,0 +1,26 @@
+---
+title: Multi-Org
+description: For self-hosted instances, we allow users to manage multiple organizations from a single account.
+id: multi-org
+slug: multi-org 
+---
+
+# Multi-Org
+
+For self-hosted users, we provide the ability to manage multiple organizations in your GrowthBook instance.
+
+Using our Admin settings page, you can view all organizations, create a new one, and manage the members for each organization.
+
+Following the two steps below will enable you to access the Admin settings page and manage multiple organizations.
+
+## Enabling Multi-Org
+
+Before starting your GrowthBook instance, be sure to set the following environment variable as shown:
+
+- `ALLOW_SELF_ORG_CREATION=true`
+
+## Elevate to Super Admin
+
+To access the Admin settings page, you'll need to elevate your user account to be a 'super admin'.
+
+Currently, the way to do this is to set `superAdmin: true` on your corresponding user row in the MongoDB instance used by GrowthBook.
