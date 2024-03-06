@@ -42,6 +42,7 @@ export const putEnvironments = async (
 
   await updateOrganization(org.id, {
     settings: {
+      ...org.settings,
       environments: updatedEnvironments,
     },
   });
@@ -86,6 +87,7 @@ export const postEnvironment = async (
   try {
     await updateOrganization(org.id, {
       settings: {
+        ...org.settings,
         environments: updatedEnvironments,
       },
     });
