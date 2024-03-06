@@ -100,7 +100,7 @@ export const userHasPermission = (
   if (READ_ONLY_PERMISSIONS.includes(permission)) {
     if (
       checkProjects.length === 1 &&
-      checkProjects[0] === undefined &&
+      !checkProjects[0] &&
       Object.keys(userPermissions.projects).length
     ) {
       // add all of the projects the user has project-level roles for

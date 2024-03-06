@@ -189,7 +189,7 @@ export async function cancelMetricAnalysis(
 
   req.checkPermissions(
     "runQueries",
-    metric.projects?.length ? metric.projects : []
+    metric.projects?.length ? metric.projects : ""
   );
 
   const integration = await getIntegrationFromDatasourceId(
