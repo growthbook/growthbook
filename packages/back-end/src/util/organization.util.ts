@@ -38,7 +38,10 @@ export function roleToPermissionMap(
 ): PermissionsObject {
   const roles = getRoles(org);
   const orgRole = roles.find((r) => r.id === role);
-  const permissions = new Set<Permission>(orgRole?.permissions || []);
+  //TODO: Does it make more sense for getPermissionsFromPolicies to return a set, rather than doing it here?
+  const permissions = new Set<Permission>(
+    getPermissionsFromPolicies(orgRole?.policies) || []
+  );
 
   const permissionsObj: PermissionsObject = {};
   ALL_PERMISSIONS.forEach((p) => {
@@ -283,35 +286,32 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
       id: "noaccess",
       description:
         "Cannot view any features or experiments. Most useful when combined with project-scoped roles.",
-      permissions: [],
+      policies: [],
     },
     {
       id: "readonly",
       description: "View all features and experiment results",
-      permissions: getPermissionsFromPolicies(["GB_View_Data"]),
+      policies: ["GB_View_Data"],
     },
     {
       id: "visualEditor",
       description: "Make visual changes for an experiment",
-      permissions: getPermissionsFromPolicies([
-        "GB_View_Data",
-        "GB_Manage_Visual_Changes",
-      ]),
+      policies: ["GB_View_Data", "GB_Manage_Visual_Changes"],
     },
     {
       id: "collaborator",
       description: "Add comments and contribute ideas",
-      permissions: getPermissionsFromPolicies([
+      policies: [
         "GB_View_Data",
         "GB_Write_Comments",
         "GB_Create_Presentations",
         "GB_Create_Ideas",
-      ]),
+      ],
     },
     {
       id: "engineer",
       description: "Manage features",
-      permissions: getPermissionsFromPolicies([
+      policies: [
         "GB_View_Data",
         "GB_Write_Comments",
         "GB_Create_Presentations",
@@ -327,12 +327,12 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "GB_Manage_Archetype",
         "GB_Run_Experiments",
         "GB_Manage_Visual_Changes",
-      ]),
+      ],
     },
     {
       id: "analyst",
       description: "Analyze experiments",
-      permissions: getPermissionsFromPolicies([
+      policies: [
         "GB_View_Data",
         "GB_Write_Comments",
         "GB_Create_Presentations",
@@ -346,12 +346,12 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "GB_Run_Queries",
         "GB_Edit_Datasource_Settings",
         "GB_Manage_Visual_Changes",
-      ]),
+      ],
     },
     {
       id: "experimenter",
       description: "Manage features AND Analyze experiments",
-      permissions: getPermissionsFromPolicies([
+      policies: [
         "GB_View_Data",
         "GB_Write_Comments",
         "GB_Create_Presentations",
@@ -374,13 +374,13 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "GB_Manage_Fact_Tables",
         "GB_Run_Queries",
         "GB_Edit_Datasource_Settings",
-      ]),
+      ],
     },
     {
       id: "admin",
       description:
         "All access + invite teammates and configure organization settings",
-      permissions: getPermissionsFromPolicies([...GB_MANAGED_POLICY_IDS]),
+      policies: [...GB_MANAGED_POLICY_IDS],
     },
   ];
 }

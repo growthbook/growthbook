@@ -415,8 +415,9 @@ const GB_Managed_Policies: {
 ];
 
 export function getPermissionsFromPolicies(
-  policyArr: GB_Managed_Policy[]
+  policyArr: GB_Managed_Policy[] | undefined
 ): Permission[] {
+  if (!policyArr) return [];
   //TODO: Add some in-mem cache here?
   const permissions: Permission[] = [];
 

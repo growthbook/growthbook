@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import {
   ENV_SCOPED_PERMISSIONS,
+  GB_Managed_Policy,
   GLOBAL_PERMISSIONS,
   PROJECT_SCOPED_PERMISSIONS,
 } from "shared/permissions";
@@ -46,7 +47,7 @@ export type MemberRole =
 export type Role = {
   id: MemberRole;
   description: string;
-  permissions: Permission[];
+  policies: GB_Managed_Policy[];
 };
 
 export interface MemberRoleInfo {
