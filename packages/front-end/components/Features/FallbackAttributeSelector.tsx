@@ -16,8 +16,8 @@ import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { DocLink } from "@/components/DocLink";
-import SelectField from "../Forms/SelectField";
-import Toggle from "../Forms/Toggle";
+import SelectField from "@/components/Forms/SelectField";
+import Toggle from "@/components/Forms/Toggle";
 
 export interface Props {
   // eslint-disable-next-line

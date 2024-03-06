@@ -1,7 +1,7 @@
 import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
 import clsx from "clsx";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import { SimpleTooltip } from "../SimpleTooltip/SimpleTooltip";
+import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 
 type Props = {
   compact?: boolean;

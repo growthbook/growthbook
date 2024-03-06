@@ -1,5 +1,5 @@
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Tooltip from "../Tooltip/Tooltip";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Tag from "./Tag";
 
 export interface Props {

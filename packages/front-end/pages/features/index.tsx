@@ -45,12 +45,14 @@ import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
+import Tab from "@/components/Tabs/Tab";
+import Tabs from "@/components/Tabs/Tabs";
+import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
 
 export default function FeaturesPage() {
   const router = useRouter();
-
   const [modalOpen, setModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showArchived, setShowArchived] = useState(false);
@@ -105,6 +107,272 @@ export default function FeaturesPage() {
     },
     [showArchived, tagsFilter.tags, environments]
   );
+
+  const renderFeaturesTable = () => {
+    return (
+      features.length > 0 && (
+        <div>
+          <div className="row mb-2 align-items-center">
+            <div className="col-auto">
+              <Field
+                placeholder="Search..."
+                type="search"
+                {...searchInputProps}
+              />
+            </div>
+            <div className="col-auto">
+              <TagsFilter filter={tagsFilter} items={items} />
+            </div>
+            {showArchivedToggle && (
+              <div className="col">
+                <Toggle
+                  value={showArchived}
+                  id="archived"
+                  setValue={setShowArchived}
+                ></Toggle>
+                Show Archived
+              </div>
+            )}
+          </div>
+
+          <table className="table gbtable table-hover appbox">
+            <thead
+              className="sticky-top bg-white shadow-sm"
+              style={{ top: "56px", zIndex: 900 }}
+            >
+              <tr>
+                <th></th>
+                <SortableTH field="id">Feature Key</SortableTH>
+                {showProjectColumn && <th>Project</th>}
+                <SortableTH field="tags">Tags</SortableTH>
+                {toggleEnvs.map((en) => (
+                  <th key={en.id} className="text-center">
+                    {en.id}
+                  </th>
+                ))}
+                <th>Prerequisites</th>
+                <th>
+                  Default
+                  <br />
+                  Value
+                </th>
+                <th>
+                  Overrides
+                  <br />
+                  Rules
+                </th>
+                <th>Version</th>
+                <SortableTH field="dateUpdated">Last Updated</SortableTH>
+                {showGraphs && (
+                  <th>
+                    Recent Usage{" "}
+                    <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
+                  </th>
+                )}
+                <th>Stale</th>
+                <th style={{ width: 30 }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {featureItems.map((feature) => {
+                let rules: FeatureRule[] = [];
+                environments.forEach(
+                  (e) => (rules = rules.concat(getRules(feature, e.id)))
+                );
+
+                // When showing a summary of rules, prefer experiments to rollouts to force rules
+                const orderedRules = [
+                  ...rules.filter((r) => r.type === "experiment"),
+                  ...rules.filter((r) => r.type === "rollout"),
+                  ...rules.filter((r) => r.type === "force"),
+                ];
+
+                const firstRule = orderedRules[0];
+                const totalRules = rules.length || 0;
+
+                const version = feature.version;
+
+                const projectId = feature.project;
+                const projectName = projectId
+                  ? getProjectById(projectId)?.name || null
+                  : null;
+                const projectIsDeReferenced = projectId && !projectName;
+                const { stale, reason: staleReason } = staleFeatures?.[
+                  feature.id
+                ] || { stale: false };
+                const topLevelPrerequisites =
+                  feature.prerequisites?.length || 0;
+                const prerequisiteRules = rules.reduce(
+                  (acc, rule) => acc + (rule.prerequisites?.length || 0),
+                  0
+                );
+                const totalPrerequisites =
+                  topLevelPrerequisites + prerequisiteRules;
+
+                return (
+                  <tr
+                    key={feature.id}
+                    className={feature.archived ? "text-muted" : ""}
+                  >
+                    <td data-title="Watching status:" className="watching">
+                      <WatchButton
+                        item={feature.id}
+                        itemType="feature"
+                        type="icon"
+                      />
+                    </td>
+                    <td>
+                      <Link
+                        href={`/features/${feature.id}`}
+                        className={feature.archived ? "text-muted" : ""}
+                      >
+                        {feature.id}
+                      </Link>
+                    </td>
+                    {showProjectColumn && (
+                      <td>
+                        {projectIsDeReferenced ? (
+                          <Tooltip
+                            body={
+                              <>
+                                Project <code>{feature.project}</code> not found
+                              </>
+                            }
+                          >
+                            <span className="text-danger">Invalid project</span>
+                          </Tooltip>
+                        ) : (
+                          projectName ?? <em>None</em>
+                        )}
+                      </td>
+                    )}
+                    <td>
+                      <SortedTags tags={feature?.tags || []} />
+                    </td>
+                    {toggleEnvs.map((en) => (
+                      <td key={en.id} className="position-relative text-center">
+                        <EnvironmentToggle
+                          feature={feature}
+                          environment={en.id}
+                          mutate={mutate}
+                        />
+                      </td>
+                    ))}
+                    <td>
+                      {totalPrerequisites > 0 && (
+                        <div style={{ lineHeight: "16px" }}>
+                          <div className="text-dark">
+                            {totalPrerequisites} total
+                          </div>
+                          <div className="nowrap text-muted">
+                            <small>
+                              {topLevelPrerequisites > 0 && (
+                                <>{topLevelPrerequisites} top level</>
+                              )}
+                              {prerequisiteRules > 0 && (
+                                <>
+                                  <>
+                                    {topLevelPrerequisites > 0 && ", "}
+                                    {prerequisiteRules} rules
+                                  </>
+                                </>
+                              )}
+                            </small>
+                          </div>
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ minWidth: 90 }}>
+                      <ValueDisplay
+                        value={getFeatureDefaultValue(feature) || ""}
+                        type={feature.valueType}
+                        full={false}
+                        additionalStyle={{ maxWidth: 120, fontSize: "11px" }}
+                      />
+                    </td>
+                    <td>
+                      <div style={{ lineHeight: "16px" }}>
+                        {firstRule && (
+                          <span className="text-dark">{firstRule.type}</span>
+                        )}
+                        {totalRules > 1 && (
+                          <small className="text-muted ml-1">
+                            +{totalRules - 1} more
+                          </small>
+                        )}
+                      </div>
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      {version}
+                      {feature?.hasDrafts ? (
+                        <Tooltip body="This feature has an active draft that has not been published yet">
+                          <FaTriangleExclamation
+                            className="text-warning ml-1"
+                            style={{ marginTop: -3 }}
+                          />
+                        </Tooltip>
+                      ) : null}
+                    </td>
+                    <td title={datetime(feature.dateUpdated)}>
+                      {ago(feature.dateUpdated)}
+                    </td>
+                    {showGraphs && (
+                      <td style={{ width: 170 }}>
+                        <RealTimeFeatureGraph
+                          data={usage?.[feature.id]?.realtime || []}
+                          yDomain={usageDomain}
+                        />
+                      </td>
+                    )}
+                    <td style={{ textAlign: "center" }}>
+                      {stale && (
+                        <StaleFeatureIcon
+                          staleReason={staleReason}
+                          onClick={() => {
+                            if (permissions.check("manageFeatures", project))
+                              setFeatureToToggleStaleDetection(feature);
+                          }}
+                        />
+                      )}
+                    </td>
+                    <td>
+                      <MoreMenu>
+                        <button
+                          className="dropdown-item"
+                          onClick={() => {
+                            setFeatureToDuplicate(feature);
+                            setModalOpen(true);
+                          }}
+                        >
+                          Duplicate
+                        </button>
+                      </MoreMenu>
+                    </td>
+                  </tr>
+                );
+              })}
+              {!items.length && (
+                <tr>
+                  <td colSpan={showGraphs ? 7 : 6}>No matching features</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+          {Math.ceil(items.length / NUM_PER_PAGE) > 1 && (
+            <Pagination
+              numItemsTotal={items.length}
+              currentPage={currentPage}
+              perPage={NUM_PER_PAGE}
+              onPageChange={(d) => {
+                setCurrentPage(d);
+              }}
+            />
+          )}
+        </div>
+      )
+    );
+  };
+
   const { searchInputProps, items, SortableTH } = useSearch({
     items: features,
     defaultSortField: "id",
@@ -113,7 +381,6 @@ export default function FeaturesPage() {
     filterResults,
     localStorageKey: "features",
   });
-
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
   const featureItems = items.slice(start, end);
@@ -264,272 +531,20 @@ export default function FeaturesPage() {
           </a>
         </div>
       )}
-
-      {features.length > 0 && (
-        <div>
-          <div className="row mb-2 align-items-center">
-            <div className="col-auto">
-              <Field
-                placeholder="Search..."
-                type="search"
-                {...searchInputProps}
-              />
-            </div>
-            <div className="col-auto">
-              <TagsFilter filter={tagsFilter} items={items} />
-            </div>
-            {showArchivedToggle && (
-              <div className="col">
-                <Toggle
-                  value={showArchived}
-                  id="archived"
-                  setValue={setShowArchived}
-                ></Toggle>
-                Show Archived
-              </div>
-            )}
+      <Tabs newStyle={true} defaultTab="all-features">
+        <Tab id="all-features" display="All Features" padding={false}>
+          {renderFeaturesTable()}
+          <div className="alert alert-info mt-5">
+            Looking for <strong>Attributes</strong>, <strong>Namespaces</strong>
+            , <strong>Environments</strong>, or <strong>Saved Groups</strong>?
+            They have moved to the <Link href="/sdks">SDK Configuration</Link>{" "}
+            tab.
           </div>
-
-          <table className="table gbtable table-hover appbox">
-            <thead
-              className="sticky-top bg-white shadow-sm"
-              style={{ top: "56px", zIndex: 900 }}
-            >
-              <tr>
-                <th></th>
-                <SortableTH field="id">Feature Key</SortableTH>
-                {showProjectColumn && <th>Project</th>}
-                <SortableTH field="tags">Tags</SortableTH>
-                {toggleEnvs.map((en) => (
-                  <th key={en.id} className="text-center">
-                    {en.id}
-                  </th>
-                ))}
-                <th>Prerequisites</th>
-                <th>
-                  Default
-                  <br />
-                  Value
-                </th>
-                <th>
-                  Overrides
-                  <br />
-                  Rules
-                </th>
-                <th>Version</th>
-                <SortableTH field="dateUpdated">Last Updated</SortableTH>
-                {showGraphs && (
-                  <th>
-                    Recent Usage{" "}
-                    <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
-                  </th>
-                )}
-                <th>Stale</th>
-                <th style={{ width: 30 }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {featureItems.map((feature) => {
-                let rules: FeatureRule[] = [];
-                environments.forEach(
-                  (e) => (rules = rules.concat(getRules(feature, e.id)))
-                );
-
-                // When showing a summary of rules, prefer experiments to rollouts to force rules
-                const orderedRules = [
-                  ...rules.filter((r) => r.type === "experiment"),
-                  ...rules.filter((r) => r.type === "rollout"),
-                  ...rules.filter((r) => r.type === "force"),
-                ];
-
-                const firstRule = orderedRules[0];
-                const totalRules = rules.length || 0;
-
-                const version = feature.version;
-
-                const projectId = feature.project;
-                const projectName = projectId
-                  ? getProjectById(projectId)?.name || null
-                  : null;
-                const projectIsDeReferenced = projectId && !projectName;
-                const { stale, reason: staleReason } = staleFeatures?.[
-                  feature.id
-                ] || { stale: false };
-                const topLevelPrerequisites =
-                  feature.prerequisites?.length || 0;
-                const prerequisiteRules = rules.reduce(
-                  (acc, rule) => acc + (rule.prerequisites?.length || 0),
-                  0
-                );
-                const totalPrerequisites =
-                  topLevelPrerequisites + prerequisiteRules;
-
-                return (
-                  <tr
-                    key={feature.id}
-                    className={feature.archived ? "text-muted" : ""}
-                  >
-                    <td data-title="Watching status:" className="watching">
-                      <WatchButton
-                        item={feature.id}
-                        itemType="feature"
-                        type="icon"
-                      />
-                    </td>
-                    <td>
-                      <Link href={`/features/${feature.id}`}>
-                        <a className={feature.archived ? "text-muted" : ""}>
-                          {feature.id}
-                        </a>
-                      </Link>
-                    </td>
-                    {showProjectColumn && (
-                      <td>
-                        {projectIsDeReferenced ? (
-                          <Tooltip
-                            body={
-                              <>
-                                Project <code>{feature.project}</code> not found
-                              </>
-                            }
-                          >
-                            <span className="text-danger">Invalid project</span>
-                          </Tooltip>
-                        ) : (
-                          projectName ?? <em>None</em>
-                        )}
-                      </td>
-                    )}
-                    <td>
-                      <SortedTags tags={feature?.tags || []} />
-                    </td>
-                    {toggleEnvs.map((en) => (
-                      <td key={en.id} className="position-relative text-center">
-                        <EnvironmentToggle
-                          feature={feature}
-                          environment={en.id}
-                          mutate={mutate}
-                        />
-                      </td>
-                    ))}
-                    <td>
-                      {totalPrerequisites > 0 && (
-                        <div style={{ lineHeight: "16px" }}>
-                          <div className="text-dark">
-                            {totalPrerequisites} total
-                          </div>
-                          <div className="nowrap text-muted">
-                            <small>
-                              {topLevelPrerequisites > 0 && (
-                                <>{topLevelPrerequisites} top level</>
-                              )}
-                              {prerequisiteRules > 0 && (
-                                <>
-                                  <>
-                                    {topLevelPrerequisites > 0 && ", "}
-                                    {prerequisiteRules} rules
-                                  </>
-                                </>
-                              )}
-                            </small>
-                          </div>
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      <ValueDisplay
-                        value={getFeatureDefaultValue(feature) || ""}
-                        type={feature.valueType}
-                        full={false}
-                        additionalStyle={{ maxWidth: 120, fontSize: "11px" }}
-                      />
-                    </td>
-                    <td>
-                      <div style={{ lineHeight: "16px" }}>
-                        {firstRule && (
-                          <span className="text-dark">{firstRule.type}</span>
-                        )}
-                        {totalRules > 1 && (
-                          <small className="text-muted ml-1">
-                            +{totalRules - 1} more
-                          </small>
-                        )}
-                      </div>
-                    </td>
-                    <td style={{ textAlign: "center" }}>
-                      {version}
-                      {feature?.hasDrafts ? (
-                        <Tooltip body="This feature has an active draft that has not been published yet">
-                          <FaTriangleExclamation
-                            className="text-warning ml-1"
-                            style={{ marginTop: -3 }}
-                          />
-                        </Tooltip>
-                      ) : null}
-                    </td>
-                    <td title={datetime(feature.dateUpdated)}>
-                      {ago(feature.dateUpdated)}
-                    </td>
-                    {showGraphs && (
-                      <td style={{ width: 170 }}>
-                        <RealTimeFeatureGraph
-                          data={usage?.[feature.id]?.realtime || []}
-                          yDomain={usageDomain}
-                        />
-                      </td>
-                    )}
-                    <td style={{ textAlign: "center" }}>
-                      {stale && (
-                        <StaleFeatureIcon
-                          staleReason={staleReason}
-                          onClick={() => {
-                            if (permissions.check("manageFeatures", project))
-                              setFeatureToToggleStaleDetection(feature);
-                          }}
-                        />
-                      )}
-                    </td>
-                    <td>
-                      <MoreMenu>
-                        <button
-                          className="dropdown-item"
-                          onClick={() => {
-                            setFeatureToDuplicate(feature);
-                            setModalOpen(true);
-                          }}
-                        >
-                          Duplicate
-                        </button>
-                      </MoreMenu>
-                    </td>
-                  </tr>
-                );
-              })}
-              {!items.length && (
-                <tr>
-                  <td colSpan={showGraphs ? 7 : 6}>No matching features</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-          {Math.ceil(items.length / NUM_PER_PAGE) > 1 && (
-            <Pagination
-              numItemsTotal={items.length}
-              currentPage={currentPage}
-              perPage={NUM_PER_PAGE}
-              onPageChange={(d) => {
-                setCurrentPage(d);
-              }}
-            />
-          )}
-        </div>
-      )}
-
-      <div className="alert alert-info mt-5">
-        Looking for <strong>Attributes</strong>, <strong>Namespaces</strong>,{" "}
-        <strong>Environments</strong>, or <strong>Saved Groups</strong>? They
-        have moved to the <Link href="/sdks">SDK Configuration</Link> tab.
-      </div>
+        </Tab>
+        <Tab id="drafts" display="Drafts" padding={false} lazy={true}>
+          <FeaturesDraftTable features={features} />
+        </Tab>
+      </Tabs>
     </div>
   );
 }

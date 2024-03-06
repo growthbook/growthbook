@@ -1,5 +1,5 @@
 import stringify from "json-stringify-pretty-compact";
-import { AttributeData, condToJson, jsonToConds } from "../services/features";
+import { AttributeData, condToJson, jsonToConds } from "@/services/features";
 
 describe("json <-> conds", () => {
   const attributeMap: Map<string, AttributeData> = new Map();

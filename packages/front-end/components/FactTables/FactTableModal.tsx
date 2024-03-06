@@ -13,14 +13,14 @@ import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import track from "@/services/track";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
-import { getNewExperimentDatasourceDefaults } from "../Experiment/NewExperimentForm";
-import MultiSelectField from "../Forms/MultiSelectField";
-import EditSqlModal from "../SchemaBrowser/EditSqlModal";
-import Code from "../SyntaxHighlighting/Code";
-import { usesEventName } from "../Metrics/MetricForm";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
+import Code from "@/components/SyntaxHighlighting/Code";
+import { usesEventName } from "@/components/Metrics/MetricForm";
 
 export interface Props {
   existing?: FactTableInterface;

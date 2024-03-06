@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { MINIMUM_MULTIPLE_EXPOSURES } from "../Experiment/MultipleExposureWarning";
-import { useSnapshot } from "../Experiment/SnapshotProvider";
+import { MINIMUM_MULTIPLE_EXPOSURES } from "@/components/Experiment/MultipleExposureWarning";
+import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { HealthStatus, StatusBadge } from "./StatusBadge";
 import { IssueValue } from "./IssueTags";
 

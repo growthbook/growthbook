@@ -1,4 +1,4 @@
-import React, { FC, Fragment, useState } from "react";
+import React, { FC, Fragment, ReactElement, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
 import { SegmentInterface } from "back-end/types/segment";
 import { IdeaInterface } from "back-end/types/idea";
@@ -54,7 +54,7 @@ const SegmentPage: FC = () => {
   }
 
   const getSegmentUsage = (s: SegmentInterface) => {
-    return async () => {
+    return async (): Promise<ReactElement | null> => {
       try {
         const res = await apiCall<{
           status: number;
@@ -66,65 +66,43 @@ const SegmentPage: FC = () => {
           method: "GET",
         });
 
-        const metricLinks = [];
-        const ideaLinks = [];
-        const expLinks = [];
+        const metricLinks: (ReactElement | string)[] = [];
+        const ideaLinks: (ReactElement | string)[] = [];
+        const expLinks: (ReactElement | string)[] = [];
         let subtitleText = "This segment is not referenced anywhere else.";
         if (res.total) {
           subtitleText = "This segment is referenced in ";
-          const refs = [];
-          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-          if (res.metrics.length) {
+          const refs: (ReactElement | string)[] = [];
+          if (res.metrics && res.metrics.length) {
             refs.push(
-              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               res.metrics.length === 1
                 ? "1 metric"
-                : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                  res.metrics.length + " metrics"
+                : res.metrics.length + " metrics"
             );
-            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             res.metrics.forEach((m) => {
               metricLinks.push(
-                // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
-                <Link href={`/metric/${m.id}`}>
-                  <a className="">{m.name}</a>
+                <Link href={`/metric/${m.id}`} className="">
+                  {m.name}
                 </Link>
               );
             });
           }
-          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-          if (res.ideas.length) {
+          if (res.ideas && res.ideas.length) {
             refs.push(
-              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               res.ideas.length === 1 ? "1 idea" : res.ideas.length + " ideas"
             );
-            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             res.ideas.forEach((i) => {
-              ideaLinks.push(
-                // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
-                <Link href={`/idea/${i.id}`}>
-                  <a>{i.text}</a>
-                </Link>
-              );
+              ideaLinks.push(<Link href={`/idea/${i.id}`}>{i.text}</Link>);
             });
           }
-          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-          if (res.experiments.length) {
+          if (res.experiments && res.experiments.length) {
             refs.push(
-              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               res.experiments.length === 1
                 ? "1 experiment"
-                : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                  res.experiments.length + " Experiments"
+                : res.experiments.length + " Experiments"
             );
-            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             res.experiments.forEach((e) => {
-              expLinks.push(
-                // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
-                <Link href={`/experiment/${e.id}`}>
-                  <a>{e.name}</a>
-                </Link>
-              );
+              expLinks.push(<Link href={`/experiment/${e.id}`}>{e.name}</Link>);
             });
           }
           subtitleText += refs.join(" and ");
@@ -198,6 +176,7 @@ const SegmentPage: FC = () => {
           </div>
         );
       }
+      return null;
     };
   };
 
@@ -322,8 +301,7 @@ const SegmentPage: FC = () => {
                         />
                       </td>
                       {canAddEditRemoveSegments() && (
-                        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Date | null' is not assignable t... Remove this comment to see the full error message
-                        <td>{ago(s.dateUpdated)}</td>
+                        <td>{ago(s.dateUpdated || "")}</td>
                       )}
                       {canAddEditRemoveSegments() && (
                         <td>
@@ -343,7 +321,6 @@ const SegmentPage: FC = () => {
                             className={"tr-hover text-primary"}
                             displayName={s.name}
                             title="Delete this segment"
-                            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '() => Promise<JSX.Element | undefined>' is n... Remove this comment to see the full error message
                             getConfirmationContent={getSegmentUsage(s)}
                             onClick={async () => {
                               await apiCall<{

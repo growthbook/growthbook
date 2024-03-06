@@ -3,7 +3,7 @@ import React, { ReactElement, useEffect, useState } from "react";
 import { FeatureInterface } from "back-end/types/feature";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import CodeSnippetModal from "../CodeSnippetModal";
+import CodeSnippetModal from "@/components/Features/CodeSnippetModal";
 import SDKConnectionForm from "./SDKConnectionForm";
 
 export default function InitialSDKConnectionForm({

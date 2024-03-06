@@ -3,8 +3,8 @@ import { useRouter } from "next/router";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useUser } from "@/services/UserContext";
-import LoadingOverlay from "../components/LoadingOverlay";
-import { useFeaturesList } from "../services/features";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { useFeaturesList } from "@/services/features";
 
 export default function Home(): React.ReactElement {
   const router = useRouter();

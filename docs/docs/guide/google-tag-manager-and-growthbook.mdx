@@ -222,7 +222,13 @@ attributes: {
 }
 ```
 
-### Tracking callback
+:::note
+
+On first load, the cookie may not be available, so you can either wait for it, use the js way above, or set your own ID that can be used for immediate assignment.
+
+:::
+
+## Tracking callback
 
 Tracking callbacks are fired when a user is placed into an experiment.
 
@@ -269,11 +275,114 @@ trackingCallback: function (experiment, result) {
 })
 ```
 
+:::note
+
+If you are using GA4 via GTM, adding custom events via the dataLayer will not automatically trigger GA4 events. You will need to create a custom trigger in GTM to listen for these events and then fire the appropriate GA4 event. See below.
+
+:::
+
 Note the omission of `client_id`, as this is typically included by default in GA events.
+
+### Tracking via DataLayer and GTM
+
+By default, custom events are not sent to GA4 and must be manually configured in the GTM dashboard first. This section
+describes all the steps required to get custom events tracking correctly in GA4 via GTM.
+
+#### Step 1: Add a new Tag
+
+![Step 1](/images/guides/gtm-ga4-1.png)
+
+Click “Tag Configuration”
+
+![Step 2](/images/guides/gtm-ga4-2.png)
+
+Choose “Google Analytics”
+
+![Step 3](/images/guides/gtm-ga4-3.png)
+
+Then, choose “Google Analytics: GA4 Event”
+
+#### Step 2: Start Configuring the Tag
+
+You will be presented with the following screen:
+
+![Step 4](/images/guides/gtm-ga4-4.png)
+
+Fill out the following fields:
+
+- Measurement ID: Your GA4 measurement id (find it in the GA4 admin settings)
+- Event Name: `experiment_viewed`
+
+Also, add 2 parameters, but only fill out the name. Leave the value empty for now
+
+- `experiment_id`
+- `variation_id`
+
+![Step 5](/images/guides/gtm-ga4-5.png)
+
+#### Step 3: Add Variables for Experiment and Variation Ids
+
+These steps will be repeated for both the `experiment_id` and `variation_id` parameters. We will start with `experiment_id`:
+
+Click the [+] icon in the Value input for `experiment_id`
+
+![Step 6](/images/guides/gtm-ga4-6.png)
+
+Click the blue “+” in the top right corner to add a new variable
+
+![Step 7](/images/guides/gtm-ga4-7.png)
+
+Click on “Variable Configuration”:
+
+![Step 8](/images/guides/gtm-ga4-8.png)
+
+Select “Data Layer Variable” and enter `experiment_id` as the Data Layer Variable Name.
+
+Also, add a descriptive name for your variable in the top left where it says “Untitled Variable” (”Experiment Id” shown below)
+
+![Step 9](/images/guides/gtm-ga4-9.png)
+
+Click the blue “Save” button.
+
+**Repeat the above steps for the `variation_id` variable**
+
+#### Step 4: Add a Trigger
+
+You should be left with the following configuration. Add a descriptive name in the top left for your tag if you haven’t already - “GA4 - Experiment Viewed Event” shown here.
+
+![Step 10](/images/guides/gtm-ga4-10.png)
+
+Click the “Triggering” section
+
+![Step 11](/images/guides/gtm-ga4-11.png)
+
+Click the blue “+” in the top right to add a new trigger. Enter a descriptive name in the top left (”Experiment Viewed Event” shown here)
+
+![Step 12](/images/guides/gtm-ga4-12.png)
+
+Click “Trigger Configuration”
+
+![Step 13](/images/guides/gtm-ga4-13.png)
+
+Click “Custom Event”:
+
+![Step 14](/images/guides/gtm-ga4-14.png)
+
+Enter `experiment_viewed` as the Event name and click the blue “Save” button.
+
+Below is the end result of your tag configuration. Click the blue “Save” button to finish.
+
+![Step 15](/images/guides/gtm-ga4-15.png)
+
+#### Step 5: Publish Your Changes
+
+Finally, publish your changes in Google Tag Manager and you’re done!
+
+## Rendering AB Tests
 
 We're now ready to start implementing our AB test rendering logic. Let's return to the two aforementioned implementation strategies...
 
-## Strategy 1: Page speed optimized, inline experiments
+### Strategy 1: Page speed optimized, inline experiments
 
 Recall that in this strategy, we define our experiments and their rulesets inline. This avoids an extra network request via `gb.loadFeatures()`, which introduces an additional delay. Avoiding this lookup ensures any render flickering is minimized.
 
@@ -332,7 +441,7 @@ Find the section of our snippet above beginning with `// TODO: Instrument DOM wi
 
 Note that we have needed to define the properties of both our `button-experiment` and `banner-experiment` inline. Although less flexible than using feature flags defined in GrowthBook, this approach is performant and relatively easy to implement. The `gb.run()` call, which evaluates a feature flag to determine which AB test variant a user belongs to, is evaluated on the client side and does not make a network call.
 
-## Strategy 2: Flexible feature flags, less performant
+### Strategy 2: Flexible feature flags, less performant
 
 Recall that our second strategy allows us the flexibility of referencing feature flags and their targeting rules, which we may modify in the GrowthBook app without pushing an update to our GTM tag, even after the test has launched. Also recall that this strategy comes with additional page flickering while we await feature flag definitions from the GrowthBook app before rendering our variations.
 

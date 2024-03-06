@@ -5,7 +5,7 @@ import track from "@/services/track";
 import usePermissions from "@/hooks/usePermissions";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
-import Toggle from "../Forms/Toggle";
+import Toggle from "@/components/Forms/Toggle";
 
 export interface Props {
   feature: FeatureInterface;

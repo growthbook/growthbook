@@ -10,11 +10,11 @@ import { useRouter } from "next/router";
 import { useSearch } from "@/services/search";
 import usePermissions from "@/hooks/usePermissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Field from "../Forms/Field";
-import Tooltip from "../Tooltip/Tooltip";
-import { GBAddCircle } from "../Icons";
-import SortedTags from "../Tags/SortedTags";
-import MetricName from "../Metrics/MetricName";
+import Field from "@/components/Forms/Field";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { GBAddCircle } from "@/components/Icons";
+import SortedTags from "@/components/Tags/SortedTags";
+import MetricName from "@/components/Metrics/MetricName";
 import FactMetricModal from "./FactMetricModal";
 
 export interface Props {
@@ -125,10 +125,12 @@ export default function FactMetricList({ factTable }: Props) {
                   }}
                 >
                   <td>
-                    <Link href={`/fact-metrics/${metric.id}`}>
-                      <a className="font-weight-bold" title="View Metric">
-                        <MetricName id={metric.id} /> <FaExternalLinkAlt />
-                      </a>
+                    <Link
+                      href={`/fact-metrics/${metric.id}`}
+                      className="font-weight-bold"
+                      title="View Metric"
+                    >
+                      <MetricName id={metric.id} /> <FaExternalLinkAlt />
                     </Link>
                   </td>
                   <td>{metric.metricType}</td>

@@ -9,7 +9,7 @@ import {
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { trackSnapshot } from "@/services/track";
-import Button from "../Button";
+import Button from "@/components/Button";
 import ManualSnapshotForm from "./ManualSnapshotForm";
 
 const RefreshSnapshotButton: FC<{

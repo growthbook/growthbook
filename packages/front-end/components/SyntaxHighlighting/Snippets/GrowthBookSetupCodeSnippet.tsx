@@ -2,7 +2,7 @@ import { SDKLanguage } from "back-end/types/sdk-connection";
 import { useState } from "react";
 import { DocLink } from "@/components/DocLink";
 import SelectField from "@/components/Forms/SelectField";
-import Code from "../Code";
+import Code from "@/components/SyntaxHighlighting/Code";
 
 export default function GrowthBookSetupCodeSnippet({
   language,

@@ -24,19 +24,13 @@ export default function SDKWebhooks({ sdkid }) {
   ] = useState<null | Partial<WebhookInterface>>(null);
   const { apiCall } = useAuth();
   const permissions = usePermissions();
-  const { accountPlan } = useUser();
+  const { hasCommercialFeature } = useUser();
 
   const hasWebhookPermissions = permissions.check("manageWebhooks");
-  const amountOfWebhooks = data?.webhooks?.length || 0;
-  const webhookLimits = {
-    pro: 99,
-    starter: 2,
-  };
+  const hasWebhooks = !!data?.webhooks?.length;
   const disableWebhookCreate =
-    (accountPlan?.includes("pro") && amountOfWebhooks < webhookLimits.pro) ||
-    accountPlan?.includes("starter") ||
-    (accountPlan?.includes("unknown") &&
-      amountOfWebhooks < webhookLimits.starter);
+    hasWebhooks && !hasCommercialFeature("multiple-sdk-webhooks");
+
   const renderTableRows = () => {
     // only render table if there is data to show
     return data?.webhooks?.map((webhook) => (
@@ -111,19 +105,27 @@ export default function SDKWebhooks({ sdkid }) {
   const renderAddWebhookButton = () => (
     <>
       {hasWebhookPermissions && (
-        <button
-          className="btn btn-primary mb-2"
-          disabled={disableWebhookCreate}
-          onClick={(e) => {
-            e.preventDefault();
-            if (!disableWebhookCreate) setCreateWebhookModalOpen({});
-          }}
+        <Tooltip
+          body={
+            disableWebhookCreate
+              ? "You can only have one webhook per SDK Connection in the free plan"
+              : ""
+          }
         >
-          <span className="h4 pr-2 m-0 d-inline-block align-top">
-            <GBAddCircle />
-          </span>
-          Add Webhook
-        </button>
+          <button
+            className="btn btn-primary mb-2"
+            disabled={disableWebhookCreate}
+            onClick={(e) => {
+              e.preventDefault();
+              if (!disableWebhookCreate) setCreateWebhookModalOpen({});
+            }}
+          >
+            <span className="h4 pr-2 m-0 d-inline-block align-top">
+              <GBAddCircle />
+            </span>
+            Add Webhook
+          </button>
+        </Tooltip>
       )}
       <Tooltip
         body={
