@@ -1917,7 +1917,7 @@ export async function postSnapshotsWithScaledImpactAnalysis(
     ids: string[];
   }>,
   res: Response<
-    | { status: 200; snapshots: ExperimentSnapshotInterface[] }
+    | { status: 200 }
     | PrivateApiErrorResponse
   >
 ) {
@@ -1927,7 +1927,6 @@ export async function postSnapshotsWithScaledImpactAnalysis(
   if (!ids.length) {
     res.status(200).json({
       status: 200,
-      snapshots: [],
     });
     return;
   }
@@ -1961,25 +1960,19 @@ export async function postSnapshotsWithScaledImpactAnalysis(
 
       addCoverageToSnapshotIfMissing(s, experiment);
 
-      createSnapshotAnalysis({
+      await createSnapshotAnalysis({
         experiment: experiment,
         organization: org,
         analysisSettings: scaledImpactAnalysisSettings,
         metricMap: metricMap,
         snapshot: s,
+      }).catch((e) => {
+        req.log.error(e);
       })
-        .then(() => {
-          preppedSnapshots.push(s);
-        })
-        .catch((e) => {
-          req.log.error(e);
-        });
-      return;
     })
   );
   res.status(200).json({
     status: 200,
-    snapshots: preppedSnapshots,
   });
   return;
 }

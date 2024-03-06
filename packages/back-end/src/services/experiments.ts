@@ -699,7 +699,7 @@ export async function createSnapshotAnalysis({
   analysis.status = "success";
   analysis.error = undefined;
 
-  updateSnapshotAnalysis(organization.id, snapshot.id, analysis);
+  await updateSnapshotAnalysis(organization.id, snapshot.id, analysis);
 }
 
 function getExperimentMetric(

@@ -10,7 +10,6 @@ import { getSnapshotAnalysis } from "shared/util";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { useForm } from "react-hook-form";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
-import { BsArrowRepeat } from "react-icons/bs";
 import SelectField from "@/components/Forms/SelectField";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
@@ -23,7 +22,7 @@ import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
 import Field from "@/components/Forms/Field";
 import MetricSelector from "@/components/Experiment/MetricSelector";
-import Button from "@/components/Button";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 function jamesSteinAdjustment(
   effects: number[],
@@ -293,7 +292,7 @@ export default function ExperimentImpact({
   const formatter = metricInterface
     ? getExperimentMetricFormatter(metricInterface, getFactTableById, true)
     : formatNumber;
-  console.log(formatter);
+
   const formatterOptions: Intl.NumberFormatOptions = {
     currency: displayCurrency,
     notation: "compact",
@@ -304,14 +303,42 @@ export default function ExperimentImpact({
   // 2 check for snapshots w/o impact
   // 3 if snapshots exist w/o impact analysis object:
   //   upgrade those snapshots with scaled impact, then post
-  // 4 if snapshots exist w impact analysis object but status is not success:
-  //   warning text at bottom w/ retry button
-  const [
-    experimentsWithBrokenImpact,
-    setExperimentsWithBrokenImpact,
-  ] = useState<string[]>([]);
+  const [experimentsWithNoImpact, setExperimentsWithNoImpact] = useState<
+    string[]
+  >([]);
+
+  const setMissingAndBrokenScaledImpactExperiments = async (
+    experiments: ExperimentInterfaceStringDates[],
+    snapshots: ExperimentSnapshotInterface[] | undefined
+  ) => {
+    const experimentsWithNoImpact: string[] = [];
+    experiments.forEach((e) => {
+      const s = (snapshots ?? []).find((s) => s.experiment === e.id);
+      if (!s) {
+        return;
+      }
+      // get first analysis as that is always the "default"
+      const defaultAnalysis = getSnapshotAnalysis(s);
+      if (!defaultAnalysis) {
+        return;
+      }
+      const scaledImpactAnalysisSettings: ExperimentSnapshotAnalysisSettings = {
+        ...defaultAnalysis.settings,
+        differenceType: "scaled",
+      };
+      const scaledAnalysis = getSnapshotAnalysis(
+        s,
+        scaledImpactAnalysisSettings
+      );
+      if (!scaledAnalysis || scaledAnalysis.status !== "success") {
+        experimentsWithNoImpact.push(e.id);
+      }
+    });
+    setExperimentsWithNoImpact(experimentsWithNoImpact);
+  };
 
   const fetchSnapshots = useCallback(async () => {
+    setLoading(true);
     const { snapshots } = await apiCall<{
       snapshots: ExperimentSnapshotInterface[];
     }>(
@@ -323,9 +350,13 @@ export default function ExperimentImpact({
       }
     );
     setSnapshots(snapshots);
+    setMissingAndBrokenScaledImpactExperiments(experiments, snapshots);
+    setLoading(false);
   }, [apiCall, experiments]);
+
   const updateSnapshots = useCallback(
     async (ids: string[]) => {
+      setLoading(true);
       await apiCall<{
         snapshots: ExperimentSnapshotInterface[];
       }>("/experiments/snapshots/scaled/", {
@@ -334,56 +365,32 @@ export default function ExperimentImpact({
           ids: ids,
         }),
       });
+      // TODO error catching, return status to catch failed posts
     },
     [apiCall]
   );
 
   useEffect(() => {
-    setLoading(true);
-
     // 1 gets latest non-dimension snapshot from latest phase
+    // and  2 check for snapshots w/o impact
     fetchSnapshots();
+  }, [fetchSnapshots]);
 
-    // 2 check for snapshots w/o impact
-    const experimentsWithNoImpact: string[] = [];
-    const experimentsWithBrokenImpact: string[] = [];
-    // 2 check for snapshots w/o impact
-    experiments.forEach((e) => {
-      const s = (snapshots ?? []).find((s) => s.experiment === e.id);
-      if (!s) {
-        experimentsWithNoImpact.push(e.id);
-        return;
-      }
-      // get first analysis as that is always the "default"
-      const defaultAnalysis = getSnapshotAnalysis(s);
-      if (!defaultAnalysis) {
-        experimentsWithNoImpact.push(e.id);
-        return;
-      }
-      const scaledImpactAnalysisSettings: ExperimentSnapshotAnalysisSettings = {
-        ...defaultAnalysis.settings,
-        differenceType: "scaled",
-      };
-      const scaledAnalysis = getSnapshotAnalysis(
-        s,
-        scaledImpactAnalysisSettings
-      );
-      if (!scaledAnalysis) {
-        experimentsWithNoImpact.push(e.id);
-      } else if (scaledAnalysis.status !== "success") {
-        experimentsWithBrokenImpact.push(e.id);
-      }
-    });
-    setExperimentsWithBrokenImpact(experimentsWithBrokenImpact);
+  const [alreadyAutoPosted, setAlreadyAutoPosted] = useState(false);
 
-    // 3 missing impact
-    if (experimentsWithNoImpact.length) {
-      updateSnapshots(experimentsWithNoImpact);
-      fetchSnapshots();
+  useEffect(() => {
+    // 3 update snapshots missing impact
+    if (experimentsWithNoImpact.length && !alreadyAutoPosted) {
+      updateSnapshots(experimentsWithNoImpact).then(() => fetchSnapshots());
+      setAlreadyAutoPosted(true);
     }
-
-    setLoading(false);
-  }, [apiCall, experiments, fetchSnapshots, snapshots, updateSnapshots]);
+  }, [
+    fetchSnapshots,
+    updateSnapshots,
+    experimentsWithNoImpact,
+    alreadyAutoPosted,
+    setAlreadyAutoPosted,
+  ]);
 
   const exps = experiments
     .filter((e) =>
@@ -399,8 +406,8 @@ export default function ExperimentImpact({
         ).getTime()
     );
 
-  if (!snapshots && loading) {
-    return <>Loading</>;
+  if (loading) {
+    return <LoadingSpinner />;
   }
 
   const experimentImpacts = new Map<string, ExperimentWithImpact>();
@@ -727,22 +734,6 @@ export default function ExperimentImpact({
               />
             </Tab>
           </ControlledTabs>
-        </div>
-      ) : null}
-      {/* TODO */}
-      {experimentsWithBrokenImpact.length ? (
-        <div>
-          Some experiments could not have impact computed
-          <Button
-            onClick={() => {
-              setLoading(true);
-              updateSnapshots(experimentsWithBrokenImpact);
-              fetchSnapshots();
-              setLoading(false);
-            }}
-          >
-            <BsArrowRepeat />
-          </Button>
         </div>
       ) : null}
     </div>
