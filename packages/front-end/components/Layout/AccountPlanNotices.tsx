@@ -124,7 +124,7 @@ export default function AccountPlanNotices() {
     if (!license.emailVerified && license.plan) {
       return (
         <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
-          Check your email. Verify your account to activate your {license.plan}{" "}
+          Check email to verify account and activate {license.plan}{" "}
           {license.isTrial ? "trial" : "license"}.
         </div>
       );
