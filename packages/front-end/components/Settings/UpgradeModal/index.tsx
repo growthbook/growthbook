@@ -43,7 +43,7 @@ export default function UpgradeModal({ close, source }: Props) {
     false
   );
 
-  const { accountPlan, permissions, license } = useUser();
+  const { name, email, accountPlan, permissions, license } = useUser();
 
   const { organization, refreshOrganization } = useUser();
 
@@ -279,7 +279,7 @@ export default function UpgradeModal({ close, source }: Props) {
           plan="Pro"
           close={close}
           error={error}
-          submit={startProTrial}
+          submit={() => startProTrial(name, email)}
         />
       ) : showCloudProTrialSuccess ? (
         <LicenseSuccessModal
@@ -293,7 +293,7 @@ export default function UpgradeModal({ close, source }: Props) {
           plan="Enterprise"
           close={close}
           error={error}
-          submit={startEnterpriseTrial}
+          submit={() => startEnterpriseTrial(name, email)}
         />
       ) : showCloudEnterpriseTrialSuccess ? (
         <LicenseSuccessModal
