@@ -4,7 +4,7 @@ import {
   AccountPlan,
   LicenseServerError,
   postCreateTrialEnterpriseLicenseToLicenseServer,
-  postResendTrialLicenseEmailToLicenseServer,
+  postResendEmailVerificationEmailToLicenseServer,
   postVerifyEmailToLicenseServer,
 } from "enterprise";
 import {
@@ -102,8 +102,11 @@ export async function postCreateTrialEnterpriseLicense(
       context
     );
 
-    await updateOrganization(org.id, { licenseKey: results.licenseId });
-
+    if (!org.licenseKey) {
+      await updateOrganization(org.id, { licenseKey: results.licenseId });
+    } else {
+      await initializeLicenseForOrg(req.organization, true);
+    }
     return res.status(200).json({ status: 200 });
   } catch (e) {
     if (e instanceof LicenseServerError) {
@@ -116,7 +119,7 @@ export async function postCreateTrialEnterpriseLicense(
   }
 }
 
-export async function postResendTrialLicenseEmail(
+export async function postResendEmailVerificationEmail(
   req: AuthRequest,
   res: Response
 ) {
@@ -125,7 +128,7 @@ export async function postResendTrialLicenseEmail(
   const { org } = getContextFromReq(req);
 
   try {
-    await postResendTrialLicenseEmailToLicenseServer(org.id);
+    await postResendEmailVerificationEmailToLicenseServer(org.id);
 
     return res.status(200).json({ status: 200 });
   } catch (e) {

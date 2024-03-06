@@ -671,7 +671,7 @@ app.post(
 );
 app.post(
   "/license/resend-verification-email",
-  licenseController.postResendTrialLicenseEmail
+  licenseController.postResendEmailVerificationEmail
 );
 app.post("/license/verify-email", licenseController.postVerifyEmail);
 

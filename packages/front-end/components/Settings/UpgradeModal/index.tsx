@@ -60,7 +60,8 @@ export default function UpgradeModal({ close, source }: Props) {
       : "Starter") + (license && license.isTrial ? " trial" : "");
 
   // When signing up to pro, but not finishing the checkout process a license gets generated and saved but has no plan.
-  const freeTrialAvailable = !license || !license.plan;
+  const freeTrialAvailable =
+    !license || !license.plan || !license.emailVerified;
 
   const daysToGo = license ? daysLeft(license.dateExpires) : 0;
 
@@ -198,6 +199,7 @@ export default function UpgradeModal({ close, source }: Props) {
       });
 
       track("Generate enterprise trial license", trackContext);
+      await refreshOrganization();
       if (isCloud()) {
         setShowCloudEnterpriseTrialSuccess(true);
         setShowCloudEnterpriseTrial(false);
@@ -205,8 +207,6 @@ export default function UpgradeModal({ close, source }: Props) {
         setShowSHEnterpriseTrialSuccess(true);
         setShowSHEnterpriseTrial(false);
       }
-
-      refreshOrganization();
     } catch (e) {
       const txt = e.message;
       track("Generate enterprise trial license error", {
@@ -232,24 +232,6 @@ export default function UpgradeModal({ close, source }: Props) {
     }
   };
 
-  // TODO: Need to update this flow
-  /*
-  const resendVerificationEmail = async () => {
-    setError("");
-    const resp = await apiCall<{
-      status: number;
-      message?: string;
-    }>(`/license/resend-verification-email`, {
-      method: "POST",
-    });
-
-    if (resp?.status === 200) {
-      setError("Verification email sent");
-    } else {
-      setError("Failed to send verification email");
-    }
-  };*/
-
   return (
     <div>
       {showSHProTrial ? (
@@ -260,7 +242,15 @@ export default function UpgradeModal({ close, source }: Props) {
           submit={startProTrial}
         />
       ) : showSHProTrialSuccess ? (
-        <PleaseVerifyEmailModal close={close} plan="Pro" isTrial={true} />
+        <PleaseVerifyEmailModal
+          close={close}
+          plan="Pro"
+          isTrial={true}
+          reenterEmail={() => {
+            setShowSHProTrial(true);
+            setShowSHProTrialSuccess(false);
+          }}
+        />
       ) : showSHEnterpriseTrial ? (
         <SelfHostedTrialConfirmationModal
           close={close}
@@ -273,6 +263,10 @@ export default function UpgradeModal({ close, source }: Props) {
           close={close}
           plan="Enterprise"
           isTrial={true}
+          reenterEmail={() => {
+            setShowSHEnterpriseTrial(true);
+            setShowSHEnterpriseTrialSuccess(false);
+          }}
         />
       ) : showCloudProTrial ? (
         <CloudTrialConfirmationModal

@@ -123,10 +123,19 @@ export default function AccountPlanNotices() {
     }
     if (!license.emailVerified && license.plan) {
       return (
-        <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
-          Check email to verify account and activate {license.plan}{" "}
-          {license.isTrial ? "trial" : "license"}.
-        </div>
+        <Tooltip
+          body={
+            <>
+              An email was sent to {license.email}. If you can&apos;t find it,
+              check your spam folder, or restart the upgrade process.
+            </>
+          }
+        >
+          <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
+            Check email to verify account and activate {license.plan}{" "}
+            {license.isTrial ? "trial" : "license"}.
+          </div>
+        </Tooltip>
       );
     }
 

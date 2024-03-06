@@ -4,3 +4,13 @@
     text-decoration: underline;
   }
 }
+
+a.unclickable {
+  pointer-events: none;
+  cursor: default;
+  text-decoration: none;
+  :hover {
+    text-decoration: none;
+  }
+  color: grey;
+}
