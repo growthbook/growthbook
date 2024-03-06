@@ -538,6 +538,7 @@ app.post(
   "/feature/:id/:version/defaultvalue",
   featuresController.postFeatureDefaultValue
 );
+app.post("/feature/:id/sync", featuresController.postFeatureSync);
 app.post("/feature/:id/schema", featuresController.postFeatureSchema);
 app.post(
   "/feature/:id/:version/discard",

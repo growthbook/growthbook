@@ -945,6 +945,123 @@ export async function postFeatureRule(
   });
 }
 
+export async function postFeatureSync(
+  req: AuthRequest<
+    Omit<
+      FeatureInterface,
+      "organization" | "version" | "dateCreated" | "dateUpdated"
+    >,
+    { id: string }
+  >,
+  res: Response<
+    { status: 200; feature: FeatureInterface },
+    EventAuditUserForResponseLocals
+  >
+) {
+  const context = getContextFromReq(req);
+  const { environments } = context;
+  const { id } = req.params;
+
+  const feature = await getFeature(context, id);
+  // If this is a new feature, create it
+  if (!feature) {
+    await postFeatures(req, res);
+    return;
+  }
+
+  if (!environments.length) {
+    throw new Error(
+      "Must have at least one environment configured to use Feature Flags"
+    );
+  }
+
+  const data = req.body;
+
+  req.checkPermissions("manageFeatures", feature.project);
+
+  req.checkPermissions(
+    "publishFeatures",
+    feature.project,
+    getEnabledEnvironments(feature, environments)
+  );
+
+  if (data.valueType && data.valueType !== feature.valueType) {
+    throw new Error(
+      "Cannot change valueType of feature after it's already been created."
+    );
+  }
+
+  const updates: Partial<FeatureInterface> = {
+    defaultValue: data.defaultValue ?? feature.defaultValue,
+    description: data.description ?? feature.description,
+    owner: data.owner ?? feature.owner,
+    tags: data.tags ?? feature.tags,
+  };
+  const changes: Pick<FeatureRevisionInterface, "rules" | "defaultValue"> = {
+    rules: {},
+    defaultValue: data.defaultValue ?? feature.defaultValue,
+  };
+
+  let needsNewRevision = !isEqual(feature.defaultValue, updates.defaultValue);
+
+  environments.forEach((env) => {
+    // Revision Changes
+    changes.rules[env] =
+      data.environmentSettings?.[env]?.rules ??
+      feature.environmentSettings?.[env]?.rules ??
+      [];
+
+    // Feature updates
+    updates.environmentSettings = updates.environmentSettings || {};
+    updates.environmentSettings[env] = updates.environmentSettings[env] || {
+      enabled: feature.environmentSettings?.[env]?.enabled ?? false,
+      rules: changes.rules[env],
+    };
+
+    if (
+      data.environmentSettings?.[env] &&
+      !isEqual(
+        data.environmentSettings[env].rules || [],
+        feature.environmentSettings?.[env]?.rules || []
+      )
+    ) {
+      needsNewRevision = true;
+    }
+  });
+
+  if (needsNewRevision) {
+    const revision = await createRevision({
+      feature,
+      user: res.locals.eventAudit,
+      baseVersion: feature.version,
+      publish: true,
+      changes,
+      environments,
+      comment: `Sync Feature`,
+    });
+
+    updates.version = revision.version;
+  }
+
+  const updatedFeature = await updateFeature(context, feature, updates);
+
+  await req.audit({
+    event: "feature.update",
+    entity: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: auditDetailsUpdate(feature, updatedFeature, {
+      revision: updatedFeature.version,
+    }),
+  });
+
+  res.status(200).json({
+    status: 200,
+    feature: updatedFeature,
+  });
+}
+
 export async function postFeatureExperimentRefRule(
   req: AuthRequest<{ rule: ExperimentRefRule }, { id: string }>,
   res: Response<
