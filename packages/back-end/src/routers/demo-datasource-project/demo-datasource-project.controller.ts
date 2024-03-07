@@ -166,12 +166,13 @@ export const postDemoDatasourceProject = async (
     EventAuditUserForResponseLocals
   >
 ) => {
+  const context = getContextFromReq(req);
+
   req.checkPermissions("manageProjects", "");
   req.checkPermissions("createDatasources", "");
-  req.checkPermissions("createMetrics", "");
-  // req.context.permissionsUtil.canCreateMetrics(metric).throwIfError();
+  context.permissionsUtil.canCreateMetrics({}).throwIfError();
   req.checkPermissions("createAnalyses", "");
-  const context = getContextFromReq(req);
+
   const { org, environments } = context;
 
   const demoProjId = getDemoDatasourceProjectIdForOrganization(org.id);

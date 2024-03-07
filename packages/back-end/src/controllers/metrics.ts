@@ -295,11 +295,6 @@ export async function getMetricsFromTrackedEvents(
     return;
   }
 
-  req.checkPermissions(
-    "createMetrics",
-    dataSourceObj.projects?.length ? dataSourceObj.projects : ""
-  );
-
   context.permissionsUtil.canCreateMetrics(dataSourceObj).throwIfError();
 
   const integration = getSourceIntegrationObject(dataSourceObj);
