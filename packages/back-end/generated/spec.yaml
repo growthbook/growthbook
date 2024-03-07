@@ -2009,6 +2009,72 @@ paths:
             curl -XPUT https://api.growthbook.io/api/v1/visual-changesets/vc_123abc
               -d '{"editorUrl": "https://docs.growthbook.io", "urlPatterns":"[{ ... }]"}' \
               -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                urlPatterns:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - type
+                      - pattern
+                    properties:
+                      include:
+                        type: boolean
+                      type:
+                        type: string
+                        enum:
+                          - simple
+                          - regex
+                      pattern: string
+                editorUrl:
+                  type: string
+                visualChanges:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - variation
+                      - domMutations
+                    properties:
+                      description:
+                        type: string
+                      css:
+                        type: string
+                      js:
+                        type: string
+                      variation:
+                        type: string
+                      domMutations:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - selector
+                            - action
+                            - attribute
+                          properties:
+                            selector:
+                              type: string
+                            action:
+                              type: string
+                              enum:
+                                - append
+                                - set
+                                - remove
+                            attribute:
+                              type: string
+                            value:
+                              type: string
+                            parentSelector:
+                              type: string
+                            insertBeforeSelector:
+                              type: string
       responses:
         '200':
           content:
@@ -2037,6 +2103,44 @@ paths:
             curl -XPOST https://api.growthbook.io/api/v1/visual-changesets/vc_123abc/visual-change \
               -d '{"variation": "v_123abc", "domMutations":"[]"}' \
               -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description:
+                  type: string
+                css:
+                  type: string
+                js:
+                  type: string
+                domMutations:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - selector
+                      - action
+                      - attribute
+                    properties:
+                      selector:
+                        type: string
+                      action:
+                        type: string
+                        enum:
+                          - append
+                          - set
+                          - remove
+                      attribute:
+                        type: string
+                      value:
+                        type: string
+                      parentSelector:
+                        type: string
+                      insertBeforeSelector:
+                        type: string
       responses:
         '200':
           content:
@@ -2063,6 +2167,44 @@ paths:
             curl -XPUT https://api.growthbook.io/api/v1/visual-changesets/vc_123abc/visual-change/vch_abc123 \
               -d '{"variation": "v_123abc", "domMutations":"[]"}' \
               -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description:
+                  type: string
+                css:
+                  type: string
+                js:
+                  type: string
+                domMutations:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - selector
+                      - action
+                      - attribute
+                    properties:
+                      selector:
+                        type: string
+                      action:
+                        type: string
+                        enum:
+                          - append
+                          - set
+                          - remove
+                      attribute:
+                        type: string
+                      value:
+                        type: string
+                      parentSelector:
+                        type: string
+                      insertBeforeSelector:
+                        type: string
       responses:
         '200':
           content:

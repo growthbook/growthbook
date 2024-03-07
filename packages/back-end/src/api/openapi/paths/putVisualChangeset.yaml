@@ -10,6 +10,12 @@ x-codeSamples:
       curl -XPUT https://api.growthbook.io/api/v1/visual-changesets/vc_123abc
         -d '{"editorUrl": "https://docs.growthbook.io", "urlPatterns":"[{ ... }]"}' \
         -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/PutVisualChangesetPayload.yaml"
 responses:
   "200":
     content:
