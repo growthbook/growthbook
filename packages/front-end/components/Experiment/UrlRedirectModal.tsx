@@ -44,7 +44,7 @@ const UrlRedirectSdkAlert = ({
 }) => {
   return (
     <div
-      className={`mt-2 mb-3 alert ${
+      className={`mb-3 mt-2 alert ${
         hasSDKWithRedirects ? "alert-warning" : "alert-danger"
       }`}
     >
@@ -196,11 +196,11 @@ const UrlRedirectModal: FC<{
       cta={cta}
       ctaEnabled={hasSDKWithRedirects}
     >
-      <div className="mx-3 mt-3">
-        {hasSDKWithNoRedirects && (
+      <div className="mx-3">
+        {!hasSDKWithNoRedirects && (
           <UrlRedirectSdkAlert hasSDKWithRedirects={hasSDKWithRedirects} />
         )}
-        <div className="d-flex align-items-baseline">
+        <div className="d-flex align-items-baseline mt-3">
           <h4>Original URL</h4>
           <Tooltip
             body={
