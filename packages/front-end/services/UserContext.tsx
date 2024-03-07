@@ -42,6 +42,7 @@ import { sha256 } from "@/services/utils";
 type OrgSettingsResponse = {
   organization: OrganizationInterface;
   members: ExpandedMember[];
+  seatsInUse: number;
   roles: Role[];
   apiKeys: ApiKeyInterface[];
   enterpriseSSO: SSOConnectionInterface | null;
@@ -109,6 +110,7 @@ export interface UserContextValue {
   commercialFeatures: CommercialFeature[];
   apiKeys: ApiKeyInterface[];
   organization: Partial<OrganizationInterface>;
+  seatsInUse: number;
   roles: Role[];
   teams?: Team[];
   error?: string;
@@ -142,6 +144,7 @@ export const UserContext = createContext<UserContextValue>({
   },
   apiKeys: [],
   organization: {},
+  seatsInUse: 0,
   teams: [],
   hasCommercialFeature: () => false,
 });
@@ -379,6 +382,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         apiKeys: currentOrg?.apiKeys || [],
         // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'OrganizationInterface | undefined' is not as... Remove this comment to see the full error message
         organization: currentOrg?.organization,
+        seatsInUse: currentOrg?.seatsInUse || 0,
         teams,
         error,
         hasCommercialFeature: (feature) => commercialFeatures.has(feature),
