@@ -17,7 +17,7 @@ const LINKED_CHANGE_COPY = {
     header: "Visual Editor",
     cta: "Launch Visual Editor",
     description:
-      "Use our no-code browser extension to A/B test minor changes,such as headings or button text.",
+      "Use our no-code browser extension to A/B test minor changes, such as headings or button text.",
     commercialFeature: true,
   },
   redirects: {
@@ -144,7 +144,7 @@ export default function AddLinkedChanges({
     <div className="appbox p-4 my-4">
       {sectionsToRender.length < possibleSections.length ? (
         <>
-          <h4>Add Experiment Types</h4>
+          <h4>Add Additional Changes</h4>
         </>
       ) : (
         <>

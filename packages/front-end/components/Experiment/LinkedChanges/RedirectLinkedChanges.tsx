@@ -6,6 +6,7 @@ import { useAuth } from "@/services/auth";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import LinkedChangesContainer from "@/components/Experiment/LinkedChanges/LinkedChangesContainer";
+import styles from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges.module.scss";
 
 interface RedirectLinkedChangesProps {
   setUrlRedirectModal: (boolean) => void;
@@ -32,7 +33,7 @@ function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
 
     if (parsedUrl1.hostname === parsedUrl2.hostname) {
       return (
-        <>
+        <a className={styles.redirectUrl} href={url2}>
           {filtered.map((part, index) => {
             if (part.added) {
               return <b key={index}>{part.value}</b>;
@@ -40,9 +41,14 @@ function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
               return <span key={index}>{part.value}</span>;
             }
           })}
-        </>
+        </a>
       );
-    } else return <span>{url2}</span>;
+    } else
+      return (
+        <a className={styles.redirectUrl} href={url2}>
+          {url2}
+        </a>
+      );
   } catch {
     console.error("Failed to parse URL to for redirect diff");
     return <span>{url2}</span>;
@@ -57,6 +63,7 @@ const Redirect = ({
 }: RedirectProps) => {
   const { apiCall } = useAuth();
   const [editingRedirect, setEditingRedirect] = useState<boolean>(false);
+  const originUrl = visualChangeset.urlPatterns[0].pattern;
 
   return (
     <>
@@ -96,7 +103,9 @@ const Redirect = ({
           )}
         </div>
 
-        <span>{visualChangeset.urlPatterns[0].pattern}</span>
+        <a className={styles.redirectUrl} href={originUrl}>
+          {originUrl}
+        </a>
         <hr className="mr-5" />
         <h5>Redirects</h5>
         {experiment.variations.map((v, i) => (

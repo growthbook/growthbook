@@ -37,7 +37,7 @@ export default function LinkedChangesContainer({
   const { header, addButtonCopy } = LINKED_CHANGE_CONTAINER_PROPERTIES[type];
 
   return (
-    <div className="appbox p-3 mb-2">
+    <div className="appbox p-3 mb-4">
       <div className="d-flex mb-2 align-items-center">
         <span
           className="mr-3"

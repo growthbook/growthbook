@@ -144,7 +144,7 @@ const UrlRedirectModal: FC<{
     };
     if (mode === "add") {
       await apiCall<{ visualChangeset: VisualChangesetInterface }>(
-        `/experiments/${experiment.id}/visual-changeset`,
+        `/experiments/${experiment.id}/visual-changeset/?circularDependencyCheck=${value.circularDependencyCheck}`,
         {
           method: "POST",
           body: JSON.stringify(payload),
@@ -152,10 +152,13 @@ const UrlRedirectModal: FC<{
       );
       mutate();
     } else {
-      await apiCall(`/visual-changesets/${visualChangeset?.id}`, {
-        method: "PUT",
-        body: JSON.stringify(payload),
-      });
+      await apiCall(
+        `/visual-changesets/${visualChangeset?.id}/?circularDependencyCheck=${value.circularDependencyCheck}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        }
+      );
       mutate();
     }
     close();

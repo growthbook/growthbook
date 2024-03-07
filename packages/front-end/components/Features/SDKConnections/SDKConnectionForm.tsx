@@ -866,38 +866,44 @@ export default function SDKConnectionForm({
           </>
         )}
 
-        {showVisualEditorSettings && (
+        {(showVisualEditorSettings || showRedirectSettings) && (
           <>
             <label>Auto experiments</label>
             <div className="border rounded pt-2 pb-3 px-3 bg-light">
-              <div>
-                <label htmlFor="sdk-connection-visual-experiments-toggle">
-                  Include visual experiments in endpoint&apos;s response?
-                </label>
-                <div className="form-inline">
-                  <Toggle
-                    id="sdk-connection-visual-experiments-toggle"
-                    value={form.watch("includeVisualExperiments")}
-                    setValue={(val) =>
-                      form.setValue("includeVisualExperiments", val)
-                    }
-                  />
+              {showVisualEditorSettings && (
+                <div>
+                  <label htmlFor="sdk-connection-visual-experiments-toggle">
+                    Include visual experiments in endpoint&apos;s response?
+                  </label>
+                  <div className="form-inline">
+                    <Toggle
+                      id="sdk-connection-visual-experiments-toggle"
+                      value={form.watch("includeVisualExperiments")}
+                      setValue={(val) =>
+                        form.setValue("includeVisualExperiments", val)
+                      }
+                    />
+                  </div>
                 </div>
-              </div>
-              <div className="mt-3">
-                <label htmlFor="sdk-connection-redirects-toggle">
-                  Include redirect experiments in endpoint&apos;s response?
-                </label>
-                <div className="form-inline">
-                  <Toggle
-                    id="sdk-connection-redirects-toggle"
-                    value={form.watch("includeRedirectExperiments")}
-                    setValue={(val) =>
-                      form.setValue("includeRedirectExperiments", val)
-                    }
-                  />
+              )}
+
+              {showRedirectSettings && (
+                <div className="mt-3">
+                  <label htmlFor="sdk-connection-redirects-toggle">
+                    Include redirect experiments in endpoint&apos;s response?
+                  </label>
+                  <div className="form-inline">
+                    <Toggle
+                      id="sdk-connection-redirects-toggle"
+                      value={form.watch("includeRedirectExperiments")}
+                      setValue={(val) =>
+                        form.setValue("includeRedirectExperiments", val)
+                      }
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
+
               {(form.watch("includeVisualExperiments") ||
                 form.watch("includeRedirectExperiments")) && (
                 <>
