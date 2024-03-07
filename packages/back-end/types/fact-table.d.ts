@@ -76,6 +76,12 @@ export type ConversionWindowUnit = z.infer<
 >;
 export type MetricWindowSettings = z.infer<typeof windowSettingsValidator>;
 
+export type MetricQuantileSettings = {
+  quantile: number;
+  type: "unit" | "event";
+  ignoreZeros: boolean;
+};
+
 export interface FactMetricInterface {
   id: string;
   organization: string;
@@ -93,6 +99,8 @@ export interface FactMetricInterface {
   metricType: FactMetricType;
   numerator: ColumnRef;
   denominator: ColumnRef | null;
+
+  quantileSettings?: MetricQuantileSettings;
 
   cappingSettings: MetricCappingSettings;
   windowSettings: MetricWindowSettings;

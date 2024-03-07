@@ -91,7 +91,18 @@ export const windowSettingsValidator = z.object({
   windowUnit: conversionWindowUnitValidator,
 });
 
-export const metricTypeValidator = z.enum(["ratio", "mean", "proportion"]);
+export const quantileSettingsValidator = z.object({
+  quantile: z.number(),
+  type: z.enum(["unit", "event"]),
+  ignoreZeros: z.boolean(),
+});
+
+export const metricTypeValidator = z.enum([
+  "ratio",
+  "mean",
+  "proportion",
+  "quantile",
+]);
 
 export const createFactMetricPropsValidator = z.object({
   id: z.string().optional(),
@@ -111,6 +122,7 @@ export const createFactMetricPropsValidator = z.object({
 
   cappingSettings: cappingSettingsValidator,
   windowSettings: windowSettingsValidator,
+  quantileSettings: quantileSettingsValidator.nullable(),
 
   maxPercentChange: z.number(),
   minPercentChange: z.number(),
