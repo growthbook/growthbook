@@ -45,6 +45,9 @@ describe("getConnectionSDKCapabilities", () => {
     };
     const capabilities = getConnectionSDKCapabilities(connection);
     expect(capabilities).toStrictEqual([
+      "urlRedirects",
+      "prerequisites",
+      "stickyBucketing",
       "visualEditorDragDrop",
       "remoteEval",
       "semverTargeting",
