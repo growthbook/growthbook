@@ -170,8 +170,9 @@ export const postDemoDatasourceProject = async (
 
   req.checkPermissions("manageProjects", "");
   req.checkPermissions("createDatasources", "");
-  context.permissionsUtil.canCreateMetrics({}).throwIfError();
   req.checkPermissions("createAnalyses", "");
+  //MKTODO: Research how the demo datasource project works - does it create a new project?
+  context.permissionsUtil.canCreateMetrics({}).throwIfError();
 
   const { org, environments } = context;
 

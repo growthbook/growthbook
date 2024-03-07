@@ -295,6 +295,8 @@ export async function getMetricsFromTrackedEvents(
     return;
   }
 
+  // When we create auto metrics, they inherit the data source's projects, so we check if the user
+  // has permission to createMetrics for the data source's projects
   context.permissionsUtil.canCreateMetrics(dataSourceObj).throwIfError();
 
   const integration = getSourceIntegrationObject(dataSourceObj);

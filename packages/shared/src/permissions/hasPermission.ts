@@ -17,9 +17,9 @@ export class hasPermissionClass {
   }
 
   public canCreateMetrics(metric: Pick<MetricInterface, "projects">) {
-    const metricProjects = metric.projects || [""];
+    const metricProjects = metric.projects?.length ? metric.projects : [""];
 
-    const hasPermission = metricProjects.some((project) =>
+    const hasPermission = metricProjects.every((project) =>
       this.hasPermission("createMetrics", project)
     );
 
