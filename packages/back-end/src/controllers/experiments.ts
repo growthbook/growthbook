@@ -2259,11 +2259,12 @@ export async function postVisualChangeset(
   req: AuthRequest<
     Partial<VisualChangesetInterface>,
     { id: string },
-    { circularDependencyCheck?: boolean }
+    { circularDependencyCheck?: string }
   >,
   res: Response
 ) {
   const context = getContextFromReq(req);
+  const { circularDependencyCheck } = req.query;
 
   if (!req.body.urlPatterns) {
     throw new Error("urlPatterns needs to be defined");
@@ -2293,7 +2294,7 @@ export async function postVisualChangeset(
     const origin = req.body.urlPatterns;
     const destinations = req.body.urlRedirects;
 
-    if (req.query.circularDependencyCheck) {
+    if (circularDependencyCheck === "true") {
       await _validateRedirect(origin, destinations, context, experiment);
     }
   }
@@ -2323,12 +2324,13 @@ export async function putVisualChangeset(
   req: AuthRequest<
     Partial<VisualChangesetInterface>,
     { id: string },
-    { circularDependencyCheck?: boolean }
+    { circularDependencyCheck?: string }
   >,
   res: Response
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
+  const { circularDependencyCheck } = req.query;
 
   const visualChangeset = await findVisualChangesetById(req.params.id, org.id);
   if (!visualChangeset) {
@@ -2347,7 +2349,7 @@ export async function putVisualChangeset(
     const origin = req.body.urlPatterns ?? visualChangeset.urlPatterns;
     const destinations = req.body.urlRedirects;
 
-    if (req.query.circularDependencyCheck) {
+    if (circularDependencyCheck === "true") {
       await _validateRedirect(
         origin,
         destinations,
