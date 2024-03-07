@@ -150,6 +150,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
         label="Method"
         value={form.watch("method")}
         placeholder="Choose HTTP method"
+        disabled={form.watch("payloadType") === "slack"}
         options={eventWebHookMethods.map((method) => ({
           label: method,
           value: method,
@@ -205,6 +206,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
         }))}
         onChange={(value: EventWebHookPayloadType) => {
           form.setValue("payloadType", value);
+          if (value === "slack") form.setValue("method", "POST");
           handleFormValidation();
         }}
       />
