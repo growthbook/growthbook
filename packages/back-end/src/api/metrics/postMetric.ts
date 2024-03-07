@@ -18,7 +18,9 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(
       throw new Error(`Invalid data source: ${datasourceId}`);
     }
 
-    req.checkPermissions("createMetrics", req.body?.projects ?? "");
+    req.context.permissionsUtil
+      .canCreateMetrics({ projects: req.body?.projects })
+      .throwIfError();
 
     const validationResult = postMetricApiPayloadIsValid(req.body, datasource);
     if (!validationResult.valid) {

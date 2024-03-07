@@ -15,7 +15,7 @@ export const putMetric = createApiRequestHandler(putMetricValidator)(
       throw new Error("Metric not found");
     }
 
-    req.checkPermissions("createMetrics", metric?.projects ?? "");
+    req.context.permissionsUtil.canCreateMetrics(metric).throwIfError();
 
     const validationResult = putMetricApiPayloadIsValid(req.body);
 

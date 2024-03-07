@@ -58,7 +58,7 @@ export const postBulkImportFacts = createApiRequestHandler(
       req.checkPermissions("manageFactTables", factTable.projects || []);
     }
     function checkFactMetricPermission(factMetric: { projects?: string[] }) {
-      req.checkPermissions("createMetrics", factMetric.projects || []);
+      req.context.permissionsUtil.canCreateMetrics(factMetric).throwIfError();
     }
 
     const projects = await findAllProjectsByOrganization(req.context);

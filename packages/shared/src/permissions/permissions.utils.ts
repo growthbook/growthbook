@@ -20,7 +20,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "manageProjects",
   "createAnalyses",
   "createIdeas",
-  "createMetrics",
+  "createMetrics", // handled in hasPermissionClass
   "manageFactTables",
   "createDatasources",
   "editDatasourceSettings",
@@ -56,6 +56,15 @@ export const ALL_PERMISSIONS = [
 ];
 
 export const READ_ONLY_PERMISSIONS = ["readData", "viewEvents", "runQueries"];
+
+export function eslintTest() {
+  return {
+    success: true,
+    throwIfError: () => {
+      throw new Error("This is a test");
+    },
+  };
+}
 
 export function hasPermission(
   userPermissions: UserPermissions | undefined,

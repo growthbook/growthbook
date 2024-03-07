@@ -176,7 +176,10 @@ export async function getCreateMetricPropsFromBody(
 
 export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
   async (req): Promise<PostFactMetricResponse> => {
-    req.checkPermissions("createMetrics", req.body.projects || "");
+    // req.checkPermissions("createMetrics", req.body.projects || "");
+
+    const projects = req.body.projects || [];
+    req.context.permissionsUtil.canCreateMetrics(projects).throwIfError();
 
     const lookupFactTable = async (id: string) => getFactTable(req.context, id);
 

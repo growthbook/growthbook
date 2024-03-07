@@ -7,11 +7,10 @@ export const deleteMetricHandler = createApiRequestHandler(getMetricValidator)(
   async (req): Promise<DeleteMetricResponse> => {
     const metric = await getMetricById(req.context, req.params.id, false);
 
-    req.checkPermissions("createMetrics", metric?.projects ?? "");
-
     if (!metric) {
       throw new Error("Could not find metric with that id");
     }
+    req.context.permissionsUtil.canCreateMetrics(metric).throwIfError();
 
     await deleteMetricById(req.context, metric);
 

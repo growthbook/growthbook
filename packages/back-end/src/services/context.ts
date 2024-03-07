@@ -1,7 +1,7 @@
 import {
   ReadAccessFilter,
   getReadAccessFilter,
-  userHasPermission,
+  hasPermissionClass,
 } from "shared/permissions";
 import { uniq } from "lodash";
 import pino from "pino";
@@ -9,7 +9,6 @@ import { Request } from "express";
 import {
   MemberRole,
   OrganizationInterface,
-  Permission,
   UserPermissions,
 } from "../../types/organization";
 import { EventAuditUser } from "../events/event-types";
@@ -42,6 +41,7 @@ export class ReqContextClass implements ReqContextInterface {
   public apiKey?: string;
   public req?: Request;
   public logger: pino.BaseLogger;
+  public permissionsUtil: any;
 
   protected permissions: UserPermissions;
 
@@ -100,7 +100,7 @@ export class ReqContextClass implements ReqContextInterface {
 
       this.permissions = {
         global: {
-          permissions: roleToPermissionMap(role, org),
+          permissions: roleToPermissionMap("noaccess", org),
           limitAccessByEnvironment: false,
           environments: [],
         },
@@ -108,32 +108,8 @@ export class ReqContextClass implements ReqContextInterface {
       };
     }
     this.readAccessFilter = getReadAccessFilter(this.permissions);
-  }
 
-  // Check permissions
-  public hasPermission(
-    permission: Permission,
-    project?: string | (string | undefined)[] | undefined,
-    envs?: string[] | Set<string>
-  ) {
-    return userHasPermission(
-      this.superAdmin,
-      this.permissions,
-      permission,
-      project,
-      envs ? [...envs] : undefined
-    );
-  }
-
-  // Helper if you want to throw an error if the user does not have permission
-  public requirePermission(
-    permission: Permission,
-    project?: string | (string | undefined)[] | undefined,
-    envs?: string[] | Set<string>
-  ) {
-    if (!this.hasPermission(permission, project, envs)) {
-      throw new Error("You do not have permission to complete that action.");
-    }
+    this.permissionsUtil = new hasPermissionClass(this.permissions);
   }
 
   // Record an audit log entry

@@ -64,14 +64,13 @@ export async function postSampleData(
     EventAuditUserForResponseLocals
   >
 ) {
-  req.checkPermissions("createMetrics", "");
-  req.checkPermissions("createAnalyses", "");
-
   const context = getContextFromReq(req);
   const { org, userId } = context;
   const orgId = org.id;
   const statsEngine = org.settings?.statsEngine || DEFAULT_STATS_ENGINE;
 
+  req.checkPermissions("createAnalyses", "");
+  context.permissionsUtil.canCreateMetrics({}).throwIfError();
   const existingMetrics = await getSampleMetrics(context);
 
   let metric1 = existingMetrics.filter((m) => m.type === "binomial")[0];

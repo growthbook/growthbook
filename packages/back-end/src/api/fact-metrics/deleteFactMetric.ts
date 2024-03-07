@@ -22,7 +22,7 @@ export const deleteFactMetric = createApiRequestHandler(
         "Unable to delete - Could not find factMetric with that id"
       );
     }
-    req.checkPermissions("createMetrics", factMetric.projects);
+    req.context.permissionsUtil.canCreateMetrics(factMetric).throwIfError();
 
     await deleteFactMetricInDb(req.context, factMetric);
 
