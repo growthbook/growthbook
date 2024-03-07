@@ -11,7 +11,6 @@ import Toggle from "@/components/Forms/Toggle";
 import {
   eventWebHookMethods,
   EventWebHookMethod,
-  eventWebHookPayloadTypes,
   EventWebHookPayloadType,
   EventWebHookEditParams,
   eventWebHookEventOptions,
@@ -29,6 +28,8 @@ type EventWebHookAddEditModalProps = {
   mode: EventWebHookModalMode;
   error: string | null;
 };
+
+const eventWebHookPayloadTypes = ["raw", "slack"] as const;
 
 const eventWebHookPayloadValues: { [k in EventWebHookPayloadType]: string } = {
   raw: "Raw",
@@ -194,24 +195,19 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
         }}
       />
 
-      {
-        // TODO: payload types to be added in a follow-up PR.
-        false && (
-          <SelectField
-            label="Payload Type"
-            value={form.watch("payloadType")}
-            placeholder="Choose payload type"
-            options={eventWebHookPayloadTypes.map((key) => ({
-              label: eventWebHookPayloadValues[key],
-              value: key,
-            }))}
-            onChange={(value: EventWebHookPayloadType) => {
-              form.setValue("payloadType", value);
-              handleFormValidation();
-            }}
-          />
-        )
-      }
+      <SelectField
+        label="Payload Type"
+        value={form.watch("payloadType")}
+        placeholder="Choose payload type"
+        options={eventWebHookPayloadTypes.map((key) => ({
+          label: eventWebHookPayloadValues[key],
+          value: key,
+        }))}
+        onChange={(value: EventWebHookPayloadType) => {
+          form.setValue("payloadType", value);
+          handleFormValidation();
+        }}
+      />
 
       <MultiSelectField
         label="Environment filters"
