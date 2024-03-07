@@ -1,5 +1,4 @@
 import { Response } from "express";
-import { eslintTest } from "shared/permissions";
 import { AuthRequest } from "../types/AuthRequest";
 import { createMetric, refreshMetric } from "../services/experiments";
 import { MetricInterface, MetricType } from "../../types/metric";

@@ -24,6 +24,7 @@ import { AuditInterface } from "../../types/audit";
 import { insertAudit } from "../models/AuditModel";
 import { logger } from "../util/logger";
 import { ReqContextInterface } from "../../types/context";
+import { MetricInterface } from "../../types/metric";
 import { getEnvironmentIdsFromOrg } from "./organizations";
 
 export class ReqContextClass implements ReqContextInterface {
@@ -41,7 +42,11 @@ export class ReqContextClass implements ReqContextInterface {
   public apiKey?: string;
   public req?: Request;
   public logger: pino.BaseLogger;
-  public permissionsUtil: any;
+  public permissionsUtil: {
+    canCreateMetrics: (
+      metric: Pick<MetricInterface, "projects">
+    ) => { hasPermission: boolean; throwIfError: () => void };
+  };
 
   protected permissions: UserPermissions;
 
