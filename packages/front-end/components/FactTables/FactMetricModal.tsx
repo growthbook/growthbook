@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { FaTimes } from "react-icons/fa";
-import { useEffect, useState } from "react";
+import { ReactElement, useEffect, useState } from "react";
 import {
   DEFAULT_FACT_METRIC_WINDOW,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
@@ -29,7 +29,7 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, { SingleValue } from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Field from "@/components/Forms/Field";
 import Toggle from "@/components/Forms/Toggle";
@@ -75,68 +75,52 @@ function QuantileSelector({
   const [showCustom, setShowCustom] = useState(isCustom);
 
   return (
-    <div className="appbox px-3 pt-3 bg-light">
-      <div className="row align-items-center">
+    <div className="row align-items-center">
+      <div className="col-auto">
+        <SelectField
+          label="Quantile"
+          value={showCustom ? "custom" : value.quantile + ""}
+          onChange={(v) => {
+            if (v === "custom") {
+              setShowCustom(true);
+              return;
+            }
+            setShowCustom(false);
+            setValue({ ...value, quantile: parseFloat(v) });
+          }}
+          options={options}
+          sort={false}
+        />
+      </div>
+      {showCustom && (
         <div className="col-auto">
-          <SelectField
-            label="Quantile"
-            value={showCustom ? "custom" : value.quantile + ""}
-            onChange={(v) => {
-              if (v === "custom") {
-                setShowCustom(true);
-                return;
-              }
-              setShowCustom(false);
-              setValue({ ...value, quantile: parseFloat(v) });
-            }}
-            options={options}
-            sort={false}
-          />
-        </div>
-        {showCustom && (
-          <div className="col-auto">
-            <Field
-              label="Custom Value"
-              autoFocus
-              type="number"
-              step={0.001}
-              min={0.001}
-              max={0.999}
-              value={value.quantile}
-              onBlur={() => {
-                // Fix common issue of entering 90 instead of 0.9
-                if (value.quantile > 10 && value.quantile < 100) {
-                  setValue({
-                    ...value,
-                    quantile: value.quantile / 100,
-                  });
-                }
-              }}
-              onChange={(event) => {
-                const v = parseFloat(event.target.value);
+          <Field
+            label="&nbsp;"
+            autoFocus
+            type="number"
+            step={0.001}
+            min={0.001}
+            max={0.999}
+            value={value.quantile}
+            onBlur={() => {
+              // Fix common issue of entering 90 instead of 0.9
+              if (value.quantile > 10 && value.quantile < 100) {
                 setValue({
                   ...value,
-                  quantile: v,
+                  quantile: value.quantile / 100,
                 });
-              }}
-            />
-          </div>
-        )}
-        <div className="col-auto">
-          <div className="form-group">
-            <label className="ml-2" htmlFor="quantileIgnoreZeros">
-              Ignore Zeros
-            </label>
-            <div style={{ padding: "6px 0" }}>
-              <Toggle
-                id="quantileIgnoreZeros"
-                value={value.ignoreZeros}
-                setValue={(ignoreZeros) => setValue({ ...value, ignoreZeros })}
-              />
-            </div>
-          </div>
+              }
+            }}
+            onChange={(event) => {
+              const v = parseFloat(event.target.value);
+              setValue({
+                ...value,
+                quantile: v,
+              });
+            }}
+          />
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -149,6 +133,7 @@ function ColumnRefSelector({
   includeColumn,
   datasource,
   disableFactTableSelector,
+  extraField,
 }: {
   setValue: (ref: ColumnRef) => void;
   value: ColumnRef;
@@ -157,13 +142,14 @@ function ColumnRefSelector({
   aggregationType?: "unit" | "event";
   datasource: string;
   disableFactTableSelector?: boolean;
+  extraField?: ReactElement;
 }) {
   const { getFactTableById, factTables } = useDefinitions();
 
   let factTable = getFactTableById(value.factTableId);
   if (factTable?.datasource !== datasource) factTable = null;
 
-  const columnOptions = (factTable?.columns || [])
+  const columnOptions: SingleValue[] = (factTable?.columns || [])
     .filter(
       (col) =>
         !col.deleted &&
@@ -175,6 +161,20 @@ function ColumnRefSelector({
       label: col.name,
       value: col.column,
     }));
+
+  const specialColumnOptions: SingleValue[] = [];
+  if (includeCountDistinct && aggregationType === "unit") {
+    specialColumnOptions.push({
+      label: `Unique Users`,
+      value: "$$distinctUsers",
+    });
+  }
+  if (aggregationType === "unit") {
+    specialColumnOptions.push({
+      label: "Count of Rows",
+      value: "$$count",
+    });
+  }
 
   return (
     <div className="appbox px-3 pt-3 bg-light">
@@ -219,14 +219,19 @@ function ColumnRefSelector({
         {factTable && factTable.filters.length > 0 ? (
           <div className="col-auto">
             <MultiSelectField
-              label="Filters (optional)"
+              label={
+                <>
+                  Included Rows{" "}
+                  <Tooltip body="Only rows that satisfy ALL selected filters will be included" />
+                </>
+              }
               value={value.filters}
               onChange={(filters) => setValue({ ...value, filters })}
               options={factTable.filters.map((f) => ({
                 label: f.name,
                 value: f.id,
               }))}
-              placeholder="Add Filter..."
+              placeholder="All Rows"
               closeMenuOnSelect={true}
               formatOptionLabel={({ value, label }) => {
                 const filter = factTable?.filters.find((f) => f.id === value);
@@ -249,42 +254,28 @@ function ColumnRefSelector({
         {includeColumn && (
           <div className="col-auto">
             <SelectField
-              label={
-                aggregationType === "unit" ? "Per-User Value" : "Value Column"
-              }
+              label="Value"
               value={value.column}
               onChange={(column) => setValue({ ...value, column })}
               sort={false}
-              options={[
-                ...(includeCountDistinct && aggregationType === "unit"
+              formatGroupLabel={({ label }) => (
+                <div className="pt-2 pb-1 border-bottom">{label}</div>
+              )}
+              options={
+                specialColumnOptions.length > 0
                   ? [
                       {
-                        label: `Unique Users`,
-                        value: "$$distinctUsers",
+                        label: "Special",
+                        options: specialColumnOptions,
                       },
-                    ]
-                  : []),
-                ...(aggregationType === "unit"
-                  ? [
                       {
-                        label: "Count of Rows",
-                        value: "$$count",
+                        label: "Columns",
+                        options: columnOptions,
                       },
                     ]
-                  : []),
-                ...columnOptions,
-              ]}
-              placeholder="Column..."
-              formatOptionLabel={({ label, value }) => {
-                if (value.startsWith("$$") || aggregationType !== "unit") {
-                  return label;
-                }
-                return (
-                  <>
-                    <small className="text-muted">col:</small> {label}
-                  </>
-                );
-              }}
+                  : columnOptions
+              }
+              placeholder="Value..."
               required
             />
           </div>
@@ -294,7 +285,12 @@ function ColumnRefSelector({
           aggregationType === "unit" && (
             <div className="col-auto">
               <SelectField
-                label="Per-User Aggregation"
+                label={
+                  <>
+                    Aggregation{" "}
+                    <Tooltip body="Only SUM is supported today, but more aggregation types may be added in the future." />
+                  </>
+                }
                 value="sum"
                 onChange={() => {
                   /*do nothing*/
@@ -304,6 +300,7 @@ function ColumnRefSelector({
               />
             </div>
           )}
+        {extraField && <div className="col-auto">{extraField}</div>}
       </div>
     </div>
   );
@@ -673,23 +670,20 @@ export default function FactMetricModal({
           />
           {type === "proportion" ? (
             <div>
-              <p className="text-muted">
-                <strong>Metric Value</strong> = Percent of Experiment Users who
-                have at least 1 matching row in the selected table
-              </p>
               <ColumnRefSelector
                 value={form.watch("numerator")}
                 setValue={(numerator) => form.setValue("numerator", numerator)}
                 datasource={selectedDataSource.id}
                 disableFactTableSelector={!!initialFactTable}
               />
+              <div className="alert alert-info">
+                The final metric value will be the percent of users in the
+                experiment with at least 1 matching row.
+              </div>
             </div>
           ) : type === "mean" ? (
             <div>
-              <p className="text-muted">
-                <strong>Metric Value</strong> = SUM(Value) / Count of distinct
-                Experiment Users
-              </p>
+              <label>Per-User Value</label>
               <ColumnRefSelector
                 value={form.watch("numerator")}
                 setValue={(numerator) => form.setValue("numerator", numerator)}
@@ -697,6 +691,12 @@ export default function FactMetricModal({
                 datasource={selectedDataSource.id}
                 disableFactTableSelector={!!initialFactTable}
               />
+              <div className="alert alert-info">
+                The final metric value will be the average per-user value for
+                all users in the experiment. Any user without a matching row
+                will have a value of <code>0</code> and will still contribute to
+                this average.
+              </div>
             </div>
           ) : type === "quantile" ? (
             <div>
@@ -716,7 +716,6 @@ export default function FactMetricModal({
                       const column = numeratorFactTable?.columns?.find(
                         (c) => c.datatype === "number"
                       );
-
                       form.setValue("numerator", {
                         ...form.watch("numerator"),
                         column: column?.column || "",
@@ -736,6 +735,11 @@ export default function FactMetricModal({
                   Group by Experiment User before taking quantile?
                 </label>
               </div>
+              <label>
+                {quantileSettings.type === "unit"
+                  ? "Per-User Value"
+                  : "Event Value"}
+              </label>
               <ColumnRefSelector
                 value={form.watch("numerator")}
                 setValue={(numerator) => form.setValue("numerator", numerator)}
@@ -743,6 +747,36 @@ export default function FactMetricModal({
                 aggregationType={quantileSettings.type}
                 datasource={selectedDataSource.id}
                 disableFactTableSelector={!!initialFactTable}
+                extraField={
+                  form
+                    .watch("numerator")
+                    ?.column?.startsWith("$$") ? undefined : (
+                    <div className="form-group">
+                      <label className="ml-2" htmlFor="quantileIgnoreZeros">
+                        Ignore Zeros{" "}
+                        <Tooltip
+                          body={`If the ${
+                            quantileSettings.type === "unit"
+                              ? "per-user"
+                              : "row's"
+                          } value is zero (or null), exclude it from the quantile calculation`}
+                        />
+                      </label>
+                      <div style={{ padding: "6px 0" }}>
+                        <Toggle
+                          id="quantileIgnoreZeros"
+                          value={quantileSettings.ignoreZeros}
+                          setValue={(ignoreZeros) =>
+                            form.setValue("quantileSettings", {
+                              ...quantileSettings,
+                              ignoreZeros,
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+                  )
+                }
               />
               <QuantileSelector
                 value={quantileSettings}
@@ -753,11 +787,6 @@ export default function FactMetricModal({
             </div>
           ) : type === "ratio" ? (
             <>
-              <p className="text-muted">
-                <strong>Metric Value</strong> = SUM(Numerator) /
-                SUM(Denominator){" "}
-                <Tooltip body="Ratio metrics use the Delta Method to provide an accurate estimation of variance" />
-              </p>
               <div className="form-group">
                 <label>Numerator</label>
                 <ColumnRefSelector
@@ -788,6 +817,11 @@ export default function FactMetricModal({
                   includeCountDistinct={true}
                   datasource={selectedDataSource.id}
                 />
+              </div>
+              <div className="alert alert-info">
+                The final metric value will be the Numerator divided by the
+                Denominator. We use the Delta Method to provide an accurate
+                estimation of variance.
               </div>
             </>
           ) : (
