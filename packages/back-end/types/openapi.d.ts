@@ -4461,7 +4461,7 @@ export interface operations {
       content: {
         "application/json": {
           urlPatterns?: ({
-              include?: boolean;
+              include: boolean;
               /** @enum {string} */
               type: "simple" | "regex";
               pattern: string;
@@ -4529,7 +4529,8 @@ export interface operations {
           description?: string;
           css?: string;
           js?: string;
-          domMutations?: ({
+          variation: string;
+          domMutations: ({
               selector: string;
               /** @enum {string} */
               action: "append" | "set" | "remove";

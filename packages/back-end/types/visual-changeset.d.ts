@@ -30,3 +30,9 @@ export interface VisualChangesetInterface {
   experiment: string;
   visualChanges: VisualChange[];
 }
+
+export type UpdateVisualChangesetInterface = Partial<
+  Omit<VisualChangesetInterface, "visualChanges">
+> & {
+  visualChanges?: Omit<VisualChange, "id">[];
+};

@@ -2021,6 +2021,7 @@ paths:
                   items:
                     type: object
                     required:
+                      - include
                       - type
                       - pattern
                     properties:
@@ -2031,7 +2032,8 @@ paths:
                         enum:
                           - simple
                           - regex
-                      pattern: string
+                      pattern:
+                        type: string
                 editorUrl:
                   type: string
                 visualChanges:
@@ -2109,12 +2111,17 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+                - variation
+                - domMutations
               properties:
                 description:
                   type: string
                 css:
                   type: string
                 js:
+                  type: string
+                variation:
                   type: string
                 domMutations:
                   type: array
