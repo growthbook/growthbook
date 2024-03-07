@@ -56,7 +56,6 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       : ""
   );
 
-  console.log("seats in use", seatsInUse);
   const [showContactSupport, setShowContactSupport] = useState(
     license && license.hardCap && license.seats <= seatsInUse
   );
