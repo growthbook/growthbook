@@ -1,5 +1,10 @@
 import React, { useState } from "react";
-import { FaAngleRight, FaExclamationTriangle, FaLock } from "react-icons/fa";
+import {
+  FaAngleRight,
+  FaExclamationTriangle,
+  FaLink,
+  FaLock,
+} from "react-icons/fa";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { BsLightningFill } from "react-icons/bs";
@@ -183,6 +188,17 @@ export default function SDKConnectionsList() {
                         }
                       >
                         <RxDesktop className="mx-1 text-blue" />
+                      </Tooltip>
+                    )}
+                    {connection.includeRedirectExperiments && (
+                      <Tooltip
+                        body={
+                          <>
+                            <strong>URL Redirects</strong> are supported
+                          </>
+                        }
+                      >
+                        <FaLink className="mx-1 text-blue" />
                       </Tooltip>
                     )}
                   </td>

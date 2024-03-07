@@ -112,6 +112,8 @@ export default function SDKConnectionForm({
         initialValue.hashSecureAttributes ?? hasSecureAttributesFeature,
       includeVisualExperiments: initialValue.includeVisualExperiments ?? false,
       includeDraftExperiments: initialValue.includeDraftExperiments ?? false,
+      includeRedirectExperiments:
+        initialValue.includeRedirectExperiments ?? false,
       includeExperimentNames: initialValue.includeExperimentNames ?? true,
       proxyEnabled: initialValue.proxy?.enabled ?? false,
       proxyHost: initialValue.proxy?.host ?? "",
@@ -163,6 +165,8 @@ export default function SDKConnectionForm({
     "visualEditor"
   );
 
+  const showRedirectSettings = latestSdkCapabilities.includes("urlRedirects");
+
   const projectsOptions = projects.map((p) => ({
     label: p.name,
     value: p.id,
@@ -190,11 +194,13 @@ export default function SDKConnectionForm({
     if (!edit) {
       form.setValue("includeVisualExperiments", showVisualEditorSettings);
       form.setValue("includeDraftExperiments", showVisualEditorSettings);
+      form.setValue("includeRedirectExperiments", showRedirectSettings);
     } else if (!showVisualEditorSettings) {
       form.setValue("includeVisualExperiments", false);
       form.setValue("includeDraftExperiments", false);
+      form.setValue("includeRedirectExperiments", false);
     }
-  }, [showVisualEditorSettings, form, edit]);
+  }, [showVisualEditorSettings, form, edit, showRedirectSettings]);
 
   // complex setter for clicking a "SDK Payload Security" button
   useEffect(() => {
@@ -253,7 +259,13 @@ export default function SDKConnectionForm({
         if (!latestSdkCapabilities.includes("visualEditor")) {
           value.includeVisualExperiments = false;
         }
-        if (!value.includeVisualExperiments) {
+        if (!latestSdkCapabilities.includes("urlRedirects")) {
+          value.includeRedirectExperiments = false;
+        }
+        if (
+          !value.includeVisualExperiments &&
+          !value.includeRedirectExperiments
+        ) {
           value.includeDraftExperiments = false;
         }
 
@@ -856,7 +868,7 @@ export default function SDKConnectionForm({
 
         {showVisualEditorSettings && (
           <>
-            <label>Visual experiments</label>
+            <label>Auto experiments</label>
             <div className="border rounded pt-2 pb-3 px-3 bg-light">
               <div>
                 <label htmlFor="sdk-connection-visual-experiments-toggle">
@@ -872,15 +884,30 @@ export default function SDKConnectionForm({
                   />
                 </div>
               </div>
-              {form.watch("includeVisualExperiments") && (
+              <div className="mt-3">
+                <label htmlFor="sdk-connection-redirects-toggle">
+                  Include redirect experiments in endpoint&apos;s response?
+                </label>
+                <div className="form-inline">
+                  <Toggle
+                    id="sdk-connection-redirects-toggle"
+                    value={form.watch("includeRedirectExperiments")}
+                    setValue={(val) =>
+                      form.setValue("includeRedirectExperiments", val)
+                    }
+                  />
+                </div>
+              </div>
+              {(form.watch("includeVisualExperiments") ||
+                form.watch("includeRedirectExperiments")) && (
                 <>
                   <div className="mt-3">
                     <Tooltip
                       body={
                         <>
                           <p>
-                            In-development visual experiments will be sent to
-                            the SDK. We recommend only enabling this for
+                            In-development auto experiments will be sent to the
+                            SDK. We recommend only enabling this for
                             non-production environments.
                           </p>
                           <p className="mb-0">
