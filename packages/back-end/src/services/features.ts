@@ -382,6 +382,7 @@ export type FeatureDefinitionsResponseArgs = {
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
+  includeRedirectExperiments?: boolean;
   attributes?: SDKAttributeSchema;
   secureAttributeSalt?: string;
   projects: string[];
@@ -395,6 +396,7 @@ async function getFeatureDefinitionsResponse({
   includeVisualExperiments,
   includeDraftExperiments,
   includeExperimentNames,
+  includeRedirectExperiments,
   attributes,
   secureAttributeSalt,
   projects,
@@ -468,10 +470,26 @@ async function getFeatureDefinitionsResponse({
   features = scrubFeatures(features, capabilities);
   experiments = scrubExperiments(experiments, capabilities);
 
+  const includeAutoExperiments =
+    !!includeRedirectExperiments && !!includeVisualExperiments;
+
+  if (includeAutoExperiments) {
+    if (!includeRedirectExperiments) {
+      experiments = experiments.filter((e) =>
+        e.variations.some((v) => v.urlRedirect)
+      );
+    }
+    if (!includeVisualExperiments) {
+      experiments = experiments.filter(
+        (e) => !e.variations.some((v) => v.urlRedirect)
+      );
+    }
+  }
+
   if (!encryptionKey) {
     return {
       features,
-      ...(includeVisualExperiments && { experiments }),
+      ...(includeAutoExperiments && { experiments }),
       dateUpdated,
     };
   }
@@ -480,16 +498,16 @@ async function getFeatureDefinitionsResponse({
     JSON.stringify(features),
     encryptionKey
   );
-  const encryptedExperiments = includeVisualExperiments
+  const encryptedExperiments = includeAutoExperiments
     ? await encrypt(JSON.stringify(experiments || []), encryptionKey)
     : undefined;
 
   return {
     features: {},
-    ...(includeVisualExperiments && { experiments: [] }),
+    ...(includeAutoExperiments && { experiments: [] }),
     dateUpdated,
     encryptedFeatures,
-    ...(includeVisualExperiments && { encryptedExperiments }),
+    ...(includeAutoExperiments && { encryptedExperiments }),
   };
 }
 
@@ -502,6 +520,7 @@ export type FeatureDefinitionArgs = {
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
+  includeRedirectExperiments?: boolean;
   hashSecureAttributes?: boolean;
 };
 
@@ -522,6 +541,7 @@ export async function getFeatureDefinitions({
   includeVisualExperiments,
   includeDraftExperiments,
   includeExperimentNames,
+  includeRedirectExperiments,
   hashSecureAttributes,
 }: FeatureDefinitionArgs): Promise<FeatureDefinitionSDKPayload> {
   // Return cached payload from Mongo if exists
@@ -549,6 +569,7 @@ export async function getFeatureDefinitions({
         includeVisualExperiments,
         includeDraftExperiments,
         includeExperimentNames,
+        includeRedirectExperiments,
         attributes,
         secureAttributeSalt,
         projects: projects || [],
@@ -577,6 +598,7 @@ export async function getFeatureDefinitions({
       includeVisualExperiments,
       includeDraftExperiments,
       includeExperimentNames,
+      includeRedirectExperiments,
       attributes,
       secureAttributeSalt,
       projects: projects || [],
@@ -632,6 +654,7 @@ export async function getFeatureDefinitions({
     includeVisualExperiments,
     includeDraftExperiments,
     includeExperimentNames,
+    includeRedirectExperiments,
     attributes,
     secureAttributeSalt,
     projects: projects || [],

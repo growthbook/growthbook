@@ -4106,6 +4106,8 @@ components:
           type: boolean
         includeExperimentNames:
           type: boolean
+        includeRedirectExperiments:
+          type: boolean
         key:
           type: string
         proxyEnabled:
