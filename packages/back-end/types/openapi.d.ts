@@ -840,6 +840,7 @@ export interface components {
       includeVisualExperiments?: boolean;
       includeDraftExperiments?: boolean;
       includeExperimentNames?: boolean;
+      includeRedirectExperiments?: boolean;
       key: string;
       proxyEnabled: boolean;
       proxyHost: string;
@@ -2735,6 +2736,7 @@ export interface operations {
                 includeVisualExperiments?: boolean;
                 includeDraftExperiments?: boolean;
                 includeExperimentNames?: boolean;
+                includeRedirectExperiments?: boolean;
                 key: string;
                 proxyEnabled: boolean;
                 proxyHost: string;
@@ -2780,6 +2782,7 @@ export interface operations {
               includeVisualExperiments?: boolean;
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;
+              includeRedirectExperiments?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;

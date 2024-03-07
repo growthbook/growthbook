@@ -106,6 +106,13 @@ export const scrubExperiments = (
     const newExperiments: AutoExperimentWithProject[] = [];
     // Keep experiments that do not have any parentConditions
     for (let experiment of experiments) {
+      // filter out any url redirect auto experiments if not supported
+      if (
+        !capabilities.includes("urlRedirects") &&
+        experiment.variations.some((v) => v.urlRedirect)
+      ) {
+        continue;
+      }
       if ((experiment.parentConditions?.length ?? 0) === 0) {
         // keep and scrub experiments
         experiment = omit(
