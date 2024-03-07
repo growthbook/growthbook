@@ -112,8 +112,6 @@ export default function SDKConnectionForm({
         initialValue.hashSecureAttributes ?? hasSecureAttributesFeature,
       includeVisualExperiments: initialValue.includeVisualExperiments ?? false,
       includeDraftExperiments: initialValue.includeDraftExperiments ?? false,
-      includeRedirectExperiments:
-        initialValue.includeRedirectExperiments ?? false,
       includeExperimentNames: initialValue.includeExperimentNames ?? true,
       includeRedirectExperiments:
         initialValue.includeRedirectExperiments ?? false,
