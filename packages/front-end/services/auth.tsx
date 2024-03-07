@@ -63,7 +63,20 @@ let _currentRefreshOperation: null | Promise<
 > = null;
 async function refreshToken() {
   if (!_currentRefreshOperation) {
-    _currentRefreshOperation = fetch(getApiHost() + "/auth/refresh", {
+    let url = getApiHost() + "/auth/refresh";
+
+    // If this is an IdP-initiated Enterprise SSO login on Cloud
+    // Send a hint to the back-end with the SSO Connection ID
+    // This way, we can bypass several steps - "Login with Enterprise SSO", enter email, etc.
+    if (isCloud()) {
+      const params = new URL(window.location.href).searchParams;
+      const ssoId = params.get("ssoId");
+      if (ssoId) {
+        url += "?ssoId=" + ssoId;
+      }
+    }
+
+    _currentRefreshOperation = fetch(url, {
       method: "POST",
       credentials: "include",
     })
