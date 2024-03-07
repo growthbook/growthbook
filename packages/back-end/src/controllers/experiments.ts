@@ -2256,7 +2256,11 @@ async function _validateRedirect(
 }
 
 export async function postVisualChangeset(
-  req: AuthRequest<Partial<VisualChangesetInterface>, { id: string }>,
+  req: AuthRequest<
+    Partial<VisualChangesetInterface>,
+    { id: string },
+    { circularDependencyCheck?: boolean }
+  >,
   res: Response
 ) {
   const context = getContextFromReq(req);
@@ -2289,7 +2293,9 @@ export async function postVisualChangeset(
     const origin = req.body.urlPatterns;
     const destinations = req.body.urlRedirects;
 
-    await _validateRedirect(origin, destinations, context, experiment);
+    if (req.query.circularDependencyCheck) {
+      await _validateRedirect(origin, destinations, context, experiment);
+    }
   }
 
   const envs = getAffectedEnvsForExperiment({
@@ -2314,7 +2320,11 @@ export async function postVisualChangeset(
 }
 
 export async function putVisualChangeset(
-  req: AuthRequest<Partial<VisualChangesetInterface>, { id: string }>,
+  req: AuthRequest<
+    Partial<VisualChangesetInterface>,
+    { id: string },
+    { circularDependencyCheck?: boolean }
+  >,
   res: Response
 ) {
   const context = getContextFromReq(req);
@@ -2337,13 +2347,15 @@ export async function putVisualChangeset(
     const origin = req.body.urlPatterns ?? visualChangeset.urlPatterns;
     const destinations = req.body.urlRedirects;
 
-    await _validateRedirect(
-      origin,
-      destinations,
-      context,
-      experiment,
-      visualChangeset.id
-    );
+    if (req.query.circularDependencyCheck) {
+      await _validateRedirect(
+        origin,
+        destinations,
+        context,
+        experiment,
+        visualChangeset.id
+      );
+    }
   }
 
   const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
