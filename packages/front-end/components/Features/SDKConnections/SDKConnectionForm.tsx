@@ -115,6 +115,8 @@ export default function SDKConnectionForm({
       includeRedirectExperiments:
         initialValue.includeRedirectExperiments ?? false,
       includeExperimentNames: initialValue.includeExperimentNames ?? true,
+      includeRedirectExperiments:
+        initialValue.includeRedirectExperiments ?? false,
       proxyEnabled: initialValue.proxy?.enabled ?? false,
       proxyHost: initialValue.proxy?.host ?? "",
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
