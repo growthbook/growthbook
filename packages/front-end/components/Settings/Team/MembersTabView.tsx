@@ -2,7 +2,7 @@ import { FC, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import InviteList from "@/components/Settings/Team/InviteList";
 import MemberList from "@/components/Settings/Team/MemberList";
-import { useAuth } from "@/services/auth";
+import { redirectWithTimeout, useAuth } from "@/services/auth";
 import SSOSettings from "@/components/Settings/SSOSettings";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
@@ -16,6 +16,7 @@ import UpdateDefaultRoleForm from "@/components/Settings/Team/UpdateDefaultRoleF
 import VerifyingEmailModal from "@/components/Settings/UpgradeModal/VerifyingEmailModal";
 import PleaseVerifyEmailModal from "@/components/Settings/UpgradeModal/PleaseVerifyEmailModal";
 import LicenseSuccessModal from "@/components/Settings/UpgradeModal/LicenseSuccessModal";
+import track from "@/services/track";
 
 export const MembersTabView: FC = () => {
   const {
@@ -28,6 +29,7 @@ export const MembersTabView: FC = () => {
   const { project, projects } = useDefinitions();
 
   const [currentProject, setCurrentProject] = useState(project || "");
+  const [error, setError] = useState("");
 
   const permissions = usePermissions();
 
@@ -40,10 +42,10 @@ export const MembersTabView: FC = () => {
     router.query["subscription-success-session"] || ""
   );
 
-  const [justSubscribed, setJustSubscribed] = useState(false);
+  const [justSubscribedForPro, setJustSubscribedForPro] = useState(false);
   useEffect(() => {
     if (!checkoutSessionId) return;
-    setJustSubscribed(true);
+    setJustSubscribedForPro(true);
 
     // Ensure database has the subscription (in case the Stripe webhook failed)
     apiCall(`/subscription/success`, {
@@ -73,19 +75,40 @@ export const MembersTabView: FC = () => {
     );
   }
 
+  const renterEmailOnStripe = async () => {
+    setError("");
+    try {
+      const res = await apiCall<{ url: string }>(`/subscription/manage`, {
+        method: "POST",
+      });
+      if (res && res.url) {
+        track("Renter email on Stripe");
+        await redirectWithTimeout(res.url);
+      } else {
+        setError("Unknown response");
+      }
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
   return (
     <div className="container-fluid pagecontents">
       <VerifyingEmailModal />
-      {justSubscribed && !isCloud() && !license?.emailVerified && (
-        <PleaseVerifyEmailModal close={close} plan="Pro" isTrial={false} />
+      {justSubscribedForPro && !isCloud() && !license?.emailVerified && (
+        <PleaseVerifyEmailModal
+          close={() => setJustSubscribedForPro(false)}
+          plan="Pro"
+          isTrial={false}
+          error={error}
+          reenterEmail={renterEmailOnStripe}
+        />
       )}
-      {justSubscribed && (isCloud() || license?.emailVerified) && (
+      {justSubscribedForPro && (isCloud() || license?.emailVerified) && (
         <LicenseSuccessModal
-          plan={license?.plan === "enterprise" ? "Enterprise" : "Pro"}
-          close={() => setJustSubscribed(false)}
-          header={`🎉 Welcome to Growthbook ${
-            license?.plan === "enterprise" ? "Enterprise" : "Pro"
-          }`}
+          plan={"Pro"}
+          close={() => setJustSubscribedForPro(false)}
+          header={`🎉 Welcome to Growthbook Pro`}
           isTrial={license?.isTrial}
         />
       )}

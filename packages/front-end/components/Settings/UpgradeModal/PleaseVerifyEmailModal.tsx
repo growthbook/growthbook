@@ -13,6 +13,7 @@ interface Props {
   plan: "Pro" | "Enterprise";
   isTrial: boolean;
   reenterEmail: () => void;
+  error?: string;
 }
 
 export default function PleaseVerifyEmailModal({
@@ -20,6 +21,7 @@ export default function PleaseVerifyEmailModal({
   close,
   isTrial,
   reenterEmail,
+  error: externalError,
 }: Props) {
   const { license } = useUser();
   const { apiCall } = useAuth();
@@ -31,6 +33,10 @@ export default function PleaseVerifyEmailModal({
   useEffect(() => {
     track("View Verify Email Modal", { plan: plan });
   }, [plan]);
+
+  useEffect(() => {
+    setError(externalError || "");
+  }, [externalError]);
 
   const resendVerificationEmail = async () => {
     if (loading) return;
@@ -81,7 +87,11 @@ export default function PleaseVerifyEmailModal({
               resend
             </a>
           )}{" "}
-          email, <a onClick={reenterEmail}>re-enter</a> your email address, or{" "}
+          email,{" "}
+          <a onClick={reenterEmail} className={""}>
+            re-enter
+          </a>{" "}
+          your email address, or{" "}
           <a href="mailto: support@growthbook.io">contact&nbsp;support</a>.
         </div>
       }

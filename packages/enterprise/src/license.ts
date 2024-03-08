@@ -61,6 +61,8 @@ export interface LicenseInterface {
   seats: number; // Maximum number of seats on the license
   dateCreated: string; // Date the license was issued
   dateExpires: string; // Date the license expires
+  name: string; // Name of the person who signed up for the license
+  email: string; // Billing email of the person who signed up for the license
   emailVerified: boolean; // True if the email has been verified
   isTrial: boolean; // True if this is a trial license
   plan: AccountPlan; // The assigned plan (pro, enterprise, etc.) for this license
@@ -575,7 +577,7 @@ export async function postCreateTrialEnterpriseLicenseToLicenseServer(
   );
 }
 
-export async function postResendTrialLicenseEmailToLicenseServer(
+export async function postResendEmailVerificationEmailToLicenseServer(
   organizationId: string
 ) {
   const url = `${LICENSE_SERVER}license/resend-license-email`;
