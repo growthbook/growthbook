@@ -165,7 +165,7 @@ export default class BigQuery extends SqlIntegration {
     const quantileVal = Number(quantile)
       ? Math.trunc(100000 * Number(quantile))
       : `100000 * ${quantile}`;
-    return `APPROX_QUANTILES(${value}, 100000 IGNORE NULLS)[OFFSET(CAST(${quantileVal} AS INT64))] AS ${outputCol}`;
+    return `APPROX_QUANTILES(${value}, 100000 IGNORE NULLS)[OFFSET(LEAST(CAST(${quantileVal} AS INT64), 100000))] AS ${outputCol}`;
   }
   percentileCapSelectClause(
     values: {

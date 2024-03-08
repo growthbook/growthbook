@@ -115,8 +115,8 @@ export function getFactMetricGroups(
     // Only fact metrics
     if (!isFactMetric(m)) return;
 
-    // Skip quantile metrics
-    if (quantileMetricType(m) !== "") return;
+    // Skip unit quantile metrics
+    if (quantileMetricType(m) === "unit") return;
 
     // Skip grouping metrics with percentile caps if there's not an efficient implementation
     if (
