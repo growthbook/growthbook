@@ -26,6 +26,7 @@ export type {
   AutoExperiment,
   AutoExperimentVariation,
   UrlTargetType,
+  RenderFunction,
 } from "./types/growthbook";
 
 export type {

@@ -191,7 +191,7 @@ setInterval(() => {
 }, 500);
 
 // Listen for a custom event to update URL and attributes
-document.addEventListener("gb_refresh", () => {
+document.addEventListener("growthbook_refresh", () => {
   if (location.href !== currentUrl) {
     currentUrl = location.href;
     gb.setURL(currentUrl);
@@ -199,27 +199,28 @@ document.addEventListener("gb_refresh", () => {
   gb.updateAttributes(getAttributes());
 });
 
-// Fire an event to let the page know GrowthBook is loaded
-// Need to use setTimeout because the GrowthBook instance is not stored in the window object yet
-window.setTimeout(() => {
-  const event = new CustomEvent("gb_loaded");
-  document.dispatchEvent(event);
-
-  // Process any queued callbacks
-  if (window.growthbook_queue) {
-    if (Array.isArray(window.growthbook_queue)) {
-      window.growthbook_queue.forEach((cb) => {
-        cb(gb);
-      });
-    }
+const fireCallback = (cb: (gb: GrowthBook) => void) => {
+  try {
+    cb && cb(gb);
+  } catch (e) {
+    console.error("Uncaught growthbook_queue error", e);
   }
-  // Replace the queue with a function that immediately calls the callback
-  window.growthbook_queue = {
-    push: (cb: (gb: GrowthBook) => void) => {
-      cb(gb);
-    },
-  };
-}, 0);
+};
+
+// Process any queued callbacks
+if (window.growthbook_queue) {
+  if (Array.isArray(window.growthbook_queue)) {
+    window.growthbook_queue.forEach((cb) => {
+      fireCallback(cb);
+    });
+  }
+}
+// Replace the queue with a function that immediately calls the callback
+window.growthbook_queue = {
+  push: (cb: (gb: GrowthBook) => void) => {
+    fireCallback(cb);
+  },
+};
 
 // Store a reference in window to enable more advanced use cases
 export default gb;
