@@ -4923,6 +4923,22 @@ components:
         inverse:
           type: boolean
           description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
+        quantileSettings:
+          description: Controls the settings for quantile metrics (mandatory if metricType is "quantile")
+          type: object
+          required:
+            - type
+            - value
+          properties:
+            type:
+              type: string
+              enum:
+                - event
+                - user
+              description: Whether the quantile is over user sums or raw event values
+            value:
+              type: number
+              description: The quantile value (from 0.001 to 0.999)
         cappingSettings:
           description: Controls how outliers are handled
           type: object

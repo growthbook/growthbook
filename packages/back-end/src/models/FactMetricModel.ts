@@ -37,6 +37,11 @@ const factTableSchema = new mongoose.Schema({
     filters: [String],
   },
 
+  quantileSettings: {
+    type: {type: String},
+    value: Number,
+  },
+
   cappingSettings: {
     type: { type: String },
     value: Number,

@@ -1263,6 +1263,16 @@ export interface components {
       };
       /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
       inverse: boolean;
+      /** @description Controls the settings for quantile metrics (mandatory if metricType is "quantile") */
+      quantileSettings?: {
+        /**
+         * @description Whether the quantile is over user sums or raw event values 
+         * @enum {string}
+         */
+        type: "event" | "user";
+        /** @description The quantile value (from 0.001 to 0.999) */
+        value: number;
+      };
       /** @description Controls how outliers are handled */
       cappingSettings: {
         /** @enum {string} */
@@ -5308,6 +5318,16 @@ export interface operations {
                 };
                 /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
                 inverse: boolean;
+                /** @description Controls the settings for quantile metrics (mandatory if metricType is "quantile") */
+                quantileSettings?: {
+                  /**
+                   * @description Whether the quantile is over user sums or raw event values 
+                   * @enum {string}
+                   */
+                  type: "event" | "user";
+                  /** @description The quantile value (from 0.001 to 0.999) */
+                  value: number;
+                };
                 /** @description Controls how outliers are handled */
                 cappingSettings: {
                   /** @enum {string} */
@@ -5451,6 +5471,16 @@ export interface operations {
               };
               /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
               inverse: boolean;
+              /** @description Controls the settings for quantile metrics (mandatory if metricType is "quantile") */
+              quantileSettings?: {
+                /**
+                 * @description Whether the quantile is over user sums or raw event values 
+                 * @enum {string}
+                 */
+                type: "event" | "user";
+                /** @description The quantile value (from 0.001 to 0.999) */
+                value: number;
+              };
               /** @description Controls how outliers are handled */
               cappingSettings: {
                 /** @enum {string} */
@@ -5530,6 +5560,16 @@ export interface operations {
               };
               /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
               inverse: boolean;
+              /** @description Controls the settings for quantile metrics (mandatory if metricType is "quantile") */
+              quantileSettings?: {
+                /**
+                 * @description Whether the quantile is over user sums or raw event values 
+                 * @enum {string}
+                 */
+                type: "event" | "user";
+                /** @description The quantile value (from 0.001 to 0.999) */
+                value: number;
+              };
               /** @description Controls how outliers are handled */
               cappingSettings: {
                 /** @enum {string} */
@@ -5672,6 +5712,16 @@ export interface operations {
               };
               /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
               inverse: boolean;
+              /** @description Controls the settings for quantile metrics (mandatory if metricType is "quantile") */
+              quantileSettings?: {
+                /**
+                 * @description Whether the quantile is over user sums or raw event values 
+                 * @enum {string}
+                 */
+                type: "event" | "user";
+                /** @description The quantile value (from 0.001 to 0.999) */
+                value: number;
+              };
               /** @description Controls how outliers are handled */
               cappingSettings: {
                 /** @enum {string} */

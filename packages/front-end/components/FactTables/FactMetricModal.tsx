@@ -60,6 +60,7 @@ function ColumnRefSelector({
   setValue,
   includeCountDistinct,
   includeColumn,
+  rawColumnsOnly,
   datasource,
   disableFactTableSelector,
 }: {
@@ -67,6 +68,7 @@ function ColumnRefSelector({
   value: ColumnRef;
   includeCountDistinct?: boolean;
   includeColumn?: boolean;
+  rawColumnsOnly?: boolean;
   datasource: string;
   disableFactTableSelector?: boolean;
 }) {
@@ -95,7 +97,7 @@ function ColumnRefSelector({
     )
     .filter((col) => col.datatype === "number")
     .map((col) => ({
-      label: `SUM(\`${col.name}\`)`,
+      label: rawColumnsOnly ? `\`${col.name}\`` : `SUM(\`${col.name}\`)`,
       value: col.column,
     }));
 
@@ -110,7 +112,7 @@ function ColumnRefSelector({
               onChange={(column) => setValue({ ...value, column })}
               sort={false}
               options={[
-                ...(includeCountDistinct
+                ...(includeCountDistinct && !rawColumnsOnly
                   ? [
                       {
                         label: `COUNT( DISTINCT \`Experiment Users\` )`,
@@ -118,10 +120,10 @@ function ColumnRefSelector({
                       },
                     ]
                   : []),
-                {
+                ...(!rawColumnsOnly ? [{
                   label: "COUNT(*)",
                   value: "$$count",
-                },
+                }]: []),
                 ...columnOptions,
               ]}
               placeholder="Column..."
@@ -276,6 +278,7 @@ export default function FactMetricModal({
             : {}
         ).datasource,
       inverse: existing?.inverse || false,
+      quantileSettings: existing?.quantileSettings,
       cappingSettings: existing?.cappingSettings || {
         type: "",
         value: 0,
@@ -315,6 +318,7 @@ export default function FactMetricModal({
   );
 
   const type = form.watch("metricType");
+  const quantileType = form.watch("quantileSettings.type") ?? "event";
 
   const riskError =
     form.watch("loseRisk") < form.watch("winRisk")
@@ -331,6 +335,12 @@ export default function FactMetricModal({
     regressionAdjustmentAvailableForMetric = false;
     regressionAdjustmentAvailableForMetricReason = (
       <>Not available for ratio metrics.</>
+    );
+  }
+  if (type === "quantile") {
+    regressionAdjustmentAvailableForMetric = false;
+    regressionAdjustmentAvailableForMetricReason = (
+      <>Not available for quantile metrics.</>
     );
   }
 
@@ -386,6 +396,7 @@ export default function FactMetricModal({
         // Anonymized telemetry props
         // Will help us measure which settings are being used so we can optimize the UI
         const trackProps = {
+          // TODO
           type: values.metricType,
           source,
           capping: values.cappingSettings.type,
@@ -511,6 +522,10 @@ export default function FactMetricModal({
                         <strong>Mean</strong> metrics calculate the average
                         value of a numeric column in a fact table.
                       </div>
+                      <div className="mb-2">
+                        <strong>Quantile</strong> metrics calculate a quantile
+                        of a numeric column in a fact table (e.g. median, p90).
+                      </div>
                       <div>
                         <strong>Ratio</strong> metrics allow you to calculate a
                         complex value by dividing two different numeric columns
@@ -544,6 +559,11 @@ export default function FactMetricModal({
               ) {
                 form.setValue("cappingSettings.type", "");
               }
+              if (
+                type === "quantile"
+              ) {
+                form.setValue("cappingSettings.type", "");
+              }
             }}
             options={[
               {
@@ -555,11 +575,71 @@ export default function FactMetricModal({
                 label: "Mean",
               },
               {
+                value: "quantile",
+                label: "Quantile",
+              },
+              {
                 value: "ratio",
                 label: "Ratio",
               },
             ]}
           />
+          {type === "quantile" ? 
+            <><ButtonSelectField
+            label={
+              <>
+                Type of Quantile Metric{" "}
+                <Tooltip
+                  body={
+                    <div>
+                      <div className="mb-2">
+                        <strong>Event</strong> quantiles are calculated based
+                        on each individual row in your fact table. For example,
+                        if you have a column of request durations, Event quantiles
+                        will be computed over each individual request, regardless
+                        of whether a user has multiple requests.
+                      </div>
+                      <div className="mb-2">
+                        <strong>User</strong> quantiles are calculated across
+                        all users after aggregating at the user level.
+                        For User quantiles,
+                        if you have a column of purchases and are interested in
+                        total revenue per user, we will first sum
+                        all purchases by user before computing the quantile over
+                        those sums.
+                      </div>
+                    </div>
+                  }
+                />
+              </>
+            }
+            value={quantileType}
+            setValue={(quantileType) => {
+              form.setValue("quantileSettings.type", quantileType);
+              // TODO don't let it save count for event
+            }}
+            options={[
+              {
+                value: "event",
+                label: "Event",
+              },
+              {
+                value: "unit",
+                label: "Unit",
+              },
+            ]}
+          /><div className="d-flex"><Field
+          label="Quantile Value"
+          type="number"
+          step="any"
+          min="0.001"
+          max="0.999"
+          {...form.register("quantileSettings.value", {
+            valueAsNumber: true,
+          })}
+          helpText={"Enter a quantile between 0.001 and 0.999"}
+        /> </div></>
+          : null}
           {type === "proportion" ? (
             <div>
               <p className="text-muted">
@@ -583,6 +663,27 @@ export default function FactMetricModal({
                 value={form.watch("numerator")}
                 setValue={(numerator) => form.setValue("numerator", numerator)}
                 includeColumn={true}
+                datasource={selectedDataSource.id}
+                disableFactTableSelector={!!initialFactTable}
+              />
+            </div>
+          ) : type === "quantile" ? (
+            <div>
+              {quantileType === "event" ? (
+              <p className="text-muted">
+                (<strong>Metric Value</strong> = Quantile of values in column
+                among all Experiment Users)
+              </p>) : (
+              <p className="text-muted">
+                  (<strong>Metric Value</strong> = Quantile of column aggregated by user
+                  among all Experiment Users)
+              </p>
+              )}
+              <ColumnRefSelector
+                value={form.watch("numerator")}
+                setValue={(numerator) => form.setValue("numerator", numerator)}
+                includeColumn={true}
+                rawColumnsOnly={quantileType === "event"}
                 datasource={selectedDataSource.id}
                 disableFactTableSelector={!!initialFactTable}
               />
@@ -665,11 +766,23 @@ export default function FactMetricModal({
             >
               <Tab id="query" display="Query Settings">
                 <MetricDelayHours form={form} />
-                <MetricCappingSettingsForm
+                {type !== "quantile" ? <MetricCappingSettingsForm
                   form={form}
                   datasourceType={selectedDataSource.type}
                   metricType={type}
+                /> : null}
+                {type === "quantile" ?  <div className="mb-2">
+                <label className="mr-1" htmlFor="toggle-ignoreZeros">
+                  Ignore zero values in quantile calculation?
+                </label>
+                <Toggle
+                  value={form.watch("quantileSettings.ignoreZeros") ?? false}
+                  setValue={(ignoreZeros) => {
+                    form.setValue("quantileSettings.ignoreZeros", ignoreZeros);
+                  }}
+                  id={"ignoreZeros"}
                 />
+              </div> : null}
                 <PremiumTooltip commercialFeature="regression-adjustment">
                   <label className="mb-1">
                     <GBCuped /> Regression Adjustment (CUPED)
