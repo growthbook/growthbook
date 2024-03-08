@@ -445,7 +445,12 @@ const ExperimentsPage = (): React.ReactElement => {
                       ) : e.status === "running" && phase ? (
                         phaseSummary(phase)
                       ) : e.status === "stopped" && e.results ? (
-                        <ResultsIndicator results={e.results} />
+                        <div
+                          className="experiment-status-widget d-inline-block position-relative"
+                          style={{ height: 25, lineHeight: "25px", top: 2 }}
+                        >
+                          <ResultsIndicator results={e.results} />
+                        </div>
                       ) : (
                         ""
                       )}
