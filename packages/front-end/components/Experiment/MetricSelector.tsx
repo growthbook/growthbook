@@ -97,7 +97,10 @@ const MetricSelector: FC<
     )
     .filter((m) => {
       if (projects && !project) {
-        return !projects.length || projects.some((p) => isProjectListValidForProject(m.projects, p));
+        return (
+          !projects.length ||
+          projects.some((p) => isProjectListValidForProject(m.projects, p))
+        );
       }
       return isProjectListValidForProject(m.projects, project);
     });
