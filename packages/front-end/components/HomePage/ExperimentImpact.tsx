@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ReactElement, useCallback, useEffect, useState } from "react";
+import React, { ReactElement, useCallback, useEffect, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { date, getValidDate } from "shared/dates";
 import {
@@ -400,10 +400,6 @@ export default function ExperimentImpact({
         ).getTime()
     );
 
-  if (loading) {
-    return <LoadingSpinner />;
-  }
-
   const experimentImpacts = new Map<string, ExperimentWithImpact>();
   let summaryObj: {
     winners: ExperimentImpactData;
@@ -546,49 +542,51 @@ export default function ExperimentImpact({
   }
   return (
     <div>
-      <div className="appbox p-3 bg-light">
-        {/*<table className="impact-selector-table">*/}
-        {/*  <tr>*/}
-        <label>Metric</label>
-        <div className="d-flex">
-          <MetricSelector
-            initialOption="None"
-            value={metric}
-            onChange={(metric) => form.setValue("metric", metric)}
-            project={project ? project : undefined}
-            includeFacts={true}
-          />
-        </div>
-        {/*</tr>*/}
-        {/*<tr>*/}
-        <label>Project</label>
-        <div className="d-flex">
-          <SelectField
-            value={project ? project : selectedProject}
-            options={[
-              ...(project ? [] : [{ value: "", label: "All" }]),
-              // TODO grey out projects that metric is not in
-              ...projects
-                .filter((p) => project === "" || p.id === project)
-                .map((p) => ({ value: p.id, label: p.name })),
-            ]}
-            onChange={(v) => form.setValue("project", v)}
-          />
-        </div>
-        {/*</tr>*/}
-        {/*<tr>*/}
-        <label>Date</label>
+      <h3>Experiment Impact</h3>
+      <div className="mb-4">
+        <div className="d-flex align-items-center">
+          <div className="mr-4">
+            <small>Metric</small>
+            <MetricSelector
+              value={metric}
+              onChange={(metric) => form.setValue("metric", metric)}
+              project={project ? project : undefined}
+              includeFacts={true}
+            />
+          </div>
 
-        <div className="d-flex align-items-center ">
-          <Field type="datetime-local" {...form.register("startDate")} />
-          <div className="m-2">{" to "}</div>
-          <Field type="datetime-local" {...form.register("endDate")} />
+          <div>
+            <small>Project</small>
+            <SelectField
+              value={project ? project : selectedProject}
+              options={[
+                ...(project ? [] : [{ value: "", label: "All" }]),
+                // TODO grey out projects that metric is not in
+                ...projects
+                  .filter((p) => project === "" || p.id === project)
+                  .map((p) => ({ value: p.id, label: p.name })),
+              ]}
+              onChange={(v) => form.setValue("project", v)}
+            />
+          </div>
+
+          <div className="flex-1 mr-4" />
+
+          <div>
+            <small>Date</small>
+            <div className="d-flex align-items-center ">
+              <Field type="datetime-local" {...form.register("startDate")} />
+              <div className="m-2">{" to "}</div>
+              <Field type="datetime-local" {...form.register("endDate")} />
+            </div>
+          </div>
         </div>
-        {/*</tr>*/}
-        {/*</table>*/}
       </div>
       {/* TODO null state when all arrays are empty */}
-      {summaryObj ? (
+
+      {loading ? (
+        <LoadingSpinner />
+      ) : summaryObj ? (
         <ControlledTabs
           setActive={(s) => {
             setImpactTab((s as ExperimentImpactTab) || "summary");
@@ -686,79 +684,8 @@ export default function ExperimentImpact({
                 </tbody>
               </table>
             </div>
-            {/*  <div className="d-flex mb-2 align-items-center justify-content-center">*/}
-            {/*    <div*/}
-            {/*      className={`badge-success rounded-circle mr-1`}*/}
-            {/*      style={{width: 10, height: 10}}*/}
-            {/*    />*/}
-            {/*    <span className="font-weight-bold">Winners</span>*/}
-            {/*    </div>*/}
-            {/*    <div className="mb-2">*/}
-            {/*        <span className="font-weight-bold">*/}
-            {/*          {summaryObj.winners.experiments.length}*/}
-            {/*        </span>{" "}*/}
-            {/*      experiments*/}
-            {/*    </div>*/}
-
-            {/*    <span>*/}
-            {/*        {formatImpact(*/}
-            {/*          summaryObj.winners.totalAdjustedImpact * 365,*/}
-            {/*          formatter,*/}
-            {/*          formatterOptions*/}
-            {/*        )}*/}
-            {/*      </span>{" "}*/}
-            {/*    <div className="text-muted">*/}
-            {/*      summed impact per year*/}
-            {/*    </div>*/}
-            {/*  </th>*/}
-
-            {/*  <div className="col-auto mr-3 text-center">*/}
-            {/*    <div className="d-flex mb-2 align-items-center justify-content-center">*/}
-            {/*      <div*/}
-            {/*        className={`badge-danger rounded-circle mr-1`}*/}
-            {/*        style={{width: 10, height: 10}}*/}
-            {/*      />*/}
-            {/*      <span className="font-weight-bold">Losers</span>*/}
-            {/*    </div>*/}
-
-            {/*    <div className="mb-2">*/}
-            {/*        <span className="font-weight-bold">*/}
-            {/*          {summaryObj.losers.experiments.length}*/}
-            {/*        </span>{" "}*/}
-            {/*      experiments*/}
-            {/*    </div>*/}
-
-            {/*    <span>*/}
-            {/*        {formatImpact(*/}
-            {/*          summaryObj.losers.totalAdjustedImpact * 365,*/}
-            {/*          formatter,*/}
-            {/*          formatterOptions*/}
-            {/*        )}*/}
-            {/*      </span>{" "}*/}
-            {/*    <div className="text-muted">*/}
-            {/*      summed saved impact per year*/}
-            {/*    </div>*/}
-            {/*  </div>*/}
-
-            {/*  <div className="col-auto mr-3 text-center">*/}
-            {/*    <div className="d-flex mb-2 align-items-center justify-content-center">*/}
-            {/*      <div*/}
-            {/*        className={`badge-secondary rounded-circle mr-1`}*/}
-            {/*        style={{width: 10, height: 10}}*/}
-            {/*      />*/}
-            {/*      <span className="font-weight-bold">Others</span>*/}
-            {/*    </div>*/}
-
-            {/*    <div>*/}
-            {/*        <span className="font-weight-bold">*/}
-            {/*          {summaryObj.others.experiments.length}*/}
-            {/*        </span>{" "}*/}
-            {/*      experiments*/}
-            {/*    </div>*/}
-            {/*  </div>*/}
-            {/*</table>*/}
-            {/*</div>*/}
           </Tab>
+
           <Tab
             key={"winner"}
             id={"winner"}
@@ -773,6 +700,7 @@ export default function ExperimentImpact({
               formatterOptions={formatterOptions}
             />
           </Tab>
+
           <Tab
             key={"loser"}
             id={"loser"}
