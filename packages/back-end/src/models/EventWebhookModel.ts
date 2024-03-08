@@ -168,7 +168,7 @@ type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
 const toInterface = (doc: EventWebHookDocument): EventWebHookInterface =>
   omit(doc.toJSON<EventWebHookDocument>(), ["__v", "_id"]);
 
-const EventWebHookModel = mongoose.model<EventWebHookInterface>(
+export const EventWebHookModel = mongoose.model<EventWebHookInterface>(
   "EventWebHook",
   eventWebHookSchema
 );
@@ -362,6 +362,11 @@ export const getAllEventWebHooks = async (
   return docs.map(toInterface);
 };
 
+const filterOptional = <T>(want: T[], has: T[] = []) => {
+  if (!want.length) return true;
+  return !!intersection(want, has).length;
+};
+
 /**
  * Retrieve all event web hooks for an organization for a given event
  * @param organizationId
@@ -388,15 +393,8 @@ export const getAllEventWebHooksForEvent = async ({
   });
 
   const docs = allDocs.filter((doc) => {
-    if (doc.tags?.length && tags?.length && !intersection(doc.tags, tags))
-      return false;
-
-    if (
-      doc.projects?.length &&
-      projects.length &&
-      !intersection(doc.projects, projects)
-    )
-      return false;
+    if (!filterOptional(tags, doc.tags)) return false;
+    if (!filterOptional(projects, doc.projects)) return false;
 
     return true;
   });
