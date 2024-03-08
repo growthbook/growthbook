@@ -181,7 +181,7 @@ window.growthbook_queue.push((gb) => {
   applyFeatureFlags(gb);
 
   // Tell the SDK to call your function any time features change in the future
-  gb.setRenderer(applyFeatureFlags);
+  gb.setRenderer(() => applyFeatureFlags(gb));
 });
 </script>
 ```

@@ -230,7 +230,7 @@ export class GrowthBook<
   private _render() {
     if (this._renderer) {
       try {
-        this._renderer(this);
+        this._renderer();
       } catch (e) {
         console.error("Failed to render", e);
       }

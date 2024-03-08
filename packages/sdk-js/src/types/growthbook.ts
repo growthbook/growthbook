@@ -152,7 +152,7 @@ export type RealtimeUsageData = {
   on: boolean;
 };
 
-export type RenderFunction = (gb: GrowthBook) => void;
+export type RenderFunction = () => void;
 
 export interface Context {
   enabled?: boolean;
