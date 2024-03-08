@@ -1,4 +1,4 @@
-import type { ReadAccessFilter } from "shared/permissions";
+import type { PermissionResult, ReadAccessFilter } from "shared/permissions";
 import type pino from "pino";
 import type { Request } from "express";
 import type { EventAuditUser } from "../src/events/event-types";
@@ -23,10 +23,10 @@ export interface ReqContextInterface {
   apiKey?: string;
   req?: Request;
   logger: pino.BaseLogger;
-  permissionsUtil: {
+  permissions: {
     canCreateMetrics: (
       metric: Pick<MetricInterface, "projects">
-    ) => { hasPermission: boolean; throwIfError: () => void };
+    ) => PermissionResult;
   };
 
   auditLog(

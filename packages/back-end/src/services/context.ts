@@ -1,7 +1,8 @@
 import {
+  PermissionResult,
   ReadAccessFilter,
   getReadAccessFilter,
-  hasPermissionClass,
+  permissionsClass,
 } from "shared/permissions";
 import { uniq } from "lodash";
 import pino from "pino";
@@ -42,13 +43,13 @@ export class ReqContextClass implements ReqContextInterface {
   public apiKey?: string;
   public req?: Request;
   public logger: pino.BaseLogger;
-  public permissionsUtil: {
+  public permissions: {
     canCreateMetrics: (
       metric: Pick<MetricInterface, "projects">
-    ) => { hasPermission: boolean; throwIfError: () => void };
+    ) => PermissionResult;
   };
 
-  protected permissions: UserPermissions;
+  protected userPermissions: UserPermissions;
 
   public constructor({
     org,
@@ -95,7 +96,7 @@ export class ReqContextClass implements ReqContextInterface {
       this.email = user.email;
       this.userName = user.name || "";
       this.superAdmin = user.superAdmin || false;
-      this.permissions = getUserPermissions(user.id, org, teams || []);
+      this.userPermissions = getUserPermissions(user.id, org, teams || []);
     }
     // If an API key or background job is making this request
     else {
@@ -103,7 +104,7 @@ export class ReqContextClass implements ReqContextInterface {
         throw new Error("Role must be provided for API key or background job");
       }
 
-      this.permissions = {
+      this.userPermissions = {
         global: {
           permissions: roleToPermissionMap("noaccess", org),
           limitAccessByEnvironment: false,
@@ -112,9 +113,9 @@ export class ReqContextClass implements ReqContextInterface {
         projects: {},
       };
     }
-    this.readAccessFilter = getReadAccessFilter(this.permissions);
+    this.readAccessFilter = getReadAccessFilter(this.userPermissions);
 
-    this.permissionsUtil = new hasPermissionClass(this.permissions);
+    this.permissions = new permissionsClass(this.userPermissions);
   }
 
   // Record an audit log entry

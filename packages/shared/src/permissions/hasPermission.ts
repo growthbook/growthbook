@@ -1,6 +1,11 @@
 import { MetricInterface } from "back-end/types/metric";
 import { Permission, UserPermissions } from "back-end/types/organization";
 
+export interface PermissionResult {
+  hasPermission: boolean;
+  throwIfError: () => void;
+}
+
 class PermissionError extends Error {
   constructor(message: string) {
     super(message);
@@ -8,29 +13,32 @@ class PermissionError extends Error {
   }
 }
 
-export class hasPermissionClass {
+export class permissionsClass {
   private userPermissions: UserPermissions;
-  //TODO: Change this to permissions: UserPermissions | undefined - I could then update hasPermission to immediately return false if no userPermissions
-  // This will make invoking the class easier
   constructor(permissions: UserPermissions) {
     this.userPermissions = permissions;
   }
 
-  public canCreateMetrics(metric: Pick<MetricInterface, "projects">) {
+  public canCreateMetrics(
+    metric: Pick<MetricInterface, "projects">
+  ): PermissionResult {
     const metricProjects = metric.projects?.length ? metric.projects : [""];
 
-    const hasPermission = metricProjects.every((project) =>
-      this.hasPermission("createMetrics", project)
+    return this.transformReturnObj(
+      metricProjects.every((project) =>
+        this.hasPermission("createMetrics", project)
+      )
     );
-
-    return this.transformReturnObj(hasPermission);
   }
 
-  protected transformReturnObj(hasPermission: boolean) {
+  //TODO: When we add finer-grain permissions, update to accept the permission to check.
+  // currently, it doesn't make sense since, we check for "createMetrics" when deciding if someone can delete a metric
+  // that error could cause confusion
+  protected transformReturnObj(hasPermission: boolean): PermissionResult {
     return {
       hasPermission,
       throwIfError: () => {
-        if (hasPermission) {
+        if (!hasPermission) {
           throw new PermissionError(
             `You do not have permission to perform this action.`
           );
