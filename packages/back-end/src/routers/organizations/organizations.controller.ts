@@ -993,7 +993,9 @@ export async function postInvite(
     license.hardCap &&
     getNumberOfUniqueMembersAndInvites(org) >= (license.seats || 0)
   ) {
-    throw new Error("Over seat limit on license");
+    throw new Error(
+      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit."
+    );
   }
 
   const { emailSent, inviteUrl } = await inviteUser({
@@ -1801,7 +1803,9 @@ export async function addOrphanedUser(
     license.hardCap &&
     getNumberOfUniqueMembersAndInvites(org) >= (license.seats || 0)
   ) {
-    throw new Error("Over seat limit on license");
+    throw new Error(
+      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit."
+    );
   }
 
   await addMemberToOrg({

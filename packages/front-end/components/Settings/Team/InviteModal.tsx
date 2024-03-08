@@ -92,7 +92,10 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
         <div className="my-3">
           Whoops! You reached the seat limit on your license. To increase your
           number of seats, please contact{" "}
-          <a href="mailto:sales@growthbook.io">sales@growthbook.io</a>.
+          <a href="mailto:sales@growthbook.io" target="_blank" rel="noreferrer">
+            sales@growthbook.io
+          </a>
+          .
         </div>
       </Modal>
     );
