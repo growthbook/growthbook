@@ -370,42 +370,61 @@ export default function ExperimentImpact({
     }
   }
   return (
-    <div>
-      <h3>Experiment Impact</h3>
-      <div className="mb-4">
-        <div className="d-flex align-items-center">
-          <div className="mr-4">
-            <small>Metric</small>
-            <MetricSelector
-              value={metric}
-              onChange={(metric) => form.setValue("metric", metric)}
-              projects={selectedProjects}
-              includeFacts={true}
+    <div className="pt-2">
+      <div className="row align-items-start">
+        <div className="col-md-12 col-lg-auto">
+          <h3 className="mt-2 mb-3 mr-4">Experiment Impact</h3>
+        </div>
+
+        <div className="flex-1" />
+
+        <div className="col-2">
+          <label className="mb-1">Metric</label>
+          <MetricSelector
+            value={metric}
+            onChange={(metric) => form.setValue("metric", metric)}
+            projects={selectedProjects}
+            includeFacts={true}
+          />
+        </div>
+
+        <div className="col-auto" style={{ maxWidth: 250 }}>
+          <label className="mb-1">Projects</label>
+          <MultiSelectField
+            placeholder="All projects"
+            value={project ? [project] : selectedProjects}
+            disabled={!!project}
+            options={projects
+              .filter((p) => project === "" || p.id === project)
+              .map((p) => ({ value: p.id, label: p.name }))}
+            onChange={(v) => form.setValue("projects", v)}
+          />
+        </div>
+
+        <div className="col pl-3">
+          <label className="mb-1">Date Ended</label>
+          <div className="d-flex align-items-start">
+            <Field type="date" {...form.register("startDate")} />
+            <div className="m-2">{" to "}</div>
+            <Field
+              type="date"
+              {...form.register("endDate")}
+              helpText={
+                <div style={{ marginRight: -10 }}>
+                  <a
+                    role="button"
+                    className="a"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      form.setValue("endDate", "");
+                    }}
+                  >
+                    Clear Input
+                  </a>{" "}
+                  to include today.
+                </div>
+              }
             />
-          </div>
-
-          <div>
-            <small>Projects</small>
-            <MultiSelectField
-              placeholder="All projects"
-              value={project ? [project] : selectedProjects}
-              disabled={!!project}
-              options={projects
-                .filter((p) => project === "" || p.id === project)
-                .map((p) => ({ value: p.id, label: p.name }))}
-              onChange={(v) => form.setValue("projects", v)}
-            />
-          </div>
-
-          <div className="flex-1 mr-4" />
-
-          <div>
-            <small>Date</small>
-            <div className="d-flex align-items-center ">
-              <Field type="datetime-local" {...form.register("startDate")} />
-              <div className="m-2">{" to "}</div>
-              <Field type="datetime-local" {...form.register("endDate")} />
-            </div>
           </div>
         </div>
       </div>
