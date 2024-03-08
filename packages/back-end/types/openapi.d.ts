@@ -1270,6 +1270,8 @@ export interface components {
          * @enum {string}
          */
         type: "event" | "user";
+        /** @description If true, zero values will be ignored when calculating the quantile */
+        ignoreZeros?: boolean;
         /** @description The quantile value (from 0.001 to 0.999) */
         value: number;
       };
@@ -5325,6 +5327,8 @@ export interface operations {
                    * @enum {string}
                    */
                   type: "event" | "user";
+                  /** @description If true, zero values will be ignored when calculating the quantile */
+                  ignoreZeros?: boolean;
                   /** @description The quantile value (from 0.001 to 0.999) */
                   value: number;
                 };
@@ -5478,6 +5482,8 @@ export interface operations {
                  * @enum {string}
                  */
                 type: "event" | "user";
+                /** @description If true, zero values will be ignored when calculating the quantile */
+                ignoreZeros?: boolean;
                 /** @description The quantile value (from 0.001 to 0.999) */
                 value: number;
               };
@@ -5567,6 +5573,8 @@ export interface operations {
                  * @enum {string}
                  */
                 type: "event" | "user";
+                /** @description If true, zero values will be ignored when calculating the quantile */
+                ignoreZeros?: boolean;
                 /** @description The quantile value (from 0.001 to 0.999) */
                 value: number;
               };
@@ -5719,6 +5727,8 @@ export interface operations {
                  * @enum {string}
                  */
                 type: "event" | "user";
+                /** @description If true, zero values will be ignored when calculating the quantile */
+                ignoreZeros?: boolean;
                 /** @description The quantile value (from 0.001 to 0.999) */
                 value: number;
               };

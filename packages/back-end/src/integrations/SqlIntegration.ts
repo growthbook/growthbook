@@ -223,6 +223,9 @@ export default abstract class SqlIntegration
   ensureFloat(col: string): string {
     return col;
   }
+  escapeStringLiteral(value: string): string {
+    return value.replace(/'/g, `''`);
+  }
   castUserDateCol(column: string): string {
     return column;
   }
@@ -1032,7 +1035,9 @@ export default abstract class SqlIntegration
 
   getDimensionInStatement(dimension: string, values: string[]): string {
     return this.ifElse(
-      `${this.castToString(dimension)} IN ('${values.join("','")}')`,
+      `${this.castToString(dimension)} IN (${values
+        .map((v) => `'` + this.escapeStringLiteral(v) + `'`)
+        .join(",")})`,
       this.castToString(dimension),
       this.castToString(`'${AUTOMATIC_DIMENSION_OTHER_NAME}'`)
     );

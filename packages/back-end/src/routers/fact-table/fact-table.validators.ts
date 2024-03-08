@@ -77,13 +77,6 @@ export const cappingTypeValidator = z.enum(["absolute", "percentile", ""]);
 export const conversionWindowUnitValidator = z.enum(["weeks", "days", "hours"]);
 export const windowTypeValidator = z.enum(["conversion", "lookback", ""]);
 
-export const quantileTypeValidator = z.enum(["unit", "event"])
-export const quantileSettingsValidator = z.object({
-  type: quantileTypeValidator,
-  value: z.number(),
-  ignoreZeros: z.boolean().optional(),
-});
-
 export const cappingSettingsValidator = z
   .object({
     type: cappingTypeValidator,
@@ -99,7 +92,18 @@ export const windowSettingsValidator = z.object({
   windowUnit: conversionWindowUnitValidator,
 });
 
-export const metricTypeValidator = z.enum(["ratio", "mean", "proportion", "quantile"]);
+export const quantileSettingsValidator = z.object({
+  quantile: z.number(),
+  type: z.enum(["unit", "event"]),
+  ignoreZeros: z.boolean(),
+});
+
+export const metricTypeValidator = z.enum([
+  "ratio",
+  "mean",
+  "proportion",
+  "quantile",
+]);
 
 export const createFactMetricPropsValidator = z.object({
   id: z.string().optional(),
@@ -117,7 +121,7 @@ export const createFactMetricPropsValidator = z.object({
 
   inverse: z.boolean(),
 
-  quantileSettings: quantileSettingsValidator.optional(),
+  quantileSettings: quantileSettingsValidator.nullable(),
 
   cappingSettings: cappingSettingsValidator,
   windowSettings: windowSettingsValidator,

@@ -440,7 +440,7 @@ const sidebars = {
         {
           type: "doc",
           id: "guide/importing",
-          label: "Importing data into GrowthBook",
+          label: "Migrate from LaunchDarkly",
         },
       ],
     },

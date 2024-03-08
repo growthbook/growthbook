@@ -40,6 +40,10 @@ import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import HashVersionSelector, {
+  allConnectionsSupportBucketingV2,
+} from "@/components/Experiment/HashVersionSelector";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
@@ -151,6 +155,12 @@ export default function RuleModal({
 
   const experimentId = form.watch("experimentId");
   const selectedExperiment = experimentsMap.get(experimentId) || null;
+
+  const { data: sdkConnectionsData } = useSDKConnections();
+  const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
+    sdkConnectionsData?.connections,
+    feature.project
+  );
 
   const prerequisites = form.watch("prerequisites") || [];
   const [isCyclic, cyclicFeatureId] = useMemo(() => {
@@ -355,7 +365,7 @@ export default function RuleModal({
               activationMetric: "",
               guardrails: [],
               name: values.name,
-              hashVersion: 2,
+              hashVersion: hasSDKWithNoBucketingV2 ? 1 : 2,
               owner: "",
               status: values.autoStart ? "running" : "draft",
               tags: feature.tags || [],
@@ -770,6 +780,13 @@ export default function RuleModal({
               }
             />
           </div>
+          {hasSDKWithNoBucketingV2 && (
+            <HashVersionSelector
+              value={(form.watch("hashVersion") || 1) as 1 | 2}
+              onChange={(v) => form.setValue("hashVersion", v)}
+              project={feature.project}
+            />
+          )}
           <hr />
         </>
       )}

@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { FaTimes } from "react-icons/fa";
-import { useEffect, useState } from "react";
+import { ReactElement, useEffect, useState } from "react";
 import {
   DEFAULT_FACT_METRIC_WINDOW,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
@@ -12,6 +12,7 @@ import {
   FactMetricInterface,
   ColumnRef,
   UpdateFactMetricProps,
+  MetricQuantileSettings,
 } from "back-end/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
 import omit from "lodash/omit";
@@ -28,16 +29,15 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, { SingleValue } from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Field from "@/components/Forms/Field";
-import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import Toggle from "@/components/Forms/Toggle";
 import RiskThresholds from "@/components/Metrics/MetricForm/RiskThresholds";
 import Tabs from "@/components/Tabs/Tabs";
 import Tab from "@/components/Tabs/Tab";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { GBAddCircle, GBArrowLeft, GBCuped } from "@/components/Icons";
+import { GBArrowLeft, GBCuped } from "@/components/Icons";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import { MetricWindowSettingsForm } from "@/components/Metrics/MetricForm/MetricWindowSettingsForm";
@@ -55,40 +55,101 @@ export interface Props {
   source: string;
 }
 
+function QuantileSelector({
+  value,
+  setValue,
+}: {
+  value: MetricQuantileSettings;
+  setValue: (v: MetricQuantileSettings) => void;
+}) {
+  const options: { label: string; value: string }[] = [
+    { label: "Median (p50)", value: "0.5" },
+    { label: "p90", value: "0.9" },
+    { label: "p95", value: "0.95" },
+    { label: "p99", value: "0.99" },
+    { label: "Custom", value: "custom" },
+  ];
+
+  const isCustom =
+    value.quantile && !options.some((o) => o.value === value.quantile + "");
+  const [showCustom, setShowCustom] = useState(isCustom);
+
+  return (
+    <div className="row align-items-center">
+      <div className="col-auto">
+        <SelectField
+          label="Quantile"
+          value={showCustom ? "custom" : value.quantile + ""}
+          onChange={(v) => {
+            if (v === "custom") {
+              setShowCustom(true);
+              return;
+            }
+            setShowCustom(false);
+            setValue({ ...value, quantile: parseFloat(v) });
+          }}
+          options={options}
+          sort={false}
+        />
+      </div>
+      {showCustom && (
+        <div className="col-auto">
+          <Field
+            label="&nbsp;"
+            autoFocus
+            type="number"
+            step={0.001}
+            min={0.001}
+            max={0.999}
+            value={value.quantile}
+            onBlur={() => {
+              // Fix common issue of entering 90 instead of 0.9
+              if (value.quantile > 10 && value.quantile < 100) {
+                setValue({
+                  ...value,
+                  quantile: value.quantile / 100,
+                });
+              }
+            }}
+            onChange={(event) => {
+              const v = parseFloat(event.target.value);
+              setValue({
+                ...value,
+                quantile: v,
+              });
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ColumnRefSelector({
   value,
   setValue,
   includeCountDistinct,
+  aggregationType = "unit",
   includeColumn,
-  rawColumnsOnly,
   datasource,
   disableFactTableSelector,
+  extraField,
 }: {
   setValue: (ref: ColumnRef) => void;
   value: ColumnRef;
   includeCountDistinct?: boolean;
   includeColumn?: boolean;
-  rawColumnsOnly?: boolean;
+  aggregationType?: "unit" | "event";
   datasource: string;
   disableFactTableSelector?: boolean;
+  extraField?: ReactElement;
 }) {
   const { getFactTableById, factTables } = useDefinitions();
 
   let factTable = getFactTableById(value.factTableId);
   if (factTable?.datasource !== datasource) factTable = null;
 
-  const [showFilters, setShowFilters] = useState(value.filters.length > 0);
-
-  // If there's nothing for the user to configure
-  if (
-    !includeColumn &&
-    disableFactTableSelector &&
-    !factTable?.filters?.length
-  ) {
-    return null;
-  }
-
-  const columnOptions = (factTable?.columns || [])
+  const columnOptions: SingleValue[] = (factTable?.columns || [])
     .filter(
       (col) =>
         !col.deleted &&
@@ -97,129 +158,149 @@ function ColumnRefSelector({
     )
     .filter((col) => col.datatype === "number")
     .map((col) => ({
-      label: rawColumnsOnly ? `\`${col.name}\`` : `SUM(\`${col.name}\`)`,
+      label: col.name,
       value: col.column,
     }));
+
+  const specialColumnOptions: SingleValue[] = [];
+  if (includeCountDistinct && aggregationType === "unit") {
+    specialColumnOptions.push({
+      label: `Unique Users`,
+      value: "$$distinctUsers",
+    });
+  }
+  if (aggregationType === "unit") {
+    specialColumnOptions.push({
+      label: "Count of Rows",
+      value: "$$count",
+    });
+  }
 
   return (
     <div className="appbox px-3 pt-3 bg-light">
       <div className="row align-items-center">
-        {includeColumn && (
-          <div className="col-auto">
-            <SelectField
-              label="SELECT"
-              value={value.column}
-              onChange={(column) => setValue({ ...value, column })}
-              sort={false}
-              options={[
-                ...(includeCountDistinct && !rawColumnsOnly
-                  ? [
-                      {
-                        label: `COUNT( DISTINCT \`Experiment Users\` )`,
-                        value: "$$distinctUsers",
-                      },
-                    ]
-                  : []),
-                ...(!rawColumnsOnly ? [{
-                  label: "COUNT(*)",
-                  value: "$$count",
-                }]: []),
-                ...columnOptions,
-              ]}
-              placeholder="Column..."
-              formatOptionLabel={({ label }) => {
-                return <InlineCode language="sql" code={label} />;
-              }}
-              required
-            />
-          </div>
-        )}
-        {includeColumn || !disableFactTableSelector ? (
-          <div className="col-auto">
-            <SelectField
-              label={includeColumn ? "FROM" : "SELECT FROM"}
-              disabled={disableFactTableSelector}
-              value={value.factTableId}
-              onChange={(factTableId) =>
-                setValue({
-                  factTableId,
-                  column: value.column?.match(/^\$\$/)
-                    ? value.column
-                    : "$$count",
-                  filters: [],
-                })
+        <div className="col-auto">
+          <SelectField
+            label={"Fact Table"}
+            disabled={disableFactTableSelector}
+            value={value.factTableId}
+            onChange={(factTableId) =>
+              setValue({
+                factTableId,
+                column: value.column?.match(/^\$\$/) ? value.column : "$$count",
+                filters: [],
+              })
+            }
+            options={factTables
+              .filter((t) => t.datasource === datasource)
+              .map((t) => ({
+                label: t.name,
+                value: t.id,
+              }))}
+            formatOptionLabel={({ value, label }) => {
+              const factTable = getFactTableById(value);
+              if (factTable) {
+                return (
+                  <>
+                    {factTable.name}
+                    <OfficialBadge
+                      managedBy={factTable.managedBy}
+                      type="fact table"
+                    />
+                  </>
+                );
               }
-              options={factTables
-                .filter((t) => t.datasource === datasource)
-                .map((t) => ({
-                  label: t.name,
-                  value: t.id,
-                }))}
+              return label;
+            }}
+            placeholder="Select..."
+            required
+          />
+        </div>
+        {factTable && factTable.filters.length > 0 ? (
+          <div className="col-auto">
+            <MultiSelectField
+              label={
+                <>
+                  Included Rows{" "}
+                  <Tooltip body="Only rows that satisfy ALL selected filters will be included" />
+                </>
+              }
+              value={value.filters}
+              onChange={(filters) => setValue({ ...value, filters })}
+              options={factTable.filters.map((f) => ({
+                label: f.name,
+                value: f.id,
+              }))}
+              placeholder="All Rows"
+              closeMenuOnSelect={true}
               formatOptionLabel={({ value, label }) => {
-                const factTable = getFactTableById(value);
-                if (factTable) {
+                const filter = factTable?.filters.find((f) => f.id === value);
+                if (filter) {
                   return (
                     <>
-                      {factTable.name}
+                      {filter.name}
                       <OfficialBadge
-                        managedBy={factTable.managedBy}
-                        type="fact table"
+                        managedBy={filter.managedBy}
+                        type="filter"
                       />
                     </>
                   );
                 }
                 return label;
               }}
-              placeholder="Select..."
-              required
             />
           </div>
         ) : null}
-        {factTable && factTable.filters.length > 0 ? (
+        {includeColumn && (
           <div className="col-auto">
-            {value.filters.length > 0 || showFilters ? (
-              <MultiSelectField
-                label="WHERE"
-                value={value.filters}
-                onChange={(filters) => setValue({ ...value, filters })}
-                options={factTable.filters.map((f) => ({
-                  label: f.name,
-                  value: f.id,
-                }))}
-                placeholder="Add Filter..."
-                closeMenuOnSelect={true}
-                formatOptionLabel={({ value, label }) => {
-                  const filter = factTable?.filters.find((f) => f.id === value);
-                  if (filter) {
-                    return (
-                      <>
-                        {filter.name}
-                        <OfficialBadge
-                          managedBy={filter.managedBy}
-                          type="filter"
-                        />
-                      </>
-                    );
-                  }
-                  return label;
-                }}
-              />
-            ) : (
-              <div className="form-group">
-                <button
-                  className="btn btn-link"
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setShowFilters(true);
-                  }}
-                >
-                  <GBAddCircle /> Add WHERE Clause
-                </button>
-              </div>
-            )}
+            <SelectField
+              label="Value"
+              value={value.column}
+              onChange={(column) => setValue({ ...value, column })}
+              sort={false}
+              formatGroupLabel={({ label }) => (
+                <div className="pt-2 pb-1 border-bottom">{label}</div>
+              )}
+              options={
+                specialColumnOptions.length > 0
+                  ? [
+                      {
+                        label: "Special",
+                        options: specialColumnOptions,
+                      },
+                      {
+                        label: "Columns",
+                        options: columnOptions,
+                      },
+                    ]
+                  : columnOptions
+              }
+              placeholder="Value..."
+              required
+            />
           </div>
-        ) : null}
+        )}
+        {includeColumn &&
+          !value.column.startsWith("$$") &&
+          aggregationType === "unit" && (
+            <div className="col-auto">
+              <SelectField
+                label={
+                  <>
+                    Aggregation{" "}
+                    <Tooltip body="Only SUM is supported today, but more aggregation types may be added in the future." />
+                  </>
+                }
+                value="sum"
+                onChange={() => {
+                  /*do nothing*/
+                }}
+                disabled
+                options={[{ label: "Sum", value: "sum" }]}
+              />
+            </div>
+          )}
+        {extraField && <div className="col-auto">{extraField}</div>}
       </div>
     </div>
   );
@@ -278,11 +359,11 @@ export default function FactMetricModal({
             : {}
         ).datasource,
       inverse: existing?.inverse || false,
-      quantileSettings: existing?.quantileSettings,
       cappingSettings: existing?.cappingSettings || {
         type: "",
         value: 0,
       },
+      quantileSettings: existing?.quantileSettings || null,
       windowSettings: existing?.windowSettings || {
         type: DEFAULT_FACT_METRIC_WINDOW,
         delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
@@ -318,7 +399,6 @@ export default function FactMetricModal({
   );
 
   const type = form.watch("metricType");
-  const quantileType = form.watch("quantileSettings.type") ?? "event";
 
   const riskError =
     form.watch("loseRisk") < form.watch("winRisk")
@@ -335,12 +415,6 @@ export default function FactMetricModal({
     regressionAdjustmentAvailableForMetric = false;
     regressionAdjustmentAvailableForMetricReason = (
       <>Not available for ratio metrics.</>
-    );
-  }
-  if (type === "quantile") {
-    regressionAdjustmentAvailableForMetric = false;
-    regressionAdjustmentAvailableForMetricReason = (
-      <>Not available for quantile metrics.</>
     );
   }
 
@@ -372,6 +446,21 @@ export default function FactMetricModal({
     }
   }, [isNew, initialType, source]);
 
+  const quantileSettings = form.watch("quantileSettings") || {
+    type: "unit",
+    quantile: 0.5,
+    ignoreZeros: false,
+  };
+
+  const numeratorFactTable = getFactTableById(
+    form.watch("numerator.factTableId")
+  );
+  // Must have at least one numeric column to use event-level quantile metrics
+  // For user-level quantiles, there is the option to count rows so it's always available
+  const canUseEventQuantile = numeratorFactTable?.columns?.some(
+    (c) => c.datatype === "number"
+  );
+
   return (
     <Modal
       open={true}
@@ -396,7 +485,6 @@ export default function FactMetricModal({
         // Anonymized telemetry props
         // Will help us measure which settings are being used so we can optimize the UI
         const trackProps = {
-          // TODO
           type: values.metricType,
           source,
           capping: values.cappingSettings.type,
@@ -523,8 +611,9 @@ export default function FactMetricModal({
                         value of a numeric column in a fact table.
                       </div>
                       <div className="mb-2">
-                        <strong>Quantile</strong> metrics calculate a quantile
-                        of a numeric column in a fact table (e.g. median, p90).
+                        <strong>Quantile</strong> metrics calculate the value at
+                        a specific percentile of a numeric column in a fact
+                        table.
                       </div>
                       <div>
                         <strong>Ratio</strong> metrics allow you to calculate a
@@ -559,11 +648,6 @@ export default function FactMetricModal({
               ) {
                 form.setValue("cappingSettings.type", "");
               }
-              if (
-                type === "quantile"
-              ) {
-                form.setValue("cappingSettings.type", "");
-              }
             }}
             options={[
               {
@@ -584,81 +668,22 @@ export default function FactMetricModal({
               },
             ]}
           />
-          {type === "quantile" ? 
-            <><ButtonSelectField
-            label={
-              <>
-                Type of Quantile Metric{" "}
-                <Tooltip
-                  body={
-                    <div>
-                      <div className="mb-2">
-                        <strong>Event</strong> quantiles are calculated based
-                        on each individual row in your fact table. For example,
-                        if you have a column of request durations, Event quantiles
-                        will be computed over each individual request, regardless
-                        of whether a user has multiple requests.
-                      </div>
-                      <div className="mb-2">
-                        <strong>User</strong> quantiles are calculated across
-                        all users after aggregating at the user level.
-                        For User quantiles,
-                        if you have a column of purchases and are interested in
-                        total revenue per user, we will first sum
-                        all purchases by user before computing the quantile over
-                        those sums.
-                      </div>
-                    </div>
-                  }
-                />
-              </>
-            }
-            value={quantileType}
-            setValue={(quantileType) => {
-              form.setValue("quantileSettings.type", quantileType);
-              // TODO don't let it save count for event
-            }}
-            options={[
-              {
-                value: "event",
-                label: "Event",
-              },
-              {
-                value: "unit",
-                label: "Unit",
-              },
-            ]}
-          /><div className="d-flex"><Field
-          label="Quantile Value"
-          type="number"
-          step="any"
-          min="0.001"
-          max="0.999"
-          {...form.register("quantileSettings.value", {
-            valueAsNumber: true,
-          })}
-          helpText={"Enter a quantile between 0.001 and 0.999"}
-        /> </div></>
-          : null}
           {type === "proportion" ? (
             <div>
-              <p className="text-muted">
-                (<strong>Metric Value</strong> = Percent of Experiment Users who
-                exist in a Fact Table)
-              </p>
               <ColumnRefSelector
                 value={form.watch("numerator")}
                 setValue={(numerator) => form.setValue("numerator", numerator)}
                 datasource={selectedDataSource.id}
                 disableFactTableSelector={!!initialFactTable}
               />
+              <div className="alert alert-info">
+                The final metric value will be the percent of users in the
+                experiment with at least 1 matching row.
+              </div>
             </div>
           ) : type === "mean" ? (
             <div>
-              <p className="text-muted">
-                (<strong>Metric Value</strong> = Average of a numeric value
-                among all Experiment Users)
-              </p>
+              <label>Per-User Value</label>
               <ColumnRefSelector
                 value={form.watch("numerator")}
                 setValue={(numerator) => form.setValue("numerator", numerator)}
@@ -666,34 +691,102 @@ export default function FactMetricModal({
                 datasource={selectedDataSource.id}
                 disableFactTableSelector={!!initialFactTable}
               />
+              <div className="alert alert-info">
+                The final metric value will be the average per-user value for
+                all users in the experiment. Any user without a matching row
+                will have a value of <code>0</code> and will still contribute to
+                this average.
+              </div>
             </div>
           ) : type === "quantile" ? (
             <div>
-              {quantileType === "event" ? (
-              <p className="text-muted">
-                (<strong>Metric Value</strong> = Quantile of values in column
-                among all Experiment Users)
-              </p>) : (
-              <p className="text-muted">
-                  (<strong>Metric Value</strong> = Quantile of column aggregated by user
-                  among all Experiment Users)
-              </p>
-              )}
+              <div className="form-group">
+                <Toggle
+                  id="quantileTypeSelector"
+                  label="Aggregate by User First"
+                  value={
+                    !canUseEventQuantile || quantileSettings.type !== "event"
+                  }
+                  setValue={(unit) => {
+                    // Event-level quantiles must select a numeric column
+                    if (
+                      !unit &&
+                      form.watch("numerator")?.column?.startsWith("$$")
+                    ) {
+                      const column = numeratorFactTable?.columns?.find(
+                        (c) => c.datatype === "number"
+                      );
+                      form.setValue("numerator", {
+                        ...form.watch("numerator"),
+                        column: column?.column || "",
+                      });
+                    }
+                    form.setValue("quantileSettings", {
+                      ...quantileSettings,
+                      type: unit ? "unit" : "event",
+                    });
+                  }}
+                  disabled={!canUseEventQuantile}
+                />
+                <label
+                  htmlFor="quantileTypeSelector"
+                  className="ml-2 cursor-pointer"
+                >
+                  Group by Experiment User before taking quantile?
+                </label>
+              </div>
+              <label>
+                {quantileSettings.type === "unit"
+                  ? "Per-User Value"
+                  : "Event Value"}
+              </label>
               <ColumnRefSelector
                 value={form.watch("numerator")}
                 setValue={(numerator) => form.setValue("numerator", numerator)}
                 includeColumn={true}
-                rawColumnsOnly={quantileType === "event"}
+                aggregationType={quantileSettings.type}
                 datasource={selectedDataSource.id}
                 disableFactTableSelector={!!initialFactTable}
+                extraField={
+                  form
+                    .watch("numerator")
+                    ?.column?.startsWith("$$") ? undefined : (
+                    <div className="form-group">
+                      <label className="ml-2" htmlFor="quantileIgnoreZeros">
+                        Ignore Zeros{" "}
+                        <Tooltip
+                          body={`If the ${
+                            quantileSettings.type === "unit"
+                              ? "per-user"
+                              : "row's"
+                          } value is zero (or null), exclude it from the quantile calculation`}
+                        />
+                      </label>
+                      <div style={{ padding: "6px 0" }}>
+                        <Toggle
+                          id="quantileIgnoreZeros"
+                          value={quantileSettings.ignoreZeros}
+                          setValue={(ignoreZeros) =>
+                            form.setValue("quantileSettings", {
+                              ...quantileSettings,
+                              ignoreZeros,
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+                  )
+                }
+              />
+              <QuantileSelector
+                value={quantileSettings}
+                setValue={(quantileSettings) =>
+                  form.setValue("quantileSettings", quantileSettings)
+                }
               />
             </div>
           ) : type === "ratio" ? (
             <>
-              <p className="text-muted">
-                (<strong>Metric Value</strong> = Numerator / Denominator){" "}
-                <Tooltip body="Ratio metrics use the Delta Method to provide an accurate estimation of variance" />
-              </p>
               <div className="form-group">
                 <label>Numerator</label>
                 <ColumnRefSelector
@@ -724,6 +817,11 @@ export default function FactMetricModal({
                   includeCountDistinct={true}
                   datasource={selectedDataSource.id}
                 />
+              </div>
+              <div className="alert alert-info">
+                The final metric value will be the Numerator divided by the
+                Denominator. We use the Delta Method to provide an accurate
+                estimation of variance.
               </div>
             </>
           ) : (
@@ -766,23 +864,11 @@ export default function FactMetricModal({
             >
               <Tab id="query" display="Query Settings">
                 <MetricDelayHours form={form} />
-                {type !== "quantile" ? <MetricCappingSettingsForm
+                <MetricCappingSettingsForm
                   form={form}
                   datasourceType={selectedDataSource.type}
                   metricType={type}
-                /> : null}
-                {type === "quantile" ?  <div className="mb-2">
-                <label className="mr-1" htmlFor="toggle-ignoreZeros">
-                  Ignore zero values in quantile calculation?
-                </label>
-                <Toggle
-                  value={form.watch("quantileSettings.ignoreZeros") ?? false}
-                  setValue={(ignoreZeros) => {
-                    form.setValue("quantileSettings.ignoreZeros", ignoreZeros);
-                  }}
-                  id={"ignoreZeros"}
                 />
-              </div> : null}
                 <PremiumTooltip commercialFeature="regression-adjustment">
                   <label className="mb-1">
                     <GBCuped /> Regression Adjustment (CUPED)

@@ -4936,6 +4936,9 @@ components:
                 - event
                 - user
               description: Whether the quantile is over user sums or raw event values
+            ignoreZeros:
+              type: boolean
+              description: 'If true, zero values will be ignored when calculating the quantile'
             value:
               type: number
               description: The quantile value (from 0.001 to 0.999)
