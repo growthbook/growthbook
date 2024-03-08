@@ -26,6 +26,10 @@ export type {
   AutoExperiment,
   AutoExperimentVariation,
   UrlTargetType,
+  StickyAttributeKey,
+  StickyExperimentKey,
+  StickyAssignments,
+  StickyAssignmentsDocument,
 } from "./types/growthbook";
 
 export type {
