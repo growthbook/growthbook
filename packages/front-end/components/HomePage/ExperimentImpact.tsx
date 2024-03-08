@@ -421,7 +421,7 @@ export default function ExperimentImpact({
                   >
                     Clear Input
                   </a>{" "}
-                  to include today.
+                  to include today
                 </div>
               }
             />
