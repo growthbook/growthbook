@@ -329,11 +329,6 @@ const sidebars = {
               id: "statistics/aggregation",
               label: "Aggregate Data",
             },
-            {
-              type: "doc",
-              id: "statistics/carryover-bias",
-              label: "Carryover Bias",
-            },
           ],
         },
       ],
@@ -517,6 +512,32 @@ const sidebars = {
           label: "Audit Logs",
         },
       ],
+    },
+    {
+      type: "category",
+      label: "Knowledge Base",
+      collapsed: true,
+      className: "top-divider",
+      items: [
+        {
+          type: "category",
+          label: "Experiments",
+          collapsed: true,
+          items: [
+            
+            {
+              type: "doc",
+              id: "kb/experiments/carryover-bias",
+              label: "Carryover Bias",
+            },
+            {
+              type: "doc",
+              id: "kb/experiments/holdouts",
+              label: "Holdouts in GrowthBook",
+            },
+          ]
+        }
+      ]
     },
     {
       type: "category",
