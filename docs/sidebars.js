@@ -524,7 +524,6 @@ const sidebars = {
           label: "Experiments",
           collapsed: true,
           items: [
-            
             {
               type: "doc",
               id: "kb/experiments/carryover-bias",
@@ -535,9 +534,9 @@ const sidebars = {
               id: "kb/experiments/holdouts",
               label: "Holdouts in GrowthBook",
             },
-          ]
-        }
-      ]
+          ],
+        },
+      ],
     },
     {
       type: "category",
