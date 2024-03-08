@@ -191,7 +191,7 @@ setInterval(() => {
 }, 500);
 
 // Listen for a custom event to update URL and attributes
-document.addEventListener("growthbook_refresh", () => {
+document.addEventListener("growthbookrefresh", () => {
   if (location.href !== currentUrl) {
     currentUrl = location.href;
     gb.setURL(currentUrl);

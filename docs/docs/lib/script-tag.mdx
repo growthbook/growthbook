@@ -106,10 +106,10 @@ window.growthbook_queue.push((gb) => {
 
 ### Refreshing Auto Attributes
 
-The GrowthBook snippet will automatically watch for URL changes and update attributes when that happens. If you would like more control over this behavior, you can manually trigger updates at any time by firing a `growthbook_refresh` event from JavaScript. For example:
+The GrowthBook snippet will automatically watch for URL changes and update attributes when that happens. If you would like more control over this behavior, you can manually trigger updates at any time by firing a `growthbookrefresh` event from JavaScript. For example:
 
 ```ts
-document.dispatchEvent(new CustomEvent("growthbook_refresh"));
+document.dispatchEvent(new CustomEvent("growthbookrefresh"));
 ```
 
 ## Tracking Experiment Views
