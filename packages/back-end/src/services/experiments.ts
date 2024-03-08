@@ -1972,6 +1972,13 @@ export function visualChangesetsHaveChanges({
     return true;
   }
 
+  // If there are redirect url differences
+  const oldRedirects = oldVisualChangeset.urlRedirects?.map((r) => r.url);
+  const newRedirects = newVisualChangeset.urlRedirects?.map((r) => r.url);
+  if (!isEqual(oldRedirects, newRedirects)) {
+    return true;
+  }
+
   // If there are URL targeting differences
   if (
     !isEqual(oldVisualChangeset.urlPatterns, newVisualChangeset.urlPatterns)
