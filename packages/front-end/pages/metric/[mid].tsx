@@ -140,7 +140,7 @@ const MetricPage: FC = () => {
   const canEditMetric =
     checkMetricProjectPermissions(metric, permissions) && !metric.managedBy;
   const canEditProjects =
-    permissions.check("createMetrics", "") && !metric.managedBy;
+    permissions.check("createMetrics", metric.projects) && !metric.managedBy;
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
@@ -321,6 +321,11 @@ const MetricPage: FC = () => {
           mutate={mutate}
           projects={metric.projects || []}
           save={async (projects) => {
+            if (!permissions.check("createMetrics", projects)) {
+              throw new Error(
+                "You do not have permission to complete that action."
+              );
+            }
             await apiCall(`/metric/${metric.id}`, {
               method: "PUT",
               body: JSON.stringify({

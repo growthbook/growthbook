@@ -534,7 +534,7 @@ export async function putMetric(
     }
   });
 
-  if (updates?.projects?.length) {
+  if (updates.projects) {
     req.checkPermissions("createMetrics", updates.projects);
   }
 
