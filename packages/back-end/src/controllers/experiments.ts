@@ -1916,10 +1916,7 @@ export async function postSnapshotsWithScaledImpactAnalysis(
   req: AuthRequest<{
     ids: string[];
   }>,
-  res: Response<
-    | { status: 200 }
-    | PrivateApiErrorResponse
-  >
+  res: Response<{ status: 200 } | PrivateApiErrorResponse>
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1968,7 +1965,7 @@ export async function postSnapshotsWithScaledImpactAnalysis(
         snapshot: s,
       }).catch((e) => {
         req.log.error(e);
-      })
+      });
     })
   );
   res.status(200).json({

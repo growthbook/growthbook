@@ -1,5 +1,5 @@
 import Link from "next/link";
-import React, { useCallback, useEffect, useState } from "react";
+import { ReactElement, useCallback, useEffect, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { date, getValidDate } from "shared/dates";
 import {
@@ -9,7 +9,6 @@ import {
 import { getSnapshotAnalysis } from "shared/util";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { useForm } from "react-hook-form";
-import { HiOutlineExclamationCircle } from "react-icons/hi";
 import SelectField from "@/components/Forms/SelectField";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
@@ -104,52 +103,41 @@ function ImpactTab({
     options?: Intl.NumberFormatOptions | undefined
   ) => string;
   formatterOptions: Intl.NumberFormatOptions;
-}): React.ReactElement {
-  const expRows: JSX.Element[] = [];
+}) {
+  const expRows: ReactElement[] = [];
 
   experimentImpactData.experiments.forEach((e) => {
     const variations: JSX.Element[] = [];
     const impacts: JSX.Element[] = [];
     e.experiment.variations.forEach((v, i) => {
-      if (i === 0) {
-        return;
-      }
-
-      if (experimentImpactType !== "other" && i !== e.keyVariationId) {
-        return;
-      }
-      const impact = e.impact?.variations[i - 1];
+      if (i === 0) return;
+      if (experimentImpactType !== "other" && i !== e.keyVariationId) return;
+      const impact = e.impact?.variations?.[i - 1];
       variations.push(
-        <tr>
-          <td>
-            <div
-              className={`variation variation${i} with-variation-label d-flex`}
-            >
-              <span className="label" style={{ width: 20, height: 20 }}>
-                {i}
-              </span>
-              <span
-                className="d-inline-block text-ellipsis hover"
-                style={{
-                  maxWidth: 150,
-                }}
-              >
-                {v.name}
-              </span>
-            </div>
-          </td>
-        </tr>
+        <div className={`variation variation${i} with-variation-label d-flex`}>
+          <span className="label" style={{ width: 20, height: 20 }}>
+            {i}
+          </span>
+          <span
+            className="d-inline-block text-ellipsis hover"
+            style={{
+              maxWidth: 150,
+            }}
+          >
+            {v.name}
+          </span>
+        </div>
       );
       impacts.push(
-        <tr>
-          <td>
-            {impact
-              ? formatImpact(
-                  (impact?.scaledImpactAdjusted ?? 0) * 365,
-                  formatter,
-                  formatterOptions
-                )
-              : `N/A`}
+        <div className={experimentImpactType === "winner" ? "won" : ""}>
+          {impact
+            ? formatImpact(
+                (impact?.scaledImpactAdjusted ?? 0) * 365,
+                formatter,
+                formatterOptions
+              )
+            : `N/A`}
+          {!!impact && (
             <span className="plusminus ml-1">
               ±
               {Math.abs(impact?.ci0 ?? 0) === Infinity
@@ -161,64 +149,56 @@ function ImpactTab({
                     formatterOptions
                   )}
             </span>
-          </td>
-        </tr>
+          )}
+        </div>
       );
     });
     expRows.push(
       <tr key={e.experiment.id} className="hover-highlight">
         <td className="mb-1 ">
           <Link
-            className="w-100 no-link-color"
+            className="font-weight-bold"
             href={`/experiment/${e.experiment.id}`}
           >
-            <strong>{e.experiment.name}</strong>{" "}
+            {e.experiment.name}
           </Link>
         </td>
-
         <td>
           {e.experiment.status === "stopped"
             ? date(
-                e.experiment.phases[e.experiment.phases.length - 1].dateEnded ??
-                  ""
+                e.experiment.phases?.[e.experiment.phases.length - 1]
+                  ?.dateEnded ?? ""
               )
             : "N/A"}
         </td>
         <td>
-          {e.experiment.results ? (
-            <ResultsIndicator results={e.experiment.results} />
-          ) : (
-            <ExperimentStatusIndicator status={e.experiment.status} />
-          )}
+          <div className="d-flex">
+            {e.experiment.results ? (
+              <div
+                className="experiment-status-widget d-inline-block"
+                style={{ height: 25, lineHeight: "25px" }}
+              >
+                <ResultsIndicator results={e.experiment.results} />
+              </div>
+            ) : (
+              <ExperimentStatusIndicator status={e.experiment.status} />
+            )}
+          </div>
         </td>
-        <td>
-          <table>{variations}</table>
-        </td>
-
-        <td>
-          <table>{impacts}</table>
-        </td>
+        <td>{variations}</td>
+        <td className="impact-results">{impacts}</td>
       </tr>
     );
   });
   return (
-    <div className="col mb-3 bg-light">
-      <div className="d-flex flex-row align-items-end">
-        <span style={{ fontSize: "1.5em" }}>
-          <span className="font-weight-bold">
-            {experimentImpactData.experiments.length}
-          </span>
-          {" experiments were "}
-          <span className="font-weight-bold">
-            {experimentImpactType !== "other"
-              ? `${experimentImpactType}s`
-              : "inconclusive or are running"}
-          </span>
-        </span>
-      </div>
+    <div className="px-3 py-3">
       {experimentImpactType !== "other" ? (
-        <div className="d-flex flex-row align-items-end">
-          <span style={{ fontSize: "1.5em" }}>
+        <div
+          className={`mt-2 alert alert-${
+            experimentImpactType === "winner" ? "success" : "info"
+          }`}
+        >
+          <span style={{ fontSize: "1.2em" }}>
             {formatImpact(
               experimentImpactData.totalAdjustedImpact * 365,
               formatter,
@@ -229,27 +209,41 @@ function ImpactTab({
                 ? "of the winning variations."
                 : "of not shipping the worst variation."
             } `}
-            <HiOutlineExclamationCircle />
           </span>
         </div>
       ) : null}
-      <div className="mt-3 p-3">
-        <thead>
-          <tr>
-            <th>Experiment</th>
-            <th>Date Ended</th>
-            <th>Status</th>
-            <th>
-              {experimentImpactType === "winner"
-                ? "Winning Variation"
-                : experimentImpactType === "loser"
-                ? "Worst Variation"
-                : "Variation"}
-            </th>
-            <th>Scaled Impact</th>
-          </tr>
-        </thead>
-        <tbody>{expRows}</tbody>
+      <div className="mt-4">
+        <table className="table bg-white border">
+          <thead className="bg-light">
+            <tr>
+              <th>Experiment</th>
+              <th>Date Ended</th>
+              <th>Status</th>
+              <th>
+                {experimentImpactType === "winner"
+                  ? "Winning Variation"
+                  : experimentImpactType === "loser"
+                  ? "Worst Variation"
+                  : "Variation"}
+              </th>
+              <th>Scaled Impact</th>
+            </tr>
+          </thead>
+          <tbody>{expRows}</tbody>
+          <tbody className="bg-light font-weight-bold">
+            <tr>
+              <td>Total Impact</td>
+              <td colSpan={3} />
+              <td>
+                {formatImpact(
+                  experimentImpactData.totalAdjustedImpact * 365,
+                  formatter,
+                  formatterOptions
+                )}
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -259,7 +253,7 @@ export default function ExperimentImpact({
   experiments,
 }: {
   experiments: ExperimentInterfaceStringDates[];
-}): React.ReactElement {
+}) {
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
 
@@ -553,188 +547,262 @@ export default function ExperimentImpact({
   return (
     <div>
       <div className="appbox p-3 bg-light">
-        <table className="impact-selector-table">
-          <tr>
-            <td>Metric</td>
-            <td className="d-flex">
-              <MetricSelector
-                initialOption="None"
-                value={metric}
-                onChange={(metric) => form.setValue("metric", metric)}
-                project={project ? project : undefined}
-                includeFacts={true}
-              />
-            </td>
-          </tr>
-          <tr>
-            <td>Project</td>
-            <td className="d-flex">
-              <SelectField
-                value={project ? project : selectedProject}
-                options={[
-                  ...(project ? [] : [{ value: "", label: "All" }]),
-                  // TODO grey out projects that metric is not in
-                  ...projects
-                    .filter((p) => project === "" || p.id === project)
-                    .map((p) => ({ value: p.id, label: p.name })),
-                ]}
-                onChange={(v) => form.setValue("project", v)}
-              />
-            </td>
-          </tr>
-          <tr>
-            <td>
-              <span>Date</span>
-            </td>
-            <td>
-              <div className="d-flex align-items-center ">
-                <Field type="datetime-local" {...form.register("startDate")} />
-                <div className="m-2">{" to "}</div>
-                <Field type="datetime-local" {...form.register("endDate")} />
-              </div>
-            </td>
-          </tr>
-        </table>
+        {/*<table className="impact-selector-table">*/}
+        {/*  <tr>*/}
+        <label>Metric</label>
+        <div className="d-flex">
+          <MetricSelector
+            initialOption="None"
+            value={metric}
+            onChange={(metric) => form.setValue("metric", metric)}
+            project={project ? project : undefined}
+            includeFacts={true}
+          />
+        </div>
+        {/*</tr>*/}
+        {/*<tr>*/}
+        <label>Project</label>
+        <div className="d-flex">
+          <SelectField
+            value={project ? project : selectedProject}
+            options={[
+              ...(project ? [] : [{ value: "", label: "All" }]),
+              // TODO grey out projects that metric is not in
+              ...projects
+                .filter((p) => project === "" || p.id === project)
+                .map((p) => ({ value: p.id, label: p.name })),
+            ]}
+            onChange={(v) => form.setValue("project", v)}
+          />
+        </div>
+        {/*</tr>*/}
+        {/*<tr>*/}
+        <label>Date</label>
+
+        <div className="d-flex align-items-center ">
+          <Field type="datetime-local" {...form.register("startDate")} />
+          <div className="m-2">{" to "}</div>
+          <Field type="datetime-local" {...form.register("endDate")} />
+        </div>
+        {/*</tr>*/}
+        {/*</table>*/}
       </div>
       {/* TODO null state when all arrays are empty */}
       {summaryObj ? (
-        <div>
-          <ControlledTabs
-            setActive={(s) => {
-              setImpactTab((s as ExperimentImpactTab) || "summary");
-            }}
-            active={impactTab}
-            showActiveCount={true}
-            newStyle={false}
-            buttonsClassName="px-3 py-2 h4"
+        <ControlledTabs
+          setActive={(s) => {
+            setImpactTab((s as ExperimentImpactTab) || "summary");
+          }}
+          active={impactTab}
+          showActiveCount={true}
+          newStyle={false}
+          buttonsClassName="px-3 py-2 h4"
+        >
+          <Tab
+            key={"summary"}
+            id={"summary"}
+            display={"Summary"}
+            padding={false}
           >
-            <Tab
-              key={"summary"}
-              id={"summary"}
-              display={"Summary"}
-              padding={false}
-            >
-              <div className="col mb-3 bg-light">
-                <div className="row" style={{ fontSize: "1.5em" }}>
-                  <div className="col-auto mr-3 text-center">
-                    <div className="d-flex mb-2 align-items-center justify-content-center">
+            <div className="mt-2">
+              <table className="table bg-white text-center w-auto">
+                <thead>
+                  <tr>
+                    <th style={{ width: 150 }} className="border-top-0" />
+                    <th style={{ width: 200 }} className="border-top-0">
                       <div
-                        className={`badge-success rounded-circle mr-1`}
+                        className="d-inline-block badge-success rounded-circle mr-1"
                         style={{ width: 10, height: 10 }}
                       />
-                      <span className="font-weight-bold">Winners</span>
-                    </div>
-                    <div className="mb-2">
-                      <span className="font-weight-bold">
-                        {summaryObj.winners.experiments.length}
-                      </span>
-                      {" experiments"}
-                    </div>
-
-                    <div>
-                      {formatImpact(
-                        summaryObj.winners.totalAdjustedImpact * 365,
-                        formatter,
-                        formatterOptions
-                      )}
-                    </div>
-                    <div className="text-muted">
-                      {"summed impact per year "}
-                      <HiOutlineExclamationCircle />
-                    </div>
-                  </div>
-                  <div className="col-auto mr-3 text-center">
-                    <div className="d-flex mb-2 align-items-center justify-content-center">
+                      Winners
+                    </th>
+                    <th style={{ width: 200 }} className="border-top-0">
                       <div
-                        className={`badge-danger rounded-circle mr-1`}
+                        className="d-inline-block badge-danger rounded-circle mr-1"
                         style={{ width: 10, height: 10 }}
                       />
-                      <span className="font-weight-bold">Losers</span>
-                    </div>
-
-                    <div className="mb-2">
-                      <span className="font-weight-bold">
-                        {summaryObj.losers.experiments.length}
-                      </span>
-                      {" experiments"}
-                    </div>
-
-                    <div>
-                      {formatImpact(
-                        summaryObj.losers.totalAdjustedImpact * 365,
-                        formatter,
-                        formatterOptions
-                      )}
-                    </div>
-                    <div className="text-muted">
-                      {" summed saved impact per year"}
-                      <HiOutlineExclamationCircle />
-                    </div>
-                  </div>
-                  <div className="col-auto mr-3 text-center">
-                    <div className="d-flex mb-2 align-items-center justify-content-center">
+                      Losers
+                    </th>
+                    <th style={{ width: 200 }} className="border-top-0">
                       <div
-                        className={`badge-secondary rounded-circle mr-1`}
+                        className="d-inline-block badge-secondary rounded-circle mr-1"
                         style={{ width: 10, height: 10 }}
                       />
-                      <span className="font-weight-bold">Others</span>
-                    </div>
+                      Others
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="text-left">Experiments</td>
+                    <td>{summaryObj.winners.experiments.length}</td>
+                    <td>{summaryObj.losers.experiments.length}</td>
+                    <td>{summaryObj.others.experiments.length}</td>
+                  </tr>
+                  <tr>
+                    <td className="font-weight-bold text-left">
+                      Scaled Impact
+                    </td>
+                    <td className="impact-results">
+                      <div className="won">
+                        <span style={{ fontSize: "1.2em" }}>
+                          {formatImpact(
+                            summaryObj.winners.totalAdjustedImpact * 365,
+                            formatter,
+                            formatterOptions
+                          )}
+                        </span>
+                        <div className="text-muted small">
+                          summed impact per year
+                        </div>
+                      </div>
+                    </td>
+                    <td className="impact-results">
+                      <div>
+                        <span style={{ fontSize: "1.2em" }}>
+                          {formatImpact(
+                            summaryObj.losers.totalAdjustedImpact * 365,
+                            formatter,
+                            formatterOptions
+                          )}
+                        </span>
+                        <div className="text-muted small">
+                          summed saved impact per year
+                        </div>
+                      </div>
+                    </td>
+                    <td className="impact-results">
+                      <div>
+                        <span style={{ fontSize: "1.2em" }}>
+                          {formatImpact(
+                            summaryObj.others.totalAdjustedImpact * 365,
+                            formatter,
+                            formatterOptions
+                          )}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            {/*  <div className="d-flex mb-2 align-items-center justify-content-center">*/}
+            {/*    <div*/}
+            {/*      className={`badge-success rounded-circle mr-1`}*/}
+            {/*      style={{width: 10, height: 10}}*/}
+            {/*    />*/}
+            {/*    <span className="font-weight-bold">Winners</span>*/}
+            {/*    </div>*/}
+            {/*    <div className="mb-2">*/}
+            {/*        <span className="font-weight-bold">*/}
+            {/*          {summaryObj.winners.experiments.length}*/}
+            {/*        </span>{" "}*/}
+            {/*      experiments*/}
+            {/*    </div>*/}
 
-                    <div>
-                      <span className="font-weight-bold">
-                        {summaryObj.others.experiments.length}
-                      </span>
-                      {" experiments"}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Tab>
-            <Tab
-              key={"winner"}
-              id={"winner"}
-              display={"Winners"}
-              count={summaryObj.winners.experiments.length}
-              padding={false}
-            >
-              <ImpactTab
-                experimentImpactData={summaryObj.winners}
-                experimentImpactType={"winner"}
-                formatter={formatter}
-                formatterOptions={formatterOptions}
-              />
-            </Tab>
-            <Tab
-              key={"loser"}
-              id={"loser"}
-              display={"Losers"}
-              count={summaryObj.losers.experiments.length}
-              padding={false}
-            >
-              <ImpactTab
-                experimentImpactData={summaryObj.losers}
-                experimentImpactType={"loser"}
-                formatter={formatter}
-                formatterOptions={formatterOptions}
-              />
-            </Tab>
+            {/*    <span>*/}
+            {/*        {formatImpact(*/}
+            {/*          summaryObj.winners.totalAdjustedImpact * 365,*/}
+            {/*          formatter,*/}
+            {/*          formatterOptions*/}
+            {/*        )}*/}
+            {/*      </span>{" "}*/}
+            {/*    <div className="text-muted">*/}
+            {/*      summed impact per year*/}
+            {/*    </div>*/}
+            {/*  </th>*/}
 
-            <Tab
-              key={"other"}
-              id={"other"}
-              display={"Others"}
-              count={summaryObj.others.experiments.length}
-              padding={false}
-            >
-              <ImpactTab
-                experimentImpactData={summaryObj.others}
-                experimentImpactType={"other"}
-                formatter={formatter}
-                formatterOptions={formatterOptions}
-              />
-            </Tab>
-          </ControlledTabs>
-        </div>
+            {/*  <div className="col-auto mr-3 text-center">*/}
+            {/*    <div className="d-flex mb-2 align-items-center justify-content-center">*/}
+            {/*      <div*/}
+            {/*        className={`badge-danger rounded-circle mr-1`}*/}
+            {/*        style={{width: 10, height: 10}}*/}
+            {/*      />*/}
+            {/*      <span className="font-weight-bold">Losers</span>*/}
+            {/*    </div>*/}
+
+            {/*    <div className="mb-2">*/}
+            {/*        <span className="font-weight-bold">*/}
+            {/*          {summaryObj.losers.experiments.length}*/}
+            {/*        </span>{" "}*/}
+            {/*      experiments*/}
+            {/*    </div>*/}
+
+            {/*    <span>*/}
+            {/*        {formatImpact(*/}
+            {/*          summaryObj.losers.totalAdjustedImpact * 365,*/}
+            {/*          formatter,*/}
+            {/*          formatterOptions*/}
+            {/*        )}*/}
+            {/*      </span>{" "}*/}
+            {/*    <div className="text-muted">*/}
+            {/*      summed saved impact per year*/}
+            {/*    </div>*/}
+            {/*  </div>*/}
+
+            {/*  <div className="col-auto mr-3 text-center">*/}
+            {/*    <div className="d-flex mb-2 align-items-center justify-content-center">*/}
+            {/*      <div*/}
+            {/*        className={`badge-secondary rounded-circle mr-1`}*/}
+            {/*        style={{width: 10, height: 10}}*/}
+            {/*      />*/}
+            {/*      <span className="font-weight-bold">Others</span>*/}
+            {/*    </div>*/}
+
+            {/*    <div>*/}
+            {/*        <span className="font-weight-bold">*/}
+            {/*          {summaryObj.others.experiments.length}*/}
+            {/*        </span>{" "}*/}
+            {/*      experiments*/}
+            {/*    </div>*/}
+            {/*  </div>*/}
+            {/*</table>*/}
+            {/*</div>*/}
+          </Tab>
+          <Tab
+            key={"winner"}
+            id={"winner"}
+            display={"Winners"}
+            count={summaryObj.winners.experiments.length}
+            padding={false}
+          >
+            <ImpactTab
+              experimentImpactData={summaryObj.winners}
+              experimentImpactType={"winner"}
+              formatter={formatter}
+              formatterOptions={formatterOptions}
+            />
+          </Tab>
+          <Tab
+            key={"loser"}
+            id={"loser"}
+            display={"Losers"}
+            count={summaryObj.losers.experiments.length}
+            padding={false}
+          >
+            <ImpactTab
+              experimentImpactData={summaryObj.losers}
+              experimentImpactType={"loser"}
+              formatter={formatter}
+              formatterOptions={formatterOptions}
+            />
+          </Tab>
+
+          <Tab
+            key={"other"}
+            id={"other"}
+            display={"Others"}
+            count={summaryObj.others.experiments.length}
+            padding={false}
+          >
+            <ImpactTab
+              experimentImpactData={summaryObj.others}
+              experimentImpactType={"other"}
+              formatter={formatter}
+              formatterOptions={formatterOptions}
+            />
+          </Tab>
+        </ControlledTabs>
       ) : null}
     </div>
   );
