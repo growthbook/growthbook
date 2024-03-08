@@ -9,7 +9,8 @@ import {
 import { getSnapshotAnalysis } from "shared/util";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { useForm } from "react-hook-form";
-import SelectField from "@/components/Forms/SelectField";
+import clsx from "clsx";
+import { MdInfoOutline } from "react-icons/md";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 import { formatNumber, getExperimentMetricFormatter } from "@/services/metrics";
@@ -22,6 +23,8 @@ import Tab from "@/components/Tabs/Tab";
 import Field from "@/components/Forms/Field";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 function jamesSteinAdjustment(
   effects: number[],
@@ -39,7 +42,7 @@ function jamesSteinAdjustment(
 type ExperimentImpactFilters = {
   startDate: string;
   endDate: string;
-  project: string;
+  projects: string[];
   metric: string;
 };
 
@@ -70,185 +73,6 @@ type ExperimentImpactData = {
   experiments: ExperimentWithImpact[];
 };
 
-function formatImpact(
-  impact: number,
-  formatter: (
-    value: number,
-    options?: Intl.NumberFormatOptions | undefined
-  ) => string,
-  formatterOptions: Intl.NumberFormatOptions
-) {
-  return (
-    <>
-      <span className="expectedArrows">
-        {impact > 0 ? <FaArrowUp /> : impact < 0 ? <FaArrowDown /> : null}
-      </span>{" "}
-      <span className="expected font-weight-bold">
-        {formatter(impact, { ...formatterOptions, signDisplay: "never" })}
-      </span>
-    </>
-  );
-}
-
-function ImpactTab({
-  experimentImpactData,
-  experimentImpactType,
-  formatter,
-  formatterOptions,
-}: {
-  experimentImpactData: ExperimentImpactData;
-  experimentImpactType: ExperimentImpactType;
-  formatter: (
-    value: number,
-    options?: Intl.NumberFormatOptions | undefined
-  ) => string;
-  formatterOptions: Intl.NumberFormatOptions;
-}) {
-  const expRows: ReactElement[] = [];
-
-  experimentImpactData.experiments.forEach((e) => {
-    const variations: JSX.Element[] = [];
-    const impacts: JSX.Element[] = [];
-    e.experiment.variations.forEach((v, i) => {
-      if (i === 0) return;
-      if (experimentImpactType !== "other" && i !== e.keyVariationId) return;
-      const impact = e.impact?.variations?.[i - 1];
-      variations.push(
-        <div className={`variation variation${i} with-variation-label d-flex`}>
-          <span className="label" style={{ width: 20, height: 20 }}>
-            {i}
-          </span>
-          <span
-            className="d-inline-block text-ellipsis hover"
-            style={{
-              maxWidth: 150,
-            }}
-          >
-            {v.name}
-          </span>
-        </div>
-      );
-      impacts.push(
-        <div className={experimentImpactType === "winner" ? "won" : ""}>
-          {impact
-            ? formatImpact(
-                (impact?.scaledImpactAdjusted ?? 0) * 365,
-                formatter,
-                formatterOptions
-              )
-            : `N/A`}
-          {!!impact && (
-            <span className="plusminus ml-1">
-              ±
-              {Math.abs(impact?.ci0 ?? 0) === Infinity
-                ? "∞"
-                : formatter(
-                    Math.abs(
-                      ((impact?.scaledImpact ?? 0) - (impact?.ci0 ?? 0)) * 365
-                    ),
-                    formatterOptions
-                  )}
-            </span>
-          )}
-        </div>
-      );
-    });
-    expRows.push(
-      <tr key={e.experiment.id} className="hover-highlight">
-        <td className="mb-1 ">
-          <Link
-            className="font-weight-bold"
-            href={`/experiment/${e.experiment.id}`}
-          >
-            {e.experiment.name}
-          </Link>
-        </td>
-        <td>
-          {e.experiment.status === "stopped"
-            ? date(
-                e.experiment.phases?.[e.experiment.phases.length - 1]
-                  ?.dateEnded ?? ""
-              )
-            : "N/A"}
-        </td>
-        <td>
-          <div className="d-flex">
-            {e.experiment.results ? (
-              <div
-                className="experiment-status-widget d-inline-block"
-                style={{ height: 25, lineHeight: "25px" }}
-              >
-                <ResultsIndicator results={e.experiment.results} />
-              </div>
-            ) : (
-              <ExperimentStatusIndicator status={e.experiment.status} />
-            )}
-          </div>
-        </td>
-        <td>{variations}</td>
-        <td className="impact-results">{impacts}</td>
-      </tr>
-    );
-  });
-  return (
-    <div className="px-3 py-3">
-      {experimentImpactType !== "other" ? (
-        <div
-          className={`mt-2 alert alert-${
-            experimentImpactType === "winner" ? "success" : "info"
-          }`}
-        >
-          <span style={{ fontSize: "1.2em" }}>
-            {formatImpact(
-              experimentImpactData.totalAdjustedImpact * 365,
-              formatter,
-              formatterOptions
-            )}
-            {` per year is the summed impact ${
-              experimentImpactType === "winner"
-                ? "of the winning variations."
-                : "of not shipping the worst variation."
-            } `}
-          </span>
-        </div>
-      ) : null}
-      <div className="mt-4">
-        <table className="table bg-white border">
-          <thead className="bg-light">
-            <tr>
-              <th>Experiment</th>
-              <th>Date Ended</th>
-              <th>Status</th>
-              <th>
-                {experimentImpactType === "winner"
-                  ? "Winning Variation"
-                  : experimentImpactType === "loser"
-                  ? "Worst Variation"
-                  : "Variation"}
-              </th>
-              <th>Scaled Impact</th>
-            </tr>
-          </thead>
-          <tbody>{expRows}</tbody>
-          <tbody className="bg-light font-weight-bold">
-            <tr>
-              <td>Total Impact</td>
-              <td colSpan={3} />
-              <td>
-                {formatImpact(
-                  experimentImpactData.totalAdjustedImpact * 365,
-                  formatter,
-                  formatterOptions
-                )}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
 export default function ExperimentImpact({
   experiments,
 }: {
@@ -256,6 +80,23 @@ export default function ExperimentImpact({
 }) {
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
+  const displayCurrency = useCurrency();
+
+  const { metrics, project, projects, getFactTableById } = useDefinitions();
+
+  const [loading, setLoading] = useState(true);
+
+  const [impactTab, setImpactTab] = useState<ExperimentImpactTab>("summary");
+
+  const [snapshots, setSnapshots] = useState<ExperimentSnapshotInterface[]>();
+  const [experimentsWithNoImpact, setExperimentsWithNoImpact] = useState<
+    string[]
+  >([]);
+  const [hasTriedRebuildingImpact, setHasTriedRebuildingImpact] = useState(
+    false
+  );
+
+  const experimentIds = experiments.map((e) => e.id);
 
   const now = new Date();
   const defaultStartDate = new Date(now);
@@ -266,20 +107,13 @@ export default function ExperimentImpact({
     defaultValues: {
       startDate: defaultStartDate.toISOString().substring(0, 16),
       endDate: "",
-      project: "",
+      projects: [],
       metric: settings.northStar?.metricIds?.[0] ?? "",
     },
   });
 
-  const [impactTab, setImpactTab] = useState<ExperimentImpactTab>("summary");
-
-  const [snapshots, setSnapshots] = useState<ExperimentSnapshotInterface[]>();
-  const [loading, setLoading] = useState(true);
-  const { metrics, project, projects, getFactTableById } = useDefinitions();
-  const displayCurrency = useCurrency();
-
   const metric = form.watch("metric");
-  const selectedProject = form.watch("project");
+  const selectedProjects = form.watch("projects");
 
   // TODO just set form.setValue("project", project) when a project is selected in left nav
   const metricInterface = metrics.find((m) => m.id === metric);
@@ -297,25 +131,18 @@ export default function ExperimentImpact({
   // 2 check for snapshots w/o impact
   // 3 if snapshots exist w/o impact analysis object:
   //   upgrade those snapshots with scaled impact, then post
-  const [experimentsWithNoImpact, setExperimentsWithNoImpact] = useState<
-    string[]
-  >([]);
 
-  const setMissingAndBrokenScaledImpactExperiments = async (
+  const setMissingAndBrokenScaledImpactExperiments = (
     experiments: ExperimentInterfaceStringDates[],
     snapshots: ExperimentSnapshotInterface[] | undefined
   ) => {
     const experimentsWithNoImpact: string[] = [];
     experiments.forEach((e) => {
       const s = (snapshots ?? []).find((s) => s.experiment === e.id);
-      if (!s) {
-        return;
-      }
+      if (!s) return;
       // get first analysis as that is always the "default"
       const defaultAnalysis = getSnapshotAnalysis(s);
-      if (!defaultAnalysis) {
-        return;
-      }
+      if (!defaultAnalysis) return;
       const scaledImpactAnalysisSettings: ExperimentSnapshotAnalysisSettings = {
         ...defaultAnalysis.settings,
         differenceType: "scaled",
@@ -324,7 +151,7 @@ export default function ExperimentImpact({
         s,
         scaledImpactAnalysisSettings
       );
-      if (!scaledAnalysis || scaledAnalysis.status !== "success") {
+      if (scaledAnalysis?.status !== "success") {
         experimentsWithNoImpact.push(e.id);
       }
     });
@@ -333,20 +160,18 @@ export default function ExperimentImpact({
 
   const fetchSnapshots = useCallback(async () => {
     setLoading(true);
+    const queryIds = experimentIds
+      .map((id) => encodeURIComponent(id))
+      .join(",");
     const { snapshots } = await apiCall<{
       snapshots: ExperimentSnapshotInterface[];
-    }>(
-      `/experiments/snapshots/?ids=${experiments
-        .map((e) => encodeURIComponent(e.id))
-        .join(",")}`,
-      {
-        method: "GET",
-      }
-    );
+    }>(`/experiments/snapshots/?ids=${queryIds}`, {
+      method: "GET",
+    });
     setSnapshots(snapshots);
     setMissingAndBrokenScaledImpactExperiments(experiments, snapshots);
     setLoading(false);
-  }, [apiCall, experiments]);
+  }, [apiCall, experimentIds, experiments]);
 
   const updateSnapshots = useCallback(
     async (ids: string[]) => {
@@ -364,26 +189,29 @@ export default function ExperimentImpact({
     [apiCall]
   );
 
-  useEffect(() => {
-    // 1 gets latest non-dimension snapshot from latest phase
-    // and  2 check for snapshots w/o impact
-    fetchSnapshots();
-  }, [fetchSnapshots]);
-
-  const [alreadyAutoPosted, setAlreadyAutoPosted] = useState(false);
+  useEffect(
+    () => {
+      // 1 gets latest non-dimension snapshot from latest phase
+      // and  2 check for snapshots w/o impact
+      setHasTriedRebuildingImpact(false);
+      fetchSnapshots();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [JSON.stringify(experimentIds)]
+  );
 
   useEffect(() => {
     // 3 update snapshots missing impact
-    if (experimentsWithNoImpact.length && !alreadyAutoPosted) {
-      updateSnapshots(experimentsWithNoImpact).then(() => fetchSnapshots());
-      setAlreadyAutoPosted(true);
+    if (experimentsWithNoImpact.length && !hasTriedRebuildingImpact) {
+      updateSnapshots(experimentsWithNoImpact).then(fetchSnapshots);
+      setHasTriedRebuildingImpact(true);
     }
   }, [
     fetchSnapshots,
     updateSnapshots,
     experimentsWithNoImpact,
-    alreadyAutoPosted,
-    setAlreadyAutoPosted,
+    hasTriedRebuildingImpact,
+    setHasTriedRebuildingImpact,
   ]);
 
   const exps = experiments
@@ -429,7 +257,8 @@ export default function ExperimentImpact({
             (!form.watch("endDate") ||
               getValidDate(form.watch("endDate")) > new Date()))) &&
         // and in selected project
-        (e.project === selectedProject || selectedProject === "");
+        (selectedProjects.includes(e.project ?? "") ||
+          !selectedProjects.length);
 
       const summary =
         e.results === "won" && !!e.winner
@@ -550,23 +379,21 @@ export default function ExperimentImpact({
             <MetricSelector
               value={metric}
               onChange={(metric) => form.setValue("metric", metric)}
-              project={project ? project : undefined}
+              projects={selectedProjects}
               includeFacts={true}
             />
           </div>
 
           <div>
-            <small>Project</small>
-            <SelectField
-              value={project ? project : selectedProject}
-              options={[
-                ...(project ? [] : [{ value: "", label: "All" }]),
-                // TODO grey out projects that metric is not in
-                ...projects
-                  .filter((p) => project === "" || p.id === project)
-                  .map((p) => ({ value: p.id, label: p.name })),
-              ]}
-              onChange={(v) => form.setValue("project", v)}
+            <small>Projects</small>
+            <MultiSelectField
+              placeholder="All projects"
+              value={project ? [project] : selectedProjects}
+              disabled={!!project}
+              options={projects
+                .filter((p) => project === "" || p.id === project)
+                .map((p) => ({ value: p.id, label: p.name }))}
+              onChange={(v) => form.setValue("projects", v)}
             />
           </div>
 
@@ -602,8 +429,8 @@ export default function ExperimentImpact({
             display={"Summary"}
             padding={false}
           >
-            <div className="mt-2">
-              <table className="table bg-white text-center w-auto">
+            <div className="px-3 pt-3">
+              <table className="table bg-white text-center w-auto mb-0">
                 <thead>
                   <tr>
                     <th style={{ width: 150 }} className="border-top-0" />
@@ -650,8 +477,16 @@ export default function ExperimentImpact({
                             formatterOptions
                           )}
                         </span>
-                        <div className="text-muted small">
-                          summed impact per year
+                        <div>
+                          <Tooltip
+                            popperClassName="text-left"
+                            body="lorem ipsum"
+                          >
+                            <span className="small font-weight-bold">
+                              summed impact / year
+                            </span>{" "}
+                            <MdInfoOutline className="text-info" />
+                          </Tooltip>
                         </div>
                       </div>
                     </td>
@@ -664,8 +499,16 @@ export default function ExperimentImpact({
                             formatterOptions
                           )}
                         </span>
-                        <div className="text-muted small">
-                          summed saved impact per year
+                        <div>
+                          <Tooltip
+                            popperClassName="text-left"
+                            body="lorem ipsum"
+                          >
+                            <span className="small text-muted font-weight-bold">
+                              avoided loss / year
+                            </span>{" "}
+                            <MdInfoOutline className="text-info" />
+                          </Tooltip>
                         </div>
                       </div>
                     </td>
@@ -732,6 +575,199 @@ export default function ExperimentImpact({
           </Tab>
         </ControlledTabs>
       ) : null}
+    </div>
+  );
+}
+
+function formatImpact(
+  impact: number,
+  formatter: (
+    value: number,
+    options?: Intl.NumberFormatOptions | undefined
+  ) => string,
+  formatterOptions: Intl.NumberFormatOptions
+) {
+  return (
+    <>
+      <span className="expectedArrows">
+        {impact > 0 ? <FaArrowUp /> : impact < 0 ? <FaArrowDown /> : null}
+      </span>{" "}
+      <span className="expected font-weight-bold">
+        {formatter(impact, { ...formatterOptions, signDisplay: "never" })}
+      </span>
+    </>
+  );
+}
+
+function ImpactTab({
+  experimentImpactData,
+  experimentImpactType,
+  formatter,
+  formatterOptions,
+}: {
+  experimentImpactData: ExperimentImpactData;
+  experimentImpactType: ExperimentImpactType;
+  formatter: (
+    value: number,
+    options?: Intl.NumberFormatOptions | undefined
+  ) => string;
+  formatterOptions: Intl.NumberFormatOptions;
+}) {
+  const expRows: ReactElement[] = [];
+
+  experimentImpactData.experiments.forEach((e) => {
+    const variations: JSX.Element[] = [];
+    const impacts: JSX.Element[] = [];
+    e.experiment.variations.forEach((v, i) => {
+      if (i === 0) return;
+      if (experimentImpactType !== "other" && i !== e.keyVariationId) return;
+      const impact = e.impact?.variations?.[i - 1];
+      variations.push(
+        <div
+          className={`variation variation${i} with-variation-label d-flex my-1`}
+        >
+          <span className="label" style={{ width: 20, height: 20 }}>
+            {i}
+          </span>
+          <span
+            className="d-inline-block text-ellipsis hover"
+            style={{
+              maxWidth: 200,
+            }}
+          >
+            {v.name}
+          </span>
+        </div>
+      );
+      impacts.push(
+        <div
+          className={clsx("my-1", { won: experimentImpactType === "winner" })}
+        >
+          {impact ? (
+            formatImpact(
+              (impact?.scaledImpactAdjusted ?? 0) * 365,
+              formatter,
+              formatterOptions
+            )
+          ) : (
+            <span className="text-muted">N/A</span>
+          )}
+          {!!impact && (
+            <span className="plusminus ml-1">
+              ±
+              {Math.abs(impact?.ci0 ?? 0) === Infinity
+                ? "∞"
+                : formatter(
+                    Math.abs(
+                      ((impact?.scaledImpact ?? 0) - (impact?.ci0 ?? 0)) * 365
+                    ),
+                    formatterOptions
+                  )}
+            </span>
+          )}
+        </div>
+      );
+    });
+    expRows.push(
+      <tr key={e.experiment.id} className="hover-highlight">
+        <td>
+          <div className="my-1">
+            <Link
+              className="font-weight-bold"
+              href={`/experiment/${e.experiment.id}`}
+            >
+              {e.experiment.name}
+            </Link>
+          </div>
+        </td>
+        <td>
+          <div className="my-1">
+            {e.experiment.status === "stopped" ? (
+              date(
+                e.experiment.phases?.[e.experiment.phases.length - 1]
+                  ?.dateEnded ?? ""
+              )
+            ) : (
+              <span className="text-muted">N/A</span>
+            )}
+          </div>
+        </td>
+        <td>
+          <div className="d-flex">
+            {e.experiment.results ? (
+              <div
+                className="experiment-status-widget d-inline-block position-relative"
+                style={{ height: 25, lineHeight: "25px", top: 2 }}
+              >
+                <ResultsIndicator results={e.experiment.results} />
+              </div>
+            ) : (
+              <div className="my-1">
+                <ExperimentStatusIndicator status={e.experiment.status} />
+              </div>
+            )}
+          </div>
+        </td>
+        <td>{variations}</td>
+        <td className="impact-results">{impacts}</td>
+      </tr>
+    );
+  });
+  return (
+    <div className="px-3 pt-3">
+      {experimentImpactType !== "other" ? (
+        <div
+          className={`mt-2 alert alert-${
+            experimentImpactType === "winner" ? "success" : "info"
+          }`}
+        >
+          <span style={{ fontSize: "1.2em" }}>
+            {formatImpact(
+              experimentImpactData.totalAdjustedImpact * 365,
+              formatter,
+              formatterOptions
+            )}
+            {` per year is the summed impact ${
+              experimentImpactType === "winner"
+                ? "of the winning variations."
+                : "of not shipping the worst variation."
+            } `}
+          </span>
+        </div>
+      ) : null}
+      <div className="mt-4" style={{ maxHeight: 500, overflowY: "auto" }}>
+        <table className="table bg-white border">
+          <thead className="bg-light">
+            <tr>
+              <th>Experiment</th>
+              <th>Date Ended</th>
+              <th>Status</th>
+              <th>
+                {experimentImpactType === "winner"
+                  ? "Winning Variation"
+                  : experimentImpactType === "loser"
+                  ? "Worst Variation"
+                  : "Variation"}
+              </th>
+              <th>Scaled Impact</th>
+            </tr>
+          </thead>
+          <tbody>{expRows}</tbody>
+          <tbody className="bg-light font-weight-bold">
+            <tr>
+              <td>Total Impact</td>
+              <td colSpan={3} />
+              <td>
+                {formatImpact(
+                  experimentImpactData.totalAdjustedImpact * 365,
+                  formatter,
+                  formatterOptions
+                )}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

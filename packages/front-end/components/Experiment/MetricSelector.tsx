@@ -21,6 +21,7 @@ const MetricSelector: FC<
     datasource?: string;
     exposureQueryId?: string;
     project?: string;
+    projects?: string[]; // will only filter if project is not set
     includeFacts?: boolean;
     availableIds?: string[];
     onlyBinomial?: boolean;
@@ -29,6 +30,7 @@ const MetricSelector: FC<
   datasource,
   exposureQueryId,
   project,
+  projects,
   includeFacts,
   placeholder,
   availableIds,
@@ -93,7 +95,12 @@ const MetricSelector: FC<
         ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
         : true
     )
-    .filter((m) => isProjectListValidForProject(m.projects, project));
+    .filter((m) => {
+      if (projects && !project) {
+        return !projects.length || projects.some((p) => isProjectListValidForProject(m.projects, p));
+      }
+      return isProjectListValidForProject(m.projects, project);
+    });
 
   return (
     <SelectField
