@@ -202,7 +202,7 @@ export function getExperimentMetricFormatter(
 
     case "mean":
       return getColumnRefFormatter(metric.numerator, getFactTableById);
-    
+
     case "quantile":
       return getColumnRefFormatter(metric.numerator, getFactTableById);
   }

@@ -151,7 +151,7 @@ export const updateFactMetricPropsValidator = z.object({
 
   inverse: z.boolean().optional(),
 
-  quantileSettings: quantileSettingsValidator.optional(),
+  quantileSettings: quantileSettingsValidator.nullable().optional(),
 
   cappingSettings: cappingSettingsValidator.optional(),
   windowSettings: windowSettingsValidator.optional(),

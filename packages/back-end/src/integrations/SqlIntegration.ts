@@ -72,6 +72,7 @@ import { logger } from "../util/logger";
 import {
   FactFilterInterface,
   FactMetricInterface,
+  MetricQuantileSettings,
 } from "../../types/fact-table";
 import { applyMetricOverrides } from "../util/integration";
 
@@ -2028,6 +2029,10 @@ export default abstract class SqlIntegration
     const funnelMetric = isFunnelMetric(metric, denominator);
 
     const quantileMetric = quantileMetricType(metric);
+    const quantileSettings: MetricQuantileSettings = (isFactMetric(metric) &&
+    !!quantileMetric
+      ? metric.quantileSettings
+      : undefined) ?? { type: "unit", quantile: 0, ignoreZeros: false };
 
     const cumulativeDate = false; // TODO enable flag for time series
 
@@ -2272,11 +2277,25 @@ export default abstract class SqlIntegration
             : ""
         }
       )
-      ${quantileMetric === "event" && isFactMetric(metric) ? `
-        ${this.getQuantileMetricCTEs(
-          metric.quantileSettings?.quantile ?? 0.5,
-          metric.quantileSettings?.ignoreZeros ?? false,
-        )}` : ""}
+      ${
+        quantileMetric === "event"
+          ? `
+        , __quantileValues AS (
+          ${this.getQuantileBoundsCTE(
+            quantileSettings.quantile,
+            0.05,
+            "__userMetricJoin"
+          )}
+        ),
+        __quantileMetric AS (
+        ${this.getQuantileMetricCTE(
+          quantileSettings.quantile,
+          quantileSettings.ignoreZeros,
+          "__userMetricJoin"
+        )}
+        )`
+          : ""
+      }
       , __userMetricAgg as (
         -- Add in the aggregate metric value for each user
         SELECT
@@ -2284,15 +2303,22 @@ export default abstract class SqlIntegration
           umj.dimension AS dimension,
           ${cumulativeDate ? "umj.day AS day," : ""}
           umj.${baseIdType},
-          ${this.getAggregateMetricColumn(metric, undefined, "umj.value")} as value
-          ${quantileMetric === "event" && isFactMetric(metric) ? 
-          `, COUNT(*) AS n_events` : ""}
+          ${this.getAggregateMetricColumn(
+            metric,
+            undefined,
+            "umj.value"
+          )} as value
+          ${quantileMetric === "event" ? `, COUNT(*) AS n_events` : ""}
         FROM
           __userMetricJoin umj
-        ${quantileMetric === "event" && isFactMetric(metric) ? `
+        ${
+          quantileMetric === "event"
+            ? `
         LEFT JOIN __quantileMetric qm
         ON (qm.dimension = umj.dimension AND qm.variation = umj.variation)
-        WHERE umj.value IS NOT NULL` : ""}
+        WHERE umj.value IS NOT NULL`
+            : ""
+        }
         GROUP BY
           umj.variation,
           umj.dimension,
@@ -2410,6 +2436,17 @@ export default abstract class SqlIntegration
         `
           : ""
       }
+      ${
+        quantileMetric === "unit" // TODO alpha
+          ? `, __quantileValues AS (
+        ${this.getQuantileBoundsCTE(
+          quantileSettings.quantile,
+          0.05,
+          "__userMetricJoin"
+        )}
+      )`
+          : ""
+      }
       -- One row per variation/dimension with aggregations
       SELECT
         m.variation AS variation,
@@ -2425,7 +2462,7 @@ export default abstract class SqlIntegration
         SUM(${capCoalesceMetric}) AS main_sum,
         SUM(POWER(${capCoalesceMetric}, 2)) AS main_sum_squares
         ${
-          quantileMetric === "event" && isFactMetric(metric)
+          quantileMetric === "event"
             ? `,
           SUM(COALESCE(n_events, 0)) AS denominator_sum,
           SUM(POWER(COALESCE(n_events, 0), 2)) AS denominator_sum_squares,
@@ -2433,6 +2470,30 @@ export default abstract class SqlIntegration
           MAX(qm.quantile) AS quantile,
           MAX(qm.quantile_lower) AS quantile_lower,
           MAX(qm.quantile_upper) AS quantile_upper`
+            : ""
+        }
+        ${
+          quantileMetric === "unit"
+            ? `,
+          ${this.quantileColumn(
+            "value",
+            "quantile_lower",
+            "nu_lower",
+            quantileSettings.ignoreZeros
+          )},
+          ${this.quantileColumn(
+            "value",
+            "quantile",
+            quantileSettings.quantile,
+            quantileSettings.ignoreZeros
+          )},
+          ${this.quantileColumn(
+            "value",
+            "quantile_upper",
+            "nu_upper",
+            quantileSettings.ignoreZeros
+          )}
+          `
             : ""
         }
         ${
@@ -2461,9 +2522,16 @@ export default abstract class SqlIntegration
       FROM
         __userMetricAgg m
         ${
-          quantileMetric === "event" && isFactMetric(metric)
+          quantileMetric === "event"
             ? `LEFT JOIN __quantileMetric qm ON (
           qm.dimension = m.dimension AND qm.variation = m.variation
+            )`
+            : ""
+        }
+        ${
+          quantileMetric === "unit"
+            ? `LEFT JOIN __quantileValues qv ON (
+          qv.dimension = m.dimension AND qv.variation = m.variation
             )`
             : ""
         }
@@ -2497,6 +2565,12 @@ export default abstract class SqlIntegration
       GROUP BY
         m.variation,
         ${cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"}
+        ${
+          quantileMetric === "unit"
+            ? `, qv.nu_lower
+            , qv.nu_upper`
+            : ""
+        }
     `,
       this.getFormatDialect()
     );
@@ -2507,32 +2581,28 @@ export default abstract class SqlIntegration
     alpha: number = 0.05,
     type: "" | "lower" | "upper" = ""
   ): string {
-    
-    if (!type) return `${quantile}`; 
+    if (!type) return `${quantile}`;
 
     const critVal = normal.quantile(1 - alpha / 2, 0, 1).toFixed(8);
     const numerator = Math.sqrt(quantile * (1 - quantile)).toFixed(8);
     if (type === "lower") {
       return `${quantile} - ${critVal} * SQRT(${numerator} / COUNT(*))`;
-    }
-    else if (type === "upper") {
+    } else if (type === "upper") {
       return `${quantile} + ${critVal} * SQRT(${numerator} / COUNT(*))`;
     }
 
     return `${quantile}`;
-
-
   }
 
   quantileColumn(
     valueCol: string,
     outputCol: string,
     quantile: string | number,
-    ignoreZeros: boolean,
+    ignoreZeros: boolean
   ): string {
     const value = ignoreZeros
-              ? this.ifElse(`${valueCol} = 0`, "NULL", valueCol)
-              : valueCol;
+      ? this.ifElse(`${valueCol} = 0`, "NULL", valueCol)
+      : valueCol;
     return `PERCENTILE_CONT(${quantile}) WITHIN GROUP (ORDER BY ${value}) AS ${outputCol}`;
   }
 
@@ -2549,7 +2619,9 @@ export default abstract class SqlIntegration
     return `
       SELECT
         ${values
-          .map(({ valueCol, outputCol, percentile, ignoreZeros }) => this.quantileColumn(valueCol, outputCol, percentile, ignoreZeros))
+          .map(({ valueCol, outputCol, percentile, ignoreZeros }) =>
+            this.quantileColumn(valueCol, outputCol, percentile, ignoreZeros)
+          )
           .join(",\n")}
       FROM ${metricTable}
       ${where}
@@ -2990,57 +3062,52 @@ AND event_name = '${eventName}'`,
      `;
   }
 
-  getQuantileMetricCTEs(
+  getQuantileBoundsCTE(
+    percentile: number,
+    alpha: number = 0.05,
+    inputTable: string
+  ): string {
+    return `SELECT
+        variation,
+        dimension,
+        COUNT(*) as n_events,
+        ${this.quantileMultiplier(percentile, alpha, "lower")} as nu_lower,
+        ${this.quantileMultiplier(percentile, alpha, "upper")} as nu_upper
+      FROM
+        ${inputTable}
+      GROUP BY
+        variation,
+        dimension
+    `;
+  }
+
+  getQuantileMetricCTE(
     percentile: number,
     ignoreZeros: boolean,
+    baseTable: string
   ): string {
-    // TODO ignore zeros from nu_lower and upper
     return `
-      , __quantileValues AS (
-        SELECT
-          variation,
-          dimension,
-          ${this.quantileMultiplier(percentile, 0.05, "lower")} as nu_lower,
-          ${this.quantileMultiplier(percentile, 0.05, "upper")} as nu_upper
-        FROM
-          __userMetricJoin
-        GROUP BY
-          variation,
-          dimension
-      ),
-      __quantileMetric AS (
       SELECT
-        u.variation,
-        u.dimension,
-        ${this.quantileColumn(
-          "value", 
-          "quantile_lower", 
-          "nu_lower",
-          ignoreZeros,
-        )},
-        ${this.quantileColumn(
-          "value", 
-          "quantile", 
-          percentile,
-          ignoreZeros,
-        )},
-        ${this.quantileColumn(
-          "value", 
-          "quantile_upper", 
-          "nu_upper",
-          ignoreZeros,
-        )}
-      FROM
-        __userMetricJoin u
-      LEFT JOIN __quantileValues qv
-        ON (qv.variation = u.variation AND qv.dimension = u.dimension)
-      GROUP BY
-        u.variation,
-        u.dimension,
-        qv.nu_lower,
-        qv.nu_upper
-    )
-    `
+      u.variation,
+      u.dimension,
+      ${this.quantileColumn(
+        "value",
+        "quantile_lower",
+        "nu_lower",
+        ignoreZeros
+      )},
+      ${this.quantileColumn("value", "quantile", percentile, ignoreZeros)},
+      ${this.quantileColumn("value", "quantile_upper", "nu_upper", ignoreZeros)}
+    FROM
+      ${baseTable} u
+    LEFT JOIN __quantileValues qv
+      ON (qv.variation = u.variation AND qv.dimension = u.dimension)
+    GROUP BY
+      u.variation,
+      u.dimension,
+      qv.nu_lower,
+      qv.nu_upper
+    `;
   }
 
   getFilterValues(

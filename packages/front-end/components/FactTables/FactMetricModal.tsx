@@ -363,7 +363,7 @@ export default function FactMetricModal({
         type: "",
         value: 0,
       },
-      quantileSettings: existing?.quantileSettings || null,
+      quantileSettings: existing?.quantileSettings || undefined,
       windowSettings: existing?.windowSettings || {
         type: DEFAULT_FACT_METRIC_WINDOW,
         delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
@@ -628,6 +628,12 @@ export default function FactMetricModal({
             value={type}
             setValue={(type) => {
               form.setValue("metricType", type);
+
+              if (type === "quantile") {
+                form.setValue("quantileSettings", quantileSettings);
+                // capping off for quantile metrics
+                form.setValue("cappingSettings.type", "");
+              }
 
               // When switching to ratio, reset the denominator value
               if (type === "ratio" && !form.watch("denominator")) {
