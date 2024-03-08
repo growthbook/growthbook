@@ -19,7 +19,7 @@ on:
 jobs:
   # Linting, type-checking, and tests
   ci:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-4
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -27,14 +27,14 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
-          cache: 'yarn'
+          node-version: "18"
+          cache: "yarn"
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v2
         with:
           python-version: 3.11
-          cache: 'pip'
+          cache: "pip"
 
       - name: Cache eslint
         uses: actions/cache@v2
@@ -43,7 +43,7 @@ jobs:
           key: ${{ runner.os }}-eslint-${{ hashFiles('**/yarn.lock') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
           restore-keys: |
             ${{ runner.os }}-eslint-
-      
+
       - name: Install dependencies
         run: |
           # Main app
@@ -81,7 +81,7 @@ jobs:
         env:
           CI: true
 
-      - name: Test 
+      - name: Test
         run: |
           yarn test
         env:
