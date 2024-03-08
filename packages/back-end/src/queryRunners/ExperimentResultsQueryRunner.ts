@@ -3,6 +3,7 @@ import {
   ExperimentMetricInterface,
   isFactMetric,
   isRatioMetric,
+  quantileMetricType,
 } from "shared/experiments";
 import chunk from "lodash/chunk";
 import {
@@ -113,6 +114,9 @@ export function getFactMetricGroups(
   metrics.forEach((m) => {
     // Only fact metrics
     if (!isFactMetric(m)) return;
+
+    // Skip quantile metrics
+    if (quantileMetricType(m) !== "") return;
 
     // Skip grouping metrics with percentile caps if there's not an efficient implementation
     if (

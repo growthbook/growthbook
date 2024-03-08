@@ -153,6 +153,20 @@ export default class BigQuery extends SqlIntegration {
   castUserDateCol(column: string): string {
     return `CAST(${column} as DATETIME)`;
   }
+  quantileColumn(
+    valueCol: string,
+    outputCol: string,
+    quantile: string | number,
+    ignoreZeros: boolean
+  ): string {
+    const value = ignoreZeros
+      ? this.ifElse(`${valueCol} = 0`, "NULL", valueCol)
+      : valueCol;
+    const quantileVal = Number(quantile)
+      ? Math.trunc(100000 * Number(quantile))
+      : `100000 * ${quantile}`;
+    return `APPROX_QUANTILES(${value}, 100000 IGNORE NULLS)[OFFSET(CAST(${quantileVal} AS INT64))] AS ${outputCol}`;
+  }
   percentileCapSelectClause(
     values: {
       valueCol: string;
@@ -165,15 +179,14 @@ export default class BigQuery extends SqlIntegration {
   ): string {
     return `
     SELECT
-      ${values
-        .map((v) => {
-          const value = v.ignoreZeros
-            ? this.ifElse(`${v.valueCol} = 0`, "NULL", v.valueCol)
-            : v.valueCol;
-          return `APPROX_QUANTILES(${value}, 100000 IGNORE NULLS)[OFFSET(${Math.trunc(
-            100000 * v.percentile
-          )})] AS ${v.outputCol}`;
-        })
+      ${values.map((v) =>
+        this.quantileColumn(
+          v.valueCol,
+          v.outputCol,
+          v.percentile,
+          v.ignoreZeros
+        )
+      )})
         .join(",\n")}
       FROM ${metricTable}
       ${where}
