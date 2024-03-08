@@ -115,7 +115,10 @@ export class ReqContextClass implements ReqContextInterface {
     }
     this.readAccessFilter = getReadAccessFilter(this.userPermissions);
 
-    this.permissions = new permissionsClass(this.userPermissions);
+    this.permissions = new permissionsClass(
+      this.userPermissions,
+      this.superAdmin
+    );
   }
 
   // Record an audit log entry

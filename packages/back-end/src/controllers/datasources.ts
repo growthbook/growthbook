@@ -70,7 +70,7 @@ export async function postSampleData(
   const statsEngine = org.settings?.statsEngine || DEFAULT_STATS_ENGINE;
 
   req.checkPermissions("createAnalyses", "");
-  context.pemissions.canCreateMetrics({}).throwIfError();
+  context.permissions.canCreateMetrics({}).throwIfError();
   const existingMetrics = await getSampleMetrics(context);
 
   let metric1 = existingMetrics.filter((m) => m.type === "binomial")[0];

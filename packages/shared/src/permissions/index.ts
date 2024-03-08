@@ -1,2 +1,2 @@
 export * from "./permissions.utils";
-export * from "./hasPermission";
+export * from "./permissionsClass";

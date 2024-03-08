@@ -15,8 +15,10 @@ class PermissionError extends Error {
 
 export class permissionsClass {
   private userPermissions: UserPermissions;
-  constructor(permissions: UserPermissions) {
+  private superAdmin: boolean;
+  constructor(permissions: UserPermissions, superAdmin: boolean) {
     this.userPermissions = permissions;
+    this.superAdmin = superAdmin;
   }
 
   public canCreateMetrics(
@@ -52,6 +54,10 @@ export class permissionsClass {
     project: string,
     envs?: string[]
   ) {
+    if (this.superAdmin) {
+      return true;
+    }
+
     const usersPermissionsToCheck =
       (project && this.userPermissions.projects[project]) ||
       this.userPermissions.global;

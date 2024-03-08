@@ -10,7 +10,7 @@ export const deleteMetricHandler = createApiRequestHandler(getMetricValidator)(
     if (!metric) {
       throw new Error("Could not find metric with that id");
     }
-    req.context.pemissions.canCreateMetrics(metric).throwIfError();
+    req.context.permissions.canCreateMetrics(metric).throwIfError();
 
     await deleteMetricById(req.context, metric);
 
