@@ -350,6 +350,7 @@ const sidebars = {
         { type: "doc", id: "lib/js", label: "Javascript" },
         { type: "doc", id: "lib/react", label: "React" },
         { type: "doc", id: "lib/vue", label: "Vue.js" },
+        { type: "doc", id: "lib/script-tag", label: "HTML Script Tag" },
         { type: "doc", id: "lib/php", label: "PHP)" },
         { type: "doc", id: "lib/ruby", label: "Ruby" },
         { type: "doc", id: "lib/python", label: "Python" },

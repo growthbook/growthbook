@@ -15,6 +15,7 @@ import type {
   LoadFeaturesOptions,
   RealtimeUsageData,
   RefreshFeaturesOptions,
+  RenderFunction,
   Result,
   StickyAssignments,
   StickyAssignmentsDocument,
@@ -62,7 +63,7 @@ export class GrowthBook<
 
   // Properties and methods that start with "_" are mangled by Terser (saves ~150 bytes)
   private _ctx: Context;
-  private _renderer: null | (() => void);
+  private _renderer: null | RenderFunction;
   private _trackedExperiments: Set<unknown>;
   private _trackedFeatures: Record<string, string>;
   private _subscriptions: Set<SubscriptionFunction>;
@@ -107,6 +108,10 @@ export class GrowthBook<
     this._activeAutoExperiments = new Map();
     this._triggeredExpKeys = new Set();
     this._loadFeaturesCalled = false;
+
+    if (context.renderer) {
+      this._renderer = context.renderer;
+    }
 
     if (context.remoteEval) {
       if (context.decryptionKey) {
@@ -224,7 +229,11 @@ export class GrowthBook<
 
   private _render() {
     if (this._renderer) {
-      this._renderer();
+      try {
+        this._renderer();
+      } catch (e) {
+        console.error("Failed to render", e);
+      }
     }
   }
 
@@ -307,6 +316,10 @@ export class GrowthBook<
     }
     this._render();
     this._updateAllAutoExperiments();
+  }
+
+  public async updateAttributes(attributes: Attributes) {
+    return this.setAttributes({ ...this._ctx.attributes, ...attributes });
   }
 
   public async setAttributeOverrides(overrides: Attributes) {
@@ -424,7 +437,7 @@ export class GrowthBook<
     this._triggeredExpKeys.clear();
   }
 
-  public setRenderer(renderer: () => void) {
+  public setRenderer(renderer: null | RenderFunction) {
     this._renderer = renderer;
   }
 
