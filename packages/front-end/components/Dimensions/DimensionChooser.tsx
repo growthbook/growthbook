@@ -14,7 +14,6 @@ export interface Props {
   userIdType?: "user" | "anonymous";
   labelClassName?: string;
   showHelp?: boolean;
-  newUi?: boolean;
   setVariationFilter?: (variationFilter: number[]) => void;
   setBaselineRow?: (baselineRow: number) => void;
   setDifferenceType?: (differenceType: DifferenceType) => void;
@@ -33,7 +32,6 @@ export default function DimensionChooser({
   userIdType,
   labelClassName,
   showHelp,
-  newUi = false,
   setVariationFilter,
   setBaselineRow,
   setDifferenceType,
@@ -108,11 +106,10 @@ export default function DimensionChooser({
 
   return (
     <div>
-      {newUi && <div className="uppercase-title text-muted">Dimension</div>}
+      <div className="uppercase-title text-muted">Dimension</div>
       <SelectField
-        label={newUi ? undefined : "Dimension"}
         labelClassName={labelClassName}
-        containerClassName={newUi ? "select-dropdown-underline" : ""}
+        containerClassName="select-dropdown-underline"
         options={[
           {
             label: "Built-in",

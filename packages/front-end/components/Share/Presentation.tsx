@@ -18,8 +18,9 @@ import {
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import clsx from "clsx";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import CompactResults_old from "@/components/Experiment/CompactResults_old";
 import Markdown from "@/components/Markdown/Markdown";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import CompactResults from "@/components/Experiment/CompactResults";
 import { presentationThemes, defaultTheme } from "./ShareModal";
 
 export interface Props {
@@ -50,6 +51,7 @@ const Presentation = ({
   preview = false,
 }: Props): ReactElement => {
   const { getExperimentMetricById } = useDefinitions();
+  const orgSettings = useOrgSettings();
   const em = new Map<
     string,
     {
@@ -211,6 +213,18 @@ const Presentation = ({
       const experiment = e.experiment;
       const snapshot = e.snapshot;
       const phase = experiment.phases[snapshot.phase];
+      const snapshotMetricRegressionAdjustmentStatuses =
+        snapshot?.settings?.metricSettings?.map((m) => ({
+          metric: m.id,
+          reason: m.computedSettings?.regressionAdjustmentReason || "",
+          regressionAdjustmentDays:
+            m.computedSettings?.regressionAdjustmentDays || 0,
+          regressionAdjustmentEnabled: !!m.computedSettings
+            ?.regressionAdjustmentEnabled,
+          regressionAdjustmentAvailable: !!m.computedSettings
+            ?.regressionAdjustmentAvailable,
+        })) || [];
+
       expSlides.push(
         <Slide key={`s-${expSlides.length}`}>
           <Heading className="m-0 p-0">Results</Heading>
@@ -241,21 +255,11 @@ const Presentation = ({
               overflowY: "auto",
               background: "#fff",
               maxHeight: "100%",
-              padding: "10px 0 0",
               color: "#444",
               fontSize: "95%",
             }}
           >
-            <CompactResults_old
-              id={experiment.id}
-              isLatestPhase={snapshot.phase === experiment.phases.length - 1}
-              metrics={experiment.metrics}
-              metricOverrides={experiment?.metricOverrides ?? []}
-              reportDate={snapshot.dateCreated}
-              results={snapshot?.analyses[0]?.results?.[0]}
-              status={experiment.status}
-              startDate={phase?.dateStarted ?? ""}
-              multipleExposures={snapshot.multipleExposures || 0}
+            <CompactResults
               variations={experiment.variations.map((v, i) => {
                 return {
                   id: v.key || i + "",
@@ -263,6 +267,32 @@ const Presentation = ({
                   weight: phase?.variationWeights?.[i] || 0,
                 };
               })}
+              multipleExposures={snapshot.multipleExposures || 0}
+              results={snapshot?.analyses[0]?.results?.[0]}
+              reportDate={snapshot.dateCreated}
+              startDate={phase?.dateStarted ?? ""}
+              isLatestPhase={snapshot.phase === experiment.phases.length - 1}
+              status={experiment.status}
+              metrics={experiment.metrics}
+              metricOverrides={experiment.metricOverrides ?? []}
+              guardrails={experiment.guardrails}
+              id={experiment.id}
+              statsEngine={snapshot?.analyses[0]?.settings.statsEngine}
+              pValueCorrection={orgSettings?.pValueCorrection}
+              regressionAdjustmentEnabled={
+                snapshot?.analyses[0]?.settings?.regressionAdjusted
+              }
+              metricRegressionAdjustmentStatuses={
+                snapshotMetricRegressionAdjustmentStatuses
+              }
+              sequentialTestingEnabled={
+                snapshot?.analyses[0]?.settings?.sequentialTesting
+              }
+              differenceType={snapshot?.analyses[0]?.settings?.differenceType}
+              isTabActive={true}
+              mainTableOnly={true}
+              noStickyHeader={true}
+              noTooltip={true}
             />
           </div>
         </Slide>

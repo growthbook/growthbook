@@ -131,7 +131,6 @@ const Results_old: FC<{
         variations={variations}
         editPhases={editPhases}
         alwaysShowPhaseSelector={alwaysShowPhaseSelector}
-        statsEngine={statsEngine}
         regressionAdjustmentAvailable={regressionAdjustmentAvailable}
         regressionAdjustmentEnabled={regressionAdjustmentEnabled}
         regressionAdjustmentHasValidMetrics={

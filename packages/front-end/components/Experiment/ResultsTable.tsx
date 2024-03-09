@@ -93,6 +93,8 @@ export type ResultsTableProps = {
   setMetricFilter?: (filter: ResultsMetricFilters) => void;
   metricTags?: string[];
   isTabActive: boolean;
+  noStickyHeader?: boolean;
+  noTooltip?: boolean;
 };
 
 const ROW_HEIGHT = 56;
@@ -130,6 +132,8 @@ export default function ResultsTable({
   setMetricFilter,
   metricTags = [],
   isTabActive,
+  noStickyHeader,
+  noTooltip,
 }: ResultsTableProps) {
   // fix any potential filter conflicts
   if (variationFilter?.includes(baselineRow)) {
@@ -311,6 +315,7 @@ export default function ResultsTable({
     event: React.PointerEvent<HTMLElement>,
     settings?: TooltipHoverSettings
   ) => {
+    if (noTooltip) return;
     if (
       hoveredMetricRow !== null &&
       hoveredVariationRow !== null &&
@@ -468,7 +473,7 @@ export default function ResultsTable({
             <thead>
               <tr className="results-top-row">
                 <th
-                  className="axis-col header-label"
+                  className={clsx("axis-col header-label", { noStickyHeader })}
                   style={{
                     lineHeight: "15px",
                     width: 220 * tableCellScale,
@@ -513,7 +518,7 @@ export default function ResultsTable({
                   <>
                     <th
                       style={{ width: 120 * tableCellScale }}
-                      className="axis-col label"
+                      className={clsx("axis-col label", { noStickyHeader })}
                     >
                       <Tooltip
                         usePortal={true}
@@ -544,7 +549,7 @@ export default function ResultsTable({
                     </th>
                     <th
                       style={{ width: 120 * tableCellScale }}
-                      className="axis-col label"
+                      className={clsx("axis-col label", { noStickyHeader })}
                     >
                       <Tooltip
                         usePortal={true}
@@ -582,7 +587,7 @@ export default function ResultsTable({
                     </th>
                     <th
                       style={{ width: 120 * tableCellScale }}
-                      className="axis-col label"
+                      className={clsx("axis-col label", { noStickyHeader })}
                     >
                       {statsEngine === "bayesian" ? (
                         <div
@@ -618,7 +623,9 @@ export default function ResultsTable({
                       )}
                     </th>
                     <th
-                      className="axis-col graph-cell"
+                      className={clsx("axis-col graph-cell", {
+                        noStickyHeader,
+                      })}
                       style={{
                         width:
                           window.innerWidth < 900 ? graphCellWidth : undefined,
@@ -642,7 +649,9 @@ export default function ResultsTable({
                     </th>
                     <th
                       style={{ width: 150 * tableCellScale }}
-                      className="axis-col label text-right"
+                      className={clsx("axis-col label text-right", {
+                        noStickyHeader,
+                      })}
                     >
                       <div style={{ lineHeight: "15px", marginBottom: 2 }}>
                         <Tooltip
@@ -668,7 +677,10 @@ export default function ResultsTable({
                     </th>
                   </>
                 ) : (
-                  <th className="axis-col label" colSpan={5} />
+                  <th
+                    className={clsx("axis-col label", { noStickyHeader })}
+                    colSpan={5}
+                  />
                 )}
               </tr>
             </thead>
