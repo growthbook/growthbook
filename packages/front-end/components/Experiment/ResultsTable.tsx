@@ -643,7 +643,6 @@ export default function ResultsTable({
                           graphWidth={graphCellWidth}
                           percent={differenceType === "relative"}
                           height={45}
-                          newUi={true}
                         />
                       </div>
                     </th>
@@ -818,7 +817,6 @@ export default function ResultsTable({
                             className={clsx("value baseline", {
                               hover: isHovered,
                             })}
-                            newUi={true}
                           />
                         ) : (
                           <td />
@@ -830,7 +828,6 @@ export default function ResultsTable({
                           className={clsx("value", {
                             hover: isHovered,
                           })}
-                          newUi={true}
                         />
                         {j > 0 ? (
                           statsEngine === "bayesian" ? (
@@ -904,8 +901,6 @@ export default function ResultsTable({
                               height={
                                 compactResults ? ROW_HEIGHT + 10 : ROW_HEIGHT
                               }
-                              newUi={true}
-                              // className={}
                               isHovered={isHovered}
                               percent={differenceType === "relative"}
                               className={clsx(
@@ -942,7 +937,6 @@ export default function ResultsTable({
                               axisOnly={true}
                               graphWidth={graphCellWidth}
                               height={32}
-                              newUi={true}
                             />
                           )}
                         </td>
@@ -1022,7 +1016,6 @@ function drawEmptyRow({
           axisOnly={true}
           graphWidth={graphCellWidth}
           height={rowHeight}
-          newUi={true}
         />
       </td>
       <td />
