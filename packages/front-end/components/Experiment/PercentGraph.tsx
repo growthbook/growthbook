@@ -64,7 +64,8 @@ export default function PercentGraph({
         : false;
     } else {
       significant = showGraph
-        ? (stats.chanceToWin ?? 0) > ciUpper || (stats.chanceToWin ?? 0) < ciLower
+        ? (stats.chanceToWin ?? 0) > ciUpper ||
+          (stats.chanceToWin ?? 0) < ciLower
         : false;
     }
   }
