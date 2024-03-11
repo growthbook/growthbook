@@ -20,6 +20,7 @@ import { GBCuped, GBSequential } from "@/components/Icons";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
 import { ExperimentTab } from "./TabbedPage";
+import DynamicComponentLoader from "./DynamicComponentLoader";
 
 const BreakDownResults = dynamic(
   () => import("@/components/Experiment/BreakDownResults")
@@ -169,29 +170,32 @@ const Results: FC<{
   return (
     <>
       {!draftMode ? (
-        <AnalysisSettingsBar
-          mutateExperiment={mutateExperiment}
-          setAnalysisSettings={setAnalysisSettings}
-          editMetrics={editMetrics}
-          variations={variations}
-          editPhases={editPhases}
-          alwaysShowPhaseSelector={alwaysShowPhaseSelector}
-          statsEngine={statsEngine}
-          regressionAdjustmentAvailable={regressionAdjustmentAvailable}
-          regressionAdjustmentEnabled={regressionAdjustmentEnabled}
-          regressionAdjustmentHasValidMetrics={
-            regressionAdjustmentHasValidMetrics
-          }
-          onRegressionAdjustmentChange={onRegressionAdjustmentChange}
-          newUi={true}
-          showMoreMenu={false}
-          variationFilter={variationFilter}
-          setVariationFilter={(v: number[]) => setVariationFilter?.(v)}
-          baselineRow={baselineRow}
-          setBaselineRow={(b: number) => setBaselineRow?.(b)}
-          differenceType={differenceType}
-          setDifferenceType={setDifferenceType}
-        />
+        <>
+          <DynamicComponentLoader componentName="CustomInfoBanner" />
+          <AnalysisSettingsBar
+            mutateExperiment={mutateExperiment}
+            setAnalysisSettings={setAnalysisSettings}
+            editMetrics={editMetrics}
+            variations={variations}
+            editPhases={editPhases}
+            alwaysShowPhaseSelector={alwaysShowPhaseSelector}
+            statsEngine={statsEngine}
+            regressionAdjustmentAvailable={regressionAdjustmentAvailable}
+            regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+            regressionAdjustmentHasValidMetrics={
+              regressionAdjustmentHasValidMetrics
+            }
+            onRegressionAdjustmentChange={onRegressionAdjustmentChange}
+            newUi={true}
+            showMoreMenu={false}
+            variationFilter={variationFilter}
+            setVariationFilter={(v: number[]) => setVariationFilter?.(v)}
+            baselineRow={baselineRow}
+            setBaselineRow={(b: number) => setBaselineRow?.(b)}
+            differenceType={differenceType}
+            setDifferenceType={setDifferenceType}
+          />
+        </>
       ) : (
         <StatusBanner
           mutateExperiment={mutateExperiment}

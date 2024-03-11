@@ -4,13 +4,14 @@ import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import Markdown from "@/components/Markdown/Markdown";
 import { useSnapshot } from "./SnapshotProvider";
+import DynamicComponentLoader from "./DynamicComponentLoader";
 
 export interface Props {
   mutateExperiment: () => void;
   editResult?: () => void;
 }
 
-export default function StatusBanner({ mutateExperiment, editResult }: Props) {
+function StatusBannerInner({ mutateExperiment, editResult }: Props) {
   const { experiment } = useSnapshot();
   const { apiCall } = useAuth();
 
@@ -143,4 +144,17 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
   }
 
   return null;
+}
+
+export default function StatusBanner({ mutateExperiment, editResult }: Props) {
+  return (
+    <>
+      <DynamicComponentLoader componentName="CustomInfoBanner" />
+      <br />
+      <StatusBannerInner
+        mutateExperiment={mutateExperiment}
+        editResult={editResult}
+      />
+    </>
+  );
 }
