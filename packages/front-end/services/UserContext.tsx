@@ -31,7 +31,12 @@ import {
 } from "react";
 import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
-import { userHasPermission } from "shared/permissions";
+import {
+  PermissionResult,
+  permissionsClass,
+  userHasPermission,
+} from "shared/permissions";
+import { MetricInterface } from "@back-end/types/metric";
 import { isCloud, isMultiOrg, isSentryEnabled } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
@@ -115,6 +120,11 @@ export interface UserContextValue {
   teams?: Team[];
   error?: string;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
+  permissionsUtil: {
+    canCreateMetrics: (
+      metric: Pick<MetricInterface, "projects">
+    ) => PermissionResult;
+  };
 }
 
 interface UserResponse {
@@ -147,6 +157,17 @@ export const UserContext = createContext<UserContextValue>({
   seatsInUse: 0,
   teams: [],
   hasCommercialFeature: () => false,
+  permissionsUtil: new permissionsClass(
+    {
+      global: {
+        permissions: {},
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    },
+    false
+  ),
 });
 
 export function useUser() {
@@ -173,6 +194,8 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     data: currentOrg,
     mutate: refreshOrganization,
   } = useApi<OrgSettingsResponse>(isAuthenticated ? `/organization` : null);
+
+  console.log("currentOrg", currentOrg);
 
   const [hashedOrganizationId, setHashedOrganizationId] = useState<string>("");
   useEffect(() => {
@@ -355,6 +378,18 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     permissionsCheck,
   ]);
 
+  const permissionsUtil = new permissionsClass(
+    currentOrg?.currentUserPermissions || {
+      global: {
+        permissions: {},
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    },
+    data?.superAdmin || false
+  );
+
   return (
     <UserContext.Provider
       value={{
@@ -373,6 +408,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         refreshOrganization: refreshOrganization as () => Promise<void>,
         roles: currentOrg?.roles || [],
         permissions,
+        permissionsUtil,
         settings: currentOrg?.organization?.settings || {},
         license: data?.license,
         enterpriseSSO: currentOrg?.enterpriseSSO || undefined,

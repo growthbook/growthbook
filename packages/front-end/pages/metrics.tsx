@@ -18,18 +18,17 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import MetricForm from "@/components/Metrics/MetricForm";
-import usePermissions from "@/hooks/usePermissions";
 import Toggle from "@/components/Forms/Toggle";
 import { DocLink } from "@/components/DocLink";
 import { useUser } from "@/services/UserContext";
 import { canCreateMetrics } from "@/services/env";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { checkMetricProjectPermissions } from "@/services/metrics";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import MetricName from "@/components/Metrics/MetricName";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 interface MetricTableItem {
   id: string;
   managedBy: "" | "api" | "config";
@@ -68,7 +67,7 @@ const MetricsPage = (): React.ReactElement => {
 
   const { getUserDisplay } = useUser();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
 
   const tagsFilter = useTagsFilter("metrics");
@@ -169,10 +168,9 @@ const MetricsPage = (): React.ReactElement => {
   );
   const editMetricsPermissions: { [id: string]: boolean } = {};
   filteredMetrics.forEach((m) => {
-    editMetricsPermissions[m.id] = checkMetricProjectPermissions(
-      m,
-      permissions
-    );
+    editMetricsPermissions[m.id] = permissionsUtil.canCreateMetrics(
+      m
+    ).hasPermission;
   });
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: filteredMetrics,
@@ -240,32 +238,37 @@ const MetricsPage = (): React.ReactElement => {
             transactions, revenue, engagement
           </li>
         </ul>
-        {permissions.check("createMetrics", project) && canCreateMetrics() && (
-          <>
-            <AutoGenerateMetricsButton
-              setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
-              size="lg"
-            />
-            <button
-              className="btn btn-lg btn-success"
-              onClick={(e) => {
-                e.preventDefault();
-                setModalData({
-                  current: {},
-                  edit: false,
-                  duplicate: false,
-                });
-              }}
-            >
-              <FaPlus /> Add your first Metric
-            </button>
-          </>
-        )}
+        {permissionsUtil.canCreateMetrics({ projects: [project] }) &&
+          canCreateMetrics() && (
+            <>
+              <AutoGenerateMetricsButton
+                setShowAutoGenerateMetricsModal={
+                  setShowAutoGenerateMetricsModal
+                }
+                size="lg"
+              />
+              <button
+                className="btn btn-lg btn-success"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setModalData({
+                    current: {},
+                    edit: false,
+                    duplicate: false,
+                  });
+                }}
+              >
+                <FaPlus /> Add your first Metric
+              </button>
+            </>
+          )}
       </div>
     );
   }
 
   const hasArchivedMetrics = filteredMetrics.some((m) => m.archived);
+
+  console.log("project: ", project);
 
   return (
     <div className="container-fluid py-3 p-3 pagecontents">
@@ -300,28 +303,32 @@ const MetricsPage = (): React.ReactElement => {
           </DocLink>
         </div>
         <div style={{ flex: 1 }} />
-        {permissions.check("createMetrics", project) && canCreateMetrics() && (
-          <div className="col-auto">
-            <AutoGenerateMetricsButton
-              setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
-            />
-            <button
-              className="btn btn-primary float-right"
-              onClick={() =>
-                setModalData({
-                  current: {},
-                  edit: false,
-                  duplicate: false,
-                })
-              }
-            >
-              <span className="h4 pr-2 m-0 d-inline-block align-top">
-                <GBAddCircle />
-              </span>
-              Add Metric
-            </button>
-          </div>
-        )}
+        {permissionsUtil.canCreateMetrics({ projects: [project] })
+          .hasPermission &&
+          canCreateMetrics() && (
+            <div className="col-auto">
+              <AutoGenerateMetricsButton
+                setShowAutoGenerateMetricsModal={
+                  setShowAutoGenerateMetricsModal
+                }
+              />
+              <button
+                className="btn btn-primary float-right"
+                onClick={() =>
+                  setModalData({
+                    current: {},
+                    edit: false,
+                    duplicate: false,
+                  })
+                }
+              >
+                <span className="h4 pr-2 m-0 d-inline-block align-top">
+                  <GBAddCircle />
+                </span>
+                Add Metric
+              </button>
+            </div>
+          )}
       </div>
       <div className="row mb-2 align-items-center">
         <div className="col-lg-3 col-md-4 col-6">
@@ -377,7 +384,7 @@ const MetricsPage = (): React.ReactElement => {
             if (
               metric.onDuplicate &&
               editMetricsPermissions[metric.id] &&
-              permissions.check("createMetrics", project) &&
+              permissionsUtil.canCreateMetrics(metric).hasPermission &&
               canCreateMetrics()
             ) {
               moreMenuLinks.push(

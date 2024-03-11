@@ -21,6 +21,7 @@ export class permissionsClass {
     this.superAdmin = superAdmin;
   }
 
+  //TODO: When we add finer-grain permissions, update props to only accept an array of projects, or a single project string
   public canCreateMetrics(
     metric: Pick<MetricInterface, "projects">
   ): PermissionResult {
