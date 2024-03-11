@@ -63,6 +63,8 @@ WHERE
   },
   userIdTypes: ["anonymous_id", "user_id"],
   getMetricSQL: (type, tablePrefix) => {
+    const joinValueParams = type === "count" || type === "duration";
+
     return `SELECT
   user_id,
   user_pseudo_id as anonymous_id,
@@ -77,14 +79,12 @@ WHERE
   }
 FROM
   ${tablePrefix}\`events_*\`${
-      type === "count" || type === "duration"
-        ? `,
-  UNNEST(event_params) AS value_param`
-        : ""
+      joinValueParams ? `,\n  UNNEST(event_params) AS value_param` : ""
     }
 WHERE
-  event_name = '{{eventName}}'  
-  AND value_param.key = 'value'
+  event_name = '{{eventName}}'${
+    joinValueParams ? `\n  AND value_param.key = 'value'` : ""
+  }
   AND ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
        (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}'))
     `;
