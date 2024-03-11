@@ -332,14 +332,28 @@ export default function FeaturesOverview({
                     </th>
                   ))}
                   {envs.length === 0 ? (
-                    <th className="alert alert-warning px-4 pb-0">
-                      <div className="h4 mb-2">
-                        <FaExclamationTriangle /> This feature has no associated
-                        environments
-                      </div>
-                      <div className="mb-2 font-weight-normal">
-                        Ensure that this feature&apos;s project is included in
-                        at least one environment to use it.{" "}
+                    <th className="text-center align-bottom">
+                      <span className="font-italic">No environments</span>
+                      <Tooltip
+                        className="ml-1"
+                        popperClassName="text-left font-weight-normal"
+                        body={
+                          <>
+                            <div className="text-warning-orange mb-2">
+                              <FaExclamationTriangle /> This feature has no
+                              associated environments
+                            </div>
+                            <div>
+                              Ensure that this feature&apos;s project is
+                              included in at least one environment to use it.
+                            </div>
+                          </>
+                        }
+                      />
+                      <div
+                        className="float-right small position-relative"
+                        style={{ top: 5 }}
+                      >
                         <Link href="/environments">Manage Environments</Link>
                       </div>
                     </th>
@@ -373,7 +387,7 @@ export default function FeaturesOverview({
                       />
                     </td>
                   ))}
-                  {envs.length === 0 ? <td /> : <td className="w-100" />}
+                  <td className="w-100" />
                 </tr>
                 {prerequisites.map(({ ...item }, i) => {
                   const parentFeature = features.find((f) => f.id === item.id);
