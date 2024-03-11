@@ -42,15 +42,15 @@ In the above example, the discrepancy in users in variations B and A will eventu
 
 In short, anything that causes users in an experiment analysis to not be randomly assigned to a variation can cause bias. For carryover bias specifically, common causes are:
 
-### (1) Creating a new "Phase" to restart an experiment without re-randomizing
+### 1. Creating a new "Phase" to restart an experiment without re-randomizing
 
 In this case, carryover bias is best prevented by re-randomizing users whenever you restart an experiment — either by starting an entirely new experiment or choosing to "re-randomize", which is an option we provide in GrowthBook's SDKs. We provide specific guidance on when you should re-randomize users in GrowthBook as part of our ["Make Changes" flow](/app/experiment-configuration#making-changes-while-running).
 
-### (2) Manually restarting a new experiment with the same experiment key
+### 2. Manually restarting a new experiment with the same experiment key
 
 Similarly, if you also manually restart an experiment with the same experiment key, the randomization from the previous experiment will carry over to the new experiment. It's best in these cases to change the experiment key to ensure users are re-randomized into groups.
 
-### (3) Creating a new "Phase" for analysis
+### 3. Creating a new "Phase" for analysis
 
 Suppose you create a new phase with the last 7 days of an experiment. Doing this will mean that GrowthBook cannot deduplicate users across the full history of the experiment and the users that show up in the last 7 days of an experiment won't be randomly assigned across variations. If any variation causes more return users, then you'll get carryover bias.
 
