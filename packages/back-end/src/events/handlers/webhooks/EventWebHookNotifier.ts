@@ -120,7 +120,14 @@ export class EventWebHookNotifier implements Notifier {
           return data.slackMessage;
         }
 
-        case "discord":
+        case "discord": {
+          const data = getSlackDataForNotificationEvent(eventPayload, eventId);
+
+          if (!data) return null;
+
+          return { content: data.slackMessage.text };
+        }
+
         case "ms-teams":
           // TODO: not implemented
           return eventPayload;
