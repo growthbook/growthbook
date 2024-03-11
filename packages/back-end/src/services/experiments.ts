@@ -1963,10 +1963,10 @@ export function visualChangesetsHaveChanges({
 }): boolean {
   // If there are visual change differences
   const oldVisualChanges = oldVisualChangeset.visualChanges.map(
-    ({ css, domMutations }) => ({ css, domMutations })
+    ({ css, js, domMutations }) => ({ css, js, domMutations })
   );
   const newVisualChanges = newVisualChangeset.visualChanges.map(
-    ({ css, domMutations }) => ({ css, domMutations })
+    ({ css, js, domMutations }) => ({ css, js, domMutations })
   );
   if (!isEqual(oldVisualChanges, newVisualChanges)) {
     return true;

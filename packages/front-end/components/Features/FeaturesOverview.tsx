@@ -27,6 +27,7 @@ import { FaPlusMinus } from "react-icons/fa6";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import clsx from "clsx";
 import Link from "next/link";
+import { BsClock } from "react-icons/bs";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
@@ -68,11 +69,13 @@ import FixConflictsModal from "@/components/Features/FixConflictsModal";
 import Revisionlog from "@/components/Features/RevisionLog";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
 import { PrerequisiteAlerts } from "./PrerequisiteTargetingField";
 import PrerequisiteModal from "./PrerequisiteModal";
+import RequestReviewModal from "./RequestReviewModal";
 
 export default function FeaturesOverview({
   baseFeature,
@@ -114,10 +117,13 @@ export default function FeaturesOverview({
   const router = useRouter();
   const { fid } = router.query;
 
+  const settings = useOrgSettings();
+
   const [edit, setEdit] = useState(false);
   const [editValidator, setEditValidator] = useState(false);
   const [showSchema, setShowSchema] = useState(false);
   const [draftModal, setDraftModal] = useState(false);
+  const [reviewModal, setReviewModal] = useState(false);
   const [conflictModal, setConflictModal] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [logModal, setLogModal] = useState(false);
@@ -213,9 +219,14 @@ export default function FeaturesOverview({
   const { jsonSchema, validationEnabled, schemaDateUpdated } = getValidation(
     feature
   );
-
-  const isDraft = revision?.status === "draft";
+  const requireReviews = !!settings?.requireReviews;
   const isLive = revision?.version === feature.version;
+  const isPendingReview =
+    revision?.status === "pending-review" ||
+    revision?.status === "changes-requested";
+  const approved = revision?.status === "approved";
+
+  const isDraft = revision?.status === "draft" || isPendingReview || approved;
 
   const revisionHasChanges =
     !!mergeResult && mergeResultHasChanges(mergeResult);
@@ -242,15 +253,27 @@ export default function FeaturesOverview({
   const schemaDescriptionItems = [...schemaDescription.keys()];
 
   const hasDraftPublishPermission =
-    isDraft &&
-    permissions.check(
-      "publishFeatures",
-      projectId,
-      getAffectedRevisionEnvs(baseFeature, revision, environments)
-    );
+    (approved &&
+      permissions.check(
+        "publishFeatures",
+        projectId,
+        getAffectedRevisionEnvs(feature, revision, environments)
+      )) ||
+    (isDraft &&
+      !requireReviews &&
+      permissions.check(
+        "publishFeatures",
+        projectId,
+        getAffectedRevisionEnvs(feature, revision, environments)
+      ));
 
-  const drafts = revisions.filter((r) => r.status === "draft");
-
+  const drafts = revisions.filter(
+    (r) =>
+      r.status === "draft" ||
+      r.status === "pending-review" ||
+      r.status === "changes-requested" ||
+      r.status === "approved"
+  );
   const isLocked =
     (revision.status === "published" || revision.status === "discarded") &&
     (!isLive || drafts.length > 0);
@@ -260,6 +283,27 @@ export default function FeaturesOverview({
     "createFeatureDrafts",
     feature.project
   );
+  const renderDraftBannerCopy = () => {
+    if (isPendingReview) {
+      return (
+        <>
+          <BsClock /> Awaiting Approval
+        </>
+      );
+    }
+    if (approved) {
+      return (
+        <>
+          <MdRocketLaunch /> Review and Publish
+        </>
+      );
+    }
+    return (
+      <>
+        <MdRocketLaunch /> Request Approval to Publish
+      </>
+    );
+  };
 
   return (
     <>
@@ -787,10 +831,37 @@ export default function FeaturesOverview({
                     <FaDraftingCompass /> Draft Revision
                   </strong>
                   <div className="mr-3">
-                    Make changes below and publish when you are ready
+                    {requireReviews
+                      ? "Make changes below and request review when you are ready"
+                      : "Make changes below and publish when you are ready"}
                   </div>
                   <div className="ml-auto"></div>
-                  {mergeResult?.success && (
+                  {mergeResult?.success && requireReviews && (
+                    <div>
+                      <Tooltip
+                        body={
+                          !revisionHasChanges
+                            ? "Draft is identical to the live version. Make changes first before requesting review"
+                            : ""
+                        }
+                      >
+                        <a
+                          href="#"
+                          className={clsx(
+                            "font-weight-bold",
+                            !revisionHasChanges ? "text-muted" : "text-purple"
+                          )}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setReviewModal(true);
+                          }}
+                        >
+                          {renderDraftBannerCopy()}
+                        </a>
+                      </Tooltip>
+                    </div>
+                  )}
+                  {mergeResult?.success && !requireReviews && (
                     <div>
                       <Tooltip
                         body={
@@ -1206,6 +1277,19 @@ export default function FeaturesOverview({
             }}
             cancel={() => setEditTagsModal(false)}
             mutate={mutate}
+          />
+        )}
+        {reviewModal && revision && (
+          <RequestReviewModal
+            feature={baseFeature}
+            revisions={revisions}
+            version={revision.version}
+            close={() => setReviewModal(false)}
+            mutate={mutate}
+            onDiscard={() => {
+              // When discarding a draft, switch back to the live version
+              setVersion(feature.version);
+            }}
           />
         )}
         {draftModal && revision && (

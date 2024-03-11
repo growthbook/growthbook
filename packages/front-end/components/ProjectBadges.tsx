@@ -12,6 +12,7 @@ export interface Props {
     | "member"
     | "team"
     | "fact table"
+    | "attribute"
     | "sdk connection";
   projectIds?: string[];
   sort?: boolean;
