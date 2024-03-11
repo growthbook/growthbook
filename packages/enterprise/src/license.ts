@@ -4,11 +4,11 @@ import path from "path";
 import fetch from "node-fetch";
 import type Stripe from "stripe";
 import pino from "pino";
-import { omit, pick, sortBy } from "lodash";
+import { pick, sortBy } from "lodash";
 import AsyncLock from "async-lock";
 import { stringToBoolean } from "shared/util";
 import { ProxyAgent } from "proxy-agent";
-import { LicenseDocument, LicenseModel } from "./models/licenseModel";
+import { LicenseModel } from "./models/licenseModel";
 
 export const LICENSE_SERVER =
   "https://central_license_server.growthbook.io/api/v1/";
@@ -244,27 +244,21 @@ export function orgHasPremiumFeature(
   return planHasPremiumFeature(getEffectiveAccountPlan(org), feature);
 }
 
-async function getPublicKey(): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    fs.readFile(
-      path.join(__dirname, "..", "license_public_key.pem"),
-      (err, data) => {
-        if (err) {
-          logger.error(
-            "Failed to find Growthbook public key file for license verification"
-          );
-          reject(err);
-        } else {
-          resolve(data);
-        }
-      }
+function getPublicKey(): Buffer {
+  try {
+    const data = fs.readFileSync(
+      path.join(__dirname, "..", "license_public_key.pem")
     );
-  });
+    return data;
+  } catch (err) {
+    logger.error(
+      "Failed to find Growthbook public key file for license verification"
+    );
+    throw err;
+  }
 }
 
-export async function getVerifiedLicenseData(
-  key: string
-): Promise<Partial<LicenseInterface>> {
+function getVerifiedLicenseData(key: string): Partial<LicenseInterface> {
   const [license, signature] = key
     .split(".")
     .map((s) => Buffer.from(s, "base64url"));
@@ -313,7 +307,7 @@ export async function getVerifiedLicenseData(
   };
 
   // If the public key failed to load, just assume the license is valid
-  const publicKey = await getPublicKey();
+  const publicKey = getPublicKey();
 
   const isVerified = crypto.verify(
     "sha256",
@@ -357,57 +351,57 @@ function checkIfEnvVarSettingsAreAllowedByLicense(license: LicenseInterface) {
   }
 }
 
+function verifyLicenseInterface(license: LicenseInterface) {
+  const publicKey = getPublicKey();
+
+  // In order to verify the license key, we need to strip out the fields that are not part of the signed license data
+  // and sort the fields alphabetically as we do on the license server itself.
+  const strippedLicense = pick(license, [
+    "dateExpires",
+    "seats",
+    "seatsInUse",
+    "archived",
+    "remoteDowngrade",
+    "isTrial",
+    "organizationId",
+    "plan",
+  ]);
+  const data = Object.fromEntries(sortBy(Object.entries(strippedLicense)));
+  const dataBuffer = Buffer.from(JSON.stringify(data));
+
+  const signature = Buffer.from(license.signedChecksum, "base64url");
+
+  logger.info("Verifying license data: " + JSON.stringify(data));
+  const isVerified = crypto.verify(
+    "sha256",
+    dataBuffer,
+    {
+      key: publicKey,
+      padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+    },
+    signature
+  );
+
+  // License key signature is invalid, don't use it
+  if (!isVerified) {
+    throw new Error("Invalid license key signature");
+  }
+}
+
 async function getLicenseDataFromMongoCache(
-  cache: LicenseDocument | null,
+  licenseId: string,
   errorMessage: string
 ): Promise<LicenseInterface> {
+  const cache = await LicenseModel.findOne({ id: licenseId });
   if (!cache) {
     throw new Error(errorMessage);
   }
   if (
     new Date(cache.dateUpdated) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // 7 days
   ) {
-    // If the public key failed to load, just assume the license is valid
-    const publicKey = await getPublicKey();
-
-    const licenseInterface = omit(cache.toJSON(), ["__v", "_id"]);
-
-    // In order to verify the license key, we need to strip out the fields that are not part of the license data
-    // and sort the fields alphabetically as we do on the license server itself.
-    const strippedLicense = pick(licenseInterface, [
-      "dateExpires",
-      "seats",
-      "seatsInUse",
-      "archived",
-      "remoteDowngrade",
-      "isTrial",
-      "organizationId",
-      "plan",
-    ]);
-    const data = Object.fromEntries(sortBy(Object.entries(strippedLicense)));
-    const dataBuffer = Buffer.from(JSON.stringify(data));
-
-    const signature = Buffer.from(cache.signedChecksum, "base64url");
-
-    logger.info("Verifying cached license data: " + JSON.stringify(data));
-    const isVerified = crypto.verify(
-      "sha256",
-      dataBuffer,
-      {
-        key: publicKey,
-        padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
-      },
-      signature
-    );
-
-    // License key signature is invalid, don't use it
-    if (!isVerified) {
-      throw new Error("Cached Invalid license key signature");
-    }
-
-    checkIfEnvVarSettingsAreAllowedByLicense(cache);
-    licenseInterface.effectivePlan = logger.info("Using cached license data");
-    return licenseInterface as LicenseInterface;
+    const license: LicenseInterface = cache.toJSON();
+    setAndVerifyServerLicenseData(license);
+    return license;
   }
   throw new Error(
     "License server is not working and cached license data is too old"
@@ -432,11 +426,11 @@ export class LicenseServerError extends Error {
   }
 }
 
-async function callLicenseServer(url: string, body: string) {
+async function callLicenseServer(url: string, body: string, method = "POST") {
   const agentOptions = getAgentOptions();
 
   const options = {
-    method: "POST",
+    method: method,
     headers: {
       "Content-Type": "application/json",
     },
@@ -549,6 +543,23 @@ export async function postCreateBillingSessionToLicenseServer(
   );
 }
 
+export async function postNewSubscriptionUpdateToLicenseServer(
+  licenseId: string,
+  seats: number
+): Promise<LicenseInterface> {
+  const url = `${LICENSE_SERVER}subscription/update`;
+  const license = await callLicenseServer(
+    url,
+    JSON.stringify({
+      licenseId,
+      seats,
+    })
+  );
+
+  await setAndVerifyServerLicenseData(license);
+  return license;
+}
+
 export async function postCreateTrialEnterpriseLicenseToLicenseServer(
   email: string,
   name: string,
@@ -590,6 +601,26 @@ export async function postResendEmailVerificationEmailToLicenseServer(
   );
 }
 
+// Creates or updates the license in the MongoDB cache in case the license server goes down.
+async function createOrUpdateLicenseMongoCache(license: LicenseInterface) {
+  const currentCache = await LicenseModel.findOne({ id: license.id });
+  if (!currentCache) {
+    await LicenseModel.create(license);
+  } else {
+    currentCache.set(license);
+    await currentCache.save();
+  }
+}
+
+// Updates the local daily cache, the one week backup Mongo cache, and verifies the license.
+export async function setAndVerifyServerLicenseData(license: LicenseInterface) {
+  keyToLicenseData[license.id] = license;
+  keyToCacheDate[license.id] = new Date();
+  await createOrUpdateLicenseMongoCache(license);
+  verifyLicenseInterface(license);
+  checkIfEnvVarSettingsAreAllowedByLicense(license);
+}
+
 async function getLicenseDataFromServer(
   licenseId: string,
   userLicenseCodes: string[],
@@ -597,59 +628,18 @@ async function getLicenseDataFromServer(
 ): Promise<LicenseInterface> {
   logger.info("Getting license data from server for " + licenseId);
   const url = `${LICENSE_SERVER}license/${licenseId}/check`;
-  const agentOptions = getAgentOptions();
 
-  const options = {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+  const license = await callLicenseServer(
+    url,
+    JSON.stringify({
       userHashes: userLicenseCodes,
       metaData,
     }),
-    ...agentOptions,
-  };
+    "PUT"
+  );
 
-  let serverResult;
-
-  const currentCache = await LicenseModel.findOne({ id: licenseId });
-
-  try {
-    serverResult = await fetch(url, options);
-  } catch (e) {
-    logger.warn("Could not connect to license server. Falling back to cache.");
-    return getLicenseDataFromMongoCache(
-      currentCache,
-      "Could not connect to license server. Make sure to whitelist 75.2.109.47."
-    );
-  }
-
-  if (!serverResult.ok) {
-    logger.warn(
-      `Falling back to LicenseModel cache because the license server threw a ${serverResult.status} error: ${serverResult.statusText}.`
-    );
-    return getLicenseDataFromMongoCache(
-      currentCache,
-      "License server errored with " + serverResult.statusText
-    );
-  }
-
-  const licenseData = await serverResult.json();
-
-  if (!currentCache) {
-    // Create a cached version of the license key in case the license server goes down.
-    logger.info("Creating new license cache");
-    await LicenseModel.create(licenseData);
-  } else {
-    // Update the cached version of the license key in case the license server goes down.
-    logger.info("Updating license cache");
-    currentCache.set(licenseData);
-    await currentCache.save();
-  }
-
-  checkIfEnvVarSettingsAreAllowedByLicense(licenseData);
-  return licenseData;
+  await setAndVerifyServerLicenseData(license);
+  return license;
 }
 
 export interface LicenseMetaData {
@@ -702,16 +692,20 @@ export async function licenseInit(
             );
           }
 
-          keyToLicenseData[key] = await getLicenseDataFromServer(
-            key,
-            userLicenseCodes,
-            metaData
-          );
-
-          keyToCacheDate[key] = new Date();
+          try {
+            await getLicenseDataFromServer(key, userLicenseCodes, metaData);
+          } catch (e) {
+            logger.warn(
+              "Could not connect to license server. Falling back to cache."
+            );
+            await getLicenseDataFromMongoCache(
+              key,
+              "Could not connect to license server. Make sure to whitelist 75.2.109.47."
+            );
+          }
         } else {
           // Old style: the key itself has the encrypted license data in it.
-          keyToLicenseData[key] = await getVerifiedLicenseData(key);
+          keyToLicenseData[key] = getVerifiedLicenseData(key);
         }
       }
     } catch (e) {

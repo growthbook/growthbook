@@ -46,10 +46,13 @@ describe("licenseInit and getLicense", () => {
       },
     },
     signedChecksum:
+      //"Z2ue3DM361oK2D_jl0FwiLDohDjfZjiMtlmgtqXhVDfrDKBMuVoTnbOzO1zoGpIR7648bI07TkJohqbjtMiwINUYa8FfIKdjjkhrVh0h-66v_nXT31-_d_fj7w5u4toCJk1w8fguRSMMKQesp4bnm4nykySLbIkVi0QYi5yAG2utPjXEwQL1lXzn6WvEjUwnd2lUdyhLqTWLqrLHL2aZzUZr1FfSdzr5Ywnx8F7LWZOFylCTTkgpaR49pTnusQ5M22HNzDWC90ypEQLe5_9-i7t03onK___IWvs21RKFmuX_OONsNAXm-EVNehgN8wElbCIjvaUkW6xdGZgWaGk6FNTyOWTIfviGZDrKj0I9WffwHKBRe85xiCQrtsCi6pbSRlILbDPJs5fmktVhRl-7wgq3_axcCzMCosDO1b8N8W1QapmGkFxqo8MPyMPexL7YZl33tuO7IykBbLaxcRkeMYvXH1pvpnt62-XYL6GWhKWh8REsbvYXyjb5nFRNYsRjtjUolEPDRuXMWvHwQM5P-v1zE3dsVMnnNXuaFz-pXYdBBpO8Q6XIPU3aBtn896cnNkOF0ezExmYwqaFgyxwtUXaueL61enLjrdJ2x93jymFcGTb50CeMidVeEWaYWfcDgbeG2W33_lpLfH1FprYjyHkNRbduEwlEvdi8oPbL4z0",
       "JbSjKDDBxAu-8BtOrBCsPMl9vGUpdIYwOi6AIHdLE9y7NJfdsjK_oMeL8FrSY9BiBOIrzLR3qV6_AG-62L-nd5HOHo_YTbrCKCrOKxVO1_HpqzbBcfBaMIIF___7GYilnH5vncnJxIhxu3n2ZJTnmbjVfCGkz6-NEiU-oI5ifGI1akK7l3kTTz-X7M0N3c-8vkt2AwbxmBq0MoVU0Ekrf25_ybexRZVY0LhjHX_DYjQwCbZafdtC5E-1XsfvTX-zyUo2pZP7lEyGcV8BQso1psLB5AAt_2m8aMNJTK5Gi6JhA8wepyiel-G8dCTCjHs7NrVHqbn9uNVnAtUwpcFJcscJx0ZWcJXMFwrkKBp-jq6i94-1ridYJO1DFnGy23iTKAaKmcP5QLhbPaCBm4_EYMp2k4BQPHbRQyERzDF-I2rRphJGa3h3ZAUJjdjcnDzqinnDJcnqU1waWauIclvE51l3g0LFL6YTg4CSZm0VavKfrvcK2-ofCD66kuFhXVoxg3rUvufC1SWd9RoMCd8BEng3XEPzJIOD4f_s8Nl8XAldlQVDj4gUKm_Jb5tUYi2CQwti6PVg39XGFLw7CxrndeLZ46jd35k10HMXzkEvL_wCswh9e2NEzKDc-sHfjmNMqm5R2xNd2pfwIMyjFUQZCHcXn58QysX5dARJbHRJjH0",
   };
   const licenseData2 = cloneDeep(licenseData);
   licenseData2.seatsInUse = 2;
+  licenseData2.signedChecksum =
+    "DHUuQecjo2Q4NDY3Xz69d6SR2n7lvmf2YL8Nbg8no3-YGN3tv4x8T1saKA5lHcW2VDTH9OXSLHNZNIMZFZUu-a6kZigC8QHykYOHYomyBzOzwjrbH2iSoLcEhucyyWzKAts6wWGrSkyjosXD1tFi9O1loShdmKc16hTunt4NNOHRmJ_ae-V8fWiQHPVrZ7c9tHrcCbXPgONvcNBYq4GRC-mx2aVH1rXoxDQe0sbwHFlOoRbDshPmfR7LBSWbPgQ_ptI8jlaJ1Jko_IClK2EsZYthGfcNjnZOPXz2_Kiwd6U7VY0uMBd6YvWj-rsd5vgTQUaiXl7CRJp3Y6ZDqdLvz1lQOMWw7gOxh_T3djYStWsNcCVBXQn5fqG-81AOY_hsABG21sM8XR4Or8JwmjEWHsjI0pObgD-bptEcTJhMmLQaLnoj77IyRNwQJeVVMm3DKpayugFBSZp71FrhNvfI2hv92QTzaN6OludkfUGspI-_aFbfP2m69xwVf-f0r2iELzlkOB-aCsK1daltFeDD-F1m-Bc-Do3NVrquM4mMuYkvJ9G2OxVO_lioCLE4f_BwawB71BXLQRrGxsV8mF6F3ZST0pytfZSlSkX5iHBVFTE8J2eIlcZXuMgh6Jj2ZS1qCiAsUn6EknEE1GcemOHbykkxNG_835Iati3Y4obBx3k";
 
   let now = new Date(2023, 10, 21, 19, 45, 4, 713);
 
@@ -352,6 +355,8 @@ describe("licenseInit and getLicense", () => {
       const licenseData3 = cloneDeep(licenseData);
       const tenDaysAgo = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000);
       licenseData3.dateExpires = tenDaysAgo.toISOString();
+      licenseData3.signedChecksum =
+        "n7Xk1JleapEAyV1s78HqeUXX0-e5Yboz02JRIbfB7zkRtx_s0DnH3IqtDGcTCjs76oB3wZfp31Wf47vbNNA5YWWgqr6Ct_R0-he9sA6tpbTfAa3ev67PanXGzJ36Zqe3tpyXz5vkKVlNEwokneIKurggBowuGF14BxDNN_uzFN8DjbHHDuCrFdyqjdII8tg2SfKz7ybbMm-smYfXvhaayLBQdkWpJ1ZwgPeRsnO-suhRyq_dyFuQk7lkS8DGckNDg3GnJCcrM0olxU7S1EMvcj6BUcECkiDF5xDltFXfKQB8SwiWiDjP04OlJDoDxar3z0maTLilIcP6NtzMbUonuJZhj8qwNrYYM79grhMhsS2a3pN1RQ4jxmCbpxs6VNrEM4u8X6hKPLsqoYqlgyV_UPlNo04Fz5iIfTiy45BVyn2uCiMFkRr58tXNILA2dZjhh_V-9nTSRx2A8XZixjQJzXCbQBz_Q3PoPtdAtiFtRdm_ZHLbHP9c64--vfEqtlNVcc4huUvlwsf5ia1CQFnpbbo0-8_qUAWJUkFilo802aiWW-kwyXmXNjP7jEvBkkd8Oc8l2QUjZCbx3PwDhRacQ-ybr2Df9ZIMmeDLlfU2fDO129W0r1KQNVedCRL2oMcnwRbag9sJF2VTZL8ABi5jhWdJJdK6vTTd9p3AcFNDQ3c";
       const mockedResponse3: Response = ({
         ok: true,
         json: jest.fn().mockResolvedValueOnce(licenseData3),

@@ -2,6 +2,7 @@ import { randomBytes } from "crypto";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import { Request } from "express";
+import { postNewSubscriptionUpdateToLicenseServer } from "enterprise";
 import {
   createOrganization,
   findAllOrganizations,
@@ -232,7 +233,19 @@ export async function removeMember(
     pendingMembers,
   });
 
-  return organization;
+  const updatedOrganization = cloneDeep(organization);
+  updatedOrganization.members = members;
+  updatedOrganization.pendingMembers = pendingMembers;
+
+  if (updatedOrganization.licenseKey) {
+    const seatsInUse = getNumberOfUniqueMembersAndInvites(updatedOrganization);
+    await postNewSubscriptionUpdateToLicenseServer(
+      updatedOrganization.licenseKey,
+      seatsInUse
+    );
+  }
+
+  return updatedOrganization;
 }
 
 export async function revokeInvite(
@@ -297,6 +310,18 @@ export async function addMemberToOrg({
     members,
     pendingMembers,
   });
+
+  const updatedOrganization = cloneDeep(organization);
+  updatedOrganization.members = members;
+  updatedOrganization.pendingMembers = pendingMembers;
+
+  if (updatedOrganization.licenseKey) {
+    const seatsInUse = getNumberOfUniqueMembersAndInvites(updatedOrganization);
+    await postNewSubscriptionUpdateToLicenseServer(
+      updatedOrganization.licenseKey,
+      seatsInUse
+    );
+  }
 }
 
 export async function addMembersToTeam({
@@ -509,13 +534,21 @@ export async function inviteUser({
     invites,
   });
 
-  // append the new invites to the existin object (or refetch)
-  organization.invites = invites;
+  const updatedOrganization = cloneDeep(organization);
+  updatedOrganization.invites = invites;
+
+  if (updatedOrganization.licenseKey) {
+    const seatsInUse = getNumberOfUniqueMembersAndInvites(updatedOrganization);
+    await postNewSubscriptionUpdateToLicenseServer(
+      updatedOrganization.licenseKey,
+      seatsInUse
+    );
+  }
 
   let emailSent = false;
   if (isEmailEnabled()) {
     try {
-      await sendInviteEmail(organization, key);
+      await sendInviteEmail(updatedOrganization, key);
       emailSent = true;
     } catch (e) {
       logger.error(e, "Error sending invite email");

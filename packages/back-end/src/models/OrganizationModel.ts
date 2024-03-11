@@ -227,10 +227,12 @@ export async function findAllOrganizations(
 
   return { organizations: docs.map(toInterface), total };
 }
+
 export async function findOrganizationById(id: string) {
   const doc = await OrganizationModel.findOne({ id });
   return doc ? toInterface(doc) : null;
 }
+
 export async function updateOrganization(
   id: string,
   update: Partial<OrganizationInterface>
