@@ -71,7 +71,7 @@ export default function ProjectBadges({
       })}
       {showMissingProjectErr ? (
         <Tooltip
-          body={`This ${resourceType} is associated with an additional project that has been deleted or that you do not have access to.`}
+          body={`This ${resourceType} is associated with atleast one other project that has been deleted or that you do not have access to.`}
           key="Unknown Project"
           className="pl-2"
         >

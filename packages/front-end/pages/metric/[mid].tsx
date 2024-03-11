@@ -139,8 +139,6 @@ const MetricPage: FC = () => {
   const metric = data.metric;
   const canEditMetric =
     checkMetricProjectPermissions(metric, permissions) && !metric.managedBy;
-  const canEditProjects =
-    permissions.check("createMetrics", metric.projects) && !metric.managedBy;
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
@@ -408,46 +406,46 @@ const MetricPage: FC = () => {
           <MetricName id={metric.id} />
         </h1>
         <div style={{ flex: 1 }} />
-        {canEditMetric && (
-          <div className="col-auto">
-            <MoreMenu>
-              <DeleteButton
-                className="btn dropdown-item py-2"
-                text="Delete"
-                title="Delete this metric"
-                getConfirmationContent={getMetricUsage(metric)}
-                onClick={async () => {
-                  await apiCall(`/metric/${metric.id}`, {
-                    method: "DELETE",
-                  });
-                  mutateDefinitions({});
-                  router.push("/metrics");
-                }}
-                useIcon={true}
-                displayName={"Metric '" + metric.name + "'"}
-              />
-              <Button
-                className="btn dropdown-item py-2"
-                color=""
-                onClick={async () => {
-                  const newStatus =
-                    metric.status === "archived" ? "active" : "archived";
-                  await apiCall(`/metric/${metric.id}`, {
-                    method: "PUT",
-                    body: JSON.stringify({
-                      status: newStatus,
-                    }),
-                  });
-                  mutateDefinitions({});
-                  mutate();
-                }}
-              >
-                <FaArchive />{" "}
-                {metric.status === "archived" ? "Unarchive" : "Archive"}
-              </Button>
-            </MoreMenu>
-          </div>
-        )}
+        <div className="col-auto">
+          <MoreMenu>
+            <DeleteButton
+              className="btn dropdown-item py-2"
+              text="Delete"
+              title="Delete this metric"
+              getConfirmationContent={getMetricUsage(metric)}
+              canDelete={canEditMetric}
+              onClick={async () => {
+                await apiCall(`/metric/${metric.id}`, {
+                  method: "DELETE",
+                });
+                mutateDefinitions({});
+                router.push("/metrics");
+              }}
+              useIcon={true}
+              displayName={"Metric '" + metric.name + "'"}
+            />
+            <Button
+              className="btn dropdown-item py-2"
+              color=""
+              disabled={!canEditMetric}
+              onClick={async () => {
+                const newStatus =
+                  metric.status === "archived" ? "active" : "archived";
+                await apiCall(`/metric/${metric.id}`, {
+                  method: "PUT",
+                  body: JSON.stringify({
+                    status: newStatus,
+                  }),
+                });
+                mutateDefinitions({});
+                mutate();
+              }}
+            >
+              <FaArchive />{" "}
+              {metric.status === "archived" ? "Unarchive" : "Archive"}
+            </Button>
+          </MoreMenu>
+        </div>
       </div>
       <div className="row mb-3 align-items-center">
         <div className="col">
@@ -464,18 +462,21 @@ const MetricPage: FC = () => {
               className="badge-ellipsis align-middle"
             />
           )}
-          {canEditProjects && (
-            <a
-              href="#"
-              className="ml-2"
+          <Tooltip
+            body="You do not have permission to edit projects for this metric."
+            shouldDisplay={!canEditMetric}
+          >
+            <button
+              disabled={!canEditMetric}
+              className="btn btn-link"
               onClick={(e) => {
                 e.preventDefault();
                 setEditProjects(true);
               }}
             >
               <GBEdit />
-            </a>
-          )}
+            </button>
+          </Tooltip>
         </div>
       </div>
 
@@ -968,7 +969,7 @@ const MetricPage: FC = () => {
             <RightRailSection
               title="Projects"
               open={() => setEditProjects(true)}
-              canOpen={canEditProjects}
+              canOpen={canEditMetric}
             >
               <RightRailSectionGroup>
                 {metric?.projects?.length ? (

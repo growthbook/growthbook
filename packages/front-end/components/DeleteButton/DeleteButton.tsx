@@ -84,7 +84,7 @@ const DeleteButton: FC<{
       ) : (
         ""
       )}
-      <a
+      <button
         className={clsx(
           link
             ? "text-danger"
@@ -92,7 +92,7 @@ const DeleteButton: FC<{
           className
         )}
         title={title}
-        href="#"
+        disabled={!canDelete}
         style={style}
         onClick={(e) => {
           e.preventDefault();
@@ -101,7 +101,7 @@ const DeleteButton: FC<{
       >
         {useIcon && <FaTrash className={iconClassName} />}
         {text && ` ${text}`}
-      </a>
+      </button>
     </>
   );
 };
