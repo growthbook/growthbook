@@ -101,6 +101,26 @@ export default function AccountPlanNotices() {
 
   // Notices for accounts using a license key
   if (license) {
+    if (license?.usingMongoCache) {
+      // Cache is good for a week
+      const cachedDataGoodUntil = new Date(
+        new Date(license.dateUpdated).getTime() + 7 * 24 * 60 * 60 * 1000
+      );
+      const daysLeftInCache = daysLeft(cachedDataGoodUntil.toDateString());
+      if (daysLeftInCache < 5) {
+        return (
+          <Tooltip
+            body={<>Please make sure that you have whitelisted 75.2.109.47</>}
+          >
+            <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
+              <FaExclamationTriangle /> Could not contact license server. Fix
+              within {daysLeftInCache} days.
+            </div>
+          </Tooltip>
+        );
+      }
+    }
+
     // Trial license is up
     const licenseTrialRemaining = license.isTrial
       ? daysLeft(license.dateExpires)

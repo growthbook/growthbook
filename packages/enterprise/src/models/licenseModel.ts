@@ -38,6 +38,7 @@ const licenseSchema = new mongoose.Schema({
     type: Map,
     of: { _id: false, date: Date, userHashes: [String] },
   }, // Map of first 7 chars of user email shas to the last time they were in a usage request
+  usingMongoCache: { type: Boolean, default: true }, // True if the license is using the mongo cache
   signedChecksum: String, // Checksum of the license key
   dateCreated: Date, // Date the license was issued
   dateExpires: Date, // Date the license expires

@@ -96,6 +96,7 @@ export interface LicenseInterface {
   }; // Map of first 7 chars of user email shas to the last time they were in a usage request
   archived: boolean; // True if this license has been deleted/archived
   dateUpdated: string; // Date the license was last updated
+  usingMongoCache: boolean; // True if the license data was retrieved from the cache
   signedChecksum: string; // Checksum of the license data signed with the private key
 }
 
