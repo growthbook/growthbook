@@ -23,7 +23,6 @@ interface Props
   stats: SnapshotMetric;
   users: number;
   className?: string;
-  newUi?: boolean;
   style?: CSSProperties;
   rowSpan?: number;
   showRatio?: boolean;
@@ -34,7 +33,6 @@ export default function MetricValueColumn({
   stats,
   users,
   className,
-  newUi = false,
   style,
   rowSpan,
   showRatio = true,
@@ -79,17 +77,7 @@ export default function MetricValueColumn({
           <div className="result-number">{overall}</div>
           {showRatio ? (
             <div className="result-number-sub text-muted">
-              <em
-                style={
-                  newUi
-                    ? {}
-                    : {
-                        display: "inline-block",
-                        lineHeight: "1.2em",
-                        marginTop: "0.2em",
-                      }
-                }
-              >
+              <em>
                 <span
                   style={{
                     whiteSpace: "nowrap",
@@ -104,7 +92,7 @@ export default function MetricValueColumn({
           ) : null}
         </>
       ) : (
-        <em className={newUi ? "text-muted" : ""}>no data</em>
+        <em className="text-muted">no data</em>
       )}
     </td>
   );

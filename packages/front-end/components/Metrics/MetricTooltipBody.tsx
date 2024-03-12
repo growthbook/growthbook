@@ -15,7 +15,6 @@ interface MetricToolTipCompProps {
   metric: ExperimentMetricInterface;
   row?: ExperimentTableRow;
   reportRegressionAdjustmentEnabled?: boolean;
-  newUi?: boolean;
 }
 
 interface MetricInfo {
@@ -29,7 +28,6 @@ const MetricTooltipBody = ({
   metric,
   row,
   reportRegressionAdjustmentEnabled,
-  newUi = false,
 }: MetricToolTipCompProps): React.ReactElement => {
   function validMetricDescription(description: string): boolean {
     if (!description) return false;
@@ -138,70 +136,49 @@ const MetricTooltipBody = ({
     markdown: true,
   });
 
-  if (newUi) {
-    return (
-      <div>
-        <h4>
-          <MetricName id={metric.id} showOfficialLabel disableTooltip />
-        </h4>
-        <table className="table table-sm table-bordered text-left mb-0">
-          <tbody>
-            {metricInfo
-              .filter((i) => i.show)
-              .map(({ label, body, markdown }, index) => (
-                <tr key={`metricInfo${index}`}>
-                  <td
-                    className="text-right font-weight-bold py-1 align-middle"
-                    style={{
-                      width: 120,
-                      border: "1px solid var(--border-color-100)",
-                      fontSize: "12px",
-                      lineHeight: "14px",
-                    }}
-                  >{`${label}`}</td>
-                  <td
-                    className="py-1 align-middle"
-                    style={{
-                      minWidth: 180,
-                      border: "1px solid var(--border-color-100)",
-                      fontSize: "12px",
-                      lineHeight: "14px",
-                    }}
-                  >
-                    {markdown ? (
-                      <div
-                        className={clsx("border rounded p-1", styles.markdown)}
-                      >
-                        <Markdown>{body}</Markdown>
-                      </div>
-                    ) : (
-                      <span className="font-weight-normal">{body}</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  }
-
   return (
-    <div className="text-left">
-      {metricInfo
-        .filter((i) => i.show)
-        .map(({ label, body, markdown }, index) => (
-          <div key={`metricInfo${index}`} style={{ marginBottom: "0.2em" }}>
-            <strong>{`${label}: `}</strong>
-            {markdown ? (
-              <div className={clsx("border rounded p-1", styles.markdown)}>
-                <Markdown>{body}</Markdown>
-              </div>
-            ) : (
-              <span className="font-weight-normal">{body}</span>
-            )}
-          </div>
-        ))}
+    <div>
+      <h4>
+        <MetricName id={metric.id} showOfficialLabel disableTooltip />
+      </h4>
+      <table className="table table-sm table-bordered text-left mb-0">
+        <tbody>
+          {metricInfo
+            .filter((i) => i.show)
+            .map(({ label, body, markdown }, index) => (
+              <tr key={`metricInfo${index}`}>
+                <td
+                  className="text-right font-weight-bold py-1 align-middle"
+                  style={{
+                    width: 120,
+                    border: "1px solid var(--border-color-100)",
+                    fontSize: "12px",
+                    lineHeight: "14px",
+                  }}
+                >{`${label}`}</td>
+                <td
+                  className="py-1 align-middle"
+                  style={{
+                    minWidth: 180,
+                    border: "1px solid var(--border-color-100)",
+                    fontSize: "12px",
+                    lineHeight: "14px",
+                  }}
+                >
+                  {markdown ? (
+                    <div
+                      className={clsx("border rounded p-1", styles.markdown)}
+                    >
+                      <Markdown>{body}</Markdown>
+                    </div>
+                  ) : (
+                    <span className="font-weight-normal">{body}</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+        </tbody>
+      </table>
     </div>
   );
 };

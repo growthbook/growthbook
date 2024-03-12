@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { FaCog, FaFileDownload, FaPencilAlt } from "react-icons/fa";
+import { FaFileDownload, FaPencilAlt } from "react-icons/fa";
 import { BiTable } from "react-icons/bi";
 import { Queries } from "back-end/types/query";
 import {
@@ -20,7 +20,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 
 export default function ResultMoreMenu({
   editMetrics,
-  configure,
   queries,
   queryError,
   hasData,
@@ -36,10 +35,8 @@ export default function ResultMoreMenu({
   trackingKey,
   dimension,
   project,
-  newUi = false,
 }: {
   editMetrics?: () => void;
-  configure: () => void;
   queries?: Queries;
   queryError?: string;
   hasData?: boolean;
@@ -55,7 +52,6 @@ export default function ResultMoreMenu({
   trackingKey?: string;
   dimension?: string;
   project?: string;
-  newUi?: boolean;
 }) {
   const { apiCall } = useAuth();
   const router = useRouter();
@@ -69,17 +65,6 @@ export default function ResultMoreMenu({
 
   return (
     <MoreMenu autoCloseOnClick={false}>
-      {!newUi && canEdit && (
-        <button
-          className="btn dropdown-item py-2"
-          onClick={(e) => {
-            e.preventDefault();
-            configure();
-          }}
-        >
-          <FaCog className="mr-2" /> Configure Analysis
-        </button>
-      )}
       {(queries?.length ?? 0) > 0 && (
         <ViewAsyncQueriesButton
           queries={queries?.map((q) => q.query) ?? []}
