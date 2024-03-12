@@ -304,7 +304,7 @@ export default function ConfigureReport({
             labelClassName="font-weight-bold"
             type="datetime-local"
             {...form.register("startDate")}
-            helpText="Only include users who entered the experiment on or after this date"
+            helpText="Only include users who entered the experiment between the start and end dates"
           />
         </div>
         <div className="col">
@@ -313,7 +313,23 @@ export default function ConfigureReport({
             labelClassName="font-weight-bold"
             type="datetime-local"
             {...form.register("endDate")}
-            helpText="Only include users who entered the experiment on or before this date"
+            helpText={
+              <div>
+                <div style={{ marginRight: -10 }}>
+                  <a
+                    role="button"
+                    className="a"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      form.setValue("endDate", "");
+                    }}
+                  >
+                    Clear input
+                  </a>{" "}
+                  to use latest data whenever report is run
+                </div>
+              </div>
+            }
           />
         </div>
       </div>
