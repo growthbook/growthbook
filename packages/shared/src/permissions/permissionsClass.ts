@@ -14,7 +14,7 @@ export class permissionsClass {
     this.superAdmin = superAdmin;
   }
 
-  //TODO: When we add finer-grain permissions, update props to only accept an array of projects, or a single project string for "create" type resources
+  //TODO: When we add finer-grain permissions, update canCreateXYZ props to only accept array of projects (string[])
   public canCreateMetrics(metric: Pick<MetricInterface, "projects">): boolean {
     const metricProjects = metric.projects?.length ? metric.projects : [""];
 
@@ -23,9 +23,9 @@ export class permissionsClass {
     );
   }
 
-  public throwPermissionError(message?: string) {
+  public throwPermissionError(permission: Permission) {
     throw new PermissionError(
-      message || `You do not have permission to perform this action.`
+      `Permission Error: This action requires "${permission}" permission. Permissions are evaluated using your global role and, when applicable, your project-level role(s).`
     );
   }
 
