@@ -38,6 +38,14 @@ class FrequentistTestResult(TestResult):
     error_message: Optional[str] = None
 
 
+def mean_diff(mean_a, mean_b) -> float:
+    return mean_b - mean_a
+
+
+def absolute_var(var_a, n_a, var_b, n_b) -> float:
+    return var_b / n_b + var_a / n_a
+
+
 class TTest(BaseABTest):
     def __init__(
         self,
@@ -84,13 +92,13 @@ class TTest(BaseABTest):
             ) + self.stat_a.variance * pow(self.stat_b.unadjusted_mean, 2) / (
                 pow(self.stat_a.unadjusted_mean, 4) * self.stat_a.n
             )
-        return (
-            self.stat_b.variance / self.stat_b.n + self.stat_a.variance / self.stat_a.n
+        return absolute_var(
+            self.stat_a.variance, self.stat_a.n, self.stat_b.variance, self.stat_b.n
         )
 
     @property
     def point_estimate(self) -> float:
-        absolute_diff = self.stat_b.mean - self.stat_a.mean
+        absolute_diff = mean_diff(self.stat_a.mean, self.stat_b.mean)
         if self.relative:
             return absolute_diff / self.stat_a.unadjusted_mean
         else:

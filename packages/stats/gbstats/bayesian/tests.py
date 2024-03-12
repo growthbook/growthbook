@@ -2,6 +2,7 @@ from abc import abstractmethod
 from dataclasses import field
 from typing import List, Optional, Tuple, Union
 
+import scipy.stats
 import numpy as np
 from pydantic.dataclasses import dataclass
 from scipy.stats import norm  # type: ignore
@@ -21,15 +22,25 @@ from gbstats.models.statistics import (
     RatioStatistic,
     SampleMeanStatistic,
     TestStatistic,
+    QuantileStatistic,
+    QuantileStatisticClustered,
 )
-
+from gbstats.frequentist.tests import mean_diff, absolute_var
 
 # Configs
+
+
 @dataclass
 class GaussianPrior:
     mean: float = 0
     variance: float = 1
     pseudo_n: float = 0
+
+
+@dataclass
+class GaussianFlatPrior(GaussianPrior):
+    variance: float = 1e6
+    pseudo_n: float = 1
 
 
 @dataclass
@@ -57,6 +68,20 @@ class GaussianBayesianConfig(BayesianConfig):
     epsilon: float = 1e-4
 
 
+@dataclass
+class EffectConfigFlatPrior(GaussianBayesianConfig):
+    prior_a: GaussianPrior = field(default_factory=GaussianFlatPrior)
+    prior_b: GaussianPrior = field(default_factory=GaussianFlatPrior)
+    prior_effect: GaussianFlatPrior = field(default_factory=GaussianFlatPrior)
+
+
+@dataclass
+class EffectConfigStandardPrior(GaussianBayesianConfig):
+    prior_a: GaussianPrior = field(default_factory=GaussianFlatPrior)
+    prior_b: GaussianPrior = field(default_factory=GaussianFlatPrior)
+    prior_effect: GaussianPrior = field(default_factory=GaussianPrior)
+
+
 # Results
 @dataclass
 class BayesianTestResult(TestResult):
@@ -79,12 +104,15 @@ class BayesianABTest(BaseABTest):
         self,
         stat_a: TestStatistic,
         stat_b: TestStatistic,
-        inverse: bool = False,
-        ccr: float = 0.05,
+        config: BayesianConfig = BayesianConfig(),
     ):
         super().__init__(stat_a, stat_b)
-        self.ccr = ccr
-        self.inverse = inverse
+        self.ccr = config.ccr
+        self.inverse = config.inverse
+        self.relative = config.difference_type == "relative"
+        self.scaled = config.difference_type == "scaled"
+        self.traffic_proportion_b = config.traffic_proportion_b
+        self.phase_length_days = config.phase_length_days
 
     @abstractmethod
     def compute_result(self) -> BayesianTestResult:
@@ -151,7 +179,7 @@ class BinomialBayesianABTest(BayesianABTest):
         stat_b: ProportionStatistic,
         config: BinomialBayesianConfig = BinomialBayesianConfig(),
     ):
-        super().__init__(stat_a, stat_b, config.inverse, config.ccr)
+        super().__init__(stat_a, stat_b, config)
         self.prior_a = config.prior_a
         self.prior_b = config.prior_b
         self.relative = config.difference_type == "relative"
@@ -210,11 +238,21 @@ class BinomialBayesianABTest(BayesianABTest):
 class GaussianBayesianABTest(BayesianABTest):
     def __init__(
         self,
-        stat_a: Union[SampleMeanStatistic, RatioStatistic],
-        stat_b: Union[SampleMeanStatistic, RatioStatistic],
+        stat_a: Union[
+            SampleMeanStatistic,
+            RatioStatistic,
+            QuantileStatistic,
+            QuantileStatisticClustered,
+        ],
+        stat_b: Union[
+            SampleMeanStatistic,
+            RatioStatistic,
+            QuantileStatistic,
+            QuantileStatisticClustered,
+        ],
         config: GaussianBayesianConfig = GaussianBayesianConfig(),
     ):
-        super().__init__(stat_a, stat_b, config.inverse, config.ccr)
+        super().__init__(stat_a, stat_b, config)
         self.prior_a = config.prior_a
         self.prior_b = config.prior_b
         self.epsilon = config.epsilon
@@ -313,3 +351,121 @@ class GaussianBayesianABTest(BayesianABTest):
                 result, self.traffic_proportion_b, self.phase_length_days
             )
         return result
+
+
+class GaussianEffectABTest(GaussianBayesianABTest):
+    def __init__(
+        self,
+        stat_a: Union[
+            SampleMeanStatistic,
+            RatioStatistic,
+            QuantileStatistic,
+            QuantileStatisticClustered,
+        ],
+        stat_b: Union[
+            SampleMeanStatistic,
+            RatioStatistic,
+            QuantileStatistic,
+            QuantileStatisticClustered,
+        ],
+        config: Union[EffectConfigFlatPrior, EffectConfigStandardPrior],
+    ):
+        super().__init__(stat_a, stat_b, config)
+        self.prior_effect = config.prior_effect
+        self.stat_a = stat_a
+        self.stat_b = stat_b
+
+    def compute_result(self):
+        self.compute_frequentist_moments()
+        self.compute_bayesian_moments()
+        risk = [self.risk]
+        ci = self.credible_interval(
+            self.mean_diff, self.std_diff, self.ccr, self.relative
+        )
+        ctw = self.chance_to_win(self.mean_diff, self.std_diff)
+        if self.relative:
+            if self.stat_a.mean == 0.0:
+                raise ValueError(
+                    "Cannot compute relative effect when control mean is 0."
+                )
+            else:
+                self.mean_diff /= np.abs(self.stat_a.mean)
+                self.std_diff /= np.abs(self.stat_a.mean)
+        # probably better to tear these out of superclass, have this be standalone class
+        result = BayesianTestResult(
+            chance_to_win=ctw,
+            expected=self.mean_diff,
+            ci=ci,
+            uplift=Uplift(
+                dist="lognormal" if self.relative else "normal",
+                mean=self.mean_diff,
+                stddev=self.std_diff,
+            ),
+            risk=risk,
+        )
+        if self.scaled:
+            result = self.scale_result(
+                result, self.traffic_proportion_b, self.phase_length_days
+            )
+        return result
+
+    def compute_frequentist_moments(self):
+        self.absolute_diff = mean_diff(self.stat_a.mean, self.stat_b.mean)
+        self.absolute_var = absolute_var(
+            self.stat_a.variance, self.stat_a.n, self.stat_b.variance, self.stat_b.n
+        )
+
+    def compute_bayesian_moments(self):
+        self.mean_diff = self.posterior_mean
+        self.std_diff = np.sqrt(self.posterior_variance)
+
+    @property
+    def posterior_variance(self):
+        return (self.data_precision + self.prior_precision) ** -1
+
+    @property
+    def posterior_mean(self):
+        weight_prior = self.prior_precision * self.prior_effect_mean
+        weight_data = self.data_precision * self.data_mean
+        return (weight_prior + weight_data) * self.posterior_variance
+
+    @property
+    def prior_effect_mean(self):
+        return self.prior_effect.mean
+
+    @property
+    def prior_precision(self):
+        return 1.0 / self.prior_effect.variance
+
+    @property
+    def data_mean(self):
+        return self.absolute_diff
+
+    @property
+    def data_precision(self):
+        if self.absolute_var == 0.0:
+            return 1e5
+        return 1.0 / self.absolute_var
+
+    @property
+    def risk(self):
+        return (
+            -1
+            * self.right_truncated_normal_mean(
+                mu=self.mean_diff, sigma=self.std_diff, threshold=0.0
+            )
+            * np.max(
+                [
+                    float(1e-5),
+                    scipy.stats.norm.cdf(0, loc=self.mean_diff, scale=self.std_diff),
+                ]  # type: ignore
+            )
+        )
+
+    @staticmethod
+    def right_truncated_normal_mean(mu, sigma, threshold):
+        b_centered = (threshold - mu) / sigma
+        b_centered_ratio = scipy.stats.norm.pdf(b_centered) / np.max(
+            [float(1e-5), scipy.stats.norm.cdf(b_centered, loc=0, scale=1)]  # type: ignore
+        )
+        return mu - sigma * b_centered_ratio
