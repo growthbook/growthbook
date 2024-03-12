@@ -580,6 +580,7 @@ export async function postExperiments(
           editorUrl: visualChangeset.editorUrl,
           context,
           visualChanges: visualChangeset.visualChanges,
+          urlRedirects: visualChangeset.urlRedirects,
         });
       }
     }
@@ -2311,6 +2312,7 @@ export async function postVisualChangeset(
     urlRedirects: req.body.urlRedirects,
     editorUrl: req.body.editorUrl,
     persistQueryString: req.body.persistQueryString,
+    changeType: req.body.urlRedirects ? "urlRedirect" : "visualEditor",
     context,
   });
 
@@ -2360,6 +2362,16 @@ export async function putVisualChangeset(
     }
   }
 
+  let updates = req.body;
+
+  // JIT Migration if changeType is missing. Should only be needed for visualEditor changesets
+  if (!visualChangeset.changeType) {
+    updates = {
+      ...req.body,
+      changeType: req.body.urlRedirects ? "urlRedirect" : "visualEditor",
+    };
+  }
+
   const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
   req.checkPermissions("runExperiments", experiment?.project || "", envs);
 
@@ -2367,7 +2379,7 @@ export async function putVisualChangeset(
     visualChangeset,
     experiment,
     context,
-    updates: req.body,
+    updates,
   });
 
   res.status(200).json({

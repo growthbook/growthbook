@@ -276,6 +276,7 @@ export const createVisualChangeset = async ({
   visualChanges,
   urlRedirects,
   persistQueryString,
+  changeType,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -284,7 +285,12 @@ export const createVisualChangeset = async ({
   visualChanges?: VisualChange[];
   urlRedirects?: URLRedirect[];
   persistQueryString?: boolean;
+  changeType?: VisualChangesetInterface["changeType"];
 }): Promise<VisualChangesetInterface> => {
+  if (!changeType) {
+    changeType = urlRedirects?.length ? "urlRedirect" : "visualEditor";
+  }
+
   const visualChangeset = toInterface(
     await VisualChangesetModel.create({
       id: uniqid("vcs_"),
@@ -294,11 +300,12 @@ export const createVisualChangeset = async ({
       editorUrl,
       visualChanges:
         visualChanges ||
-        (!urlRedirects
+        (!urlRedirects?.length
           ? experiment.variations.map(genNewVisualChange)
           : undefined),
       urlRedirects,
       persistQueryString,
+      changeType,
     })
   );
 
