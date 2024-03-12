@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { FaCaretDown } from "react-icons/fa";
-import { FC } from "react";
+import { FC, useEffect } from "react";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
@@ -100,6 +100,12 @@ export default function ProjectSelector() {
     localStorageKey: "project-selector",
     searchFields: ["name^3", "description"],
   });
+
+  useEffect(() => {
+    if (projects?.length === 1 && !permissions.check("readData", "")) {
+      setProject(projects[0].id);
+    }
+  }, [projects, permissions, setProject]);
 
   if (!projects.length) return null;
 
