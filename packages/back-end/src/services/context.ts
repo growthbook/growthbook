@@ -101,7 +101,7 @@ export class ReqContextClass implements ReqContextInterface {
 
       this.userPermissions = {
         global: {
-          permissions: roleToPermissionMap("noaccess", org),
+          permissions: roleToPermissionMap(role, org),
           limitAccessByEnvironment: false,
           environments: [],
         },

@@ -537,10 +537,7 @@ export async function putMetric(
     }
   });
 
-  if (
-    updates?.projects?.length &&
-    !context.permissionsUtil.canCreateMetrics(updates)
-  ) {
+  if (updates.projects && !context.permissionsUtil.canCreateMetrics(updates)) {
     context.permissionsUtil.throwPermissionError("createMetrics");
   }
 

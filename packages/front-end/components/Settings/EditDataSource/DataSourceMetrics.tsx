@@ -53,6 +53,11 @@ export default function DataSourceMetrics({
     editMetricsPermissions[m.id] = permissionsUtil.canCreateMetrics(m);
   });
 
+  // Auto-generated metrics inherit the data source's projects, so check that the user has createMetric permission for all of them
+  const canCreateMetricsInAllDataSourceProjects = permissionsUtil.canCreateMetrics(
+    dataSource
+  );
+
   return (
     <>
       {showAutoGenerateMetricsModal && (
@@ -89,7 +94,9 @@ export default function DataSourceMetrics({
           </p>
         </div>
         <div className="d-flex flex-row pl-3">
-          {canEdit && envAllowsCreatingMetrics() ? (
+          {canEdit &&
+          envAllowsCreatingMetrics() &&
+          canCreateMetricsInAllDataSourceProjects ? (
             <>
               <AutoGenerateMetricsButton
                 setShowAutoGenerateMetricsModal={
