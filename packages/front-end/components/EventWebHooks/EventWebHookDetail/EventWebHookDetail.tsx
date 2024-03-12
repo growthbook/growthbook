@@ -176,7 +176,20 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           onClose={onModalClose}
           onSubmit={onEdit}
           error={editError}
-          mode={{ mode: "edit", data: eventWebHook }}
+          mode={{
+            mode: "edit",
+            data: {
+              tags: [],
+              environments: [],
+              projects: [],
+              payloadType: "raw",
+              method: "POST",
+              ...eventWebHook,
+              headers: eventWebHook.headers
+                ? JSON.stringify(eventWebHook.headers)
+                : "{}",
+            },
+          }}
         />
       ) : null}
     </div>
@@ -212,7 +225,18 @@ export const EventWebHookDetailContainer = () => {
           {
             method: "PUT",
             body: JSON.stringify(
-              pick(data, ["events", "name", "url", "enabled"])
+              pick(data, [
+                "events",
+                "name",
+                "url",
+                "enabled",
+                "payloadType",
+                "projects",
+                "tags",
+                "environments",
+                "method",
+                "headers",
+              ])
             ),
           }
         );

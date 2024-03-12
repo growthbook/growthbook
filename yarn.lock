@@ -2802,19 +2802,17 @@
     teeny-request "^8.0.0"
     uuid "^8.0.0"
 
-"@growthbook/growthbook@^0.29.0":
-  version "0.29.0"
-  resolved "https://registry.yarnpkg.com/@growthbook/growthbook/-/growthbook-0.29.0.tgz#357f005d9fc28b4b018358d1dd2839066fca807a"
-  integrity sha512-hRYtBw1cg3fqjBRKRfazkRfCJyFpIxjdEUjmwkFaSBorzVDiX35gcp8x83vytQdx5E9xfQo3x/m9Z1yEMDrN7A==
+"@growthbook/growthbook@^0.34.0":
+  version "0.35.0"
   dependencies:
-    dom-mutator "^0.5.0"
+    dom-mutator "^0.6.0"
 
-"@growthbook/proxy-eval@^1.0.0":
-  version "1.0.0"
-  resolved "https://registry.yarnpkg.com/@growthbook/proxy-eval/-/proxy-eval-1.0.0.tgz#fbe53876fb312b9147e5187242a6c6bfcb87569e"
-  integrity sha512-I6V+GDmzXLYcT5iGXpoDxwiWJmNRHZAQdAKJBMnzVXDaOngBPbbUs/ZgHhuo/2p2VWo5EtOhTUO4xl6xcFTJaQ==
+"@growthbook/proxy-eval@^1.0.2":
+  version "1.0.2"
+  resolved "https://registry.yarnpkg.com/@growthbook/proxy-eval/-/proxy-eval-1.0.2.tgz#d5b24b3308b98365eb0b04e0e7f94497543e824c"
+  integrity sha512-2VSFhQ0VJSQuYGCw0c1OQCdVrtdD/6vMvtmxR9bB2WwSNJ6ITdCI/mmwE83MiUlKLBoRAkACI/xyOJFbTmqt7Q==
   dependencies:
-    "@growthbook/growthbook" "^0.29.0"
+    "@growthbook/growthbook" "^0.34.0"
 
 "@grpc/grpc-js@^1.7.1":
   version "1.8.17"
@@ -11183,11 +11181,6 @@ dom-helpers@^5.0.1:
     "@babel/runtime" "^7.8.7"
     csstype "^3.0.2"
 
-dom-mutator@^0.5.0:
-  version "0.5.0"
-  resolved "https://registry.npmjs.org/dom-mutator/-/dom-mutator-0.5.0.tgz"
-  integrity sha512-bbeX8HWE8JGzraFgbVBX4ws2g3heZFuTtrleQBuN7huy+7n2n7etSuVnot3/1z3jdY2MiwuvoS4Ep1UT2rrGBw==
-
 dom-mutator@^0.6.0:
   version "0.6.0"
   resolved "https://registry.yarnpkg.com/dom-mutator/-/dom-mutator-0.6.0.tgz#079d7a4b3e8981a562cd777548b99baab51d65c5"
@@ -12116,6 +12109,11 @@ eventemitter3@^4.0.4:
   version "4.0.7"
   resolved "https://registry.npmjs.org/eventemitter3/-/eventemitter3-4.0.7.tgz"
   integrity sha512-8guHBZCwKnFhYdHr2ysuRWErTwhoN2X8XELRlrRwpmfeY2jjuUN4taQMsULKUVo1K4DvZl+0pgfyoysHxvmvEw==
+
+eventemitter3@^5.0.1:
+  version "5.0.1"
+  resolved "https://registry.yarnpkg.com/eventemitter3/-/eventemitter3-5.0.1.tgz#53f5ffd0a492ac800721bb42c66b841de96423c4"
+  integrity sha512-GWkBvjiSZK87ELrYOSESUYeVIc9mvLLf/nXalMOS5dYrgZq9o5OVkbZAVM06CVxYsCwH9BDZFPlQTlPA1j4ahA==
 
 events@1.1.1:
   version "1.1.1"
@@ -18451,6 +18449,14 @@ p-queue@^6.6.1:
     eventemitter3 "^4.0.4"
     p-timeout "^3.2.0"
 
+p-queue@^8.0.1:
+  version "8.0.1"
+  resolved "https://registry.yarnpkg.com/p-queue/-/p-queue-8.0.1.tgz#718b7f83836922ef213ddec263ff4223ce70bef8"
+  integrity sha512-NXzu9aQJTAzbBqOt2hwsR63ea7yvxJc0PwN/zobNAudYfb1B7R08SzB4TsLeSbUCuG467NhnoT0oO6w1qRO+BA==
+  dependencies:
+    eventemitter3 "^5.0.1"
+    p-timeout "^6.1.2"
+
 p-retry@^4.0.0:
   version "4.6.2"
   resolved "https://registry.npmjs.org/p-retry/-/p-retry-4.6.2.tgz"
@@ -18465,6 +18471,11 @@ p-timeout@^3.1.0, p-timeout@^3.2.0:
   integrity sha512-rhIwUycgwwKcP9yTOOFK/AKsAopjjCakVqLHePO3CC6Mir1Z99xT+R63jZxAT5lFZLa2inS5h+ZS2GvR99/FBg==
   dependencies:
     p-finally "^1.0.0"
+
+p-timeout@^6.1.2:
+  version "6.1.2"
+  resolved "https://registry.yarnpkg.com/p-timeout/-/p-timeout-6.1.2.tgz#22b8d8a78abf5e103030211c5fc6dee1166a6aa5"
+  integrity sha512-UbD77BuZ9Bc9aABo74gfXhNvzC9Tx7SxtHSh1fxvx3jTLLYvmVhiQZZrJzqqU0jKbN32kb5VOKiLEQI/3bIjgQ==
 
 p-try@^2.0.0:
   version "2.2.0"

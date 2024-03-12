@@ -1,19 +1,20 @@
 import { useForm } from "react-hook-form";
 import {
-  OrganizationSettings,
   SDKAttribute,
   SDKAttributeFormat,
   SDKAttributeType,
-} from "@back-end/types/organization";
+} from "back-end/types/organization";
 import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import { useAttributeSchema } from "@/services/features";
-import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Toggle from "@/components/Forms/Toggle";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { useUser } from "@/services/UserContext";
 
 export interface Props {
   close: () => void;
@@ -21,6 +22,7 @@ export interface Props {
 }
 
 export default function AttributeModal({ close, attribute }: Props) {
+  const { projects, project } = useDefinitions();
   const { refreshOrganization } = useUser();
 
   const { apiCall } = useAuth();
@@ -32,6 +34,7 @@ export default function AttributeModal({ close, attribute }: Props) {
     defaultValues: {
       property: attribute || "",
       datatype: current?.datatype || "string",
+      projects: attribute ? current?.projects || [] : project ? [project] : [],
       format: current?.format || "",
       enum: current?.enum || "",
       hashAttribute: !!current?.hashAttribute,
@@ -65,51 +68,58 @@ export default function AttributeModal({ close, attribute }: Props) {
           value.hashAttribute = false;
         }
 
-        const attributeSchema = [...schema];
-
-        // Editing
-        if (attribute) {
-          const i = schema.findIndex((s) => s.property === attribute);
-          if (i >= 0) {
-            attributeSchema[i] = value;
-          } else {
-            attributeSchema.push(value);
-          }
-        }
-        // Creating
-        else {
-          attributeSchema.push(value);
-        }
-
-        // Make sure this attribute name doesn't conflict with any existing attributes
         if (
-          attributeSchema.filter((s) => s.property === value.property).length >
-          1
+          (!attribute || (attribute && value.property !== attribute)) &&
+          schema.some((s) => s.property === value.property)
         ) {
           throw new Error(
             "That attribute name is already being used. Please choose another one."
           );
         }
 
-        const settings: Pick<OrganizationSettings, "attributeSchema"> = {
-          attributeSchema,
+        const attributeObj: SDKAttribute & { previousName?: string } = {
+          property: value.property,
+          datatype: value.datatype,
+          projects: value.projects,
+          format: value.format,
+          enum: value.enum,
+          hashAttribute: value.hashAttribute,
         };
-        await apiCall(`/organization`, {
-          method: "PUT",
-          body: JSON.stringify({
-            settings,
-          }),
-        });
 
+        // If the attribute name is changed, we need to pass in the original name
+        // as that's how we access the attribute in the backend
+        if (attribute && attribute !== value.property) {
+          attributeObj.previousName = attribute;
+        }
+
+        await apiCall<{
+          status: number;
+        }>("/attribute", {
+          method: attribute ? "PUT" : "POST",
+          body: JSON.stringify(attributeObj),
+        });
         refreshOrganization();
       })}
     >
       <Field label="Attribute" {...form.register("property")} />
-      {attribute && form.watch("property") !== attribute && (
+      {attribute && form.watch("property") !== attribute ? (
         <div className="alert alert-warning">
           Be careful changing the attribute name. Any existing targeting
           conditions that use this attribute will NOT be updated automatically
           and will still reference the old attribute name.
+        </div>
+      ) : null}
+      {projects?.length > 0 && (
+        <div className="form-group">
+          <MultiSelectField
+            label="Projects"
+            placeholder="All projects"
+            value={form.watch("projects") || []}
+            options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            onChange={(v) => form.setValue("projects", v)}
+            customClassName="label-overflow-ellipsis"
+            helpText="Assign this attribute to specific projects"
+          />
         </div>
       )}
       <SelectField
