@@ -231,6 +231,7 @@ export function generateVisualExperimentsPayload({
           : undefined,
         condition,
         coverage: phase.coverage,
+        changeType: v.changeType,
       };
 
       if (prerequisites.length) {
@@ -483,14 +484,10 @@ async function getFeatureDefinitionsResponse({
 
   if (includeAutoExperiments) {
     if (!includeRedirectExperiments) {
-      experiments = experiments.filter(
-        (e) => !e.variations.some((v) => v.urlRedirect)
-      );
+      experiments = experiments.filter((e) => e.changeType !== "urlRedirect");
     }
     if (!includeVisualExperiments) {
-      experiments = experiments.filter((e) =>
-        e.variations.some((v) => v.urlRedirect)
-      );
+      experiments = experiments.filter((e) => e.changeType === "urlRedirect");
     }
   }
 

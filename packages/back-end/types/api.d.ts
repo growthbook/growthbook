@@ -9,6 +9,7 @@ import { ExperimentStatus } from "./experiment";
 import { OrganizationInterface } from "./organization";
 import { UserInterface } from "./user";
 import type { ReqContextInterface } from "./context";
+import { VisualChangesetInterface } from "./visual-changeset";
 
 export interface ExperimentOverride {
   weights?: number[];
@@ -31,6 +32,7 @@ export type FeatureDefinitionWithProject = FeatureDefinition & {
 
 export type AutoExperimentWithProject = AutoExperiment & {
   project?: string;
+  changeType?: VisualChangesetInterface["changeType"];
 };
 
 export interface ExperimentOverridesResponse {
