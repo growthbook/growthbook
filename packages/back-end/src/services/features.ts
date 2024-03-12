@@ -491,6 +491,8 @@ async function getFeatureDefinitionsResponse({
     }
   }
 
+  experiments = experiments.map((exp) => omit(exp, ["changeType"]));
+
   if (!encryptionKey) {
     return {
       features,
