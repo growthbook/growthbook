@@ -147,7 +147,7 @@ export class EventWebHookNotifier implements Notifier {
     const maxContentSize = 1000;
 
     try {
-      const { url, signingKey } = eventWebHook;
+      const { url, signingKey, method = "POST", headers = {} } = eventWebHook;
 
       const signature = getEventWebHookSignatureForPayload({
         signingKey,
@@ -158,10 +158,11 @@ export class EventWebHookNotifier implements Notifier {
         url,
         {
           headers: {
+            ...headers,
             "Content-Type": "application/json",
             "X-GrowthBook-Signature": signature,
           },
-          method: "POST",
+          method,
           body: JSON.stringify(payload),
         },
         {

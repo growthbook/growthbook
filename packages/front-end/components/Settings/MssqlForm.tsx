@@ -1,7 +1,7 @@
 import { FC, ChangeEventHandler } from "react";
 import { MssqlConnectionParams } from "back-end/types/integrations/mssql";
-import Toggle from "../Forms/Toggle";
-import Tooltip from "../Tooltip/Tooltip";
+import Toggle from "@/components/Forms/Toggle";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import HostWarning from "./HostWarning";
 
 const MssqlForm: FC<{

@@ -21,7 +21,7 @@ import { useWatching } from "@/services/WatchProvider";
 import usePermissions from "@/hooks/usePermissions";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
-import FeatureValueField from "../FeatureValueField";
+import FeatureValueField from "@/components/Features/FeatureValueField";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";

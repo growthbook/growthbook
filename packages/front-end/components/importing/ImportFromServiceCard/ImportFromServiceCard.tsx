@@ -42,8 +42,8 @@ export const ImportFromServiceCard: FC<ImportFromServiceCardProps> = ({
         </div>
 
         <div>
-          <Link href={`importing/${path}`}>
-            <a className="btn btn-primary">Import from {service}</a>
+          <Link href={`importing/${path}`} className="btn btn-primary">
+            Import from{service}
           </Link>
         </div>
       </div>

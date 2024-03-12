@@ -6,6 +6,7 @@ const licenseSchema = new mongoose.Schema({
   companyName: String, // Name of the organization on the license
   organizationId: String, // OrganizationId (keys prior to 12/2022 do not contain this field)
   seats: Number, // Maximum number of seats on the license
+  hardCap: { type: Boolean, default: false }, // True if this license has a hard cap on the number of seats
   isTrial: { type: Boolean, default: false }, // True if this is a trial license
   plan: String, // The plan (pro, enterprise, etc.) for this license
   archived: { type: Boolean, default: false }, // True if this license has been deleted/archived

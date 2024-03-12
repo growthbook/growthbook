@@ -3,9 +3,9 @@ import { Environment } from "back-end/types/organization";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import { useUser } from "@/services/UserContext";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
-import Toggle from "../Forms/Toggle";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
+import Toggle from "@/components/Forms/Toggle";
 
 export default function EnvironmentModal({
   existing,

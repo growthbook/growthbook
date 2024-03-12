@@ -321,6 +321,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageSavedGroups",
         "manageArchetype",
         "runExperiments",
+        "canReview",
         "manageVisualChanges",
       ],
     },
@@ -368,6 +369,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageFactTables",
         "runQueries",
         "editDatasourceSettings",
+        "canReview",
         "manageVisualChanges",
       ],
     },
@@ -391,3 +393,14 @@ export function getDefaultRole(
     }
   );
 }
+
+export const attributeDataTypes = [
+  "boolean",
+  "string",
+  "number",
+  "secureString",
+  "enum",
+  "string[]",
+  "number[]",
+  "secureString[]",
+] as const;

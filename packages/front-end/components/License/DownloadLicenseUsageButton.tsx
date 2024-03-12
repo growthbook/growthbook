@@ -4,7 +4,7 @@ import { FaDownload } from "react-icons/fa";
 import { snakeCase } from "lodash";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import Button from "../Button";
+import Button from "@/components/Button";
 
 const DownloadLicenseUsageButton: FC = () => {
   const { apiCall } = useAuth();

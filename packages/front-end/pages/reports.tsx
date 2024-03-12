@@ -4,13 +4,13 @@ import Link from "next/link";
 import { ReportInterface } from "back-end/types/report";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { datetime, ago } from "shared/dates";
-import LoadingOverlay from "../components/LoadingOverlay";
-import { useAddComputedFields, useSearch } from "../services/search";
-import Tooltip from "../components/Tooltip/Tooltip";
-import useApi from "../hooks/useApi";
-import Toggle from "../components/Forms/Toggle";
-import { useUser } from "../services/UserContext";
-import Field from "../components/Forms/Field";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { useAddComputedFields, useSearch } from "@/services/search";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import useApi from "@/hooks/useApi";
+import Toggle from "@/components/Forms/Toggle";
+import { useUser } from "@/services/UserContext";
+import Field from "@/components/Forms/Field";
 
 const ReportsPage = (): React.ReactElement => {
   const router = useRouter();
@@ -99,8 +99,8 @@ const ReportsPage = (): React.ReactElement => {
           <li>Select &quot;ad-hoc report&quot;</li>
         </ol>
 
-        <Link href="/experiments">
-          <a className="btn btn-primary mb-2">Go to Experiments</a>
+        <Link href="/experiments" className="btn btn-primary mb-2">
+          Go to Experiments
         </Link>
 
         <p>
@@ -159,8 +159,11 @@ const ReportsPage = (): React.ReactElement => {
               style={{ cursor: "pointer" }}
             >
               <td>
-                <Link href={`/report/${report.id}`}>
-                  <a className={`text-dark font-weight-bold`}>{report.title}</a>
+                <Link
+                  href={`/report/${report.id}`}
+                  className={`text-dark font-weight-bold`}
+                >
+                  {report.title}
                 </Link>
               </td>
               <td

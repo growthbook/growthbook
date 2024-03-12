@@ -1,10 +1,7 @@
 import { randomBytes } from "crypto";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
-import {
-  FULL_ACCESS_PERMISSIONS,
-  getReadAccessFilter,
-} from "shared/permissions";
+import { Request } from "express";
 import {
   createOrganization,
   findAllOrganizations,
@@ -50,7 +47,7 @@ import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 import { logger } from "../util/logger";
-import { getDefaultRole, getUserPermissions } from "../util/organization.util";
+import { getDefaultRole } from "../util/organization.util";
 import { SegmentInterface } from "../../types/segment";
 import {
   createSegment,
@@ -69,6 +66,7 @@ import {
 import { createMetric } from "./experiments";
 import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
 import { getUsersByIds } from "./users";
+import { ReqContextClass } from "./context";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
@@ -110,22 +108,23 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
     throw new Error("Must be logged in");
   }
 
-  return {
+  return new ReqContextClass({
     org: req.organization,
-    userId: req.userId,
-    email: req.email,
-    environments: getEnvironmentIdsFromOrg(req.organization),
-    userName: req.name || "",
-    readAccessFilter: getReadAccessFilter(
-      getUserPermissions(req.userId, req.organization, req.teams)
-    ),
     auditUser: {
       type: "dashboard",
       id: req.userId,
       email: req.email,
       name: req.name || "",
     },
-  };
+    user: {
+      id: req.userId,
+      email: req.email,
+      name: req.name || "",
+      superAdmin: req.superAdmin,
+    },
+    teams: req.teams,
+    req: req as Request,
+  });
 }
 
 export function getEnvironmentIdsFromOrg(org: OrganizationInterface): string[] {
@@ -979,12 +978,12 @@ export async function expandOrgMembers(
 export function getContextForAgendaJobByOrgObject(
   organization: OrganizationInterface
 ): ApiReqContext {
-  return {
+  return new ReqContextClass({
     org: organization,
-    environments: getEnvironmentIdsFromOrg(organization),
-    readAccessFilter: FULL_ACCESS_PERMISSIONS,
     auditUser: null,
-  };
+    // TODO: Limit background job permissions to the user who created the job
+    role: "admin",
+  });
 }
 
 export async function getContextForAgendaJobByOrgId(

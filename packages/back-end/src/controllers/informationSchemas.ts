@@ -224,8 +224,8 @@ export async function putInformationSchema(
   }
 
   req.checkPermissions(
-    "editDatasourceSettings",
-    datasource?.projects?.length ? datasource.projects : ""
+    "runQueries",
+    datasource?.projects?.length ? datasource.projects : []
   );
 
   await queueUpdateInformationSchema(

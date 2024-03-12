@@ -31,8 +31,8 @@
     "@dqbd/tiktoken": "^1.0.7",
     "@google-cloud/bigquery": "5",
     "@google-cloud/storage": "^5.20.5",
-    "@growthbook/growthbook": "^0.34.0",
-    "@growthbook/proxy-eval": "^1.0.0",
+    "@growthbook/growthbook": "^0.35.0",
+    "@growthbook/proxy-eval": "^1.0.2",
     "@octokit/auth-app": "^6.0.1",
     "@octokit/core": "^5.0.2",
     "@octokit/oauth-methods": "^4.0.1",
@@ -118,7 +118,7 @@
     "@types/lodash": "^4.14.157",
     "@types/md5": "^2.2.0",
     "@types/mssql": "^8.1.1",
-    "@types/node": "^16.11.65",
+    "@types/node": "^16.18.74",
     "@types/node-fetch": "^2.5.8",
     "@types/node-int64": "^0.4.29",
     "@types/nodemailer": "^6.4.1",
@@ -135,7 +135,7 @@
     "delay-cli": "^2.0.0",
     "jest": "^27.1.1",
     "rimraf": "^3.0.2",
-    "typescript": "4.7.4"
+    "typescript": "5.3.3"
   },
   "optionalDependencies": {
     "@apidevtools/swagger-parser": "^10.1.0",

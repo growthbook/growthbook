@@ -15,9 +15,9 @@ import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
-import Tooltip from "../Tooltip/Tooltip";
-import LoadingSpinner from "../LoadingSpinner";
-import { DocLink } from "../DocLink";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import { DocLink } from "@/components/DocLink";
 
 type CheckListItem = {
   display: string | ReactElement;
@@ -373,8 +373,11 @@ export function PreLaunchChecklist({
           </h4>
           <div className="d-flex align-items-center">
             {showEditChecklistLink ? (
-              <Link href={"/settings?editCheckListModal=true"}>
-                <a>Edit</a>
+              <Link
+                href={"/settings?editCheckListModal=true"}
+                style={{ textDecoration: "none" }}
+              >
+                <span className="text-purple">Edit</span>
               </Link>
             ) : null}
             <button

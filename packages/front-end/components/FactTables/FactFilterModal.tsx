@@ -11,12 +11,12 @@ import { FaAngleDown, FaAngleRight, FaPlay } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
-import MarkdownInput from "../Markdown/MarkdownInput";
-import InlineCode from "../SyntaxHighlighting/InlineCode";
-import DisplayTestQueryResults from "../Settings/DisplayTestQueryResults";
-import Button from "../Button";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
+import Button from "@/components/Button";
 import FactTableSchema from "./FactTableSchema";
 
 export interface Props {

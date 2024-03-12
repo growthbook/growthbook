@@ -9,7 +9,7 @@ import {
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { trackSnapshot } from "@/services/track";
-import Button from "../Button";
+import Button from "@/components/Button";
 import ManualSnapshotForm from "./ManualSnapshotForm";
 
 const RefreshSnapshotButton: FC<{
@@ -22,7 +22,6 @@ const RefreshSnapshotButton: FC<{
     settings: ExperimentSnapshotAnalysisSettings | null
   ) => void;
   onSubmit?: () => void;
-  newUi?: boolean;
 }> = ({
   mutate,
   experiment,
@@ -31,7 +30,6 @@ const RefreshSnapshotButton: FC<{
   dimension,
   setAnalysisSettings,
   onSubmit,
-  newUi = false,
 }) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -105,8 +103,7 @@ const RefreshSnapshotButton: FC<{
           }
         }}
       >
-        <BsArrowRepeat />
-        {newUi ? " Update" : " Update Data"}
+        <BsArrowRepeat /> Update
       </Button>
     </>
   );

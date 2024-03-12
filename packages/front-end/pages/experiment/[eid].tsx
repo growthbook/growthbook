@@ -10,12 +10,9 @@ import {
   getAffectedEnvsForExperiment,
   includeExperimentInPayload,
 } from "shared/util";
-import { BsChatSquareQuote } from "react-icons/bs";
-import { FaCheck, FaMagic, FaUndo } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
-import SinglePage from "@/components/Experiment/SinglePage";
 import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
 import StopExperimentForm from "@/components/Experiment/StopExperimentForm";
 import usePermissions from "@/hooks/usePermissions";
@@ -30,9 +27,6 @@ import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
-import FeedbackModal from "@/components/FeedbackModal";
-import track from "@/services/track";
 import PageHead from "@/components/Layout/PageHead";
 
 const ExperimentPage = (): ReactElement => {
@@ -63,13 +57,6 @@ const ExperimentPage = (): ReactElement => {
 
   useSwitchOrg(data?.experiment?.organization ?? null);
 
-  const [newUi, setNewUi] = useLocalStorage<boolean>(
-    "experiment-results-new-ui-v2",
-    true
-  );
-  const [showFeedbackBanner, setShowFeedbackBanner] = useState<boolean>(true);
-  const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
-
   const { apiCall } = useAuth();
 
   if (error) {
@@ -79,7 +66,7 @@ const ExperimentPage = (): ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const { experiment, idea, visualChangesets = [], linkedFeatures = [] } = data;
+  const { experiment, visualChangesets = [], linkedFeatures = [] } = data;
 
   const canEditExperiment =
     permissions.check("createAnalyses", experiment.project) &&
@@ -229,114 +216,27 @@ const ExperimentPage = (): ReactElement => {
         ]}
       />
 
-      <div className="container-fluid position-relative">
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 840,
-            textAlign: "center",
-            pointerEvents: "none",
-          }}
-        >
-          <div className="bg-light d-inline-flex border-bottom border-left border-right rounded py-1 px-3 experiment-switch-page">
-            <div className="switch-back">
-              <a
-                className="a"
-                role="button"
-                onClick={() => {
-                  setNewUi(!newUi);
-                  track("Switched Experiment Page V2", {
-                    switchTo: newUi ? "old" : "new",
-                  });
-                }}
-              >
-                <span className="text mr-1">
-                  switch to {newUi ? "old" : "new"} design
-                </span>
-                {newUi ? <FaUndo /> : <FaMagic />}
-              </a>
-            </div>
-            {showFeedbackBanner ? (
-              <div className="border-left pl-3 ml-3 give-feedback">
-                <a
-                  className="a"
-                  role="button"
-                  onClick={() => {
-                    setShowFeedbackModal(true);
-                  }}
-                >
-                  tell us your thoughts
-                  <BsChatSquareQuote size="18" className="ml-1" />
-                </a>
-              </div>
-            ) : null}
-          </div>
-        </div>
+      <div className="container-fluid">
         <SnapshotProvider experiment={experiment}>
-          {newUi ? (
-            <TabbedPage
-              experiment={experiment}
-              linkedFeatures={linkedFeatures}
-              mutate={mutate}
-              visualChangesets={visualChangesets}
-              editMetrics={editMetrics}
-              editResult={editResult}
-              editVariations={editVariations}
-              duplicate={duplicate}
-              editProject={editProject}
-              editTags={editTags}
-              newPhase={newPhase}
-              editPhases={editPhases}
-              editPhase={editPhase}
-              editTargeting={editTargeting}
-              checklistItemsRemaining={checklistItemsRemaining}
-              setChecklistItemsRemaining={setChecklistItemsRemaining}
-            />
-          ) : (
-            <SinglePage
-              experiment={experiment}
-              linkedFeatures={linkedFeatures}
-              idea={idea}
-              visualChangesets={visualChangesets}
-              mutate={mutate}
-              editMetrics={editMetrics}
-              editResult={editResult}
-              editVariations={editVariations}
-              duplicate={duplicate}
-              editProject={editProject}
-              editTags={editTags}
-              newPhase={newPhase}
-              editPhases={editPhases}
-              editPhase={editPhase}
-              editTargeting={editTargeting}
-              checklistItemsRemaining={checklistItemsRemaining}
-              setChecklistItemsRemaining={setChecklistItemsRemaining}
-            />
-          )}
+          <TabbedPage
+            experiment={experiment}
+            linkedFeatures={linkedFeatures}
+            mutate={mutate}
+            visualChangesets={visualChangesets}
+            editMetrics={editMetrics}
+            editResult={editResult}
+            editVariations={editVariations}
+            duplicate={duplicate}
+            editProject={editProject}
+            editTags={editTags}
+            newPhase={newPhase}
+            editPhases={editPhases}
+            editPhase={editPhase}
+            editTargeting={editTargeting}
+            checklistItemsRemaining={checklistItemsRemaining}
+            setChecklistItemsRemaining={setChecklistItemsRemaining}
+          />
         </SnapshotProvider>
-
-        <FeedbackModal
-          open={showFeedbackModal}
-          close={() => setShowFeedbackModal(false)}
-          submitCallback={() => setShowFeedbackBanner(false)}
-          header={
-            <>
-              <BsChatSquareQuote size="20" className="mr-2" />
-              Tell us your thoughts about the new experiment page design
-            </>
-          }
-          prompt="What could be improved? What did you like?"
-          cta="Send feedback"
-          sentCta={
-            <>
-              <FaCheck /> Sent
-            </>
-          }
-          source="experiment-page-feedback"
-        />
       </div>
     </div>
   );

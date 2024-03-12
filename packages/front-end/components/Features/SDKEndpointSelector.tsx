@@ -7,8 +7,8 @@ import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
-import SelectField from "../Forms/SelectField";
-import LoadingSpinner from "../LoadingSpinner";
+import SelectField from "@/components/Forms/SelectField";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 export interface Props {
   apiKey: string;
@@ -136,9 +136,8 @@ export default function SDKEndpointSelector({ apiKey, setApiKey }: Props) {
         {permissions.check("manageEnvironments", "", []) && (
           <div>
             <Link href="/environments">
-              <a>
-                Manage environments and endpoints <FaExternalLinkAlt />
-              </a>
+              Manage environments and endpoints
+              <FaExternalLinkAlt />
             </Link>
           </div>
         )}

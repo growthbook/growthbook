@@ -6,7 +6,7 @@ import {
   getVariationColor,
   getVariationDefaultName,
 } from "@/services/features";
-import Tooltip from "../Tooltip/Tooltip";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import styles from "./ExperimentSplitVisual.module.scss";
 
 export interface Props {

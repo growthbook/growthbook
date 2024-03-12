@@ -97,7 +97,13 @@ export default function FeaturePage() {
     }
 
     // If there's an active draft, show that by default, otherwise show the live version
-    const draft = revisions.find((r) => r.status === "draft");
+    const draft = revisions.find(
+      (r) =>
+        r.status === "draft" ||
+        r.status === "approved" ||
+        r.status === "changes-requested" ||
+        r.status === "pending-review"
+    );
     setVersion(draft ? draft.version : baseFeatureVersion);
   }, [revisions, version, router.query, baseFeatureVersion]);
 
@@ -177,6 +183,7 @@ export default function FeaturePage() {
 
       <FeaturesHeader
         feature={feature}
+        features={features}
         experiments={experiments}
         mutate={mutate}
         tab={tab}

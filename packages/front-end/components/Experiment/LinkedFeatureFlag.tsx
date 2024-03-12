@@ -4,8 +4,8 @@ import {
 } from "back-end/types/experiment";
 import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
 import LinkedChange from "@/components/Experiment/LinkedChange";
-import Tooltip from "../Tooltip/Tooltip";
-import ForceSummary from "../Features/ForceSummary";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import ForceSummary from "@/components/Features/ForceSummary";
 
 type Props = {
   info: LinkedFeatureInfo;

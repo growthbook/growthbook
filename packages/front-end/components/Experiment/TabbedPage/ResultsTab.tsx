@@ -19,10 +19,10 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import { GBAddCircle } from "@/components/Icons";
-import Results, { ResultsMetricFilters } from "../Results";
-import AnalysisForm from "../AnalysisForm";
-import ExperimentReportsList from "../ExperimentReportsList";
-import { useSnapshot } from "../SnapshotProvider";
+import Results, { ResultsMetricFilters } from "@/components/Experiment/Results";
+import AnalysisForm from "@/components/Experiment/AnalysisForm";
+import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList";
+import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
 
@@ -224,8 +224,8 @@ export default function ResultsTab({
                         metrics and stats engine to automatically analyze your
                         experiment results.
                       </p>
-                      <Link href="/datasources">
-                        <a className="btn btn-primary">Connect to your Data</a>
+                      <Link href="/datasources" className="btn btn-primary">
+                        Connect to your Data
                       </Link>
                     </>
                   )}

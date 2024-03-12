@@ -218,6 +218,7 @@ export function generateTrackingKey(name: string, n: number): string {
 
 export async function getManualSnapshotData(
   experiment: ExperimentInterface,
+  snapshotSettings: ExperimentSnapshotSettings,
   analysisSettings: ExperimentSnapshotAnalysisSettings,
   phaseIndex: number,
   users: number[],
@@ -240,9 +241,8 @@ export async function getManualSnapshotData(
     const stats = metrics[m];
     const metric = metricMap.get(m);
     if (!metric) return null;
-
     metricSettings[m] = {
-      ...getMetricSettingsForStatsEngine(metric, metricMap, false),
+      ...getMetricSettingsForStatsEngine(metric, metricMap, snapshotSettings),
       // no ratio or regression adjustment for manual snapshots
       statistic_type: "mean",
     };
@@ -433,8 +433,17 @@ export async function createManualSnapshot(
   analysisSettings: ExperimentSnapshotAnalysisSettings,
   metricMap: Map<string, ExperimentMetricInterface>
 ) {
+  const snapshotSettings = getSnapshotSettings({
+    experiment,
+    phaseIndex,
+    settings: analysisSettings,
+    metricRegressionAdjustmentStatuses: [],
+    metricMap,
+  });
+
   const { srm, variations } = await getManualSnapshotData(
     experiment,
+    snapshotSettings,
     analysisSettings,
     phaseIndex,
     users,
@@ -452,13 +461,7 @@ export async function createManualSnapshot(
     runStarted: new Date(),
     dateCreated: new Date(),
     status: "success",
-    settings: getSnapshotSettings({
-      experiment,
-      phaseIndex,
-      settings: analysisSettings,
-      metricRegressionAdjustmentStatuses: [],
-      metricMap,
-    }),
+    settings: snapshotSettings,
     unknownVariations: [],
     multipleExposures: 0,
     analyses: [
@@ -1960,10 +1963,10 @@ export function visualChangesetsHaveChanges({
 }): boolean {
   // If there are visual change differences
   const oldVisualChanges = oldVisualChangeset.visualChanges.map(
-    ({ css, domMutations }) => ({ css, domMutations })
+    ({ css, js, domMutations }) => ({ css, js, domMutations })
   );
   const newVisualChanges = newVisualChangeset.visualChanges.map(
-    ({ css, domMutations }) => ({ css, domMutations })
+    ({ css, js, domMutations }) => ({ css, js, domMutations })
   );
   if (!isEqual(oldVisualChanges, newVisualChanges)) {
     return true;

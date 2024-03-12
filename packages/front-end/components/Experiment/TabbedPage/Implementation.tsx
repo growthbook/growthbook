@@ -8,7 +8,7 @@ import usePermissions from "@/hooks/usePermissions";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
 import track from "@/services/track";
-import AddLinkedChangesBanner from "../AddLinkedChangesBanner";
+import AddLinkedChangesBanner from "@/components/Experiment/AddLinkedChangesBanner";
 import TargetingInfo from "./TargetingInfo";
 
 export interface Props {

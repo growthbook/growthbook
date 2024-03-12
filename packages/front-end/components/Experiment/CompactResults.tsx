@@ -30,9 +30,9 @@ import {
   sortAndFilterMetricsByTags,
 } from "@/components/Experiment/Results";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
-import Tooltip from "../Tooltip/Tooltip";
-import MetricTooltipBody from "../Metrics/MetricTooltipBody";
-import MetricName from "../Metrics/MetricName";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
+import MetricName from "@/components/Metrics/MetricName";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -67,6 +67,9 @@ const CompactResults: FC<{
   setMetricFilter?: (filter: ResultsMetricFilters) => void;
   isTabActive: boolean;
   setTab?: (tab: ExperimentTab) => void;
+  mainTableOnly?: boolean;
+  noStickyHeader?: boolean;
+  noTooltip?: boolean;
 }> = ({
   editMetrics,
   variations,
@@ -93,6 +96,9 @@ const CompactResults: FC<{
   setMetricFilter,
   isTabActive,
   setTab,
+  mainTableOnly,
+  noStickyHeader,
+  noTooltip,
 }) => {
   const { getExperimentMetricById, ready } = useDefinitions();
   const pValueThreshold = usePValueThreshold();
@@ -201,41 +207,46 @@ const CompactResults: FC<{
 
   return (
     <>
-      {status !== "draft" && totalUsers > 0 && (
-        <div className="users">
-          <Collapsible
-            trigger={
-              <div className="d-inline-flex mx-3 align-items-center">
-                <FaUsers size={16} className="mr-1" />
-                {numberFormatter.format(totalUsers)} total users
-                <FaAngleRight className="chevron ml-1" />
-              </div>
-            }
-            transitionTime={100}
-          >
-            <div style={{ maxWidth: "800px" }}>
-              <VariationUsersTable
-                variations={variations}
-                users={variationUsers}
-                srm={results.srm}
-              />
+      {!mainTableOnly && (
+        <>
+          {status !== "draft" && totalUsers > 0 && (
+            <div className="users">
+              <Collapsible
+                trigger={
+                  <div className="d-inline-flex mx-3 align-items-center">
+                    <FaUsers size={16} className="mr-1" />
+                    {numberFormatter.format(totalUsers)} total users
+                    <FaAngleRight className="chevron ml-1" />
+                  </div>
+                }
+                transitionTime={100}
+              >
+                <div style={{ maxWidth: "800px" }}>
+                  <VariationUsersTable
+                    variations={variations}
+                    users={variationUsers}
+                    srm={results.srm}
+                  />
+                </div>
+              </Collapsible>
             </div>
-          </Collapsible>
-        </div>
+          )}
+
+          <div className="mx-3">
+            <DataQualityWarning
+              results={results}
+              variations={variations}
+              linkToHealthTab
+              setTab={setTab}
+            />
+            <MultipleExposureWarning
+              users={users}
+              multipleExposures={multipleExposures}
+            />
+          </div>
+        </>
       )}
 
-      <div className="mx-3">
-        <DataQualityWarning
-          results={results}
-          variations={variations}
-          linkToHealthTab
-          setTab={setTab}
-        />
-        <MultipleExposureWarning
-          users={users}
-          multipleExposures={multipleExposures}
-        />
-      </div>
       <ResultsTable
         dateCreated={reportDate}
         isLatestPhase={isLatestPhase}
@@ -260,9 +271,11 @@ const CompactResults: FC<{
         setMetricFilter={setMetricFilter}
         metricTags={allMetricTags}
         isTabActive={isTabActive}
+        noStickyHeader={noStickyHeader}
+        noTooltip={noTooltip}
       />
 
-      {guardrails.length ? (
+      {!mainTableOnly && guardrails.length ? (
         <div className="mt-4">
           <ResultsTable
             dateCreated={reportDate}
@@ -291,6 +304,8 @@ const CompactResults: FC<{
             setMetricFilter={setMetricFilter}
             metricTags={allMetricTags}
             isTabActive={isTabActive}
+            noStickyHeader={noStickyHeader}
+            noTooltip={noTooltip}
           />
         </div>
       ) : (
@@ -315,7 +330,6 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled) {
             metric={metric}
             row={row}
             reportRegressionAdjustmentEnabled={regressionAdjustmentEnabled}
-            newUi={true}
           />
         }
         tipPosition="right"
@@ -343,10 +357,11 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled) {
                 }
           }
         >
-          <Link href={getMetricLink(metric.id)}>
-            <a className="metriclabel text-dark">
-              <MetricName id={metric.id} disableTooltip />
-            </a>
+          <Link
+            href={getMetricLink(metric.id)}
+            className="metriclabel text-dark"
+          >
+            <MetricName id={metric.id} disableTooltip />
           </Link>
         </span>
       </Tooltip>

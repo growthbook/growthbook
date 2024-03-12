@@ -32,6 +32,7 @@ const docSections = {
   java: "/lib/java",
   csharp: "/lib/csharp",
   flutter: "/lib/flutter",
+  nocode: "/lib/script-tag",
   //Other
   quick_start_sdks: "/quick-start#step-2-add-an-sdk-endpoint",
   user_guide: "/app",

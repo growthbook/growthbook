@@ -7,7 +7,7 @@ import { AuthContextValue, useAuth } from "@/services/auth";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
-import Button from "../Button";
+import Button from "@/components/Button";
 
 type DemoDataSourcePageProps = {
   error: string | null;

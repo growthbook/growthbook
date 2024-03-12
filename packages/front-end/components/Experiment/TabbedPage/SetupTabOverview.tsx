@@ -8,8 +8,8 @@ import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
-import VariationsTable from "../VariationsTable";
-import { PreLaunchChecklist } from "../PreLaunchChecklist";
+import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";
+import VariationsTable from "@/components/Experiment/VariationsTable";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;

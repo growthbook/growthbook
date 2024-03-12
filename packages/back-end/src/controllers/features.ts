@@ -54,14 +54,18 @@ import {
   auditDetailsDelete,
 } from "../services/audit";
 import {
+  ReviewSubmittedType,
   cleanUpPreviousRevisions,
   createInitialRevision,
   createRevision,
   discardRevision,
   getRevision,
   getRevisions,
+  getRevisionsByStatus,
   hasDraft,
   markRevisionAsPublished,
+  markRevisionAsReviewRequested,
+  submitReviewAndComments,
   updateRevision,
 } from "../models/FeatureRevisionModel";
 import { getEnabledEnvironments } from "../util/features";
@@ -71,7 +75,10 @@ import {
 } from "../models/SdkConnectionModel";
 import { logger } from "../util/logger";
 import { addTagsDiff } from "../models/TagModel";
-import { EventAuditUserForResponseLocals } from "../events/event-types";
+import {
+  EventAuditUserForResponseLocals,
+  EventAuditUserLoggedIn,
+} from "../events/event-types";
 import {
   FASTLY_SERVICE_ID,
   CACHE_CONTROL_MAX_AGE,
@@ -520,12 +527,101 @@ export async function postFeatureRebase(
     status: 200,
   });
 }
+export async function postFeatureRequestReview(
+  req: AuthRequest<
+    {
+      comment: string;
+    },
+    { id: string; version: string }
+  >,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { id, version } = req.params;
+  const { comment } = req.body;
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+  req.checkPermissions("createFeatureDrafts", feature.project);
+
+  const revision = await getRevision(
+    context.org.id,
+    feature.id,
+    parseInt(version)
+  );
+  if (!revision) {
+    throw new Error("Could not find feature revision");
+  }
+  if (revision.status !== "draft") {
+    throw new Error("Can only request review if is a draft");
+  }
+  await markRevisionAsReviewRequested(revision, res.locals.eventAudit, comment);
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function postFeatureReviewOrComment(
+  req: AuthRequest<
+    {
+      comment: string;
+      review?: ReviewSubmittedType;
+    },
+    { id: string; version: string }
+  >,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { id, version } = req.params;
+  const { comment, review = "Comment" } = req.body;
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+  req.checkPermissions("canReview", feature.project);
+
+  const revision = await getRevision(
+    context.org.id,
+    feature.id,
+    parseInt(version)
+  );
+  if (!revision) {
+    throw new Error("Could not find feature revision");
+  }
+  const createdByUser = revision.createdBy as EventAuditUserLoggedIn;
+
+  if (createdByUser?.id === context.userId && review !== "Comment") {
+    throw Error("cannot submit a review for your self");
+  }
+  // dont allow review unless you are adding a comment
+  if (
+    !(
+      revision.status === "changes-requested" ||
+      revision.status === "pending-review" ||
+      revision.status === "approved"
+    ) &&
+    review !== "Comment"
+  ) {
+    throw new Error("Can only review if review is requested");
+  }
+  await submitReviewAndComments(
+    revision,
+    res.locals.eventAudit,
+    review,
+    comment
+  );
+  res.status(200).json({
+    status: 200,
+  });
+}
 
 export async function postFeaturePublish(
   req: AuthRequest<
     {
       comment: string;
       mergeResultSerialized: string;
+      adminOverride?: boolean;
     },
     { id: string; version: string }
   >,
@@ -533,7 +629,7 @@ export async function postFeaturePublish(
 ) {
   const context = getContextFromReq(req);
   const { org, environments } = context;
-  const { comment, mergeResultSerialized } = req.body;
+  const { comment, mergeResultSerialized, adminOverride } = req.body;
   const { id, version } = req.params;
   const feature = await getFeature(context, id);
 
@@ -543,10 +639,29 @@ export async function postFeaturePublish(
   req.checkPermissions("manageFeatures", feature.project);
 
   const revision = await getRevision(org.id, feature.id, parseInt(version));
+  const reviewStatuses = [
+    "pending-review",
+    "changes-requested",
+    "draft",
+    "approved",
+  ];
+  if (adminOverride && org.settings?.requireReviews) {
+    req.checkPermissions("bypassApprovalChecks", feature.project);
+  }
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
-  if (revision.status !== "draft") {
+  if (
+    !adminOverride &&
+    org.settings?.requireReviews &&
+    revision.status !== "approved"
+  ) {
+    throw new Error("needs review before publishing");
+  }
+  if (
+    !org.settings?.requireReviews &&
+    !reviewStatuses.includes(revision.status)
+  ) {
     throw new Error("Can only publish Draft revisions");
   }
 
@@ -731,6 +846,7 @@ export async function postFeatureFork(
     baseVersion: revision.version,
     changes: revision,
     environments,
+    requiresReview: !!org.settings?.requireReviews,
   });
   await updateFeature(context, feature, {
     hasDrafts: true,
@@ -761,8 +877,8 @@ export async function postFeatureDiscard(
     throw new Error("Could not find feature revision");
   }
 
-  if (revision.status !== "draft") {
-    throw new Error("Can only discard draft revisions");
+  if (revision.status === "published" || revision.status === "discarded") {
+    throw new Error(`Can not discard ${revision.status} revisions`);
   }
 
   req.checkPermissions("manageFeatures", feature.project);
@@ -771,9 +887,10 @@ export async function postFeatureDiscard(
   await discardRevision(revision, res.locals.eventAudit);
 
   const hasDrafts = await hasDraft(org.id, feature, [revision.version]);
+
   if (!hasDrafts) {
     await updateFeature(context, feature, {
-      hasDrafts: false,
+      hasDrafts,
     });
   }
 
@@ -825,6 +942,123 @@ export async function postFeatureRule(
   res.status(200).json({
     status: 200,
     version: revision.version,
+  });
+}
+
+export async function postFeatureSync(
+  req: AuthRequest<
+    Omit<
+      FeatureInterface,
+      "organization" | "version" | "dateCreated" | "dateUpdated"
+    >,
+    { id: string }
+  >,
+  res: Response<
+    { status: 200; feature: FeatureInterface },
+    EventAuditUserForResponseLocals
+  >
+) {
+  const context = getContextFromReq(req);
+  const { environments } = context;
+  const { id } = req.params;
+
+  const feature = await getFeature(context, id);
+  // If this is a new feature, create it
+  if (!feature) {
+    await postFeatures(req, res);
+    return;
+  }
+
+  if (!environments.length) {
+    throw new Error(
+      "Must have at least one environment configured to use Feature Flags"
+    );
+  }
+
+  const data = req.body;
+
+  req.checkPermissions("manageFeatures", feature.project);
+
+  req.checkPermissions(
+    "publishFeatures",
+    feature.project,
+    getEnabledEnvironments(feature, environments)
+  );
+
+  if (data.valueType && data.valueType !== feature.valueType) {
+    throw new Error(
+      "Cannot change valueType of feature after it's already been created."
+    );
+  }
+
+  const updates: Partial<FeatureInterface> = {
+    defaultValue: data.defaultValue ?? feature.defaultValue,
+    description: data.description ?? feature.description,
+    owner: data.owner ?? feature.owner,
+    tags: data.tags ?? feature.tags,
+  };
+  const changes: Pick<FeatureRevisionInterface, "rules" | "defaultValue"> = {
+    rules: {},
+    defaultValue: data.defaultValue ?? feature.defaultValue,
+  };
+
+  let needsNewRevision = !isEqual(feature.defaultValue, updates.defaultValue);
+
+  environments.forEach((env) => {
+    // Revision Changes
+    changes.rules[env] =
+      data.environmentSettings?.[env]?.rules ??
+      feature.environmentSettings?.[env]?.rules ??
+      [];
+
+    // Feature updates
+    updates.environmentSettings = updates.environmentSettings || {};
+    updates.environmentSettings[env] = updates.environmentSettings[env] || {
+      enabled: feature.environmentSettings?.[env]?.enabled ?? false,
+      rules: changes.rules[env],
+    };
+
+    if (
+      data.environmentSettings?.[env] &&
+      !isEqual(
+        data.environmentSettings[env].rules || [],
+        feature.environmentSettings?.[env]?.rules || []
+      )
+    ) {
+      needsNewRevision = true;
+    }
+  });
+
+  if (needsNewRevision) {
+    const revision = await createRevision({
+      feature,
+      user: res.locals.eventAudit,
+      baseVersion: feature.version,
+      publish: true,
+      changes,
+      environments,
+      comment: `Sync Feature`,
+    });
+
+    updates.version = revision.version;
+  }
+
+  const updatedFeature = await updateFeature(context, feature, updates);
+
+  await req.audit({
+    event: "feature.update",
+    entity: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: auditDetailsUpdate(feature, updatedFeature, {
+      revision: updatedFeature.version,
+    }),
+  });
+
+  res.status(200).json({
+    status: 200,
+    feature: updatedFeature,
   });
 }
 
@@ -968,7 +1202,14 @@ async function getDraftRevision(
   if (!revision) {
     throw new Error("Cannot find revision");
   }
-  if (revision.status !== "draft") {
+  if (
+    !(
+      revision.status === "draft" ||
+      revision.status === "pending-review" ||
+      revision.status === "changes-requested" ||
+      revision.status === "approved"
+    )
+  ) {
     throw new Error("Can only make changes to draft revisions");
   }
 
@@ -1209,6 +1450,22 @@ export async function postFeatureMoveRule(
   res.status(200).json({
     status: 200,
     version: revision.version,
+  });
+}
+export async function getDraftandReviewRevisions(
+  req: AuthRequest,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const revisions = await getRevisionsByStatus(context, [
+    "draft",
+    "approved",
+    "changes-requested",
+    "pending-review",
+  ]);
+  res.status(200).json({
+    status: 200,
+    revisions,
   });
 }
 

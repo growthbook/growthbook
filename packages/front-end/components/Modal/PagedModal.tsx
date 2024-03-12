@@ -8,8 +8,8 @@ import {
   ReactNode,
 } from "react";
 import { MdCheck } from "react-icons/md";
-import Modal from "../Modal";
-import { DocSection } from "../DocLink";
+import Modal from "@/components/Modal";
+import { DocSection } from "@/components/DocLink";
 
 type Props = {
   header: string;
