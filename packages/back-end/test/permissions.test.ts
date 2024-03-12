@@ -1,4 +1,8 @@
-import { getReadAccessFilter, hasReadAccess } from "shared/permissions";
+import {
+  getReadAccessFilter,
+  hasReadAccess,
+  permissionsUtil as permissionsUtility,
+} from "shared/permissions";
 import {
   getUserPermissions,
   roleToPermissionMap,
@@ -1805,5 +1809,213 @@ describe("hasReadAccess filter", () => {
         projects: [],
       },
     ]);
+  });
+});
+
+describe("permissionsUtil.canCreateMetrics check", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("canCreateMetrics should handle undefined projects correctly for engineer user", async () => {
+    const permissionsUtil = new permissionsUtility(
+      {
+        global: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissionsUtil.canCreateMetrics({})).toEqual(false);
+  });
+
+  it("canCreateMetrics should handle undefined projects correctly for experimenter user", async () => {
+    const permissionsUtil = new permissionsUtility(
+      {
+        global: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissionsUtil.canCreateMetrics({})).toEqual(true);
+  });
+
+  it("canCreateMetrics should handle empty projects array correctly for noaccess user", async () => {
+    const permissionsUtil = new permissionsUtility(
+      {
+        global: {
+          permissions: roleToPermissionMap("noaccess", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissionsUtil.canCreateMetrics({ projects: [] })).toEqual(false);
+  });
+
+  it("canCreateMetrics should handle empty projects array correctly for experimenter user", async () => {
+    const permissionsUtil = new permissionsUtility(
+      {
+        global: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissionsUtil.canCreateMetrics({ projects: [] })).toEqual(true);
+  });
+
+  it("canCreateMetrics should handle valid projects array correctly for noaccess user", async () => {
+    const permissionsUtil = new permissionsUtility(
+      {
+        global: {
+          permissions: roleToPermissionMap("noaccess", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissionsUtil.canCreateMetrics({ projects: ["abc123"] })).toEqual(
+      false
+    );
+  });
+
+  it("canCreateMetrics should handle valid projects array correctly for experimenter user", async () => {
+    const permissionsUtil = new permissionsUtility(
+      {
+        global: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissionsUtil.canCreateMetrics({ projects: ["abc123"] })).toEqual(
+      true
+    );
+  });
+
+  it("canCreateMetrics should handle valid projects array correctly for experimenter user with project-level readonly role", async () => {
+    const permissionsUtil = new permissionsUtility(
+      {
+        global: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("readonly", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(permissionsUtil.canCreateMetrics({ projects: ["abc123"] })).toEqual(
+      false
+    );
+  });
+
+  it("canCreateMetrics should handle valid projects array correctly for readonly user with project-level experimenter role in only 1 of the two projects", async () => {
+    const permissionsUtil = new permissionsUtility(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("experimenter", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(
+      // its false since the user doesn't have permission in all projects
+      permissionsUtil.canCreateMetrics({ projects: ["abc123", "def456"] })
+    ).toEqual(false);
+  });
+
+  it("canCreateMetrics should handle valid projects array correctly for readonly user with project-level experimenter and analyst roles", async () => {
+    const permissionsUtil = new permissionsUtility(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("experimenter", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+          def456: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(
+      // its true since the user DOES have permission in all projects
+      permissionsUtil.canCreateMetrics({ projects: ["abc123", "def456"] })
+    ).toEqual(true);
   });
 });

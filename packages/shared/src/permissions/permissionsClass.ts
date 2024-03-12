@@ -11,7 +11,7 @@ export type PermissionsUtil = {
   canCreateMetrics: (metric: Pick<MetricInterface, "projects">) => boolean;
   throwPermissionError: (permission: Permission) => void;
 };
-export class permissionsClass {
+export class permissionsUtil {
   private userPermissions: UserPermissions;
   private superAdmin: boolean;
   constructor(permissions: UserPermissions, superAdmin: boolean) {
@@ -44,13 +44,9 @@ export class permissionsClass {
     }
 
     const usersPermissionsToCheck =
-      (project && this.userPermissions.projects[project]) ||
-      this.userPermissions.global;
+      this.userPermissions.projects[project] || this.userPermissions.global;
 
-    if (
-      !usersPermissionsToCheck ||
-      !usersPermissionsToCheck.permissions[permissionToCheck]
-    ) {
+    if (!usersPermissionsToCheck.permissions[permissionToCheck]) {
       return false;
     }
 

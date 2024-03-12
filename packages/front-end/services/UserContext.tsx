@@ -33,7 +33,7 @@ import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import {
   PermissionsUtil,
-  permissionsClass,
+  permissionsUtil as permissionsUtility,
   userHasPermission,
 } from "shared/permissions";
 import { isCloud, isMultiOrg, isSentryEnabled } from "@/services/env";
@@ -152,7 +152,7 @@ export const UserContext = createContext<UserContextValue>({
   seatsInUse: 0,
   teams: [],
   hasCommercialFeature: () => false,
-  permissionsUtil: new permissionsClass(
+  permissionsUtil: new permissionsUtility(
     {
       global: {
         permissions: {},
@@ -371,7 +371,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     permissionsCheck,
   ]);
 
-  const permissionsUtil = new permissionsClass(
+  const permissionsUtil = new permissionsUtility(
     currentOrg?.currentUserPermissions || {
       global: {
         permissions: {},
