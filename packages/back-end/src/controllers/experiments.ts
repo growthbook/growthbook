@@ -2221,8 +2221,7 @@ async function _validateRedirect(
 
   const existingRedirects = visualChangesets.reduce((filtered, exp) => {
     if (
-      exp.visualChangeset.urlRedirects?.length &&
-      exp.visualChangeset.urlPatterns.length &&
+      exp.visualChangeset.changeType === "urlRedirect" &&
       exp.visualChangeset.id !== visualChangesetId
     ) {
       filtered.push(exp.visualChangeset);
