@@ -57,15 +57,6 @@ export const ALL_PERMISSIONS = [
 
 export const READ_ONLY_PERMISSIONS = ["readData", "viewEvents", "runQueries"];
 
-export function eslintTest() {
-  return {
-    success: true,
-    throwIfError: () => {
-      throw new Error("This is a test");
-    },
-  };
-}
-
 export function hasPermission(
   userPermissions: UserPermissions | undefined,
   permissionToCheck: Permission,

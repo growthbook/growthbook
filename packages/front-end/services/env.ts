@@ -66,7 +66,6 @@ export function inTelemetryDebugMode(): boolean {
 export function hasFileConfig() {
   return env.config === "file";
 }
-
 export function envAllowsCreatingMetrics() {
   return env.allowCreateMetrics;
 }
