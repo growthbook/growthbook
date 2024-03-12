@@ -1,4 +1,4 @@
-import type { ReadAccessFilter } from "shared/permissions";
+import type { PermissionsUtil, ReadAccessFilter } from "shared/permissions";
 import type pino from "pino";
 import type { Request } from "express";
 import type { EventAuditUser } from "../src/events/event-types";
@@ -6,7 +6,6 @@ import { MemberRole, OrganizationInterface } from "./organization";
 import { TeamInterface } from "./team";
 import { AuditInterface } from "./audit";
 import { ProjectInterface } from "./project";
-import { MetricInterface } from "./metric";
 
 export interface ReqContextInterface {
   org: OrganizationInterface;
@@ -23,10 +22,7 @@ export interface ReqContextInterface {
   apiKey?: string;
   req?: Request;
   logger: pino.BaseLogger;
-  permissions: {
-    canCreateMetrics: (metric: Pick<MetricInterface, "projects">) => boolean;
-    throwPermissionError: (message?: string) => void;
-  };
+  permissions: PermissionsUtil;
 
   auditLog(
     data: Omit<AuditInterface, "user" | "id" | "organization" | "dateCreated">

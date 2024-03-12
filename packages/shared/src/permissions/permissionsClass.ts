@@ -6,6 +6,11 @@ class PermissionError extends Error {
     this.name = "PermissionError";
   }
 }
+
+export type PermissionsUtil = {
+  canCreateMetrics: (metric: Pick<MetricInterface, "projects">) => boolean;
+  throwPermissionError: (message?: string) => void;
+};
 export class permissionsClass {
   private userPermissions: UserPermissions;
   private superAdmin: boolean;

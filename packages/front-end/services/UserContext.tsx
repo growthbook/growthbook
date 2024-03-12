@@ -31,8 +31,11 @@ import {
 } from "react";
 import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
-import { permissionsClass, userHasPermission } from "shared/permissions";
-import { MetricInterface } from "@back-end/types/metric";
+import {
+  PermissionsUtil,
+  permissionsClass,
+  userHasPermission,
+} from "shared/permissions";
 import { isCloud, isMultiOrg, isSentryEnabled } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
@@ -116,10 +119,7 @@ export interface UserContextValue {
   teams?: Team[];
   error?: string;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
-  permissionsUtil: {
-    canCreateMetrics: (metric: Pick<MetricInterface, "projects">) => boolean;
-    throwPermissionError: (message?: string) => void;
-  };
+  permissionsUtil: PermissionsUtil;
 }
 
 interface UserResponse {
