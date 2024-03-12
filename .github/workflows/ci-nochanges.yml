@@ -1,13 +1,5 @@
 name: CI
 on:
-  push:
-    branches: main
-    paths-ignore:
-      - "packages/**"
-      - "yarn.lock"
-      - ".eslintrc"
-      - ".eslintignore"
-      - ".prettierignore"
   pull_request:
     paths-ignore:
       - "packages/**"

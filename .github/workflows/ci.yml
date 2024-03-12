@@ -4,10 +4,10 @@ on:
     branches: main
     paths:
       - "packages/**"
+      - "!**.md"
       - "yarn.lock"
-      - ".eslintrc"
-      - ".eslintignore"
-      - ".prettierignore"
+      - "Dockerfile"
+      - ".dockerignore"
   pull_request:
     paths:
       - "packages/**"

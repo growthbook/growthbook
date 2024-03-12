@@ -1,16 +1,12 @@
 name: Deploy
 
 on:
-  # Push to the main branch
-  push:
-    branches:
-      - main
-    paths:
-      - "packages/**"
-      - "!**.md"
-      - "yarn.lock"
-      - "Dockerfile"
-      - ".dockerignore"
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types:
+      - completed
+
 jobs:
   # Build and publish the commit to docker
   docker:
