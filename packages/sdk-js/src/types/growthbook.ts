@@ -165,7 +165,6 @@ export type TrackingCallback = (
 
 export type RenderFunction = () => void;
 
-
 export interface Context {
   enabled?: boolean;
   attributes?: Attributes;
