@@ -29,7 +29,10 @@ export const postBulkImportFacts = createApiRequestHandler(
   postBulkImportFactsValidator
 )(
   async (req): Promise<PostBulkImportFactsResponse> => {
-    const { canCreateMetrics, throwPermissionError } = req.context.permissions;
+    const {
+      canCreateMetrics,
+      throwPermissionError,
+    } = req.context.permissionsUtil;
     const numCreated = {
       factTables: 0,
       factTableFilters: 0,

@@ -5,7 +5,10 @@ import { DeleteMetricResponse } from "../../../types/openapi";
 
 export const deleteMetricHandler = createApiRequestHandler(getMetricValidator)(
   async (req): Promise<DeleteMetricResponse> => {
-    const { canCreateMetrics, throwPermissionError } = req.context.permissions;
+    const {
+      canCreateMetrics,
+      throwPermissionError,
+    } = req.context.permissionsUtil;
     const metric = await getMetricById(req.context, req.params.id, false);
 
     if (!metric) {

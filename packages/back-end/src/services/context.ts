@@ -1,4 +1,5 @@
 import {
+  PermissionsUtil,
   ReadAccessFilter,
   getReadAccessFilter,
   permissionsClass,
@@ -24,7 +25,6 @@ import { AuditInterface } from "../../types/audit";
 import { insertAudit } from "../models/AuditModel";
 import { logger } from "../util/logger";
 import { ReqContextInterface } from "../../types/context";
-import { MetricInterface } from "../../types/metric";
 import { getEnvironmentIdsFromOrg } from "./organizations";
 
 export class ReqContextClass implements ReqContextInterface {
@@ -42,10 +42,7 @@ export class ReqContextClass implements ReqContextInterface {
   public apiKey?: string;
   public req?: Request;
   public logger: pino.BaseLogger;
-  public permissions: {
-    canCreateMetrics: (metric: Pick<MetricInterface, "projects">) => boolean;
-    throwPermissionError: (message?: string) => void;
-  };
+  public permissionsUtil: PermissionsUtil;
 
   protected userPermissions: UserPermissions;
 
@@ -113,7 +110,7 @@ export class ReqContextClass implements ReqContextInterface {
     }
     this.readAccessFilter = getReadAccessFilter(this.userPermissions);
 
-    this.permissions = new permissionsClass(
+    this.permissionsUtil = new permissionsClass(
       this.userPermissions,
       this.superAdmin
     );

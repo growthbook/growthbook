@@ -9,7 +9,10 @@ import {
 
 export const putMetric = createApiRequestHandler(putMetricValidator)(
   async (req): Promise<PutMetricResponse> => {
-    const { canCreateMetrics, throwPermissionError } = req.context.permissions;
+    const {
+      canCreateMetrics,
+      throwPermissionError,
+    } = req.context.permissionsUtil;
     const metric = await getMetricById(req.context, req.params.id);
 
     if (!metric) {
