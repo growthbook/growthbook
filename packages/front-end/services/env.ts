@@ -66,8 +66,8 @@ export function inTelemetryDebugMode(): boolean {
 export function hasFileConfig() {
   return env.config === "file";
 }
-//MKTODO: Research this
-export function canCreateMetrics() {
+
+export function envAllowsCreatingMetrics() {
   return env.allowCreateMetrics;
 }
 export function getDefaultConversionWindowHours() {

@@ -65,12 +65,16 @@ export async function postSampleData(
   >
 ) {
   const context = getContextFromReq(req);
-  const { org, userId } = context;
+  const { org, userId, permissions } = context;
   const orgId = org.id;
   const statsEngine = org.settings?.statsEngine || DEFAULT_STATS_ENGINE;
 
   req.checkPermissions("createAnalyses", "");
-  context.permissions.canCreateMetrics({}).throwIfError();
+
+  if (!permissions.canCreateMetrics({})) {
+    permissions.throwPermissionError();
+  }
+
   const existingMetrics = await getSampleMetrics(context);
 
   let metric1 = existingMetrics.filter((m) => m.type === "binomial")[0];

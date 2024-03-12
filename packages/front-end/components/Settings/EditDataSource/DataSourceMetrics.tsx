@@ -6,18 +6,17 @@ import { ago, datetime } from "shared/dates";
 import clsx from "clsx";
 import { getMetricLink } from "shared/experiments";
 import { DocLink } from "@/components/DocLink";
-import { canCreateMetrics } from "@/services/env";
+import { envAllowsCreatingMetrics } from "@/services/env";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricForm from "@/components/Metrics/MetricForm";
-import { checkMetricProjectPermissions } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
-import usePermissions from "@/hooks/usePermissions";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { DataSourceQueryEditingModalBaseProps } from "./types";
 
 type DataSourceMetricsProps = Omit<
@@ -29,7 +28,7 @@ export default function DataSourceMetrics({
   dataSource,
   canEdit,
 }: DataSourceMetricsProps) {
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const [
     showAutoGenerateMetricsModal,
     setShowAutoGenerateMetricsModal,
@@ -51,10 +50,7 @@ export default function DataSourceMetrics({
 
   const editMetricsPermissions: { [id: string]: boolean } = {};
   metrics?.forEach((m) => {
-    editMetricsPermissions[m.id] = checkMetricProjectPermissions(
-      m,
-      permissions
-    );
+    editMetricsPermissions[m.id] = permissionsUtil.canCreateMetrics(m);
   });
 
   return (
@@ -93,7 +89,7 @@ export default function DataSourceMetrics({
           </p>
         </div>
         <div className="d-flex flex-row pl-3">
-          {canEdit && canCreateMetrics() ? (
+          {canEdit && envAllowsCreatingMetrics() ? (
             <>
               <AutoGenerateMetricsButton
                 setShowAutoGenerateMetricsModal={

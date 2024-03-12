@@ -21,7 +21,7 @@ import MetricForm from "@/components/Metrics/MetricForm";
 import Toggle from "@/components/Forms/Toggle";
 import { DocLink } from "@/components/DocLink";
 import { useUser } from "@/services/UserContext";
-import { canCreateMetrics } from "@/services/env";
+import { envAllowsCreatingMetrics } from "@/services/env";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
@@ -168,9 +168,7 @@ const MetricsPage = (): React.ReactElement => {
   );
   const editMetricsPermissions: { [id: string]: boolean } = {};
   filteredMetrics.forEach((m) => {
-    editMetricsPermissions[m.id] = permissionsUtil.canCreateMetrics(
-      m
-    ).hasPermission;
+    editMetricsPermissions[m.id] = permissionsUtil.canCreateMetrics(m);
   });
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: filteredMetrics,
@@ -239,7 +237,7 @@ const MetricsPage = (): React.ReactElement => {
           </li>
         </ul>
         {permissionsUtil.canCreateMetrics({ projects: [project] }) &&
-          canCreateMetrics() && (
+          envAllowsCreatingMetrics() && (
             <>
               <AutoGenerateMetricsButton
                 setShowAutoGenerateMetricsModal={
@@ -267,8 +265,6 @@ const MetricsPage = (): React.ReactElement => {
   }
 
   const hasArchivedMetrics = filteredMetrics.some((m) => m.archived);
-
-  console.log("project: ", project);
 
   return (
     <div className="container-fluid py-3 p-3 pagecontents">
@@ -303,9 +299,8 @@ const MetricsPage = (): React.ReactElement => {
           </DocLink>
         </div>
         <div style={{ flex: 1 }} />
-        {permissionsUtil.canCreateMetrics({ projects: [project] })
-          .hasPermission &&
-          canCreateMetrics() && (
+        {permissionsUtil.canCreateMetrics({ projects: [project] }) &&
+          envAllowsCreatingMetrics() && (
             <div className="col-auto">
               <AutoGenerateMetricsButton
                 setShowAutoGenerateMetricsModal={
@@ -384,8 +379,8 @@ const MetricsPage = (): React.ReactElement => {
             if (
               metric.onDuplicate &&
               editMetricsPermissions[metric.id] &&
-              permissionsUtil.canCreateMetrics(metric).hasPermission &&
-              canCreateMetrics()
+              permissionsUtil.canCreateMetrics(metric) &&
+              envAllowsCreatingMetrics()
             ) {
               moreMenuLinks.push(
                 <button

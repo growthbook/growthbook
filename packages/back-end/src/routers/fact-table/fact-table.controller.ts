@@ -337,7 +337,9 @@ export const postFactMetric = async (
   const data = req.body;
   const context = getContextFromReq(req);
 
-  context.permissions.canCreateMetrics(data).throwIfError();
+  if (!context.permissions.canCreateMetrics(data)) {
+    context.permissions.throwPermissionError();
+  }
 
   const factMetric = await createFactMetric(context, data);
 
@@ -364,9 +366,11 @@ export const putFactMetric = async (
   }
 
   // Check permissions for both the existing projects and new ones (if they are being changed)
-  context.permissions.canCreateMetrics(factMetric).throwIfError();
-  if (data.projects) {
-    context.permissions.canCreateMetrics(data).throwIfError();
+  if (!context.permissions.canCreateMetrics(factMetric)) {
+    context.permissions.throwPermissionError();
+  }
+  if (data.projects && !context.permissions.canCreateMetrics(data)) {
+    context.permissions.throwPermissionError();
   }
 
   await updateFactMetric(context, factMetric, data);
@@ -388,7 +392,10 @@ export const deleteFactMetric = async (
   if (!factMetric) {
     throw new Error("Could not find fact metric with that id");
   }
-  context.permissions.canCreateMetrics(factMetric).throwIfError();
+
+  if (!context.permissions.canCreateMetrics(factMetric)) {
+    context.permissions.throwPermissionError();
+  }
 
   await deleteFactMetricInDb(context, factMetric);
 

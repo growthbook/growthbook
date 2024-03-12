@@ -31,11 +31,7 @@ import {
 } from "react";
 import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
-import {
-  PermissionResult,
-  permissionsClass,
-  userHasPermission,
-} from "shared/permissions";
+import { permissionsClass, userHasPermission } from "shared/permissions";
 import { MetricInterface } from "@back-end/types/metric";
 import { isCloud, isMultiOrg, isSentryEnabled } from "@/services/env";
 import useApi from "@/hooks/useApi";
@@ -121,9 +117,8 @@ export interface UserContextValue {
   error?: string;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
   permissionsUtil: {
-    canCreateMetrics: (
-      metric: Pick<MetricInterface, "projects">
-    ) => PermissionResult;
+    canCreateMetrics: (metric: Pick<MetricInterface, "projects">) => boolean;
+    throwPermissionError: (message?: string) => void;
   };
 }
 
@@ -194,8 +189,6 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     data: currentOrg,
     mutate: refreshOrganization,
   } = useApi<OrgSettingsResponse>(isAuthenticated ? `/organization` : null);
-
-  console.log("currentOrg", currentOrg);
 
   const [hashedOrganizationId, setHashedOrganizationId] = useState<string>("");
   useEffect(() => {

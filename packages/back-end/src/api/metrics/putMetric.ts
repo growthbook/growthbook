@@ -9,13 +9,16 @@ import {
 
 export const putMetric = createApiRequestHandler(putMetricValidator)(
   async (req): Promise<PutMetricResponse> => {
+    const { canCreateMetrics, throwPermissionError } = req.context.permissions;
     const metric = await getMetricById(req.context, req.params.id);
 
     if (!metric) {
       throw new Error("Metric not found");
     }
 
-    req.context.permissions.canCreateMetrics(metric).throwIfError();
+    if (!canCreateMetrics(metric)) {
+      throwPermissionError();
+    }
 
     const validationResult = putMetricApiPayloadIsValid(req.body);
 

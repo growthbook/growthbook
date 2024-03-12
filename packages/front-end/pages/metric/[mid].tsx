@@ -31,7 +31,6 @@ import { useAuth } from "@/services/auth";
 import {
   defaultWinRiskThreshold,
   defaultLoseRiskThreshold,
-  checkMetricProjectPermissions,
   getMetricFormatter,
 } from "@/services/metrics";
 import MetricForm from "@/components/Metrics/MetricForm";
@@ -53,7 +52,6 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import PickSegmentModal from "@/components/Segments/PickSegmentModal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/components/Button";
-import usePermissions from "@/hooks/usePermissions";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
@@ -69,10 +67,13 @@ import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import usePermissions from "@/hooks/usePermissions";
 
 const MetricPage: FC = () => {
   const router = useRouter();
   const { mid } = router.query;
+  const permissionsUtil = usePermissionsUtil();
   const permissions = usePermissions();
   const displayCurrency = useCurrency();
   const { apiCall } = useAuth();
@@ -138,9 +139,7 @@ const MetricPage: FC = () => {
 
   const metric = data.metric;
   const canEditMetric =
-    checkMetricProjectPermissions(metric, permissions) && !metric.managedBy;
-  const canEditProjects =
-    permissions.check("createMetrics", "") && !metric.managedBy;
+    permissionsUtil.canCreateMetrics(metric) && !metric.managedBy;
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
@@ -459,7 +458,7 @@ const MetricPage: FC = () => {
               className="badge-ellipsis align-middle"
             />
           )}
-          {canEditProjects && (
+          {canEditMetric && (
             <a
               href="#"
               className="ml-2"
@@ -963,7 +962,7 @@ const MetricPage: FC = () => {
             <RightRailSection
               title="Projects"
               open={() => setEditProjects(true)}
-              canOpen={canEditProjects}
+              canOpen={canEditMetric}
             >
               <RightRailSectionGroup>
                 {metric?.projects?.length ? (

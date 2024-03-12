@@ -10,7 +10,6 @@ import { GBCuped, GBEdit } from "@/components/Icons";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import PageHead from "@/components/Layout/PageHead";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
@@ -29,6 +28,7 @@ import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -162,7 +162,7 @@ export default function FactMetricPage() {
 
   const { apiCall } = useAuth();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const settings = useOrgSettings();
 
@@ -195,8 +195,7 @@ export default function FactMetricPage() {
   }
 
   const canEdit =
-    !factMetric.managedBy &&
-    permissions.check("createMetrics", factMetric.projects || "");
+    !factMetric.managedBy && permissionsUtil.canCreateMetrics(factMetric);
 
   let regressionAdjustmentAvailableForMetric = true;
   let regressionAdjustmentAvailableForMetricReason = <></>;

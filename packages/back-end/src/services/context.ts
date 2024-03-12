@@ -1,5 +1,4 @@
 import {
-  PermissionResult,
   ReadAccessFilter,
   getReadAccessFilter,
   permissionsClass,
@@ -44,9 +43,8 @@ export class ReqContextClass implements ReqContextInterface {
   public req?: Request;
   public logger: pino.BaseLogger;
   public permissions: {
-    canCreateMetrics: (
-      metric: Pick<MetricInterface, "projects">
-    ) => PermissionResult;
+    canCreateMetrics: (metric: Pick<MetricInterface, "projects">) => boolean;
+    throwPermissionError: (message?: string) => void;
   };
 
   protected userPermissions: UserPermissions;

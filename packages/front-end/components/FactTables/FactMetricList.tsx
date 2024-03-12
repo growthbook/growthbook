@@ -8,13 +8,13 @@ import { FaAngleRight, FaExternalLinkAlt } from "react-icons/fa";
 import { date } from "shared/dates";
 import { useRouter } from "next/router";
 import { useSearch } from "@/services/search";
-import usePermissions from "@/hooks/usePermissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBAddCircle } from "@/components/Icons";
 import SortedTags from "@/components/Tags/SortedTags";
 import MetricName from "@/components/Metrics/MetricName";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import FactMetricModal from "./FactMetricModal";
 
 export interface Props {
@@ -40,7 +40,7 @@ export default function FactMetricList({ factTable }: Props) {
 
   const { factMetrics } = useDefinitions();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const metrics = getMetricsForFactTable(factMetrics, factTable.id);
 
@@ -51,7 +51,7 @@ export default function FactMetricList({ factTable }: Props) {
     searchFields: ["name^3", "description"],
   });
 
-  const canEdit = permissions.check("createMetrics", factTable.projects || "");
+  const canEdit = permissionsUtil.canCreateMetrics(factTable);
 
   return (
     <>

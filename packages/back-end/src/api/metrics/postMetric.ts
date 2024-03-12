@@ -12,6 +12,7 @@ import { getDataSourceById } from "../../models/DataSourceModel";
 export const postMetric = createApiRequestHandler(postMetricValidator)(
   async (req): Promise<PostMetricResponse> => {
     const { datasourceId } = req.body;
+    const { canCreateMetrics, throwPermissionError } = req.context.permissions;
 
     const datasource = await getDataSourceById(req.context, datasourceId);
     if (!datasource) {
@@ -29,7 +30,9 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(
       datasource
     );
 
-    req.context.permissions.canCreateMetrics(metric).throwIfError();
+    if (!canCreateMetrics(metric)) {
+      throwPermissionError();
+    }
 
     const createdMetric = await createMetric(metric);
 
