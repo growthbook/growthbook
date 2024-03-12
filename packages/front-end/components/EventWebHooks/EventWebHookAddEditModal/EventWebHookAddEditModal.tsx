@@ -11,6 +11,7 @@ import Toggle from "@/components/Forms/Toggle";
 import {
   eventWebHookMethods,
   EventWebHookMethod,
+  eventWebHookPayloadTypes,
   EventWebHookPayloadType,
   EventWebHookEditParams,
   eventWebHookEventOptions,

@@ -365,6 +365,7 @@ export default function ConfigureReport({
         userIdType={report.args.userIdType}
         labelClassName="font-weight-bold"
         showHelp={true}
+        newUi={false}
       />
       <MetricSelector
         datasource={form.watch("datasource")}
