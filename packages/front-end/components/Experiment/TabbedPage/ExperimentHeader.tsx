@@ -137,7 +137,7 @@ export default function ExperimentHeader({
     }
   }
   const canRunExperiment = canEditExperiment && hasRunExperimentsPermission;
-  const hasVerifiedConnection =
+  const checklistIncomplete =
     checklistItemsRemaining !== null && checklistItemsRemaining > 0;
 
   const isUsingHealthUnsupportDatasource =
@@ -178,7 +178,7 @@ export default function ExperimentHeader({
             open={true}
             size="md"
             closeCta={
-              hasVerifiedConnection ? (
+              checklistIncomplete ? (
                 <button
                   className="btn btn-primary"
                   onClick={() => setShowStartExperiment(false)}
@@ -196,7 +196,7 @@ export default function ExperimentHeader({
               )
             }
             secondaryCTA={
-              hasVerifiedConnection ? (
+              checklistIncomplete ? (
                 <button
                   className="btn btn-link text-decoration-none"
                   onClick={async () => startExperiment()}
@@ -228,7 +228,7 @@ export default function ExperimentHeader({
             header="Start Experiment"
           >
             <div className="p-2">
-              {hasVerifiedConnection ? (
+              {checklistIncomplete ? (
                 <div className="alert alert-warning">
                   You have{" "}
                   <strong>
