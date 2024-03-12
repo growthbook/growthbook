@@ -36,4 +36,5 @@ export interface VisualChangesetInterface {
   visualChanges: VisualChange[];
   urlRedirects?: URLRedirect[];
   persistQueryString?: boolean;
+  changeType?: "visualEditor" | "urlRedirect";
 }

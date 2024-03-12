@@ -1162,6 +1162,8 @@ export interface components {
           variation: string;
         })[];
       persistQueryString?: boolean;
+      /** @enum {string} */
+      changeType?: "visualEditor" | "urlRedirect";
     };
     VisualChange: {
       description?: string;
@@ -4304,6 +4306,8 @@ export interface operations {
                     variation: string;
                   })[];
                 persistQueryString?: boolean;
+                /** @enum {string} */
+                changeType?: "visualEditor" | "urlRedirect";
               })[];
           };
         };
@@ -4356,6 +4360,8 @@ export interface operations {
                   variation: string;
                 })[];
               persistQueryString?: boolean;
+              /** @enum {string} */
+              changeType?: "visualEditor" | "urlRedirect";
             };
             experiment?: {
               id: string;
@@ -4510,6 +4516,8 @@ export interface operations {
                   variation: string;
                 })[];
               persistQueryString?: boolean;
+              /** @enum {string} */
+              changeType?: "visualEditor" | "urlRedirect";
             };
           };
         };

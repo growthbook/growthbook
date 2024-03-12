@@ -110,6 +110,11 @@ const visualChangesetSchema = new mongoose.Schema<VisualChangesetInterface>({
     },
   ],
   persistQueryString: Boolean,
+  changeType: {
+    type: String,
+    enum: ["visualEditor", "urlRedirect"],
+    required: true,
+  },
 });
 
 export type VisualChangesetDocument = mongoose.Document &
@@ -147,6 +152,7 @@ export function toVisualChangesetApiInterface(
       variation: r.variation,
     })),
     persistQueryString: visualChangeset.persistQueryString,
+    changeType: visualChangeset.changeType,
   };
 }
 
@@ -287,9 +293,10 @@ export const createVisualChangeset = async ({
       urlPatterns,
       editorUrl,
       visualChanges:
-        visualChanges || !urlRedirects
+        visualChanges ||
+        (!urlRedirects
           ? experiment.variations.map(genNewVisualChange)
-          : undefined,
+          : undefined),
       urlRedirects,
       persistQueryString,
     })

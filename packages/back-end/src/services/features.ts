@@ -141,15 +141,12 @@ export function generateVisualExperimentsPayload({
   );
 
   const urlRedirectExperiments = newVisualExperiments.filter(
-    (e) =>
-      e.visualChangeset.urlRedirects &&
-      e.visualChangeset.urlRedirects.length > 0
+    (e) => e.visualChangeset.changeType === "urlRedirect"
   );
 
+  // Any experiment without a changeType or where changeType is not `urlRedirect` must be a visual editor experiment
   const visualEditorExperiments = newVisualExperiments.filter(
-    (e) =>
-      !e.visualChangeset.urlRedirects ||
-      e.visualChangeset.urlRedirects.length === 0
+    (e) => e.visualChangeset.changeType !== "urlRedirect"
   );
 
   const sortedVisualExperiments = urlRedirectExperiments.concat(
@@ -185,21 +182,24 @@ export function generateVisualExperimentsPayload({
         })
         .filter(Boolean) as ParentConditionInterface[];
 
-      if (!phase || (urlRedirects?.length && !v.urlPatterns)) return null;
+      if (!phase) return null;
+      if (v.changeType === "urlRedirect" && !v.urlPatterns) return null;
+      if (v.changeType === "urlRedirect" && !urlRedirects?.length) return null;
 
       const exp: AutoExperimentWithProject = {
         key: e.trackingKey,
         status: e.status,
         project: e.project,
-        variations: urlRedirects
-          ? (urlRedirects.map((r) => ({
-              urlRedirect: r.url,
-            })) as AutoExperimentWithProject["variations"])
-          : (v.visualChanges.map((vc) => ({
-              css: vc.css,
-              js: vc.js || "",
-              domMutations: vc.domMutations,
-            })) as AutoExperimentWithProject["variations"]),
+        variations:
+          v.changeType === "urlRedirect"
+            ? (urlRedirects?.map((r) => ({
+                urlRedirect: r.url,
+              })) as AutoExperimentWithProject["variations"])
+            : (v.visualChanges.map((vc) => ({
+                css: vc.css,
+                js: vc.js || "",
+                domMutations: vc.domMutations,
+              })) as AutoExperimentWithProject["variations"]),
         hashVersion: e.hashVersion,
         hashAttribute: e.hashAttribute,
         fallbackAttribute: e.fallbackAttribute,
@@ -471,17 +471,17 @@ async function getFeatureDefinitionsResponse({
   experiments = scrubExperiments(experiments, capabilities);
 
   const includeAutoExperiments =
-    !!includeRedirectExperiments && !!includeVisualExperiments;
+    !!includeRedirectExperiments || !!includeVisualExperiments;
 
   if (includeAutoExperiments) {
     if (!includeRedirectExperiments) {
-      experiments = experiments.filter((e) =>
-        e.variations.some((v) => v.urlRedirect)
+      experiments = experiments.filter(
+        (e) => !e.variations.some((v) => v.urlRedirect)
       );
     }
     if (!includeVisualExperiments) {
-      experiments = experiments.filter(
-        (e) => !e.variations.some((v) => v.urlRedirect)
+      experiments = experiments.filter((e) =>
+        e.variations.some((v) => v.urlRedirect)
       );
     }
   }

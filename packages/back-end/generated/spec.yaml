@@ -4683,6 +4683,11 @@ components:
                 type: string
         persistQueryString:
           type: boolean
+        changeType:
+          type: string
+          enum:
+            - visualEditor
+            - urlRedirect
     VisualChange:
       type: object
       required:

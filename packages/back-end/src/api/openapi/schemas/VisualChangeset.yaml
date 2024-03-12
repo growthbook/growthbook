@@ -77,3 +77,6 @@ properties:
           type: string
   persistQueryString:
     type: boolean
+  changeType:
+    type: string
+    enum: [visualEditor, urlRedirect]

@@ -1973,9 +1973,14 @@ export function visualChangesetsHaveChanges({
   }
 
   // If there are redirect url differences
+  const { persistQueryString: oldPersistQueryString } = oldVisualChangeset;
+  const { persistQueryString: newPersistQueryString } = newVisualChangeset;
   const oldRedirects = oldVisualChangeset.urlRedirects?.map((r) => r.url);
   const newRedirects = newVisualChangeset.urlRedirects?.map((r) => r.url);
   if (!isEqual(oldRedirects, newRedirects)) {
+    return true;
+  }
+  if (oldPersistQueryString !== newPersistQueryString) {
     return true;
   }
 
