@@ -308,15 +308,13 @@ export default function ConfigureReport({
           />
         </div>
         <div className="col">
-          {form.watch("endDate") && (
-            <Field
-              label="End Date (UTC)"
-              labelClassName="font-weight-bold"
-              type="datetime-local"
-              {...form.register("endDate")}
-              helpText="Only include users who entered the experiment on or before this date"
-            />
-          )}
+          <Field
+            label="End Date (UTC)"
+            labelClassName="font-weight-bold"
+            type="datetime-local"
+            {...form.register("endDate")}
+            helpText="Only include users who entered the experiment on or before this date"
+          />
         </div>
       </div>
 
