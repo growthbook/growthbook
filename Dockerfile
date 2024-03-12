@@ -12,8 +12,19 @@ RUN \
   && poetry export -f requirements.txt --output requirements.txt
 
 # Build the nodejs app
-FROM node:${NODE_MAJOR}-slim AS nodebuild
+FROM python:${PYTHON_MAJOR}-slim AS nodebuild
+ARG NODE_MAJOR
 WORKDIR /usr/local/src/app
+RUN apt-get update && \
+  apt-get install -y wget gnupg2 && \
+  echo "deb https://deb.nodesource.com/node_$NODE_MAJOR.x buster main" > /etc/apt/sources.list.d/nodesource.list && \
+  wget -qO- https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - && \
+  echo "deb https://dl.yarnpkg.com/debian/ stable main" > /etc/apt/sources.list.d/yarn.list && \
+  wget -qO- https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - && \
+  apt-get update && \
+  apt-get install -yqq nodejs=$(apt-cache show nodejs|grep Version|grep nodesource|cut -c 10-) yarn && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/*
 # Copy over minimum files to install dependencies
 COPY package.json ./package.json
 COPY yarn.lock ./yarn.lock
