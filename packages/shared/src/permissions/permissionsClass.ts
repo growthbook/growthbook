@@ -9,7 +9,7 @@ class PermissionError extends Error {
 
 export type PermissionsUtil = {
   canCreateMetrics: (metric: Pick<MetricInterface, "projects">) => boolean;
-  throwPermissionError: (message?: string) => void;
+  throwPermissionError: (permission: Permission) => void;
 };
 export class permissionsClass {
   private userPermissions: UserPermissions;
@@ -28,7 +28,7 @@ export class permissionsClass {
     );
   }
 
-  public throwPermissionError(permission: Permission) {
+  public throwPermissionError(permission: Permission): void {
     throw new PermissionError(
       `Permission Error: This action requires "${permission}" permission. Permissions are evaluated using your global role and, when applicable, your project-level role(s).`
     );

@@ -98,7 +98,7 @@ export const updateFactMetric = createApiRequestHandler(
     }
 
     if (!canCreateMetrics(factMetric)) {
-      throwPermissionError();
+      throwPermissionError("createMetrics");
     }
 
     const updates = getUpdateFactMetricPropsFromBody(req.body, factMetric);

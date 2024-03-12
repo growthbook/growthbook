@@ -13,7 +13,7 @@ export const deleteMetricHandler = createApiRequestHandler(getMetricValidator)(
     }
 
     if (!canCreateMetrics(metric)) {
-      throwPermissionError();
+      throwPermissionError("createMetrics");
     }
 
     await deleteMetricById(req.context, metric);

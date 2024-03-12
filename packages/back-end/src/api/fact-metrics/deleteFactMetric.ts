@@ -25,7 +25,7 @@ export const deleteFactMetric = createApiRequestHandler(
     }
 
     if (!canCreateMetrics(factMetric)) {
-      throwPermissionError();
+      throwPermissionError("createMetrics");
     }
 
     await deleteFactMetricInDb(req.context, factMetric);

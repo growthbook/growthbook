@@ -31,7 +31,7 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(
     );
 
     if (!canCreateMetrics(metric)) {
-      throwPermissionError();
+      throwPermissionError("createMetrics");
     }
 
     const createdMetric = await createMetric(metric);

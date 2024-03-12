@@ -197,7 +197,7 @@ export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
     await validateFactMetric(data, lookupFactTable);
 
     if (!canCreateMetrics(data)) {
-      throwPermissionError();
+      throwPermissionError("createMetrics");
     }
 
     const factMetric = await createFactMetric(req.context, data);

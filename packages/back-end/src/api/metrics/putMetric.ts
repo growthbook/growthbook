@@ -17,7 +17,7 @@ export const putMetric = createApiRequestHandler(putMetricValidator)(
     }
 
     if (!canCreateMetrics(metric)) {
-      throwPermissionError();
+      throwPermissionError("createMetrics");
     }
 
     const validationResult = putMetricApiPayloadIsValid(req.body);

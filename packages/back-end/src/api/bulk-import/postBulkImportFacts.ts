@@ -60,7 +60,7 @@ export const postBulkImportFacts = createApiRequestHandler(
     }
     function checkFactMetricPermission(factMetric: { projects?: string[] }) {
       if (!canCreateMetrics(factMetric)) {
-        throwPermissionError();
+        throwPermissionError("createMetrics");
       }
     }
 
