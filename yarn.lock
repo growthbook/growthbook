@@ -2802,19 +2802,17 @@
     teeny-request "^8.0.0"
     uuid "^8.0.0"
 
-"@growthbook/growthbook@^0.29.0":
-  version "0.29.0"
-  resolved "https://registry.yarnpkg.com/@growthbook/growthbook/-/growthbook-0.29.0.tgz#357f005d9fc28b4b018358d1dd2839066fca807a"
-  integrity sha512-hRYtBw1cg3fqjBRKRfazkRfCJyFpIxjdEUjmwkFaSBorzVDiX35gcp8x83vytQdx5E9xfQo3x/m9Z1yEMDrN7A==
+"@growthbook/growthbook@^0.34.0":
+  version "0.35.0"
   dependencies:
-    dom-mutator "^0.5.0"
+    dom-mutator "^0.6.0"
 
-"@growthbook/proxy-eval@^1.0.0":
-  version "1.0.0"
-  resolved "https://registry.yarnpkg.com/@growthbook/proxy-eval/-/proxy-eval-1.0.0.tgz#fbe53876fb312b9147e5187242a6c6bfcb87569e"
-  integrity sha512-I6V+GDmzXLYcT5iGXpoDxwiWJmNRHZAQdAKJBMnzVXDaOngBPbbUs/ZgHhuo/2p2VWo5EtOhTUO4xl6xcFTJaQ==
+"@growthbook/proxy-eval@^1.0.2":
+  version "1.0.2"
+  resolved "https://registry.yarnpkg.com/@growthbook/proxy-eval/-/proxy-eval-1.0.2.tgz#d5b24b3308b98365eb0b04e0e7f94497543e824c"
+  integrity sha512-2VSFhQ0VJSQuYGCw0c1OQCdVrtdD/6vMvtmxR9bB2WwSNJ6ITdCI/mmwE83MiUlKLBoRAkACI/xyOJFbTmqt7Q==
   dependencies:
-    "@growthbook/growthbook" "^0.29.0"
+    "@growthbook/growthbook" "^0.34.0"
 
 "@grpc/grpc-js@^1.7.1":
   version "1.8.17"
@@ -11182,11 +11180,6 @@ dom-helpers@^5.0.1:
   dependencies:
     "@babel/runtime" "^7.8.7"
     csstype "^3.0.2"
-
-dom-mutator@^0.5.0:
-  version "0.5.0"
-  resolved "https://registry.npmjs.org/dom-mutator/-/dom-mutator-0.5.0.tgz"
-  integrity sha512-bbeX8HWE8JGzraFgbVBX4ws2g3heZFuTtrleQBuN7huy+7n2n7etSuVnot3/1z3jdY2MiwuvoS4Ep1UT2rrGBw==
 
 dom-mutator@^0.6.0:
   version "0.6.0"

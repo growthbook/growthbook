@@ -1,0 +1,187 @@
+---
+title: HTML Script Tag
+description: Load the GrowthBook SDK in any website or low code platform
+sidebar_label: HTML Script Tag
+slug: script-tag
+toc_max_heading_level: 5
+---
+
+# HTML Script Tag SDK
+
+We provide an HTML `<script>` tag option for easily integrating GrowthBook into any website.
+
+This option is quick and straightforward to use and does not require coding knowledge to implement.
+
+## Installation
+
+For this, you will need a **Client Key** from an SDK Connection within GrowthBook. This will start with `sdk-`.
+
+Add the following script tag to your website and replace `YOUR_CLIENT_KEY_HERE` with your actual Client Key:
+
+```html
+<script async
+  data-client-key="YOUR_CLIENT_KEY_HERE"
+  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
+></script>
+```
+
+For best performance, we recommend adding this script tag directly before the closing `</head>` tag, however it is also possible to load through something like Google Tag Manager if that is your only option.
+
+### Optional Configuration Settings
+
+Besides the Client Key, there are some additional settings you can define with `data-` attributes on the script tag:
+
+- `data-api-host` - Defaults to GrowthBook Cloud's https://cdn.growthbook.io. This must be set to your own domain instead if self-hosting or using the GrowthBook Proxy.
+- `data-decryption-key` - Required if you enabled encryption in your SDK Connection settings in GrowthBook
+
+All other settings can be defined with a `window.growthbook_config` object BEFORE you load the script tag. This accepts the same settings as our [JavaScript SDK](/lib/js). Here's an example:
+
+```html
+<script>
+window.growthbook_config = window.growthbook_config || {};
+// Disable streaming updates
+window.growthbook_config.backgroundSync = false;
+</script>
+```
+
+If you need low level access to the GrowthBook SDK instance for any reason, you can use a callback function. This will be called as soon as the GrowthBook SDK instance is ready. If you push to the queue after GrowthBook has already loaded, the callback will be invoked immediately.
+
+```html
+<script>
+window.growthbook_queue = window.growthbook_queue || [];
+window.growthbook_queue.push((gb) => {
+  // Do whatever you need with the GrowthBook instance here
+  console.log(gb.getAttributes());
+})
+</script>
+```
+
+## Targeting Attributes
+
+The following targeting attributes are set automatically and available for use.
+
+- `id` - creates a long-lived `gbuuid` cookie if it doesn't exist already
+- `url`
+- `path`
+- `host`
+- `query`
+- `pageTitle`
+- `deviceType` - either `mobile` or `desktop`
+- `browser` - one of `chrome`, `edge`, `firefox`, `safari`, or `unknown`
+- `utmSource`
+- `utmMedium`
+- `utmCampaign`
+- `utmTerm`
+- `utmContent`
+
+In addition, if you use Google Tag Manager, any variables you set in your Data Layer will also be set here and available for targeting.
+
+### Adding Custom Attributes
+
+You can include your own custom attributes by adding the following BEFORE the GrowthBook snippet:
+
+```html
+<script>
+window.growthbook_config = window.growthbook_config || {};
+window.growthbook_config.attributes = {
+    country: "US",
+    otherCustomAttribute: 12,
+}
+</script>
+```
+
+You can also set custom attributes later, after the script tag has been added. Please note, this may cause flickering in your experiments if you reference these custom attributes in your experiment targeting.
+
+```html
+<script>
+window.growthbook_queue = window.growthbook_queue || [];
+window.growthbook_queue.push((gb) => {
+  gb.updateAttributes({
+    country: "US",
+    otherCustomAttribute: 12,
+  });
+});
+</script>
+```
+
+### Refreshing Auto Attributes
+
+The GrowthBook snippet will automatically watch for URL changes and update attributes when that happens. If you would like more control over this behavior, you can manually trigger updates at any time by firing a `growthbookrefresh` event from JavaScript. For example:
+
+```ts
+document.dispatchEvent(new CustomEvent("growthbookrefresh"));
+```
+
+## Tracking Experiment Views
+
+When a user views an experiment, a tracking event is fired. There is built-in support for Segment.io (`analytics.js`), GA4 (`gtag`), and Google Tag Manager (`dataLayer`).
+
+### Segment.io
+
+GrowthBook will automatically fire an event using `window.analytics.track` if it's present on the page. The event name is `Experiment Viewed` and it has two properties: `experiment_id` and `variation_id`.
+
+There is no additional configuration needed.
+
+### GA4 (`gtag`)
+
+GrowthBook will automatically fire an event using Google Analytic 4's `window.gtag` if it's present on the page. The event name is `experiment_viewed` and it has two properties: `experiment_id` and `variation_id`.
+
+There is no additional configuration needed.
+
+### Google Tag Manager
+
+We send the following event to the Data Layer. You will need to add a trigger based on this and forward it on to your analytics tool of choice.
+
+```json
+{
+    "event": "experiment_viewed",
+    "experiment_id": "...",
+    "variation_id": "..."
+}
+```
+
+We have a walkthrough tutorial on how to configure this in our [GTM Guide](/guide/google-tag-manager-and-growthbook#tracking-via-datalayer-and-gtm)
+
+### Others
+
+For any other event tracking system (or if the built-in ones above do not meet your requirements), you can define your own custom tracking callback function. This must be defined BEFORE loading the main GrowthBook snippet on the page.
+
+```html
+<script>
+window.growthbook_config = window.growthbook_config || {};
+window.growthbook_config.trackingCallback = (experiment, result) => {
+  customEventTracker("Viewed Experiment", {
+    experiment_id: experiment.key,
+    variation_id: result.key
+  })
+};
+</script>
+```
+
+## Using Feature Flags
+
+You can use feature flags with this SDK, but it does require some manual coding work. Here is an example:
+
+```html
+<script>
+// Define a function that will be called every time features need to be re-evaluated
+function applyFeatureFlags(gb) {
+  // Modify the page based on a feature flag
+  if(gb.isOn("dark-mode")) {
+    document.documentElement.classList.add("dark-mode");
+  } else {
+    document.documentElement.classList.remove("dark-mode");
+  }
+}
+
+// Wait for the GrowthBook SDK to load before running
+window.growthbook_queue = window.growthbook_queue || [];
+window.growthbook_queue.push((gb) => {
+  // Call your function the first time
+  applyFeatureFlags(gb);
+
+  // Tell the SDK to call your function any time features change in the future
+  gb.setRenderer(() => applyFeatureFlags(gb));
+});
+</script>
+```
