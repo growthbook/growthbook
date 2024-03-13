@@ -1,8 +1,7 @@
 import {
-  PermissionsUtil,
   ReadAccessFilter,
   getReadAccessFilter,
-  PermissionsUtilClass,
+  Permissions,
 } from "shared/permissions";
 import { uniq } from "lodash";
 import pino from "pino";
@@ -42,7 +41,7 @@ export class ReqContextClass implements ReqContextInterface {
   public apiKey?: string;
   public req?: Request;
   public logger: pino.BaseLogger;
-  public permissions: PermissionsUtil;
+  public permissions: Permissions;
 
   protected userPermissions: UserPermissions;
 
@@ -110,10 +109,7 @@ export class ReqContextClass implements ReqContextInterface {
     }
     this.readAccessFilter = getReadAccessFilter(this.userPermissions);
 
-    this.permissions = new PermissionsUtilClass(
-      this.userPermissions,
-      this.superAdmin
-    );
+    this.permissions = new Permissions(this.userPermissions, this.superAdmin);
   }
 
   // Record an audit log entry

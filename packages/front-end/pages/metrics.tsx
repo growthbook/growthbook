@@ -168,7 +168,7 @@ const MetricsPage = (): React.ReactElement => {
   );
   const editMetricsPermissions: { [id: string]: boolean } = {};
   filteredMetrics.forEach((m) => {
-    editMetricsPermissions[m.id] = permissionsUtil.canCreateMetrics(m);
+    editMetricsPermissions[m.id] = permissionsUtil.canCreateMetric(m);
   });
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: filteredMetrics,
@@ -236,7 +236,7 @@ const MetricsPage = (): React.ReactElement => {
             transactions, revenue, engagement
           </li>
         </ul>
-        {permissionsUtil.canCreateMetrics({ projects: [project] }) &&
+        {permissionsUtil.canCreateMetric({ projects: [project] }) &&
           envAllowsCreatingMetrics() && (
             <>
               <AutoGenerateMetricsButton
@@ -299,7 +299,7 @@ const MetricsPage = (): React.ReactElement => {
           </DocLink>
         </div>
         <div style={{ flex: 1 }} />
-        {permissionsUtil.canCreateMetrics({ projects: [project] }) &&
+        {permissionsUtil.canCreateMetric({ projects: [project] }) &&
           envAllowsCreatingMetrics() && (
             <div className="col-auto">
               <AutoGenerateMetricsButton
@@ -379,7 +379,7 @@ const MetricsPage = (): React.ReactElement => {
             if (
               metric.onDuplicate &&
               editMetricsPermissions[metric.id] &&
-              permissionsUtil.canCreateMetrics(metric) &&
+              permissionsUtil.canCreateMetric(metric) &&
               envAllowsCreatingMetrics()
             ) {
               moreMenuLinks.push(

@@ -50,12 +50,12 @@ export default function DataSourceMetrics({
 
   const editMetricsPermissions: { [id: string]: boolean } = {};
   metrics?.forEach((m) => {
-    editMetricsPermissions[m.id] = permissionsUtil.canCreateMetrics(m);
+    editMetricsPermissions[m.id] = permissionsUtil.canCreateMetric(m);
   });
 
   // Auto-generated metrics inherit the data source's projects, so check that the user has createMetric permission for all of them
-  const canCreateMetricsInAllDataSourceProjects = permissionsUtil.canCreateMetrics(
-    dataSource
+  const canCreateMetricsInAllDataSourceProjects = permissionsUtil.canCreateMetric(
+    { projects: dataSource.projects }
   );
 
   return (

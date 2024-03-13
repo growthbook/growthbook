@@ -224,7 +224,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     finishedCTA="View metrics"
                     permissionsError={
                       envAllowsCreatingMetrics() &&
-                      !permissionsUtil.canCreateMetrics({
+                      !permissionsUtil.canCreateMetric({
                         projects: [project],
                       }) &&
                       !hasMetrics

@@ -29,7 +29,7 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(
       datasource
     );
 
-    if (!req.context.permissions.canCreateMetrics(metric)) {
+    if (!req.context.permissions.canCreateMetric(metric)) {
       req.context.permissions.throwPermissionError();
     }
 

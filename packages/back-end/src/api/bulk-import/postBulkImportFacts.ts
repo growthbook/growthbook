@@ -58,7 +58,7 @@ export const postBulkImportFacts = createApiRequestHandler(
       req.checkPermissions("manageFactTables", factTable.projects || []);
     }
     function checkFactMetricPermission(factMetric: { projects?: string[] }) {
-      if (!req.context.permissions.canCreateMetrics(factMetric)) {
+      if (!req.context.permissions.canCreateMetric(factMetric)) {
         req.context.permissions.throwPermissionError();
       }
     }

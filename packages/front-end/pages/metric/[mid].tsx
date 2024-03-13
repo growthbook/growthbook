@@ -139,7 +139,7 @@ const MetricPage: FC = () => {
 
   const metric = data.metric;
   const canEditMetric =
-    permissionsUtil.canCreateMetrics(metric) && !metric.managedBy;
+    permissionsUtil.canCreateMetric(metric) && !metric.managedBy;
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;

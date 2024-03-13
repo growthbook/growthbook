@@ -31,11 +31,7 @@ import {
 } from "react";
 import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
-import {
-  PermissionsUtil,
-  PermissionsUtilClass,
-  userHasPermission,
-} from "shared/permissions";
+import { Permissions, userHasPermission } from "shared/permissions";
 import { isCloud, isMultiOrg, isSentryEnabled } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
@@ -119,7 +115,7 @@ export interface UserContextValue {
   teams?: Team[];
   error?: string;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
-  permissionsUtil: PermissionsUtil;
+  permissionsUtil: Permissions;
 }
 
 interface UserResponse {
@@ -152,7 +148,7 @@ export const UserContext = createContext<UserContextValue>({
   seatsInUse: 0,
   teams: [],
   hasCommercialFeature: () => false,
-  permissionsUtil: new PermissionsUtilClass(
+  permissionsUtil: new Permissions(
     {
       global: {
         permissions: {},
@@ -371,7 +367,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     permissionsCheck,
   ]);
 
-  const permissionsUtil = new PermissionsUtilClass(
+  const permissionsUtil = new Permissions(
     currentOrg?.currentUserPermissions || {
       global: {
         permissions: {},

@@ -96,7 +96,7 @@ export const updateFactMetric = createApiRequestHandler(
       throw new Error("Could not find factMetric with that id");
     }
 
-    if (!req.context.permissions.canCreateMetrics(factMetric)) {
+    if (!req.context.permissions.canCreateMetric(factMetric)) {
       req.context.permissions.throwPermissionError();
     }
 

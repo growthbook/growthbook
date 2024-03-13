@@ -7,11 +7,7 @@ class PermissionError extends Error {
   }
 }
 
-export type PermissionsUtil = {
-  canCreateMetrics: (metric: Pick<MetricInterface, "projects">) => boolean;
-  throwPermissionError: () => void;
-};
-export class PermissionsUtilClass {
+export class Permissions {
   private userPermissions: UserPermissions;
   private superAdmin: boolean;
   constructor(permissions: UserPermissions, superAdmin: boolean) {
@@ -19,8 +15,7 @@ export class PermissionsUtilClass {
     this.superAdmin = superAdmin;
   }
 
-  //TODO: When we add finer-grain permissions, update canCreateXYZ props to only accept array of projects (string[])
-  public canCreateMetrics(metric: Pick<MetricInterface, "projects">): boolean {
+  public canCreateMetric(metric: Pick<MetricInterface, "projects">): boolean {
     const metricProjects = metric.projects?.length ? metric.projects : [""];
 
     return metricProjects.every((project) =>

@@ -71,7 +71,7 @@ export async function postSampleData(
 
   req.checkPermissions("createAnalyses", "");
 
-  if (!permissions.canCreateMetrics({})) {
+  if (!permissions.canCreateMetric({})) {
     permissions.throwPermissionError();
   }
 
