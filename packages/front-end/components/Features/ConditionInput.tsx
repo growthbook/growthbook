@@ -53,13 +53,11 @@ export default function ConditionInput(props: Props) {
   const attributeSchema = useAttributeSchema();
 
   const filteredAttributeSchema = attributeSchema.filter((attribute) => {
-    if (props.project) {
-      return (
-        attribute.projects?.length === 0 ||
-        attribute.projects?.includes(props.project)
-      );
-    }
-    return true;
+    return (
+      !props.project ||
+      !attribute.projects?.length ||
+      attribute.projects.includes(props.project)
+    );
   });
 
   useEffect(() => {
