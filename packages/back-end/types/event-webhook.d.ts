@@ -1,4 +1,13 @@
+import {
+  EventWebHookPayloadType,
+  EventWebHookMethod,
+} from "../src/types/EventWebHook";
 import { NotificationEventName } from "./event";
+
+export type {
+  EventWebHookPayloadType,
+  EventWebHookMethod,
+} from "../src/types/EventWebHook";
 
 export interface EventWebHookInterface {
   id: string;
@@ -14,4 +23,10 @@ export interface EventWebHookInterface {
   lastRunAt: Date | null;
   lastState: "none" | "success" | "error";
   lastResponseBody: string | null;
+  tags?: string[];
+  environments?: string[];
+  projects?: string[];
+  headers?: Record<string, string>;
+  payloadType?: EventWebHookPayloadType;
+  method?: EventWebHookMethod;
 }

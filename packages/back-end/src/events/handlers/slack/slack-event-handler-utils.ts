@@ -1,7 +1,4 @@
 import { KnownBlock } from "@slack/web-api";
-import uniq from "lodash/uniq";
-import isEqual from "lodash/isEqual";
-import intersection from "lodash/intersection";
 import { logger } from "../../../util/logger";
 import { cancellableFetch } from "../../../util/http.util";
 import {
@@ -15,15 +12,15 @@ import {
 } from "../../notification-events";
 import { SlackIntegrationInterface } from "../../../../types/slack-integration";
 import { APP_ORIGIN } from "../../../util/secrets";
-import { ApiFeature } from "../../../../types/openapi";
+import {
+  FilterDataForNotificationEvent,
+  getFilterDataForNotificationEvent,
+} from "../utils";
 
 // region Filtering
 
 type DataForNotificationEvent = {
-  filterData: {
-    tags: string[];
-    projects: string[];
-  };
+  filterData: FilterDataForNotificationEvent;
   slackMessage: SlackMessage;
 };
 
@@ -31,60 +28,36 @@ export const getDataForNotificationEvent = (
   event: NotificationEvent,
   eventId: string
 ): DataForNotificationEvent | null => {
+  const filterData = getFilterDataForNotificationEvent(event);
+  if (!filterData) return null;
+
+  let invalidEvent: never;
+
   switch (event.event) {
     case "user.login":
       return null;
 
     case "feature.created":
       return {
-        filterData: {
-          tags: event.data.current.tags || [],
-          projects: event.data.current.project
-            ? [event.data.current.project]
-            : [],
-        },
+        filterData,
         slackMessage: buildSlackMessageForFeatureCreatedEvent(event, eventId),
       };
 
     case "feature.updated":
       return {
-        filterData: {
-          tags: uniq(
-            (event.data.current.tags || []).concat(
-              event.data.previous.tags || []
-            )
-          ),
-          projects: uniq(
-            (event.data.current.project
-              ? [event.data.current.project]
-              : []
-            ).concat(
-              event.data.previous.project ? [event.data.previous.project] : []
-            )
-          ),
-        },
+        filterData,
         slackMessage: buildSlackMessageForFeatureUpdatedEvent(event, eventId),
       };
 
     case "feature.deleted":
       return {
-        filterData: {
-          tags: event.data.previous.tags || [],
-          projects: event.data.previous.project
-            ? [event.data.previous.project]
-            : [],
-        },
+        filterData,
         slackMessage: buildSlackMessageForFeatureDeletedEvent(event, eventId),
       };
 
     case "experiment.created":
       return {
-        filterData: {
-          tags: event.data.current.tags || [],
-          projects: event.data.current.project
-            ? [event.data.current.project]
-            : [],
-        },
+        filterData,
         slackMessage: buildSlackMessageForExperimentCreatedEvent(
           event,
           eventId
@@ -93,21 +66,7 @@ export const getDataForNotificationEvent = (
 
     case "experiment.updated":
       return {
-        filterData: {
-          tags: uniq(
-            (event.data.current.tags || []).concat(
-              event.data.previous.tags || []
-            )
-          ),
-          projects: uniq(
-            (event.data.current.project
-              ? [event.data.current.project]
-              : []
-            ).concat(
-              event.data.previous.project ? [event.data.previous.project] : []
-            )
-          ),
-        },
+        filterData,
         slackMessage: buildSlackMessageForExperimentUpdatedEvent(
           event,
           eventId
@@ -116,118 +75,17 @@ export const getDataForNotificationEvent = (
 
     case "experiment.deleted":
       return {
-        filterData: {
-          tags: event.data.previous.tags || [],
-          projects: event.data.previous.project
-            ? [event.data.previous.project]
-            : [],
-        },
+        filterData,
         slackMessage: buildSlackMessageForExperimentDeletedEvent(
           event,
           eventId
         ),
       };
+
+    default:
+      invalidEvent = event;
+      throw `Invalid event: ${invalidEvent}`;
   }
-};
-
-/**
- * Predicate for Array.filter.
- * Depending on the resource type, each event type may have different relevance.
- * For example, for features, all created and deleted events are relevant
- * but only some update events are.
- * We filter the integration out based on resource- and event-specific requirements.
- * We shouldn't filter for unsupported events but in case we do, we are returning false for those.
- * @param slackIntegration
- * @param event
- * @return boolean should include
- */
-export const filterSlackIntegrationForRelevance = (
-  slackIntegration: SlackIntegrationInterface,
-  event: NotificationEvent
-): boolean => {
-  switch (event.event) {
-    case "user.login":
-      return false;
-
-    case "experiment.created":
-    case "experiment.updated":
-    case "experiment.deleted":
-      return true;
-
-    case "feature.created":
-    case "feature.deleted":
-      return true;
-
-    case "feature.updated":
-      return filterFeatureUpdateEventForRelevance(slackIntegration, event);
-  }
-};
-
-// region Filtering -> feature
-
-/**
- * Filters the update event, considering environments and relevant keys that impact all environments.
- * @param slackIntegration
- * @param featureEvent
- * @return boolean should include
- */
-const filterFeatureUpdateEventForRelevance = (
-  slackIntegration: SlackIntegrationInterface,
-  featureEvent: FeatureUpdatedNotificationEvent
-): boolean => {
-  const { previous, current } = featureEvent.data;
-
-  if (previous.archived && current.archived) {
-    // Do not notify for archived features
-    return false;
-  }
-
-  // Manual environment filtering
-  const changedEnvironments = new Set<string>();
-
-  // Some of the feature keys that change affect all enabled environments
-  const relevantKeysForAllEnvs: (keyof ApiFeature)[] = [
-    "archived",
-    "defaultValue",
-    "project",
-    "valueType",
-  ];
-  if (relevantKeysForAllEnvs.some((k) => !isEqual(previous[k], current[k]))) {
-    // Some of the relevant keys for all environments has changed.
-    return true;
-  }
-
-  const allEnvs = new Set([
-    ...Object.keys(previous.environments),
-    ...Object.keys(current.environments),
-  ]);
-
-  // Add in environments if their specific settings changed
-  allEnvs.forEach((env) => {
-    const previousEnvSettings = previous.environments[env];
-    const currentEnvSettings = current.environments[env];
-
-    // If the environment is disabled both before and after the change, ignore changes
-    if (!previousEnvSettings?.enabled && !currentEnvSettings?.enabled) {
-      return;
-    }
-
-    // the environment has changed
-    if (!isEqual(previousEnvSettings, currentEnvSettings)) {
-      changedEnvironments.add(env);
-    }
-  });
-
-  const environmentChangesAreRelevant = changedEnvironments.size > 0;
-  if (!environmentChangesAreRelevant) {
-    return false;
-  }
-
-  return (
-    slackIntegration.environments.length === 0 ||
-    intersection(Array.from(changedEnvironments), slackIntegration.environments)
-      .length > 0
-  );
 };
 
 // endregion Filtering -> feature
