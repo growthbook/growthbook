@@ -11,7 +11,7 @@ export type PermissionsUtil = {
   canCreateMetrics: (metric: Pick<MetricInterface, "projects">) => boolean;
   throwPermissionError: (permission: Permission) => void;
 };
-export class permissionsUtil {
+export class PermissionsUtilClass {
   private userPermissions: UserPermissions;
   private superAdmin: boolean;
   constructor(permissions: UserPermissions, superAdmin: boolean) {

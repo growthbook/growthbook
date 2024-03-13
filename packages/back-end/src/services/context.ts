@@ -2,7 +2,7 @@ import {
   PermissionsUtil,
   ReadAccessFilter,
   getReadAccessFilter,
-  permissionsUtil,
+  PermissionsUtilClass,
 } from "shared/permissions";
 import { uniq } from "lodash";
 import pino from "pino";
@@ -110,7 +110,7 @@ export class ReqContextClass implements ReqContextInterface {
     }
     this.readAccessFilter = getReadAccessFilter(this.userPermissions);
 
-    this.permissionsUtil = new permissionsUtil(
+    this.permissionsUtil = new PermissionsUtilClass(
       this.userPermissions,
       this.superAdmin
     );
