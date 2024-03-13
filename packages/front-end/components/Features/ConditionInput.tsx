@@ -25,6 +25,7 @@ import styles from "./ConditionInput.module.scss";
 interface Props {
   defaultValue: string;
   onChange: (value: string) => void;
+  project: string;
   labelClassName?: string;
   emptyText?: string;
   title?: string;
@@ -50,6 +51,16 @@ export default function ConditionInput(props: Props) {
   const [rawTextMode, setRawTextMode] = useState(false);
 
   const attributeSchema = useAttributeSchema();
+
+  const filteredAttributeSchema = attributeSchema.filter((attribute) => {
+    if (props.project) {
+      return (
+        attribute.projects?.length === 0 ||
+        attribute.projects?.includes(props.project)
+      );
+    }
+    return true;
+  });
 
   useEffect(() => {
     if (advanced) return;
@@ -133,7 +144,7 @@ export default function ConditionInput(props: Props) {
             className="d-inline-block ml-1 mt-2 link-purple font-weight-bold cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
-              const prop = attributeSchema[0];
+              const prop = filteredAttributeSchema[0];
               setConds([
                 {
                   field: prop?.property || "",
@@ -295,7 +306,7 @@ export default function ConditionInput(props: Props) {
                   <div className="col-sm-12 col-md mb-2">
                     <SelectField
                       value={field}
-                      options={attributeSchema.map((s) => ({
+                      options={filteredAttributeSchema.map((s) => ({
                         label: s.property,
                         value: s.property,
                       }))}
@@ -457,12 +468,12 @@ export default function ConditionInput(props: Props) {
           })}
         </ul>
         <div className="d-flex align-items-center">
-          {attributeSchema.length > 0 && (
+          {filteredAttributeSchema.length > 0 && (
             <span
               className="link-purple font-weight-bold cursor-pointer"
               onClick={(e) => {
                 e.preventDefault();
-                const prop = attributeSchema[0];
+                const prop = filteredAttributeSchema[0];
                 setConds([
                   ...conds,
                   {

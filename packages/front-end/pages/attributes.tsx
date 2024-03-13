@@ -19,6 +19,16 @@ const FeatureAttributesPage = (): React.ReactElement => {
   const attributeSchema = useAttributeSchema(true);
   const { project } = useDefinitions();
 
+  const filteredAttributeSchema = attributeSchema.filter((attribute) => {
+    if (project) {
+      return (
+        attribute.projects?.length === 0 ||
+        attribute.projects?.includes(project)
+      );
+    }
+    return true;
+  });
+
   const canCreateAttributes = permissions.check(
     "manageTargetingAttributes",
     project
@@ -157,8 +167,8 @@ const FeatureAttributesPage = (): React.ReactElement => {
               </tr>
             </thead>
             <tbody>
-              {attributeSchema?.length > 0 ? (
-                <>{attributeSchema.map((v, i) => drawRow(v, i))}</>
+              {filteredAttributeSchema?.length > 0 ? (
+                <>{filteredAttributeSchema.map((v, i) => drawRow(v, i))}</>
               ) : (
                 <>
                   <tr>

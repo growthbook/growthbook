@@ -492,6 +492,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 defaultValue={form.watch("phases.0.condition") || ""}
                 onChange={(value) => form.setValue("phases.0.condition", value)}
                 key={conditionKey}
+                project={project}
               />
               <hr />
               <PrerequisiteTargetingField

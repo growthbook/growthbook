@@ -30,7 +30,7 @@ const SavedGroupForm: FC<{
 
   const attributeSchema = useAttributeSchema();
 
-  const { mutateDefinitions } = useDefinitions();
+  const { mutateDefinitions, project } = useDefinitions();
 
   const [rawTextMode, setRawTextMode] = useState(false);
   const [rawText, setRawText] = useState(current.values?.join(", ") || "");
@@ -114,6 +114,7 @@ const SavedGroupForm: FC<{
           defaultValue={form.watch("condition") || ""}
           onChange={(v) => form.setValue("condition", v)}
           key={conditionKey}
+          project={project}
           emptyText="No conditions specified."
           title="Include all users who match the following"
           require

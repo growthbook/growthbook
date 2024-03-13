@@ -810,6 +810,7 @@ export default function RuleModal({
             defaultValue={form.watch("condition") || ""}
             onChange={(value) => form.setValue("condition", value)}
             key={conditionKey}
+            project={feature.project || ""}
           />
           <hr />
           <PrerequisiteTargetingField

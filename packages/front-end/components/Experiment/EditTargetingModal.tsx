@@ -480,6 +480,7 @@ function TargetingForm({
             defaultValue={form.watch("condition")}
             onChange={(condition) => form.setValue("condition", condition)}
             key={conditionKey}
+            project={experiment.project || ""}
           />
           <hr />
           <PrerequisiteTargetingField
