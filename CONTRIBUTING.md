@@ -165,14 +165,15 @@ Releasing SDK updates is a very manual process right now. It requires bumping ve
    - Bump dependency version in `package/front-end/package.json`
    - Add new entry to `packages/shared/src/sdk-versioning/sdk-versions/react.json`
 4. Do a global search for the old version strings for both Javascript and React to make sure nothing was missed. Update these instructions if needed.
-5. Create a PR and let CI complete successfully
-6. Publish the Javascript SDK
+5. Run `yarn install`
+6. Create a PR and let CI complete successfully
+7. Publish the Javascript SDK
    - `yarn build`
    - `npm publish`
-7. Publish the React SDK
+8. Publish the React SDK
    - `yarn build`
    - `npm publish`
-8. Merge the PR
+9. Merge the PR
 
 ### Working on the stats engine
 

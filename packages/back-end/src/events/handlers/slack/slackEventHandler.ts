@@ -2,8 +2,8 @@ import cloneDeep from "lodash/cloneDeep";
 import { NotificationEventHandler } from "../../notifiers/EventNotifier";
 import { logger } from "../../../util/logger";
 import { getSlackIntegrationsForFilters } from "../../../models/SlackIntegrationModel";
+import { filterEventForEnvironments } from "../utils";
 import {
-  filterSlackIntegrationForRelevance,
   getDataForNotificationEvent,
   getSlackIntegrationContextBlock,
   sendSlackMessage,
@@ -34,8 +34,8 @@ export const slackEventHandler: NotificationEventHandler = async ({
       tags,
       projects,
     })) || []
-  ).filter((slackIntegration) =>
-    filterSlackIntegrationForRelevance(slackIntegration, data)
+  ).filter(({ environments }) =>
+    filterEventForEnvironments({ event: data, environments })
   );
 
   slackIntegrations.forEach((slackIntegration) => {

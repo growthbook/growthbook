@@ -5,6 +5,8 @@
   position: relative;
   border: 3px solid transparent;
   text-align: center;
+  margin: -8px 0 3px 0 !important;
+  padding: 5px 0;
 
   .message {
     display: none;
@@ -17,19 +19,14 @@
     font-size: 1.2em;
     color: $green;
   }
-
   .textlink {
     color: $primary-blue;
   }
 
-  &.dropareaNewUi {
-    margin: -8px 0 3px 0 !important;
-    padding: 5px 0;
-    &:hover {
-      border: 1px dashed $darker-blue;
-      .textlink {
-        color: $darker-blue;
-      }
+  &:hover {
+    border: 1px dashed $darker-blue;
+    .textlink {
+      color: $darker-blue;
     }
   }
 }

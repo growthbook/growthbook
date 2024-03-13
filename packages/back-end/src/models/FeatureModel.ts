@@ -838,7 +838,7 @@ export async function publishRevision(
   result: MergeResultChanges,
   comment?: string
 ) {
-  if (revision.status !== "draft") {
+  if (revision.status === "published" || revision.status === "discarded") {
     throw new Error("Can only publish a draft revision");
   }
 

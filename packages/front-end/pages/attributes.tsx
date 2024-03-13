@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useState } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
 import { SDKAttribute } from "back-end/types/organization";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -7,32 +7,25 @@ import usePermissions from "@/hooks/usePermissions";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
-import { useUser } from "@/services/UserContext";
 import AttributeModal from "@/components/Features/AttributeModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import ProjectBadges from "@/components/ProjectBadges";
+import { useUser } from "@/services/UserContext";
 
 const FeatureAttributesPage = (): React.ReactElement => {
   const permissions = usePermissions();
   const { apiCall } = useAuth();
-  let attributeSchema = useAttributeSchema(true);
+  const attributeSchema = useAttributeSchema(true);
+  const { project } = useDefinitions();
 
-  // null = modal closed, "" = new attribute, "my-attribute-name" = existing attribute
-  const [modalData, setModalData] = useState<null | string>(null);
-
-  const orderedAttributes = useMemo(
-    () => [
-      ...attributeSchema.filter((o) => !o.archived),
-      ...attributeSchema.filter((o) => o.archived),
-    ],
-    [attributeSchema]
+  const canCreateAttributes = permissions.check(
+    "manageTargetingAttributes",
+    project
   );
 
-  const [attributesForView, setAttributesForView] = useState(orderedAttributes);
+  const [modalData, setModalData] = useState<null | string>(null);
   const { refreshOrganization } = useUser();
-
-  useEffect(() => {
-    setAttributesForView(orderedAttributes);
-  }, [orderedAttributes]);
 
   const drawRow = (v: SDKAttribute, i: number) => (
     <tr className={v.archived ? "disabled" : ""} key={i}>
@@ -51,9 +44,16 @@ const FeatureAttributesPage = (): React.ReactElement => {
           </p>
         )}
       </td>
+      <td className="col-2">
+        <ProjectBadges
+          resourceType="attribute"
+          projectIds={(v.projects || []).length > 0 ? v.projects : undefined}
+          className="badge-ellipsis short align-middle"
+        />
+      </td>
       <td className="text-gray">{v.hashAttribute && <>yes</>}</td>
       <td>
-        {permissions.manageTargetingAttributes && (
+        {permissions.check("manageTargetingAttributes", v.projects || []) ? (
           <MoreMenu>
             {!v.archived && (
               <button
@@ -69,29 +69,22 @@ const FeatureAttributesPage = (): React.ReactElement => {
               className="dropdown-item"
               onClick={async (e) => {
                 e.preventDefault();
-
-                // update attributes as they render in the view (do not reorder after changing archived state)
-                setAttributesForView(
-                  attributesForView.map((attribute) =>
-                    attribute.property === v.property
-                      ? { ...attribute, archived: !v.archived }
-                      : attribute
-                  )
-                );
-
-                // update SDK attributes while preserving original order
-                attributeSchema = attributeSchema.map((attribute) =>
-                  attribute.property === v.property
-                    ? { ...attribute, archived: !v.archived }
-                    : attribute
-                );
-                await apiCall(`/organization`, {
+                const updatedAttribute: SDKAttribute = {
+                  property: v.property,
+                  datatype: v.datatype,
+                  projects: v.projects,
+                  format: v.format,
+                  enum: v.enum,
+                  hashAttribute: v.hashAttribute,
+                  archived: !v.archived,
+                };
+                await apiCall<{
+                  res: number;
+                }>("/attribute", {
                   method: "PUT",
-                  body: JSON.stringify({
-                    settings: { attributeSchema },
-                  }),
+                  body: JSON.stringify(updatedAttribute),
                 });
-                await refreshOrganization();
+                refreshOrganization();
               }}
             >
               {v.archived ? "Unarchive" : "Archive"}
@@ -100,22 +93,19 @@ const FeatureAttributesPage = (): React.ReactElement => {
               displayName="Attribute"
               className="dropdown-item text-danger"
               onClick={async () => {
-                const newAttributeSchema = attributeSchema.filter(
-                  (attribute) => attribute.property !== v.property
-                );
-                await apiCall(`/organization`, {
-                  method: "PUT",
-                  body: JSON.stringify({
-                    settings: { attributeSchema: newAttributeSchema },
-                  }),
+                await apiCall<{
+                  status: number;
+                }>("/attribute/", {
+                  method: "DELETE",
+                  body: JSON.stringify({ id: v.property }),
                 });
-                await refreshOrganization();
+                refreshOrganization();
               }}
               text="Delete"
               useIcon={false}
             />
           </MoreMenu>
-        )}
+        ) : null}
       </td>
     </tr>
   );
@@ -128,7 +118,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
             <div className="col">
               <div className="d-flex">
                 <h1>Targeting Attributes</h1>
-                {permissions.manageTargetingAttributes && (
+                {canCreateAttributes && (
                   <div className="ml-auto">
                     <button
                       className="btn btn-primary"
@@ -154,6 +144,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
               <tr>
                 <th>Attribute</th>
                 <th>Data Type</th>
+                <th>Projects</th>
                 <th>
                   Identifier{" "}
                   <Tooltip body="Any attribute that uniquely identifies a user, account, device, or similar.">
@@ -166,8 +157,8 @@ const FeatureAttributesPage = (): React.ReactElement => {
               </tr>
             </thead>
             <tbody>
-              {attributesForView?.length > 0 ? (
-                <>{attributesForView.map((v, i) => drawRow(v, i))}</>
+              {attributeSchema?.length > 0 ? (
+                <>{attributeSchema.map((v, i) => drawRow(v, i))}</>
               ) : (
                 <>
                   <tr>
