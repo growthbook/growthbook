@@ -16,7 +16,7 @@ FROM python:${PYTHON_MAJOR}-slim AS nodebuild
 ARG NODE_MAJOR
 WORKDIR /usr/local/src/app
 RUN apt-get update && \
-  apt-get install -y wget gnupg2 && \
+  apt-get install -y wget gnupg2 build-essential && \
   echo "deb https://deb.nodesource.com/node_$NODE_MAJOR.x buster main" > /etc/apt/sources.list.d/nodesource.list && \
   wget -qO- https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - && \
   echo "deb https://dl.yarnpkg.com/debian/ stable main" > /etc/apt/sources.list.d/yarn.list && \
