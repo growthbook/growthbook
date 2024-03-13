@@ -25,7 +25,7 @@ from gbstats.models.statistics import (
     QuantileStatistic,
     QuantileStatisticClustered,
 )
-from gbstats.frequentist.tests import mean_diff, absolute_var
+from gbstats.frequentist.tests import frequentist_diff, frequentist_variance
 
 # Configs
 
@@ -353,7 +353,7 @@ class GaussianBayesianABTest(BayesianABTest):
         return result
 
 
-class GaussianEffectABTest(GaussianBayesianABTest):
+class GaussianEffectABTest(BayesianABTest):
     def __init__(
         self,
         stat_a: Union[
@@ -383,14 +383,6 @@ class GaussianEffectABTest(GaussianBayesianABTest):
             self.mean_diff, self.std_diff, self.ccr, self.relative
         )
         ctw = self.chance_to_win(self.mean_diff, self.std_diff)
-        if self.relative:
-            if self.stat_a.mean == 0.0:
-                raise ValueError(
-                    "Cannot compute relative effect when control mean is 0."
-                )
-            else:
-                self.mean_diff /= np.abs(self.stat_a.mean)
-                self.std_diff /= np.abs(self.stat_a.mean)
         # probably better to tear these out of superclass, have this be standalone class
         result = BayesianTestResult(
             chance_to_win=ctw,
@@ -410,10 +402,10 @@ class GaussianEffectABTest(GaussianBayesianABTest):
         return result
 
     def compute_frequentist_moments(self):
-        self.absolute_diff = mean_diff(self.stat_a.mean, self.stat_b.mean)
-        self.absolute_var = absolute_var(
-            self.stat_a.variance, self.stat_a.n, self.stat_b.variance, self.stat_b.n
+        self.frequentist_var =  frequentist_variance(
+            self.stat_a.variance, self.stat_a.unadjusted_mean, self.stat_a.n, self.stat_b.variance, self.stat_b.unadjusted_mean, self.stat_b.n, self.relative
         )
+        self.frequentist_diff = frequentist_diff(self.stat_a.mean, self.stat_b.mean, self.relative)
 
     def compute_bayesian_moments(self):
         self.mean_diff = self.posterior_mean
@@ -439,13 +431,13 @@ class GaussianEffectABTest(GaussianBayesianABTest):
 
     @property
     def data_mean(self):
-        return self.absolute_diff
+        return self.frequentist_diff
 
     @property
     def data_precision(self):
-        if self.absolute_var == 0.0:
+        if self.frequentist_var == 0.0:
             return 1e5
-        return 1.0 / self.absolute_var
+        return 1.0 / self.frequentist_var
 
     @property
     def risk(self):
