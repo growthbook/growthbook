@@ -208,7 +208,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         setAuthComponent(
           <Modal
             open={true}
-            header="Sign In Required"
             submit={async () => {
               await redirectWithTimeout(resp.redirectURI);
             }}
@@ -218,7 +217,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
             closeCta="Cancel"
             cta="Sign In"
           >
-            <p>You must sign in with your SSO provider to continue.</p>
+            <h3>Sign In Required</h3>
+            <p>
+              You must sign in with your Enterprise SSO provider to continue.
+            </p>
           </Modal>
         );
       } else {

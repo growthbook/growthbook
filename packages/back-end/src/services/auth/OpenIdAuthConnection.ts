@@ -234,6 +234,8 @@ async function getConnectionFromRequest(req: Request, res: Response) {
   // First, get the connection info
   let ssoConnectionId = SSOConnectionIdCookie.getValue(req);
 
+  let persistSSOConnectionId = false;
+
   // If there's no ssoConnectionId in the cookie, look in the querystring instead
   // This is used for IdP-initiated Enterprise SSO on Cloud
   if (IS_CLOUD && !ssoConnectionId) {
@@ -242,7 +244,7 @@ async function getConnectionFromRequest(req: Request, res: Response) {
       ssoConnectionIdFromQuery &&
       typeof ssoConnectionIdFromQuery === "string"
     ) {
-      SSOConnectionIdCookie.setValue(ssoConnectionIdFromQuery, req, res);
+      persistSSOConnectionId = true;
       ssoConnectionId = ssoConnectionIdFromQuery;
     }
   }
@@ -270,6 +272,11 @@ async function getConnectionFromRequest(req: Request, res: Response) {
         : "none",
     });
     clientMap.set(connection, client);
+  }
+
+  // If we've made it this far, the connection was found and we should persist it in a cookie
+  if (persistSSOConnectionId && ssoConnectionId) {
+    SSOConnectionIdCookie.setValue(ssoConnectionId, req, res);
   }
 
   return { connection, client };
