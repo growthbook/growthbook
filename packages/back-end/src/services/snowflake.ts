@@ -1,7 +1,7 @@
 import { createConnection } from "snowflake-sdk";
-import { SnowflakeConnectionParams } from "../../types/integrations/snowflake";
-import { QueryResponse } from "../types/Integration";
-import { logger } from "../util/logger";
+import { logger } from "@/src/util/logger";
+import { SnowflakeConnectionParams } from "@/types/integrations/snowflake";
+import { QueryResponse } from "@/src/types/Integration";
 
 type ProxyOptions = {
   proxyHost?: string;

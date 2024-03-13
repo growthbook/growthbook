@@ -4,7 +4,7 @@ import { omit } from "lodash";
 import {
   ChecklistTask,
   ExperimentLaunchChecklistInterface,
-} from "../../types/experimentLaunchChecklist";
+} from "@/types/experimentLaunchChecklist";
 
 const experimentLaunchChecklistSchema = new mongoose.Schema({
   id: String,

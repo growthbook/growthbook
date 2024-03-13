@@ -1,10 +1,10 @@
-import { GetDataSourceResponse } from "../../../types/openapi";
+import { getDataSourceValidator } from "@/src/validators/openapi";
+import { GetDataSourceResponse } from "@/types/openapi";
 import {
   getDataSourceById,
   toDataSourceApiInterface,
-} from "../../models/DataSourceModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { getDataSourceValidator } from "../../validators/openapi";
+} from "@/src/models/DataSourceModel";
+import { createApiRequestHandler } from "@/src/util/handler";
 
 export const getDataSource = createApiRequestHandler(getDataSourceValidator)(
   async (req): Promise<GetDataSourceResponse> => {

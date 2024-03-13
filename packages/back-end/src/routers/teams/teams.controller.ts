@@ -1,24 +1,24 @@
 import type { Response } from "express";
-import { TeamInterface } from "../../../types/team";
+import {
+  auditDetailsCreate,
+  auditDetailsDelete,
+  auditDetailsUpdate,
+} from "@/src/services/audit";
+import {
+  addMembersToTeam,
+  getContextFromReq,
+  removeMembersFromTeam,
+} from "@/src/services/organizations";
+import { TeamInterface } from "@/types/team";
 import {
   createTeam,
   deleteTeam,
   findTeamById,
   findTeamByName,
   updateTeamMetadata,
-} from "../../models/TeamModel";
-import {
-  auditDetailsCreate,
-  auditDetailsDelete,
-  auditDetailsUpdate,
-} from "../../services/audit";
-import {
-  addMembersToTeam,
-  getContextFromReq,
-  removeMembersFromTeam,
-} from "../../services/organizations";
-import { AuthRequest } from "../../types/AuthRequest";
-import { MemberRoleWithProjects } from "../../../types/organization";
+} from "@/src/models/TeamModel";
+import { MemberRoleWithProjects } from "@/types/organization";
+import { AuthRequest } from "@/src/types/AuthRequest";
 
 // region POST /teams
 

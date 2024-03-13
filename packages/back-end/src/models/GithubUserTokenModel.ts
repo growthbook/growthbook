@@ -5,7 +5,7 @@ import { refreshToken } from "@octokit/oauth-methods";
 import {
   GithubUserTokenInterface,
   CreateGithubUserTokenInput,
-} from "../../types/github";
+} from "@/types/github";
 
 type GithubUserTokenDocument = mongoose.Document & GithubUserTokenInterface;
 

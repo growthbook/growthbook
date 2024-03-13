@@ -1,13 +1,13 @@
 import { NextFunction, Response } from "express";
 import { createAppAuth, createOAuthUserAuth } from "@octokit/auth-app";
-import { getContextFromReq } from "../../services/organizations";
-import { AuthRequest } from "../../types/AuthRequest";
+import { getContextFromReq } from "@/src/services/organizations";
 import {
   getGithubIntegrationByOrg,
   createGithubIntegration,
   toggleWatchingForRepo,
-} from "../../models/GithubIntegration";
-import { createGithubUserToken } from "../../models/GithubUserTokenModel";
+} from "@/src/models/GithubIntegration";
+import { createGithubUserToken } from "@/src/models/GithubUserTokenModel";
+import { AuthRequest } from "@/src/types/AuthRequest";
 
 const hasGithubEnvVars = () => {
   return (

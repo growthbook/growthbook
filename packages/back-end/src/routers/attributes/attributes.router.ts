@@ -1,8 +1,8 @@
 import express from "express";
 import { z } from "zod";
-import { wrapController } from "../wrapController";
-import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
-import { attributeDataTypes } from "../../util/organization.util";
+import { validateRequestMiddleware } from "@/src/routers/utils/validateRequestMiddleware";
+import { attributeDataTypes } from "@/src/util/organization.util";
+import { wrapController } from "@/src/routers//wrapController";
 import * as rawAttributesController from "./attributes.controller";
 
 const router = express.Router();

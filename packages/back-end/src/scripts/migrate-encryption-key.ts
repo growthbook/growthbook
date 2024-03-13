@@ -1,13 +1,13 @@
 import { AES, enc } from "crypto-js";
+import { encryptParams } from "@/src/services/datasource";
+import { getContextForAgendaJobByOrgId } from "@/src/services/organizations";
+import { ENCRYPTION_KEY, IS_CLOUD } from "@/src/util/secrets";
 import {
   updateDataSource,
   _dangerousGetAllDatasources,
-} from "../models/DataSourceModel";
-import { usingFileConfig } from "../init/config";
-import { ENCRYPTION_KEY, IS_CLOUD } from "../util/secrets";
-import { init } from "../init";
-import { encryptParams } from "../services/datasource";
-import { getContextForAgendaJobByOrgId } from "../services/organizations";
+} from "@/src/models/DataSourceModel";
+import { init } from "@/src/init";
+import { usingFileConfig } from "@/src/init/config";
 
 const [oldEncryptionKey] = process.argv.slice(2);
 if (IS_CLOUD) {

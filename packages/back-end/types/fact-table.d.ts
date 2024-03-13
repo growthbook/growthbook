@@ -17,8 +17,8 @@ import {
   cappingSettingsValidator,
   windowSettingsValidator,
   cappingTypeValidator,
-} from "../src/routers/fact-table/fact-table.validators";
-import { TestQueryRow } from "../src/types/Integration";
+} from "@/src/routers/fact-table/fact-table.validators";
+import { TestQueryRow } from "@/src/types/Integration";
 
 export type FactTableColumnType = z.infer<typeof factTableColumnTypeValidator>;
 export type NumberFormat = z.infer<typeof numberFormatValidator>;

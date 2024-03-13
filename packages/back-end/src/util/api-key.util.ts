@@ -1,5 +1,5 @@
-import { OrganizationInterface } from "../../types/organization";
-import { ApiKeyInterface } from "../../types/apikey";
+import { OrganizationInterface } from "@/types/organization";
+import { ApiKeyInterface } from "@/types/apikey";
 
 /**
  * Verifies if the provided API key is for a user in the organization.

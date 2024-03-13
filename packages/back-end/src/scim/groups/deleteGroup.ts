@@ -1,7 +1,7 @@
 import { Response } from "express";
-import { ScimError, ScimGetRequest } from "../../../types/scim";
-import { deleteTeam, findTeamById } from "../../models/TeamModel";
-import { removeMembersFromTeam } from "../../services/organizations";
+import { removeMembersFromTeam } from "@/src/services/organizations";
+import { ScimError, ScimGetRequest } from "@/types/scim";
+import { deleteTeam, findTeamById } from "@/src/models/TeamModel";
 
 export async function deleteGroup(
   req: ScimGetRequest,

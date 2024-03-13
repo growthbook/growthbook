@@ -7,28 +7,28 @@ import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { AuthRequest } from "../../types/AuthRequest";
-import { getContextFromReq } from "../../services/organizations";
-import { EventAuditUserForResponseLocals } from "../../events/event-types";
-import { PostgresConnectionParams } from "../../../types/integrations/postgres";
-import { createDataSource } from "../../models/DataSourceModel";
+import { getContextFromReq } from "@/src/services/organizations";
+import { createMetric, createSnapshot } from "@/src/services/experiments";
+import { PostgresConnectionParams } from "@/types/integrations/postgres";
+import { createDataSource } from "@/src/models/DataSourceModel";
 import {
   createExperiment,
   getAllExperiments,
-} from "../../models/ExperimentModel";
-import { createProject, findProjectById } from "../../models/ProjectModel";
-import { createMetric, createSnapshot } from "../../services/experiments";
-import { PrivateApiErrorResponse } from "../../../types/api";
-import { DataSourceSettings } from "../../../types/datasource";
-import { ExperimentInterface } from "../../../types/experiment";
-import { ExperimentRefRule, FeatureInterface } from "../../../types/feature";
-import { MetricInterface } from "../../../types/metric";
-import { ProjectInterface } from "../../../types/project";
-import { ExperimentSnapshotAnalysisSettings } from "../../../types/experiment-snapshot";
-import { getMetricMap } from "../../models/MetricModel";
-import { createFeature } from "../../models/FeatureModel";
-import { getFactTableMap } from "../../models/FactTableModel";
-import { MetricWindowSettings } from "../../../types/fact-table";
+} from "@/src/models/ExperimentModel";
+import { createProject, findProjectById } from "@/src/models/ProjectModel";
+import { PrivateApiErrorResponse } from "@/types/api";
+import { DataSourceSettings } from "@/types/datasource";
+import { ExperimentInterface } from "@/types/experiment";
+import { ExperimentRefRule, FeatureInterface } from "@/types/feature";
+import { MetricInterface } from "@/types/metric";
+import { ProjectInterface } from "@/types/project";
+import { ExperimentSnapshotAnalysisSettings } from "@/types/experiment-snapshot";
+import { getMetricMap } from "@/src/models/MetricModel";
+import { createFeature } from "@/src/models/FeatureModel";
+import { getFactTableMap } from "@/src/models/FactTableModel";
+import { MetricWindowSettings } from "@/types/fact-table";
+import { AuthRequest } from "@/src/types/AuthRequest";
+import { EventAuditUserForResponseLocals } from "@/src/events/event-types";
 
 // region Constants for Demo Datasource
 

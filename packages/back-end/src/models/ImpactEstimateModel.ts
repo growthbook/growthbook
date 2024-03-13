@@ -1,16 +1,16 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { getConversionWindowHours } from "shared/experiments";
-import { ImpactEstimateInterface } from "../../types/impact-estimate";
-import { getMetricById } from "../models/MetricModel";
-import { getSourceIntegrationObject } from "../services/datasource";
-import { SegmentInterface } from "../../types/segment";
-import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
-import { processMetricValueQueryResponse } from "../queryRunners/MetricAnalysisQueryRunner";
-import { ReqContext } from "../../types/organization";
-import { ApiReqContext } from "../../types/api";
-import { findSegmentById } from "./SegmentModel";
+import { getSourceIntegrationObject } from "@/src/services/datasource";
+import { DEFAULT_CONVERSION_WINDOW_HOURS } from "@/src/util/secrets";
+import { getMetricById } from "@/src/models/MetricModel";
+import { ReqContext } from "@/types/organization";
+import { ApiReqContext } from "@/types/api";
+import { SegmentInterface } from "@/types/segment";
+import { ImpactEstimateInterface } from "@/types/impact-estimate";
+import { processMetricValueQueryResponse } from "@/src/queryRunners/MetricAnalysisQueryRunner";
 import { getDataSourceById } from "./DataSourceModel";
+import { findSegmentById } from "./SegmentModel";
 
 const impactEstimateSchema = new mongoose.Schema({
   id: String,

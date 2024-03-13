@@ -1,9 +1,9 @@
 /// <reference types="../../typings/presto-client" />
 import { Client, IPrestoClientOptions } from "presto-client";
-import { decryptDataSourceParams } from "../services/datasource";
-import { PrestoConnectionParams } from "../../types/integrations/presto";
-import { FormatDialect } from "../util/sql";
-import { QueryResponse } from "../types/Integration";
+import { decryptDataSourceParams } from "@/src/services/datasource";
+import { FormatDialect } from "@/src/util/sql";
+import { PrestoConnectionParams } from "@/types/integrations/presto";
+import { QueryResponse } from "@/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 // eslint-disable-next-line

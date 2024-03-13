@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { omit } from "lodash";
-import { FeatureCodeRefsInterface } from "../../types/code-refs";
-import { OrganizationInterface } from "../../types/organization";
+import { FeatureCodeRefsInterface } from "@/types/code-refs";
+import { OrganizationInterface } from "@/types/organization";
 
 const featureCodeRefsSchema = new mongoose.Schema({
   organization: String,

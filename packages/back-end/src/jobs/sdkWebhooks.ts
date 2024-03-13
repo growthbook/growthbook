@@ -2,23 +2,23 @@ import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import md5 from "md5";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
-import { getFeatureDefinitions } from "../services/features";
-import { CRON_ENABLED, WEBHOOKS } from "../util/secrets";
-import { SDKPayloadKey } from "../../types/sdk-payload";
+import { getFeatureDefinitions } from "@/src/services/features";
+import { getContextForAgendaJobByOrgId } from "@/src/services/organizations";
+import { trackJob } from "@/src/services/otel";
+import { CRON_ENABLED, WEBHOOKS } from "@/src/util/secrets";
+import { logger } from "@/src/util/logger";
+import { cancellableFetch } from "@/src/util/http.util";
+import { createSdkWebhookLog } from "@/src/models/SdkWebhookLogModel";
+import { findWebhookById, findWebhooksBySdks } from "@/src/models/WebhookModel";
 import {
   findSDKConnectionsByIds,
   findSDKConnectionsByOrganization,
-} from "../models/SdkConnectionModel";
-import { SDKConnectionInterface } from "../../types/sdk-connection";
-import { logger } from "../util/logger";
-import { findWebhookById, findWebhooksBySdks } from "../models/WebhookModel";
-import { WebhookInterface, WebhookMethod } from "../../types/webhook";
-import { createSdkWebhookLog } from "../models/SdkWebhookLogModel";
-import { cancellableFetch } from "../util/http.util";
-import { getContextForAgendaJobByOrgId } from "../services/organizations";
-import { ReqContext } from "../../types/organization";
-import { ApiReqContext } from "../../types/api";
-import { trackJob } from "../services/otel";
+} from "@/src/models/SdkConnectionModel";
+import { ReqContext } from "@/types/organization";
+import { ApiReqContext } from "@/types/api";
+import { WebhookInterface, WebhookMethod } from "@/types/webhook";
+import { SDKConnectionInterface } from "@/types/sdk-connection";
+import { SDKPayloadKey } from "@/types/sdk-payload";
 
 const SDK_WEBHOOKS_JOB_NAME = "fireWebhooks";
 type SDKWebhookJob = Job<{

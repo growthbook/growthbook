@@ -2,13 +2,13 @@ import mongoose from "mongoose";
 import z from "zod";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
+import { errorStringFromZodResult } from "@/src/util/validation";
+import { logger } from "@/src/util/logger";
 import {
   InformationSchema,
   InformationSchemaInterface,
-} from "../types/Integration";
-import { errorStringFromZodResult } from "../util/validation";
-import { logger } from "../util/logger";
-import { usingFileConfig } from "../init/config";
+} from "@/src/types/Integration";
+import { usingFileConfig } from "@/src/init/config";
 
 const informationSchema = new mongoose.Schema({
   id: String,

@@ -1,9 +1,9 @@
-import { GetFeatureResponse } from "../../../types/openapi";
-import { getExperimentMapForFeature } from "../../models/ExperimentModel";
-import { getFeature as getFeatureDB } from "../../models/FeatureModel";
-import { getApiFeatureObj, getSavedGroupMap } from "../../services/features";
-import { createApiRequestHandler } from "../../util/handler";
-import { getFeatureValidator } from "../../validators/openapi";
+import { getApiFeatureObj, getSavedGroupMap } from "@/src/services/features";
+import { getFeatureValidator } from "@/src/validators/openapi";
+import { GetFeatureResponse } from "@/types/openapi";
+import { getExperimentMapForFeature } from "@/src/models/ExperimentModel";
+import { getFeature as getFeatureDB } from "@/src/models/FeatureModel";
+import { createApiRequestHandler } from "@/src/util/handler";
 
 export const getFeature = createApiRequestHandler(getFeatureValidator)(
   async (req): Promise<GetFeatureResponse> => {

@@ -2,6 +2,32 @@ import { randomBytes } from "crypto";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import { Request } from "express";
+import { getDefaultRole } from "@/src/util/organization.util";
+import { logger } from "@/src/util/logger";
+import { APP_ORIGIN, IS_CLOUD } from "@/src/util/secrets";
+import { addTags } from "@/src/models/TagModel";
+import { getAllExperiments } from "@/src/models/ExperimentModel";
+import {
+  createSegment,
+  findSegmentById,
+  updateSegment,
+} from "@/src/models/SegmentModel";
+import {
+  createDimension,
+  findDimensionById,
+  updateDimension,
+} from "@/src/models/DimensionModel";
+import {
+  ALLOWED_METRIC_TYPES,
+  getMetricById,
+  updateMetric,
+} from "@/src/models/MetricModel";
+import {
+  createDataSource,
+  getDataSourceById,
+  updateDataSource,
+} from "@/src/models/DataSourceModel";
+import { UserModel } from "@/src/models/UserModel";
 import {
   createOrganization,
   findAllOrganizations,
@@ -9,10 +35,14 @@ import {
   findOrganizationByInviteKey,
   findOrganizationsByDomain,
   updateOrganization,
-} from "../models/OrganizationModel";
-import { APP_ORIGIN, IS_CLOUD } from "../util/secrets";
-import { AuthRequest } from "../types/AuthRequest";
-import { UserModel } from "../models/UserModel";
+} from "@/src/models/OrganizationModel";
+import { LegacyExperimentPhase } from "@/types/experiment";
+import { SegmentInterface } from "@/types/segment";
+import { SSOConnectionInterface } from "@/types/sso-connection";
+import { DataSourceInterface } from "@/types/datasource";
+import { DimensionInterface } from "@/types/dimension";
+import { MetricInterface } from "@/types/metric";
+import { ApiReqContext, ExperimentOverride } from "@/types/api";
 import {
   ExpandedMember,
   Invite,
@@ -24,49 +54,19 @@ import {
   PendingMember,
   ProjectMemberRole,
   ReqContext,
-} from "../../types/organization";
-import { ApiReqContext, ExperimentOverride } from "../../types/api";
-import { ConfigFile } from "../init/config";
-import {
-  createDataSource,
-  getDataSourceById,
-  updateDataSource,
-} from "../models/DataSourceModel";
-import {
-  ALLOWED_METRIC_TYPES,
-  getMetricById,
-  updateMetric,
-} from "../models/MetricModel";
-import { MetricInterface } from "../../types/metric";
-import {
-  createDimension,
-  findDimensionById,
-  updateDimension,
-} from "../models/DimensionModel";
-import { DimensionInterface } from "../../types/dimension";
-import { DataSourceInterface } from "../../types/datasource";
-import { SSOConnectionInterface } from "../../types/sso-connection";
-import { logger } from "../util/logger";
-import { getDefaultRole } from "../util/organization.util";
-import { SegmentInterface } from "../../types/segment";
-import {
-  createSegment,
-  findSegmentById,
-  updateSegment,
-} from "../models/SegmentModel";
-import { getAllExperiments } from "../models/ExperimentModel";
-import { LegacyExperimentPhase } from "../../types/experiment";
-import { addTags } from "../models/TagModel";
-import { markInstalled } from "./auth";
+} from "@/types/organization";
+import { AuthRequest } from "@/src/types/AuthRequest";
+import { ConfigFile } from "@/src/init/config";
+import { ReqContextClass } from "./context";
+import { getUsersByIds } from "./users";
+import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
+import { createMetric } from "./experiments";
 import {
   encryptParams,
   getSourceIntegrationObject,
   mergeParams,
 } from "./datasource";
-import { createMetric } from "./experiments";
-import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
-import { getUsersByIds } from "./users";
-import { ReqContextClass } from "./context";
+import { markInstalled } from "./auth";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);

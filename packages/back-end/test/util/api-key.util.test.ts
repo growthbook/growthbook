@@ -1,9 +1,9 @@
-import { ApiKeyInterface } from "../../types/apikey";
-import { OrganizationInterface } from "../../types/organization";
+import { ApiKeyInterface } from "@/types/apikey";
+import { OrganizationInterface } from "@/types/organization";
 import {
   isApiKeyForUserInOrganization,
   roleForApiKey,
-} from "../../src/util/api-key.util";
+} from "@/src/util/api-key.util";
 
 describe("api key utils", () => {
   describe("isApiKeyForUserInOrganization", () => {

@@ -7,7 +7,10 @@
     "noImplicitAny": true,
     "moduleResolution": "node",
     "sourceMap": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "paths": {
+      "@/*": ["./*"]
+    }
   },
   "include": ["src/**/*", "types/**/*", "typings/**/*.d.ts"]
 }

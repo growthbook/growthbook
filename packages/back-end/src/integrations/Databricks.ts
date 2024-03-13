@@ -1,8 +1,8 @@
-import { DatabricksConnectionParams } from "../../types/integrations/databricks";
-import { runDatabricksQuery } from "../services/databricks";
-import { decryptDataSourceParams } from "../services/datasource";
-import { QueryResponse } from "../types/Integration";
-import { FormatDialect } from "../util/sql";
+import { runDatabricksQuery } from "@/src/services/databricks";
+import { decryptDataSourceParams } from "@/src/services/datasource";
+import { FormatDialect } from "@/src/util/sql";
+import { DatabricksConnectionParams } from "@/types/integrations/databricks";
+import { QueryResponse } from "@/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Databricks extends SqlIntegration {

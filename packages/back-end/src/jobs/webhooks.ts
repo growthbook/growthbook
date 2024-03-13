@@ -1,15 +1,15 @@
 import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import fetch from "node-fetch";
-import { WebhookModel } from "../models/WebhookModel";
 import {
   getContextForAgendaJobByOrgId,
   getExperimentOverrides,
-} from "../services/organizations";
-import { getFeatureDefinitions } from "../services/features";
-import { WebhookInterface } from "../../types/webhook";
-import { CRON_ENABLED } from "../util/secrets";
-import { SDKPayloadKey } from "../../types/sdk-payload";
+} from "@/src/services/organizations";
+import { getFeatureDefinitions } from "@/src/services/features";
+import { CRON_ENABLED } from "@/src/util/secrets";
+import { WebhookModel } from "@/src/models/WebhookModel";
+import { WebhookInterface } from "@/types/webhook";
+import { SDKPayloadKey } from "@/types/sdk-payload";
 
 const WEBHOOK_JOB_NAME = "fireWebhook";
 type WebhookJob = Job<{

@@ -6,7 +6,7 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import omit from "lodash/omit";
-import { LegacyMetricInterface } from "../types/metric";
+import { LegacyMetricInterface } from "@/types/metric";
 import {
   migrateSavedGroup,
   migrateSnapshot,
@@ -16,26 +16,26 @@ import {
   upgradeFeatureRule,
   upgradeMetricDoc,
   upgradeOrganizationDoc,
-} from "../src/util/migrations";
-import { DataSourceInterface, DataSourceSettings } from "../types/datasource";
-import { encryptParams } from "../src/services/datasource";
-import { MixpanelConnectionParams } from "../types/integrations/mixpanel";
-import { PostgresConnectionParams } from "../types/integrations/postgres";
+} from "@/src/util/migrations";
+import { DataSourceInterface, DataSourceSettings } from "@/types/datasource";
+import { encryptParams } from "@/src/services/datasource";
+import { MixpanelConnectionParams } from "@/types/integrations/mixpanel";
+import { PostgresConnectionParams } from "@/types/integrations/postgres";
 import {
   ExperimentRule,
   FeatureInterface,
   FeatureRule,
   LegacyFeatureInterface,
-} from "../types/feature";
-import { OrganizationInterface } from "../types/organization";
+} from "@/types/feature";
+import { OrganizationInterface } from "@/types/organization";
 import {
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
-} from "../types/experiment-snapshot";
-import { ExperimentReportResultDimension } from "../types/report";
-import { Queries } from "../types/query";
-import { ExperimentPhase } from "../types/experiment";
-import { LegacySavedGroupInterface } from "../types/saved-group";
+} from "@/types/experiment-snapshot";
+import { ExperimentReportResultDimension } from "@/types/report";
+import { Queries } from "@/types/query";
+import { ExperimentPhase } from "@/types/experiment";
+import { LegacySavedGroupInterface } from "@/types/saved-group";
 
 describe("Metric Migration", () => {
   it("updates old metric objects - earlyStart and conversion*Hours", () => {

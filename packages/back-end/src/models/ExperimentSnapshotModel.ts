@@ -1,11 +1,11 @@
 import mongoose, { FilterQuery } from "mongoose";
 import omit from "lodash/omit";
+import { migrateSnapshot } from "@/src/util/migrations";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
-} from "../../types/experiment-snapshot";
-import { migrateSnapshot } from "../util/migrations";
+} from "@/types/experiment-snapshot";
 import { queriesSchema } from "./QueryModel";
 
 const experimentSnapshotTrafficObject = {

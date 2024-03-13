@@ -2,8 +2,8 @@ import pinoHttp from "pino-http";
 import * as Sentry from "@sentry/node";
 import { Request } from "express";
 import { BaseLogger, Level } from "pino";
-import { ApiRequestLocals } from "../../types/api";
-import { AuthRequest } from "../types/AuthRequest";
+import { ApiRequestLocals } from "@/types/api";
+import { AuthRequest } from "@/src/types/AuthRequest";
 import { ENVIRONMENT, IS_CLOUD, LOG_LEVEL } from "./secrets";
 
 const redactPaths = [

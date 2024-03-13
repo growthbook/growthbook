@@ -1,22 +1,22 @@
 import { z } from "zod";
 import { validateFeatureValue } from "shared/util";
 import { orgHasPremiumFeature } from "enterprise";
-import { PostFeatureResponse } from "../../../types/openapi";
-import { createApiRequestHandler } from "../../util/handler";
-import { postFeatureValidator } from "../../validators/openapi";
-import { createFeature, getFeature } from "../../models/FeatureModel";
-import { getExperimentMapForFeature } from "../../models/ExperimentModel";
-import { FeatureInterface } from "../../../types/feature";
-import { getEnabledEnvironments } from "../../util/features";
 import {
   addIdsToRules,
   createInterfaceEnvSettingsFromApiEnvSettings,
   getApiFeatureObj,
   getSavedGroupMap,
-} from "../../services/features";
-import { auditDetailsCreate } from "../../services/audit";
-import { OrganizationInterface } from "../../../types/organization";
-import { getEnvironments } from "../../services/organizations";
+} from "@/src/services/features";
+import { auditDetailsCreate } from "@/src/services/audit";
+import { getEnvironments } from "@/src/services/organizations";
+import { postFeatureValidator } from "@/src/validators/openapi";
+import { PostFeatureResponse } from "@/types/openapi";
+import { createFeature, getFeature } from "@/src/models/FeatureModel";
+import { getExperimentMapForFeature } from "@/src/models/ExperimentModel";
+import { FeatureInterface } from "@/types/feature";
+import { OrganizationInterface } from "@/types/organization";
+import { createApiRequestHandler } from "@/src/util/handler";
+import { getEnabledEnvironments } from "@/src/util/features";
 
 export type ApiFeatureEnvSettings = NonNullable<
   z.infer<typeof postFeatureValidator.bodySchema>["environments"]

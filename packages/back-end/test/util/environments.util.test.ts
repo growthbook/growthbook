@@ -1,6 +1,6 @@
-import { Environment } from "../../types/organization";
-import { deepFreeze } from "../test-helpers";
-import { addEnvironmentToOrganizationEnvironments } from "../../src/util/environments";
+import { Environment } from "@/types/organization";
+import { deepFreeze } from "@/test/test-helpers";
+import { addEnvironmentToOrganizationEnvironments } from "@/src/util/environments";
 
 describe("environment utils", () => {
   describe("addEnvironmentToOrganizationEnvironments", () => {

@@ -1,10 +1,10 @@
-import { ListSavedGroupsResponse } from "../../../types/openapi";
+import { listSavedGroupsValidator } from "@/src/validators/openapi";
+import { ListSavedGroupsResponse } from "@/types/openapi";
 import {
   getAllSavedGroups,
   toSavedGroupApiInterface,
-} from "../../models/SavedGroupModel";
-import { applyPagination, createApiRequestHandler } from "../../util/handler";
-import { listSavedGroupsValidator } from "../../validators/openapi";
+} from "@/src/models/SavedGroupModel";
+import { applyPagination, createApiRequestHandler } from "@/src/util/handler";
 
 export const listSavedGroups = createApiRequestHandler(
   listSavedGroupsValidator

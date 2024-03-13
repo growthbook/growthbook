@@ -1,6 +1,6 @@
 import bodyParser from "body-parser";
 import express from "express";
-import { wrapController } from "../wrapController";
+import { wrapController } from "@/src/routers//wrapController";
 import * as uploadControllerRaw from "./upload.controller";
 
 const router = express.Router();

@@ -1,5 +1,5 @@
 import express from "express";
-import { wrapController } from "../wrapController";
+import { wrapController } from "@/src/routers//wrapController";
 import * as rawSDKConnectionController from "./sdk-connection.controller";
 
 const router = express.Router();

@@ -1,11 +1,11 @@
-import { UpdateFactTableFilterResponse } from "../../../types/openapi";
+import { updateFactTableFilterValidator } from "@/src/validators/openapi";
+import { UpdateFactTableFilterResponse } from "@/types/openapi";
 import {
   updateFactFilter,
   toFactTableFilterApiInterface,
   getFactTable,
-} from "../../models/FactTableModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { updateFactTableFilterValidator } from "../../validators/openapi";
+} from "@/src/models/FactTableModel";
+import { createApiRequestHandler } from "@/src/util/handler";
 
 export const updateFactTableFilter = createApiRequestHandler(
   updateFactTableFilterValidator

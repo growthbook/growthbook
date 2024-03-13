@@ -1,15 +1,15 @@
 import { Response } from "express";
-import { AuthRequest } from "../types/AuthRequest";
 import {
   getPresentationById,
   getPresentationsByOrganization,
   createPresentation,
   deletePresentationById,
   getPresentationSnapshots,
-} from "../services/presentations";
-import { getContextFromReq, userHasAccess } from "../services/organizations";
-import { ExperimentInterface } from "../../types/experiment";
-import { PresentationInterface } from "../../types/presentation";
+} from "@/src/services/presentations";
+import { getContextFromReq, userHasAccess } from "@/src/services/organizations";
+import { ExperimentInterface } from "@/types/experiment";
+import { PresentationInterface } from "@/types/presentation";
+import { AuthRequest } from "@/src/types/AuthRequest";
 
 export async function getPresentations(req: AuthRequest, res: Response) {
   const { org } = getContextFromReq(req);

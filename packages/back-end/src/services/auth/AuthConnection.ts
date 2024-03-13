@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
-import { AuthRequest } from "../../types/AuthRequest";
-import { UnauthenticatedResponse } from "../../../types/sso-connection";
+import { UnauthenticatedResponse } from "@/types/sso-connection";
+import { AuthRequest } from "@/src/types/AuthRequest";
 
 export type TokensResponse = {
   idToken: string;

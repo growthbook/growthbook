@@ -4,13 +4,13 @@ import {
   postMetricApiPayloadToMetricInterface,
   putMetricApiPayloadIsValid,
   putMetricApiPayloadToMetricInterface,
-} from "../../src/services/experiments";
+} from "@/src/services/experiments";
 import {
   postMetricValidator,
   putMetricValidator,
-} from "../../src/validators/openapi";
-import { DataSourceInterface } from "../../types/datasource";
-import { OrganizationInterface } from "../../types/organization";
+} from "@/src/validators/openapi";
+import { DataSourceInterface } from "@/types/datasource";
+import { OrganizationInterface } from "@/types/organization";
 
 describe("experiments utils", () => {
   describe("postMetricApiPayloadIsValid", () => {

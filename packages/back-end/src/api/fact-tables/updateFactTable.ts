@@ -1,16 +1,16 @@
-import { UpdateFactTableProps } from "../../../types/fact-table";
-import { UpdateFactTableResponse } from "../../../types/openapi";
-import { queueFactTableColumnsRefresh } from "../../jobs/refreshFactTableColumns";
-import { getDataSourceById } from "../../models/DataSourceModel";
+import { updateFactTableValidator } from "@/src/validators/openapi";
+import { UpdateFactTableProps } from "@/types/fact-table";
+import { UpdateFactTableResponse } from "@/types/openapi";
+import { getDataSourceById } from "@/src/models/DataSourceModel";
 import {
   updateFactTable as updateFactTableInDb,
   toFactTableApiInterface,
   getFactTable,
-} from "../../models/FactTableModel";
-import { findAllProjectsByOrganization } from "../../models/ProjectModel";
-import { addTagsDiff } from "../../models/TagModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { updateFactTableValidator } from "../../validators/openapi";
+} from "@/src/models/FactTableModel";
+import { findAllProjectsByOrganization } from "@/src/models/ProjectModel";
+import { addTagsDiff } from "@/src/models/TagModel";
+import { createApiRequestHandler } from "@/src/util/handler";
+import { queueFactTableColumnsRefresh } from "@/src/jobs/refreshFactTableColumns";
 
 export const updateFactTable = createApiRequestHandler(
   updateFactTableValidator

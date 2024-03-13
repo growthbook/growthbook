@@ -1,7 +1,7 @@
-import { GetFeatureKeysResponse } from "../../../types/openapi";
-import { getAllFeatures } from "../../models/FeatureModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { getFeatureKeysValidator } from "../../validators/openapi";
+import { getFeatureKeysValidator } from "@/src/validators/openapi";
+import { GetFeatureKeysResponse } from "@/types/openapi";
+import { getAllFeatures } from "@/src/models/FeatureModel";
+import { createApiRequestHandler } from "@/src/util/handler";
 
 export const getFeatureKeys = createApiRequestHandler(getFeatureKeysValidator)(
   async (req): Promise<GetFeatureKeysResponse> => {

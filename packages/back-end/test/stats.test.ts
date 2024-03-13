@@ -1,4 +1,4 @@
-import { checkSrm } from "../src/util/stats";
+import { checkSrm } from "@/src/util/stats";
 
 describe("backend", () => {
   it("calculates SRM correctly", () => {

@@ -1,10 +1,10 @@
-import { ListProjectsResponse } from "../../../types/openapi";
+import { listProjectsValidator } from "@/src/validators/openapi";
+import { ListProjectsResponse } from "@/types/openapi";
 import {
   findAllProjectsByOrganization,
   toProjectApiInterface,
-} from "../../models/ProjectModel";
-import { applyPagination, createApiRequestHandler } from "../../util/handler";
-import { listProjectsValidator } from "../../validators/openapi";
+} from "@/src/models/ProjectModel";
+import { applyPagination, createApiRequestHandler } from "@/src/util/handler";
 
 export const listProjects = createApiRequestHandler(listProjectsValidator)(
   async (req): Promise<ListProjectsResponse> => {

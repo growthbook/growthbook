@@ -1,26 +1,26 @@
 import { validateFeatureValue } from "shared/util";
 import { isEqual } from "lodash";
-import { UpdateFeatureResponse } from "../../../types/openapi";
-import { createApiRequestHandler } from "../../util/handler";
-import { updateFeatureValidator } from "../../validators/openapi";
-import {
-  getFeature,
-  updateFeature as updateFeatureToDb,
-} from "../../models/FeatureModel";
-import { getExperimentMapForFeature } from "../../models/ExperimentModel";
 import {
   addIdsToRules,
   getApiFeatureObj,
   getSavedGroupMap,
   updateInterfaceEnvSettingsFromApiEnvSettings,
-} from "../../services/features";
-import { FeatureInterface } from "../../../types/feature";
-import { getEnabledEnvironments } from "../../util/features";
-import { addTagsDiff } from "../../models/TagModel";
-import { auditDetailsUpdate } from "../../services/audit";
-import { createRevision } from "../../models/FeatureRevisionModel";
-import { FeatureRevisionInterface } from "../../../types/feature-revision";
-import { getEnvironmentIdsFromOrg } from "../../services/organizations";
+} from "@/src/services/features";
+import { auditDetailsUpdate } from "@/src/services/audit";
+import { getEnvironmentIdsFromOrg } from "@/src/services/organizations";
+import { updateFeatureValidator } from "@/src/validators/openapi";
+import { UpdateFeatureResponse } from "@/types/openapi";
+import {
+  getFeature,
+  updateFeature as updateFeatureToDb,
+} from "@/src/models/FeatureModel";
+import { getExperimentMapForFeature } from "@/src/models/ExperimentModel";
+import { FeatureInterface } from "@/types/feature";
+import { addTagsDiff } from "@/src/models/TagModel";
+import { createRevision } from "@/src/models/FeatureRevisionModel";
+import { FeatureRevisionInterface } from "@/types/feature-revision";
+import { createApiRequestHandler } from "@/src/util/handler";
+import { getEnabledEnvironments } from "@/src/util/features";
 import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(

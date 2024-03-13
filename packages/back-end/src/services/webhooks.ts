@@ -1,7 +1,7 @@
 import uniqid from "uniqid";
 import md5 from "md5";
-import { WebhookModel } from "../models/WebhookModel";
-import { WebhookInterface, WebhookMethod } from "../../types/webhook";
+import { WebhookModel } from "@/src/models/WebhookModel";
+import { WebhookInterface, WebhookMethod } from "@/types/webhook";
 
 type CreateWebhook = {
   organization: string;

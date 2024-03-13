@@ -23,12 +23,22 @@ import {
   SDKCapability,
 } from "shared/sdk-versioning";
 import cloneDeep from "lodash/cloneDeep";
+import { getFeatureDefinition, getParsedCondition } from "@/src/util/features";
+import { logger } from "@/src/util/logger";
+import { promiseAllChunks } from "@/src/util/promise";
+import { getSDKPayload, updateSDKPayload } from "@/src/models/SdkPayloadModel";
+import { getAllSavedGroups } from "@/src/models/SavedGroupModel";
+import {
+  getAllPayloadExperiments,
+  getAllVisualExperiments,
+} from "@/src/models/ExperimentModel";
+import { getAllFeatures } from "@/src/models/FeatureModel";
 import {
   ApiReqContext,
   AutoExperimentWithProject,
   FeatureDefinition,
   FeatureDefinitionWithProject,
-} from "../../types/api";
+} from "@/types/api";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
@@ -39,36 +49,26 @@ import {
   FeatureTestResult,
   ExperimentRefRule,
   FeaturePrerequisite,
-} from "../../types/feature";
-import { getAllFeatures } from "../models/FeatureModel";
-import {
-  getAllPayloadExperiments,
-  getAllVisualExperiments,
-} from "../models/ExperimentModel";
-import { getFeatureDefinition, getParsedCondition } from "../util/features";
-import { getAllSavedGroups } from "../models/SavedGroupModel";
+} from "@/types/feature";
 import {
   Environment,
   OrganizationInterface,
   ReqContext,
   SDKAttribute,
   SDKAttributeSchema,
-} from "../../types/organization";
-import { getSDKPayload, updateSDKPayload } from "../models/SdkPayloadModel";
-import { logger } from "../util/logger";
-import { promiseAllChunks } from "../util/promise";
-import { GroupMap } from "../../types/saved-group";
-import { SDKPayloadKey } from "../../types/sdk-payload";
-import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
-import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { VisualChangesetInterface } from "../../types/visual-changeset";
+} from "@/types/organization";
+import { GroupMap } from "@/types/saved-group";
+import { SDKPayloadKey } from "@/types/sdk-payload";
+import { ApiFeature, ApiFeatureEnvironment } from "@/types/openapi";
+import { ExperimentInterface, ExperimentPhase } from "@/types/experiment";
+import { VisualChangesetInterface } from "@/types/visual-changeset";
+import { ArchetypeAttributeValues } from "@/types/archetype";
+import { FeatureRevisionInterface } from "@/types/feature-revision";
+import { triggerWebhookJobs } from "@/src/jobs/updateAllJobs";
 import {
   ApiFeatureEnvSettings,
   ApiFeatureEnvSettingsRules,
-} from "../api/features/postFeature";
-import { ArchetypeAttributeValues } from "../../types/archetype";
-import { FeatureRevisionInterface } from "../../types/feature-revision";
-import { triggerWebhookJobs } from "../jobs/updateAllJobs";
+} from "@/src/api/features/postFeature";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,

@@ -1,20 +1,20 @@
 import { NextFunction, Request, Response } from "express";
 import jwtExpress from "express-jwt";
 import jwt from "jsonwebtoken";
-import { JWT_SECRET } from "../../util/secrets";
-import { UserInterface } from "../../../types/user";
+import { UnauthenticatedResponse } from "@/types/sso-connection";
 import {
   AuthRefreshModel,
   createRefreshToken,
   getUserIdFromAuthRefreshToken,
-} from "../../models/AuthRefreshModel";
-import { RefreshTokenCookie } from "../../util/cookie";
-import { UnauthenticatedResponse } from "../../../types/sso-connection";
+} from "@/src/models/AuthRefreshModel";
+import { UserInterface } from "@/types/user";
+import { RefreshTokenCookie } from "@/src/util/cookie";
+import { JWT_SECRET } from "@/src/util/secrets";
 import {
   getAuditableUserPropertiesFromRequest,
   getUserById,
   trackLoginForUser,
-} from "../users";
+} from "@/src/services/users";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
 import { isNewInstallation } from ".";
 

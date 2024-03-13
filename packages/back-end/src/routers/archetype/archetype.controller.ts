@@ -1,32 +1,32 @@
 import type { Response } from "express";
 import { orgHasPremiumFeature } from "enterprise";
-import { AuthRequest } from "../../types/AuthRequest";
-import { ApiErrorResponse, PrivateApiErrorResponse } from "../../../types/api";
 import {
   getEnvironments,
   getContextFromReq,
-} from "../../services/organizations";
+} from "@/src/services/organizations";
+import {
+  auditDetailsCreate,
+  auditDetailsDelete,
+  auditDetailsUpdate,
+} from "@/src/services/audit";
+import { evaluateFeature, getSavedGroupMap } from "@/src/services/features";
+import { ApiErrorResponse, PrivateApiErrorResponse } from "@/types/api";
 import {
   ArchetypeAttributeValues,
   ArchetypeInterface,
-} from "../../../types/archetype";
+} from "@/types/archetype";
 import {
   createArchetype,
   deleteArchetypeById,
   getAllArchetypes,
   getArchetypeById,
   updateArchetypeById,
-} from "../../models/ArchetypeModel";
-import {
-  auditDetailsCreate,
-  auditDetailsDelete,
-  auditDetailsUpdate,
-} from "../../services/audit";
-import { FeatureTestResult } from "../../../types/feature";
-import { evaluateFeature, getSavedGroupMap } from "../../services/features";
-import { getFeature } from "../../models/FeatureModel";
-import { getAllPayloadExperiments } from "../../models/ExperimentModel";
-import { getRevision } from "../../models/FeatureRevisionModel";
+} from "@/src/models/ArchetypeModel";
+import { FeatureTestResult } from "@/types/feature";
+import { getFeature } from "@/src/models/FeatureModel";
+import { getAllPayloadExperiments } from "@/src/models/ExperimentModel";
+import { getRevision } from "@/src/models/FeatureRevisionModel";
+import { AuthRequest } from "@/src/types/AuthRequest";
 
 type GetArchetypeResponse = {
   status: 200;

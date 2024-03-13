@@ -1,7 +1,7 @@
 import express from "express";
 import z from "zod";
-import { wrapController } from "../wrapController";
-import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
+import { validateRequestMiddleware } from "@/src/routers/utils/validateRequestMiddleware";
+import { wrapController } from "@/src/routers//wrapController";
 import * as _githubIntegrationController from "./github-integration.controller";
 
 const router = express.Router();

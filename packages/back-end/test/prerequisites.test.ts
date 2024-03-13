@@ -1,7 +1,7 @@
 import cloneDeep from "lodash/cloneDeep";
 import { evaluatePrerequisiteState } from "shared/util";
-import { FeatureInterface } from "../types/feature";
-import { generateFeaturesPayload } from "../src/services/features";
+import { FeatureInterface } from "@/types/feature";
+import { generateFeaturesPayload } from "@/src/services/features";
 
 describe("Prerequisite reduction in SDK Payload", () => {
   const childFeature: FeatureInterface = {

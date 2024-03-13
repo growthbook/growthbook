@@ -2,13 +2,10 @@ import { Response } from "express";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getSnapshotAnalysis } from "shared/util";
-import { ReportInterface } from "../../types/report";
-import {
-  getExperimentById,
-  getExperimentsByIds,
-} from "../models/ExperimentModel";
-import { findSnapshotById } from "../models/ExperimentSnapshotModel";
-import { getMetricMap } from "../models/MetricModel";
+import { getIntegrationFromDatasourceId } from "@/src/services/datasource";
+import { generateReportNotebook } from "@/src/services/notebook";
+import { getContextFromReq } from "@/src/services/organizations";
+import { reportArgsFromSnapshot } from "@/src/services/reports";
 import {
   createReport,
   deleteReportById,
@@ -16,15 +13,18 @@ import {
   getReportsByExperimentId,
   getReportsByOrg,
   updateReport,
-} from "../models/ReportModel";
-import { ReportQueryRunner } from "../queryRunners/ReportQueryRunner";
-import { getIntegrationFromDatasourceId } from "../services/datasource";
-import { generateReportNotebook } from "../services/notebook";
-import { getContextFromReq } from "../services/organizations";
-import { reportArgsFromSnapshot } from "../services/reports";
-import { AuthRequest } from "../types/AuthRequest";
-import { ExperimentInterface } from "../../types/experiment";
-import { getFactTableMap } from "../models/FactTableModel";
+} from "@/src/models/ReportModel";
+import { getMetricMap } from "@/src/models/MetricModel";
+import { findSnapshotById } from "@/src/models/ExperimentSnapshotModel";
+import {
+  getExperimentById,
+  getExperimentsByIds,
+} from "@/src/models/ExperimentModel";
+import { getFactTableMap } from "@/src/models/FactTableModel";
+import { ExperimentInterface } from "@/types/experiment";
+import { ReportInterface } from "@/types/report";
+import { AuthRequest } from "@/src/types/AuthRequest";
+import { ReportQueryRunner } from "@/src/queryRunners/ReportQueryRunner";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,

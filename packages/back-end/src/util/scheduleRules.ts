@@ -1,4 +1,4 @@
-import { ScheduleRule } from "../../types/feature";
+import { ScheduleRule } from "@/types/feature";
 
 // Type after the filter is applied
 type ScheduleRuleNoNulls = Omit<ScheduleRule, "timestamp"> & {

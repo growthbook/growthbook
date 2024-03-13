@@ -3,7 +3,16 @@ import uniqid from "uniqid";
 import { z } from "zod";
 import { omit } from "lodash";
 import { hasReadAccess } from "shared/permissions";
-import { ApiSdkConnection } from "../../types/openapi";
+import { cancellableFetch } from "@/src/util/http.util";
+import {
+  IS_CLOUD,
+  PROXY_ENABLED,
+  PROXY_HOST_INTERNAL,
+  PROXY_HOST_PUBLIC,
+} from "@/src/util/secrets";
+import { errorStringFromZodResult } from "@/src/util/validation";
+import { ApiReqContext } from "@/types/api";
+import { ReqContext } from "@/types/organization";
 import {
   CreateSDKConnectionParams,
   EditSDKConnectionParams,
@@ -11,18 +20,9 @@ import {
   ProxyTestResult,
   SDKConnectionInterface,
   SDKLanguage,
-} from "../../types/sdk-connection";
-import { cancellableFetch } from "../util/http.util";
-import {
-  IS_CLOUD,
-  PROXY_ENABLED,
-  PROXY_HOST_INTERNAL,
-  PROXY_HOST_PUBLIC,
-} from "../util/secrets";
-import { errorStringFromZodResult } from "../util/validation";
-import { triggerSingleSDKWebhookJobs } from "../jobs/updateAllJobs";
-import { ApiReqContext } from "../../types/api";
-import { ReqContext } from "../../types/organization";
+} from "@/types/sdk-connection";
+import { ApiSdkConnection } from "@/types/openapi";
+import { triggerSingleSDKWebhookJobs } from "@/src/jobs/updateAllJobs";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
 
 const sdkConnectionSchema = new mongoose.Schema({

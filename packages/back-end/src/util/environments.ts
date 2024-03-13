@@ -1,5 +1,5 @@
 import cloneDeep from "lodash/cloneDeep";
-import { Environment } from "../../types/organization";
+import { Environment } from "@/types/organization";
 
 /**
  * util for adding an environment to the existing organization environments.

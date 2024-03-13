@@ -1,27 +1,27 @@
 import EventEmitter from "events";
-import {
-  Queries,
-  QueryInterface,
-  QueryPointer,
-  QueryStatus,
-  QueryType,
-} from "../../types/query";
+import { logger } from "@/src/util/logger";
+import { promiseAllChunks } from "@/src/util/promise";
 import {
   createNewQuery,
   createNewQueryFromCached,
   getQueriesByIds,
   getRecentQuery,
   updateQuery,
-} from "../models/QueryModel";
+} from "@/src/models/QueryModel";
+import {
+  Queries,
+  QueryInterface,
+  QueryPointer,
+  QueryStatus,
+  QueryType,
+} from "@/types/query";
+import { ReqContext } from "@/types/organization";
+import { ApiReqContext } from "@/types/api";
 import {
   ExternalIdCallback,
   QueryResponse,
   SourceIntegrationInterface,
-} from "../types/Integration";
-import { logger } from "../util/logger";
-import { promiseAllChunks } from "../util/promise";
-import { ReqContext } from "../../types/organization";
-import { ApiReqContext } from "../../types/api";
+} from "@/src/types/Integration";
 
 export type QueryMap = Map<string, QueryInterface>;
 

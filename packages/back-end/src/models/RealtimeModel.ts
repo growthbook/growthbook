@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { RealtimeUsageInterface } from "../../types/realtime";
+import { RealtimeUsageInterface } from "@/types/realtime";
 
 const realtimeUsageSchema = new mongoose.Schema({
   organization: String,

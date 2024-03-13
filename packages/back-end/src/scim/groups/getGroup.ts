@@ -1,9 +1,9 @@
 import { Response } from "express";
-import { findTeamById } from "../../models/TeamModel";
-import { expandOrgMembers } from "../../services/organizations";
-import { ScimError, ScimGetRequest, ScimGroup } from "../../../types/scim";
-import { TeamInterface } from "../../../types/team";
-import { ExpandedMember } from "../../../types/organization";
+import { expandOrgMembers } from "@/src/services/organizations";
+import { findTeamById } from "@/src/models/TeamModel";
+import { ScimError, ScimGetRequest, ScimGroup } from "@/types/scim";
+import { TeamInterface } from "@/types/team";
+import { ExpandedMember } from "@/types/organization";
 
 type TeamWithMembers = Omit<TeamInterface, "members"> & {
   members: ExpandedMember[];

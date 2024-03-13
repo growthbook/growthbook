@@ -1,26 +1,26 @@
 import { Request, Response, NextFunction } from "express";
 import { hasPermission } from "shared/permissions";
-import { ApiRequestLocals } from "../../types/api";
-import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
-import { getOrganizationById } from "../services/organizations";
-import { getCustomLogProps } from "../util/logger";
-import { EventAuditUserApiKey } from "../events/event-types";
-import { isApiKeyForUserInOrganization } from "../util/api-key.util";
+import { EventAuditUserApiKey } from "@/src/events/event-types";
+import { getOrganizationById } from "@/src/services/organizations";
+import { initializeLicense } from "@/src/services/licenseData";
+import { ReqContextClass } from "@/src/services/context";
+import {
+  getUserPermissions,
+  roleToPermissionMap,
+} from "@/src/util/organization.util";
+import { isApiKeyForUserInOrganization } from "@/src/util/api-key.util";
+import { getCustomLogProps } from "@/src/util/logger";
+import { getTeamsForOrganization } from "@/src/models/TeamModel";
+import { lookupOrganizationByApiKey } from "@/src/models/ApiKeyModel";
+import { TeamInterface } from "@/types/team";
+import { ApiKeyInterface } from "@/types/apikey";
 import {
   MemberRole,
   OrganizationInterface,
   Permission,
-} from "../../types/organization";
-import {
-  getUserPermissions,
-  roleToPermissionMap,
-} from "../util/organization.util";
-import { ApiKeyInterface } from "../../types/apikey";
-import { getTeamsForOrganization } from "../models/TeamModel";
-import { TeamInterface } from "../../types/team";
-import { getUserById } from "../services/users";
-import { initializeLicense } from "../services/licenseData";
-import { ReqContextClass } from "../services/context";
+} from "@/types/organization";
+import { ApiRequestLocals } from "@/types/api";
+import { getUserById } from "@/src/services/users";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,

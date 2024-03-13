@@ -9,7 +9,7 @@ import { getAllMetricRegressionAdjustmentStatuses } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
-import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
+import { EventAuditUserForResponseLocals } from "@/src/events/event-types";
 import {
   createManualSnapshot,
   createSnapshot,
@@ -18,8 +18,20 @@ import {
   getDefaultExperimentAnalysisSettings,
   getExperimentMetricById,
   getLinkedFeatureInfo,
-} from "../services/experiments";
-import { MetricInterface, MetricStats } from "../../types/metric";
+} from "@/src/services/experiments";
+import {
+  getIntegrationFromDatasourceId,
+  getSourceIntegrationObject,
+} from "@/src/services/datasource";
+import { getContextFromReq, userHasAccess } from "@/src/services/organizations";
+import { removeExperimentFromPresentations } from "@/src/services/presentations";
+import { generateExperimentNotebook } from "@/src/services/notebook";
+import {
+  auditDetailsCreate,
+  auditDetailsDelete,
+  auditDetailsUpdate,
+} from "@/src/services/audit";
+import { IMPORT_LIMIT_DAYS } from "@/src/util/secrets";
 import {
   createExperiment,
   deleteExperimentByIdForOrganization,
@@ -28,7 +40,7 @@ import {
   getExperimentByTrackingKey,
   getPastExperimentsByDatasource,
   updateExperiment,
-} from "../models/ExperimentModel";
+} from "@/src/models/ExperimentModel";
 import {
   createVisualChangeset,
   deleteVisualChangesetById,
@@ -36,27 +48,41 @@ import {
   findVisualChangesetsByExperiment,
   syncVisualChangesWithVariations,
   updateVisualChangeset,
-} from "../models/VisualChangesetModel";
+} from "@/src/models/VisualChangesetModel";
 import {
   deleteSnapshotById,
   findSnapshotById,
   getLatestSnapshot,
   updateSnapshot,
   updateSnapshotsOnPhaseDelete,
-} from "../models/ExperimentSnapshotModel";
-import {
-  getIntegrationFromDatasourceId,
-  getSourceIntegrationObject,
-} from "../services/datasource";
-import { addTagsDiff } from "../models/TagModel";
-import { getContextFromReq, userHasAccess } from "../services/organizations";
-import { removeExperimentFromPresentations } from "../services/presentations";
+} from "@/src/models/ExperimentSnapshotModel";
+import { addTagsDiff } from "@/src/models/TagModel";
 import {
   createPastExperiments,
   getPastExperimentsById,
   getPastExperimentsModelByDatasource,
   updatePastExperiments,
-} from "../models/PastExperimentsModel";
+} from "@/src/models/PastExperimentsModel";
+import { getMetricById, getMetricMap } from "@/src/models/MetricModel";
+import { IdeaModel } from "@/src/models/IdeasModel";
+import { getDataSourceById } from "@/src/models/DataSourceModel";
+import {
+  findAllProjectsByOrganization,
+  findProjectById,
+} from "@/src/models/ProjectModel";
+import {
+  createUserVisualEditorApiKey,
+  getVisualEditorApiKey,
+} from "@/src/models/ApiKeyModel";
+import { getExperimentWatchers, upsertWatch } from "@/src/models/WatchModel";
+import { getFactTableMap } from "@/src/models/FactTableModel";
+import { ApiReqContext, PrivateApiErrorResponse } from "@/types/api";
+import { VisualChangesetInterface } from "@/types/visual-changeset";
+import {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+} from "@/types/experiment-snapshot";
+import { IdeaInterface } from "@/types/idea";
 import {
   Changeset,
   ExperimentInterface,
@@ -65,38 +91,15 @@ import {
   ExperimentStatus,
   ExperimentTargetingData,
   Variation,
-} from "../../types/experiment";
-import { getMetricById, getMetricMap } from "../models/MetricModel";
-import { IdeaModel } from "../models/IdeasModel";
-import { IdeaInterface } from "../../types/idea";
-import { getDataSourceById } from "../models/DataSourceModel";
-import { generateExperimentNotebook } from "../services/notebook";
-import { IMPORT_LIMIT_DAYS } from "../util/secrets";
+} from "@/types/experiment";
+import { MetricInterface, MetricStats } from "@/types/metric";
+import { OrganizationSettings, ReqContext } from "@/types/organization";
 import {
-  auditDetailsCreate,
-  auditDetailsDelete,
-  auditDetailsUpdate,
-} from "../services/audit";
-import {
-  ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotInterface,
-} from "../../types/experiment-snapshot";
-import { VisualChangesetInterface } from "../../types/visual-changeset";
-import { ApiReqContext, PrivateApiErrorResponse } from "../../types/api";
-import { EventAuditUserForResponseLocals } from "../events/event-types";
-import {
-  findAllProjectsByOrganization,
-  findProjectById,
-} from "../models/ProjectModel";
-import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
-import { PastExperimentsQueryRunner } from "../queryRunners/PastExperimentsQueryRunner";
-import {
-  createUserVisualEditorApiKey,
-  getVisualEditorApiKey,
-} from "../models/ApiKeyModel";
-import { getExperimentWatchers, upsertWatch } from "../models/WatchModel";
-import { getFactTableMap } from "../models/FactTableModel";
-import { OrganizationSettings, ReqContext } from "../../types/organization";
+  AuthRequest,
+  ResponseWithStatusAndError,
+} from "@/src/types/AuthRequest";
+import { PastExperimentsQueryRunner } from "@/src/queryRunners/PastExperimentsQueryRunner";
+import { ExperimentResultsQueryRunner } from "@/src/queryRunners/ExperimentResultsQueryRunner";
 
 export async function getExperiments(
   req: AuthRequest<

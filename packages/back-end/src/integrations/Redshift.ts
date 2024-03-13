@@ -1,8 +1,8 @@
-import { PostgresConnectionParams } from "../../types/integrations/postgres";
-import { decryptDataSourceParams } from "../services/datasource";
-import { runPostgresQuery } from "../services/postgres";
-import { QueryResponse } from "../types/Integration";
-import { FormatDialect } from "../util/sql";
+import { decryptDataSourceParams } from "@/src/services/datasource";
+import { runPostgresQuery } from "@/src/services/postgres";
+import { FormatDialect } from "@/src/util/sql";
+import { PostgresConnectionParams } from "@/types/integrations/postgres";
+import { QueryResponse } from "@/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Redshift extends SqlIntegration {

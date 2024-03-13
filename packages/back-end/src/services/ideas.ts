@@ -1,8 +1,8 @@
 import uniqid from "uniqid";
 import { FilterQuery } from "mongoose";
-import { IdeaDocument, IdeaModel } from "../models/IdeasModel";
-import { addTags } from "../models/TagModel";
-import { IdeaInterface } from "../../types/idea";
+import { IdeaDocument, IdeaModel } from "@/src/models/IdeasModel";
+import { addTags } from "@/src/models/TagModel";
+import { IdeaInterface } from "@/types/idea";
 
 export function getIdeasByOrganization(organization: string, project?: string) {
   const query: FilterQuery<IdeaDocument> = {

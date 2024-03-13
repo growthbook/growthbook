@@ -1,10 +1,10 @@
+import { getSegmentValidator } from "@/src/validators/openapi";
 import {
   findSegmentById,
   toSegmentApiInterface,
-} from "../../models/SegmentModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { GetSegmentResponse } from "../../../types/openapi";
-import { getSegmentValidator } from "../../validators/openapi";
+} from "@/src/models/SegmentModel";
+import { GetSegmentResponse } from "@/types/openapi";
+import { createApiRequestHandler } from "@/src/util/handler";
 
 export const getSegment = createApiRequestHandler(getSegmentValidator)(
   async (req): Promise<GetSegmentResponse> => {

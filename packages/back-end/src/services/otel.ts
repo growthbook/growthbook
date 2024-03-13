@@ -1,5 +1,5 @@
 import { Histogram, metrics, UpDownCounter } from "@opentelemetry/api";
-import { logger } from "../util/logger";
+import { logger } from "@/src/util/logger";
 
 const getMeter = (name: string) => {
   return metrics.getMeter(name);

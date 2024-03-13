@@ -1,12 +1,12 @@
 import Agenda, { Job } from "agenda";
+import { getNextScheduledUpdate } from "@/src/services/features";
+import { getContextForAgendaJobByOrgId } from "@/src/services/organizations";
+import { logger } from "@/src/util/logger";
 import {
   getFeature,
   getScheduledFeaturesToUpdate,
   updateFeature,
-} from "../models/FeatureModel";
-import { getNextScheduledUpdate } from "../services/features";
-import { getContextForAgendaJobByOrgId } from "../services/organizations";
-import { logger } from "../util/logger";
+} from "@/src/models/FeatureModel";
 
 type UpdateSingleFeatureJob = Job<{
   featureId: string;

@@ -1,20 +1,20 @@
 import { Response } from "express";
 import { parse, filter } from "scim2-parse-filter";
 import {
+  addMembersToTeam,
+  expandOrgMembers,
+  removeMembersFromTeam,
+} from "@/src/services/organizations";
+import {
   BasicScimGroup,
   ScimError,
   ScimGroup,
   ScimGroupMember,
   ScimGroupPatchRequest,
-} from "../../../types/scim";
-import { findTeamById, updateTeamMetadata } from "../../models/TeamModel";
-import {
-  addMembersToTeam,
-  expandOrgMembers,
-  removeMembersFromTeam,
-} from "../../services/organizations";
-import { Member } from "../../../types/organization";
-import { isRoleValid } from "../users/createUser";
+} from "@/types/scim";
+import { findTeamById, updateTeamMetadata } from "@/src/models/TeamModel";
+import { Member } from "@/types/organization";
+import { isRoleValid } from "@/src/scim/users/createUser";
 
 export async function patchGroup(
   req: ScimGroupPatchRequest,

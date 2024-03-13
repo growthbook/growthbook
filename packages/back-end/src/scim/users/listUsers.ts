@@ -1,11 +1,7 @@
 import { Response } from "express";
 import { parse, filter } from "scim2-parse-filter";
-import { expandOrgMembers } from "../../services/organizations";
-import {
-  ScimListRequest,
-  ScimListResponse,
-  ScimUser,
-} from "../../../types/scim";
+import { expandOrgMembers } from "@/src/services/organizations";
+import { ScimListRequest, ScimListResponse, ScimUser } from "@/types/scim";
 import { expandedMembertoScimUser } from "./getUser";
 
 export const START_INDEX_DEFAULT = 0;

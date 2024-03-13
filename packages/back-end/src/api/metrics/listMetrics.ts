@@ -1,13 +1,13 @@
-import { ListMetricsResponse } from "../../../types/openapi";
-import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
-import { getMetricsByOrganization } from "../../models/MetricModel";
-import { toMetricApiInterface } from "../../services/experiments";
+import { toMetricApiInterface } from "@/src/services/experiments";
+import { listMetricsValidator } from "@/src/validators/openapi";
+import { ListMetricsResponse } from "@/types/openapi";
+import { getDataSourcesByOrganization } from "@/src/models/DataSourceModel";
+import { getMetricsByOrganization } from "@/src/models/MetricModel";
 import {
   applyFilter,
   applyPagination,
   createApiRequestHandler,
-} from "../../util/handler";
-import { listMetricsValidator } from "../../validators/openapi";
+} from "@/src/util/handler";
 
 export const listMetrics = createApiRequestHandler(listMetricsValidator)(
   async (req): Promise<ListMetricsResponse> => {

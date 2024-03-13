@@ -1,15 +1,15 @@
-import { PostOrganizationResponse } from "../../../types/openapi";
-import {
-  createApiRequestHandler,
-  validateIsSuperUserRequest,
-} from "../../util/handler";
-import { putOrganizationValidator } from "../../validators/openapi";
+import { putOrganizationValidator } from "@/src/validators/openapi";
+import { PostOrganizationResponse } from "@/types/openapi";
 import {
   findOrganizationById,
   toOrganizationApiInterface,
   updateOrganization,
-} from "../../models/OrganizationModel";
-import { OrganizationInterface } from "../../../types/organization";
+} from "@/src/models/OrganizationModel";
+import { OrganizationInterface } from "@/types/organization";
+import {
+  createApiRequestHandler,
+  validateIsSuperUserRequest,
+} from "@/src/util/handler";
 
 export const putOrganization = createApiRequestHandler(
   putOrganizationValidator

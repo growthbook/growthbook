@@ -1,12 +1,12 @@
 import { omit } from "lodash";
 import uniqid from "uniqid";
 import mongoose from "mongoose";
+import { fetchRepositories } from "@/src/services/github";
 import {
   GithubIntegrationInterface,
   CreateGithubIntegrationInput,
-} from "../../types/github";
-import { OrganizationInterface } from "../../types/organization";
-import { fetchRepositories } from "../services/github";
+} from "@/types/github";
+import { OrganizationInterface } from "@/types/organization";
 import { doesTokenExist } from "./GithubUserTokenModel";
 
 type GithubIntegrationDocument = mongoose.Document & GithubIntegrationInterface;

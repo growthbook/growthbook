@@ -1,9 +1,9 @@
 import { parse, filter } from "scim2-parse-filter";
 import { Response } from "express";
-import { getTeamsForOrganization } from "../../models/TeamModel";
-import { expandOrgMembers } from "../../services/organizations";
-import { ScimListRequest, ScimListResponse } from "../../../types/scim";
-import { COUNT_DEFAULT, START_INDEX_DEFAULT } from "../users/listUsers";
+import { expandOrgMembers } from "@/src/services/organizations";
+import { ScimListRequest, ScimListResponse } from "@/types/scim";
+import { getTeamsForOrganization } from "@/src/models/TeamModel";
+import { COUNT_DEFAULT, START_INDEX_DEFAULT } from "@/src/scim/users/listUsers";
 import { teamtoScimGroup } from "./getGroup";
 
 export async function listGroups(

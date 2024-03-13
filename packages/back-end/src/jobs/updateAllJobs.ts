@@ -1,22 +1,22 @@
-import { ApiReqContext } from "../../types/api";
-import { ReqContext } from "../../types/organization";
-import {
-  ProxyConnection,
-  SDKConnectionInterface,
-} from "../../types/sdk-connection";
-import { SDKPayloadKey } from "../../types/sdk-payload";
+import { IS_CLOUD } from "@/src/util/secrets";
 import {
   getSurrogateKeysFromEnvironments,
   purgeCDNCache,
-} from "../util/cdn.util";
-import { IS_CLOUD } from "../util/secrets";
-import { queueProxyUpdate, queueSingleProxyUpdate } from "./proxyUpdate";
+} from "@/src/util/cdn.util";
+import { SDKPayloadKey } from "@/types/sdk-payload";
+import {
+  ProxyConnection,
+  SDKConnectionInterface,
+} from "@/types/sdk-connection";
+import { ReqContext } from "@/types/organization";
+import { ApiReqContext } from "@/types/api";
+import { queueWebhook } from "./webhooks";
 import {
   queueGlobalWebhooks,
   queueSingleWebhookJob,
   queueWebhookUpdate,
 } from "./sdkWebhooks";
-import { queueWebhook } from "./webhooks";
+import { queueProxyUpdate, queueSingleProxyUpdate } from "./proxyUpdate";
 
 export const triggerWebhookJobs = async (
   context: ReqContext | ApiReqContext,

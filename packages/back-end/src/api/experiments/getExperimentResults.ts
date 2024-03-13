@@ -1,9 +1,9 @@
-import { GetExperimentResultsResponse } from "../../../types/openapi";
-import { getExperimentById } from "../../models/ExperimentModel";
-import { getLatestSnapshot } from "../../models/ExperimentSnapshotModel";
-import { toSnapshotApiInterface } from "../../services/experiments";
-import { createApiRequestHandler } from "../../util/handler";
-import { getExperimentResultsValidator } from "../../validators/openapi";
+import { toSnapshotApiInterface } from "@/src/services/experiments";
+import { getExperimentResultsValidator } from "@/src/validators/openapi";
+import { GetExperimentResultsResponse } from "@/types/openapi";
+import { getExperimentById } from "@/src/models/ExperimentModel";
+import { getLatestSnapshot } from "@/src/models/ExperimentSnapshotModel";
+import { createApiRequestHandler } from "@/src/util/handler";
 
 export const getExperimentResults = createApiRequestHandler(
   getExperimentResultsValidator

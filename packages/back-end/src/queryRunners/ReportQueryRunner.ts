@@ -1,16 +1,16 @@
 import { ExperimentMetricInterface } from "shared/experiments";
-import { ExperimentSnapshotAnalysis } from "../../types/experiment-snapshot";
-import { Queries, QueryStatus } from "../../types/query";
-import { ExperimentReportResults, ReportInterface } from "../../types/report";
-import { FactTableMap } from "../models/FactTableModel";
-import { getReportById, updateReport } from "../models/ReportModel";
-import { getSnapshotSettingsFromReportArgs } from "../services/reports";
-import { analyzeExperimentResults } from "../services/stats";
+import { getSnapshotSettingsFromReportArgs } from "@/src/services/reports";
+import { analyzeExperimentResults } from "@/src/services/stats";
+import { getReportById, updateReport } from "@/src/models/ReportModel";
+import { FactTableMap } from "@/src/models/FactTableModel";
+import { ExperimentReportResults, ReportInterface } from "@/types/report";
+import { Queries, QueryStatus } from "@/types/query";
+import { ExperimentSnapshotAnalysis } from "@/types/experiment-snapshot";
+import { QueryRunner, QueryMap } from "./QueryRunner";
 import {
   ExperimentResultsQueryParams,
   startExperimentResultQueries,
 } from "./ExperimentResultsQueryRunner";
-import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export type SnapshotResult = {
   unknownVariations: string[];

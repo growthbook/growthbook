@@ -1,29 +1,32 @@
 import { AES, enc } from "crypto-js";
-import { ENCRYPTION_KEY } from "../util/secrets";
-import GoogleAnalytics from "../integrations/GoogleAnalytics";
-import Athena from "../integrations/Athena";
-import Presto from "../integrations/Presto";
-import Databricks from "../integrations/Databricks";
-import Redshift from "../integrations/Redshift";
-import Snowflake from "../integrations/Snowflake";
-import Postgres from "../integrations/Postgres";
-import { SourceIntegrationInterface, TestQueryRow } from "../types/Integration";
-import BigQuery from "../integrations/BigQuery";
-import ClickHouse from "../integrations/ClickHouse";
-import Mixpanel from "../integrations/Mixpanel";
+import { ENCRYPTION_KEY } from "@/src/util/secrets";
+import { getDataSourceById } from "@/src/models/DataSourceModel";
 import {
   DataSourceInterface,
   DataSourceParams,
   DataSourceSettings,
   DataSourceType,
   ExposureQuery,
-} from "../../types/datasource";
-import Mysql from "../integrations/Mysql";
-import Mssql from "../integrations/Mssql";
-import { getDataSourceById } from "../models/DataSourceModel";
-import { TemplateVariables } from "../../types/sql";
-import { ReqContext } from "../../types/organization";
-import { ApiReqContext } from "../../types/api";
+} from "@/types/datasource";
+import { TemplateVariables } from "@/types/sql";
+import { ReqContext } from "@/types/organization";
+import { ApiReqContext } from "@/types/api";
+import {
+  SourceIntegrationInterface,
+  TestQueryRow,
+} from "@/src/types/Integration";
+import GoogleAnalytics from "@/src/integrations/GoogleAnalytics";
+import Athena from "@/src/integrations/Athena";
+import Presto from "@/src/integrations/Presto";
+import Databricks from "@/src/integrations/Databricks";
+import Redshift from "@/src/integrations/Redshift";
+import Snowflake from "@/src/integrations/Snowflake";
+import Postgres from "@/src/integrations/Postgres";
+import BigQuery from "@/src/integrations/BigQuery";
+import ClickHouse from "@/src/integrations/ClickHouse";
+import Mixpanel from "@/src/integrations/Mixpanel";
+import Mysql from "@/src/integrations/Mysql";
+import Mssql from "@/src/integrations/Mssql";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string

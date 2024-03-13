@@ -1,11 +1,11 @@
 import { z } from "zod";
-import { ApiVisualChangeset } from "../../../types/openapi";
+import { hasExceededUsageQuota, simpleCompletion } from "@/src/services/openai";
+import { ApiVisualChangeset } from "@/types/openapi";
 import {
   findVisualChangesetById,
   toVisualChangesetApiInterface,
-} from "../../models/VisualChangesetModel";
-import { hasExceededUsageQuota, simpleCompletion } from "../../services/openai";
-import { createApiRequestHandler } from "../../util/handler";
+} from "@/src/models/VisualChangesetModel";
+import { createApiRequestHandler } from "@/src/util/handler";
 
 const OPENAI_ENABLED = !!process.env.OPENAI_API_KEY;
 

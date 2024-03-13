@@ -30,7 +30,62 @@ import {
 } from "shared/experiments";
 import { orgHasPremiumFeature } from "enterprise";
 import { hoursBetween } from "shared/dates";
-import { updateExperiment } from "../models/ExperimentModel";
+import { logger } from "@/src/util/logger";
+import {
+  DEFAULT_CONVERSION_WINDOW_HOURS,
+  EXPERIMENT_REFRESH_FREQUENCY,
+} from "@/src/util/secrets";
+import { checkSrm, sumSquaresFromStats } from "@/src/util/stats";
+import { updateExperiment } from "@/src/models/ExperimentModel";
+import {
+  getMetricById,
+  getMetricMap,
+  insertMetric,
+} from "@/src/models/MetricModel";
+import { addTags } from "@/src/models/TagModel";
+import {
+  addOrUpdateSnapshotAnalysis,
+  createExperimentSnapshotModel,
+  updateSnapshotAnalysis,
+} from "@/src/models/ExperimentSnapshotModel";
+import { findDimensionById } from "@/src/models/DimensionModel";
+import { findSegmentById } from "@/src/models/SegmentModel";
+import { findProjectById } from "@/src/models/ProjectModel";
+import { getFactMetric } from "@/src/models/FactMetricModel";
+import { FactTableMap } from "@/src/models/FactTableModel";
+import { StatsEngine } from "@/types/stats";
+import { getFeaturesByIds } from "@/src/models/FeatureModel";
+import { getFeatureRevisionsByFeatureIds } from "@/src/models/FeatureRevisionModel";
+import { ExperimentRefRule, FeatureRule } from "@/types/feature";
+import { ApiReqContext } from "@/types/api";
+import { VisualChangesetInterface } from "@/types/visual-changeset";
+import { MetricRegressionAdjustmentStatus } from "@/types/report";
+import {
+  ApiExperiment,
+  ApiExperimentMetric,
+  ApiExperimentResults,
+  ApiMetric,
+} from "@/types/openapi";
+import { DataSourceInterface } from "@/types/datasource";
+import {
+  ExperimentUpdateSchedule,
+  OrganizationInterface,
+  ReqContext,
+} from "@/types/organization";
+import {
+  ExperimentInterface,
+  ExperimentPhase,
+  LinkedFeatureEnvState,
+  LinkedFeatureInfo,
+  LinkedFeatureState,
+} from "@/types/experiment";
+import { SegmentInterface } from "@/types/segment";
+import {
+  Condition,
+  MetricInterface,
+  MetricStats,
+  Operator,
+} from "@/types/metric";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
@@ -38,74 +93,18 @@ import {
   ExperimentSnapshotSettings,
   MetricForSnapshot,
   SnapshotVariation,
-} from "../../types/experiment-snapshot";
-import {
-  getMetricById,
-  getMetricMap,
-  insertMetric,
-} from "../models/MetricModel";
-import { checkSrm, sumSquaresFromStats } from "../util/stats";
-import { addTags } from "../models/TagModel";
-import {
-  addOrUpdateSnapshotAnalysis,
-  createExperimentSnapshotModel,
-  updateSnapshotAnalysis,
-} from "../models/ExperimentSnapshotModel";
-import { Dimension } from "../types/Integration";
-import {
-  Condition,
-  MetricInterface,
-  MetricStats,
-  Operator,
-} from "../../types/metric";
-import { SegmentInterface } from "../../types/segment";
-import {
-  ExperimentInterface,
-  ExperimentPhase,
-  LinkedFeatureEnvState,
-  LinkedFeatureInfo,
-  LinkedFeatureState,
-} from "../../types/experiment";
-import { findDimensionById } from "../models/DimensionModel";
-import { findSegmentById } from "../models/SegmentModel";
-import {
-  DEFAULT_CONVERSION_WINDOW_HOURS,
-  EXPERIMENT_REFRESH_FREQUENCY,
-} from "../util/secrets";
-import {
-  ExperimentUpdateSchedule,
-  OrganizationInterface,
-  ReqContext,
-} from "../../types/organization";
-import { logger } from "../util/logger";
-import { DataSourceInterface } from "../../types/datasource";
-import {
-  ApiExperiment,
-  ApiExperimentMetric,
-  ApiExperimentResults,
-  ApiMetric,
-} from "../../types/openapi";
-import { MetricRegressionAdjustmentStatus } from "../../types/report";
+} from "@/types/experiment-snapshot";
+import { Dimension } from "@/src/types/Integration";
+import { QueryMap, getQueryMap } from "@/src/queryRunners/QueryRunner";
+import { ExperimentResultsQueryRunner } from "@/src/queryRunners/ExperimentResultsQueryRunner";
+import { MetricAnalysisQueryRunner } from "@/src/queryRunners/MetricAnalysisQueryRunner";
 import {
   postExperimentValidator,
   postMetricValidator,
   putMetricValidator,
   updateExperimentValidator,
-} from "../validators/openapi";
-import { VisualChangesetInterface } from "../../types/visual-changeset";
-import { findProjectById } from "../models/ProjectModel";
-import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
-import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
-import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
-import { getFactMetric } from "../models/FactMetricModel";
-import { FactTableMap } from "../models/FactTableModel";
-import { StatsEngine } from "../../types/stats";
-import { getFeaturesByIds } from "../models/FeatureModel";
-import { getFeatureRevisionsByFeatureIds } from "../models/FeatureRevisionModel";
-import { ExperimentRefRule, FeatureRule } from "../../types/feature";
-import { ApiReqContext } from "../../types/api";
-import { getReportVariations, getMetricForSnapshot } from "./reports";
-import { getIntegrationFromDatasourceId } from "./datasource";
+} from "@/src/validators/openapi";
+import { getEnvironmentIdsFromOrg } from "./organizations";
 import {
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
@@ -113,7 +112,8 @@ import {
   analyzeExperimentResults,
   getMetricSettingsForStatsEngine,
 } from "./stats";
-import { getEnvironmentIdsFromOrg } from "./organizations";
+import { getIntegrationFromDatasourceId } from "./datasource";
+import { getReportVariations, getMetricForSnapshot } from "./reports";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 

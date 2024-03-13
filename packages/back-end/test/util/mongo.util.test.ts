@@ -1,4 +1,4 @@
-import { getConnectionStringWithDeprecatedKeysMigratedForV3to4 } from "../../src/util/mongo.util";
+import { getConnectionStringWithDeprecatedKeysMigratedForV3to4 } from "@/src/util/mongo.util";
 
 describe("mongo utils", () => {
   describe("getConnectionStringWithDeprecatedKeysMigratedForV3to4", () => {

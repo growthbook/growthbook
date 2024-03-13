@@ -1,5 +1,5 @@
 import Handlebars, { HelperOptions } from "handlebars";
-import { helpers } from "../../src/util/handlebarsHelpers"; // Replace '../src/helpers' with the correct path to the helpers module.
+import { helpers } from "@/src/util/handlebarsHelpers"; // Replace '../src/helpers' with the correct path to the helpers module.
 
 // Register all the helpers from handlebarsHelpers
 Object.keys(helpers).forEach((helperName) => {

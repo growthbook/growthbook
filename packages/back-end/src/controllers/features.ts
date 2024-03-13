@@ -7,19 +7,37 @@ import {
   SDKCapability,
 } from "shared/sdk-versioning";
 import {
-  ExperimentRefRule,
-  FeatureInterface,
-  FeaturePrerequisite,
-  FeatureRule,
-  FeatureTestResult,
-} from "../../types/feature";
-import { AuthRequest } from "../types/AuthRequest";
+  EventAuditUserForResponseLocals,
+  EventAuditUserLoggedIn,
+} from "@/src/events/event-types";
 import {
   getEnvironments,
   getEnvironmentIdsFromOrg,
   getContextFromReq,
   getContextForAgendaJobByOrgId,
-} from "../services/organizations";
+} from "@/src/services/organizations";
+import {
+  addIdsToRules,
+  arrayMove,
+  evaluateFeature,
+  generateRuleId,
+  getFeatureDefinitions,
+  getSavedGroupMap,
+} from "@/src/services/features";
+import {
+  auditDetailsCreate,
+  auditDetailsUpdate,
+  auditDetailsDelete,
+} from "@/src/services/audit";
+import { getEnabledEnvironments } from "@/src/util/features";
+import { logger } from "@/src/util/logger";
+import {
+  FASTLY_SERVICE_ID,
+  CACHE_CONTROL_MAX_AGE,
+  CACHE_CONTROL_STALE_IF_ERROR,
+  CACHE_CONTROL_STALE_WHILE_REVALIDATE,
+} from "@/src/util/secrets";
+import { getSurrogateKeysFromEnvironments } from "@/src/util/cdn.util";
 import {
   addFeatureRule,
   createFeature,
@@ -36,23 +54,9 @@ import {
   migrateDraft,
   applyRevisionChanges,
   addLinkedExperiment,
-} from "../models/FeatureModel";
-import { getRealtimeUsageByHour } from "../models/RealtimeModel";
-import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
-import {
-  addIdsToRules,
-  arrayMove,
-  evaluateFeature,
-  generateRuleId,
-  getFeatureDefinitions,
-  getSavedGroupMap,
-} from "../services/features";
-import { FeatureUsageRecords } from "../../types/realtime";
-import {
-  auditDetailsCreate,
-  auditDetailsUpdate,
-  auditDetailsDelete,
-} from "../services/audit";
+} from "@/src/models/FeatureModel";
+import { getRealtimeUsageByHour } from "@/src/models/RealtimeModel";
+import { lookupOrganizationByApiKey } from "@/src/models/ApiKeyModel";
 import {
   ReviewSubmittedType,
   cleanUpPreviousRevisions,
@@ -67,38 +71,34 @@ import {
   markRevisionAsReviewRequested,
   submitReviewAndComments,
   updateRevision,
-} from "../models/FeatureRevisionModel";
-import { getEnabledEnvironments } from "../util/features";
+} from "@/src/models/FeatureRevisionModel";
 import {
   findSDKConnectionByKey,
   markSDKConnectionUsed,
-} from "../models/SdkConnectionModel";
-import { logger } from "../util/logger";
-import { addTagsDiff } from "../models/TagModel";
-import {
-  EventAuditUserForResponseLocals,
-  EventAuditUserLoggedIn,
-} from "../events/event-types";
-import {
-  FASTLY_SERVICE_ID,
-  CACHE_CONTROL_MAX_AGE,
-  CACHE_CONTROL_STALE_IF_ERROR,
-  CACHE_CONTROL_STALE_WHILE_REVALIDATE,
-} from "../util/secrets";
-import { upsertWatch } from "../models/WatchModel";
-import { getSurrogateKeysFromEnvironments } from "../util/cdn.util";
-import { FeatureRevisionInterface } from "../../types/feature-revision";
+} from "@/src/models/SdkConnectionModel";
+import { addTagsDiff } from "@/src/models/TagModel";
+import { upsertWatch } from "@/src/models/WatchModel";
 import {
   addLinkedFeatureToExperiment,
   getExperimentById,
   getExperimentsByIds,
   getExperimentsByTrackingKeys,
   getAllPayloadExperiments,
-} from "../models/ExperimentModel";
-import { ReqContext } from "../../types/organization";
-import { ExperimentInterface } from "../../types/experiment";
-import { ApiReqContext } from "../../types/api";
-import { getAllCodeRefsForFeature } from "../models/FeatureCodeRefs";
+} from "@/src/models/ExperimentModel";
+import { getAllCodeRefsForFeature } from "@/src/models/FeatureCodeRefs";
+import { FeatureRevisionInterface } from "@/types/feature-revision";
+import { ReqContext } from "@/types/organization";
+import { ExperimentInterface } from "@/types/experiment";
+import { ApiReqContext } from "@/types/api";
+import { FeatureUsageRecords } from "@/types/realtime";
+import {
+  ExperimentRefRule,
+  FeatureInterface,
+  FeaturePrerequisite,
+  FeatureRule,
+  FeatureTestResult,
+} from "@/types/feature";
+import { AuthRequest } from "@/src/types/AuthRequest";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {

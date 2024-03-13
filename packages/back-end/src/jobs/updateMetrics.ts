@@ -1,18 +1,18 @@
 import Agenda, { Job } from "agenda";
-import { getOrganizationsWithNorthStars } from "../models/OrganizationModel";
 import {
   DEFAULT_METRIC_ANALYSIS_DAYS,
   refreshMetric,
-} from "../services/experiments";
-import { getMetricById } from "../models/MetricModel";
-import { METRIC_REFRESH_FREQUENCY } from "../util/secrets";
-import { logger } from "../util/logger";
-import { promiseAllChunks } from "../util/promise";
+} from "@/src/services/experiments";
 import {
   getContextForAgendaJobByOrgObject,
   getOrganizationById,
-} from "../services/organizations";
-import { OrganizationInterface } from "../../types/organization";
+} from "@/src/services/organizations";
+import { METRIC_REFRESH_FREQUENCY } from "@/src/util/secrets";
+import { logger } from "@/src/util/logger";
+import { promiseAllChunks } from "@/src/util/promise";
+import { getMetricById } from "@/src/models/MetricModel";
+import { getOrganizationsWithNorthStars } from "@/src/models/OrganizationModel";
+import { OrganizationInterface } from "@/types/organization";
 
 const QUEUE_METRIC_UPDATES = "queueMetricUpdates";
 

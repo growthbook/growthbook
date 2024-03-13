@@ -1,14 +1,23 @@
 import cloneDeep from "lodash/cloneDeep";
+import { decryptDataSourceParams } from "@/src/services/datasource";
+import { formatQuery, runQuery } from "@/src/services/mixpanel";
+import { DEFAULT_CONVERSION_WINDOW_HOURS } from "@/src/util/secrets";
+import {
+  conditionToJavascript,
+  getAggregateFunctions,
+  getMixpanelPropertyColumn,
+} from "@/src/util/mixpanel";
+import { compileSqlTemplate } from "@/src/util/sql";
+import { applyMetricOverrides } from "@/src/util/integration";
 import {
   DataSourceProperties,
   DataSourceSettings,
   DataSourceType,
-} from "../../types/datasource";
-import { DimensionInterface } from "../../types/dimension";
-import { MixpanelConnectionParams } from "../../types/integrations/mixpanel";
-import { MetricInterface, MetricType } from "../../types/metric";
-import { decryptDataSourceParams } from "../services/datasource";
-import { formatQuery, runQuery } from "../services/mixpanel";
+} from "@/types/datasource";
+import { DimensionInterface } from "@/types/dimension";
+import { MixpanelConnectionParams } from "@/types/integrations/mixpanel";
+import { MetricInterface, MetricType } from "@/types/metric";
+import { ExperimentSnapshotSettings } from "@/types/experiment-snapshot";
 import {
   DimensionSlicesQueryResponse,
   ExperimentAggregateUnitsQueryResponse,
@@ -21,16 +30,7 @@ import {
   MetricValueQueryResponseRows,
   PastExperimentQueryResponse,
   SourceIntegrationInterface,
-} from "../types/Integration";
-import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
-import {
-  conditionToJavascript,
-  getAggregateFunctions,
-  getMixpanelPropertyColumn,
-} from "../util/mixpanel";
-import { compileSqlTemplate } from "../util/sql";
-import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
-import { applyMetricOverrides } from "../util/integration";
+} from "@/src/types/Integration";
 
 export default class Mixpanel implements SourceIntegrationInterface {
   type!: DataSourceType;

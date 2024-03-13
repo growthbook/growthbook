@@ -1,6 +1,18 @@
 import { analyticsreporting_v4, google } from "googleapis";
 import { DataSourceType } from "aws-sdk/clients/quicksight";
 import cloneDeep from "lodash/cloneDeep";
+import { decryptDataSourceParams } from "@/src/services/datasource";
+import {
+  GOOGLE_OAUTH_CLIENT_ID,
+  GOOGLE_OAUTH_CLIENT_SECRET,
+  APP_ORIGIN,
+} from "@/src/util/secrets";
+import { sumSquaresFromStats } from "@/src/util/stats";
+import { applyMetricOverrides } from "@/src/util/integration";
+import { GoogleAnalyticsParams } from "@/types/integrations/googleanalytics";
+import { DataSourceProperties, DataSourceSettings } from "@/types/datasource";
+import { MetricInterface } from "@/types/metric";
+import { ExperimentSnapshotSettings } from "@/types/experiment-snapshot";
 import {
   SourceIntegrationConstructor,
   SourceIntegrationInterface,
@@ -13,22 +25,7 @@ import {
   ExperimentUnitsQueryResponse,
   ExperimentAggregateUnitsQueryResponse,
   DimensionSlicesQueryResponse,
-} from "../types/Integration";
-import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
-import { decryptDataSourceParams } from "../services/datasource";
-import {
-  GOOGLE_OAUTH_CLIENT_ID,
-  GOOGLE_OAUTH_CLIENT_SECRET,
-  APP_ORIGIN,
-} from "../util/secrets";
-import { sumSquaresFromStats } from "../util/stats";
-import {
-  DataSourceProperties,
-  DataSourceSettings,
-} from "../../types/datasource";
-import { MetricInterface } from "../../types/metric";
-import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
-import { applyMetricOverrides } from "../util/integration";
+} from "@/src/types/Integration";
 
 export function getOauth2Client() {
   return new google.auth.OAuth2(

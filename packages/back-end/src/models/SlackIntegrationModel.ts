@@ -4,14 +4,14 @@ import omit from "lodash/omit";
 import pick from "lodash/pick";
 import intersection from "lodash/intersection";
 import { z } from "zod";
-import { SlackIntegrationInterface } from "../../types/slack-integration";
 import {
   NotificationEventName,
   notificationEventNames,
-} from "../events/base-types";
-import { logger } from "../util/logger";
-import { errorStringFromZodResult } from "../util/validation";
-import { OrganizationInterface } from "../../types/organization";
+} from "@/src/events/base-types";
+import { logger } from "@/src/util/logger";
+import { errorStringFromZodResult } from "@/src/util/validation";
+import { SlackIntegrationInterface } from "@/types/slack-integration";
+import { OrganizationInterface } from "@/types/organization";
 
 const slackIntegrationSchema = new mongoose.Schema({
   id: {

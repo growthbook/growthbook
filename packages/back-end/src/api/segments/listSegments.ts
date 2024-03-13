@@ -1,14 +1,14 @@
-import { ListSegmentsResponse } from "../../../types/openapi";
+import { listSegmentsValidator } from "@/src/validators/openapi";
+import { ListSegmentsResponse } from "@/types/openapi";
 import {
   findSegmentsByOrganization,
   toSegmentApiInterface,
-} from "../../models/SegmentModel";
+} from "@/src/models/SegmentModel";
 import {
   applyFilter,
   applyPagination,
   createApiRequestHandler,
-} from "../../util/handler";
-import { listSegmentsValidator } from "../../validators/openapi";
+} from "@/src/util/handler";
 
 export const listSegments = createApiRequestHandler(listSegmentsValidator)(
   async (req): Promise<ListSegmentsResponse> => {

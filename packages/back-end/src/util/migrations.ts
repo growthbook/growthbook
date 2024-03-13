@@ -4,40 +4,37 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
-import {
-  DataSourceInterface,
-  DataSourceSettings,
-} from "../../types/datasource";
-import SqlIntegration from "../integrations/SqlIntegration";
-import { getSourceIntegrationObject } from "../services/datasource";
+import { getSourceIntegrationObject } from "@/src/services/datasource";
+import { getEnvironments } from "@/src/services/organizations";
+import { LegacyMetricInterface, MetricInterface } from "@/types/metric";
+import { DataSourceInterface, DataSourceSettings } from "@/types/datasource";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
   LegacyFeatureInterface,
-} from "../../types/feature";
-import { MemberRole, OrganizationInterface } from "../../types/organization";
-import { getConfigOrganizationSettings } from "../init/config";
+} from "@/types/feature";
+import { MemberRole, OrganizationInterface } from "@/types/organization";
 import {
   ExperimentInterface,
   LegacyExperimentInterface,
-} from "../../types/experiment";
+} from "@/types/experiment";
 import {
   LegacyExperimentSnapshotInterface,
   ExperimentSnapshotInterface,
   MetricForSnapshot,
-} from "../../types/experiment-snapshot";
-import { getEnvironments } from "../services/organizations";
+} from "@/types/experiment-snapshot";
 import {
   LegacySavedGroupInterface,
   SavedGroupInterface,
-} from "../../types/saved-group";
+} from "@/types/saved-group";
 import {
   FactMetricInterface,
   LegacyFactMetricInterface,
-} from "../../types/fact-table";
+} from "@/types/fact-table";
+import SqlIntegration from "@/src/integrations/SqlIntegration";
+import { getConfigOrganizationSettings } from "@/src/init/config";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {

@@ -202,8 +202,8 @@ Next, you'll need to create a helper function to convert from our internal DB in
 
 ```ts
 // src/models/ProjectModel.ts
-import { ApiProject } from "../../types/openapi";
-import { ProjectInterface } from "../../types/project";
+import { ApiProject } from "@/types/openapi";
+import { ProjectInterface } from "@/types/project";
 
 export function toProjectApiInterface(project: ProjectInterface): ApiProject {
   return {
@@ -216,13 +216,13 @@ export function toProjectApiInterface(project: ProjectInterface): ApiProject {
 Then, create a route for your endpoint at `src/api/projects/listProjects.ts`:
 
 ```ts
-import { ListProjectsResponse } from "../../../types/openapi";
+import { ListProjectsResponse } from "@/types/openapi";
 import {
   findAllProjects,
   toProjectApiInterface,
-} from "../../models/ProjectModel";
-import { applyPagination, createApiRequestHandler } from "../../util/handler";
-import { listProjectsValidator } from "../../validators/openapi";
+} from "@/src/models/ProjectModel";
+import { applyPagination, createApiRequestHandler } from "@/src/util/handler";
+import { listProjectsValidator } from "@/src/validators/openapi";
 
 export const listProjects = createApiRequestHandler(listProjectsValidator)(
   async (req): Promise<ListProjectsResponse> => {

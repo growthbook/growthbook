@@ -1,10 +1,10 @@
-import { GetSdkConnectionResponse } from "../../../types/openapi";
+import { getSdkConnectionValidator } from "@/src/validators/openapi";
+import { GetSdkConnectionResponse } from "@/types/openapi";
 import {
   findSDKConnectionById,
   toApiSDKConnectionInterface,
-} from "../../models/SdkConnectionModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { getSdkConnectionValidator } from "../../validators/openapi";
+} from "@/src/models/SdkConnectionModel";
+import { createApiRequestHandler } from "@/src/util/handler";
 
 export const getSdkConnection = createApiRequestHandler(
   getSdkConnectionValidator

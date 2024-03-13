@@ -3,17 +3,17 @@ import omit from "lodash/omit";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { hasVisualChanges } from "shared/util";
-import { ExperimentInterface, Variation } from "../../types/experiment";
-import { ApiVisualChangeset } from "../../types/openapi";
-import { ReqContext } from "../../types/organization";
+import { refreshSDKPayloadCache } from "@/src/services/features";
+import { visualChangesetsHaveChanges } from "@/src/services/experiments";
+import { ExperimentInterface, Variation } from "@/types/experiment";
+import { ApiVisualChangeset } from "@/types/openapi";
+import { ReqContext } from "@/types/organization";
 import {
   VisualChange,
   VisualChangesetInterface,
   VisualChangesetURLPattern,
-} from "../../types/visual-changeset";
-import { refreshSDKPayloadCache } from "../services/features";
-import { visualChangesetsHaveChanges } from "../services/experiments";
-import { ApiReqContext } from "../../types/api";
+} from "@/types/visual-changeset";
+import { ApiReqContext } from "@/types/api";
 import {
   getExperimentById,
   getPayloadKeys,

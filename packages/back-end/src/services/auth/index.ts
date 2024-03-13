@@ -1,29 +1,32 @@
 import { NextFunction, Request, Response } from "express";
 import { SSO_CONFIG } from "enterprise";
 import { userHasPermission } from "shared/permissions";
-import { IS_CLOUD } from "../../util/secrets";
-import { AuthRequest } from "../../types/AuthRequest";
-import { markUserAsVerified, UserModel } from "../../models/UserModel";
-import { getOrganizationById, validateLoginMethod } from "../organizations";
-import { Permission } from "../../../types/organization";
-import { UserInterface } from "../../../types/user";
-import { AuditInterface } from "../../../types/audit";
-import { getUserByEmail } from "../users";
-import { hasOrganization } from "../../models/OrganizationModel";
+import { getTeamsForOrganization } from "@/src/models/TeamModel";
+import { insertAudit } from "@/src/models/AuditModel";
+import { hasOrganization } from "@/src/models/OrganizationModel";
+import { AuditInterface } from "@/types/audit";
+import { UserInterface } from "@/types/user";
+import { Permission } from "@/types/organization";
+import { markUserAsVerified, UserModel } from "@/src/models/UserModel";
+import { AuthRequest } from "@/src/types/AuthRequest";
 import {
   IdTokenCookie,
   AuthChecksCookie,
   RefreshTokenCookie,
   SSOConnectionIdCookie,
-} from "../../util/cookie";
-import { getUserPermissions } from "../../util/organization.util";
+} from "@/src/util/cookie";
+import { IS_CLOUD } from "@/src/util/secrets";
+import { getUserPermissions } from "@/src/util/organization.util";
+import { getUserByEmail } from "@/src/services/users";
 import {
   EventAuditUserForResponseLocals,
   EventAuditUserLoggedIn,
-} from "../../events/event-types";
-import { insertAudit } from "../../models/AuditModel";
-import { getTeamsForOrganization } from "../../models/TeamModel";
-import { initializeLicense } from "../licenseData";
+} from "@/src/events/event-types";
+import { initializeLicense } from "@/src/services/licenseData";
+import {
+  getOrganizationById,
+  validateLoginMethod,
+} from "@/src/services/organizations";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";

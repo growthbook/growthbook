@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   postSavedGroupBodyValidator,
   putSavedGroupBodyValidator,
-} from "../src/routers/saved-group/saved-group.validators";
+} from "@/src/routers/saved-group/saved-group.validators";
 
 /**
  * @deprecated

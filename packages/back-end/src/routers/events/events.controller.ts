@@ -1,9 +1,9 @@
 import type { Response } from "express";
-import * as Event from "../../models/EventModel";
-import { AuthRequest } from "../../types/AuthRequest";
-import { EventInterface } from "../../../types/event";
-import { ApiErrorResponse } from "../../../types/api";
-import { getContextFromReq } from "../../services/organizations";
+import { getContextFromReq } from "@/src/services/organizations";
+import * as Event from "@/src/models/EventModel";
+import { EventInterface } from "@/types/event";
+import { ApiErrorResponse } from "@/types/api";
+import { AuthRequest } from "@/src/types/AuthRequest";
 
 type GetEventsRequest = AuthRequest;
 

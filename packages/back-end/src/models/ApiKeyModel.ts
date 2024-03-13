@@ -5,18 +5,18 @@ import uniqid from "uniqid";
 import omit from "lodash/omit";
 import { hasReadAccess } from "shared/permissions";
 import {
-  ApiKeyInterface,
-  PublishableApiKey,
-  SecretApiKey,
-} from "../../types/apikey";
-import {
   IS_MULTI_ORG,
   SECRET_API_KEY,
   SECRET_API_KEY_ROLE,
-} from "../util/secrets";
-import { roleForApiKey } from "../util/api-key.util";
-import { ReqContext } from "../../types/organization";
-import { ApiReqContext } from "../../types/api";
+} from "@/src/util/secrets";
+import { roleForApiKey } from "@/src/util/api-key.util";
+import {
+  ApiKeyInterface,
+  PublishableApiKey,
+  SecretApiKey,
+} from "@/types/apikey";
+import { ReqContext } from "@/types/organization";
+import { ApiReqContext } from "@/types/api";
 import { findAllOrganizations } from "./OrganizationModel";
 
 const apiKeySchema = new mongoose.Schema({

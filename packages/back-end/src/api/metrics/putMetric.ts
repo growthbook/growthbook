@@ -1,11 +1,11 @@
-import { createApiRequestHandler } from "../../util/handler";
-import { getMetricById, updateMetric } from "../../models/MetricModel";
-import { PutMetricResponse } from "../../../types/openapi";
-import { putMetricValidator } from "../../validators/openapi";
 import {
   putMetricApiPayloadIsValid,
   putMetricApiPayloadToMetricInterface,
-} from "../../services/experiments";
+} from "@/src/services/experiments";
+import { putMetricValidator } from "@/src/validators/openapi";
+import { getMetricById, updateMetric } from "@/src/models/MetricModel";
+import { PutMetricResponse } from "@/types/openapi";
+import { createApiRequestHandler } from "@/src/util/handler";
 
 export const putMetric = createApiRequestHandler(putMetricValidator)(
   async (req): Promise<PutMetricResponse> => {

@@ -1,14 +1,14 @@
-import { ListOrganizationsResponse } from "../../../types/openapi";
+import { listOrganizationsValidator } from "@/src/validators/openapi";
+import { ListOrganizationsResponse } from "@/types/openapi";
 import {
   findAllOrganizations,
   toOrganizationApiInterface,
-} from "../../models/OrganizationModel";
+} from "@/src/models/OrganizationModel";
 import {
   createApiRequestHandler,
   getPaginationReturnFields,
   validateIsSuperUserRequest,
-} from "../../util/handler";
-import { listOrganizationsValidator } from "../../validators/openapi";
+} from "@/src/util/handler";
 
 export const listOrganizations = createApiRequestHandler(
   listOrganizationsValidator

@@ -5,11 +5,11 @@ import mongoose from "mongoose";
 import {
   notificationEventNames,
   notificationEventResources,
-} from "../events/base-types";
-import { EventInterface } from "../../types/event";
-import { errorStringFromZodResult } from "../util/validation";
-import { logger } from "../util/logger";
-import { NotificationEvent } from "../events/notification-events";
+} from "@/src/events/base-types";
+import { NotificationEvent } from "@/src/events/notification-events";
+import { errorStringFromZodResult } from "@/src/util/validation";
+import { logger } from "@/src/util/logger";
+import { EventInterface } from "@/types/event";
 
 const eventSchema = new mongoose.Schema({
   id: {

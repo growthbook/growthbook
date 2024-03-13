@@ -2,7 +2,7 @@ import {
   NotificationEventPayload,
   NotificationEventName,
   NotificationEventResource,
-} from "../src/events/base-types";
+} from "@/src/events/base-types";
 import {
   ExperimentCreatedNotificationEvent,
   ExperimentDeletedNotificationEvent,
@@ -11,7 +11,7 @@ import {
   FeatureDeletedNotificationEvent,
   FeatureUpdatedNotificationEvent,
   UserLoginNotificationEvent,
-} from "../src/events/notification-events";
+} from "@/src/events/notification-events";
 
 export interface EventInterface<T> {
   id: string;

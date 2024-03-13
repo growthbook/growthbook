@@ -1,42 +1,42 @@
 import { Request, Response } from "express";
 import {
-  createForgotPasswordToken,
-  deleteForgotPasswordToken,
-  getUserIdFromForgotPasswordToken,
-} from "../models/ForgotPasswordModel";
-import {
-  createOrganization,
-  hasOrganization,
-} from "../models/OrganizationModel";
-import { IS_CLOUD } from "../util/secrets";
-import {
   deleteAuthCookies,
   getAuthConnection,
   isNewInstallation,
   markInstalled,
   validatePasswordFormat,
-} from "../services/auth";
+} from "@/src/services/auth";
+import {
+  getEmailFromUserId,
+  getContextFromReq,
+} from "@/src/services/organizations";
 import {
   IdTokenCookie,
   RefreshTokenCookie,
   SSOConnectionIdCookie,
-} from "../util/cookie";
+} from "@/src/util/cookie";
+import { IS_CLOUD } from "@/src/util/secrets";
 import {
-  getEmailFromUserId,
-  getContextFromReq,
-} from "../services/organizations";
+  createOrganization,
+  hasOrganization,
+} from "@/src/models/OrganizationModel";
+import {
+  createForgotPasswordToken,
+  deleteForgotPasswordToken,
+  getUserIdFromForgotPasswordToken,
+} from "@/src/models/ForgotPasswordModel";
+import { getSSOConnectionByEmailDomain } from "@/src/models/SSOConnectionModel";
+import { resetMinTokenDate } from "@/src/models/UserModel";
+import { AuthRefreshModel } from "@/src/models/AuthRefreshModel";
+import { UserInterface } from "@/types/user";
+import { AuthRequest } from "@/src/types/AuthRequest";
 import {
   createUser,
   getUserByEmail,
   getUserById,
   updatePassword,
   verifyPassword,
-} from "../services/users";
-import { AuthRequest } from "../types/AuthRequest";
-import { getSSOConnectionByEmailDomain } from "../models/SSOConnectionModel";
-import { UserInterface } from "../../types/user";
-import { resetMinTokenDate } from "../models/UserModel";
-import { AuthRefreshModel } from "../models/AuthRefreshModel";
+} from "@/src/services/users";
 
 export async function getHasOrganizations(req: Request, res: Response) {
   const hasOrg = IS_CLOUD ? true : await hasOrganization();

@@ -5,43 +5,36 @@ import isEqual from "lodash/isEqual";
 import { MergeResultChanges } from "shared/util";
 import { hasReadAccess } from "shared/permissions";
 import {
-  FeatureEnvironment,
-  FeatureInterface,
-  FeatureRule,
-  LegacyFeatureInterface,
-} from "../../types/feature";
-import { ExperimentInterface } from "../../types/experiment";
+  FeatureCreatedNotificationEvent,
+  FeatureDeletedNotificationEvent,
+  FeatureUpdatedNotificationEvent,
+} from "@/src/events/notification-events";
+import { EventNotifier } from "@/src/events/notifiers/EventNotifier";
+import { EventAuditUser } from "@/src/events/event-types";
+import { getEnvironmentIdsFromOrg } from "@/src/services/organizations";
 import {
   generateRuleId,
   getApiFeatureObj,
   getNextScheduledUpdate,
   getSavedGroupMap,
   refreshSDKPayloadCache,
-} from "../services/features";
-import { upgradeFeatureInterface } from "../util/migrations";
-import { ReqContext } from "../../types/organization";
-import {
-  FeatureCreatedNotificationEvent,
-  FeatureDeletedNotificationEvent,
-  FeatureUpdatedNotificationEvent,
-} from "../events/notification-events";
-import { EventNotifier } from "../events/notifiers/EventNotifier";
+} from "@/src/services/features";
+import { logger } from "@/src/util/logger";
 import {
   getAffectedSDKPayloadKeys,
   getSDKPayloadKeysByDiff,
-} from "../util/features";
-import { EventAuditUser } from "../events/event-types";
-import { FeatureRevisionInterface } from "../../types/feature-revision";
-import { logger } from "../util/logger";
-import { getEnvironmentIdsFromOrg } from "../services/organizations";
-import { ApiReqContext } from "../../types/api";
-import { createEvent } from "./EventModel";
+} from "@/src/util/features";
+import { upgradeFeatureInterface } from "@/src/util/migrations";
+import { ApiReqContext } from "@/types/api";
+import { FeatureRevisionInterface } from "@/types/feature-revision";
+import { ReqContext } from "@/types/organization";
+import { ExperimentInterface } from "@/types/experiment";
 import {
-  addLinkedFeatureToExperiment,
-  getExperimentMapForFeature,
-  removeLinkedFeatureFromExperiment,
-  getExperimentsByIds,
-} from "./ExperimentModel";
+  FeatureEnvironment,
+  FeatureInterface,
+  FeatureRule,
+  LegacyFeatureInterface,
+} from "@/types/feature";
 import {
   createInitialRevision,
   createRevisionFromLegacyDraft,
@@ -50,6 +43,13 @@ import {
   markRevisionAsPublished,
   updateRevision,
 } from "./FeatureRevisionModel";
+import {
+  addLinkedFeatureToExperiment,
+  getExperimentMapForFeature,
+  removeLinkedFeatureFromExperiment,
+  getExperimentsByIds,
+} from "./ExperimentModel";
+import { createEvent } from "./EventModel";
 
 const featureSchema = new mongoose.Schema({
   id: String,

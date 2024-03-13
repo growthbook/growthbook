@@ -1,13 +1,13 @@
-import { PutVisualChangesetResponse } from "../../../types/openapi";
-import { VisualChangesetInterface } from "../../../types/visual-changeset";
-import { getExperimentById } from "../../models/ExperimentModel";
+import { putVisualChangesetValidator } from "@/src/validators/openapi";
+import { PutVisualChangesetResponse } from "@/types/openapi";
+import { VisualChangesetInterface } from "@/types/visual-changeset";
+import { getExperimentById } from "@/src/models/ExperimentModel";
 import {
   findVisualChangesetById,
   toVisualChangesetApiInterface,
   updateVisualChangeset,
-} from "../../models/VisualChangesetModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { putVisualChangesetValidator } from "../../validators/openapi";
+} from "@/src/models/VisualChangesetModel";
+import { createApiRequestHandler } from "@/src/util/handler";
 
 export const putVisualChangeset = createApiRequestHandler(
   putVisualChangesetValidator

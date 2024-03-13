@@ -1,11 +1,11 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
-import { ReportInterface } from "../../types/report";
-import { ReqContext } from "../../types/organization";
-import { ApiReqContext } from "../../types/api";
-import { getAllExperiments } from "./ExperimentModel";
+import { ReportInterface } from "@/types/report";
+import { ReqContext } from "@/types/organization";
+import { ApiReqContext } from "@/types/api";
 import { queriesSchema } from "./QueryModel";
+import { getAllExperiments } from "./ExperimentModel";
 
 const reportSchema = new mongoose.Schema({
   id: String,

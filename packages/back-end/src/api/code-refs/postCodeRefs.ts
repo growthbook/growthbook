@@ -1,11 +1,11 @@
 import { groupBy, values } from "lodash";
-import { PostCodeRefsResponse } from "../../../types/openapi";
-import { createApiRequestHandler } from "../../util/handler";
-import { postCodeRefsValidator } from "../../validators/openapi";
+import { postCodeRefsValidator } from "@/src/validators/openapi";
+import { PostCodeRefsResponse } from "@/types/openapi";
 import {
   getFeatureCodeRefsByFeatures,
   upsertFeatureCodeRefs,
-} from "../../models/FeatureCodeRefs";
+} from "@/src/models/FeatureCodeRefs";
+import { createApiRequestHandler } from "@/src/util/handler";
 
 export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
   async (req): Promise<PostCodeRefsResponse> => {

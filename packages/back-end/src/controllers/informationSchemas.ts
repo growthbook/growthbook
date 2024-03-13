@@ -1,18 +1,18 @@
 import { Response } from "express";
-import { queueCreateInformationSchema } from "../jobs/createInformationSchema";
-import { queueUpdateInformationSchema } from "../jobs/updateInformationSchema";
-import { queueUpdateStaleInformationSchemaTable } from "../jobs/updateStaleInformationSchemaTable";
-import { getDataSourceById } from "../models/DataSourceModel";
-import { getInformationSchemaByDatasourceId } from "../models/InformationSchemaModel";
+import { fetchTableData } from "@/src/services/informationSchema";
+import { getContextFromReq } from "@/src/services/organizations";
+import { getPath } from "@/src/util/informationSchemas";
+import { getDataSourceById } from "@/src/models/DataSourceModel";
+import { getInformationSchemaByDatasourceId } from "@/src/models/InformationSchemaModel";
 import {
   createInformationSchemaTable,
   getInformationSchemaTableById,
-} from "../models/InformationSchemaTablesModel";
-import { fetchTableData } from "../services/informationSchema";
-import { getContextFromReq } from "../services/organizations";
-import { AuthRequest } from "../types/AuthRequest";
-import { Column } from "../types/Integration";
-import { getPath } from "../util/informationSchemas";
+} from "@/src/models/InformationSchemaTablesModel";
+import { Column } from "@/src/types/Integration";
+import { AuthRequest } from "@/src/types/AuthRequest";
+import { queueUpdateStaleInformationSchemaTable } from "@/src/jobs/updateStaleInformationSchemaTable";
+import { queueUpdateInformationSchema } from "@/src/jobs/updateInformationSchema";
+import { queueCreateInformationSchema } from "@/src/jobs/createInformationSchema";
 
 export async function getInformationSchema(
   req: AuthRequest<null, { datasourceId: string }>,

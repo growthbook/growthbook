@@ -1,11 +1,11 @@
 import { validateCondition } from "shared/util";
-import { PostSavedGroupResponse } from "../../../types/openapi";
+import { postSavedGroupValidator } from "@/src/validators/openapi";
+import { PostSavedGroupResponse } from "@/types/openapi";
 import {
   createSavedGroup,
   toSavedGroupApiInterface,
-} from "../../models/SavedGroupModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { postSavedGroupValidator } from "../../validators/openapi";
+} from "@/src/models/SavedGroupModel";
+import { createApiRequestHandler } from "@/src/util/handler";
 
 export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
   async (req): Promise<PostSavedGroupResponse> => {

@@ -1,14 +1,14 @@
-import { ListDimensionsResponse } from "../../../types/openapi";
+import { listDimensionsValidator } from "@/src/validators/openapi";
+import { ListDimensionsResponse } from "@/types/openapi";
 import {
   findDimensionsByOrganization,
   toDimensionApiInterface,
-} from "../../models/DimensionModel";
+} from "@/src/models/DimensionModel";
 import {
   applyFilter,
   applyPagination,
   createApiRequestHandler,
-} from "../../util/handler";
-import { listDimensionsValidator } from "../../validators/openapi";
+} from "@/src/util/handler";
 
 export const listDimensions = createApiRequestHandler(listDimensionsValidator)(
   async (req): Promise<ListDimensionsResponse> => {

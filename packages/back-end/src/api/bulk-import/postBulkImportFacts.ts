@@ -1,29 +1,29 @@
-import { DataSourceInterface } from "../../../types/datasource";
-import { FactMetricInterface } from "../../../types/fact-table";
-import { PostBulkImportFactsResponse } from "../../../types/openapi";
-import { queueFactTableColumnsRefresh } from "../../jobs/refreshFactTableColumns";
-import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
+import { postBulkImportFactsValidator } from "@/src/validators/openapi";
+import { DataSourceInterface } from "@/types/datasource";
+import { FactMetricInterface } from "@/types/fact-table";
+import { PostBulkImportFactsResponse } from "@/types/openapi";
+import { getDataSourcesByOrganization } from "@/src/models/DataSourceModel";
 import {
   createFactMetric,
   getAllFactMetricsForOrganization,
   updateFactMetric,
-} from "../../models/FactMetricModel";
+} from "@/src/models/FactMetricModel";
 import {
   createFactFilter,
   createFactTable,
   updateFactTable,
   updateFactFilter,
   getFactTableMap,
-} from "../../models/FactTableModel";
-import { findAllProjectsByOrganization } from "../../models/ProjectModel";
-import { addTags } from "../../models/TagModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { postBulkImportFactsValidator } from "../../validators/openapi";
+} from "@/src/models/FactTableModel";
+import { findAllProjectsByOrganization } from "@/src/models/ProjectModel";
+import { addTags } from "@/src/models/TagModel";
+import { createApiRequestHandler } from "@/src/util/handler";
+import { queueFactTableColumnsRefresh } from "@/src/jobs/refreshFactTableColumns";
+import { getUpdateFactMetricPropsFromBody } from "@/src/api/fact-metrics/updateFactMetric";
 import {
   getCreateMetricPropsFromBody,
   validateFactMetric,
-} from "../fact-metrics/postFactMetric";
-import { getUpdateFactMetricPropsFromBody } from "../fact-metrics/updateFactMetric";
+} from "@/src/api/fact-metrics/postFactMetric";
 
 export const postBulkImportFacts = createApiRequestHandler(
   postBulkImportFactsValidator

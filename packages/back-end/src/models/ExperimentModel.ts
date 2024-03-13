@@ -4,41 +4,44 @@ import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
 import { hasReadAccess } from "shared/permissions";
+import { EventNotifier } from "@/src/events/notifiers/EventNotifier";
+import {
+  ExperimentCreatedNotificationEvent,
+  ExperimentDeletedNotificationEvent,
+  ExperimentUpdatedNotificationEvent,
+} from "@/src/events/notification-events";
+import { getEnvironmentIdsFromOrg } from "@/src/services/organizations";
+import {
+  refreshSDKPayloadCache,
+  VisualExperiment,
+} from "@/src/services/features";
+import {
+  determineNextDate,
+  generateTrackingKey,
+  toExperimentApiInterface,
+} from "@/src/services/experiments";
+import { getAffectedSDKPayloadKeys } from "@/src/util/features";
+import { upgradeExperimentDoc } from "@/src/util/migrations";
+import { logger } from "@/src/util/logger";
+import { ApiReqContext } from "@/types/api";
+import { FeatureInterface } from "@/types/feature";
+import { SDKPayloadKey } from "@/types/sdk-payload";
+import { VisualChange } from "@/types/visual-changeset";
+import { ReqContext } from "@/types/organization";
 import {
   Changeset,
   ExperimentInterface,
   LegacyExperimentInterface,
   Variation,
-} from "../../types/experiment";
-import { ReqContext } from "../../types/organization";
-import { VisualChange } from "../../types/visual-changeset";
-import {
-  determineNextDate,
-  generateTrackingKey,
-  toExperimentApiInterface,
-} from "../services/experiments";
-import {
-  ExperimentCreatedNotificationEvent,
-  ExperimentDeletedNotificationEvent,
-  ExperimentUpdatedNotificationEvent,
-} from "../events/notification-events";
-import { EventNotifier } from "../events/notifiers/EventNotifier";
-import { logger } from "../util/logger";
-import { upgradeExperimentDoc } from "../util/migrations";
-import { refreshSDKPayloadCache, VisualExperiment } from "../services/features";
-import { SDKPayloadKey } from "../../types/sdk-payload";
-import { FeatureInterface } from "../../types/feature";
-import { getAffectedSDKPayloadKeys } from "../util/features";
-import { getEnvironmentIdsFromOrg } from "../services/organizations";
-import { ApiReqContext } from "../../types/api";
-import { IdeaDocument } from "./IdeasModel";
-import { addTags } from "./TagModel";
-import { createEvent } from "./EventModel";
+} from "@/types/experiment";
+import { getFeaturesByIds } from "./FeatureModel";
 import {
   findVisualChangesets,
   VisualChangesetModel,
 } from "./VisualChangesetModel";
-import { getFeaturesByIds } from "./FeatureModel";
+import { createEvent } from "./EventModel";
+import { addTags } from "./TagModel";
+import { IdeaDocument } from "./IdeasModel";
 
 type FindOrganizationOptions = {
   experimentId: string;

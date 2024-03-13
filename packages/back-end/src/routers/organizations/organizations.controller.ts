@@ -11,10 +11,6 @@ import {
 } from "enterprise";
 import { hasReadAccess } from "shared/permissions";
 import {
-  AuthRequest,
-  ResponseWithStatusAndError,
-} from "../../types/AuthRequest";
-import {
   acceptInvite,
   addMemberToOrg,
   addPendingMemberToOrg,
@@ -29,13 +25,27 @@ import {
   isEnterpriseSSO,
   removeMember,
   revokeInvite,
-} from "../../services/organizations";
+} from "@/src/services/organizations";
 import {
   getNonSensitiveParams,
   getSourceIntegrationObject,
-} from "../../services/datasource";
-import { updatePassword } from "../../services/users";
-import { getAllTags } from "../../models/TagModel";
+} from "@/src/services/datasource";
+import {
+  auditDetailsUpdate,
+  getRecentWatchedAudits,
+  isValidAuditEntityType,
+} from "@/src/services/audit";
+import {
+  sendInviteEmail,
+  sendNewMemberEmail,
+  sendPendingMemberEmail,
+  sendNewOrgEmail,
+  sendPendingMemberApprovalEmail,
+} from "@/src/services/email";
+import { createWebhook, createSdkWebhook } from "@/src/services/webhooks";
+import { usingOpenId } from "@/src/services/auth";
+import { initializeLicense } from "@/src/services/licenseData";
+import { getAllTags } from "@/src/models/TagModel";
 import {
   Invite,
   MemberRole,
@@ -44,33 +54,14 @@ import {
   OrganizationInterface,
   OrganizationSettings,
   SDKAttribute,
-} from "../../../types/organization";
-import {
-  auditDetailsUpdate,
-  getRecentWatchedAudits,
-  isValidAuditEntityType,
-} from "../../services/audit";
-import { getAllFeatures } from "../../models/FeatureModel";
-import { findDimensionsByOrganization } from "../../models/DimensionModel";
-import { findSegmentsByOrganization } from "../../models/SegmentModel";
-import {
-  ALLOW_SELF_ORG_CREATION,
-  APP_ORIGIN,
-  IS_CLOUD,
-  IS_MULTI_ORG,
-} from "../../util/secrets";
-import {
-  sendInviteEmail,
-  sendNewMemberEmail,
-  sendPendingMemberEmail,
-  sendNewOrgEmail,
-  sendPendingMemberApprovalEmail,
-} from "../../services/email";
-import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
-import { getAllSavedGroups } from "../../models/SavedGroupModel";
-import { getMetricsByOrganization } from "../../models/MetricModel";
-import { WebhookModel, countWebhooksByOrg } from "../../models/WebhookModel";
-import { createWebhook, createSdkWebhook } from "../../services/webhooks";
+} from "@/types/organization";
+import { getAllFeatures } from "@/src/models/FeatureModel";
+import { findDimensionsByOrganization } from "@/src/models/DimensionModel";
+import { findSegmentsByOrganization } from "@/src/models/SegmentModel";
+import { getDataSourcesByOrganization } from "@/src/models/DataSourceModel";
+import { getAllSavedGroups } from "@/src/models/SavedGroupModel";
+import { getMetricsByOrganization } from "@/src/models/MetricModel";
+import { WebhookModel, countWebhooksByOrg } from "@/src/models/WebhookModel";
 import {
   createOrganization,
   findOrganizationByInviteKey,
@@ -78,13 +69,11 @@ import {
   findOrganizationsByMemberId,
   hasOrganization,
   updateOrganization,
-} from "../../models/OrganizationModel";
-import { findAllProjectsByOrganization } from "../../models/ProjectModel";
-import { ConfigFile } from "../../init/config";
-import { WebhookInterface, WebhookMethod } from "../../../types/webhook";
-import { ExperimentRule, NamespaceValue } from "../../../types/feature";
-import { usingOpenId } from "../../services/auth";
-import { getSSOConnectionSummary } from "../../models/SSOConnectionModel";
+} from "@/src/models/OrganizationModel";
+import { findAllProjectsByOrganization } from "@/src/models/ProjectModel";
+import { WebhookInterface, WebhookMethod } from "@/types/webhook";
+import { ExperimentRule, NamespaceValue } from "@/types/feature";
+import { getSSOConnectionSummary } from "@/src/models/SSOConnectionModel";
 import {
   createLegacySdkKey,
   createOrganizationApiKey,
@@ -95,31 +84,42 @@ import {
   getApiKeyByIdOrKey,
   getFirstPublishableApiKey,
   getUnredactedSecretKey,
-} from "../../models/ApiKeyModel";
-import {
-  getDefaultRole,
-  getRoles,
-  getUserPermissions,
-} from "../../util/organization.util";
-import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
+} from "@/src/models/ApiKeyModel";
+import { deleteUser, findUserById, getAllUsers } from "@/src/models/UserModel";
 import {
   getAllExperiments,
   getExperimentsForActivityFeed,
-} from "../../models/ExperimentModel";
-import { removeEnvironmentFromSlackIntegration } from "../../models/SlackIntegrationModel";
+} from "@/src/models/ExperimentModel";
+import { removeEnvironmentFromSlackIntegration } from "@/src/models/SlackIntegrationModel";
 import {
   findAllAuditsByEntityType,
   findAllAuditsByEntityTypeParent,
   findAuditByEntity,
   findAuditByEntityParent,
-} from "../../models/AuditModel";
-import { EntityType } from "../../types/Audit";
-import { getTeamsForOrganization } from "../../models/TeamModel";
-import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
-import { getAllFactMetricsForOrganization } from "../../models/FactMetricModel";
-import { TeamInterface } from "../../../types/team";
-import { queueSingleWebhookById } from "../../jobs/sdkWebhooks";
-import { initializeLicense } from "../../services/licenseData";
+} from "@/src/models/AuditModel";
+import { getTeamsForOrganization } from "@/src/models/TeamModel";
+import { getAllFactTablesForOrganization } from "@/src/models/FactTableModel";
+import { getAllFactMetricsForOrganization } from "@/src/models/FactMetricModel";
+import { TeamInterface } from "@/types/team";
+import { EntityType } from "@/src/types/Audit";
+import {
+  AuthRequest,
+  ResponseWithStatusAndError,
+} from "@/src/types/AuthRequest";
+import {
+  ALLOW_SELF_ORG_CREATION,
+  APP_ORIGIN,
+  IS_CLOUD,
+  IS_MULTI_ORG,
+} from "@/src/util/secrets";
+import {
+  getDefaultRole,
+  getRoles,
+  getUserPermissions,
+} from "@/src/util/organization.util";
+import { updatePassword } from "@/src/services/users";
+import { queueSingleWebhookById } from "@/src/jobs/sdkWebhooks";
+import { ConfigFile } from "@/src/init/config";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);

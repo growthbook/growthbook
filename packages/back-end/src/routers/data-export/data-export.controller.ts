@@ -1,11 +1,11 @@
 import type { Response } from "express";
 import { orgHasPremiumFeature } from "enterprise";
-import { AuthRequest } from "../../types/AuthRequest";
-import { getContextFromReq } from "../../services/organizations";
-import { EventAuditUserForResponseLocals } from "../../events/event-types";
-import { getLatestEventsForOrganization } from "../../models/EventModel";
-import { DataExportFileResponse } from "../../../types/data-exports";
-import { PrivateApiErrorResponse } from "../../../types/api";
+import { getContextFromReq } from "@/src/services/organizations";
+import { getLatestEventsForOrganization } from "@/src/models/EventModel";
+import { DataExportFileResponse } from "@/types/data-exports";
+import { PrivateApiErrorResponse } from "@/types/api";
+import { AuthRequest } from "@/src/types/AuthRequest";
+import { EventAuditUserForResponseLocals } from "@/src/events/event-types";
 
 /**
  * GET /data-export/events

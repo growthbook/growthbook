@@ -1,4 +1,4 @@
-import { ApiExperiment, ApiFeature } from "../../types/openapi";
+import { ApiExperiment, ApiFeature } from "@/types/openapi";
 import { NotificationEventPayload } from "./base-types";
 import { UserLoginAuditableProperties } from "./event-types";
 

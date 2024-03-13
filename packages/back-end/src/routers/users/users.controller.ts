@@ -1,24 +1,24 @@
 import { Response } from "express";
 import { getLicense } from "enterprise";
-import { AuthRequest } from "../../types/AuthRequest";
-import { usingOpenId } from "../../services/auth";
-import { createUser, getUserByEmail } from "../../services/users";
-import { findOrganizationsByMemberId } from "../../models/OrganizationModel";
+import { usingOpenId } from "@/src/services/auth";
 import {
   addMemberFromSSOConnection,
   findVerifiedOrgForNewUser,
   getContextFromReq,
   validateLoginMethod,
-} from "../../services/organizations";
-import { IS_CLOUD } from "../../util/secrets";
-import { UserModel } from "../../models/UserModel";
+} from "@/src/services/organizations";
+import { findOrganizationsByMemberId } from "@/src/models/OrganizationModel";
+import { UserModel } from "@/src/models/UserModel";
 import {
   deleteWatchedByEntity,
   getWatchedByUser,
   upsertWatch,
-} from "../../models/WatchModel";
-import { getFeature } from "../../models/FeatureModel";
-import { getExperimentById } from "../../models/ExperimentModel";
+} from "@/src/models/WatchModel";
+import { getFeature } from "@/src/models/FeatureModel";
+import { getExperimentById } from "@/src/models/ExperimentModel";
+import { AuthRequest } from "@/src/types/AuthRequest";
+import { IS_CLOUD } from "@/src/util/secrets";
+import { createUser, getUserByEmail } from "@/src/services/users";
 
 function isValidWatchEntityType(type: string): boolean {
   if (type === "experiment" || type === "feature") {
