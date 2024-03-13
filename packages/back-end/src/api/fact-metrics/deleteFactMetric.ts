@@ -10,10 +10,6 @@ export const deleteFactMetric = createApiRequestHandler(
   deleteFactMetricValidator
 )(
   async (req): Promise<DeleteFactMetricResponse> => {
-    const {
-      canCreateMetrics,
-      throwPermissionError,
-    } = req.context.permissionsUtil;
     let id = req.params.id;
     // Add `fact__` prefix if it doesn't exist
     if (!id.startsWith("fact__")) {
@@ -27,8 +23,8 @@ export const deleteFactMetric = createApiRequestHandler(
       );
     }
 
-    if (!canCreateMetrics(factMetric)) {
-      throwPermissionError("createMetrics");
+    if (!req.context.permissions.canCreateMetrics(factMetric)) {
+      req.context.permissions.throwPermissionError();
     }
 
     await deleteFactMetricInDb(req.context, factMetric);

@@ -22,7 +22,7 @@ export interface ReqContextInterface {
   apiKey?: string;
   req?: Request;
   logger: pino.BaseLogger;
-  permissionsUtil: PermissionsUtil;
+  permissions: PermissionsUtil;
 
   auditLog(
     data: Omit<AuditInterface, "user" | "id" | "organization" | "dateCreated">

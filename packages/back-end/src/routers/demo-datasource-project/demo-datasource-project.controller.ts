@@ -171,8 +171,8 @@ export const postDemoDatasourceProject = async (
   req.checkPermissions("manageProjects", "");
   req.checkPermissions("createDatasources", "");
   req.checkPermissions("createAnalyses", "");
-  if (!context.permissionsUtil.canCreateMetrics({})) {
-    context.permissionsUtil.throwPermissionError("createMetrics");
+  if (!context.permissions.canCreateMetrics({})) {
+    context.permissions.throwPermissionError();
   }
 
   const { org, environments } = context;

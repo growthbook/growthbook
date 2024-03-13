@@ -42,7 +42,7 @@ export class ReqContextClass implements ReqContextInterface {
   public apiKey?: string;
   public req?: Request;
   public logger: pino.BaseLogger;
-  public permissionsUtil: PermissionsUtil;
+  public permissions: PermissionsUtil;
 
   protected userPermissions: UserPermissions;
 
@@ -110,7 +110,7 @@ export class ReqContextClass implements ReqContextInterface {
     }
     this.readAccessFilter = getReadAccessFilter(this.userPermissions);
 
-    this.permissionsUtil = new PermissionsUtilClass(
+    this.permissions = new PermissionsUtilClass(
       this.userPermissions,
       this.superAdmin
     );

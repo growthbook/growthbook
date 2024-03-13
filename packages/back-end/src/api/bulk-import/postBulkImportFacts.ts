@@ -29,10 +29,6 @@ export const postBulkImportFacts = createApiRequestHandler(
   postBulkImportFactsValidator
 )(
   async (req): Promise<PostBulkImportFactsResponse> => {
-    const {
-      canCreateMetrics,
-      throwPermissionError,
-    } = req.context.permissionsUtil;
     const numCreated = {
       factTables: 0,
       factTableFilters: 0,
@@ -62,8 +58,8 @@ export const postBulkImportFacts = createApiRequestHandler(
       req.checkPermissions("manageFactTables", factTable.projects || []);
     }
     function checkFactMetricPermission(factMetric: { projects?: string[] }) {
-      if (!canCreateMetrics(factMetric)) {
-        throwPermissionError("createMetrics");
+      if (!req.context.permissions.canCreateMetrics(factMetric)) {
+        req.context.permissions.throwPermissionError();
       }
     }
 

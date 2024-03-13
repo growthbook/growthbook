@@ -176,10 +176,6 @@ export async function getCreateMetricPropsFromBody(
 
 export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
   async (req): Promise<PostFactMetricResponse> => {
-    const {
-      canCreateMetrics,
-      throwPermissionError,
-    } = req.context.permissionsUtil;
     const lookupFactTable = async (id: string) => getFactTable(req.context, id);
 
     if (req.body.projects?.length) {
@@ -199,8 +195,8 @@ export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
     );
     await validateFactMetric(data, lookupFactTable);
 
-    if (!canCreateMetrics(data)) {
-      throwPermissionError("createMetrics");
+    if (!req.context.permissions.canCreateMetrics(data)) {
+      req.context.permissions.throwPermissionError();
     }
 
     const factMetric = await createFactMetric(req.context, data);

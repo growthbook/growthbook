@@ -90,18 +90,14 @@ export const updateFactMetric = createApiRequestHandler(
   updateFactMetricValidator
 )(
   async (req): Promise<UpdateFactMetricResponse> => {
-    const {
-      canCreateMetrics,
-      throwPermissionError,
-    } = req.context.permissionsUtil;
     const factMetric = await getFactMetric(req.context, req.params.id);
 
     if (!factMetric) {
       throw new Error("Could not find factMetric with that id");
     }
 
-    if (!canCreateMetrics(factMetric)) {
-      throwPermissionError("createMetrics");
+    if (!req.context.permissions.canCreateMetrics(factMetric)) {
+      req.context.permissions.throwPermissionError();
     }
 
     const updates = getUpdateFactMetricPropsFromBody(req.body, factMetric);
