@@ -1,6 +1,7 @@
 import fetch, { Response } from "node-fetch";
 
 import cloneDeep from "lodash/cloneDeep";
+import { pick } from "lodash";
 import {
   LICENSE_SERVER,
   licenseInit,
@@ -363,6 +364,18 @@ describe("licenseInit and getLicense", () => {
       const licenseData3 = cloneDeep(licenseData);
       const tenDaysAgo = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000);
       licenseData3.dateExpires = tenDaysAgo.toISOString();
+      const strippedLicense = pick(licenseData3, [
+        "dateExpires",
+        "seats",
+        "seatsInUse",
+        "archived",
+        "remoteDowngrade",
+        "isTrial",
+        "organizationId",
+        "plan",
+      ]);
+      // eslint-disable-next-line no-console
+      console.log("VERIFYING FOR TEST", strippedLicense);
       licenseData3.signedChecksum =
         "n7Xk1JleapEAyV1s78HqeUXX0-e5Yboz02JRIbfB7zkRtx_s0DnH3IqtDGcTCjs76oB3wZfp31Wf47vbNNA5YWWgqr6Ct_R0-he9sA6tpbTfAa3ev67PanXGzJ36Zqe3tpyXz5vkKVlNEwokneIKurggBowuGF14BxDNN_uzFN8DjbHHDuCrFdyqjdII8tg2SfKz7ybbMm-smYfXvhaayLBQdkWpJ1ZwgPeRsnO-suhRyq_dyFuQk7lkS8DGckNDg3GnJCcrM0olxU7S1EMvcj6BUcECkiDF5xDltFXfKQB8SwiWiDjP04OlJDoDxar3z0maTLilIcP6NtzMbUonuJZhj8qwNrYYM79grhMhsS2a3pN1RQ4jxmCbpxs6VNrEM4u8X6hKPLsqoYqlgyV_UPlNo04Fz5iIfTiy45BVyn2uCiMFkRr58tXNILA2dZjhh_V-9nTSRx2A8XZixjQJzXCbQBz_Q3PoPtdAtiFtRdm_ZHLbHP9c64--vfEqtlNVcc4huUvlwsf5ia1CQFnpbbo0-8_qUAWJUkFilo802aiWW-kwyXmXNjP7jEvBkkd8Oc8l2QUjZCbx3PwDhRacQ-ybr2Df9ZIMmeDLlfU2fDO129W0r1KQNVedCRL2oMcnwRbag9sJF2VTZL8ABi5jhWdJJdK6vTTd9p3AcFNDQ3c";
       const mockedResponse3: Response = ({
