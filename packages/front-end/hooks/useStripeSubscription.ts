@@ -2,9 +2,9 @@ import { useFeature } from "@growthbook/growthbook-react";
 import { SubscriptionQuote } from "back-end/types/organization";
 import { useEffect, useState } from "react";
 import { getValidDate } from "shared/dates";
-import { useAuth } from "@/services/auth";
-import { isCloud } from "@/services/env";
-import { useUser } from "@/services/UserContext";
+import { useAuth } from "@front-end/services/auth";
+import { isCloud } from "@front-end/services/env";
+import { useUser } from "@front-end/services/UserContext";
 import usePermissions from "./usePermissions";
 
 export default function useStripeSubscription() {

@@ -6,26 +6,26 @@ import { getValidDate, ago } from "shared/dates";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "@back-end/types/experiment-snapshot";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import usePermissions from "@/hooks/usePermissions";
-import { useAuth } from "@/services/auth";
-import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
-import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
-import FilterSummary from "@/components/Experiment/FilterSummary";
-import DateResults from "@/components/Experiment/DateResults";
-import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
-import AnalysisSettingsBar from "@/components/Experiment/AnalysisSettingsBar";
-import StatusBanner from "@/components/Experiment/StatusBanner";
-import { GBCuped, GBSequential } from "@/components/Icons";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { trackSnapshot } from "@/services/track";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import usePermissions from "@front-end/hooks/usePermissions";
+import { useAuth } from "@front-end/services/auth";
+import { getQueryStatus } from "@front-end/components/Queries/RunQueriesButton";
+import { useSnapshot } from "@front-end/components/Experiment/SnapshotProvider";
+import FilterSummary from "@front-end/components/Experiment/FilterSummary";
+import DateResults from "@front-end/components/Experiment/DateResults";
+import VariationIdWarning from "@front-end/components/Experiment/VariationIdWarning";
+import AnalysisSettingsBar from "@front-end/components/Experiment/AnalysisSettingsBar";
+import StatusBanner from "@front-end/components/Experiment/StatusBanner";
+import { GBCuped, GBSequential } from "@front-end/components/Icons";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import { trackSnapshot } from "@front-end/services/track";
 import { ExperimentTab } from "./TabbedPage";
 
 const BreakDownResults = dynamic(
-  () => import("@/components/Experiment/BreakDownResults")
+  () => import("@front-end/components/Experiment/BreakDownResults")
 );
 const CompactResults = dynamic(
-  () => import("@/components/Experiment/CompactResults")
+  () => import("@front-end/components/Experiment/CompactResults")
 );
 
 const Results: FC<{

@@ -1,11 +1,11 @@
 import omit from "lodash/omit";
 import mongoose from "mongoose";
-import { ApiSegment } from "@/types/openapi";
-import { SegmentInterface } from "@/types/segment";
+import { ApiSegment } from "@back-end/types/openapi";
+import { SegmentInterface } from "@back-end/types/segment";
 import {
   getConfigSegments,
   usingFileConfigForSegments,
-} from "@/src/init/config";
+} from "@back-end/src/init/config";
 
 const segmentSchema = new mongoose.Schema({
   id: String,

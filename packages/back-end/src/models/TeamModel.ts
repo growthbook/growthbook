@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { omit } from "lodash";
 import uniqid from "uniqid";
-import { TeamInterface } from "@/types/team";
+import { TeamInterface } from "@back-end/types/team";
 
 const teamSchema = new mongoose.Schema({
   id: {

@@ -1,11 +1,11 @@
 import { FC, useState } from "react";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import SubscriptionInfo from "@/components/Settings/SubscriptionInfo";
-import { isCloud } from "@/services/env";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
-import useStripeSubscription from "@/hooks/useStripeSubscription";
-import usePermissions from "@/hooks/usePermissions";
-import { useUser } from "@/services/UserContext";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import SubscriptionInfo from "@front-end/components/Settings/SubscriptionInfo";
+import { isCloud } from "@front-end/services/env";
+import UpgradeModal from "@front-end/components/Settings/UpgradeModal";
+import useStripeSubscription from "@front-end/hooks/useStripeSubscription";
+import usePermissions from "@front-end/hooks/usePermissions";
+import { useUser } from "@front-end/services/UserContext";
 
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);

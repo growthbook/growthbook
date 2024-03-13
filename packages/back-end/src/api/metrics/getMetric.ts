@@ -1,9 +1,9 @@
-import { toMetricApiInterface } from "@/src/services/experiments";
-import { getMetricValidator } from "@/src/validators/openapi";
-import { GetMetricResponse } from "@/types/openapi";
-import { getDataSourceById } from "@/src/models/DataSourceModel";
-import { getMetricById } from "@/src/models/MetricModel";
-import { createApiRequestHandler } from "@/src/util/handler";
+import { toMetricApiInterface } from "@back-end/src/services/experiments";
+import { getMetricValidator } from "@back-end/src/validators/openapi";
+import { GetMetricResponse } from "@back-end/types/openapi";
+import { getDataSourceById } from "@back-end/src/models/DataSourceModel";
+import { getMetricById } from "@back-end/src/models/MetricModel";
+import { createApiRequestHandler } from "@back-end/src/util/handler";
 
 export const getMetric = createApiRequestHandler(getMetricValidator)(
   async (req): Promise<GetMetricResponse> => {

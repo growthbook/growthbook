@@ -1,13 +1,13 @@
 import { Stripe } from "stripe";
 import { isActiveSubscriptionStatus } from "enterprise";
-import { STRIPE_SECRET } from "@/src/util/secrets";
-import { logger } from "@/src/util/logger";
+import { STRIPE_SECRET } from "@back-end/src/util/secrets";
+import { logger } from "@back-end/src/util/logger";
 import {
   findOrganizationByStripeCustomerId,
   updateOrganization,
   updateOrganizationByStripeId,
-} from "@/src/models/OrganizationModel";
-import { OrganizationInterface } from "@/types/organization";
+} from "@back-end/src/models/OrganizationModel";
+import { OrganizationInterface } from "@back-end/types/organization";
 
 export const stripe = new Stripe(STRIPE_SECRET || "", {
   apiVersion: "2022-11-15",

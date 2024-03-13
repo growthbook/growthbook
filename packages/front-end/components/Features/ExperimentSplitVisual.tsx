@@ -5,8 +5,8 @@ import { FaExclamationTriangle } from "react-icons/fa";
 import {
   getVariationColor,
   getVariationDefaultName,
-} from "@/services/features";
-import Tooltip from "@/components/Tooltip/Tooltip";
+} from "@front-end/services/features";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 import styles from "./ExperimentSplitVisual.module.scss";
 
 export interface Props {

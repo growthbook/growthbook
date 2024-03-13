@@ -1,8 +1,8 @@
-import { decryptDataSourceParams } from "@/src/services/datasource";
-import { runPostgresQuery } from "@/src/services/postgres";
-import { FormatDialect } from "@/src/util/sql";
-import { PostgresConnectionParams } from "@/types/integrations/postgres";
-import { QueryResponse } from "@/src/types/Integration";
+import { decryptDataSourceParams } from "@back-end/src/services/datasource";
+import { runPostgresQuery } from "@back-end/src/services/postgres";
+import { FormatDialect } from "@back-end/src/util/sql";
+import { PostgresConnectionParams } from "@back-end/types/integrations/postgres";
+import { QueryResponse } from "@back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Postgres extends SqlIntegration {

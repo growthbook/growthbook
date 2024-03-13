@@ -10,12 +10,12 @@ import {
   FeatureRule,
   FeatureValueType,
   SavedGroupTargeting,
-} from "@/types/feature";
-import { FeatureDefinitionWithProject } from "@/types/api";
-import { GroupMap } from "@/types/saved-group";
-import { SDKPayloadKey } from "@/types/sdk-payload";
-import { ExperimentInterface } from "@/types/experiment";
-import { FeatureRevisionInterface } from "@/types/feature-revision";
+} from "@back-end/types/feature";
+import { FeatureDefinitionWithProject } from "@back-end/types/api";
+import { GroupMap } from "@back-end/types/saved-group";
+import { SDKPayloadKey } from "@back-end/types/sdk-payload";
+import { ExperimentInterface } from "@back-end/types/experiment";
+import { FeatureRevisionInterface } from "@back-end/types/feature-revision";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 // eslint-disable-next-line

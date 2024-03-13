@@ -14,18 +14,18 @@ import {
   ExperimentReportArgs,
   ExperimentReportVariation,
   MetricRegressionAdjustmentStatus,
-} from "@/types/report";
+} from "@back-end/types/report";
 import {
   ExperimentInterface,
   ExperimentPhase,
   MetricOverride,
-} from "@/types/experiment";
+} from "@back-end/types/experiment";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   MetricForSnapshot,
-} from "@/types/experiment-snapshot";
+} from "@back-end/types/experiment-snapshot";
 
 export function getReportVariations(
   experiment: ExperimentInterface,

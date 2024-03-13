@@ -4,13 +4,13 @@ import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import React, { DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { RowResults } from "@/services/experiments";
+import { RowResults } from "@front-end/services/experiments";
 import {
   formatPercent,
   getExperimentMetricFormatter,
-} from "@/services/metrics";
-import { useCurrency } from "@/hooks/useCurrency";
-import { useDefinitions } from "@/services/DefinitionsContext";
+} from "@front-end/services/metrics";
+import { useCurrency } from "@front-end/hooks/useCurrency";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
 
 interface Props
   extends DetailedHTMLProps<

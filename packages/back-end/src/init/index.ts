@@ -1,5 +1,5 @@
-import { initializeLicense } from "@/src/services/licenseData";
-import { logger } from "@/src/util/logger";
+import { initializeLicense } from "@back-end/src/services/licenseData";
+import { logger } from "@back-end/src/util/logger";
 import mongoInit from "./mongo";
 import { queueInit } from "./queue";
 

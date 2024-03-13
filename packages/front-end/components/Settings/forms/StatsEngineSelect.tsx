@@ -1,8 +1,8 @@
 import { ReactNode } from "react";
 import { StatsEngine } from "back-end/types/stats";
 import { ScopedSettings } from "shared/settings";
-import SelectField from "@/components/Forms/SelectField";
-import { capitalizeFirstLetter } from "@/services/utils";
+import SelectField from "@front-end/components/Forms/SelectField";
+import { capitalizeFirstLetter } from "@front-end/services/utils";
 
 export default function StatsEngineSelect({
   parentSettings,

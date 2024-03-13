@@ -1,7 +1,7 @@
 import type { ReadAccessFilter } from "shared/permissions";
 import type pino from "pino";
 import type { Request } from "express";
-import type { EventAuditUser } from "@/src/events/event-types";
+import type { EventAuditUser } from "@back-end/src/events/event-types";
 import { MemberRole, OrganizationInterface, Permission } from "./organization";
 import { TeamInterface } from "./team";
 import { AuditInterface } from "./audit";

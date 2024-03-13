@@ -1,7 +1,7 @@
 import { format as sqlFormat, FormatOptions } from "sql-formatter";
 import Handlebars from "handlebars";
-import { SQLVars } from "@/types/sql";
-import { FactTableColumnType } from "@/types/fact-table";
+import { SQLVars } from "@back-end/types/sql";
+import { FactTableColumnType } from "@back-end/types/fact-table";
 import { helpers } from "./handlebarsHelpers";
 
 // Register all the helpers from handlebarsHelpers

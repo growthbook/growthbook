@@ -1,7 +1,7 @@
 import express from "express";
 import z from "zod";
-import { validateRequestMiddleware } from "@/src/routers/utils/validateRequestMiddleware";
-import { wrapController } from "@/src/routers//wrapController";
+import { validateRequestMiddleware } from "@back-end/src/routers/utils/validateRequestMiddleware";
+import { wrapController } from "@back-end/src/routers//wrapController";
 import {
   createFactFilterPropsValidator,
   createFactMetricPropsValidator,

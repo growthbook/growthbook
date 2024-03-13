@@ -1,14 +1,14 @@
 import type { Response } from "express";
-import { getContextFromReq } from "@/src/services/organizations";
-import { ApiErrorResponse } from "@/types/api";
-import { TagInterface } from "@/types/tag";
-import { addTag, removeTag } from "@/src/models/TagModel";
-import { removeTagInMetrics } from "@/src/models/MetricModel";
-import { removeTagInFeature } from "@/src/models/FeatureModel";
-import { removeTagFromSlackIntegration } from "@/src/models/SlackIntegrationModel";
-import { removeTagFromExperiments } from "@/src/models/ExperimentModel";
-import { AuthRequest } from "@/src/types/AuthRequest";
-import { EventAuditUserForResponseLocals } from "@/src/events/event-types";
+import { getContextFromReq } from "@back-end/src/services/organizations";
+import { ApiErrorResponse } from "@back-end/types/api";
+import { TagInterface } from "@back-end/types/tag";
+import { addTag, removeTag } from "@back-end/src/models/TagModel";
+import { removeTagInMetrics } from "@back-end/src/models/MetricModel";
+import { removeTagInFeature } from "@back-end/src/models/FeatureModel";
+import { removeTagFromSlackIntegration } from "@back-end/src/models/SlackIntegrationModel";
+import { removeTagFromExperiments } from "@back-end/src/models/ExperimentModel";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
+import { EventAuditUserForResponseLocals } from "@back-end/src/events/event-types";
 
 // region POST /tag
 

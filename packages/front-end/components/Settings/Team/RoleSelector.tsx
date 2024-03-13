@@ -1,5 +1,5 @@
 import { MemberRoleWithProjects } from "back-end/types/organization";
-import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
+import UpgradeMessage from "@front-end/components/Marketing/UpgradeMessage";
 import SingleRoleSelector from "./SingleRoleSelector";
 import ProjectRolesSelector from "./ProjectRolesSelector";
 

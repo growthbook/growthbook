@@ -9,14 +9,14 @@ import {
   distributeWeights,
   percentToDecimal,
   rebalance,
-} from "@/services/utils";
+} from "@front-end/services/utils";
 import {
   getVariationColor,
   getVariationDefaultName,
-} from "@/services/features";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import Field from "@/components/Forms/Field";
-import Tooltip from "@/components/Tooltip/Tooltip";
+} from "@front-end/services/features";
+import MoreMenu from "@front-end/components/Dropdown/MoreMenu";
+import Field from "@front-end/components/Forms/Field";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 import FeatureValueField from "./FeatureValueField";
 import styles from "./VariationsInput.module.scss";
 

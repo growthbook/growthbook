@@ -7,22 +7,25 @@ import {
   getSourceIntegrationObject,
   testDataSourceConnection,
   testQueryValidity,
-} from "@/src/services/datasource";
-import { upgradeDatasourceObject } from "@/src/util/migrations";
-import { IS_CLOUD } from "@/src/util/secrets";
-import { ApiDataSource } from "@/types/openapi";
-import { ReqContext } from "@/types/organization";
-import { ApiReqContext } from "@/types/api";
-import { GoogleAnalyticsParams } from "@/types/integrations/googleanalytics";
+} from "@back-end/src/services/datasource";
+import { upgradeDatasourceObject } from "@back-end/src/util/migrations";
+import { IS_CLOUD } from "@back-end/src/util/secrets";
+import { ApiDataSource } from "@back-end/types/openapi";
+import { ReqContext } from "@back-end/types/organization";
+import { ApiReqContext } from "@back-end/types/api";
+import { GoogleAnalyticsParams } from "@back-end/types/integrations/googleanalytics";
 import {
   DataSourceInterface,
   DataSourceParams,
   DataSourceSettings,
   DataSourceType,
-} from "@/types/datasource";
-import { getOauth2Client } from "@/src/integrations/GoogleAnalytics";
-import { usingFileConfig, getConfigDatasources } from "@/src/init/config";
-import { queueCreateInformationSchema } from "@/src/jobs/createInformationSchema";
+} from "@back-end/types/datasource";
+import { getOauth2Client } from "@back-end/src/integrations/GoogleAnalytics";
+import {
+  usingFileConfig,
+  getConfigDatasources,
+} from "@back-end/src/init/config";
+import { queueCreateInformationSchema } from "@back-end/src/jobs/createInformationSchema";
 import { findAllOrganizations } from "./OrganizationModel";
 
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({

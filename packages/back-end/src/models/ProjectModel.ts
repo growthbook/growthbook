@@ -3,10 +3,10 @@ import uniqid from "uniqid";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { omit } from "lodash";
 import { hasReadAccess } from "shared/permissions";
-import { ApiProject } from "@/types/openapi";
-import { ProjectInterface, ProjectSettings } from "@/types/project";
-import { ReqContext } from "@/types/organization";
-import { ApiReqContext } from "@/types/api";
+import { ApiProject } from "@back-end/types/openapi";
+import { ProjectInterface, ProjectSettings } from "@back-end/types/project";
+import { ReqContext } from "@back-end/types/organization";
+import { ApiReqContext } from "@back-end/types/api";
 
 const projectSchema = new mongoose.Schema({
   id: {

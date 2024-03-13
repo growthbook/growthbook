@@ -9,10 +9,10 @@ import format from "date-fns/format";
 import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import { localPoint } from "@visx/event";
 import { getValidDate } from "shared/dates";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import useApi from "@/hooks/useApi";
-import SelectField from "@/components/Forms/SelectField";
-import LoadingOverlay from "@/components/LoadingOverlay";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import useApi from "@front-end/hooks/useApi";
+import SelectField from "@front-end/components/Forms/SelectField";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
 import styles from "./ExperimentGraph.module.scss";
 
 export default function ExperimentGraph({

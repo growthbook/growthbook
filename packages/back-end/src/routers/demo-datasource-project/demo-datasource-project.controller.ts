@@ -7,28 +7,34 @@ import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { getContextFromReq } from "@/src/services/organizations";
-import { createMetric, createSnapshot } from "@/src/services/experiments";
-import { PostgresConnectionParams } from "@/types/integrations/postgres";
-import { createDataSource } from "@/src/models/DataSourceModel";
+import { getContextFromReq } from "@back-end/src/services/organizations";
+import {
+  createMetric,
+  createSnapshot,
+} from "@back-end/src/services/experiments";
+import { PostgresConnectionParams } from "@back-end/types/integrations/postgres";
+import { createDataSource } from "@back-end/src/models/DataSourceModel";
 import {
   createExperiment,
   getAllExperiments,
-} from "@/src/models/ExperimentModel";
-import { createProject, findProjectById } from "@/src/models/ProjectModel";
-import { PrivateApiErrorResponse } from "@/types/api";
-import { DataSourceSettings } from "@/types/datasource";
-import { ExperimentInterface } from "@/types/experiment";
-import { ExperimentRefRule, FeatureInterface } from "@/types/feature";
-import { MetricInterface } from "@/types/metric";
-import { ProjectInterface } from "@/types/project";
-import { ExperimentSnapshotAnalysisSettings } from "@/types/experiment-snapshot";
-import { getMetricMap } from "@/src/models/MetricModel";
-import { createFeature } from "@/src/models/FeatureModel";
-import { getFactTableMap } from "@/src/models/FactTableModel";
-import { MetricWindowSettings } from "@/types/fact-table";
-import { AuthRequest } from "@/src/types/AuthRequest";
-import { EventAuditUserForResponseLocals } from "@/src/events/event-types";
+} from "@back-end/src/models/ExperimentModel";
+import {
+  createProject,
+  findProjectById,
+} from "@back-end/src/models/ProjectModel";
+import { PrivateApiErrorResponse } from "@back-end/types/api";
+import { DataSourceSettings } from "@back-end/types/datasource";
+import { ExperimentInterface } from "@back-end/types/experiment";
+import { ExperimentRefRule, FeatureInterface } from "@back-end/types/feature";
+import { MetricInterface } from "@back-end/types/metric";
+import { ProjectInterface } from "@back-end/types/project";
+import { ExperimentSnapshotAnalysisSettings } from "@back-end/types/experiment-snapshot";
+import { getMetricMap } from "@back-end/src/models/MetricModel";
+import { createFeature } from "@back-end/src/models/FeatureModel";
+import { getFactTableMap } from "@back-end/src/models/FactTableModel";
+import { MetricWindowSettings } from "@back-end/types/fact-table";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
+import { EventAuditUserForResponseLocals } from "@back-end/src/events/event-types";
 
 // region Constants for Demo Datasource
 

@@ -1,9 +1,12 @@
 import { cloneDeep } from "lodash";
 import { Response } from "express";
-import { expandOrgMembers } from "@/src/services/organizations";
-import { ScimError, ScimUser, ScimUserPutRequest } from "@/types/scim";
-import { updateOrganization } from "@/src/models/OrganizationModel";
-import { MemberRole, OrganizationInterface } from "@/types/organization";
+import { expandOrgMembers } from "@back-end/src/services/organizations";
+import { ScimError, ScimUser, ScimUserPutRequest } from "@back-end/types/scim";
+import { updateOrganization } from "@back-end/src/models/OrganizationModel";
+import {
+  MemberRole,
+  OrganizationInterface,
+} from "@back-end/types/organization";
 import { isRoleValid } from "./createUser";
 
 async function updateUserRole(

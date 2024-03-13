@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import LoadingSpinner from "@/components/LoadingSpinner";
+import LoadingSpinner from "@front-end/components/LoadingSpinner";
 
 export default function PendingInformationSchemaCard({
   mutate,

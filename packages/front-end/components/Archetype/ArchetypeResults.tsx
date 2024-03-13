@@ -2,15 +2,15 @@ import React, { FC, Fragment, useState } from "react";
 import { ArchetypeInterface } from "back-end/types/archetype";
 import { FeatureInterface, FeatureTestResult } from "back-end/types/feature";
 import { FaPlusCircle } from "react-icons/fa";
-import { useAuth } from "@/services/auth";
-import styles from "@/components/Archetype/ArchetypeResults.module.scss";
-import ValueDisplay from "@/components/Features/ValueDisplay";
-import Code from "@/components/SyntaxHighlighting/Code";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import ArchetypeAttributesModal from "@/components/Archetype/ArchetypeAttributesModal";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import { useEnvironments } from "@/services/features";
+import { useAuth } from "@front-end/services/auth";
+import styles from "@front-end/components/Archetype/ArchetypeResults.module.scss";
+import ValueDisplay from "@front-end/components/Features/ValueDisplay";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import ArchetypeAttributesModal from "@front-end/components/Archetype/ArchetypeAttributesModal";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import MoreMenu from "@front-end/components/Dropdown/MoreMenu";
+import { useEnvironments } from "@front-end/services/features";
 
 const ArchetypeResults: FC<{
   feature: FeatureInterface;

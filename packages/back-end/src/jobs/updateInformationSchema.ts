@@ -1,18 +1,18 @@
 import Agenda, { Job } from "agenda";
-import { updateDatasourceInformationSchema } from "@/src/services/informationSchema";
-import { getContextForAgendaJobByOrgId } from "@/src/services/organizations";
-import { trackJob } from "@/src/services/otel";
-import { getDataSourceById } from "@/src/models/DataSourceModel";
+import { updateDatasourceInformationSchema } from "@back-end/src/services/informationSchema";
+import { getContextForAgendaJobByOrgId } from "@back-end/src/services/organizations";
+import { trackJob } from "@back-end/src/services/otel";
+import { getDataSourceById } from "@back-end/src/models/DataSourceModel";
 import {
   getInformationSchemaByDatasourceId,
   getInformationSchemaById,
   updateInformationSchemaById,
-} from "@/src/models/InformationSchemaModel";
+} from "@back-end/src/models/InformationSchemaModel";
 import {
   DataSourceNotSupportedError,
   InformationSchemaError,
   MissingDatasourceParamsError,
-} from "@/src/types/Integration";
+} from "@back-end/src/types/Integration";
 
 const UPDATE_INFORMATION_SCHEMA_JOB_NAME = "updateInformationSchema";
 type UpdateInformationSchemaJob = Job<{

@@ -1,6 +1,6 @@
-import Field from "@/components/Forms/Field";
-import MetricsSelector from "@/components/Experiment/MetricsSelector";
-import { ConnectSettingsForm } from "@/pages/settings";
+import Field from "@front-end/components/Forms/Field";
+import MetricsSelector from "@front-end/components/Experiment/MetricsSelector";
+import { ConnectSettingsForm } from "@front-end/pages/settings";
 
 export default function NorthStarMetricSettings() {
   return (

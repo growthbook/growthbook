@@ -1,14 +1,14 @@
 import { useState, FC } from "react";
 import { Namespaces, NamespaceUsage } from "back-end/types/organization";
-import useApi from "@/hooks/useApi";
-import { GBAddCircle } from "@/components/Icons";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import NamespaceModal from "@/components/Experiment/NamespaceModal";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { useUser } from "@/services/UserContext";
-import NamespaceTableRow from "@/components/Settings/NamespaceTableRow";
-import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
+import useApi from "@front-end/hooks/useApi";
+import { GBAddCircle } from "@front-end/components/Icons";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import NamespaceModal from "@front-end/components/Experiment/NamespaceModal";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import { useUser } from "@front-end/services/UserContext";
+import NamespaceTableRow from "@front-end/components/Settings/NamespaceTableRow";
+import { useAuth } from "@front-end/services/auth";
+import usePermissions from "@front-end/hooks/usePermissions";
 
 export type NamespaceApiResponse = {
   namespaces: NamespaceUsage;

@@ -23,22 +23,28 @@ import {
   SDKCapability,
 } from "shared/sdk-versioning";
 import cloneDeep from "lodash/cloneDeep";
-import { getFeatureDefinition, getParsedCondition } from "@/src/util/features";
-import { logger } from "@/src/util/logger";
-import { promiseAllChunks } from "@/src/util/promise";
-import { getSDKPayload, updateSDKPayload } from "@/src/models/SdkPayloadModel";
-import { getAllSavedGroups } from "@/src/models/SavedGroupModel";
+import {
+  getFeatureDefinition,
+  getParsedCondition,
+} from "@back-end/src/util/features";
+import { logger } from "@back-end/src/util/logger";
+import { promiseAllChunks } from "@back-end/src/util/promise";
+import {
+  getSDKPayload,
+  updateSDKPayload,
+} from "@back-end/src/models/SdkPayloadModel";
+import { getAllSavedGroups } from "@back-end/src/models/SavedGroupModel";
 import {
   getAllPayloadExperiments,
   getAllVisualExperiments,
-} from "@/src/models/ExperimentModel";
-import { getAllFeatures } from "@/src/models/FeatureModel";
+} from "@back-end/src/models/ExperimentModel";
+import { getAllFeatures } from "@back-end/src/models/FeatureModel";
 import {
   ApiReqContext,
   AutoExperimentWithProject,
   FeatureDefinition,
   FeatureDefinitionWithProject,
-} from "@/types/api";
+} from "@back-end/types/api";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
@@ -49,26 +55,29 @@ import {
   FeatureTestResult,
   ExperimentRefRule,
   FeaturePrerequisite,
-} from "@/types/feature";
+} from "@back-end/types/feature";
 import {
   Environment,
   OrganizationInterface,
   ReqContext,
   SDKAttribute,
   SDKAttributeSchema,
-} from "@/types/organization";
-import { GroupMap } from "@/types/saved-group";
-import { SDKPayloadKey } from "@/types/sdk-payload";
-import { ApiFeature, ApiFeatureEnvironment } from "@/types/openapi";
-import { ExperimentInterface, ExperimentPhase } from "@/types/experiment";
-import { VisualChangesetInterface } from "@/types/visual-changeset";
-import { ArchetypeAttributeValues } from "@/types/archetype";
-import { FeatureRevisionInterface } from "@/types/feature-revision";
-import { triggerWebhookJobs } from "@/src/jobs/updateAllJobs";
+} from "@back-end/types/organization";
+import { GroupMap } from "@back-end/types/saved-group";
+import { SDKPayloadKey } from "@back-end/types/sdk-payload";
+import { ApiFeature, ApiFeatureEnvironment } from "@back-end/types/openapi";
+import {
+  ExperimentInterface,
+  ExperimentPhase,
+} from "@back-end/types/experiment";
+import { VisualChangesetInterface } from "@back-end/types/visual-changeset";
+import { ArchetypeAttributeValues } from "@back-end/types/archetype";
+import { FeatureRevisionInterface } from "@back-end/types/feature-revision";
+import { triggerWebhookJobs } from "@back-end/src/jobs/updateAllJobs";
 import {
   ApiFeatureEnvSettings,
   ApiFeatureEnvSettingsRules,
-} from "@/src/api/features/postFeature";
+} from "@back-end/src/api/features/postFeature";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,

@@ -3,11 +3,11 @@ import { FC } from "react";
 import { useForm } from "react-hook-form";
 import { IdeaInterface } from "back-end/types/idea";
 import { ImpactEstimateInterface } from "back-end/types/impact-estimate";
-import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
+import { useAuth } from "@front-end/services/auth";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Modal from "@front-end/components/Modal";
+import Field from "@front-end/components/Forms/Field";
+import SelectField from "@front-end/components/Forms/SelectField";
 
 const ImpactModal: FC<{
   idea?: IdeaInterface;

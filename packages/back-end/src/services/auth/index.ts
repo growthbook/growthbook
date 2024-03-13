@@ -1,32 +1,32 @@
 import { NextFunction, Request, Response } from "express";
 import { SSO_CONFIG } from "enterprise";
 import { userHasPermission } from "shared/permissions";
-import { getTeamsForOrganization } from "@/src/models/TeamModel";
-import { insertAudit } from "@/src/models/AuditModel";
-import { hasOrganization } from "@/src/models/OrganizationModel";
-import { AuditInterface } from "@/types/audit";
-import { UserInterface } from "@/types/user";
-import { Permission } from "@/types/organization";
-import { markUserAsVerified, UserModel } from "@/src/models/UserModel";
-import { AuthRequest } from "@/src/types/AuthRequest";
+import { getTeamsForOrganization } from "@back-end/src/models/TeamModel";
+import { insertAudit } from "@back-end/src/models/AuditModel";
+import { hasOrganization } from "@back-end/src/models/OrganizationModel";
+import { AuditInterface } from "@back-end/types/audit";
+import { UserInterface } from "@back-end/types/user";
+import { Permission } from "@back-end/types/organization";
+import { markUserAsVerified, UserModel } from "@back-end/src/models/UserModel";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import {
   IdTokenCookie,
   AuthChecksCookie,
   RefreshTokenCookie,
   SSOConnectionIdCookie,
-} from "@/src/util/cookie";
-import { IS_CLOUD } from "@/src/util/secrets";
-import { getUserPermissions } from "@/src/util/organization.util";
-import { getUserByEmail } from "@/src/services/users";
+} from "@back-end/src/util/cookie";
+import { IS_CLOUD } from "@back-end/src/util/secrets";
+import { getUserPermissions } from "@back-end/src/util/organization.util";
+import { getUserByEmail } from "@back-end/src/services/users";
 import {
   EventAuditUserForResponseLocals,
   EventAuditUserLoggedIn,
-} from "@/src/events/event-types";
-import { initializeLicense } from "@/src/services/licenseData";
+} from "@back-end/src/events/event-types";
+import { initializeLicense } from "@back-end/src/services/licenseData";
 import {
   getOrganizationById,
   validateLoginMethod,
-} from "@/src/services/organizations";
+} from "@back-end/src/services/organizations";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";

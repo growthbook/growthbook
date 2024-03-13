@@ -8,17 +8,17 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
 import { datetime } from "shared/dates";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { useAuth } from "@/services/auth";
-import Badge from "@/components/Badge";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import useApi from "@/hooks/useApi";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import { useAuth } from "@front-end/services/auth";
+import Badge from "@front-end/components/Badge";
+import { useCopyToClipboard } from "@front-end/hooks/useCopyToClipboard";
+import useApi from "@front-end/hooks/useApi";
 import {
   EventWebHookEditParams,
   useIconForState,
-} from "@/components/EventWebHooks/utils";
-import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
-import { EventWebHookAddEditModal } from "@/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
+} from "@front-end/components/EventWebHooks/utils";
+import { SimpleTooltip } from "@front-end/components/SimpleTooltip/SimpleTooltip";
+import { EventWebHookAddEditModal } from "@front-end/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
 
 type EventWebHookDetailProps = {
   eventWebHook: EventWebHookInterface;

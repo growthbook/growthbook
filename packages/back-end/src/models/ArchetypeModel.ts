@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
-import { ArchetypeInterface } from "@/types/archetype";
+import { ArchetypeInterface } from "@back-end/types/archetype";
 
 const archetypeSchema = new mongoose.Schema({
   id: {

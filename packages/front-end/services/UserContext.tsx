@@ -32,12 +32,12 @@ import {
 import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { userHasPermission } from "shared/permissions";
-import { isCloud, isMultiOrg, isSentryEnabled } from "@/services/env";
-import useApi from "@/hooks/useApi";
-import { useAuth, UserOrganizations } from "@/services/auth";
-import track from "@/services/track";
-import { AppFeatures } from "@/types/app-features";
-import { sha256 } from "@/services/utils";
+import { isCloud, isMultiOrg, isSentryEnabled } from "@front-end/services/env";
+import useApi from "@front-end/hooks/useApi";
+import { useAuth, UserOrganizations } from "@front-end/services/auth";
+import track from "@front-end/services/track";
+import { AppFeatures } from "@front-end/types/app-features";
+import { sha256 } from "@front-end/services/utils";
 
 type OrgSettingsResponse = {
   organization: OrganizationInterface;

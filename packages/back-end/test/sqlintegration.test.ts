@@ -1,5 +1,5 @@
-import BigQuery from "@/src/integrations/BigQuery";
-import { MetricInterface } from "@/types/metric";
+import BigQuery from "@back-end/src/integrations/BigQuery";
+import { MetricInterface } from "@back-end/types/metric";
 
 describe("bigquery integration", () => {
   const bqIntegration = new BigQuery("", {});

@@ -1,9 +1,9 @@
 import { useCallback, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
 import { DataSourceType } from "back-end/types/datasource";
-import usePermissions from "@/hooks/usePermissions";
-import { checkDatasourceProjectPermissions } from "@/services/datasources";
-import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
+import usePermissions from "@front-end/hooks/usePermissions";
+import { checkDatasourceProjectPermissions } from "@front-end/services/datasources";
+import { DataSourceQueryEditingModalBaseProps } from "@front-end/components/Settings/EditDataSource/types";
 import { EditDataSourcePipeline } from "./EditDataSourcePipeline";
 
 type DataSourcePipelineProps = DataSourceQueryEditingModalBaseProps;

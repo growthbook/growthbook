@@ -2,17 +2,17 @@ import Agenda, { Job } from "agenda";
 import {
   DEFAULT_METRIC_ANALYSIS_DAYS,
   refreshMetric,
-} from "@/src/services/experiments";
+} from "@back-end/src/services/experiments";
 import {
   getContextForAgendaJobByOrgObject,
   getOrganizationById,
-} from "@/src/services/organizations";
-import { METRIC_REFRESH_FREQUENCY } from "@/src/util/secrets";
-import { logger } from "@/src/util/logger";
-import { promiseAllChunks } from "@/src/util/promise";
-import { getMetricById } from "@/src/models/MetricModel";
-import { getOrganizationsWithNorthStars } from "@/src/models/OrganizationModel";
-import { OrganizationInterface } from "@/types/organization";
+} from "@back-end/src/services/organizations";
+import { METRIC_REFRESH_FREQUENCY } from "@back-end/src/util/secrets";
+import { logger } from "@back-end/src/util/logger";
+import { promiseAllChunks } from "@back-end/src/util/promise";
+import { getMetricById } from "@back-end/src/models/MetricModel";
+import { getOrganizationsWithNorthStars } from "@back-end/src/models/OrganizationModel";
+import { OrganizationInterface } from "@back-end/types/organization";
 
 const QUEUE_METRIC_UPDATES = "queueMetricUpdates";
 

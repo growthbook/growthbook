@@ -1,19 +1,19 @@
 import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { FormatDialect } from "@/src/util/sql";
-import { FactTableMap } from "@/src/models/FactTableModel";
+import { FormatDialect } from "@back-end/src/util/sql";
+import { FactTableMap } from "@back-end/src/models/FactTableModel";
 import {
   DataSourceProperties,
   DataSourceSettings,
   SchemaFormat,
-} from "@/types/datasource";
-import { DimensionInterface } from "@/types/dimension";
-import { ExperimentSnapshotSettings } from "@/types/experiment-snapshot";
-import { MetricInterface, MetricType } from "@/types/metric";
-import { QueryStatistics } from "@/types/query";
-import { SegmentInterface } from "@/types/segment";
-import { TemplateVariables } from "@/types/sql";
-import { FactMetricInterface } from "@/types/fact-table";
+} from "@back-end/types/datasource";
+import { DimensionInterface } from "@back-end/types/dimension";
+import { ExperimentSnapshotSettings } from "@back-end/types/experiment-snapshot";
+import { MetricInterface, MetricType } from "@back-end/types/metric";
+import { QueryStatistics } from "@back-end/types/query";
+import { SegmentInterface } from "@back-end/types/segment";
+import { TemplateVariables } from "@back-end/types/sql";
+import { FactMetricInterface } from "@back-end/types/fact-table";
 
 export type ExternalIdCallback = (id: string) => Promise<void>;
 

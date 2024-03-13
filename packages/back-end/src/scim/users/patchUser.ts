@@ -1,9 +1,9 @@
 import { cloneDeep } from "lodash";
 import { Response } from "express";
-import { expandOrgMembers } from "@/src/services/organizations";
-import { updateOrganization } from "@/src/models/OrganizationModel";
-import { ScimError, ScimPatchRequest, ScimUser } from "@/types/scim";
-import { Member, OrganizationInterface } from "@/types/organization";
+import { expandOrgMembers } from "@back-end/src/services/organizations";
+import { updateOrganization } from "@back-end/src/models/OrganizationModel";
+import { ScimError, ScimPatchRequest, ScimUser } from "@back-end/types/scim";
+import { Member, OrganizationInterface } from "@back-end/types/organization";
 import { expandedMembertoScimUser } from "./getUser";
 
 async function removeUserFromOrg(org: OrganizationInterface, user: Member) {

@@ -2,12 +2,12 @@ import React, { FC, useCallback, useState } from "react";
 import z from "zod";
 import { useForm } from "react-hook-form";
 import { NotificationEventName } from "back-end/src/events/base-types";
-import Modal from "@/components/Modal";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
-import CodeTextArea from "@/components/Forms/CodeTextArea";
-import Toggle from "@/components/Forms/Toggle";
+import Modal from "@front-end/components/Modal";
+import MultiSelectField from "@front-end/components/Forms/MultiSelectField";
+import Field from "@front-end/components/Forms/Field";
+import SelectField from "@front-end/components/Forms/SelectField";
+import CodeTextArea from "@front-end/components/Forms/CodeTextArea";
+import Toggle from "@front-end/components/Forms/Toggle";
 import {
   eventWebHookMethods,
   EventWebHookMethod,
@@ -17,10 +17,10 @@ import {
   eventWebHookEventOptions,
   EventWebHookModalMode,
   notificationEventNames,
-} from "@/components/EventWebHooks/utils";
-import { useEnvironments } from "@/services/features";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import TagsInput from "@/components/Tags/TagsInput";
+} from "@front-end/components/EventWebHooks/utils";
+import { useEnvironments } from "@front-end/services/features";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import TagsInput from "@front-end/components/Tags/TagsInput";
 
 type EventWebHookAddEditModalProps = {
   isOpen: boolean;

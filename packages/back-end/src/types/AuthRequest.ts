@@ -4,10 +4,10 @@ import {
   GlobalPermission,
   OrganizationInterface,
   ProjectScopedPermission,
-} from "@/types/organization";
-import { AuditInterface } from "@/types/audit";
-import { SSOConnectionInterface } from "@/types/sso-connection";
-import { TeamInterface } from "@/types/team";
+} from "@back-end/types/organization";
+import { AuditInterface } from "@back-end/types/audit";
+import { SSOConnectionInterface } from "@back-end/types/sso-connection";
+import { TeamInterface } from "@back-end/types/team";
 
 export type PermissionFunctions = {
   checkPermissions(permission: GlobalPermission): void;

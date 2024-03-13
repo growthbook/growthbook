@@ -2,15 +2,15 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
 import { hasReadAccess } from "shared/permissions";
-import { upgradeFactMetricDoc } from "@/src/util/migrations";
+import { upgradeFactMetricDoc } from "@back-end/src/util/migrations";
 import {
   CreateFactMetricProps,
   FactMetricInterface,
   UpdateFactMetricProps,
-} from "@/types/fact-table";
-import { ApiFactMetric } from "@/types/openapi";
-import { ApiReqContext } from "@/types/api";
-import { ReqContext } from "@/types/organization";
+} from "@back-end/types/fact-table";
+import { ApiFactMetric } from "@back-end/types/openapi";
+import { ApiReqContext } from "@back-end/types/api";
+import { ReqContext } from "@back-end/types/organization";
 
 const factTableSchema = new mongoose.Schema({
   id: String,

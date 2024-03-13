@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
-import { ReportInterface } from "@/types/report";
-import { ReqContext } from "@/types/organization";
-import { ApiReqContext } from "@/types/api";
+import { ReportInterface } from "@back-end/types/report";
+import { ReqContext } from "@back-end/types/organization";
+import { ApiReqContext } from "@back-end/types/api";
 import { queriesSchema } from "./QueryModel";
 import { getAllExperiments } from "./ExperimentModel";
 

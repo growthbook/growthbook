@@ -1,12 +1,12 @@
 import mongoose from "mongoose";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { hasReadAccess } from "shared/permissions";
-import { ALLOW_CREATE_METRICS } from "@/src/util/secrets";
-import { upgradeMetricDoc } from "@/src/util/migrations";
-import { ApiReqContext } from "@/types/api";
-import { ReqContext } from "@/types/organization";
-import { LegacyMetricInterface, MetricInterface } from "@/types/metric";
-import { getConfigMetrics, usingFileConfig } from "@/src/init/config";
+import { ALLOW_CREATE_METRICS } from "@back-end/src/util/secrets";
+import { upgradeMetricDoc } from "@back-end/src/util/migrations";
+import { ApiReqContext } from "@back-end/types/api";
+import { ReqContext } from "@back-end/types/organization";
+import { LegacyMetricInterface, MetricInterface } from "@back-end/types/metric";
+import { getConfigMetrics, usingFileConfig } from "@back-end/src/init/config";
 import { queriesSchema } from "./QueryModel";
 import { ImpactEstimateModel } from "./ImpactEstimateModel";
 import { removeMetricFromExperiments } from "./ExperimentModel";

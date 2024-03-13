@@ -3,16 +3,16 @@ import uniqid from "uniqid";
 import { z } from "zod";
 import { omit } from "lodash";
 import { hasReadAccess } from "shared/permissions";
-import { cancellableFetch } from "@/src/util/http.util";
+import { cancellableFetch } from "@back-end/src/util/http.util";
 import {
   IS_CLOUD,
   PROXY_ENABLED,
   PROXY_HOST_INTERNAL,
   PROXY_HOST_PUBLIC,
-} from "@/src/util/secrets";
-import { errorStringFromZodResult } from "@/src/util/validation";
-import { ApiReqContext } from "@/types/api";
-import { ReqContext } from "@/types/organization";
+} from "@back-end/src/util/secrets";
+import { errorStringFromZodResult } from "@back-end/src/util/validation";
+import { ApiReqContext } from "@back-end/types/api";
+import { ReqContext } from "@back-end/types/organization";
 import {
   CreateSDKConnectionParams,
   EditSDKConnectionParams,
@@ -20,9 +20,9 @@ import {
   ProxyTestResult,
   SDKConnectionInterface,
   SDKLanguage,
-} from "@/types/sdk-connection";
-import { ApiSdkConnection } from "@/types/openapi";
-import { triggerSingleSDKWebhookJobs } from "@/src/jobs/updateAllJobs";
+} from "@back-end/types/sdk-connection";
+import { ApiSdkConnection } from "@back-end/types/openapi";
+import { triggerSingleSDKWebhookJobs } from "@back-end/src/jobs/updateAllJobs";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
 
 const sdkConnectionSchema = new mongoose.Schema({

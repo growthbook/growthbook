@@ -1,7 +1,7 @@
 import { ClickHouse as ClickHouseClient } from "clickhouse";
-import { decryptDataSourceParams } from "@/src/services/datasource";
-import { ClickHouseConnectionParams } from "@/types/integrations/clickhouse";
-import { QueryResponse } from "@/src/types/Integration";
+import { decryptDataSourceParams } from "@back-end/src/services/datasource";
+import { ClickHouseConnectionParams } from "@back-end/types/integrations/clickhouse";
+import { QueryResponse } from "@back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class ClickHouse extends SqlIntegration {

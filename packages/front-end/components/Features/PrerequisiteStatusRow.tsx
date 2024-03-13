@@ -11,13 +11,13 @@ import {
   FaRegCircleQuestion,
   FaRegCircleXmark,
 } from "react-icons/fa6";
-import { useAuth } from "@/services/auth";
-import track from "@/services/track";
-import usePermissions from "@/hooks/usePermissions";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import ValueDisplay from "@/components/Features/ValueDisplay";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
+import { useAuth } from "@front-end/services/auth";
+import track from "@front-end/services/track";
+import usePermissions from "@front-end/hooks/usePermissions";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import ValueDisplay from "@front-end/components/Features/ValueDisplay";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import MoreMenu from "@front-end/components/Dropdown/MoreMenu";
 
 interface Props {
   i: number;

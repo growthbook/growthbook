@@ -1,12 +1,12 @@
-import { toExperimentApiInterface } from "@/src/services/experiments";
-import { getVisualChangesetValidator } from "@/src/validators/openapi";
-import { GetVisualChangesetResponse } from "@/types/openapi";
-import { getExperimentById } from "@/src/models/ExperimentModel";
+import { toExperimentApiInterface } from "@back-end/src/services/experiments";
+import { getVisualChangesetValidator } from "@back-end/src/validators/openapi";
+import { GetVisualChangesetResponse } from "@back-end/types/openapi";
+import { getExperimentById } from "@back-end/src/models/ExperimentModel";
 import {
   findVisualChangesetById,
   toVisualChangesetApiInterface,
-} from "@/src/models/VisualChangesetModel";
-import { createApiRequestHandler } from "@/src/util/handler";
+} from "@back-end/src/models/VisualChangesetModel";
+import { createApiRequestHandler } from "@back-end/src/util/handler";
 
 export const getVisualChangeset = createApiRequestHandler(
   getVisualChangesetValidator

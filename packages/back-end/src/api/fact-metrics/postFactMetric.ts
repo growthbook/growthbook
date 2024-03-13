@@ -5,22 +5,22 @@ import {
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_METRIC_WINDOW_HOURS,
 } from "shared/constants";
-import { postFactMetricValidator } from "@/src/validators/openapi";
+import { postFactMetricValidator } from "@back-end/src/validators/openapi";
 import {
   CreateFactMetricProps,
   FactMetricInterface,
   FactTableInterface,
-} from "@/types/fact-table";
-import { PostFactMetricResponse } from "@/types/openapi";
+} from "@back-end/types/fact-table";
+import { PostFactMetricResponse } from "@back-end/types/openapi";
 import {
   createFactMetric,
   toFactMetricApiInterface,
-} from "@/src/models/FactMetricModel";
-import { getFactTable } from "@/src/models/FactTableModel";
-import { addTags } from "@/src/models/TagModel";
-import { OrganizationInterface } from "@/types/organization";
-import { findAllProjectsByOrganization } from "@/src/models/ProjectModel";
-import { createApiRequestHandler } from "@/src/util/handler";
+} from "@back-end/src/models/FactMetricModel";
+import { getFactTable } from "@back-end/src/models/FactTableModel";
+import { addTags } from "@back-end/src/models/TagModel";
+import { OrganizationInterface } from "@back-end/types/organization";
+import { findAllProjectsByOrganization } from "@back-end/src/models/ProjectModel";
+import { createApiRequestHandler } from "@back-end/src/util/handler";
 
 export async function validateFactMetric(
   data: Pick<FactMetricInterface, "numerator" | "denominator" | "metricType">,

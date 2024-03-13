@@ -5,38 +5,38 @@ import {
   isNewInstallation,
   markInstalled,
   validatePasswordFormat,
-} from "@/src/services/auth";
+} from "@back-end/src/services/auth";
 import {
   getEmailFromUserId,
   getContextFromReq,
-} from "@/src/services/organizations";
+} from "@back-end/src/services/organizations";
 import {
   IdTokenCookie,
   RefreshTokenCookie,
   SSOConnectionIdCookie,
-} from "@/src/util/cookie";
-import { IS_CLOUD } from "@/src/util/secrets";
+} from "@back-end/src/util/cookie";
+import { IS_CLOUD } from "@back-end/src/util/secrets";
 import {
   createOrganization,
   hasOrganization,
-} from "@/src/models/OrganizationModel";
+} from "@back-end/src/models/OrganizationModel";
 import {
   createForgotPasswordToken,
   deleteForgotPasswordToken,
   getUserIdFromForgotPasswordToken,
-} from "@/src/models/ForgotPasswordModel";
-import { getSSOConnectionByEmailDomain } from "@/src/models/SSOConnectionModel";
-import { resetMinTokenDate } from "@/src/models/UserModel";
-import { AuthRefreshModel } from "@/src/models/AuthRefreshModel";
-import { UserInterface } from "@/types/user";
-import { AuthRequest } from "@/src/types/AuthRequest";
+} from "@back-end/src/models/ForgotPasswordModel";
+import { getSSOConnectionByEmailDomain } from "@back-end/src/models/SSOConnectionModel";
+import { resetMinTokenDate } from "@back-end/src/models/UserModel";
+import { AuthRefreshModel } from "@back-end/src/models/AuthRefreshModel";
+import { UserInterface } from "@back-end/types/user";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import {
   createUser,
   getUserByEmail,
   getUserById,
   updatePassword,
   verifyPassword,
-} from "@/src/services/users";
+} from "@back-end/src/services/users";
 
 export async function getHasOrganizations(req: Request, res: Response) {
   const hasOrg = IS_CLOUD ? true : await hasOrganization();

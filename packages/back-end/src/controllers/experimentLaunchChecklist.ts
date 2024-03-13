@@ -1,20 +1,20 @@
 import { Response } from "express";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { orgHasPremiumFeature } from "enterprise";
-import { getContextFromReq } from "@/src/services/organizations";
-import { auditDetailsUpdate } from "@/src/services/audit";
+import { getContextFromReq } from "@back-end/src/services/organizations";
+import { auditDetailsUpdate } from "@back-end/src/services/audit";
 import {
   createExperimentLaunchChecklist,
   getExperimentLaunchChecklist,
   getExperimentLaunchChecklistById,
   updateExperimentLaunchChecklist,
-} from "@/src/models/ExperimentLaunchChecklistModel";
+} from "@back-end/src/models/ExperimentLaunchChecklistModel";
 import {
   getExperimentById,
   updateExperiment,
-} from "@/src/models/ExperimentModel";
-import { ChecklistTask } from "@/types/experimentLaunchChecklist";
-import { AuthRequest } from "@/src/types/AuthRequest";
+} from "@back-end/src/models/ExperimentModel";
+import { ChecklistTask } from "@back-end/types/experimentLaunchChecklist";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 
 export async function postExperimentLaunchChecklist(
   req: AuthRequest<{ tasks: ChecklistTask[]; projectId?: string }>,

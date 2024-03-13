@@ -1,22 +1,22 @@
 import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
-import { getFeatureDefinitions } from "@/src/services/features";
-import { getContextForAgendaJobByOrgId } from "@/src/services/organizations";
-import { trackJob } from "@/src/services/otel";
-import { CRON_ENABLED, IS_CLOUD } from "@/src/util/secrets";
-import { cancellableFetch } from "@/src/util/http.util";
-import { logger } from "@/src/util/logger";
+import { getFeatureDefinitions } from "@back-end/src/services/features";
+import { getContextForAgendaJobByOrgId } from "@back-end/src/services/organizations";
+import { trackJob } from "@back-end/src/services/otel";
+import { CRON_ENABLED, IS_CLOUD } from "@back-end/src/util/secrets";
+import { cancellableFetch } from "@back-end/src/util/http.util";
+import { logger } from "@back-end/src/util/logger";
 import {
   clearProxyError,
   findSDKConnectionById,
   findSDKConnectionsByOrganization,
   setProxyError,
-} from "@/src/models/SdkConnectionModel";
-import { ApiReqContext } from "@/types/api";
-import { ReqContext } from "@/types/organization";
-import { SDKConnectionInterface } from "@/types/sdk-connection";
-import { SDKPayloadKey } from "@/types/sdk-payload";
+} from "@back-end/src/models/SdkConnectionModel";
+import { ApiReqContext } from "@back-end/types/api";
+import { ReqContext } from "@back-end/types/organization";
+import { SDKConnectionInterface } from "@back-end/types/sdk-connection";
+import { SDKPayloadKey } from "@back-end/types/sdk-payload";
 
 const PROXY_UPDATE_JOB_NAME = "proxyUpdate";
 type ProxyUpdateJob = Job<{

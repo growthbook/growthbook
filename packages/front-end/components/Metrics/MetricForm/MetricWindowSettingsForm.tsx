@@ -1,6 +1,6 @@
-import Tooltip from "@/components/Tooltip/Tooltip";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import Field from "@front-end/components/Forms/Field";
+import SelectField from "@front-end/components/Forms/SelectField";
 
 // TODO form type
 export function MetricWindowSettingsForm({ form }) {

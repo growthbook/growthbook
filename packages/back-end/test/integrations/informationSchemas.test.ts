@@ -1,12 +1,12 @@
 import {
   InformationSchema,
   RawInformationSchema,
-} from "@/src/types/Integration";
-import { formatInformationSchema } from "@/src/util/informationSchemas";
+} from "@back-end/src/types/Integration";
+import { formatInformationSchema } from "@back-end/src/util/informationSchemas";
 import {
   mergeStaleInformationSchemaWithUpdate,
   getRecentlyDeletedTables,
-} from "@/src/services/informationSchema";
+} from "@back-end/src/services/informationSchema";
 
 describe("formatInformationSchema", () => {
   it("Correctly formats a rawInformationSchema for BigQuery correctly", () => {

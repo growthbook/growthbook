@@ -14,8 +14,8 @@ import {
   Role,
   UserPermission,
   UserPermissions,
-} from "@/types/organization";
-import { TeamInterface } from "@/types/team";
+} from "@back-end/types/organization";
+import { TeamInterface } from "@back-end/types/team";
 
 function hasEnvScopedPermissions(userPermission: PermissionsObject): boolean {
   const envLimitedPermissions: Permission[] = ENV_SCOPED_PERMISSIONS.map(

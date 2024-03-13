@@ -5,10 +5,10 @@ import {
   DataSourceInterfaceWithParams,
 } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
-import { checkDatasourceProjectPermissions } from "@/services/datasources";
-import usePermissions from "@/hooks/usePermissions";
-import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
-import { DataSourceEditExperimentEventPropertiesModal } from "@/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceEditExperimentEventPropertiesModal";
+import { checkDatasourceProjectPermissions } from "@front-end/services/datasources";
+import usePermissions from "@front-end/hooks/usePermissions";
+import { DataSourceQueryEditingModalBaseProps } from "@front-end/components/Settings/EditDataSource/types";
+import { DataSourceEditExperimentEventPropertiesModal } from "@front-end/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceEditExperimentEventPropertiesModal";
 
 type DataSourceViewEditExperimentPropertiesProps = DataSourceQueryEditingModalBaseProps;
 

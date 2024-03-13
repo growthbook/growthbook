@@ -1,13 +1,13 @@
 import { includeExperimentInPayload } from "shared/util";
-import { getAffectedSDKPayloadKeys } from "@/src/util/features";
-import { getAllFeatures } from "@/src/models/FeatureModel";
+import { getAffectedSDKPayloadKeys } from "@back-end/src/util/features";
+import { getAllFeatures } from "@back-end/src/models/FeatureModel";
 import {
   getAllPayloadExperiments,
   getPayloadKeysForAllEnvs,
-} from "@/src/models/ExperimentModel";
-import { SDKPayloadKey } from "@/types/sdk-payload";
-import { ApiReqContext } from "@/types/api";
-import { ReqContext } from "@/types/organization";
+} from "@back-end/src/models/ExperimentModel";
+import { SDKPayloadKey } from "@back-end/types/sdk-payload";
+import { ApiReqContext } from "@back-end/types/api";
+import { ReqContext } from "@back-end/types/organization";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,

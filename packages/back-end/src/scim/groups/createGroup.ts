@@ -1,9 +1,13 @@
 import { Response } from "express";
-import { addMembersToTeam } from "@/src/services/organizations";
-import { createTeam } from "@/src/models/TeamModel";
-import { ScimError, ScimGroup, ScimGroupPostRequest } from "@/types/scim";
-import { MemberRole } from "@/types/organization";
-import { isRoleValid } from "@/src/scim/users/createUser";
+import { addMembersToTeam } from "@back-end/src/services/organizations";
+import { createTeam } from "@back-end/src/models/TeamModel";
+import {
+  ScimError,
+  ScimGroup,
+  ScimGroupPostRequest,
+} from "@back-end/types/scim";
+import { MemberRole } from "@back-end/types/organization";
+import { isRoleValid } from "@back-end/src/scim/users/createUser";
 
 export async function createGroup(
   req: ScimGroupPostRequest,

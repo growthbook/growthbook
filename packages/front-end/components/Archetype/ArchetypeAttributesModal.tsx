@@ -1,13 +1,13 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
 import { ArchetypeInterface } from "back-end/types/archetype";
-import Field from "@/components/Forms/Field";
-import AttributeForm from "@/components/Archetype/AttributeForm";
-import Toggle from "@/components/Forms/Toggle";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
-import Modal from "@/components/Modal";
+import Field from "@front-end/components/Forms/Field";
+import AttributeForm from "@front-end/components/Archetype/AttributeForm";
+import Toggle from "@front-end/components/Forms/Toggle";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { useAuth } from "@front-end/services/auth";
+import usePermissions from "@front-end/hooks/usePermissions";
+import Modal from "@front-end/components/Modal";
 
 const ArchetypeAttributesModal: FC<{
   close: () => void;

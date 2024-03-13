@@ -3,11 +3,11 @@ import {
   postMetricApiPayloadIsValid,
   postMetricApiPayloadToMetricInterface,
   toMetricApiInterface,
-} from "@/src/services/experiments";
-import { postMetricValidator } from "@/src/validators/openapi";
-import { PostMetricResponse } from "@/types/openapi";
-import { getDataSourceById } from "@/src/models/DataSourceModel";
-import { createApiRequestHandler } from "@/src/util/handler";
+} from "@back-end/src/services/experiments";
+import { postMetricValidator } from "@back-end/src/validators/openapi";
+import { PostMetricResponse } from "@back-end/types/openapi";
+import { getDataSourceById } from "@back-end/src/models/DataSourceModel";
+import { createApiRequestHandler } from "@back-end/src/util/handler";
 
 export const postMetric = createApiRequestHandler(postMetricValidator)(
   async (req): Promise<PostMetricResponse> => {

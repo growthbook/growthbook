@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { listVisualChangesets } from "@/src/api/visual-changesets/listVisualChangesets";
+import { listVisualChangesets } from "@back-end/src/api/visual-changesets/listVisualChangesets";
 import { getExperimentResults } from "./getExperimentResults";
 import { getExperiment } from "./getExperiment";
 import { listExperiments } from "./listExperiments";

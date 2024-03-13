@@ -3,7 +3,7 @@ import path from "path";
 import { env } from "string-env-interpolation";
 import yaml from "js-yaml";
 import { hasReadAccess } from "shared/permissions";
-import { encryptParams } from "@/src/services/datasource";
+import { encryptParams } from "@back-end/src/services/datasource";
 import {
   EMAIL_ENABLED,
   ENVIRONMENT,
@@ -14,21 +14,21 @@ import {
   EMAIL_HOST_USER,
   EMAIL_PORT,
   STORE_SEGMENTS_IN_MONGO,
-} from "@/src/util/secrets";
+} from "@back-end/src/util/secrets";
 import {
   upgradeMetricDoc,
   upgradeDatasourceObject,
-} from "@/src/util/migrations";
-import { logger } from "@/src/util/logger";
+} from "@back-end/src/util/migrations";
+import { logger } from "@back-end/src/util/logger";
 import {
   DataSourceInterface,
   DataSourceInterfaceWithParams,
-} from "@/types/datasource";
-import { MetricInterface } from "@/types/metric";
-import { DimensionInterface } from "@/types/dimension";
-import { OrganizationSettings, ReqContext } from "@/types/organization";
-import { SegmentInterface } from "@/types/segment";
-import { ApiReqContext } from "@/types/api";
+} from "@back-end/types/datasource";
+import { MetricInterface } from "@back-end/types/metric";
+import { DimensionInterface } from "@back-end/types/dimension";
+import { OrganizationSettings, ReqContext } from "@back-end/types/organization";
+import { SegmentInterface } from "@back-end/types/segment";
+import { ApiReqContext } from "@back-end/types/api";
 
 export type ConfigFile = {
   organization?: {

@@ -8,13 +8,13 @@ import {
   getSDKPayloadKeysByDiff,
   replaceSavedGroupsInCondition,
   roundVariationWeight,
-} from "@/src/util/features";
-import { getCurrentEnabledState } from "@/src/util/scheduleRules";
-import { FeatureInterface, ScheduleRule } from "@/types/feature";
-import { hashStrings } from "@/src/services/features";
-import { SDKAttributeSchema } from "@/types/organization";
-import { ExperimentInterface } from "@/types/experiment";
-import { GroupMap } from "@/types/saved-group";
+} from "@back-end/src/util/features";
+import { getCurrentEnabledState } from "@back-end/src/util/scheduleRules";
+import { FeatureInterface, ScheduleRule } from "@back-end/types/feature";
+import { hashStrings } from "@back-end/src/services/features";
+import { SDKAttributeSchema } from "@back-end/types/organization";
+import { ExperimentInterface } from "@back-end/types/experiment";
+import { GroupMap } from "@back-end/types/saved-group";
 
 const groupMap: GroupMap = new Map();
 const experimentMap = new Map();

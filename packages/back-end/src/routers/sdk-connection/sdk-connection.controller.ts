@@ -1,12 +1,12 @@
 import type { Response } from "express";
 import { orgHasPremiumFeature } from "enterprise";
-import { getContextFromReq } from "@/src/services/organizations";
+import { getContextFromReq } from "@back-end/src/services/organizations";
 import {
   SDKConnectionInterface,
   CreateSDKConnectionParams,
   EditSDKConnectionParams,
   ProxyTestResult,
-} from "@/types/sdk-connection";
+} from "@back-end/types/sdk-connection";
 import {
   createSDKConnection,
   deleteSDKConnectionById,
@@ -14,8 +14,8 @@ import {
   findSDKConnectionById,
   findSDKConnectionsByOrganization,
   testProxyConnection,
-} from "@/src/models/SdkConnectionModel";
-import { AuthRequest } from "@/src/types/AuthRequest";
+} from "@back-end/src/models/SdkConnectionModel";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 
 export const getSDKConnections = async (
   req: AuthRequest,

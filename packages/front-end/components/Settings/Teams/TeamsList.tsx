@@ -4,14 +4,14 @@ import Link from "next/link";
 import { date } from "shared/dates";
 import { FaCheck, FaTimes } from "react-icons/fa";
 import { RxIdCard } from "react-icons/rx";
-import { useUser } from "@/services/UserContext";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import ProjectBadges from "@/components/ProjectBadges";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { useEnvironments } from "@/services/features";
-import { roleHasAccessToEnv, useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import { useUser } from "@front-end/services/UserContext";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import ProjectBadges from "@front-end/components/ProjectBadges";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import { useEnvironments } from "@front-end/services/features";
+import { roleHasAccessToEnv, useAuth } from "@front-end/services/auth";
+import usePermissions from "@front-end/hooks/usePermissions";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 
 const TeamsList: FC = () => {
   const { teams, refreshOrganization } = useUser();

@@ -2,7 +2,7 @@ import {
   AGGREGATE_JS_FUNCTIONS,
   conditionToJavascript,
   getMixpanelPropertyColumn,
-} from "@/src/util/mixpanel";
+} from "@back-end/src/util/mixpanel";
 
 describe("backend", () => {
   it("detects mixpanel property columns", () => {

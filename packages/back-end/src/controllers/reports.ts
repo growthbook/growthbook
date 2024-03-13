@@ -2,10 +2,10 @@ import { Response } from "express";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getSnapshotAnalysis } from "shared/util";
-import { getIntegrationFromDatasourceId } from "@/src/services/datasource";
-import { generateReportNotebook } from "@/src/services/notebook";
-import { getContextFromReq } from "@/src/services/organizations";
-import { reportArgsFromSnapshot } from "@/src/services/reports";
+import { getIntegrationFromDatasourceId } from "@back-end/src/services/datasource";
+import { generateReportNotebook } from "@back-end/src/services/notebook";
+import { getContextFromReq } from "@back-end/src/services/organizations";
+import { reportArgsFromSnapshot } from "@back-end/src/services/reports";
 import {
   createReport,
   deleteReportById,
@@ -13,18 +13,18 @@ import {
   getReportsByExperimentId,
   getReportsByOrg,
   updateReport,
-} from "@/src/models/ReportModel";
-import { getMetricMap } from "@/src/models/MetricModel";
-import { findSnapshotById } from "@/src/models/ExperimentSnapshotModel";
+} from "@back-end/src/models/ReportModel";
+import { getMetricMap } from "@back-end/src/models/MetricModel";
+import { findSnapshotById } from "@back-end/src/models/ExperimentSnapshotModel";
 import {
   getExperimentById,
   getExperimentsByIds,
-} from "@/src/models/ExperimentModel";
-import { getFactTableMap } from "@/src/models/FactTableModel";
-import { ExperimentInterface } from "@/types/experiment";
-import { ReportInterface } from "@/types/report";
-import { AuthRequest } from "@/src/types/AuthRequest";
-import { ReportQueryRunner } from "@/src/queryRunners/ReportQueryRunner";
+} from "@back-end/src/models/ExperimentModel";
+import { getFactTableMap } from "@back-end/src/models/FactTableModel";
+import { ExperimentInterface } from "@back-end/types/experiment";
+import { ReportInterface } from "@back-end/types/report";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
+import { ReportQueryRunner } from "@back-end/src/queryRunners/ReportQueryRunner";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,

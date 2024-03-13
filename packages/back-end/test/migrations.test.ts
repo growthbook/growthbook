@@ -6,7 +6,7 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import omit from "lodash/omit";
-import { LegacyMetricInterface } from "@/types/metric";
+import { LegacyMetricInterface } from "@back-end/types/metric";
 import {
   migrateSavedGroup,
   migrateSnapshot,
@@ -16,26 +16,29 @@ import {
   upgradeFeatureRule,
   upgradeMetricDoc,
   upgradeOrganizationDoc,
-} from "@/src/util/migrations";
-import { DataSourceInterface, DataSourceSettings } from "@/types/datasource";
-import { encryptParams } from "@/src/services/datasource";
-import { MixpanelConnectionParams } from "@/types/integrations/mixpanel";
-import { PostgresConnectionParams } from "@/types/integrations/postgres";
+} from "@back-end/src/util/migrations";
+import {
+  DataSourceInterface,
+  DataSourceSettings,
+} from "@back-end/types/datasource";
+import { encryptParams } from "@back-end/src/services/datasource";
+import { MixpanelConnectionParams } from "@back-end/types/integrations/mixpanel";
+import { PostgresConnectionParams } from "@back-end/types/integrations/postgres";
 import {
   ExperimentRule,
   FeatureInterface,
   FeatureRule,
   LegacyFeatureInterface,
-} from "@/types/feature";
-import { OrganizationInterface } from "@/types/organization";
+} from "@back-end/types/feature";
+import { OrganizationInterface } from "@back-end/types/organization";
 import {
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
-} from "@/types/experiment-snapshot";
-import { ExperimentReportResultDimension } from "@/types/report";
-import { Queries } from "@/types/query";
-import { ExperimentPhase } from "@/types/experiment";
-import { LegacySavedGroupInterface } from "@/types/saved-group";
+} from "@back-end/types/experiment-snapshot";
+import { ExperimentReportResultDimension } from "@back-end/types/report";
+import { Queries } from "@back-end/types/query";
+import { ExperimentPhase } from "@back-end/types/experiment";
+import { LegacySavedGroupInterface } from "@back-end/types/saved-group";
 
 describe("Metric Migration", () => {
   it("updates old metric objects - earlyStart and conversion*Hours", () => {

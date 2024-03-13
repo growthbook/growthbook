@@ -7,32 +7,32 @@ import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import clsx from "clsx";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import { phaseSummary } from "@/services/utils";
-import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
-import { useAddComputedFields, useSearch } from "@/services/search";
-import WatchButton from "@/components/WatchButton";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Pagination from "@/components/Pagination";
-import { GBAddCircle } from "@/components/Icons";
-import { useUser } from "@/services/UserContext";
-import ExperimentsGetStarted from "@/components/HomePage/ExperimentsGetStarted";
-import SortedTags from "@/components/Tags/SortedTags";
-import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
-import AddExperimentModal from "@/components/Experiment/AddExperimentModal";
-import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
-import { AppFeatures } from "@/types/app-features";
-import { useExperiments } from "@/hooks/useExperiments";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { useAuth } from "@/services/auth";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import { phaseSummary } from "@front-end/services/utils";
+import ResultsIndicator from "@front-end/components/Experiment/ResultsIndicator";
+import { useAddComputedFields, useSearch } from "@front-end/services/search";
+import WatchButton from "@front-end/components/WatchButton";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Pagination from "@front-end/components/Pagination";
+import { GBAddCircle } from "@front-end/components/Icons";
+import { useUser } from "@front-end/services/UserContext";
+import ExperimentsGetStarted from "@front-end/components/HomePage/ExperimentsGetStarted";
+import SortedTags from "@front-end/components/Tags/SortedTags";
+import Field from "@front-end/components/Forms/Field";
+import Toggle from "@front-end/components/Forms/Toggle";
+import AddExperimentModal from "@front-end/components/Experiment/AddExperimentModal";
+import ImportExperimentModal from "@front-end/components/Experiment/ImportExperimentModal";
+import { AppFeatures } from "@front-end/types/app-features";
+import { useExperiments } from "@front-end/hooks/useExperiments";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { useAuth } from "@front-end/services/auth";
 import TagsFilter, {
   filterByTags,
   useTagsFilter,
-} from "@/components/Tags/TagsFilter";
-import { useWatching } from "@/services/WatchProvider";
-import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
+} from "@front-end/components/Tags/TagsFilter";
+import { useWatching } from "@front-end/services/WatchProvider";
+import ExperimentStatusIndicator from "@front-end/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import { useLocalStorage } from "@front-end/hooks/useLocalStorage";
 
 const NUM_PER_PAGE = 20;
 

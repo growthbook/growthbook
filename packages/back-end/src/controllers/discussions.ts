@@ -3,10 +3,10 @@ import {
   addComment,
   getDiscussionByParent,
   getLastNDiscussions,
-} from "@/src/services/discussions";
-import { getContextFromReq } from "@/src/services/organizations";
-import { DiscussionParentType } from "@/types/discussion";
-import { AuthRequest } from "@/src/types/AuthRequest";
+} from "@back-end/src/services/discussions";
+import { getContextFromReq } from "@back-end/src/services/organizations";
+import { DiscussionParentType } from "@back-end/types/discussion";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 
 export async function postDiscussions(
   req: AuthRequest<

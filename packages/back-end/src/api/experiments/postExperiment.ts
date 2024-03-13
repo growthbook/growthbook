@@ -1,17 +1,17 @@
 import {
   postExperimentApiPayloadToInterface,
   toExperimentApiInterface,
-} from "@/src/services/experiments";
-import { postExperimentValidator } from "@/src/validators/openapi";
-import { PostExperimentResponse } from "@/types/openapi";
+} from "@back-end/src/services/experiments";
+import { postExperimentValidator } from "@back-end/src/validators/openapi";
+import { PostExperimentResponse } from "@back-end/types/openapi";
 import {
   createExperiment,
   getExperimentByTrackingKey,
-} from "@/src/models/ExperimentModel";
-import { getDataSourceById } from "@/src/models/DataSourceModel";
-import { upsertWatch } from "@/src/models/WatchModel";
-import { getUserByEmail } from "@/src/services/users";
-import { createApiRequestHandler } from "@/src/util/handler";
+} from "@back-end/src/models/ExperimentModel";
+import { getDataSourceById } from "@back-end/src/models/DataSourceModel";
+import { upsertWatch } from "@back-end/src/models/WatchModel";
+import { getUserByEmail } from "@back-end/src/services/users";
+import { createApiRequestHandler } from "@back-end/src/util/handler";
 
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(
   async (req): Promise<PostExperimentResponse> => {

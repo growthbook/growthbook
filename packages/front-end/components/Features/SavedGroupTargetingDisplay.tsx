@@ -1,6 +1,6 @@
 import { SavedGroupTargeting } from "back-end/types/feature";
 import Link from "next/link";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
 
 export interface Props {
   savedGroups?: SavedGroupTargeting[];

@@ -6,10 +6,10 @@ import {
 } from "back-end/types/discussion";
 import { FaPencilAlt } from "react-icons/fa";
 import { date } from "shared/dates";
-import { useAuth } from "@/services/auth";
-import useApi from "@/hooks/useApi";
-import { useUser } from "@/services/UserContext";
-import usePermissions from "@/hooks/usePermissions";
+import { useAuth } from "@front-end/services/auth";
+import useApi from "@front-end/hooks/useApi";
+import { useUser } from "@front-end/services/UserContext";
+import usePermissions from "@front-end/hooks/usePermissions";
 import LoadingSpinner from "./LoadingSpinner";
 import Avatar from "./Avatar/Avatar";
 import DeleteButton from "./DeleteButton/DeleteButton";

@@ -1,8 +1,8 @@
-import { decryptDataSourceParams } from "@/src/services/datasource";
-import { FormatDialect } from "@/src/util/sql";
-import { findOrCreateConnection } from "@/src/util/mssqlPoolManager";
-import { MssqlConnectionParams } from "@/types/integrations/mssql";
-import { QueryResponse } from "@/src/types/Integration";
+import { decryptDataSourceParams } from "@back-end/src/services/datasource";
+import { FormatDialect } from "@back-end/src/util/sql";
+import { findOrCreateConnection } from "@back-end/src/util/mssqlPoolManager";
+import { MssqlConnectionParams } from "@back-end/types/integrations/mssql";
+import { QueryResponse } from "@back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Mssql extends SqlIntegration {

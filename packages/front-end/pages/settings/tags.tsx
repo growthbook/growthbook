@@ -1,15 +1,15 @@
 import React, { useState, FC } from "react";
 import { FaPencilAlt } from "react-icons/fa";
 import { TagInterface } from "back-end/types/tag";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import TagsModal from "@/components/Tags/TagsModal";
-import Tag from "@/components/Tags/Tag";
-import { GBAddCircle } from "@/components/Icons";
-import { useSearch } from "@/services/search";
-import usePermissions from "@/hooks/usePermissions";
-import Field from "@/components/Forms/Field";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import { useAuth } from "@front-end/services/auth";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import TagsModal from "@front-end/components/Tags/TagsModal";
+import Tag from "@front-end/components/Tags/Tag";
+import { GBAddCircle } from "@front-end/components/Icons";
+import { useSearch } from "@front-end/services/search";
+import usePermissions from "@front-end/hooks/usePermissions";
+import Field from "@front-end/components/Forms/Field";
 
 const TagsPage: FC = () => {
   const { tags, mutateDefinitions } = useDefinitions();

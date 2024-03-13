@@ -1,16 +1,16 @@
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { WebhookInterface, WebhookMethod } from "back-end/types/webhook";
-import { useAuth } from "@/services/auth";
-import track from "@/services/track";
-import { isCloud } from "@/services/env";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useEnvironments } from "@/services/features";
-import Field from "@/components/Forms/Field";
-import Modal from "@/components/Modal";
-import Toggle from "@/components/Forms/Toggle";
-import SelectField from "@/components/Forms/SelectField";
-import CodeTextArea from "@/components/Forms/CodeTextArea";
+import { useAuth } from "@front-end/services/auth";
+import track from "@front-end/services/track";
+import { isCloud } from "@front-end/services/env";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { useEnvironments } from "@front-end/services/features";
+import Field from "@front-end/components/Forms/Field";
+import Modal from "@front-end/components/Modal";
+import Toggle from "@front-end/components/Forms/Toggle";
+import SelectField from "@front-end/components/Forms/SelectField";
+import CodeTextArea from "@front-end/components/Forms/CodeTextArea";
 
 const WebhooksModal: FC<{
   close: () => void;

@@ -10,24 +10,24 @@ import {
   getAffectedEnvsForExperiment,
   includeExperimentInPayload,
 } from "shared/util";
-import useApi from "@/hooks/useApi";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import useSwitchOrg from "@/services/useSwitchOrg";
-import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
-import StopExperimentForm from "@/components/Experiment/StopExperimentForm";
-import usePermissions from "@/hooks/usePermissions";
-import EditVariationsForm from "@/components/Experiment/EditVariationsForm";
-import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
-import EditTagsForm from "@/components/Tags/EditTagsForm";
-import EditProjectForm from "@/components/Experiment/EditProjectForm";
-import { useAuth } from "@/services/auth";
-import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
-import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
-import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
-import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
-import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
-import TabbedPage from "@/components/Experiment/TabbedPage";
-import PageHead from "@/components/Layout/PageHead";
+import useApi from "@front-end/hooks/useApi";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import useSwitchOrg from "@front-end/services/useSwitchOrg";
+import EditMetricsForm from "@front-end/components/Experiment/EditMetricsForm";
+import StopExperimentForm from "@front-end/components/Experiment/StopExperimentForm";
+import usePermissions from "@front-end/hooks/usePermissions";
+import EditVariationsForm from "@front-end/components/Experiment/EditVariationsForm";
+import NewExperimentForm from "@front-end/components/Experiment/NewExperimentForm";
+import EditTagsForm from "@front-end/components/Tags/EditTagsForm";
+import EditProjectForm from "@front-end/components/Experiment/EditProjectForm";
+import { useAuth } from "@front-end/services/auth";
+import SnapshotProvider from "@front-end/components/Experiment/SnapshotProvider";
+import NewPhaseForm from "@front-end/components/Experiment/NewPhaseForm";
+import EditPhasesModal from "@front-end/components/Experiment/EditPhasesModal";
+import EditPhaseModal from "@front-end/components/Experiment/EditPhaseModal";
+import EditTargetingModal from "@front-end/components/Experiment/EditTargetingModal";
+import TabbedPage from "@front-end/components/Experiment/TabbedPage";
+import PageHead from "@front-end/components/Layout/PageHead";
 
 const ExperimentPage = (): ReactElement => {
   const permissions = usePermissions();

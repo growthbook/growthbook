@@ -4,9 +4,9 @@ import {
   ExperimentInterfaceStringDates,
   Variation,
 } from "back-end/types/experiment";
-import { useAuth } from "@/services/auth";
-import { generateVariationId } from "@/services/features";
-import Modal from "@/components/Modal";
+import { useAuth } from "@front-end/services/auth";
+import { generateVariationId } from "@front-end/services/features";
+import Modal from "@front-end/components/Modal";
 import ExperimentVariationsInput from "./ExperimentVariationsInput";
 
 const EditVariationsForm: FC<{

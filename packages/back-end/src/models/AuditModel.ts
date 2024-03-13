@@ -1,8 +1,8 @@
 import mongoose, { FilterQuery, QueryOptions } from "mongoose";
 import { omit } from "lodash";
 import uniqid from "uniqid";
-import { AuditInterface } from "@/types/audit";
-import { EntityType } from "@/src/types/Audit";
+import { AuditInterface } from "@back-end/types/audit";
+import { EntityType } from "@back-end/src/types/Audit";
 
 const auditSchema = new mongoose.Schema({
   id: {

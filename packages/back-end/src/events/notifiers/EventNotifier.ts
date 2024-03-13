@@ -1,10 +1,10 @@
 import { Agenda, Job, JobAttributesData } from "agenda";
-import { getAgendaInstance } from "@/src/services/queueing";
-import { EventInterface } from "@/types/event";
-import { getEvent } from "@/src/models/EventModel";
-import { webHooksEventHandler } from "@/src/events/handlers/webhooks/webHooksEventHandler";
-import { slackEventHandler } from "@/src/events/handlers/slack/slackEventHandler";
-import { NotificationEvent } from "@/src/events/notification-events";
+import { getAgendaInstance } from "@back-end/src/services/queueing";
+import { EventInterface } from "@back-end/types/event";
+import { getEvent } from "@back-end/src/models/EventModel";
+import { webHooksEventHandler } from "@back-end/src/events/handlers/webhooks/webHooksEventHandler";
+import { slackEventHandler } from "@back-end/src/events/handlers/slack/slackEventHandler";
+import { NotificationEvent } from "@back-end/src/events/notification-events";
 
 let jobDefined = false;
 

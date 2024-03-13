@@ -1,16 +1,19 @@
 import uniqid from "uniqid";
-import { PresentationModel } from "@/src/models/PresentationModel";
-import { getExperimentsByIds } from "@/src/models/ExperimentModel";
-import { getLatestSnapshot } from "@/src/models/ExperimentSnapshotModel";
-import { PresentationInterface, PresentationSlide } from "@/types/presentation";
-import { ExperimentInterface } from "@/types/experiment";
-import { ExperimentSnapshotInterface } from "@/types/experiment-snapshot";
-import { ReqContext } from "@/types/organization";
-import { ApiReqContext } from "@/types/api";
-import { AuthRequest } from "@/src/types/AuthRequest";
+import { PresentationModel } from "@back-end/src/models/PresentationModel";
+import { getExperimentsByIds } from "@back-end/src/models/ExperimentModel";
+import { getLatestSnapshot } from "@back-end/src/models/ExperimentSnapshotModel";
+import {
+  PresentationInterface,
+  PresentationSlide,
+} from "@back-end/types/presentation";
+import { ExperimentInterface } from "@back-end/types/experiment";
+import { ExperimentSnapshotInterface } from "@back-end/types/experiment-snapshot";
+import { ReqContext } from "@back-end/types/organization";
+import { ApiReqContext } from "@back-end/types/api";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { userHasAccess } from "./organizations";
 
-//import {query} from "@/src/config/postgres";
+//import {query} from "@back-end/src/config/postgres";
 
 export function getPresentationsByOrganization(organization: string) {
   return PresentationModel.find({

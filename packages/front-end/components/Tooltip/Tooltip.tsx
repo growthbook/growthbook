@@ -9,7 +9,7 @@ import {
 import { MdInfoOutline } from "react-icons/md";
 import { usePopper } from "react-popper";
 import clsx from "clsx";
-import Portal from "@/components/Modal/Portal";
+import Portal from "@front-end/components/Modal/Portal";
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
   body: string | JSX.Element;

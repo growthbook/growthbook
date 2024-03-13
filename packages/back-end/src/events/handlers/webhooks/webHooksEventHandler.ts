@@ -1,9 +1,9 @@
-import { getAllEventWebHooksForEvent } from "@/src/models/EventWebhookModel";
-import { NotificationEventHandler } from "@/src/events/notifiers/EventNotifier";
+import { getAllEventWebHooksForEvent } from "@back-end/src/models/EventWebhookModel";
+import { NotificationEventHandler } from "@back-end/src/events/notifiers/EventNotifier";
 import {
   getFilterDataForNotificationEvent,
   filterEventForEnvironments,
-} from "@/src/events/handlers/utils";
+} from "@back-end/src/events/handlers/utils";
 import { EventWebHookNotifier } from "./EventWebHookNotifier";
 
 /**

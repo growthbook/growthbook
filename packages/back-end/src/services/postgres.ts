@@ -1,7 +1,7 @@
 import { Client, ClientConfig } from "pg";
-import { logger } from "@/src/util/logger";
-import { PostgresConnectionParams } from "@/types/integrations/postgres";
-import { QueryResponse } from "@/src/types/Integration";
+import { logger } from "@back-end/src/util/logger";
+import { PostgresConnectionParams } from "@back-end/types/integrations/postgres";
+import { QueryResponse } from "@back-end/src/types/Integration";
 
 export function runPostgresQuery(
   conn: PostgresConnectionParams,

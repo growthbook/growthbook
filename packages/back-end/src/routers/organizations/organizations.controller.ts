@@ -25,27 +25,30 @@ import {
   isEnterpriseSSO,
   removeMember,
   revokeInvite,
-} from "@/src/services/organizations";
+} from "@back-end/src/services/organizations";
 import {
   getNonSensitiveParams,
   getSourceIntegrationObject,
-} from "@/src/services/datasource";
+} from "@back-end/src/services/datasource";
 import {
   auditDetailsUpdate,
   getRecentWatchedAudits,
   isValidAuditEntityType,
-} from "@/src/services/audit";
+} from "@back-end/src/services/audit";
 import {
   sendInviteEmail,
   sendNewMemberEmail,
   sendPendingMemberEmail,
   sendNewOrgEmail,
   sendPendingMemberApprovalEmail,
-} from "@/src/services/email";
-import { createWebhook, createSdkWebhook } from "@/src/services/webhooks";
-import { usingOpenId } from "@/src/services/auth";
-import { initializeLicense } from "@/src/services/licenseData";
-import { getAllTags } from "@/src/models/TagModel";
+} from "@back-end/src/services/email";
+import {
+  createWebhook,
+  createSdkWebhook,
+} from "@back-end/src/services/webhooks";
+import { usingOpenId } from "@back-end/src/services/auth";
+import { initializeLicense } from "@back-end/src/services/licenseData";
+import { getAllTags } from "@back-end/src/models/TagModel";
 import {
   Invite,
   MemberRole,
@@ -54,14 +57,17 @@ import {
   OrganizationInterface,
   OrganizationSettings,
   SDKAttribute,
-} from "@/types/organization";
-import { getAllFeatures } from "@/src/models/FeatureModel";
-import { findDimensionsByOrganization } from "@/src/models/DimensionModel";
-import { findSegmentsByOrganization } from "@/src/models/SegmentModel";
-import { getDataSourcesByOrganization } from "@/src/models/DataSourceModel";
-import { getAllSavedGroups } from "@/src/models/SavedGroupModel";
-import { getMetricsByOrganization } from "@/src/models/MetricModel";
-import { WebhookModel, countWebhooksByOrg } from "@/src/models/WebhookModel";
+} from "@back-end/types/organization";
+import { getAllFeatures } from "@back-end/src/models/FeatureModel";
+import { findDimensionsByOrganization } from "@back-end/src/models/DimensionModel";
+import { findSegmentsByOrganization } from "@back-end/src/models/SegmentModel";
+import { getDataSourcesByOrganization } from "@back-end/src/models/DataSourceModel";
+import { getAllSavedGroups } from "@back-end/src/models/SavedGroupModel";
+import { getMetricsByOrganization } from "@back-end/src/models/MetricModel";
+import {
+  WebhookModel,
+  countWebhooksByOrg,
+} from "@back-end/src/models/WebhookModel";
 import {
   createOrganization,
   findOrganizationByInviteKey,
@@ -69,11 +75,11 @@ import {
   findOrganizationsByMemberId,
   hasOrganization,
   updateOrganization,
-} from "@/src/models/OrganizationModel";
-import { findAllProjectsByOrganization } from "@/src/models/ProjectModel";
-import { WebhookInterface, WebhookMethod } from "@/types/webhook";
-import { ExperimentRule, NamespaceValue } from "@/types/feature";
-import { getSSOConnectionSummary } from "@/src/models/SSOConnectionModel";
+} from "@back-end/src/models/OrganizationModel";
+import { findAllProjectsByOrganization } from "@back-end/src/models/ProjectModel";
+import { WebhookInterface, WebhookMethod } from "@back-end/types/webhook";
+import { ExperimentRule, NamespaceValue } from "@back-end/types/feature";
+import { getSSOConnectionSummary } from "@back-end/src/models/SSOConnectionModel";
 import {
   createLegacySdkKey,
   createOrganizationApiKey,
@@ -84,42 +90,46 @@ import {
   getApiKeyByIdOrKey,
   getFirstPublishableApiKey,
   getUnredactedSecretKey,
-} from "@/src/models/ApiKeyModel";
-import { deleteUser, findUserById, getAllUsers } from "@/src/models/UserModel";
+} from "@back-end/src/models/ApiKeyModel";
+import {
+  deleteUser,
+  findUserById,
+  getAllUsers,
+} from "@back-end/src/models/UserModel";
 import {
   getAllExperiments,
   getExperimentsForActivityFeed,
-} from "@/src/models/ExperimentModel";
-import { removeEnvironmentFromSlackIntegration } from "@/src/models/SlackIntegrationModel";
+} from "@back-end/src/models/ExperimentModel";
+import { removeEnvironmentFromSlackIntegration } from "@back-end/src/models/SlackIntegrationModel";
 import {
   findAllAuditsByEntityType,
   findAllAuditsByEntityTypeParent,
   findAuditByEntity,
   findAuditByEntityParent,
-} from "@/src/models/AuditModel";
-import { getTeamsForOrganization } from "@/src/models/TeamModel";
-import { getAllFactTablesForOrganization } from "@/src/models/FactTableModel";
-import { getAllFactMetricsForOrganization } from "@/src/models/FactMetricModel";
-import { TeamInterface } from "@/types/team";
-import { EntityType } from "@/src/types/Audit";
+} from "@back-end/src/models/AuditModel";
+import { getTeamsForOrganization } from "@back-end/src/models/TeamModel";
+import { getAllFactTablesForOrganization } from "@back-end/src/models/FactTableModel";
+import { getAllFactMetricsForOrganization } from "@back-end/src/models/FactMetricModel";
+import { TeamInterface } from "@back-end/types/team";
+import { EntityType } from "@back-end/src/types/Audit";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
-} from "@/src/types/AuthRequest";
+} from "@back-end/src/types/AuthRequest";
 import {
   ALLOW_SELF_ORG_CREATION,
   APP_ORIGIN,
   IS_CLOUD,
   IS_MULTI_ORG,
-} from "@/src/util/secrets";
+} from "@back-end/src/util/secrets";
 import {
   getDefaultRole,
   getRoles,
   getUserPermissions,
-} from "@/src/util/organization.util";
-import { updatePassword } from "@/src/services/users";
-import { queueSingleWebhookById } from "@/src/jobs/sdkWebhooks";
-import { ConfigFile } from "@/src/init/config";
+} from "@back-end/src/util/organization.util";
+import { updatePassword } from "@back-end/src/services/users";
+import { queueSingleWebhookById } from "@back-end/src/jobs/sdkWebhooks";
+import { ConfigFile } from "@back-end/src/init/config";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);

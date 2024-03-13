@@ -2,14 +2,14 @@ import { ExperimentRule, FeatureInterface } from "back-end/types/feature";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { useState } from "react";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
 import {
   getExperimentDefinitionFromFeature,
   getVariationColor,
-} from "@/services/features";
-import ValidateValue from "@/components/Features/ValidateValue";
-import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
-import Modal from "@/components/Modal";
+} from "@front-end/services/features";
+import ValidateValue from "@front-end/components/Features/ValidateValue";
+import NewExperimentForm from "@front-end/components/Experiment/NewExperimentForm";
+import Modal from "@front-end/components/Modal";
 import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 

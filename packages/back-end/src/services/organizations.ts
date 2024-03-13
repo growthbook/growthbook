@@ -2,32 +2,32 @@ import { randomBytes } from "crypto";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import { Request } from "express";
-import { getDefaultRole } from "@/src/util/organization.util";
-import { logger } from "@/src/util/logger";
-import { APP_ORIGIN, IS_CLOUD } from "@/src/util/secrets";
-import { addTags } from "@/src/models/TagModel";
-import { getAllExperiments } from "@/src/models/ExperimentModel";
+import { getDefaultRole } from "@back-end/src/util/organization.util";
+import { logger } from "@back-end/src/util/logger";
+import { APP_ORIGIN, IS_CLOUD } from "@back-end/src/util/secrets";
+import { addTags } from "@back-end/src/models/TagModel";
+import { getAllExperiments } from "@back-end/src/models/ExperimentModel";
 import {
   createSegment,
   findSegmentById,
   updateSegment,
-} from "@/src/models/SegmentModel";
+} from "@back-end/src/models/SegmentModel";
 import {
   createDimension,
   findDimensionById,
   updateDimension,
-} from "@/src/models/DimensionModel";
+} from "@back-end/src/models/DimensionModel";
 import {
   ALLOWED_METRIC_TYPES,
   getMetricById,
   updateMetric,
-} from "@/src/models/MetricModel";
+} from "@back-end/src/models/MetricModel";
 import {
   createDataSource,
   getDataSourceById,
   updateDataSource,
-} from "@/src/models/DataSourceModel";
-import { UserModel } from "@/src/models/UserModel";
+} from "@back-end/src/models/DataSourceModel";
+import { UserModel } from "@back-end/src/models/UserModel";
 import {
   createOrganization,
   findAllOrganizations,
@@ -35,14 +35,14 @@ import {
   findOrganizationByInviteKey,
   findOrganizationsByDomain,
   updateOrganization,
-} from "@/src/models/OrganizationModel";
-import { LegacyExperimentPhase } from "@/types/experiment";
-import { SegmentInterface } from "@/types/segment";
-import { SSOConnectionInterface } from "@/types/sso-connection";
-import { DataSourceInterface } from "@/types/datasource";
-import { DimensionInterface } from "@/types/dimension";
-import { MetricInterface } from "@/types/metric";
-import { ApiReqContext, ExperimentOverride } from "@/types/api";
+} from "@back-end/src/models/OrganizationModel";
+import { LegacyExperimentPhase } from "@back-end/types/experiment";
+import { SegmentInterface } from "@back-end/types/segment";
+import { SSOConnectionInterface } from "@back-end/types/sso-connection";
+import { DataSourceInterface } from "@back-end/types/datasource";
+import { DimensionInterface } from "@back-end/types/dimension";
+import { MetricInterface } from "@back-end/types/metric";
+import { ApiReqContext, ExperimentOverride } from "@back-end/types/api";
 import {
   ExpandedMember,
   Invite,
@@ -54,9 +54,9 @@ import {
   PendingMember,
   ProjectMemberRole,
   ReqContext,
-} from "@/types/organization";
-import { AuthRequest } from "@/src/types/AuthRequest";
-import { ConfigFile } from "@/src/init/config";
+} from "@back-end/types/organization";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
+import { ConfigFile } from "@back-end/src/init/config";
 import { ReqContextClass } from "./context";
 import { getUsersByIds } from "./users";
 import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";

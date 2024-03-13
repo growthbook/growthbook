@@ -4,16 +4,16 @@ import clsx from "clsx";
 import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import { FiArrowRight } from "react-icons/fi";
-import { useExperiments } from "@/hooks/useExperiments";
-import { useAuth } from "@/services/auth";
-import { useUser } from "@/services/UserContext";
-import { GBExperiment } from "@/components/Icons";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import { useFeaturesList } from "@/services/features";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import GuidedGetStarted from "@/components/GuidedGetStarted/GuidedGetStarted";
-import styles from "@/components/GuidedGetStarted/GuidedGetStarted.module.scss";
+import { useExperiments } from "@front-end/hooks/useExperiments";
+import { useAuth } from "@front-end/services/auth";
+import { useUser } from "@front-end/services/UserContext";
+import { GBExperiment } from "@front-end/components/Icons";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import { useFeaturesList } from "@front-end/services/features";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import GuidedGetStarted from "@front-end/components/GuidedGetStarted/GuidedGetStarted";
+import styles from "@front-end/components/GuidedGetStarted/GuidedGetStarted.module.scss";
 
 const GetStartedPage = (): React.ReactElement => {
   const { ready, error: definitionsError } = useDefinitions();

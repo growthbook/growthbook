@@ -5,11 +5,14 @@ import {
   createPresentation,
   deletePresentationById,
   getPresentationSnapshots,
-} from "@/src/services/presentations";
-import { getContextFromReq, userHasAccess } from "@/src/services/organizations";
-import { ExperimentInterface } from "@/types/experiment";
-import { PresentationInterface } from "@/types/presentation";
-import { AuthRequest } from "@/src/types/AuthRequest";
+} from "@back-end/src/services/presentations";
+import {
+  getContextFromReq,
+  userHasAccess,
+} from "@back-end/src/services/organizations";
+import { ExperimentInterface } from "@back-end/types/experiment";
+import { PresentationInterface } from "@back-end/types/presentation";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 
 export async function getPresentations(req: AuthRequest, res: Response) {
   const { org } = getContextFromReq(req);

@@ -21,8 +21,8 @@ import {
   ReactSelectProps,
   SingleValue,
   useSelectOptions,
-} from "@/components/Forms/SelectField";
-import Field, { FieldProps } from "@/components/Forms/Field";
+} from "@front-end/components/Forms/SelectField";
+import Field, { FieldProps } from "@front-end/components/Forms/Field";
 
 const SortableMultiValue = SortableElement(
   (props: MultiValueProps<SingleValue>) => {

@@ -1,8 +1,8 @@
 import cloneDeep from "lodash/cloneDeep";
-import { logger } from "@/src/util/logger";
-import { getSlackIntegrationsForFilters } from "@/src/models/SlackIntegrationModel";
-import { NotificationEventHandler } from "@/src/events/notifiers/EventNotifier";
-import { filterEventForEnvironments } from "@/src/events/handlers/utils";
+import { logger } from "@back-end/src/util/logger";
+import { getSlackIntegrationsForFilters } from "@back-end/src/models/SlackIntegrationModel";
+import { NotificationEventHandler } from "@back-end/src/events/notifiers/EventNotifier";
+import { filterEventForEnvironments } from "@back-end/src/events/handlers/utils";
 import {
   getDataForNotificationEvent,
   getSlackIntegrationContextBlock,

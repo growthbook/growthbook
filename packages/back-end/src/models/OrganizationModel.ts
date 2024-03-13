@@ -1,14 +1,14 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep } from "lodash";
-import { upgradeOrganizationDoc } from "@/src/util/migrations";
+import { upgradeOrganizationDoc } from "@back-end/src/util/migrations";
 import {
   Invite,
   Member,
   OrganizationInterface,
   OrganizationMessage,
-} from "@/types/organization";
-import { ApiOrganization } from "@/types/openapi";
+} from "@back-end/types/organization";
+import { ApiOrganization } from "@back-end/types/openapi";
 
 const baseMemberFields = {
   _id: false,

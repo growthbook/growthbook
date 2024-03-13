@@ -3,16 +3,16 @@ import { WebhookInterface } from "back-end/types/webhook";
 import { FaCheck, FaInfoCircle } from "react-icons/fa";
 import { ago } from "shared/dates";
 import { BsArrowRepeat } from "react-icons/bs";
-import useApi from "@/hooks/useApi";
-import WebhooksModal from "@/components/Settings/WebhooksModal";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { useAuth } from "@/services/auth";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import usePermissions from "@/hooks/usePermissions";
-import { useUser } from "@/services/UserContext";
-import Button from "@/components/Button";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import { GBAddCircle } from "@/components/Icons";
+import useApi from "@front-end/hooks/useApi";
+import WebhooksModal from "@front-end/components/Settings/WebhooksModal";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import { useAuth } from "@front-end/services/auth";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import usePermissions from "@front-end/hooks/usePermissions";
+import { useUser } from "@front-end/services/UserContext";
+import Button from "@front-end/components/Button";
+import MoreMenu from "@front-end/components/Dropdown/MoreMenu";
+import { GBAddCircle } from "@front-end/components/Icons";
 
 export default function SDKWebhooks({ sdkid }) {
   const { data, mutate } = useApi<{ webhooks?: WebhookInterface[] }>(

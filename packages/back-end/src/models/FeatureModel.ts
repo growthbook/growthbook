@@ -8,33 +8,33 @@ import {
   FeatureCreatedNotificationEvent,
   FeatureDeletedNotificationEvent,
   FeatureUpdatedNotificationEvent,
-} from "@/src/events/notification-events";
-import { EventNotifier } from "@/src/events/notifiers/EventNotifier";
-import { EventAuditUser } from "@/src/events/event-types";
-import { getEnvironmentIdsFromOrg } from "@/src/services/organizations";
+} from "@back-end/src/events/notification-events";
+import { EventNotifier } from "@back-end/src/events/notifiers/EventNotifier";
+import { EventAuditUser } from "@back-end/src/events/event-types";
+import { getEnvironmentIdsFromOrg } from "@back-end/src/services/organizations";
 import {
   generateRuleId,
   getApiFeatureObj,
   getNextScheduledUpdate,
   getSavedGroupMap,
   refreshSDKPayloadCache,
-} from "@/src/services/features";
-import { logger } from "@/src/util/logger";
+} from "@back-end/src/services/features";
+import { logger } from "@back-end/src/util/logger";
 import {
   getAffectedSDKPayloadKeys,
   getSDKPayloadKeysByDiff,
-} from "@/src/util/features";
-import { upgradeFeatureInterface } from "@/src/util/migrations";
-import { ApiReqContext } from "@/types/api";
-import { FeatureRevisionInterface } from "@/types/feature-revision";
-import { ReqContext } from "@/types/organization";
-import { ExperimentInterface } from "@/types/experiment";
+} from "@back-end/src/util/features";
+import { upgradeFeatureInterface } from "@back-end/src/util/migrations";
+import { ApiReqContext } from "@back-end/types/api";
+import { FeatureRevisionInterface } from "@back-end/types/feature-revision";
+import { ReqContext } from "@back-end/types/organization";
+import { ExperimentInterface } from "@back-end/types/experiment";
 import {
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
   LegacyFeatureInterface,
-} from "@/types/feature";
+} from "@back-end/types/feature";
 import {
   createInitialRevision,
   createRevisionFromLegacyDraft,

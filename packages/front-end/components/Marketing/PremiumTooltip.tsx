@@ -1,9 +1,9 @@
 import { CommercialFeature } from "enterprise";
 import { CSSProperties, HTMLAttributes, ReactNode } from "react";
 import clsx from "clsx";
-import { useUser } from "@/services/UserContext";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { GBPremiumBadge } from "@/components/Icons";
+import { useUser } from "@front-end/services/UserContext";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { GBPremiumBadge } from "@front-end/components/Icons";
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
   commercialFeature: CommercialFeature;

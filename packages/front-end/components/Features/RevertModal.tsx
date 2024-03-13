@@ -2,11 +2,14 @@ import { FeatureInterface } from "back-end/types/feature";
 import { useState, useMemo } from "react";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import isEqual from "lodash/isEqual";
-import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
-import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
+import {
+  getAffectedRevisionEnvs,
+  useEnvironments,
+} from "@front-end/services/features";
+import { useAuth } from "@front-end/services/auth";
+import usePermissions from "@front-end/hooks/usePermissions";
+import Modal from "@front-end/components/Modal";
+import Field from "@front-end/components/Forms/Field";
 import { ExpandableDiff } from "./DraftModal";
 
 export interface Props {

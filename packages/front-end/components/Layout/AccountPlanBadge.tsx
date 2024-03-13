@@ -1,4 +1,4 @@
-import { useUser } from "@/services/UserContext";
+import { useUser } from "@front-end/services/UserContext";
 
 export default function AccountPlanBadge() {
   const { effectiveAccountPlan } = useUser();

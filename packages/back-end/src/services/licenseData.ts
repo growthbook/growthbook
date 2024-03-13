@@ -1,10 +1,10 @@
 import path from "path";
 import fs from "fs";
 import { licenseInit } from "enterprise";
-import { IS_CLOUD } from "@/src/util/secrets";
-import { findAllSDKConnections } from "@/src/models/SdkConnectionModel";
-import { getInstallationId } from "@/src/models/InstallationModel";
-import { getInstallationDatasources } from "@/src/models/DataSourceModel";
+import { IS_CLOUD } from "@back-end/src/util/secrets";
+import { findAllSDKConnections } from "@back-end/src/models/SdkConnectionModel";
+import { getInstallationId } from "@back-end/src/models/InstallationModel";
+import { getInstallationDatasources } from "@back-end/src/models/DataSourceModel";
 import { getUserLicenseCodes } from "./users";
 
 export async function getLicenseMetaData() {

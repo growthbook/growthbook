@@ -1,14 +1,14 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
-import { migrateSavedGroup } from "@/src/util/migrations";
-import { ApiSavedGroup } from "@/types/openapi";
+import { migrateSavedGroup } from "@back-end/src/util/migrations";
+import { ApiSavedGroup } from "@back-end/types/openapi";
 import {
   CreateSavedGroupProps,
   LegacySavedGroupInterface,
   SavedGroupInterface,
   UpdateSavedGroupProps,
-} from "@/types/saved-group";
+} from "@back-end/types/saved-group";
 
 const savedGroupSchema = new mongoose.Schema({
   id: {

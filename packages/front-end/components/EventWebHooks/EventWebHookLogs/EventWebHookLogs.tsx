@@ -2,7 +2,7 @@ import React, { FC, useCallback, useEffect, useMemo, useState } from "react";
 import _ from "lodash";
 import { EventWebHookLogInterface } from "back-end/types/event-webhook-log";
 import { useRouter } from "next/router";
-import useApi from "@/hooks/useApi";
+import useApi from "@front-end/hooks/useApi";
 import { EventWebHookLogItem } from "./EventWebHookLogItem/EventWebHookLogItem";
 import { EventWebHookLogActiveItem } from "./EventWebHookLogActiveItem/EventWebHookLogActiveItem";
 

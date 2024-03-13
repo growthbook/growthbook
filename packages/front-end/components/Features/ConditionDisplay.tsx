@@ -6,10 +6,14 @@ import {
   SavedGroupTargeting,
 } from "back-end/types/feature";
 import Link from "next/link";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import {
+  Condition,
+  jsonToConds,
+  useAttributeMap,
+} from "@front-end/services/features";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import InlineCode from "@front-end/components/SyntaxHighlighting/InlineCode";
 import SavedGroupTargetingDisplay from "./SavedGroupTargetingDisplay";
 
 type ConditionWithParentId = Condition & { parentId?: string };

@@ -6,11 +6,11 @@ import {
   NotificationEventResource,
 } from "back-end/types/event";
 import { FaDownload } from "react-icons/fa";
-import useApi from "@/hooks/useApi";
-import { useDownloadDataExport } from "@/hooks/useDownloadDataExport";
-import { useUser } from "@/services/UserContext";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import LoadingSpinner from "@/components/LoadingSpinner";
+import useApi from "@front-end/hooks/useApi";
+import { useDownloadDataExport } from "@front-end/hooks/useDownloadDataExport";
+import { useUser } from "@front-end/services/UserContext";
+import PremiumTooltip from "@front-end/components/Marketing/PremiumTooltip";
+import LoadingSpinner from "@front-end/components/LoadingSpinner";
 import { EventsTableRow } from "./EventsTableRow";
 
 type EventsPageProps = {

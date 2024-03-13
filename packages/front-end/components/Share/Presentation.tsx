@@ -17,10 +17,10 @@ import {
 } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import clsx from "clsx";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Markdown from "@/components/Markdown/Markdown";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import CompactResults from "@/components/Experiment/CompactResults";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Markdown from "@front-end/components/Markdown/Markdown";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import CompactResults from "@front-end/components/Experiment/CompactResults";
 import { presentationThemes, defaultTheme } from "./ShareModal";
 
 export interface Props {

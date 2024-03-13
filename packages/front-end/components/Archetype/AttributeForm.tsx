@@ -2,13 +2,13 @@ import React, { useMemo, useState } from "react";
 import { SDKAttribute, SDKAttributeSchema } from "back-end/types/organization";
 import { useForm } from "react-hook-form";
 import { ArchetypeAttributeValues } from "back-end/types/archetype";
-import { useAttributeSchema } from "@/services/features";
-import Field from "@/components/Forms/Field";
-import TabButton from "@/components/Tabs/TabButton";
-import TabButtons from "@/components/Tabs/TabButtons";
-import SelectField from "@/components/Forms/SelectField";
-import Toggle from "@/components/Forms/Toggle";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { useAttributeSchema } from "@front-end/services/features";
+import Field from "@front-end/components/Forms/Field";
+import TabButton from "@front-end/components/Tabs/TabButton";
+import TabButtons from "@front-end/components/Tabs/TabButtons";
+import SelectField from "@front-end/components/Forms/SelectField";
+import Toggle from "@front-end/components/Forms/Toggle";
+import MultiSelectField from "@front-end/components/Forms/MultiSelectField";
 import styles from "./AttributeForm.module.scss";
 
 export interface Props {

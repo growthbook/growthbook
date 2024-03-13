@@ -2,12 +2,12 @@ import { useRouter } from "next/router";
 import { useState } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { date, daysLeft } from "shared/dates";
-import usePermissions from "@/hooks/usePermissions";
-import useStripeSubscription from "@/hooks/useStripeSubscription";
-import { isCloud } from "@/services/env";
-import { useUser } from "@/services/UserContext";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import usePermissions from "@front-end/hooks/usePermissions";
+import useStripeSubscription from "@front-end/hooks/useStripeSubscription";
+import { isCloud } from "@front-end/services/env";
+import { useUser } from "@front-end/services/UserContext";
+import UpgradeModal from "@front-end/components/Settings/UpgradeModal";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 
 export default function AccountPlanNotices() {
   const [upgradeModal, setUpgradeModal] = useState(false);

@@ -9,17 +9,17 @@ import {
   BsCodeSlash,
 } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
-import { getGrowthBookBuild } from "@/services/env";
-import { useUser } from "@/services/UserContext";
-import useOrgSettings from "@/hooks/useOrgSettings";
+import { getGrowthBookBuild } from "@front-end/services/env";
+import { useUser } from "@front-end/services/UserContext";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
 import {
   GBDatabase,
   GBExperiment,
   GBPremiumBadge,
   GBSettings,
-} from "@/components/Icons";
-import { inferDocUrl } from "@/components/DocLink";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
+} from "@front-end/components/Icons";
+import { inferDocUrl } from "@front-end/components/DocLink";
+import UpgradeModal from "@front-end/components/Settings/UpgradeModal";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import TopNav from "./TopNav";

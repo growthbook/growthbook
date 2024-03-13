@@ -1,7 +1,7 @@
 import { formatDistance } from "date-fns";
 import { CSSProperties } from "react";
 import clsx from "clsx";
-import { RowResults } from "@/services/experiments";
+import { RowResults } from "@front-end/services/experiments";
 
 const numberFormatter = Intl.NumberFormat("en-US", {
   notation: "compact",

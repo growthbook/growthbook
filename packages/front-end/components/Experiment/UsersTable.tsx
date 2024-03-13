@@ -5,11 +5,11 @@ import {
   ExperimentReportVariation,
 } from "back-end/types/report";
 import { ImTable2 } from "react-icons/im";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { formatTrafficSplit } from "@/services/utils";
-import { useUser } from "@/services/UserContext";
-import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { formatTrafficSplit } from "@front-end/services/utils";
+import { useUser } from "@front-end/services/UserContext";
+import { DEFAULT_SRM_THRESHOLD } from "@front-end/pages/settings";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 
 const numberFormatter = new Intl.NumberFormat();
 

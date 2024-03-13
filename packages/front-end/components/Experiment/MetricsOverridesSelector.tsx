@@ -10,16 +10,16 @@ import {
   isFactMetric,
   isRatioMetric,
 } from "shared/experiments";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useUser } from "@/services/UserContext";
-import Toggle from "@/components/Forms/Toggle";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { GBCuped } from "@/components/Icons";
-import { capitalizeFirstLetter } from "@/services/utils";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
-import MetricName from "@/components/Metrics/MetricName";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { useUser } from "@front-end/services/UserContext";
+import Toggle from "@front-end/components/Forms/Toggle";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import PremiumTooltip from "@front-end/components/Marketing/PremiumTooltip";
+import { GBCuped } from "@front-end/components/Icons";
+import { capitalizeFirstLetter } from "@front-end/services/utils";
+import Field from "@front-end/components/Forms/Field";
+import SelectField from "@front-end/components/Forms/SelectField";
+import MetricName from "@front-end/components/Metrics/MetricName";
 import { EditMetricsFormInterface } from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
 

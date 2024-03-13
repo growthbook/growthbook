@@ -3,14 +3,14 @@ import { useMemo, useState } from "react";
 import { FaClock, FaUser } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
 import { FaTriangleExclamation } from "react-icons/fa6";
-import { useAuth } from "@/services/auth";
-import { useAddComputedFields, useSearch } from "@/services/search";
-import usePermissions from "@/hooks/usePermissions";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Field from "@/components/Forms/Field";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import Button from "@/components/Button";
-import { GBEdit } from "@/components/Icons";
+import { useAuth } from "@front-end/services/auth";
+import { useAddComputedFields, useSearch } from "@front-end/services/search";
+import usePermissions from "@front-end/hooks/usePermissions";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Field from "@front-end/components/Forms/Field";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import Button from "@front-end/components/Button";
+import { GBEdit } from "@front-end/components/Icons";
 import ColumnModal from "./ColumnModal";
 
 export interface Props {

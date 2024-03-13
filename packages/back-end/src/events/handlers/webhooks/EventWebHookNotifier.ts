@@ -1,15 +1,15 @@
 import { Agenda, Job, JobAttributesData } from "agenda";
-import { getEvent } from "@/src/models/EventModel";
+import { getEvent } from "@back-end/src/models/EventModel";
 import {
   getEventWebHookById,
   updateEventWebHookStatus,
-} from "@/src/models/EventWebhookModel";
-import { EventWebHookInterface } from "@/types/event-webhook";
-import { findOrganizationById } from "@/src/models/OrganizationModel";
-import { createEventWebHookLog } from "@/src/models/EventWebHookLogModel";
-import { logger } from "@/src/util/logger";
-import { cancellableFetch } from "@/src/util/http.util";
-import { getAgendaInstance } from "@/src/services/queueing";
+} from "@back-end/src/models/EventWebhookModel";
+import { EventWebHookInterface } from "@back-end/types/event-webhook";
+import { findOrganizationById } from "@back-end/src/models/OrganizationModel";
+import { createEventWebHookLog } from "@back-end/src/models/EventWebHookLogModel";
+import { logger } from "@back-end/src/util/logger";
+import { cancellableFetch } from "@back-end/src/util/http.util";
+import { getAgendaInstance } from "@back-end/src/services/queueing";
 import {
   EventWebHookErrorResult,
   EventWebHookResult,

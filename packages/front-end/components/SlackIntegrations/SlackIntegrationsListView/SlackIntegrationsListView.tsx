@@ -12,13 +12,13 @@ import { TagInterface } from "back-end/types/tag";
 import {
   SlackIntegrationEditParams,
   SlackIntegrationModalMode,
-} from "@/components/SlackIntegrations/slack-integrations-utils";
-import { SlackIntegrationsListItem } from "@/components/SlackIntegrations/SlackIntegrationsListView/SlackIntegrationsListItem/SlackIntegrationsListItem";
-import { useAuth } from "@/services/auth";
-import useApi from "@/hooks/useApi";
-import { SlackIntegrationAddEditModal } from "@/components/SlackIntegrations/SlackIntegrationAddEditModal/SlackIntegrationAddEditModal";
-import { useEnvironments } from "@/services/features";
-import { useDefinitions } from "@/services/DefinitionsContext";
+} from "@front-end/components/SlackIntegrations/slack-integrations-utils";
+import { SlackIntegrationsListItem } from "@front-end/components/SlackIntegrations/SlackIntegrationsListView/SlackIntegrationsListItem/SlackIntegrationsListItem";
+import { useAuth } from "@front-end/services/auth";
+import useApi from "@front-end/hooks/useApi";
+import { SlackIntegrationAddEditModal } from "@front-end/components/SlackIntegrations/SlackIntegrationAddEditModal/SlackIntegrationAddEditModal";
+import { useEnvironments } from "@front-end/services/features";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
 
 type SlackIntegrationsListViewProps = {
   onEditModalOpen: (id: string, data: SlackIntegrationEditParams) => void;

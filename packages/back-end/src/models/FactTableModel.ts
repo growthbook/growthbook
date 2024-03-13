@@ -10,10 +10,10 @@ import {
   UpdateFactFilterProps,
   UpdateColumnProps,
   UpdateFactTableProps,
-} from "@/types/fact-table";
-import { ApiFactTable, ApiFactTableFilter } from "@/types/openapi";
-import { ReqContext } from "@/types/organization";
-import { ApiReqContext } from "@/types/api";
+} from "@back-end/types/fact-table";
+import { ApiFactTable, ApiFactTableFilter } from "@back-end/types/openapi";
+import { ReqContext } from "@back-end/types/organization";
+import { ApiReqContext } from "@back-end/types/api";
 
 const factTableSchema = new mongoose.Schema({
   id: String,

@@ -1,8 +1,8 @@
 import { FC, ChangeEventHandler, useState } from "react";
 import { GoogleAnalyticsParams } from "back-end/types/integrations/googleanalytics";
 import { FaKey, FaCheck } from "react-icons/fa";
-import { useAuth } from "@/services/auth";
-import LoadingOverlay from "@/components/LoadingOverlay";
+import { useAuth } from "@front-end/services/auth";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
 
 const GoogleAnalyticsForm: FC<{
   params: Partial<GoogleAnalyticsParams>;

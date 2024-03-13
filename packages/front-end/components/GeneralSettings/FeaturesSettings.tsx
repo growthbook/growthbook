@@ -2,11 +2,11 @@ import { isEqual } from "lodash";
 import { useEffect, useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { FaExclamationCircle, FaQuestionCircle } from "react-icons/fa";
-import { useUser } from "@/services/UserContext";
-import Field from "@/components/Forms/Field";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import Toggle from "@/components/Forms/Toggle";
-import SelectField from "@/components/Forms/SelectField";
+import { useUser } from "@front-end/services/UserContext";
+import Field from "@front-end/components/Forms/Field";
+import PremiumTooltip from "@front-end/components/Marketing/PremiumTooltip";
+import Toggle from "@front-end/components/Forms/Toggle";
+import SelectField from "@front-end/components/Forms/SelectField";
 
 export default function FeaturesSettings() {
   const [

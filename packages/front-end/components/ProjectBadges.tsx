@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import { FaInfoCircle } from "react-icons/fa";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Badge from "@/components/Badge";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Badge from "@front-end/components/Badge";
 import Tooltip from "./Tooltip/Tooltip";
 
 export interface Props {

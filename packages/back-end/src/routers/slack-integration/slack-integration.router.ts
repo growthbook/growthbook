@@ -1,8 +1,8 @@
 import express from "express";
 import z from "zod";
-import { validateRequestMiddleware } from "@/src/routers/utils/validateRequestMiddleware";
-import { wrapController } from "@/src/routers//wrapController";
-import { notificationEventNames } from "@/src/events/base-types";
+import { validateRequestMiddleware } from "@back-end/src/routers/utils/validateRequestMiddleware";
+import { wrapController } from "@back-end/src/routers//wrapController";
+import { notificationEventNames } from "@back-end/src/events/base-types";
 import * as rawSlackIntegrationController from "./slack-integration.controller";
 
 const router = express.Router();

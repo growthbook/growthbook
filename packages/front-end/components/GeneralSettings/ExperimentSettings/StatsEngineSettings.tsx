@@ -7,16 +7,16 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { useUser } from "@/services/UserContext";
-import { hasFileConfig } from "@/services/env";
-import { GBCuped, GBSequential } from "@/components/Icons";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import Field from "@/components/Forms/Field";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
-import SelectField from "@/components/Forms/SelectField";
-import Tab from "@/components/Tabs/Tab";
-import Toggle from "@/components/Forms/Toggle";
+import { useUser } from "@front-end/services/UserContext";
+import { hasFileConfig } from "@front-end/services/env";
+import { GBCuped, GBSequential } from "@front-end/components/Icons";
+import ControlledTabs from "@front-end/components/Tabs/ControlledTabs";
+import Field from "@front-end/components/Forms/Field";
+import PremiumTooltip from "@front-end/components/Marketing/PremiumTooltip";
+import StatsEngineSelect from "@front-end/components/Settings/forms/StatsEngineSelect";
+import SelectField from "@front-end/components/Forms/SelectField";
+import Tab from "@front-end/components/Tabs/Tab";
+import Toggle from "@front-end/components/Forms/Toggle";
 
 export default function StatsEngineSettings() {
   const form = useFormContext();

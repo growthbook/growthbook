@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import { ReactElement } from "react";
-import { GBEdit } from "@/components/Icons";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import { GBEdit } from "@front-end/components/Icons";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 
 export interface Props {
   className?: string;

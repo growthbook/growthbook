@@ -4,16 +4,19 @@ import { Request, Response } from "express";
 import {
   getContextForAgendaJobByOrgId,
   getExperimentOverrides,
-} from "@/src/services/organizations";
-import { APP_ORIGIN } from "@/src/util/secrets";
-import { lookupOrganizationByApiKey } from "@/src/models/ApiKeyModel";
-import { getAllExperiments } from "@/src/models/ExperimentModel";
+} from "@back-end/src/services/organizations";
+import { APP_ORIGIN } from "@back-end/src/util/secrets";
+import { lookupOrganizationByApiKey } from "@back-end/src/models/ApiKeyModel";
+import { getAllExperiments } from "@back-end/src/models/ExperimentModel";
 import {
   ExperimentInterface,
   LegacyExperimentPhase,
   LegacyVariation,
-} from "@/types/experiment";
-import { ErrorResponse, ExperimentOverridesResponse } from "@/types/api";
+} from "@back-end/types/experiment";
+import {
+  ErrorResponse,
+  ExperimentOverridesResponse,
+} from "@back-end/types/api";
 
 export function canAutoAssignExperiment(
   experiment: ExperimentInterface

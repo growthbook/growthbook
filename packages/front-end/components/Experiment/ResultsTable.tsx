@@ -34,15 +34,15 @@ import {
   getRowResults,
   RowResults,
   useDomain,
-} from "@/services/experiments";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { GBEdit } from "@/components/Icons";
-import useConfidenceLevels from "@/hooks/useConfidenceLevels";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import { useCurrency } from "@/hooks/useCurrency";
-import PValueColumn from "@/components/Experiment/PValueColumn";
-import ChangeColumn from "@/components/Experiment/ChangeColumn";
+} from "@front-end/services/experiments";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import { GBEdit } from "@front-end/components/Icons";
+import useConfidenceLevels from "@front-end/hooks/useConfidenceLevels";
+import usePValueThreshold from "@front-end/hooks/usePValueThreshold";
+import { useOrganizationMetricDefaults } from "@front-end/hooks/useOrganizationMetricDefaults";
+import { useCurrency } from "@front-end/hooks/useCurrency";
+import PValueColumn from "@front-end/components/Experiment/PValueColumn";
+import ChangeColumn from "@front-end/components/Experiment/ChangeColumn";
 import ResultsTableTooltip, {
   TOOLTIP_HEIGHT,
   TOOLTIP_TIMEOUT,
@@ -51,12 +51,12 @@ import ResultsTableTooltip, {
   TooltipHoverSettings,
   LayoutX,
   YAlign,
-} from "@/components/Experiment/ResultsTableTooltip";
-import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
-import { ResultsMetricFilters } from "@/components/Experiment/Results";
-import Tooltip from "@/components/Tooltip/Tooltip";
+} from "@front-end/components/Experiment/ResultsTableTooltip";
+import { QueryStatusData } from "@front-end/components/Queries/RunQueriesButton";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import ResultsMetricFilter from "@front-end/components/Experiment/ResultsMetricFilter";
+import { ResultsMetricFilters } from "@front-end/components/Experiment/Results";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 import AlignedGraph from "./AlignedGraph";
 import ChanceToWinColumn from "./ChanceToWinColumn";
 import MetricValueColumn from "./MetricValueColumn";

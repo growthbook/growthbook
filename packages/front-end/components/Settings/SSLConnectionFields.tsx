@@ -1,7 +1,7 @@
 import { ChangeEventHandler, useState } from "react";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
-import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
+import Field from "@front-end/components/Forms/Field";
+import Toggle from "@front-end/components/Forms/Toggle";
 
 export interface Props {
   value: {

@@ -9,7 +9,7 @@ import {
   UPLOAD_METHOD,
   GCS_BUCKET_NAME,
   GCS_DOMAIN,
-} from "@/src/util/secrets";
+} from "@back-end/src/util/secrets";
 
 let s3: AWS.S3;
 function getS3(): AWS.S3 {

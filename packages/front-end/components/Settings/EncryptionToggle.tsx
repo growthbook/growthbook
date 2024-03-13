@@ -1,10 +1,10 @@
 import React from "react";
 import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
-import { useUser } from "@/services/UserContext";
-import { DocLink } from "@/components/DocLink";
-import Toggle from "@/components/Forms/Toggle";
-import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { useUser } from "@front-end/services/UserContext";
+import { DocLink } from "@front-end/components/DocLink";
+import Toggle from "@front-end/components/Forms/Toggle";
+import UpgradeMessage from "@front-end/components/Marketing/UpgradeMessage";
+import PremiumTooltip from "@front-end/components/Marketing/PremiumTooltip";
 
 type Props = {
   value: boolean;

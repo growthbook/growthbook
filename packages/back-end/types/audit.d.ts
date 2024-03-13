@@ -1,4 +1,4 @@
-import { EntityType } from "@/src/types/Audit";
+import { EntityType } from "@back-end/src/types/Audit";
 
 export type EventType =
   | "attribute.create"

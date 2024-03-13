@@ -5,18 +5,18 @@ import {
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
 import { validateAndFixCondition } from "shared/util";
-import { useAuth } from "@/services/auth";
-import { useWatching } from "@/services/WatchProvider";
-import { getEqualWeights } from "@/services/utils";
-import { useIncrementer } from "@/hooks/useIncrementer";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
-import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
-import ConditionInput from "@/components/Features/ConditionInput";
-import NamespaceSelector from "@/components/Features/NamespaceSelector";
+import { useAuth } from "@front-end/services/auth";
+import { useWatching } from "@front-end/services/WatchProvider";
+import { getEqualWeights } from "@front-end/services/utils";
+import { useIncrementer } from "@front-end/hooks/useIncrementer";
+import Modal from "@front-end/components/Modal";
+import Field from "@front-end/components/Forms/Field";
+import FeatureVariationsInput from "@front-end/components/Features/FeatureVariationsInput";
+import ConditionInput from "@front-end/components/Features/ConditionInput";
+import NamespaceSelector from "@front-end/components/Features/NamespaceSelector";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
-} from "@/components/Features/SavedGroupTargetingField";
+} from "@front-end/components/Features/SavedGroupTargetingField";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;

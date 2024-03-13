@@ -18,26 +18,26 @@ import { getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
 import { MetricInterface } from "back-end/types/metric";
 import { getRegressionAdjustmentsForMetric } from "shared/experiments";
-import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { getExposureQuery } from "@/services/datasources";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { useUser } from "@/services/UserContext";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { hasFileConfig } from "@/services/env";
-import { GBCuped, GBSequential } from "@/components/Icons";
-import useApi from "@/hooks/useApi";
-import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
-import { trackReport } from "@/services/track";
+import { useAuth } from "@front-end/services/auth";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { getExposureQuery } from "@front-end/services/datasources";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import { useUser } from "@front-end/services/UserContext";
+import PremiumTooltip from "@front-end/components/Marketing/PremiumTooltip";
+import { hasFileConfig } from "@front-end/services/env";
+import { GBCuped, GBSequential } from "@front-end/components/Icons";
+import useApi from "@front-end/hooks/useApi";
+import StatsEngineSelect from "@front-end/components/Settings/forms/StatsEngineSelect";
+import { trackReport } from "@front-end/services/track";
 import MetricsSelector, {
   MetricsSelectorTooltip,
-} from "@/components/Experiment/MetricsSelector";
-import Field from "@/components/Forms/Field";
-import Modal from "@/components/Modal";
-import SelectField from "@/components/Forms/SelectField";
-import DimensionChooser from "@/components/Dimensions/DimensionChooser";
-import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
-import MetricSelector from "@/components/Experiment/MetricSelector";
+} from "@front-end/components/Experiment/MetricsSelector";
+import Field from "@front-end/components/Forms/Field";
+import Modal from "@front-end/components/Modal";
+import SelectField from "@front-end/components/Forms/SelectField";
+import DimensionChooser from "@front-end/components/Dimensions/DimensionChooser";
+import { AttributionModelTooltip } from "@front-end/components/Experiment/AttributionModelTooltip";
+import MetricSelector from "@front-end/components/Experiment/MetricSelector";
 
 export default function ConfigureReport({
   report,

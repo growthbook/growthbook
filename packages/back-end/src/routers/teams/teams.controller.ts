@@ -3,22 +3,22 @@ import {
   auditDetailsCreate,
   auditDetailsDelete,
   auditDetailsUpdate,
-} from "@/src/services/audit";
+} from "@back-end/src/services/audit";
 import {
   addMembersToTeam,
   getContextFromReq,
   removeMembersFromTeam,
-} from "@/src/services/organizations";
-import { TeamInterface } from "@/types/team";
+} from "@back-end/src/services/organizations";
+import { TeamInterface } from "@back-end/types/team";
 import {
   createTeam,
   deleteTeam,
   findTeamById,
   findTeamByName,
   updateTeamMetadata,
-} from "@/src/models/TeamModel";
-import { MemberRoleWithProjects } from "@/types/organization";
-import { AuthRequest } from "@/src/types/AuthRequest";
+} from "@back-end/src/models/TeamModel";
+import { MemberRoleWithProjects } from "@back-end/types/organization";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 
 // region POST /teams
 

@@ -1,9 +1,9 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
+import { useAuth } from "@front-end/services/auth";
+import Modal from "@front-end/components/Modal";
+import Field from "@front-end/components/Forms/Field";
 
 const EditExperimentNameForm: FC<{
   experiment: ExperimentInterfaceStringDates;

@@ -1,15 +1,15 @@
-import { IS_CLOUD } from "@/src/util/secrets";
+import { IS_CLOUD } from "@back-end/src/util/secrets";
 import {
   getSurrogateKeysFromEnvironments,
   purgeCDNCache,
-} from "@/src/util/cdn.util";
-import { SDKPayloadKey } from "@/types/sdk-payload";
+} from "@back-end/src/util/cdn.util";
+import { SDKPayloadKey } from "@back-end/types/sdk-payload";
 import {
   ProxyConnection,
   SDKConnectionInterface,
-} from "@/types/sdk-connection";
-import { ReqContext } from "@/types/organization";
-import { ApiReqContext } from "@/types/api";
+} from "@back-end/types/sdk-connection";
+import { ReqContext } from "@back-end/types/organization";
+import { ApiReqContext } from "@back-end/types/api";
 import { queueWebhook } from "./webhooks";
 import {
   queueGlobalWebhooks,

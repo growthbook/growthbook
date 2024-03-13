@@ -16,9 +16,9 @@ import {
   isRegressionAdjusted,
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
-import { checkSrm } from "@/src/util/stats";
-import { logger } from "@/src/util/logger";
-import { applyMetricOverrides } from "@/src/util/integration";
+import { checkSrm } from "@back-end/src/util/stats";
+import { logger } from "@back-end/src/util/logger";
+import { applyMetricOverrides } from "@back-end/src/util/integration";
 import {
   ExperimentMetricAnalysisParams,
   ExperimentSnapshotAnalysisSettings,
@@ -26,21 +26,21 @@ import {
   ExperimentSnapshotTraffic,
   ExperimentSnapshotTrafficDimension,
   SnapshotSettingsVariation,
-} from "@/types/experiment-snapshot";
+} from "@back-end/types/experiment-snapshot";
 import {
   ExperimentReportResultDimension,
   ExperimentReportResults,
   ExperimentReportVariation,
-} from "@/types/report";
-import { ExperimentMetricAnalysis } from "@/types/stats";
+} from "@back-end/types/report";
+import { ExperimentMetricAnalysis } from "@back-end/types/stats";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentFactMetricsQueryResponseRows,
   ExperimentMetricQueryResponseRows,
   ExperimentResults,
-} from "@/src/types/Integration";
-import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "@/src/integrations/SqlIntegration";
-import { QueryMap } from "@/src/queryRunners/QueryRunner";
+} from "@back-end/src/types/Integration";
+import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "@back-end/src/integrations/SqlIntegration";
+import { QueryMap } from "@back-end/src/queryRunners/QueryRunner";
 
 // Keep these interfaces in sync with gbstats
 export interface AnalysisSettingsForStatsEngine {

@@ -7,14 +7,14 @@ import Link from "next/link";
 import { FaAngleRight, FaExternalLinkAlt } from "react-icons/fa";
 import { date } from "shared/dates";
 import { useRouter } from "next/router";
-import { useSearch } from "@/services/search";
-import usePermissions from "@/hooks/usePermissions";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Field from "@/components/Forms/Field";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { GBAddCircle } from "@/components/Icons";
-import SortedTags from "@/components/Tags/SortedTags";
-import MetricName from "@/components/Metrics/MetricName";
+import { useSearch } from "@front-end/services/search";
+import usePermissions from "@front-end/hooks/usePermissions";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Field from "@front-end/components/Forms/Field";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { GBAddCircle } from "@front-end/components/Icons";
+import SortedTags from "@front-end/components/Tags/SortedTags";
+import MetricName from "@front-end/components/Metrics/MetricName";
 import FactMetricModal from "./FactMetricModal";
 
 export interface Props {

@@ -4,8 +4,8 @@ import uniqid from "uniqid";
 import {
   PastExperiment,
   PastExperimentsInterface,
-} from "@/types/past-experiments";
-import { Queries } from "@/types/query";
+} from "@back-end/types/past-experiments";
+import { Queries } from "@back-end/types/query";
 import { queriesSchema } from "./QueryModel";
 
 const pastExperimentsSchema = new mongoose.Schema({

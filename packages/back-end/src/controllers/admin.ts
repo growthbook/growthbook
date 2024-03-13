@@ -3,10 +3,10 @@ import { Response } from "express";
 import {
   getLicenseMetaData,
   initializeLicense,
-} from "@/src/services/licenseData";
-import { findAllOrganizations } from "@/src/models/OrganizationModel";
-import { AuthRequest } from "@/src/types/AuthRequest";
-import { getUserLicenseCodes } from "@/src/services/users";
+} from "@back-end/src/services/licenseData";
+import { findAllOrganizations } from "@back-end/src/models/OrganizationModel";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
+import { getUserLicenseCodes } from "@back-end/src/services/users";
 
 export async function getOrganizations(
   req: AuthRequest<never, never, { page?: string; search?: string }>,

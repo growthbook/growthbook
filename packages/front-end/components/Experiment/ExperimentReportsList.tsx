@@ -5,14 +5,14 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useRouter } from "next/router";
 import { ago, datetime } from "shared/dates";
 import { FaExclamationTriangle } from "react-icons/fa";
-import useApi from "@/hooks/useApi";
-import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
-import { useUser } from "@/services/UserContext";
-import { trackReport } from "@/services/track";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import useApi from "@front-end/hooks/useApi";
+import { useAuth } from "@front-end/services/auth";
+import usePermissions from "@front-end/hooks/usePermissions";
+import { useUser } from "@front-end/services/UserContext";
+import { trackReport } from "@front-end/services/track";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 
 export default function ExperimentReportsList({
   experiment,

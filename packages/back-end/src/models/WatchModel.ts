@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { omit } from "lodash";
 import { UpdateResult } from "mongodb";
-import { WatchInterface } from "@/types/watch";
+import { WatchInterface } from "@back-end/types/watch";
 
 const watchSchema = new mongoose.Schema({
   userId: String,

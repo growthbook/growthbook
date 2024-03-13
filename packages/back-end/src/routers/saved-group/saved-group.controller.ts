@@ -1,26 +1,26 @@
 import type { Response } from "express";
 import { isEqual } from "lodash";
 import { validateCondition } from "shared/util";
-import { getContextFromReq } from "@/src/services/organizations";
+import { getContextFromReq } from "@back-end/src/services/organizations";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
   auditDetailsUpdate,
-} from "@/src/services/audit";
-import { savedGroupUpdated } from "@/src/services/savedGroups";
-import { ApiErrorResponse } from "@/types/api";
+} from "@back-end/src/services/audit";
+import { savedGroupUpdated } from "@back-end/src/services/savedGroups";
+import { ApiErrorResponse } from "@back-end/types/api";
 import {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
   SavedGroupInterface,
-} from "@/types/saved-group";
+} from "@back-end/types/saved-group";
 import {
   createSavedGroup,
   deleteSavedGroupById,
   getSavedGroupById,
   updateSavedGroupById,
-} from "@/src/models/SavedGroupModel";
-import { AuthRequest } from "@/src/types/AuthRequest";
+} from "@back-end/src/models/SavedGroupModel";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 
 // region POST /saved-groups
 

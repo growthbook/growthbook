@@ -1,9 +1,9 @@
 import {
   FeatureDefinitionSDKPayload,
   getFeatureDefinitions,
-} from "@/src/services/features";
-import { createApiRequestHandler } from "@/src/util/handler";
-import { getPayloadParamsFromApiKey } from "@/src/controllers/features";
+} from "@back-end/src/services/features";
+import { createApiRequestHandler } from "@back-end/src/util/handler";
+import { getPayloadParamsFromApiKey } from "@back-end/src/controllers/features";
 
 export const getSdkPayload = createApiRequestHandler()(
   async (req): Promise<FeatureDefinitionSDKPayload & { status: number }> => {

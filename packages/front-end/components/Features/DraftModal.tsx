@@ -4,12 +4,15 @@ import { useState, useMemo } from "react";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { autoMerge, mergeResultHasChanges } from "shared/util";
-import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
-import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
-import Modal from "@/components/Modal";
-import Button from "@/components/Button";
-import Field from "@/components/Forms/Field";
+import {
+  getAffectedRevisionEnvs,
+  useEnvironments,
+} from "@front-end/services/features";
+import { useAuth } from "@front-end/services/auth";
+import usePermissions from "@front-end/hooks/usePermissions";
+import Modal from "@front-end/components/Modal";
+import Button from "@front-end/components/Button";
+import Field from "@front-end/components/Forms/Field";
 
 export interface Props {
   feature: FeatureInterface;

@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
 import { omit } from "lodash";
 import uniqid from "uniqid";
-import { QUERY_CACHE_TTL_MINS } from "@/src/util/secrets";
-import { QueryInterface, QueryType } from "@/types/query";
-import { QueryLanguage } from "@/types/datasource";
+import { QUERY_CACHE_TTL_MINS } from "@back-end/src/util/secrets";
+import { QueryInterface, QueryType } from "@back-end/types/query";
+import { QueryLanguage } from "@back-end/types/datasource";
 
 export const queriesSchema = [
   {

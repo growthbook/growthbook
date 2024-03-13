@@ -2,11 +2,11 @@ import { FC } from "react";
 import { useRouter } from "next/router";
 import { IdeaInterface } from "back-end/types/idea";
 import { ago } from "shared/dates";
-import useApi from "@/hooks/useApi";
-import { useUser } from "@/services/UserContext";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Markdown from "@/components/Markdown/Markdown";
-import LoadingOverlay from "@/components/LoadingOverlay";
+import useApi from "@front-end/hooks/useApi";
+import { useUser } from "@front-end/services/UserContext";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Markdown from "@front-end/components/Markdown/Markdown";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
 
 const IdeasFeed: FC<{
   num?: number;

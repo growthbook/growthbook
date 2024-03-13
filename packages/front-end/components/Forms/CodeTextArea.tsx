@@ -1,8 +1,8 @@
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { Ace } from "ace-builds";
-import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
-import { CursorData } from "@/components/Segments/SegmentForm";
+import { useAppearanceUITheme } from "@front-end/services/AppearanceUIThemeProvider";
+import { CursorData } from "@front-end/components/Segments/SegmentForm";
 import Field, { FieldProps } from "./Field";
 
 const AceEditor = dynamic(

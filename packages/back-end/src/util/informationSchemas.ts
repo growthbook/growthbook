@@ -1,11 +1,11 @@
 import uniqid from "uniqid";
-import { DataSourceType } from "@/types/datasource";
+import { DataSourceType } from "@back-end/types/datasource";
 import {
   InformationSchema,
   RawInformationSchema,
   Schema,
   Table,
-} from "@/src/types/Integration";
+} from "@back-end/src/types/Integration";
 
 type RowType = {
   tableCatalog: string;

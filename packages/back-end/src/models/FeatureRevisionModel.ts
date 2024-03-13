@@ -3,13 +3,13 @@ import omit from "lodash/omit";
 import {
   EventAuditUser,
   EventAuditUserLoggedIn,
-} from "@/src/events/event-types";
-import { FeatureInterface, FeatureRule } from "@/types/feature";
+} from "@back-end/src/events/event-types";
+import { FeatureInterface, FeatureRule } from "@back-end/types/feature";
 import {
   FeatureRevisionInterface,
   RevisionLog,
-} from "@/types/feature-revision";
-import { ReqContext } from "@/types/organization";
+} from "@back-end/types/feature-revision";
+import { ReqContext } from "@back-end/types/organization";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 

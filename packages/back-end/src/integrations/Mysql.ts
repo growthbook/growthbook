@@ -1,9 +1,9 @@
 import mysql, { RowDataPacket } from "mysql2/promise";
 import { ConnectionOptions } from "mysql2";
-import { decryptDataSourceParams } from "@/src/services/datasource";
-import { FormatDialect } from "@/src/util/sql";
-import { MysqlConnectionParams } from "@/types/integrations/mysql";
-import { QueryResponse } from "@/src/types/Integration";
+import { decryptDataSourceParams } from "@back-end/src/services/datasource";
+import { FormatDialect } from "@back-end/src/util/sql";
+import { MysqlConnectionParams } from "@back-end/types/integrations/mysql";
+import { QueryResponse } from "@back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Mysql extends SqlIntegration {

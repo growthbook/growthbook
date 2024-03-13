@@ -1,8 +1,14 @@
-import { decryptDataSourceParams } from "@/src/services/datasource";
-import { cancelAthenaQuery, runAthenaQuery } from "@/src/services/athena";
-import { FormatDialect } from "@/src/util/sql";
-import { AthenaConnectionParams } from "@/types/integrations/athena";
-import { ExternalIdCallback, QueryResponse } from "@/src/types/Integration";
+import { decryptDataSourceParams } from "@back-end/src/services/datasource";
+import {
+  cancelAthenaQuery,
+  runAthenaQuery,
+} from "@back-end/src/services/athena";
+import { FormatDialect } from "@back-end/src/util/sql";
+import { AthenaConnectionParams } from "@back-end/types/integrations/athena";
+import {
+  ExternalIdCallback,
+  QueryResponse,
+} from "@back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Athena extends SqlIntegration {

@@ -12,22 +12,22 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { validateFeatureValue } from "shared/util";
-import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import track from "@/services/track";
+import { useAuth } from "@front-end/services/auth";
+import Modal from "@front-end/components/Modal";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import track from "@front-end/services/track";
 import {
   getDefaultValue,
   useEnvironments,
   getDefaultVariationValue,
   validateFeatureRule,
   useFeaturesList,
-} from "@/services/features";
-import { useWatching } from "@/services/WatchProvider";
-import usePermissions from "@/hooks/usePermissions";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import SelectField from "@/components/Forms/SelectField";
-import FeatureValueField from "@/components/Features/FeatureValueField";
+} from "@front-end/services/features";
+import { useWatching } from "@front-end/services/WatchProvider";
+import usePermissions from "@front-end/hooks/usePermissions";
+import MarkdownInput from "@front-end/components/Markdown/MarkdownInput";
+import SelectField from "@front-end/components/Forms/SelectField";
+import FeatureValueField from "@front-end/components/Features/FeatureValueField";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";

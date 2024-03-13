@@ -21,7 +21,7 @@ If a page or component relies on data from the API, it can use the `useApi` hook
 This uses swr under the hood and will automatically take care of caching and refreshing.
 
 ```tsx
-import useApi from "@/hooks/useApi";
+import useApi from "@front-end/hooks/useApi";
 
 function MyComponent({ id }) {
   // Describe the shape of the returned data with Typescript types
@@ -58,7 +58,7 @@ Use `apiCall` to make an authenticated call to the API in response to a user act
 If your API call returns a status other than `200`, it will throw an error that you can catch.
 
 ```tsx
-import { useAuth } from "@/services/auth";
+import { useAuth } from "@front-end/services/auth";
 
 function MyComponent() {
   const { apiCall } = useAuth();
@@ -96,7 +96,7 @@ Basic usage:
 
 ```tsx
 import { useForm } from "react-hook-form";
-import Field from "@/components/Forms/Field";
+import Field from "@front-end/components/Forms/Field";
 
 function MyComponent() {
   const form = useForm({

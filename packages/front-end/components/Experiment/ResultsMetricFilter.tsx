@@ -2,10 +2,10 @@ import { MdFilterAlt, MdOutlineFilterAltOff } from "react-icons/md";
 import React, { useEffect, useState } from "react";
 import { BsXCircle } from "react-icons/bs";
 import { FaX } from "react-icons/fa6";
-import Toggle from "@/components/Forms/Toggle";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import { ResultsMetricFilters } from "@/components/Experiment/Results";
+import Toggle from "@front-end/components/Forms/Toggle";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import MultiSelectField from "@front-end/components/Forms/MultiSelectField";
+import { ResultsMetricFilters } from "@front-end/components/Experiment/Results";
 
 export default function ResultsMetricFilter({
   metricTags = [],

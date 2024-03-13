@@ -1,14 +1,17 @@
-import { auditDetailsUpdate } from "@/src/services/audit";
-import { getApiFeatureObj, getSavedGroupMap } from "@/src/services/features";
-import { getEnvironmentIdsFromOrg } from "@/src/services/organizations";
-import { toggleFeatureValidator } from "@/src/validators/openapi";
+import { auditDetailsUpdate } from "@back-end/src/services/audit";
+import {
+  getApiFeatureObj,
+  getSavedGroupMap,
+} from "@back-end/src/services/features";
+import { getEnvironmentIdsFromOrg } from "@back-end/src/services/organizations";
+import { toggleFeatureValidator } from "@back-end/src/validators/openapi";
 import {
   getFeature,
   toggleMultipleEnvironments,
-} from "@/src/models/FeatureModel";
-import { getExperimentMapForFeature } from "@/src/models/ExperimentModel";
-import { ToggleFeatureResponse } from "@/types/openapi";
-import { createApiRequestHandler } from "@/src/util/handler";
+} from "@back-end/src/models/FeatureModel";
+import { getExperimentMapForFeature } from "@back-end/src/models/ExperimentModel";
+import { ToggleFeatureResponse } from "@back-end/types/openapi";
+import { createApiRequestHandler } from "@back-end/src/util/handler";
 
 export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
   async (req): Promise<ToggleFeatureResponse> => {

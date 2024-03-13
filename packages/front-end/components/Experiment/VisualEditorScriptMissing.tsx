@@ -1,9 +1,9 @@
 import { ApiKeyInterface } from "back-end/types/apikey";
 import { useEffect, useState } from "react";
-import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import VisualEditorInstructions from "@/components/Settings/VisualEditorInstructions";
+import { useAuth } from "@front-end/services/auth";
+import usePermissions from "@front-end/hooks/usePermissions";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import VisualEditorInstructions from "@front-end/components/Settings/VisualEditorInstructions";
 
 export default function VisualEditorScriptMissing({
   onSuccess,

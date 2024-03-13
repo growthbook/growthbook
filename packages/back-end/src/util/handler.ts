@@ -3,10 +3,10 @@ import fs from "fs";
 import { Request, RequestHandler } from "express";
 import z, { Schema, ZodNever } from "zod";
 import { orgHasPremiumFeature } from "enterprise";
-import { ApiErrorResponse, ApiRequestLocals } from "@/types/api";
-import { ApiPaginationFields } from "@/types/openapi";
-import { UserInterface } from "@/types/user";
-import { OrganizationInterface } from "@/types/organization";
+import { ApiErrorResponse, ApiRequestLocals } from "@back-end/types/api";
+import { ApiPaginationFields } from "@back-end/types/openapi";
+import { UserInterface } from "@back-end/types/user";
+import { OrganizationInterface } from "@back-end/types/organization";
 import { IS_MULTI_ORG } from "./secrets";
 
 type ApiRequest<

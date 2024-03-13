@@ -25,27 +25,30 @@ import {
 import { BsArrowClockwise, BsGear } from "react-icons/bs";
 import TextareaAutosize from "react-textarea-autosize";
 import Link from "next/link";
-import useApi from "@/hooks/useApi";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Button";
-import { useAuth } from "@/services/auth";
-import LoadingSpinner from "@/components/LoadingSpinner";
-import StatusIndicator from "@/components/Experiment/StatusIndicator";
-import Dropdown from "@/components/Dropdown/Dropdown";
-import DropdownLink from "@/components/Dropdown/DropdownLink";
-import Modal from "@/components/Modal";
+import useApi from "@front-end/hooks/useApi";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import Button from "@front-end/components/Button";
+import { useAuth } from "@front-end/services/auth";
+import LoadingSpinner from "@front-end/components/LoadingSpinner";
+import StatusIndicator from "@front-end/components/Experiment/StatusIndicator";
+import Dropdown from "@front-end/components/Dropdown/Dropdown";
+import DropdownLink from "@front-end/components/Dropdown/DropdownLink";
+import Modal from "@front-end/components/Modal";
 import {
   DomMutation,
   ElementAttribute,
   ElementBreadcrumb,
   IncomingMessage,
   OutgoingMessage,
-} from "@/types/visualDesigner";
-import { addQueryStringToURL, dataURItoBlob } from "@/services/visualDesigner";
-import VisualEditorScriptMissing from "@/components/Experiment/VisualEditorScriptMissing";
-import { uploadFile } from "@/services/files";
-import useSwitchOrg from "@/services/useSwitchOrg";
-import SelectField from "@/components/Forms/SelectField";
+} from "@front-end/types/visualDesigner";
+import {
+  addQueryStringToURL,
+  dataURItoBlob,
+} from "@front-end/services/visualDesigner";
+import VisualEditorScriptMissing from "@front-end/components/Experiment/VisualEditorScriptMissing";
+import { uploadFile } from "@front-end/services/files";
+import useSwitchOrg from "@front-end/services/useSwitchOrg";
+import SelectField from "@front-end/components/Forms/SelectField";
 import styles from "./designer.module.scss";
 
 const EditorPage: FC = () => {

@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { BsArrowRepeat } from "react-icons/bs";
-import { useAuth } from "@/services/auth";
-import Button from "@/components/Button";
+import { useAuth } from "@front-end/services/auth";
+import Button from "@front-end/components/Button";
 
 const RefreshMetricButton: FC<{
   mutate: () => void;

@@ -1,12 +1,15 @@
-import { EventWebHookNotifier } from "@/src/events/handlers/webhooks/EventWebHookNotifier";
-import { getEventWebHookSignatureForPayload } from "@/src/events/handlers/webhooks/event-webhooks-utils";
-import { cancellableFetch } from "@/src/util/http.util";
+import { EventWebHookNotifier } from "@back-end/src/events/handlers/webhooks/EventWebHookNotifier";
+import { getEventWebHookSignatureForPayload } from "@back-end/src/events/handlers/webhooks/event-webhooks-utils";
+import { cancellableFetch } from "@back-end/src/util/http.util";
 
-jest.mock("@/src/events/handlers/webhooks/event-webhooks-utils", () => ({
-  getEventWebHookSignatureForPayload: jest.fn(),
-}));
+jest.mock(
+  "@back-end/src/events/handlers/webhooks/event-webhooks-utils",
+  () => ({
+    getEventWebHookSignatureForPayload: jest.fn(),
+  })
+);
 
-jest.mock("@/src/util/http.util", () => ({
+jest.mock("@back-end/src/util/http.util", () => ({
   cancellableFetch: jest.fn(),
 }));
 

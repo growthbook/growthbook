@@ -23,17 +23,17 @@ import {
   getPrerequisites,
   useEnvironments,
   useFeaturesList,
-} from "@/services/features";
-import track from "@/services/track";
-import ValueDisplay from "@/components/Features/ValueDisplay";
-import { useAuth } from "@/services/auth";
-import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import { PrerequisiteAlerts } from "@/components/Features/PrerequisiteTargetingField";
-import { DocLink } from "@/components/DocLink";
-import Modal from "@/components/Modal";
-import SelectField from "@/components/Forms/SelectField";
+} from "@front-end/services/features";
+import track from "@front-end/services/track";
+import ValueDisplay from "@front-end/components/Features/ValueDisplay";
+import { useAuth } from "@front-end/services/auth";
+import { PrerequisiteStatesCols } from "@front-end/components/Features/PrerequisiteStatusRow";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import useSDKConnections from "@front-end/hooks/useSDKConnections";
+import { PrerequisiteAlerts } from "@front-end/components/Features/PrerequisiteTargetingField";
+import { DocLink } from "@front-end/components/DocLink";
+import Modal from "@front-end/components/Modal";
+import SelectField from "@front-end/components/Forms/SelectField";
 
 export interface Props {
   close: () => void;

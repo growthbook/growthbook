@@ -4,13 +4,13 @@ import Link from "next/link";
 import { ReportInterface } from "back-end/types/report";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { datetime, ago } from "shared/dates";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import { useAddComputedFields, useSearch } from "@/services/search";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import useApi from "@/hooks/useApi";
-import Toggle from "@/components/Forms/Toggle";
-import { useUser } from "@/services/UserContext";
-import Field from "@/components/Forms/Field";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import { useAddComputedFields, useSearch } from "@front-end/services/search";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import useApi from "@front-end/hooks/useApi";
+import Toggle from "@front-end/components/Forms/Toggle";
+import { useUser } from "@front-end/services/UserContext";
+import Field from "@front-end/components/Forms/Field";
 
 const ReportsPage = (): React.ReactElement => {
   const router = useRouter();

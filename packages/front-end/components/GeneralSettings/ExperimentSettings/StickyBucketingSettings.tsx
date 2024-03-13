@@ -1,15 +1,15 @@
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { FaQuestionCircle } from "react-icons/fa";
-import { useUser } from "@/services/UserContext";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import Toggle from "@/components/Forms/Toggle";
+import { useUser } from "@front-end/services/UserContext";
+import useSDKConnections from "@front-end/hooks/useSDKConnections";
+import PremiumTooltip from "@front-end/components/Marketing/PremiumTooltip";
+import Toggle from "@front-end/components/Forms/Toggle";
 import {
   StickyBucketingToggleWarning,
   StickyBucketingTooltip,
-} from "@/components/Features/FallbackAttributeSelector";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { ConnectSettingsForm } from "@/pages/settings";
+} from "@front-end/components/Features/FallbackAttributeSelector";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { ConnectSettingsForm } from "@front-end/pages/settings";
 
 export default function StickyBucketingSettings() {
   const { hasCommercialFeature } = useUser();

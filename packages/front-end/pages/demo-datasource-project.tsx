@@ -1,6 +1,6 @@
 import React from "react";
 import { NextPage } from "next";
-import { DemoDataSourcePageContainer } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
+import { DemoDataSourcePageContainer } from "@front-end/components/DemoDataSourcePage/DemoDataSourcePage";
 
 const DemoDataSourceProjectPage: NextPage = () => {
   return <DemoDataSourcePageContainer />;

@@ -1,13 +1,13 @@
 import fetch from "node-fetch";
-import { logger } from "@/src/util/logger";
-import { createLegacySdkKey } from "@/src/models/ApiKeyModel";
+import { logger } from "@back-end/src/util/logger";
+import { createLegacySdkKey } from "@back-end/src/models/ApiKeyModel";
 import {
   CreateEnvParams,
   GbVercelEnvMap,
   VercelEnvVar,
   VercelProject,
   VercelTarget,
-} from "@/types/vercel";
+} from "@back-end/types/vercel";
 
 interface VercelApiCallProps {
   token: string;

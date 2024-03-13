@@ -7,11 +7,11 @@ import { z } from "zod";
 import {
   NotificationEventName,
   notificationEventNames,
-} from "@/src/events/base-types";
-import { logger } from "@/src/util/logger";
-import { errorStringFromZodResult } from "@/src/util/validation";
-import { SlackIntegrationInterface } from "@/types/slack-integration";
-import { OrganizationInterface } from "@/types/organization";
+} from "@back-end/src/events/base-types";
+import { logger } from "@back-end/src/util/logger";
+import { errorStringFromZodResult } from "@back-end/src/util/validation";
+import { SlackIntegrationInterface } from "@back-end/types/slack-integration";
+import { OrganizationInterface } from "@back-end/types/organization";
 
 const slackIntegrationSchema = new mongoose.Schema({
   id: {

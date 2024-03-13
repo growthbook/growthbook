@@ -3,13 +3,16 @@ import {
   updateDataSource,
   validateExposureQueriesAndAddMissingIds,
   hasActualChanges,
-} from "@/src/models/DataSourceModel";
-import { DataSourceInterface, DataSourceSettings } from "@/types/datasource";
-import { testQueryValidity } from "@/src/services/datasource";
-import { usingFileConfig } from "@/src/init/config";
+} from "@back-end/src/models/DataSourceModel";
+import {
+  DataSourceInterface,
+  DataSourceSettings,
+} from "@back-end/types/datasource";
+import { testQueryValidity } from "@back-end/src/services/datasource";
+import { usingFileConfig } from "@back-end/src/init/config";
 
-jest.mock("@/src/services/datasource");
-jest.mock("@/src/init/config");
+jest.mock("@back-end/src/services/datasource");
+jest.mock("@back-end/src/init/config");
 
 const mockedTestQueryValidity: jest.MockedFunction<
   typeof testQueryValidity

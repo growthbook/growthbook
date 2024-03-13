@@ -5,12 +5,12 @@ import {
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { FaPlusCircle } from "react-icons/fa";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import usePermissions from "@/hooks/usePermissions";
-import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
-import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
-import track from "@/services/track";
-import { StartExperimentBanner } from "@/components/Experiment/StartExperimentBanner";
-import AddLinkedChangesBanner from "@/components/Experiment/AddLinkedChangesBanner";
+import usePermissions from "@front-end/hooks/usePermissions";
+import { VisualChangesetTable } from "@front-end/components/Experiment/VisualChangesetTable";
+import LinkedFeatureFlag from "@front-end/components/Experiment/LinkedFeatureFlag";
+import track from "@front-end/services/track";
+import { StartExperimentBanner } from "@front-end/components/Experiment/StartExperimentBanner";
+import AddLinkedChangesBanner from "@front-end/components/Experiment/AddLinkedChangesBanner";
 import TargetingInfo from "./TargetingInfo";
 import { ExperimentTab } from ".";
 

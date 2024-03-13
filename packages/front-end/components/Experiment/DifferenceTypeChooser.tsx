@@ -7,10 +7,10 @@ import {
 import { getSnapshotAnalysis } from "shared/util";
 import { DifferenceType } from "back-end/types/stats";
 import { FaCheck } from "react-icons/fa";
-import Dropdown from "@/components/Dropdown/Dropdown";
-import { useAuth } from "@/services/auth";
-import track from "@/services/track";
-import LoadingSpinner from "@/components/LoadingSpinner";
+import Dropdown from "@front-end/components/Dropdown/Dropdown";
+import { useAuth } from "@front-end/services/auth";
+import track from "@front-end/services/track";
+import LoadingSpinner from "@front-end/components/LoadingSpinner";
 
 export async function analysisUpdate(
   newSettings: ExperimentSnapshotAnalysisSettings,

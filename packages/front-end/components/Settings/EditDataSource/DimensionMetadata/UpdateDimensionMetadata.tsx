@@ -9,16 +9,16 @@ import { QueryStatus } from "back-end/types/query";
 import { DimensionSlicesInterface } from "back-end/types/dimension";
 import { BsGear } from "react-icons/bs";
 import { useForm } from "react-hook-form";
-import { useAuth } from "@/services/auth";
-import useApi from "@/hooks/useApi";
+import { useAuth } from "@front-end/services/auth";
+import useApi from "@front-end/hooks/useApi";
 import RunQueriesButton, {
   getQueryStatus,
-} from "@/components/Queries/RunQueriesButton";
-import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
-import track from "@/services/track";
-import usePermissions from "@/hooks/usePermissions";
+} from "@front-end/components/Queries/RunQueriesButton";
+import ViewAsyncQueriesButton from "@front-end/components/Queries/ViewAsyncQueriesButton";
+import Modal from "@front-end/components/Modal";
+import Field from "@front-end/components/Forms/Field";
+import track from "@front-end/services/track";
+import usePermissions from "@front-end/hooks/usePermissions";
 
 const smallPercentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",

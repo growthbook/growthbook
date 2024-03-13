@@ -15,17 +15,17 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getSnapshotAnalysis } from "shared/util";
-import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Toggle from "@/components/Forms/Toggle";
-import { GBCuped } from "@/components/Icons";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { useUser } from "@/services/UserContext";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { trackSnapshot } from "@/services/track";
-import VariationChooser from "@/components/Experiment/VariationChooser";
-import BaselineChooser from "@/components/Experiment/BaselineChooser";
-import DimensionChooser from "@/components/Dimensions/DimensionChooser";
+import { useAuth } from "@front-end/services/auth";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Toggle from "@front-end/components/Forms/Toggle";
+import { GBCuped } from "@front-end/components/Icons";
+import PremiumTooltip from "@front-end/components/Marketing/PremiumTooltip";
+import { useUser } from "@front-end/services/UserContext";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { trackSnapshot } from "@front-end/services/track";
+import VariationChooser from "@front-end/components/Experiment/VariationChooser";
+import BaselineChooser from "@front-end/components/Experiment/BaselineChooser";
+import DimensionChooser from "@front-end/components/Dimensions/DimensionChooser";
 import AnalysisForm from "./AnalysisForm";
 import ResultMoreMenu from "./ResultMoreMenu";
 import PhaseSelector from "./PhaseSelector";

@@ -2,12 +2,12 @@ import mongoose from "mongoose";
 import {
   AutoExperimentWithProject,
   FeatureDefinitionWithProject,
-} from "@/types/api";
+} from "@back-end/types/api";
 import {
   SDKPayloadContents,
   SDKPayloadInterface,
   SDKStringifiedPayloadInterface,
-} from "@/types/sdk-payload";
+} from "@back-end/types/sdk-payload";
 
 // Increment this if we change the payload contents in a backwards-incompatible way
 export const LATEST_SDK_PAYLOAD_SCHEMA_VERSION = 1;

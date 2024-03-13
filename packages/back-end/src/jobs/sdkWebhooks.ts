@@ -2,23 +2,26 @@ import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import md5 from "md5";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
-import { getFeatureDefinitions } from "@/src/services/features";
-import { getContextForAgendaJobByOrgId } from "@/src/services/organizations";
-import { trackJob } from "@/src/services/otel";
-import { CRON_ENABLED, WEBHOOKS } from "@/src/util/secrets";
-import { logger } from "@/src/util/logger";
-import { cancellableFetch } from "@/src/util/http.util";
-import { createSdkWebhookLog } from "@/src/models/SdkWebhookLogModel";
-import { findWebhookById, findWebhooksBySdks } from "@/src/models/WebhookModel";
+import { getFeatureDefinitions } from "@back-end/src/services/features";
+import { getContextForAgendaJobByOrgId } from "@back-end/src/services/organizations";
+import { trackJob } from "@back-end/src/services/otel";
+import { CRON_ENABLED, WEBHOOKS } from "@back-end/src/util/secrets";
+import { logger } from "@back-end/src/util/logger";
+import { cancellableFetch } from "@back-end/src/util/http.util";
+import { createSdkWebhookLog } from "@back-end/src/models/SdkWebhookLogModel";
+import {
+  findWebhookById,
+  findWebhooksBySdks,
+} from "@back-end/src/models/WebhookModel";
 import {
   findSDKConnectionsByIds,
   findSDKConnectionsByOrganization,
-} from "@/src/models/SdkConnectionModel";
-import { ReqContext } from "@/types/organization";
-import { ApiReqContext } from "@/types/api";
-import { WebhookInterface, WebhookMethod } from "@/types/webhook";
-import { SDKConnectionInterface } from "@/types/sdk-connection";
-import { SDKPayloadKey } from "@/types/sdk-payload";
+} from "@back-end/src/models/SdkConnectionModel";
+import { ReqContext } from "@back-end/types/organization";
+import { ApiReqContext } from "@back-end/types/api";
+import { WebhookInterface, WebhookMethod } from "@back-end/types/webhook";
+import { SDKConnectionInterface } from "@back-end/types/sdk-connection";
+import { SDKPayloadKey } from "@back-end/types/sdk-payload";
 
 const SDK_WEBHOOKS_JOB_NAME = "fireWebhooks";
 type SDKWebhookJob = Job<{

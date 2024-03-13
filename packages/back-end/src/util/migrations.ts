@@ -4,37 +4,43 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { getSourceIntegrationObject } from "@/src/services/datasource";
-import { getEnvironments } from "@/src/services/organizations";
-import { LegacyMetricInterface, MetricInterface } from "@/types/metric";
-import { DataSourceInterface, DataSourceSettings } from "@/types/datasource";
+import { getSourceIntegrationObject } from "@back-end/src/services/datasource";
+import { getEnvironments } from "@back-end/src/services/organizations";
+import { LegacyMetricInterface, MetricInterface } from "@back-end/types/metric";
+import {
+  DataSourceInterface,
+  DataSourceSettings,
+} from "@back-end/types/datasource";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
   LegacyFeatureInterface,
-} from "@/types/feature";
-import { MemberRole, OrganizationInterface } from "@/types/organization";
+} from "@back-end/types/feature";
+import {
+  MemberRole,
+  OrganizationInterface,
+} from "@back-end/types/organization";
 import {
   ExperimentInterface,
   LegacyExperimentInterface,
-} from "@/types/experiment";
+} from "@back-end/types/experiment";
 import {
   LegacyExperimentSnapshotInterface,
   ExperimentSnapshotInterface,
   MetricForSnapshot,
-} from "@/types/experiment-snapshot";
+} from "@back-end/types/experiment-snapshot";
 import {
   LegacySavedGroupInterface,
   SavedGroupInterface,
-} from "@/types/saved-group";
+} from "@back-end/types/saved-group";
 import {
   FactMetricInterface,
   LegacyFactMetricInterface,
-} from "@/types/fact-table";
-import SqlIntegration from "@/src/integrations/SqlIntegration";
-import { getConfigOrganizationSettings } from "@/src/init/config";
+} from "@back-end/types/fact-table";
+import SqlIntegration from "@back-end/src/integrations/SqlIntegration";
+import { getConfigOrganizationSettings } from "@back-end/src/init/config";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {

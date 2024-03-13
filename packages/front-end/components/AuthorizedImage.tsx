@@ -1,12 +1,12 @@
 import React, { useEffect, useState, FC } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { useAuth } from "@/services/auth";
+import { useAuth } from "@front-end/services/auth";
 import {
   getApiHost,
   getGcsDomain,
   getS3Domain,
   usingFileProxy,
-} from "@/services/env";
+} from "@front-end/services/env";
 import LoadingSpinner from "./LoadingSpinner";
 
 interface AuthorizedImageProps extends React.HTMLProps<HTMLImageElement> {

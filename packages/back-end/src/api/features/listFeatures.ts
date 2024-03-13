@@ -1,9 +1,15 @@
-import { getApiFeatureObj, getSavedGroupMap } from "@/src/services/features";
-import { listFeaturesValidator } from "@/src/validators/openapi";
-import { ListFeaturesResponse } from "@/types/openapi";
-import { getAllPayloadExperiments } from "@/src/models/ExperimentModel";
-import { getAllFeatures } from "@/src/models/FeatureModel";
-import { applyPagination, createApiRequestHandler } from "@/src/util/handler";
+import {
+  getApiFeatureObj,
+  getSavedGroupMap,
+} from "@back-end/src/services/features";
+import { listFeaturesValidator } from "@back-end/src/validators/openapi";
+import { ListFeaturesResponse } from "@back-end/types/openapi";
+import { getAllPayloadExperiments } from "@back-end/src/models/ExperimentModel";
+import { getAllFeatures } from "@back-end/src/models/FeatureModel";
+import {
+  applyPagination,
+  createApiRequestHandler,
+} from "@back-end/src/util/handler";
 
 export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
   async (req): Promise<ListFeaturesResponse> => {

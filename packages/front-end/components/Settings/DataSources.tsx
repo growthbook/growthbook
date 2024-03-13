@@ -4,15 +4,15 @@ import Link from "next/link";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { ago } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
-import ProjectBadges from "@/components/ProjectBadges";
-import { GBAddCircle } from "@/components/Icons";
-import usePermissions from "@/hooks/usePermissions";
-import { DocLink } from "@/components/DocLink";
-import { hasFileConfig } from "@/services/env";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import ProjectBadges from "@front-end/components/ProjectBadges";
+import { GBAddCircle } from "@front-end/components/Icons";
+import usePermissions from "@front-end/hooks/usePermissions";
+import { DocLink } from "@front-end/components/DocLink";
+import { hasFileConfig } from "@front-end/services/env";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { useDemoDataSourceProject } from "@front-end/hooks/useDemoDataSourceProject";
 import NewDataSourceForm from "./NewDataSourceForm";
 
 const DataSources: FC = () => {

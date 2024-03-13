@@ -1,6 +1,9 @@
-import { ApiKeyInterface } from "@/types/apikey";
-import { verifyApiKeyPermission } from "@/src/middleware/authenticateApiRequestMiddleware";
-import { OrganizationInterface, Permission } from "@/types/organization";
+import { ApiKeyInterface } from "@back-end/types/apikey";
+import { verifyApiKeyPermission } from "@back-end/src/middleware/authenticateApiRequestMiddleware";
+import {
+  OrganizationInterface,
+  Permission,
+} from "@back-end/types/organization";
 
 describe("REST API auth middleware", () => {
   describe("verifyApiKeyPermission", () => {

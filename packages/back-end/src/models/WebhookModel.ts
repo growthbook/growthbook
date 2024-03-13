@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { WebhookInterface } from "@/types/webhook";
+import { WebhookInterface } from "@back-end/types/webhook";
 
 const webhookSchema = new mongoose.Schema({
   id: {

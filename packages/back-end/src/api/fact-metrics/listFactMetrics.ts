@@ -1,11 +1,14 @@
 import { isProjectListValidForProject } from "shared/util";
-import { listFactMetricsValidator } from "@/src/validators/openapi";
-import { ListFactMetricsResponse } from "@/types/openapi";
+import { listFactMetricsValidator } from "@back-end/src/validators/openapi";
+import { ListFactMetricsResponse } from "@back-end/types/openapi";
 import {
   getAllFactMetricsForOrganization,
   toFactMetricApiInterface,
-} from "@/src/models/FactMetricModel";
-import { applyPagination, createApiRequestHandler } from "@/src/util/handler";
+} from "@back-end/src/models/FactMetricModel";
+import {
+  applyPagination,
+  createApiRequestHandler,
+} from "@back-end/src/util/handler";
 
 export const listFactMetrics = createApiRequestHandler(
   listFactMetricsValidator

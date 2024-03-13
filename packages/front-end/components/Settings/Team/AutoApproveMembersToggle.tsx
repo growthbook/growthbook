@@ -1,11 +1,11 @@
 import { FaQuestionCircle } from "react-icons/fa";
 import { useEffect, useState } from "react";
-import Toggle from "@/components/Forms/Toggle";
-import track from "@/services/track";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { useUser } from "@/services/UserContext";
-import usePermissions from "@/hooks/usePermissions";
-import { useAuth } from "@/services/auth";
+import Toggle from "@front-end/components/Forms/Toggle";
+import track from "@front-end/services/track";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { useUser } from "@front-end/services/UserContext";
+import usePermissions from "@front-end/hooks/usePermissions";
+import { useAuth } from "@front-end/services/auth";
 
 export default function AutoApproveMembersToggle({
   mutate,

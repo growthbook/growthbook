@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { GithubIntegrationInterface } from "back-end/types/github";
-import LoadingSpinner from "@/components/LoadingSpinner";
-import { useAuth } from "@/services/auth";
+import LoadingSpinner from "@front-end/components/LoadingSpinner";
+import { useAuth } from "@front-end/services/auth";
 export default function GithubIntegrationConnect({
   code,
   refresh,

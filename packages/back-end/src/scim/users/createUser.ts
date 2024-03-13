@@ -4,13 +4,16 @@ import {
   addMemberToOrg,
   convertMemberToManagedByIdp,
   expandOrgMembers,
-} from "@/src/services/organizations";
-import { OrganizationInterface, MemberRole } from "@/types/organization";
-import { ScimError, ScimUser, ScimUserPostRequest } from "@/types/scim";
+} from "@back-end/src/services/organizations";
+import {
+  OrganizationInterface,
+  MemberRole,
+} from "@back-end/types/organization";
+import { ScimError, ScimUser, ScimUserPostRequest } from "@back-end/types/scim";
 import {
   createUser as createNewUser,
   getUserByEmail,
-} from "@/src/services/users";
+} from "@back-end/src/services/users";
 
 export function isRoleValid(role: MemberRole) {
   const validRoles: Record<MemberRole, boolean> = {

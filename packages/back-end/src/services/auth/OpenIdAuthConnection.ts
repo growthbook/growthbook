@@ -11,20 +11,23 @@ import {
 import jwtExpress from "express-jwt";
 import jwks from "jwks-rsa";
 import { SSO_CONFIG } from "enterprise";
-import { getSSOConnectionById } from "@/src/models/SSOConnectionModel";
+import { getSSOConnectionById } from "@back-end/src/models/SSOConnectionModel";
 import {
   SSOConnectionInterface,
   UnauthenticatedResponse,
-} from "@/types/sso-connection";
-import { AuthRequest } from "@/src/types/AuthRequest";
-import { AuthChecksCookie, SSOConnectionIdCookie } from "@/src/util/cookie";
-import { APP_ORIGIN, IS_CLOUD, USE_PROXY } from "@/src/util/secrets";
-import { getHttpOptions } from "@/src/util/http.util";
+} from "@back-end/types/sso-connection";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
+import {
+  AuthChecksCookie,
+  SSOConnectionIdCookie,
+} from "@back-end/src/util/cookie";
+import { APP_ORIGIN, IS_CLOUD, USE_PROXY } from "@back-end/src/util/secrets";
+import { getHttpOptions } from "@back-end/src/util/http.util";
 import {
   getAuditableUserPropertiesFromRequest,
   trackLoginForUser,
-} from "@/src/services/users";
-import { MemoryCache } from "@/src/services/cache";
+} from "@back-end/src/services/users";
+import { MemoryCache } from "@back-end/src/services/cache";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
 
 type AuthChecks = {

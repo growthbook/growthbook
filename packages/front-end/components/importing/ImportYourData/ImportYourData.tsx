@@ -1,5 +1,5 @@
 import React, { FC } from "react";
-import { ImportFromServiceCard } from "@/components/importing/ImportFromServiceCard/ImportFromServiceCard";
+import { ImportFromServiceCard } from "@front-end/components/importing/ImportFromServiceCard/ImportFromServiceCard";
 
 type ImportYourDataProps = Record<string, never>;
 

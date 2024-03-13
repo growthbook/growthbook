@@ -1,5 +1,5 @@
 import { ReactNode, FC, ReactElement } from "react";
-import LoadingOverlay from "@/components/LoadingOverlay";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
 
 type WelcomeFrameProps = {
   leftside: string | ReactElement | boolean;

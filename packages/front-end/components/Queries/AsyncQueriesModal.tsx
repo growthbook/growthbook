@@ -1,10 +1,10 @@
 import { FC, useState } from "react";
 import { QueryInterface } from "back-end/types/query";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
-import useApi from "@/hooks/useApi";
-import Modal from "@/components/Modal";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import LoadingSpinner from "@/components/LoadingSpinner";
+import useApi from "@front-end/hooks/useApi";
+import Modal from "@front-end/components/Modal";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import LoadingSpinner from "@front-end/components/LoadingSpinner";
 import ExpandableQuery from "./ExpandableQuery";
 import QueryStatsRow from "./QueryStatsRow";
 

@@ -4,12 +4,12 @@ import fetch from "node-fetch";
 import {
   getContextForAgendaJobByOrgId,
   getExperimentOverrides,
-} from "@/src/services/organizations";
-import { getFeatureDefinitions } from "@/src/services/features";
-import { CRON_ENABLED } from "@/src/util/secrets";
-import { WebhookModel } from "@/src/models/WebhookModel";
-import { WebhookInterface } from "@/types/webhook";
-import { SDKPayloadKey } from "@/types/sdk-payload";
+} from "@back-end/src/services/organizations";
+import { getFeatureDefinitions } from "@back-end/src/services/features";
+import { CRON_ENABLED } from "@back-end/src/util/secrets";
+import { WebhookModel } from "@back-end/src/models/WebhookModel";
+import { WebhookInterface } from "@back-end/types/webhook";
+import { SDKPayloadKey } from "@back-end/types/sdk-payload";
 
 const WEBHOOK_JOB_NAME = "fireWebhook";
 type WebhookJob = Job<{

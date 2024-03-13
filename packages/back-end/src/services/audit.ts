@@ -1,6 +1,6 @@
-import { findAuditByEntityList } from "@/src/models/AuditModel";
-import { getWatchedByUser } from "@/src/models/WatchModel";
-import { EntityType } from "@/src/types/Audit";
+import { findAuditByEntityList } from "@back-end/src/models/AuditModel";
+import { getWatchedByUser } from "@back-end/src/models/WatchModel";
+import { EntityType } from "@back-end/src/types/Audit";
 
 export function isValidAuditEntityType(type: string): type is EntityType {
   return EntityType.includes(type as EntityType);

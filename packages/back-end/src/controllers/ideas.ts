@@ -6,18 +6,21 @@ import {
   getIdeaById,
   deleteIdeaById,
   getIdeasByQuery,
-} from "@/src/services/ideas";
-import { getContextFromReq, userHasAccess } from "@/src/services/organizations";
-import { addTagsDiff } from "@/src/models/TagModel";
+} from "@back-end/src/services/ideas";
+import {
+  getContextFromReq,
+  userHasAccess,
+} from "@back-end/src/services/organizations";
+import { addTagsDiff } from "@back-end/src/models/TagModel";
 import {
   getImpactEstimate,
   ImpactEstimateModel,
-} from "@/src/models/ImpactEstimateModel";
-import { IdeaDocument } from "@/src/models/IdeasModel";
-import { getExperimentByIdea } from "@/src/models/ExperimentModel";
-import { Vote } from "@/types/vote";
-import { IdeaInterface } from "@/types/idea";
-import { AuthRequest } from "@/src/types/AuthRequest";
+} from "@back-end/src/models/ImpactEstimateModel";
+import { IdeaDocument } from "@back-end/src/models/IdeasModel";
+import { getExperimentByIdea } from "@back-end/src/models/ExperimentModel";
+import { Vote } from "@back-end/types/vote";
+import { IdeaInterface } from "@back-end/types/idea";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 
 export async function getIdeas(
   // eslint-disable-next-line

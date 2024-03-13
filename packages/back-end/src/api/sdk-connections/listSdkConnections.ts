@@ -1,17 +1,17 @@
-import { listSdkConnectionsValidator } from "@/src/validators/openapi";
-import { ListSdkConnectionsResponse } from "@/types/openapi";
+import { listSdkConnectionsValidator } from "@back-end/src/validators/openapi";
+import { ListSdkConnectionsResponse } from "@back-end/types/openapi";
 import {
   findAllSDKConnections,
   findSDKConnectionsByOrganization,
   toApiSDKConnectionInterface,
-} from "@/src/models/SdkConnectionModel";
-import { SDKConnectionInterface } from "@/types/sdk-connection";
+} from "@back-end/src/models/SdkConnectionModel";
+import { SDKConnectionInterface } from "@back-end/types/sdk-connection";
 import {
   applyFilter,
   applyPagination,
   createApiRequestHandler,
   validateIsSuperUserRequest,
-} from "@/src/util/handler";
+} from "@back-end/src/util/handler";
 
 export const listSdkConnections = createApiRequestHandler(
   listSdkConnectionsValidator

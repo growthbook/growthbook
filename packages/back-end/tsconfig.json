@@ -13,10 +13,10 @@
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,
     "rootDir": "src",
-    "resolveJsonModule": true,
     "paths": {
-      "@/*": ["./*"]
-    }
+      "@back-end/*": ["./*"]
+    },
+    "resolveJsonModule": true
   },
   "include": ["src/**/*", "types/**/*.d.ts", "typings/**/*.d.ts"]
 }

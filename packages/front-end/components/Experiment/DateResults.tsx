@@ -6,22 +6,22 @@ import {
 import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
 import {
   formatNumber,
   formatPercent,
   getExperimentMetricFormatter,
-} from "@/services/metrics";
+} from "@front-end/services/metrics";
 import {
   getEffectLabel,
   isExpectedDirection,
   isStatSig,
   shouldHighlight,
-} from "@/services/experiments";
-import { useCurrency } from "@/hooks/useCurrency";
-import useConfidenceLevels from "@/hooks/useConfidenceLevels";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
-import Toggle from "@/components/Forms/Toggle";
+} from "@front-end/services/experiments";
+import { useCurrency } from "@front-end/hooks/useCurrency";
+import useConfidenceLevels from "@front-end/hooks/useConfidenceLevels";
+import usePValueThreshold from "@front-end/hooks/usePValueThreshold";
+import Toggle from "@front-end/components/Forms/Toggle";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "./ExperimentDateGraph";

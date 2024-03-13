@@ -1,8 +1,8 @@
 import mongoose, { ConnectOptions } from "mongoose";
 import bluebird from "bluebird";
-import { MONGODB_URI } from "@/src/util/secrets";
-import { logger } from "@/src/util/logger";
-import { getConnectionStringWithDeprecatedKeysMigratedForV3to4 } from "@/src/util/mongo.util";
+import { MONGODB_URI } from "@back-end/src/util/secrets";
+import { logger } from "@back-end/src/util/logger";
+import { getConnectionStringWithDeprecatedKeysMigratedForV3to4 } from "@back-end/src/util/mongo.util";
 
 mongoose.Promise = bluebird;
 

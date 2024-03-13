@@ -1,11 +1,11 @@
 import uniq from "lodash/uniq";
 import isEqual from "lodash/isEqual";
 import intersection from "lodash/intersection";
-import { ApiFeature } from "@/types/openapi";
+import { ApiFeature } from "@back-end/types/openapi";
 import {
   FeatureUpdatedNotificationEvent,
   NotificationEvent,
-} from "@/src/events/notification-events";
+} from "@back-end/src/events/notification-events";
 
 export type FilterDataForNotificationEvent = {
   tags: string[];

@@ -13,39 +13,42 @@ import {
 } from "shared/constants";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { isProjectListValidForProject } from "shared/util";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import track from "@/services/track";
+import { useOrganizationMetricDefaults } from "@front-end/hooks/useOrganizationMetricDefaults";
+import {
+  getInitialMetricQuery,
+  validateSQL,
+} from "@front-end/services/datasources";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import track from "@front-end/services/track";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
   getMetricFormatter,
-} from "@/services/metrics";
-import { useAuth } from "@/services/auth";
-import RadioSelector from "@/components/Forms/RadioSelector";
-import PagedModal from "@/components/Modal/PagedModal";
-import Page from "@/components/Modal/Page";
-import Code from "@/components/SyntaxHighlighting/Code";
-import TagsInput from "@/components/Tags/TagsInput";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import SQLInputField from "@/components/SQLInputField";
-import GoogleAnalyticsMetrics from "@/components/Metrics/GoogleAnalyticsMetrics";
-import RiskThresholds from "@/components/Metrics/MetricForm/RiskThresholds";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import Toggle from "@/components/Forms/Toggle";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { useUser } from "@/services/UserContext";
-import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
-import useSchemaFormOptions from "@/hooks/useSchemaFormOptions";
-import { GBCuped } from "@/components/Icons";
-import usePermissions from "@/hooks/usePermissions";
-import { useCurrency } from "@/hooks/useCurrency";
-import ConfirmModal from "@/components/ConfirmModal";
-import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
-import FactMetricModal from "@/components/FactTables/FactMetricModal";
+} from "@front-end/services/metrics";
+import { useAuth } from "@front-end/services/auth";
+import RadioSelector from "@front-end/components/Forms/RadioSelector";
+import PagedModal from "@front-end/components/Modal/PagedModal";
+import Page from "@front-end/components/Modal/Page";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
+import TagsInput from "@front-end/components/Tags/TagsInput";
+import Field from "@front-end/components/Forms/Field";
+import SelectField from "@front-end/components/Forms/SelectField";
+import MultiSelectField from "@front-end/components/Forms/MultiSelectField";
+import SQLInputField from "@front-end/components/SQLInputField";
+import GoogleAnalyticsMetrics from "@front-end/components/Metrics/GoogleAnalyticsMetrics";
+import RiskThresholds from "@front-end/components/Metrics/MetricForm/RiskThresholds";
+import PremiumTooltip from "@front-end/components/Marketing/PremiumTooltip";
+import Toggle from "@front-end/components/Forms/Toggle";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import { useUser } from "@front-end/services/UserContext";
+import EditSqlModal from "@front-end/components/SchemaBrowser/EditSqlModal";
+import useSchemaFormOptions from "@front-end/hooks/useSchemaFormOptions";
+import { GBCuped } from "@front-end/components/Icons";
+import usePermissions from "@front-end/hooks/usePermissions";
+import { useCurrency } from "@front-end/hooks/useCurrency";
+import ConfirmModal from "@front-end/components/ConfirmModal";
+import { useDemoDataSourceProject } from "@front-end/hooks/useDemoDataSourceProject";
+import FactMetricModal from "@front-end/components/FactTables/FactMetricModal";
 import { MetricWindowSettingsForm } from "./MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "./MetricCappingSettingsForm";
 import { MetricDelayHours } from "./MetricDelayHours";

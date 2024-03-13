@@ -26,18 +26,21 @@ import { FaRegCircleQuestion } from "react-icons/fa6";
 import clsx from "clsx";
 import cloneDeep from "lodash/cloneDeep";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import ValueDisplay from "@/components/Features/ValueDisplay";
-import { getFeatureDefaultValue, useFeaturesList } from "@/services/features";
-import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
-import { useArrayIncrementer } from "@/hooks/useIncrementer";
-import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { useUser } from "@/services/UserContext";
-import { DocLink } from "@/components/DocLink";
-import SelectField from "@/components/Forms/SelectField";
-import { GBAddCircle } from "@/components/Icons";
+import ValueDisplay from "@front-end/components/Features/ValueDisplay";
+import {
+  getFeatureDefaultValue,
+  useFeaturesList,
+} from "@front-end/services/features";
+import PrerequisiteInput from "@front-end/components/Features/PrerequisiteInput";
+import { useArrayIncrementer } from "@front-end/hooks/useIncrementer";
+import { PrerequisiteStatesCols } from "@front-end/components/Features/PrerequisiteStatusRow";
+import useSDKConnections from "@front-end/hooks/useSDKConnections";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import PremiumTooltip from "@front-end/components/Marketing/PremiumTooltip";
+import { useUser } from "@front-end/services/UserContext";
+import { DocLink } from "@front-end/components/DocLink";
+import SelectField from "@front-end/components/Forms/SelectField";
+import { GBAddCircle } from "@front-end/components/Icons";
 
 export interface Props {
   value: FeaturePrerequisite[];

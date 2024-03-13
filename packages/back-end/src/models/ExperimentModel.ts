@@ -4,36 +4,36 @@ import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
 import { hasReadAccess } from "shared/permissions";
-import { EventNotifier } from "@/src/events/notifiers/EventNotifier";
+import { EventNotifier } from "@back-end/src/events/notifiers/EventNotifier";
 import {
   ExperimentCreatedNotificationEvent,
   ExperimentDeletedNotificationEvent,
   ExperimentUpdatedNotificationEvent,
-} from "@/src/events/notification-events";
-import { getEnvironmentIdsFromOrg } from "@/src/services/organizations";
+} from "@back-end/src/events/notification-events";
+import { getEnvironmentIdsFromOrg } from "@back-end/src/services/organizations";
 import {
   refreshSDKPayloadCache,
   VisualExperiment,
-} from "@/src/services/features";
+} from "@back-end/src/services/features";
 import {
   determineNextDate,
   generateTrackingKey,
   toExperimentApiInterface,
-} from "@/src/services/experiments";
-import { getAffectedSDKPayloadKeys } from "@/src/util/features";
-import { upgradeExperimentDoc } from "@/src/util/migrations";
-import { logger } from "@/src/util/logger";
-import { ApiReqContext } from "@/types/api";
-import { FeatureInterface } from "@/types/feature";
-import { SDKPayloadKey } from "@/types/sdk-payload";
-import { VisualChange } from "@/types/visual-changeset";
-import { ReqContext } from "@/types/organization";
+} from "@back-end/src/services/experiments";
+import { getAffectedSDKPayloadKeys } from "@back-end/src/util/features";
+import { upgradeExperimentDoc } from "@back-end/src/util/migrations";
+import { logger } from "@back-end/src/util/logger";
+import { ApiReqContext } from "@back-end/types/api";
+import { FeatureInterface } from "@back-end/types/feature";
+import { SDKPayloadKey } from "@back-end/types/sdk-payload";
+import { VisualChange } from "@back-end/types/visual-changeset";
+import { ReqContext } from "@back-end/types/organization";
 import {
   Changeset,
   ExperimentInterface,
   LegacyExperimentInterface,
   Variation,
-} from "@/types/experiment";
+} from "@back-end/types/experiment";
 import { getFeaturesByIds } from "./FeatureModel";
 import {
   findVisualChangesets,

@@ -1,9 +1,9 @@
 import { FaPencilAlt } from "react-icons/fa";
 import { useState } from "react";
 import { OrganizationInterface } from "back-end/types/organization";
-import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
-import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
-import { isCloud, isMultiOrg } from "@/services/env";
+import ShowLicenseInfo from "@front-end/components/License/ShowLicenseInfo";
+import EditOrganizationModal from "@front-end/components/Settings/EditOrganizationModal";
+import { isCloud, isMultiOrg } from "@front-end/services/env";
 
 export default function OrganizationAndLicenseSettings({
   org,

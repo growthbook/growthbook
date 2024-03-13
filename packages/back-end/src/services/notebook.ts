@@ -2,18 +2,18 @@ import { promisify } from "util";
 import { PythonShell } from "python-shell";
 import { getSnapshotAnalysis } from "shared/util";
 import { hoursBetween } from "shared/dates";
-import { APP_ORIGIN } from "@/src/util/secrets";
-import { findSnapshotById } from "@/src/models/ExperimentSnapshotModel";
-import { getExperimentById } from "@/src/models/ExperimentModel";
-import { getMetricMap } from "@/src/models/MetricModel";
-import { getDataSourceById } from "@/src/models/DataSourceModel";
-import { getReportById } from "@/src/models/ReportModel";
-import { getQueriesByIds } from "@/src/models/QueryModel";
-import { ReqContext } from "@/types/organization";
-import { ApiReqContext } from "@/types/api";
-import { Queries } from "@/types/query";
-import { ExperimentReportArgs } from "@/types/report";
-import { QueryMap } from "@/src/queryRunners/QueryRunner";
+import { APP_ORIGIN } from "@back-end/src/util/secrets";
+import { findSnapshotById } from "@back-end/src/models/ExperimentSnapshotModel";
+import { getExperimentById } from "@back-end/src/models/ExperimentModel";
+import { getMetricMap } from "@back-end/src/models/MetricModel";
+import { getDataSourceById } from "@back-end/src/models/DataSourceModel";
+import { getReportById } from "@back-end/src/models/ReportModel";
+import { getQueriesByIds } from "@back-end/src/models/QueryModel";
+import { ReqContext } from "@back-end/types/organization";
+import { ApiReqContext } from "@back-end/types/api";
+import { Queries } from "@back-end/types/query";
+import { ExperimentReportArgs } from "@back-end/types/report";
+import { QueryMap } from "@back-end/src/queryRunners/QueryRunner";
 import {
   DataForStatsEngine,
   getAnalysisSettingsForStatsEngine,

@@ -1,32 +1,32 @@
 import { AES, enc } from "crypto-js";
-import { ENCRYPTION_KEY } from "@/src/util/secrets";
-import { getDataSourceById } from "@/src/models/DataSourceModel";
+import { ENCRYPTION_KEY } from "@back-end/src/util/secrets";
+import { getDataSourceById } from "@back-end/src/models/DataSourceModel";
 import {
   DataSourceInterface,
   DataSourceParams,
   DataSourceSettings,
   DataSourceType,
   ExposureQuery,
-} from "@/types/datasource";
-import { TemplateVariables } from "@/types/sql";
-import { ReqContext } from "@/types/organization";
-import { ApiReqContext } from "@/types/api";
+} from "@back-end/types/datasource";
+import { TemplateVariables } from "@back-end/types/sql";
+import { ReqContext } from "@back-end/types/organization";
+import { ApiReqContext } from "@back-end/types/api";
 import {
   SourceIntegrationInterface,
   TestQueryRow,
-} from "@/src/types/Integration";
-import GoogleAnalytics from "@/src/integrations/GoogleAnalytics";
-import Athena from "@/src/integrations/Athena";
-import Presto from "@/src/integrations/Presto";
-import Databricks from "@/src/integrations/Databricks";
-import Redshift from "@/src/integrations/Redshift";
-import Snowflake from "@/src/integrations/Snowflake";
-import Postgres from "@/src/integrations/Postgres";
-import BigQuery from "@/src/integrations/BigQuery";
-import ClickHouse from "@/src/integrations/ClickHouse";
-import Mixpanel from "@/src/integrations/Mixpanel";
-import Mysql from "@/src/integrations/Mysql";
-import Mssql from "@/src/integrations/Mssql";
+} from "@back-end/src/types/Integration";
+import GoogleAnalytics from "@back-end/src/integrations/GoogleAnalytics";
+import Athena from "@back-end/src/integrations/Athena";
+import Presto from "@back-end/src/integrations/Presto";
+import Databricks from "@back-end/src/integrations/Databricks";
+import Redshift from "@back-end/src/integrations/Redshift";
+import Snowflake from "@back-end/src/integrations/Snowflake";
+import Postgres from "@back-end/src/integrations/Postgres";
+import BigQuery from "@back-end/src/integrations/BigQuery";
+import ClickHouse from "@back-end/src/integrations/ClickHouse";
+import Mixpanel from "@back-end/src/integrations/Mixpanel";
+import Mysql from "@back-end/src/integrations/Mysql";
+import Mssql from "@back-end/src/integrations/Mssql";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string

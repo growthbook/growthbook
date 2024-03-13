@@ -1,5 +1,5 @@
 import { FC } from "react";
-import RadioSelector from "@/components/Forms/RadioSelector";
+import RadioSelector from "@front-end/components/Forms/RadioSelector";
 
 const RuleSelect: FC<{ setValue: (value: string) => void; value: string }> = ({
   value = "",

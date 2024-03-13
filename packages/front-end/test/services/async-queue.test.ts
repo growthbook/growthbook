@@ -1,5 +1,9 @@
-import { enqueueTasks, QueueTask, TaskResult } from "@/services/async-queue";
-import { deepFreeze } from "@/test/test-helpers";
+import {
+  enqueueTasks,
+  QueueTask,
+  TaskResult,
+} from "@front-end/services/async-queue";
+import { deepFreeze } from "@front-end/test/test-helpers";
 
 describe("async queue", () => {
   type MyMockDataType = { n: number };

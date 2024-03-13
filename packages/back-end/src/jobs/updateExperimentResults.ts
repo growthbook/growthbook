@@ -4,35 +4,35 @@ import { getSnapshotAnalysis } from "shared/util";
 import {
   isEmailEnabled,
   sendExperimentChangesEmail,
-} from "@/src/services/email";
+} from "@back-end/src/services/email";
 import {
   createSnapshot,
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
   getExperimentMetricById,
   getRegressionAdjustmentInfo,
-} from "@/src/services/experiments";
+} from "@back-end/src/services/experiments";
 import {
   getConfidenceLevelsForOrg,
   getContextForAgendaJobByOrgId,
-} from "@/src/services/organizations";
-import { EXPERIMENT_REFRESH_FREQUENCY } from "@/src/util/secrets";
-import { logger } from "@/src/util/logger";
-import { getLatestSnapshot } from "@/src/models/ExperimentSnapshotModel";
-import { getMetricMap } from "@/src/models/MetricModel";
-import { getDataSourceById } from "@/src/models/DataSourceModel";
+} from "@back-end/src/services/organizations";
+import { EXPERIMENT_REFRESH_FREQUENCY } from "@back-end/src/util/secrets";
+import { logger } from "@back-end/src/util/logger";
+import { getLatestSnapshot } from "@back-end/src/models/ExperimentSnapshotModel";
+import { getMetricMap } from "@back-end/src/models/MetricModel";
+import { getDataSourceById } from "@back-end/src/models/DataSourceModel";
 import {
   getExperimentById,
   getExperimentsToUpdate,
   getExperimentsToUpdateLegacy,
   updateExperiment,
-} from "@/src/models/ExperimentModel";
-import { findProjectById } from "@/src/models/ProjectModel";
-import { getExperimentWatchers } from "@/src/models/WatchModel";
-import { getFactTableMap } from "@/src/models/FactTableModel";
-import { ExperimentSnapshotInterface } from "@/types/experiment-snapshot";
-import { ExperimentInterface } from "@/types/experiment";
-import { ApiReqContext } from "@/types/api";
+} from "@back-end/src/models/ExperimentModel";
+import { findProjectById } from "@back-end/src/models/ProjectModel";
+import { getExperimentWatchers } from "@back-end/src/models/WatchModel";
+import { getFactTableMap } from "@back-end/src/models/FactTableModel";
+import { ExperimentSnapshotInterface } from "@back-end/types/experiment-snapshot";
+import { ExperimentInterface } from "@back-end/types/experiment";
+import { ApiReqContext } from "@back-end/types/api";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;

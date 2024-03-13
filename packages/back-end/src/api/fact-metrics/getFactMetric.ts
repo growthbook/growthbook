@@ -1,10 +1,10 @@
-import { getFactMetricValidator } from "@/src/validators/openapi";
-import { GetFactMetricResponse } from "@/types/openapi";
+import { getFactMetricValidator } from "@back-end/src/validators/openapi";
+import { GetFactMetricResponse } from "@back-end/types/openapi";
 import {
   getFactMetric as findFactMetricById,
   toFactMetricApiInterface,
-} from "@/src/models/FactMetricModel";
-import { createApiRequestHandler } from "@/src/util/handler";
+} from "@back-end/src/models/FactMetricModel";
+import { createApiRequestHandler } from "@back-end/src/util/handler";
 
 export const getFactMetric = createApiRequestHandler(getFactMetricValidator)(
   async (req): Promise<GetFactMetricResponse> => {

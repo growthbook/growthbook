@@ -1,10 +1,10 @@
 import React from "react";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useUser } from "@/services/UserContext";
-import ActivityList from "@/components/ActivityList";
-import ExperimentList from "@/components/Experiment/ExperimentList";
-import ExperimentGraph from "@/components/Experiment/ExperimentGraph";
+import { useUser } from "@front-end/services/UserContext";
+import ActivityList from "@front-end/components/ActivityList";
+import ExperimentList from "@front-end/components/Experiment/ExperimentList";
+import ExperimentGraph from "@front-end/components/Experiment/ExperimentGraph";
 import styles from "./Dashboard.module.scss";
 import IdeasFeed from "./IdeasFeed";
 import NorthStar from "./NorthStar";

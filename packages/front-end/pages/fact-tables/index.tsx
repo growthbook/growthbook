@@ -4,23 +4,23 @@ import { useCallback, useState } from "react";
 import { date } from "shared/dates";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { useRouter } from "next/router";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import FactTableModal from "@/components/FactTables/FactTableModal";
-import { GBAddCircle } from "@/components/Icons";
-import usePermissions from "@/hooks/usePermissions";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { useAddComputedFields, useSearch } from "@/services/search";
-import Field from "@/components/Forms/Field";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
-import PageHead from "@/components/Layout/PageHead";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import FactTableModal from "@front-end/components/FactTables/FactTableModal";
+import { GBAddCircle } from "@front-end/components/Icons";
+import usePermissions from "@front-end/hooks/usePermissions";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { useAddComputedFields, useSearch } from "@front-end/services/search";
+import Field from "@front-end/components/Forms/Field";
+import { useLocalStorage } from "@front-end/hooks/useLocalStorage";
+import PageHead from "@front-end/components/Layout/PageHead";
 import TagsFilter, {
   filterByTags,
   useTagsFilter,
-} from "@/components/Tags/TagsFilter";
-import SortedTags from "@/components/Tags/SortedTags";
-import ProjectBadges from "@/components/ProjectBadges";
-import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
-import { OfficialBadge } from "@/components/Metrics/MetricName";
+} from "@front-end/components/Tags/TagsFilter";
+import SortedTags from "@front-end/components/Tags/SortedTags";
+import ProjectBadges from "@front-end/components/ProjectBadges";
+import InlineCode from "@front-end/components/SyntaxHighlighting/InlineCode";
+import { OfficialBadge } from "@front-end/components/Metrics/MetricName";
 
 export default function FactTablesPage() {
   const {

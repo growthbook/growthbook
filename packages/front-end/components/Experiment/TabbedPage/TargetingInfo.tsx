@@ -4,12 +4,12 @@ import {
   ExperimentTargetingData,
 } from "back-end/types/experiment";
 import clsx from "clsx";
-import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import ConditionDisplay from "@/components/Features/ConditionDisplay";
-import { formatTrafficSplit } from "@/services/utils";
-import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
-import { HashVersionTooltip } from "@/components/Experiment/HashVersionSelector";
+import HeaderWithEdit from "@front-end/components/Layout/HeaderWithEdit";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import ConditionDisplay from "@front-end/components/Features/ConditionDisplay";
+import { formatTrafficSplit } from "@front-end/services/utils";
+import SavedGroupTargetingDisplay from "@front-end/components/Features/SavedGroupTargetingDisplay";
+import { HashVersionTooltip } from "@front-end/components/Experiment/HashVersionSelector";
 
 export interface Props {
   phaseIndex?: number | null;

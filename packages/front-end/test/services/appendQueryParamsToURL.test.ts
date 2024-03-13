@@ -1,4 +1,4 @@
-import { appendQueryParamsToURL } from "@/services/utils";
+import { appendQueryParamsToURL } from "@front-end/services/utils";
 
 describe("appendQueryParamsToURL", () => {
   describe("when url has no query params", () => {

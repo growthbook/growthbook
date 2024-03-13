@@ -8,15 +8,15 @@ import {
   IS_MULTI_ORG,
   SECRET_API_KEY,
   SECRET_API_KEY_ROLE,
-} from "@/src/util/secrets";
-import { roleForApiKey } from "@/src/util/api-key.util";
+} from "@back-end/src/util/secrets";
+import { roleForApiKey } from "@back-end/src/util/api-key.util";
 import {
   ApiKeyInterface,
   PublishableApiKey,
   SecretApiKey,
-} from "@/types/apikey";
-import { ReqContext } from "@/types/organization";
-import { ApiReqContext } from "@/types/api";
+} from "@back-end/types/apikey";
+import { ReqContext } from "@back-end/types/organization";
+import { ApiReqContext } from "@back-end/types/api";
 import { findAllOrganizations } from "./OrganizationModel";
 
 const apiKeySchema = new mongoose.Schema({

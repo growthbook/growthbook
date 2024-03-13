@@ -1,15 +1,15 @@
 import { isEqual } from "lodash";
 import { validateCondition } from "shared/util";
-import { savedGroupUpdated } from "@/src/services/savedGroups";
-import { updateSavedGroupValidator } from "@/src/validators/openapi";
-import { UpdateSavedGroupResponse } from "@/types/openapi";
+import { savedGroupUpdated } from "@back-end/src/services/savedGroups";
+import { updateSavedGroupValidator } from "@back-end/src/validators/openapi";
+import { UpdateSavedGroupResponse } from "@back-end/types/openapi";
 import {
   getSavedGroupById,
   toSavedGroupApiInterface,
   updateSavedGroupById,
-} from "@/src/models/SavedGroupModel";
-import { UpdateSavedGroupProps } from "@/types/saved-group";
-import { createApiRequestHandler } from "@/src/util/handler";
+} from "@back-end/src/models/SavedGroupModel";
+import { UpdateSavedGroupProps } from "@back-end/types/saved-group";
+import { createApiRequestHandler } from "@back-end/src/util/handler";
 
 export const updateSavedGroup = createApiRequestHandler(
   updateSavedGroupValidator

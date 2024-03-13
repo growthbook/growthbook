@@ -4,17 +4,20 @@ import {
   addMembersToTeam,
   expandOrgMembers,
   removeMembersFromTeam,
-} from "@/src/services/organizations";
+} from "@back-end/src/services/organizations";
 import {
   BasicScimGroup,
   ScimError,
   ScimGroup,
   ScimGroupMember,
   ScimGroupPatchRequest,
-} from "@/types/scim";
-import { findTeamById, updateTeamMetadata } from "@/src/models/TeamModel";
-import { Member } from "@/types/organization";
-import { isRoleValid } from "@/src/scim/users/createUser";
+} from "@back-end/types/scim";
+import {
+  findTeamById,
+  updateTeamMetadata,
+} from "@back-end/src/models/TeamModel";
+import { Member } from "@back-end/types/organization";
+import { isRoleValid } from "@back-end/src/scim/users/createUser";
 
 export async function patchGroup(
   req: ScimGroupPatchRequest,

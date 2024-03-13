@@ -5,30 +5,30 @@ import {
   isRatioMetric,
 } from "shared/experiments";
 import chunk from "lodash/chunk";
-import { parseDimensionId } from "@/src/services/experiments";
+import { parseDimensionId } from "@back-end/src/services/experiments";
 import {
   analyzeExperimentResults,
   analyzeExperimentTraffic,
-} from "@/src/services/stats";
-import { getOrganizationById } from "@/src/services/organizations";
-import { expandDenominatorMetrics } from "@/src/util/sql";
-import { FactTableMap } from "@/src/models/FactTableModel";
-import { findSegmentById } from "@/src/models/SegmentModel";
+} from "@back-end/src/services/stats";
+import { getOrganizationById } from "@back-end/src/services/organizations";
+import { expandDenominatorMetrics } from "@back-end/src/util/sql";
+import { FactTableMap } from "@back-end/src/models/FactTableModel";
+import { findSegmentById } from "@back-end/src/models/SegmentModel";
 import {
   findSnapshotById,
   updateSnapshot,
-} from "@/src/models/ExperimentSnapshotModel";
-import { OrganizationInterface } from "@/types/organization";
-import { FactMetricInterface } from "@/types/fact-table";
-import { SegmentInterface } from "@/types/segment";
-import { Queries, QueryPointer, QueryStatus } from "@/types/query";
-import { MetricInterface } from "@/types/metric";
+} from "@back-end/src/models/ExperimentSnapshotModel";
+import { OrganizationInterface } from "@back-end/types/organization";
+import { FactMetricInterface } from "@back-end/types/fact-table";
+import { SegmentInterface } from "@back-end/types/segment";
+import { Queries, QueryPointer, QueryStatus } from "@back-end/types/query";
+import { MetricInterface } from "@back-end/types/metric";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotHealth,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
-} from "@/types/experiment-snapshot";
+} from "@back-end/types/experiment-snapshot";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentDimension,
@@ -39,8 +39,8 @@ import {
   ExperimentResults,
   ExperimentUnitsQueryParams,
   SourceIntegrationInterface,
-} from "@/src/types/Integration";
-import SqlIntegration from "@/src/integrations/SqlIntegration";
+} from "@back-end/src/types/Integration";
+import SqlIntegration from "@back-end/src/integrations/SqlIntegration";
 import {
   QueryRunner,
   QueryMap,

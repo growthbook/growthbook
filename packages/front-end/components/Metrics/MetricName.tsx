@@ -1,6 +1,6 @@
 import { HiBadgeCheck } from "react-icons/hi";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 
 export function OfficialBadge({
   type,

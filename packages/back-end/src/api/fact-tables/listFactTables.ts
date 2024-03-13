@@ -1,11 +1,14 @@
 import { isProjectListValidForProject } from "shared/util";
-import { listFactTablesValidator } from "@/src/validators/openapi";
-import { ListFactTablesResponse } from "@/types/openapi";
+import { listFactTablesValidator } from "@back-end/src/validators/openapi";
+import { ListFactTablesResponse } from "@back-end/types/openapi";
 import {
   getAllFactTablesForOrganization,
   toFactTableApiInterface,
-} from "@/src/models/FactTableModel";
-import { applyPagination, createApiRequestHandler } from "@/src/util/handler";
+} from "@back-end/src/models/FactTableModel";
+import {
+  applyPagination,
+  createApiRequestHandler,
+} from "@back-end/src/util/handler";
 
 export const listFactTables = createApiRequestHandler(listFactTablesValidator)(
   async (req): Promise<ListFactTablesResponse> => {

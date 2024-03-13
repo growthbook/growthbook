@@ -1,28 +1,28 @@
 import fetch from "node-fetch";
 import { Response } from "express";
-import { getContextFromReq } from "@/src/services/organizations";
+import { getContextFromReq } from "@back-end/src/services/organizations";
 import {
   createOrgGbKeys,
   getEnvVars,
   getGbRelatedVercelProjects,
   postEnvVar,
   reduceGbVercelEnvMap,
-} from "@/src/services/vercel";
-import { auditDetailsUpdate } from "@/src/services/audit";
+} from "@back-end/src/services/vercel";
+import { auditDetailsUpdate } from "@back-end/src/services/audit";
 import {
   APP_ORIGIN,
   VERCEL_CLIENT_ID,
   VERCEL_CLIENT_SECRET,
-} from "@/src/util/secrets";
-import { getAllApiKeysByOrganization } from "@/src/models/ApiKeyModel";
-import { updateOrganization } from "@/src/models/OrganizationModel";
+} from "@back-end/src/util/secrets";
+import { getAllApiKeysByOrganization } from "@back-end/src/models/ApiKeyModel";
+import { updateOrganization } from "@back-end/src/models/OrganizationModel";
 import {
   GbVercelEnvMap,
   ApiKeyRow,
   VercelEnvVar,
   CreateEnvParams,
-} from "@/types/vercel";
-import { AuthRequest } from "@/src/types/AuthRequest";
+} from "@back-end/types/vercel";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 
 export async function getHasToken(req: AuthRequest, res: Response) {
   const { org } = await getContextFromReq(req);

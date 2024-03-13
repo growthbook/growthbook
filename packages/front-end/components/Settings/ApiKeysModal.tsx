@@ -1,12 +1,12 @@
 import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useAuth } from "@/services/auth";
-import { useEnvironments } from "@/services/features";
-import track from "@/services/track";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { useAuth } from "@front-end/services/auth";
+import { useEnvironments } from "@front-end/services/features";
+import track from "@front-end/services/track";
+import Modal from "@front-end/components/Modal";
+import Field from "@front-end/components/Forms/Field";
+import SelectField from "@front-end/components/Forms/SelectField";
 import EncryptionToggle from "./EncryptionToggle";
 import UpgradeModal from "./UpgradeModal";
 

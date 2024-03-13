@@ -8,7 +8,7 @@ import {
   offset,
   useFloating,
 } from "@floating-ui/react";
-import useGlobalMenu from "@/services/useGlobalMenu";
+import useGlobalMenu from "@front-end/services/useGlobalMenu";
 
 const MoreMenu: FC<{
   autoCloseOnClick?: boolean;

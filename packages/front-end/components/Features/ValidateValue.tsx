@@ -2,7 +2,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import React, { useMemo } from "react";
 import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
 import { validateJSONFeatureValue } from "shared/util";
-import { useUser } from "@/services/UserContext";
+import { useUser } from "@front-end/services/UserContext";
 
 export default function ValidateValue({
   value,

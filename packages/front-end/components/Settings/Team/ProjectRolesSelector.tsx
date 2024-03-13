@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { ProjectMemberRole } from "back-end/types/organization";
 import cloneDeep from "lodash/cloneDeep";
-import { useUser } from "@/services/UserContext";
-import SelectField from "@/components/Forms/SelectField";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { useUser } from "@front-end/services/UserContext";
+import SelectField from "@front-end/components/Forms/SelectField";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import PremiumTooltip from "@front-end/components/Marketing/PremiumTooltip";
 import SingleRoleSelector from "./SingleRoleSelector";
 
 export default function ProjectRolesSelector({

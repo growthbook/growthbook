@@ -16,21 +16,21 @@ import {
   getSDKVersions,
   isSDKOutdated,
 } from "shared/sdk-versioning";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useEnvironments } from "@/services/features";
-import Modal from "@/components/Modal";
-import { useAuth } from "@/services/auth";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
-import Toggle from "@/components/Forms/Toggle";
-import { isCloud } from "@/services/env";
-import track from "@/services/track";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { useUser } from "@/services/UserContext";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import Tab from "@/components/Tabs/Tab";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { useEnvironments } from "@front-end/services/features";
+import Modal from "@front-end/components/Modal";
+import { useAuth } from "@front-end/services/auth";
+import Field from "@front-end/components/Forms/Field";
+import SelectField from "@front-end/components/Forms/SelectField";
+import Toggle from "@front-end/components/Forms/Toggle";
+import { isCloud } from "@front-end/services/env";
+import track from "@front-end/services/track";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { useUser } from "@front-end/services/UserContext";
+import PremiumTooltip from "@front-end/components/Marketing/PremiumTooltip";
+import ControlledTabs from "@front-end/components/Tabs/ControlledTabs";
+import Tab from "@front-end/components/Tabs/Tab";
+import MultiSelectField from "@front-end/components/Forms/MultiSelectField";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import { LanguageEnvironment, languageMapping } from "./SDKLanguageLogo";
 

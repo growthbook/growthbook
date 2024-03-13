@@ -2,17 +2,17 @@ import { getValidDate } from "shared/dates";
 import {
   getPastExperimentsById,
   updatePastExperiments,
-} from "@/src/models/PastExperimentsModel";
+} from "@back-end/src/models/PastExperimentsModel";
 import {
   PastExperiment,
   PastExperimentsInterface,
-} from "@/types/past-experiments";
-import { Queries, QueryStatus } from "@/types/query";
+} from "@back-end/types/past-experiments";
+import { Queries, QueryStatus } from "@back-end/types/query";
 import {
   PastExperimentParams,
   PastExperimentResponseRows,
   PastExperimentResult,
-} from "@/src/types/Integration";
+} from "@back-end/src/types/Integration";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export class PastExperimentsQueryRunner extends QueryRunner<

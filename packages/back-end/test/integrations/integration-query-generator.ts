@@ -1,33 +1,36 @@
 import fs from "fs";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
-import { DataSourceInterface, DataSourceType } from "@/types/datasource";
+import {
+  DataSourceInterface,
+  DataSourceType,
+} from "@back-end/types/datasource";
 import {
   AttributionModel,
   ExperimentInterface,
   ExperimentPhase,
   MetricOverride,
   Variation,
-} from "@/types/experiment";
-import { SegmentInterface } from "@/types/segment";
+} from "@back-end/types/experiment";
+import { SegmentInterface } from "@back-end/types/segment";
 import {
   Dimension,
   ExperimentFactMetricsQueryParams,
   ExperimentMetricQueryParams,
   ExperimentUnitsQueryParams,
-} from "@/src/types/Integration";
-import { MetricInterface, MetricType } from "@/types/metric";
-import { getFactMetricGroup } from "@/src/queryRunners/ExperimentResultsQueryRunner";
-import { getSourceIntegrationObject } from "@/src/services/datasource";
-import { getSnapshotSettings } from "@/src/services/experiments";
-import { expandDenominatorMetrics } from "@/src/util/sql";
+} from "@back-end/src/types/Integration";
+import { MetricInterface, MetricType } from "@back-end/types/metric";
+import { getFactMetricGroup } from "@back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { getSourceIntegrationObject } from "@back-end/src/services/datasource";
+import { getSnapshotSettings } from "@back-end/src/services/experiments";
+import { expandDenominatorMetrics } from "@back-end/src/util/sql";
 import {
   FactFilterInterface,
   ColumnInterface,
   FactMetricInterface,
   FactTableInterface,
   MetricCappingSettings,
-} from "@/types/fact-table";
+} from "@back-end/types/fact-table";
 import experimentConfigData from "./json/experiments.json";
 import factTableConfigData from "./json/fact-tables.json";
 import factMetricConfigData from "./json/fact-metrics.json";

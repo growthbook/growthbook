@@ -1,5 +1,5 @@
 import { FeatureInterface } from "back-end/types/feature";
-import ValidateValue from "@/components/Features/ValidateValue";
+import ValidateValue from "@front-end/components/Features/ValidateValue";
 import ValueDisplay from "./ValueDisplay";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {

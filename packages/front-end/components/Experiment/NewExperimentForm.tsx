@@ -13,38 +13,38 @@ import {
   isProjectListValidForProject,
   validateAndFixCondition,
 } from "shared/util";
-import { useWatching } from "@/services/WatchProvider";
-import { useAuth } from "@/services/auth";
-import track from "@/services/track";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { getExposureQuery } from "@/services/datasources";
-import { getEqualWeights } from "@/services/utils";
+import { useWatching } from "@front-end/services/WatchProvider";
+import { useAuth } from "@front-end/services/auth";
+import track from "@front-end/services/track";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { getExposureQuery } from "@front-end/services/datasources";
+import { getEqualWeights } from "@front-end/services/utils";
 import {
   generateVariationId,
   useAttributeSchema,
   useEnvironments,
-} from "@/services/features";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
-import { useIncrementer } from "@/hooks/useIncrementer";
-import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
-import useSDKConnections from "@/hooks/useSDKConnections";
+} from "@front-end/services/features";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import { useDemoDataSourceProject } from "@front-end/hooks/useDemoDataSourceProject";
+import { useIncrementer } from "@front-end/hooks/useIncrementer";
+import FallbackAttributeSelector from "@front-end/components/Features/FallbackAttributeSelector";
+import useSDKConnections from "@front-end/hooks/useSDKConnections";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
-} from "@/components/Experiment/HashVersionSelector";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import TagsInput from "@/components/Tags/TagsInput";
-import Page from "@/components/Modal/Page";
-import PagedModal from "@/components/Modal/PagedModal";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
-import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
-import ConditionInput from "@/components/Features/ConditionInput";
-import NamespaceSelector from "@/components/Features/NamespaceSelector";
+} from "@front-end/components/Experiment/HashVersionSelector";
+import PrerequisiteTargetingField from "@front-end/components/Features/PrerequisiteTargetingField";
+import MarkdownInput from "@front-end/components/Markdown/MarkdownInput";
+import TagsInput from "@front-end/components/Tags/TagsInput";
+import Page from "@front-end/components/Modal/Page";
+import PagedModal from "@front-end/components/Modal/PagedModal";
+import Field from "@front-end/components/Forms/Field";
+import SelectField from "@front-end/components/Forms/SelectField";
+import FeatureVariationsInput from "@front-end/components/Features/FeatureVariationsInput";
+import ConditionInput from "@front-end/components/Features/ConditionInput";
+import NamespaceSelector from "@front-end/components/Features/NamespaceSelector";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
-} from "@/components/Features/SavedGroupTargetingField";
+} from "@front-end/components/Features/SavedGroupTargetingField";
 import MetricsSelector, { MetricsSelectorTooltip } from "./MetricsSelector";
 
 const weekAgo = new Date();

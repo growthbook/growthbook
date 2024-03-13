@@ -21,54 +21,54 @@ import { BsGear } from "react-icons/bs";
 import { IdeaInterface } from "back-end/types/idea";
 import { date } from "shared/dates";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import useApi from "@/hooks/useApi";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import DiscussionThread from "@/components/DiscussionThread";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { useAuth } from "@/services/auth";
+import useApi from "@front-end/hooks/useApi";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import DiscussionThread from "@front-end/components/DiscussionThread";
+import { useLocalStorage } from "@front-end/hooks/useLocalStorage";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import { useAuth } from "@front-end/services/auth";
 import {
   defaultWinRiskThreshold,
   defaultLoseRiskThreshold,
   checkMetricProjectPermissions,
   getMetricFormatter,
-} from "@/services/metrics";
-import MetricForm from "@/components/Metrics/MetricForm";
-import Tabs from "@/components/Tabs/Tabs";
-import Tab from "@/components/Tabs/Tab";
-import StatusIndicator from "@/components/Experiment/StatusIndicator";
-import HistoryTable from "@/components/HistoryTable";
-import DateGraph from "@/components/Metrics/DateGraph";
+} from "@front-end/services/metrics";
+import MetricForm from "@front-end/components/Metrics/MetricForm";
+import Tabs from "@front-end/components/Tabs/Tabs";
+import Tab from "@front-end/components/Tabs/Tab";
+import StatusIndicator from "@front-end/components/Experiment/StatusIndicator";
+import HistoryTable from "@front-end/components/HistoryTable";
+import DateGraph from "@front-end/components/Metrics/DateGraph";
 import RunQueriesButton, {
   getQueryStatus,
-} from "@/components/Queries/RunQueriesButton";
-import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
-import RightRailSection from "@/components/Layout/RightRailSection";
-import RightRailSectionGroup from "@/components/Layout/RightRailSectionGroup";
-import InlineForm from "@/components/Forms/InlineForm";
-import EditableH1 from "@/components/Forms/EditableH1";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Code from "@/components/SyntaxHighlighting/Code";
-import PickSegmentModal from "@/components/Segments/PickSegmentModal";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import Button from "@/components/Button";
-import usePermissions from "@/hooks/usePermissions";
-import EditTagsForm from "@/components/Tags/EditTagsForm";
-import EditOwnerModal from "@/components/Owner/EditOwnerModal";
-import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import ProjectBadges from "@/components/ProjectBadges";
-import EditProjectsForm from "@/components/Projects/EditProjectsForm";
-import { GBCuped, GBEdit } from "@/components/Icons";
-import Toggle from "@/components/Forms/Toggle";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { useCurrency } from "@/hooks/useCurrency";
-import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
-import { useUser } from "@/services/UserContext";
-import PageHead from "@/components/Layout/PageHead";
-import { capitalizeFirstLetter } from "@/services/utils";
-import MetricName from "@/components/Metrics/MetricName";
+} from "@front-end/components/Queries/RunQueriesButton";
+import ViewAsyncQueriesButton from "@front-end/components/Queries/ViewAsyncQueriesButton";
+import RightRailSection from "@front-end/components/Layout/RightRailSection";
+import RightRailSectionGroup from "@front-end/components/Layout/RightRailSectionGroup";
+import InlineForm from "@front-end/components/Forms/InlineForm";
+import EditableH1 from "@front-end/components/Forms/EditableH1";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
+import PickSegmentModal from "@front-end/components/Segments/PickSegmentModal";
+import MoreMenu from "@front-end/components/Dropdown/MoreMenu";
+import Button from "@front-end/components/Button";
+import usePermissions from "@front-end/hooks/usePermissions";
+import EditTagsForm from "@front-end/components/Tags/EditTagsForm";
+import EditOwnerModal from "@front-end/components/Owner/EditOwnerModal";
+import MarkdownInlineEdit from "@front-end/components/Markdown/MarkdownInlineEdit";
+import { useOrganizationMetricDefaults } from "@front-end/hooks/useOrganizationMetricDefaults";
+import ProjectBadges from "@front-end/components/ProjectBadges";
+import EditProjectsForm from "@front-end/components/Projects/EditProjectsForm";
+import { GBCuped, GBEdit } from "@front-end/components/Icons";
+import Toggle from "@front-end/components/Forms/Toggle";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { useCurrency } from "@front-end/hooks/useCurrency";
+import { DeleteDemoDatasourceButton } from "@front-end/components/DemoDataSourcePage/DemoDataSourcePage";
+import { useUser } from "@front-end/services/UserContext";
+import PageHead from "@front-end/components/Layout/PageHead";
+import { capitalizeFirstLetter } from "@front-end/services/utils";
+import MetricName from "@front-end/components/Metrics/MetricName";
 
 const MetricPage: FC = () => {
   const router = useRouter();

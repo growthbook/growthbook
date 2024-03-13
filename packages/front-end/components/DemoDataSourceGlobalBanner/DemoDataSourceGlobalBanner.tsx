@@ -3,9 +3,9 @@ import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasourc
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useAuth } from "@/services/auth";
-import { AppFeatures } from "@/types/app-features";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { useAuth } from "@front-end/services/auth";
+import { AppFeatures } from "@front-end/types/app-features";
 
 type DemoDataSourceGlobalBannerProps = {
   ready: boolean;

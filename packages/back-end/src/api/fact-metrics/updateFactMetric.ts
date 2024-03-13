@@ -1,16 +1,19 @@
 import z from "zod";
-import { updateFactMetricValidator } from "@/src/validators/openapi";
-import { FactMetricInterface, UpdateFactMetricProps } from "@/types/fact-table";
-import { UpdateFactMetricResponse } from "@/types/openapi";
+import { updateFactMetricValidator } from "@back-end/src/validators/openapi";
+import {
+  FactMetricInterface,
+  UpdateFactMetricProps,
+} from "@back-end/types/fact-table";
+import { UpdateFactMetricResponse } from "@back-end/types/openapi";
 import {
   updateFactMetric as updateFactMetricInDb,
   toFactMetricApiInterface,
   getFactMetric,
-} from "@/src/models/FactMetricModel";
-import { addTagsDiff } from "@/src/models/TagModel";
-import { getFactTable } from "@/src/models/FactTableModel";
-import { findAllProjectsByOrganization } from "@/src/models/ProjectModel";
-import { createApiRequestHandler } from "@/src/util/handler";
+} from "@back-end/src/models/FactMetricModel";
+import { addTagsDiff } from "@back-end/src/models/TagModel";
+import { getFactTable } from "@back-end/src/models/FactTableModel";
+import { findAllProjectsByOrganization } from "@back-end/src/models/ProjectModel";
+import { createApiRequestHandler } from "@back-end/src/util/handler";
 import { validateFactMetric } from "./postFactMetric";
 
 export function getUpdateFactMetricPropsFromBody(

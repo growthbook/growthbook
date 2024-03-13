@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import { useState } from "react";
 import { Variation, VariationWithIndex } from "back-end/types/experiment";
-import Dropdown from "@/components/Dropdown/Dropdown";
+import Dropdown from "@front-end/components/Dropdown/Dropdown";
 
 export interface Props {
   variations: Variation[];

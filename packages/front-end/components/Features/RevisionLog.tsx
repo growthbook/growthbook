@@ -14,10 +14,10 @@ import React, {
 } from "react";
 import stringify from "json-stringify-pretty-compact";
 import clsx from "clsx";
-import useApi from "@/hooks/useApi";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import Avatar from "@/components/Avatar/Avatar";
-import Code from "@/components/SyntaxHighlighting/Code";
+import useApi from "@front-end/hooks/useApi";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import Avatar from "@front-end/components/Avatar/Avatar";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
 
 export type MutateLog = {
   mutateLog: () => Promise<void>;

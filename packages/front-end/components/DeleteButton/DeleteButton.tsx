@@ -8,7 +8,7 @@ import {
 } from "react";
 import { FaTrash } from "react-icons/fa";
 import clsx from "clsx";
-import Modal from "@/components/Modal";
+import Modal from "@front-end/components/Modal";
 
 const DeleteButton: FC<{
   onClick: () => void | Promise<void>;

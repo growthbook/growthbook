@@ -1,7 +1,7 @@
 import {
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
-} from "@/src/services/stats";
+} from "@back-end/src/services/stats";
 import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
 import { DifferenceType, StatsEngine } from "./stats";

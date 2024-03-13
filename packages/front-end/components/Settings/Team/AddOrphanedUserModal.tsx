@@ -1,10 +1,10 @@
 import { FC, useState } from "react";
 import { MemberRoleWithProjects } from "back-end/types/organization";
-import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
-import { useUser } from "@/services/UserContext";
+import { useAuth } from "@front-end/services/auth";
+import Modal from "@front-end/components/Modal";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import UpgradeModal from "@front-end/components/Settings/UpgradeModal";
+import { useUser } from "@front-end/services/UserContext";
 import RoleSelector from "./RoleSelector";
 
 const AddOrphanedUserModal: FC<{

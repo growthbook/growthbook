@@ -5,22 +5,22 @@ import {
   getApiFeatureObj,
   getSavedGroupMap,
   updateInterfaceEnvSettingsFromApiEnvSettings,
-} from "@/src/services/features";
-import { auditDetailsUpdate } from "@/src/services/audit";
-import { getEnvironmentIdsFromOrg } from "@/src/services/organizations";
-import { updateFeatureValidator } from "@/src/validators/openapi";
-import { UpdateFeatureResponse } from "@/types/openapi";
+} from "@back-end/src/services/features";
+import { auditDetailsUpdate } from "@back-end/src/services/audit";
+import { getEnvironmentIdsFromOrg } from "@back-end/src/services/organizations";
+import { updateFeatureValidator } from "@back-end/src/validators/openapi";
+import { UpdateFeatureResponse } from "@back-end/types/openapi";
 import {
   getFeature,
   updateFeature as updateFeatureToDb,
-} from "@/src/models/FeatureModel";
-import { getExperimentMapForFeature } from "@/src/models/ExperimentModel";
-import { FeatureInterface } from "@/types/feature";
-import { addTagsDiff } from "@/src/models/TagModel";
-import { createRevision } from "@/src/models/FeatureRevisionModel";
-import { FeatureRevisionInterface } from "@/types/feature-revision";
-import { createApiRequestHandler } from "@/src/util/handler";
-import { getEnabledEnvironments } from "@/src/util/features";
+} from "@back-end/src/models/FeatureModel";
+import { getExperimentMapForFeature } from "@back-end/src/models/ExperimentModel";
+import { FeatureInterface } from "@back-end/types/feature";
+import { addTagsDiff } from "@back-end/src/models/TagModel";
+import { createRevision } from "@back-end/src/models/FeatureRevisionModel";
+import { FeatureRevisionInterface } from "@back-end/types/feature-revision";
+import { createApiRequestHandler } from "@back-end/src/util/handler";
+import { getEnabledEnvironments } from "@back-end/src/util/features";
 import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(

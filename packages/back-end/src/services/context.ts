@@ -6,25 +6,25 @@ import {
 import { uniq } from "lodash";
 import pino from "pino";
 import { Request } from "express";
-import { EventAuditUser } from "@/src/events/event-types";
+import { EventAuditUser } from "@back-end/src/events/event-types";
 import {
   getUserPermissions,
   roleToPermissionMap,
-} from "@/src/util/organization.util";
-import { logger } from "@/src/util/logger";
-import { findAllProjectsByOrganization } from "@/src/models/ProjectModel";
-import { addTags, getAllTags } from "@/src/models/TagModel";
-import { insertAudit } from "@/src/models/AuditModel";
-import { ReqContextInterface } from "@/types/context";
-import { AuditInterface } from "@/types/audit";
-import { ProjectInterface } from "@/types/project";
-import { TeamInterface } from "@/types/team";
+} from "@back-end/src/util/organization.util";
+import { logger } from "@back-end/src/util/logger";
+import { findAllProjectsByOrganization } from "@back-end/src/models/ProjectModel";
+import { addTags, getAllTags } from "@back-end/src/models/TagModel";
+import { insertAudit } from "@back-end/src/models/AuditModel";
+import { ReqContextInterface } from "@back-end/types/context";
+import { AuditInterface } from "@back-end/types/audit";
+import { ProjectInterface } from "@back-end/types/project";
+import { TeamInterface } from "@back-end/types/team";
 import {
   MemberRole,
   OrganizationInterface,
   Permission,
   UserPermissions,
-} from "@/types/organization";
+} from "@back-end/types/organization";
 import { getEnvironmentIdsFromOrg } from "./organizations";
 
 export class ReqContextClass implements ReqContextInterface {

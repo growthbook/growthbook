@@ -7,16 +7,16 @@ import intersection from "lodash/intersection";
 import {
   NotificationEventName,
   notificationEventNames,
-} from "@/src/events/base-types";
-import { errorStringFromZodResult } from "@/src/util/validation";
-import { logger } from "@/src/util/logger";
-import { EventWebHookInterface } from "@/types/event-webhook";
+} from "@back-end/src/events/base-types";
+import { errorStringFromZodResult } from "@back-end/src/util/validation";
+import { logger } from "@back-end/src/util/logger";
+import { EventWebHookInterface } from "@back-end/types/event-webhook";
 import {
   eventWebHookPayloadTypes,
   EventWebHookPayloadType,
   eventWebHookMethods,
   EventWebHookMethod,
-} from "@/src/types/EventWebHook";
+} from "@back-end/src/types/EventWebHook";
 
 const eventWebHookSchema = new mongoose.Schema({
   id: {

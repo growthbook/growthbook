@@ -1,11 +1,14 @@
 import { ExperimentMetricInterface } from "shared/experiments";
-import { getSnapshotSettingsFromReportArgs } from "@/src/services/reports";
-import { analyzeExperimentResults } from "@/src/services/stats";
-import { getReportById, updateReport } from "@/src/models/ReportModel";
-import { FactTableMap } from "@/src/models/FactTableModel";
-import { ExperimentReportResults, ReportInterface } from "@/types/report";
-import { Queries, QueryStatus } from "@/types/query";
-import { ExperimentSnapshotAnalysis } from "@/types/experiment-snapshot";
+import { getSnapshotSettingsFromReportArgs } from "@back-end/src/services/reports";
+import { analyzeExperimentResults } from "@back-end/src/services/stats";
+import { getReportById, updateReport } from "@back-end/src/models/ReportModel";
+import { FactTableMap } from "@back-end/src/models/FactTableModel";
+import {
+  ExperimentReportResults,
+  ReportInterface,
+} from "@back-end/types/report";
+import { Queries, QueryStatus } from "@back-end/types/query";
+import { ExperimentSnapshotAnalysis } from "@back-end/types/experiment-snapshot";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 import {
   ExperimentResultsQueryParams,

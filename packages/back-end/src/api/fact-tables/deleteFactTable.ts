@@ -1,10 +1,10 @@
-import { deleteFactTableValidator } from "@/src/validators/openapi";
-import { DeleteFactTableResponse } from "@/types/openapi";
+import { deleteFactTableValidator } from "@back-end/src/validators/openapi";
+import { DeleteFactTableResponse } from "@back-end/types/openapi";
 import {
   deleteFactTable as deleteFactTableFromDb,
   getFactTable,
-} from "@/src/models/FactTableModel";
-import { createApiRequestHandler } from "@/src/util/handler";
+} from "@back-end/src/models/FactTableModel";
+import { createApiRequestHandler } from "@back-end/src/util/handler";
 
 export const deleteFactTable = createApiRequestHandler(
   deleteFactTableValidator

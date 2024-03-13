@@ -16,7 +16,7 @@
     "jsx": "preserve",
     "baseUrl": "./",
     "paths": {
-      "@/*": ["./*"],
+      "@front-end/*": ["./*"],
       "@back-end/*": ["../back-end/*"]
     },
     "incremental": true

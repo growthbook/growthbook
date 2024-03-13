@@ -1,26 +1,26 @@
 import { Request, Response, NextFunction } from "express";
 import { hasPermission } from "shared/permissions";
-import { EventAuditUserApiKey } from "@/src/events/event-types";
-import { getOrganizationById } from "@/src/services/organizations";
-import { initializeLicense } from "@/src/services/licenseData";
-import { ReqContextClass } from "@/src/services/context";
+import { EventAuditUserApiKey } from "@back-end/src/events/event-types";
+import { getOrganizationById } from "@back-end/src/services/organizations";
+import { initializeLicense } from "@back-end/src/services/licenseData";
+import { ReqContextClass } from "@back-end/src/services/context";
 import {
   getUserPermissions,
   roleToPermissionMap,
-} from "@/src/util/organization.util";
-import { isApiKeyForUserInOrganization } from "@/src/util/api-key.util";
-import { getCustomLogProps } from "@/src/util/logger";
-import { getTeamsForOrganization } from "@/src/models/TeamModel";
-import { lookupOrganizationByApiKey } from "@/src/models/ApiKeyModel";
-import { TeamInterface } from "@/types/team";
-import { ApiKeyInterface } from "@/types/apikey";
+} from "@back-end/src/util/organization.util";
+import { isApiKeyForUserInOrganization } from "@back-end/src/util/api-key.util";
+import { getCustomLogProps } from "@back-end/src/util/logger";
+import { getTeamsForOrganization } from "@back-end/src/models/TeamModel";
+import { lookupOrganizationByApiKey } from "@back-end/src/models/ApiKeyModel";
+import { TeamInterface } from "@back-end/types/team";
+import { ApiKeyInterface } from "@back-end/types/apikey";
 import {
   MemberRole,
   OrganizationInterface,
   Permission,
-} from "@/types/organization";
-import { ApiRequestLocals } from "@/types/api";
-import { getUserById } from "@/src/services/users";
+} from "@back-end/types/organization";
+import { ApiRequestLocals } from "@back-end/types/api";
+import { getUserById } from "@back-end/src/services/users";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,

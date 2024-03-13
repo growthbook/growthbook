@@ -7,10 +7,10 @@
     "noImplicitAny": true,
     "moduleResolution": "node",
     "sourceMap": true,
-    "outDir": "dist",
     "paths": {
-      "@/*": ["./*"]
-    }
+      "@back-end/*": ["./*"]
+    },
+    "outDir": "dist"
   },
   "include": ["src/**/*", "types/**/*", "typings/**/*.d.ts"]
 }

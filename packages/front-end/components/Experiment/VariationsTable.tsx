@@ -3,11 +3,11 @@ import {
   Variation,
 } from "back-end/types/experiment";
 import { FC } from "react";
-import { useAuth } from "@/services/auth";
-import { trafficSplitPercentages } from "@/services/utils";
-import Carousel from "@/components/Carousel";
-import ScreenshotUpload from "@/components/EditExperiment/ScreenshotUpload";
-import AuthorizedImage from "@/components/AuthorizedImage";
+import { useAuth } from "@front-end/services/auth";
+import { trafficSplitPercentages } from "@front-end/services/utils";
+import Carousel from "@front-end/components/Carousel";
+import ScreenshotUpload from "@front-end/components/EditExperiment/ScreenshotUpload";
+import AuthorizedImage from "@front-end/components/AuthorizedImage";
 
 const imageCache = {};
 

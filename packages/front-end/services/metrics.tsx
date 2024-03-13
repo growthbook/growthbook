@@ -9,7 +9,7 @@ import {
   FactTableInterface,
 } from "back-end/types/fact-table";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { PermissionFunctions } from "@/services/UserContext";
+import { PermissionFunctions } from "@front-end/services/UserContext";
 
 export const defaultWinRiskThreshold = 0.0025;
 export const defaultLoseRiskThreshold = 0.0125;

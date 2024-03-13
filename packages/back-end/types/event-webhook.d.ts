@@ -1,13 +1,13 @@
 import {
   EventWebHookPayloadType,
   EventWebHookMethod,
-} from "@/src/types/EventWebHook";
+} from "@back-end/src/types/EventWebHook";
 import { NotificationEventName } from "./event";
 
 export type {
   EventWebHookPayloadType,
   EventWebHookMethod,
-} from "@/src/types/EventWebHook";
+} from "@back-end/src/types/EventWebHook";
 
 export interface EventWebHookInterface {
   id: string;

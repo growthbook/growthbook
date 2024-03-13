@@ -2,13 +2,13 @@ import { FC, useState } from "react";
 import { FaCheck, FaTimes, FaUserCheck } from "react-icons/fa";
 import { PendingMember } from "back-end/types/organization";
 import { datetime } from "shared/dates";
-import { roleHasAccessToEnv, useAuth } from "@/services/auth";
-import ProjectBadges from "@/components/ProjectBadges";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { useEnvironments } from "@/services/features";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import ChangeRoleModal from "@/components/Settings/Team/ChangeRoleModal";
+import { roleHasAccessToEnv, useAuth } from "@front-end/services/auth";
+import ProjectBadges from "@front-end/components/ProjectBadges";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import { useEnvironments } from "@front-end/services/features";
+import MoreMenu from "@front-end/components/Dropdown/MoreMenu";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import ChangeRoleModal from "@front-end/components/Settings/Team/ChangeRoleModal";
 
 const PendingMemberList: FC<{
   pendingMembers: PendingMember[];
