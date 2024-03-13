@@ -7,12 +7,7 @@ export const RadixTheme: FC<PropsWithChildren> = ({ children }) => {
   console.log(theme);
 
   return (
-    <Theme
-      accentColor="violet"
-      scaling="90%"
-      panelBackground="solid"
-      appearance={theme}
-    >
+    <Theme accentColor="violet" panelBackground="solid" appearance={theme}>
       {children}
     </Theme>
   );

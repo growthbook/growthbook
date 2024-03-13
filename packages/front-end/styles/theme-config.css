@@ -4,12 +4,13 @@
 }
 .radix-themes {
   height: 100%;
+  font-size: 14px !important; /* radix should start at 16px as standard but that messes with all our em and rem */
   --font-weight-light: 200;
   --font-weight-regular: 300;
   --font-weight-medium: 300;
   --font-weight-bold: 600;
-  --scaling: 0.85; /* HACKY: because Radix works on a scale system (eveything is mulitplyed by the scale) this is a way we dont have to swap out all the font sizes ect */
 }
+
 :root,
 .light,
 .light-theme {
