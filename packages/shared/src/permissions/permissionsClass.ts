@@ -23,6 +23,26 @@ export class Permissions {
     );
   }
 
+  public canUpdateMetric(
+    currentMetric: Pick<MetricInterface, "projects">,
+    updatedMetric: Pick<MetricInterface, "projects">
+  ): boolean {
+    //TODO: Need to check that the user has permission to update the existing metric
+    //TODO: Need to check that the user has permission to create metrics for the new projects
+    return true;
+  }
+
+  public canDeleteMetric(
+    metric: Pick<MetricInterface, "projects" | "managedBy">
+  ): boolean {
+    if (metric.managedBy) return false;
+    const metricProjects = metric.projects?.length ? metric.projects : [""];
+
+    return metricProjects.every((project) =>
+      this.hasPermission("createMetrics", project)
+    );
+  }
+
   public throwPermissionError(): void {
     throw new PermissionError(
       "You do not have permission to perform this action"

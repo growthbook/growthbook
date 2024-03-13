@@ -91,12 +91,7 @@ export async function deleteMetric(
     return;
   }
 
-  req.checkPermissions(
-    "createAnalyses",
-    metric?.projects?.length ? metric.projects : ""
-  );
-
-  if (!context.permissions.canCreateMetric(metric)) {
+  if (!context.permissions.canDeleteMetric(metric)) {
     context.permissions.throwPermissionError();
   }
 
@@ -524,6 +519,7 @@ export async function putMetric(
   if (!metric) {
     throw new Error("Could not find metric");
   }
+  //MKTODO: I can remove this
   if (!context.permissions.canCreateMetric(metric)) {
     context.permissions.throwPermissionError();
   }
@@ -537,6 +533,7 @@ export async function putMetric(
     }
   });
 
+  //MKTODO: Replace with canUpdateMetric
   if (updates.projects && !context.permissions.canCreateMetric(updates)) {
     context.permissions.throwPermissionError();
   }

@@ -405,21 +405,23 @@ const MetricPage: FC = () => {
         {canEditMetric && (
           <div className="col-auto">
             <MoreMenu>
-              <DeleteButton
-                className="btn dropdown-item py-2"
-                text="Delete"
-                title="Delete this metric"
-                getConfirmationContent={getMetricUsage(metric)}
-                onClick={async () => {
-                  await apiCall(`/metric/${metric.id}`, {
-                    method: "DELETE",
-                  });
-                  mutateDefinitions({});
-                  router.push("/metrics");
-                }}
-                useIcon={true}
-                displayName={"Metric '" + metric.name + "'"}
-              />
+              {permissionsUtil.canDeleteMetric(metric) ? (
+                <DeleteButton
+                  className="btn dropdown-item py-2"
+                  text="Delete"
+                  title="Delete this metric"
+                  getConfirmationContent={getMetricUsage(metric)}
+                  onClick={async () => {
+                    await apiCall(`/metric/${metric.id}`, {
+                      method: "DELETE",
+                    });
+                    mutateDefinitions({});
+                    router.push("/metrics");
+                  }}
+                  useIcon={true}
+                  displayName={"Metric '" + metric.name + "'"}
+                />
+              ) : null}
               <Button
                 className="btn dropdown-item py-2"
                 color=""

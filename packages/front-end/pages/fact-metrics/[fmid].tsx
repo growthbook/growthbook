@@ -268,19 +268,21 @@ export default function FactMetricPage() {
               >
                 Edit Metric
               </button>
-              <DeleteButton
-                className="dropdown-item"
-                displayName="Metric"
-                useIcon={false}
-                text="Delete Metric"
-                onClick={async () => {
-                  await apiCall(`/fact-metrics/${factMetric.id}`, {
-                    method: "DELETE",
-                  });
-                  mutateDefinitions();
-                  router.push("/metrics");
-                }}
-              />
+              {permissionsUtil.canDeleteMetric(factMetric) ? (
+                <DeleteButton
+                  className="dropdown-item"
+                  displayName="Metric"
+                  useIcon={false}
+                  text="Delete Metric"
+                  onClick={async () => {
+                    await apiCall(`/fact-metrics/${factMetric.id}`, {
+                      method: "DELETE",
+                    });
+                    mutateDefinitions();
+                    router.push("/metrics");
+                  }}
+                />
+              ) : null}
             </MoreMenu>
           </div>
         )}
