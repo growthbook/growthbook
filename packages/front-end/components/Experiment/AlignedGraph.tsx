@@ -251,12 +251,11 @@ const AlignedGraph: FC<Props> = ({
                   <AxisLeft
                     key={`test`}
                     orientation={Orientation.left}
-                    left={xScale(0) - Math.floor(zeroLineWidth / 2)}
+                    left={xScale(0) - zeroLineWidth / 2 + 1}
                     scale={yScale}
                     tickFormat={tickFormat}
                     stroke={zeroLineColor}
                     strokeWidth={zeroLineWidth}
-                    /*tickValues={[-100, -20, -15, -10, -5, 0, 5, 10, 15, 20]}*/
                     numTicks={0}
                   />
                 </>
@@ -273,6 +272,7 @@ const AlignedGraph: FC<Props> = ({
                   tickLabelProps={tickLabelProps}
                   tickClassName="ticktext"
                   numTicks={numTicks}
+                  hideAxisLine={true}
                 />
               )}
               {!axisOnly && (
