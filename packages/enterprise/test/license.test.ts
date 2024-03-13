@@ -46,7 +46,6 @@ describe("licenseInit and getLicense", () => {
       },
     },
     signedChecksum:
-      //"Z2ue3DM361oK2D_jl0FwiLDohDjfZjiMtlmgtqXhVDfrDKBMuVoTnbOzO1zoGpIR7648bI07TkJohqbjtMiwINUYa8FfIKdjjkhrVh0h-66v_nXT31-_d_fj7w5u4toCJk1w8fguRSMMKQesp4bnm4nykySLbIkVi0QYi5yAG2utPjXEwQL1lXzn6WvEjUwnd2lUdyhLqTWLqrLHL2aZzUZr1FfSdzr5Ywnx8F7LWZOFylCTTkgpaR49pTnusQ5M22HNzDWC90ypEQLe5_9-i7t03onK___IWvs21RKFmuX_OONsNAXm-EVNehgN8wElbCIjvaUkW6xdGZgWaGk6FNTyOWTIfviGZDrKj0I9WffwHKBRe85xiCQrtsCi6pbSRlILbDPJs5fmktVhRl-7wgq3_axcCzMCosDO1b8N8W1QapmGkFxqo8MPyMPexL7YZl33tuO7IykBbLaxcRkeMYvXH1pvpnt62-XYL6GWhKWh8REsbvYXyjb5nFRNYsRjtjUolEPDRuXMWvHwQM5P-v1zE3dsVMnnNXuaFz-pXYdBBpO8Q6XIPU3aBtn896cnNkOF0ezExmYwqaFgyxwtUXaueL61enLjrdJ2x93jymFcGTb50CeMidVeEWaYWfcDgbeG2W33_lpLfH1FprYjyHkNRbduEwlEvdi8oPbL4z0",
       "JbSjKDDBxAu-8BtOrBCsPMl9vGUpdIYwOi6AIHdLE9y7NJfdsjK_oMeL8FrSY9BiBOIrzLR3qV6_AG-62L-nd5HOHo_YTbrCKCrOKxVO1_HpqzbBcfBaMIIF___7GYilnH5vncnJxIhxu3n2ZJTnmbjVfCGkz6-NEiU-oI5ifGI1akK7l3kTTz-X7M0N3c-8vkt2AwbxmBq0MoVU0Ekrf25_ybexRZVY0LhjHX_DYjQwCbZafdtC5E-1XsfvTX-zyUo2pZP7lEyGcV8BQso1psLB5AAt_2m8aMNJTK5Gi6JhA8wepyiel-G8dCTCjHs7NrVHqbn9uNVnAtUwpcFJcscJx0ZWcJXMFwrkKBp-jq6i94-1ridYJO1DFnGy23iTKAaKmcP5QLhbPaCBm4_EYMp2k4BQPHbRQyERzDF-I2rRphJGa3h3ZAUJjdjcnDzqinnDJcnqU1waWauIclvE51l3g0LFL6YTg4CSZm0VavKfrvcK2-ofCD66kuFhXVoxg3rUvufC1SWd9RoMCd8BEng3XEPzJIOD4f_s8Nl8XAldlQVDj4gUKm_Jb5tUYi2CQwti6PVg39XGFLw7CxrndeLZ46jd35k10HMXzkEvL_wCswh9e2NEzKDc-sHfjmNMqm5R2xNd2pfwIMyjFUQZCHcXn58QysX5dARJbHRJjH0",
   };
   const licenseData2 = cloneDeep(licenseData);
@@ -61,9 +60,9 @@ describe("licenseInit and getLicense", () => {
 
     expect.assertions(1);
 
-    await expect(async () => {
-      await licenseInit(licenseKey, userLicenseCodes, metaData);
-    }).rejects.toThrowError("Your License Key does not support SSO.");
+    await expect(
+      licenseInit(licenseKey, userLicenseCodes, metaData)
+    ).rejects.toThrowError("Your License Key does not support SSO.");
   }
 
   async function testMultiOrgError(licenseKey) {
@@ -71,9 +70,9 @@ describe("licenseInit and getLicense", () => {
 
     expect.assertions(1);
 
-    await expect(async () => {
-      await licenseInit(licenseKey, userLicenseCodes, metaData);
-    }).rejects.toThrowError(
+    await expect(
+      licenseInit(licenseKey, userLicenseCodes, metaData)
+    ).rejects.toThrowError(
       "Your License Key does not support multiple organizations."
     );
   }
@@ -164,9 +163,12 @@ describe("licenseInit and getLicense", () => {
           json: jest.fn().mockResolvedValueOnce(licenseData),
         } as unknown) as Response;
 
+        const licenseData3 = cloneDeep(licenseData2);
+        licenseData3.id = licenseKey2;
+
         const mockedResponse2: Response = ({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce(licenseData2),
+          json: jest.fn().mockResolvedValueOnce(licenseData3),
         } as unknown) as Response;
 
         mockedFetch
@@ -189,14 +191,16 @@ describe("licenseInit and getLicense", () => {
 
         expect(fetch).toHaveBeenCalledTimes(2);
 
+        expect(results[0]).toEqual(licenseData);
+        expect(results[1]).toEqual(licenseData3);
         expect(
           results.every((result, i) =>
-            i % 2 === 0 ? result === licenseData : result === licenseData2
+            i % 2 === 0 ? result === licenseData : result === licenseData3
           )
         ).toBe(true);
 
         expect(getLicense(licenseKey)).toEqual(licenseData);
-        expect(getLicense(licenseKey2)).toEqual(licenseData2);
+        expect(getLicense(licenseKey2)).toEqual(licenseData3);
       });
 
       it("should call fetch twice rather than use the in-memory cache if it has been over a day since the last fetch, and update the licenseData", async () => {
@@ -250,11 +254,11 @@ describe("licenseInit and getLicense", () => {
       });
 
       it("should throw an error if the plan does not support sso but the env var says it is enabled", async () => {
-        testSSOError(licenseKey);
+        await testSSOError(licenseKey);
       });
 
       it("should throw an error if the plan does not support multi-org but the env var says it is enabled", async () => {
-        testMultiOrgError(licenseKey);
+        await testMultiOrgError(licenseKey);
       });
     });
 
@@ -263,6 +267,7 @@ describe("licenseInit and getLicense", () => {
         const mockedResponse: Response = ({
           ok: false,
           statusText: "internal server error",
+          text: jest.fn().mockResolvedValueOnce("internal server error"),
         } as unknown) as Response; // Create a mock Response object
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
@@ -285,9 +290,12 @@ describe("licenseInit and getLicense", () => {
 
       describe("and when there is cached data in LicenseModel", () => {
         beforeEach(() => {
-          jest
-            .spyOn(LicenseModel, "findOne")
-            .mockResolvedValue({ ...licenseData, toJSON: () => licenseData });
+          jest.spyOn(LicenseModel, "findOne").mockResolvedValue({
+            ...licenseData,
+            toJSON: () => licenseData,
+            save: jest.fn(),
+            set: jest.fn(),
+          });
         });
 
         it("should return cache from LicenseModel if the license server is down and a cache exists in licenseModel", async () => {

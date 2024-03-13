@@ -401,7 +401,7 @@ async function getLicenseDataFromMongoCache(
     new Date(cache.dateUpdated) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // 7 days
   ) {
     const license: LicenseInterface = cache.toJSON();
-    setAndVerifyServerLicenseData(license);
+    await setAndVerifyServerLicenseData(license);
     return license;
   }
   throw new Error(
@@ -455,7 +455,10 @@ async function callLicenseServer(url: string, body: string, method = "POST") {
   if (!serverResult.ok) {
     const errorText = await serverResult.text();
     logger.error(`License Server error (${serverResult.status}): ${errorText}`);
-    throw new LicenseServerError(errorText, serverResult.status);
+    throw new LicenseServerError(
+      `License server errored with ${errorText}`,
+      serverResult.status
+    );
   }
 
   return await serverResult.json();
@@ -699,10 +702,7 @@ export async function licenseInit(
             logger.warn(
               "Could not connect to license server. Falling back to cache."
             );
-            await getLicenseDataFromMongoCache(
-              key,
-              "Could not connect to license server. Make sure to whitelist 75.2.109.47."
-            );
+            await getLicenseDataFromMongoCache(key, e.message);
           }
         } else {
           // Old style: the key itself has the encrypted license data in it.
