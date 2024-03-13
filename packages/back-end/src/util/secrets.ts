@@ -238,6 +238,9 @@ const getTrustProxyConfig = (): boolean | string | number => {
 
 export const EXPRESS_TRUST_PROXY_OPTS = getTrustProxyConfig();
 
+export const STALE_QUERY_CLEANUP_BATCH_SIZE =
+  parseInt(process.env.STALE_QUERY_CLEANUP_BATCH_SIZE || "") || 20;
+
 // If a request proxy is configured using environment variables
 export const USE_PROXY =
   !!process.env.http_proxy ||
