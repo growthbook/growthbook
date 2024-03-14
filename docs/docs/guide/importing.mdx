@@ -1,37 +1,45 @@
 ---
-title: Importing data into GrowthBook
-description: Import data into GrowthBook from another platform
+title: Migrate from LaunchDarkly
+description: Import all of your existing LaunchDarkly flags into GrowthBook
 toc_max_heading_level: 5
 ---
 
 import ExternalLink from '@site/src/components/ExternalLink'
 
-Import data into GrowthBook from another platform.
+Looking to migrate from LaunchDarkly to GrowthBook? We have a dedicated importer tool that lets you get up and running in minutes.
 
-You can see all of the supported platforms [in the GrowthBook dashboard <ExternalLink />](https://app.growthbook.io/importing).
+## Create an API Token for LaunchDarkly
 
-## Import from LaunchDarkly
+GrowthBook uses the LaunchDarkly REST API to access the relevant resources and import them.
 
-You can import your LaunchDarkly projects, environments and features into GrowthBook.
+You must create an access token in your [LaunchDarkly account authorization settings <ExternalLink />](https://app.launchdarkly.com/settings/authorization).
 
-GrowthBook uses the REST API to access the relevant resources and import them.
-
-At the time of writing, REST API access is a Pro and Enterprise feature only.
-
-### Create an access token
-
-Create an access token in your [account authorization settings <ExternalLink />](https://app.launchdarkly.com/settings/authorization).
-
-### Add the token to GrowthBook
+## Run the Import
 
 Go to the [GrowthBook dashboard's Importing section <ExternalLink />](https://app.growthbook.io/importing) and choose LaunchDarkly.
 
-Then, add your LaunchDarkly access token to the form and click the submit button to begin the import process.
+Then, enter your LaunchDarkly access token and begin the 2-step process.
 
-### Update your data
+### Step 1: Fetch from LaunchDarkly
 
-Data from LaunchDarkly does not map one-to-one with GrowthBook data. It's recommended you review imported resources and make any necessary updates:
+This will fetch all projects, environments, and feature flags from LaunchDarkly. For large accounts with many feature flags, this may take several minutes to complete. If you run into rate limiting issues, you can adjust the default settings in the UI.
 
-- [Features <ExternalLink />](https://app.growthbook.io/features)
-- [Projects <ExternalLink />](https://app.growthbook.io/projects)
-- [Environments <ExternalLink />](https://app.growthbook.io/environments)
+When this completes, you will see a preview of everything that will be imported. Carefully review this before proceeding to step 2. Only items marked as "pending" will be imported when you proceed.
+
+:::note
+
+For feature flags, we do our best to accurately import everything from LaunchDarkly - fallback values, targeting rules, rollouts, and prerequisite features. This should cover most standard use cases, however for advanced set ups, there are likely some scenarios that we won't be able to handle properly.
+
+You can click the "open" link next to a feature flag to view a detailed JSON view of exactly what will be added/updated. Please review these carefully. If something doesn't look right, you can skip importing individual feature flags by clicking the "skip" link.
+
+:::
+
+### Step 2: Import to GrowthBook
+
+In this step, all of the "pending" resources will be imported into GrowthBook. This should take about 1 second per feature flag on average, although this can vary greatly. The import window must be left open during the entire process.
+
+If you are importing a feature that already exists in GrowthBook, a new revision will be created with any changes to the default value or override rules. All of the changes will be published to all environments immediately, bypassing any draft/review process.
+
+## Next Steps
+
+After the import is complete, you will need to replace the LaunchDarkly SDK in your application with the equivalent [GrowthBook SDK](/lib).

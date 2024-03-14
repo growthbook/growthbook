@@ -6,64 +6,110 @@ import {
 import { FaCodeCommit } from "react-icons/fa6";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { ago, date } from "shared/dates";
-import { useMemo, useState } from "react";
+import React, {
+  MutableRefObject,
+  useImperativeHandle,
+  useMemo,
+  useState,
+} from "react";
 import stringify from "json-stringify-pretty-compact";
+import clsx from "clsx";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Avatar from "@/components/Avatar/Avatar";
 import Code from "@/components/SyntaxHighlighting/Code";
 
+export type MutateLog = {
+  mutateLog: () => Promise<void>;
+};
+
 export interface Props {
   feature: FeatureInterface;
   revision: FeatureRevisionInterface;
+  ref?: MutableRefObject<unknown>;
 }
 
 function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
   const [open, setOpen] = useState(false);
 
   let value = log.value;
+  let valueContainsData = false;
   try {
-    value = stringify(JSON.parse(log.value));
+    const valueAsJson = JSON.parse(log.value);
+    value = stringify(valueAsJson);
+    valueContainsData = Object.keys(valueAsJson).length > 0;
+  } catch (e) {
+    // Ignore
+    valueContainsData = value.length > 0;
+  }
+  let comment: string | undefined;
+  try {
+    comment = JSON.parse(log.value)?.comment;
   } catch (e) {
     // Ignore
   }
-
+  const openContent = () => {
+    if (comment) {
+      return <div>{comment}</div>;
+    } else {
+      return valueContainsData ? <Code language="json" code={value} /> : null;
+    }
+  };
+  const openClickClassNames = clsx("d-flex p-3 revision-log-header", {
+    "cursor-pointer ": !(!!comment || !valueContainsData),
+  });
   return (
-    <div className={`appbox p-2 mb-0 ${first ? "" : "mt-3"}`}>
+    <div className={`appbox mb-0 ${first ? "" : "mt-3"} revision-log`}>
       <div
-        className="mb-2 d-flex cursor-pointer"
+        className={openClickClassNames}
         onClick={(e) => {
           e.preventDefault();
-          setOpen(!open);
+          if (!(!valueContainsData || !!comment)) {
+            setOpen(!open);
+          }
         }}
       >
-        <h3 className="mb-0">
+        <h4 className="mb-0">
           {log.action} {log.subject}
-        </h3>
-        <div className="ml-auto">
-          {open ? <FaAngleDown /> : <FaAngleRight />}
-        </div>
-      </div>
-      {open && <Code language="json" code={value} />}
-      <div className="d-flex">
-        {log.user?.type === "dashboard" && (
-          <div className="mr-2">
-            <Avatar email={log.user.email} size={20} />
+        </h4>
+        {!(!valueContainsData || !!comment) && (
+          <div className="ml-auto">
+            {open ? <FaAngleDown /> : <FaAngleRight />}
           </div>
         )}
-        <div>
-          {log.user?.type === "dashboard" ? log.user.name : "API"}{" "}
-          <span className="text-muted">{ago(log.timestamp)}</span>
+      </div>
+      <div className="p-3">
+        {!valueContainsData ||
+          (!!comment && <div className="mb-3 ">{openContent()}</div>)}
+        {open && openContent()}
+        <div className="d-flex">
+          {log.user?.type === "dashboard" && (
+            <div className="mr-2">
+              <Avatar email={log.user.email} size={20} />
+            </div>
+          )}
+          <div>
+            {log.user?.type === "dashboard" ? log.user.name : "API"}{" "}
+            <span className="text-muted">{ago(log.timestamp)}</span>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-export default function Revisionlog({ feature, revision }: Props) {
-  const { data, error } = useApi<{ log: RevisionLog[] }>(
+const Revisionlog: React.ForwardRefRenderFunction<MutateLog, Props> = (
+  { feature, revision },
+  ref
+) => {
+  const { data, error, mutate } = useApi<{ log: RevisionLog[] }>(
     `/feature/${feature.id}/${revision.version}/log`
   );
+  useImperativeHandle(ref, () => ({
+    async mutateLog() {
+      await mutate();
+    },
+  }));
 
   const logs = useMemo(() => {
     if (!data) return [];
@@ -119,4 +165,5 @@ export default function Revisionlog({ feature, revision }: Props) {
       ))}
     </div>
   );
-}
+};
+export default React.forwardRef(Revisionlog);

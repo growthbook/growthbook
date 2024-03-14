@@ -201,6 +201,7 @@ export function getExperimentMetricFormatter(
       })();
 
     case "mean":
+    default:
       return getColumnRefFormatter(metric.numerator, getFactTableById);
   }
 }
