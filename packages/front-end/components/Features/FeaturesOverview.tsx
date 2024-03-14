@@ -1132,7 +1132,7 @@ export default function FeaturesOverview({
           <DiscussionThread
             type="feature"
             id={feature.id}
-            project={feature.project}
+            projects={feature.project ? [feature.project] : []}
           />
         </div>
 

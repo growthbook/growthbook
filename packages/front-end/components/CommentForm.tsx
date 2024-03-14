@@ -14,7 +14,18 @@ const CommentForm: FC<{
   autofocus?: boolean;
   onSave: () => void;
   onCancel?: () => void;
-}> = ({ cta, type, id, index, initialValue, autofocus, onSave, onCancel }) => {
+  projects?: string[];
+}> = ({
+  cta,
+  type,
+  id,
+  index,
+  initialValue,
+  autofocus,
+  onSave,
+  onCancel,
+  projects,
+}) => {
   const [formError, setFormError] = useState(null);
   const [loading, setLoading] = useState(false);
   const { apiCall } = useAuth();
@@ -36,12 +47,12 @@ const CommentForm: FC<{
           if (index >= 0) {
             await apiCall(`/discussion/${type}/${id}/${index}`, {
               method: "PUT",
-              body: JSON.stringify({ comment }),
+              body: JSON.stringify({ comment, projects }),
             });
           } else {
             await apiCall(`/discussion/${type}/${id}`, {
               method: "POST",
-              body: JSON.stringify({ comment }),
+              body: JSON.stringify({ comment, projects }),
             });
           }
           form.setValue("comment", "");

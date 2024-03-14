@@ -12,12 +12,12 @@ export const ENV_SCOPED_PERMISSIONS = [
 
 export const PROJECT_SCOPED_PERMISSIONS = [
   "readData",
-  "addComments",
+  "addComments", // This is "" issues
   "bypassApprovalChecks",
   "canReview",
   "createFeatureDrafts",
   "manageFeatures",
-  "manageProjects",
+  "manageProjects", // I think this should be a global permission
   "createAnalyses",
   "createIdeas",
   "createMetrics",
@@ -55,7 +55,12 @@ export const ALL_PERMISSIONS = [
   ...ENV_SCOPED_PERMISSIONS,
 ];
 
-export const READ_ONLY_PERMISSIONS = ["readData", "viewEvents", "runQueries"];
+export const READ_ONLY_PERMISSIONS = [
+  "readData",
+  "viewEvents",
+  "runQueries",
+  "addComments",
+];
 
 export function hasPermission(
   userPermissions: UserPermissions | undefined,

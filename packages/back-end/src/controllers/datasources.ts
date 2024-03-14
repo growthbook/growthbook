@@ -668,6 +668,7 @@ export async function updateExposureQuery(
 }
 
 export async function postGoogleOauthRedirect(req: AuthRequest, res: Response) {
+  //MKTODO: Get context on what this is doing
   req.checkPermissions("createDatasources", "");
 
   const oauth2Client = getOauth2Client();

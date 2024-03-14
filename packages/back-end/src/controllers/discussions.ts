@@ -10,16 +10,16 @@ import { getContextFromReq } from "../services/organizations";
 
 export async function postDiscussions(
   req: AuthRequest<
-    { comment: string },
+    { comment: string; projects: string[] },
     { parentId: string; parentType: DiscussionParentType }
   >,
   res: Response
 ) {
-  req.checkPermissions("addComments", "");
-
   const { org, userId, email, userName } = getContextFromReq(req);
   const { parentId, parentType } = req.params;
-  const { comment } = req.body;
+  const { comment, projects } = req.body;
+
+  req.checkPermissions("addComments", projects);
 
   try {
     // TODO: validate that parentType and parentId are valid for this organization
@@ -53,7 +53,8 @@ export async function deleteComment(
   >,
   res: Response
 ) {
-  req.checkPermissions("addComments", "");
+  // This is still not 100% correct. We should be checking the projects that are associated with the parentId, but not sure it's worth the effort
+  req.checkPermissions("addComments", []);
 
   const { org, userId } = getContextFromReq(req);
   const { parentId, parentType, index } = req.params;
@@ -94,7 +95,7 @@ export async function deleteComment(
 
 export async function putComment(
   req: AuthRequest<
-    { comment: string },
+    { comment: string; project: string },
     {
       parentId: string;
       parentType: DiscussionParentType;
@@ -103,11 +104,11 @@ export async function putComment(
   >,
   res: Response
 ) {
-  req.checkPermissions("addComments", "");
-
   const { org, userId } = getContextFromReq(req);
   const { parentId, parentType, index } = req.params;
-  const { comment } = req.body;
+  const { comment, project } = req.body;
+
+  req.checkPermissions("addComments", project);
 
   const i = parseInt(index);
 

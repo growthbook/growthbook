@@ -373,7 +373,7 @@ const IdeaPage = (): ReactElement => {
               type="idea"
               id={idea.id}
               showTitle={true}
-              project={idea.project}
+              projects={idea.project ? [idea.project] : []}
             />
           </div>
         </div>

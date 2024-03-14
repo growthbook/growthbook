@@ -22,14 +22,14 @@ const DiscussionThread: FC<{
   allowNewComments?: boolean;
   showTitle?: boolean;
   title?: string;
-  project?: string;
+  projects: string[];
 }> = ({
   type,
   id,
   allowNewComments = true,
   showTitle = false,
   title = "Add comment",
-  project,
+  projects,
 }) => {
   const { apiCall } = useAuth();
   const { userId, users } = useUser();
@@ -37,7 +37,7 @@ const DiscussionThread: FC<{
 
   const permissions = usePermissions();
 
-  if (!permissions.check("addComments", project)) {
+  if (!permissions.check("addComments", projects)) {
     allowNewComments = false;
   }
 
@@ -148,6 +148,7 @@ const DiscussionThread: FC<{
             index={-1}
             id={id}
             type={type}
+            projects={projects}
           />
         </div>
       )}

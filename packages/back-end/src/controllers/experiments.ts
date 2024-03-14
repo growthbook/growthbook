@@ -1665,7 +1665,11 @@ export async function postSnapshot(
     return;
   }
 
+  console.log("hit the post snapshot endpoint");
+
   req.checkPermissions("runQueries", experiment.project || "");
+
+  console.log("hasPermission");
 
   let project = null;
   if (experiment.project) {
@@ -2057,12 +2061,10 @@ export async function cancelPastExperiments(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  // Passing in an empty string for "project" since pastExperiments don't have projects
-  req.checkPermissions("runQueries", "");
-
   const context = getContextFromReq(req);
   const { org } = context;
   const { id } = req.params;
+
   const pastExperiments = await getPastExperimentsById(org.id, id);
   if (!pastExperiments) {
     throw new Error("Could not cancel query");

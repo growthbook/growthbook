@@ -139,8 +139,6 @@ const MetricPage: FC = () => {
   const metric = data.metric;
   const canEditMetric =
     checkMetricProjectPermissions(metric, permissions) && !metric.managedBy;
-  const canEditProjects =
-    permissions.check("createMetrics", "") && !metric.managedBy;
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
@@ -459,7 +457,7 @@ const MetricPage: FC = () => {
               className="badge-ellipsis align-middle"
             />
           )}
-          {canEditProjects && (
+          {canEditMetric && (
             <a
               href="#"
               className="ml-2"
@@ -895,7 +893,11 @@ const MetricPage: FC = () => {
             </Tab>
             <Tab display="Discussion" anchor="discussion" lazy={true}>
               <h3>Comments</h3>
-              <DiscussionThread type="metric" id={data.metric.id} />
+              <DiscussionThread
+                type="metric"
+                id={data.metric.id}
+                projects={data.metric.projects ? data.metric.projects : []}
+              />
             </Tab>
             <Tab display="History" anchor="history" lazy={true}>
               <HistoryTable type="metric" id={metric.id} />
@@ -963,7 +965,7 @@ const MetricPage: FC = () => {
             <RightRailSection
               title="Projects"
               open={() => setEditProjects(true)}
-              canOpen={canEditProjects}
+              canOpen={canEditMetric}
             >
               <RightRailSectionGroup>
                 {metric?.projects?.length ? (
