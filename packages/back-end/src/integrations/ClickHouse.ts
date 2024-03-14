@@ -1,4 +1,4 @@
-import { ClickHouse as ClickHouseClient } from "clickhouse";
+import { createClient } from "@clickhouse/client";
 import { decryptDataSourceParams } from "../services/datasource";
 import { ClickHouseConnectionParams } from "../../types/integrations/clickhouse";
 import { QueryResponse } from "../types/Integration";
@@ -28,28 +28,20 @@ export default class ClickHouse extends SqlIntegration {
     return ["password"];
   }
   async runQuery(sql: string): Promise<QueryResponse> {
-    const client = new ClickHouseClient({
-      url: this.params.url,
-      port: this.params.port,
-      basicAuth: this.params.username
-        ? {
-            username: this.params.username,
-            password: this.params.password,
-          }
-        : null,
-      format: "json",
-      debug: false,
-      raw: false,
-      config: {
-        database: this.params.database,
+    const client = createClient({
+      host: `${this.params.url}${
+        this.params.port ? `:${this.params.port}` : ""
+      }`,
+      username: this.params.username,
+      password: this.params.password,
+      database: this.params.database,
+      additional_headers: {
+        "x-clickhouse-format": "JSON",
       },
-      reqParams: {
-        headers: {
-          "x-clickhouse-format": "JSON",
-        },
-      },
+      application: "GrowthBook",
     });
-    return { rows: Array.from(await client.query(sql).toPromise()) };
+    const results = await client.query({ query: sql });
+    return { rows: Array.from(await results.json()) };
   }
   toTimestamp(date: Date) {
     return `toDateTime('${date
