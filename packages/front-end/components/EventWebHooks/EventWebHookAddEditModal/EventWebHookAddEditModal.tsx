@@ -31,10 +31,15 @@ type EventWebHookAddEditModalProps = {
 
 const eventWebHookPayloadTypes = ["raw", "slack", "discord"] as const;
 
-const forcePostMethodPayloadTypes: EventWebHookPayloadType[] = [
-  "slack",
-  "discord",
-] as const;
+const forcedParamsMap: {
+  [key in EventWebHookPayloadType]?: {
+    method: EventWebHookMethod;
+    headers: string;
+  };
+} = {
+  slack: { method: "POST", headers: "{}" },
+  discord: { method: "POST", headers: "{}" },
+};
 
 const eventWebHookPayloadValues: { [k in EventWebHookPayloadType]: string } = {
   raw: "Raw",
@@ -86,7 +91,15 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
           },
   });
 
-  const handleSubmit = form.handleSubmit(async (values) => {
+  const forcedParams = forcedParamsMap[form.watch("payloadType")];
+
+  const filteredValues = useCallback(
+    (values) => ({ ...values, ...forcedParams }),
+    [forcedParams]
+  );
+
+  const handleSubmit = form.handleSubmit(async (rawValues) => {
+    const values = filteredValues(rawValues);
     onSubmit({ ...values, headers: JSON.parse(values.headers) });
   });
 
@@ -95,7 +108,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   const buttonText = mode.mode == "edit" ? "Save" : "Create";
 
   const handleFormValidation = useCallback(() => {
-    const formValues = form.getValues();
+    const formValues = filteredValues(form.getValues());
     if (!validateHeaders(formValues.headers)) return setCtaEnabled(false);
 
     const schema = z.object({
@@ -112,7 +125,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
     });
 
     setCtaEnabled(schema.safeParse(formValues).success);
-  }, [form]);
+  }, [filteredValues, form]);
 
   if (!isOpen) return null;
 
@@ -153,11 +166,9 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
 
       <SelectField
         label="Method"
-        value={form.watch("method")}
+        value={forcedParams?.method || form.watch("method")}
         placeholder="Choose HTTP method"
-        disabled={forcePostMethodPayloadTypes.includes(
-          form.watch("payloadType")
-        )}
+        disabled={!!forcedParams}
         options={eventWebHookMethods.map((method) => ({
           label: method,
           value: method,
@@ -172,7 +183,8 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
         label="Headers"
         language="json"
         minLines={1}
-        value={form.watch("headers")}
+        value={forcedParams?.headers || form.watch("headers")}
+        disabled={!!forcedParams}
         setValue={(headers) => {
           form.setValue("headers", headers);
           handleFormValidation();
@@ -213,8 +225,6 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
         }))}
         onChange={(value: EventWebHookPayloadType) => {
           form.setValue("payloadType", value);
-          if (forcePostMethodPayloadTypes.includes(value))
-            form.setValue("method", "POST");
           handleFormValidation();
         }}
       />
