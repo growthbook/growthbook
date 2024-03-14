@@ -96,6 +96,7 @@ export const updateFactMetric = createApiRequestHandler(
       throw new Error("Could not find factMetric with that id");
     }
 
+    //MKTODO: Replace with canUpdateMetric
     if (!req.context.permissions.canCreateMetric(factMetric)) {
       req.context.permissions.throwPermissionError();
     }

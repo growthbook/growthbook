@@ -24,12 +24,28 @@ export class Permissions {
   }
 
   public canUpdateMetric(
-    currentMetric: Pick<MetricInterface, "projects">,
-    updatedMetric: Pick<MetricInterface, "projects">
+    existing: Pick<MetricInterface, "projects">,
+    updated: Pick<MetricInterface, "projects">
   ): boolean {
-    //TODO: Need to check that the user has permission to update the existing metric
-    //TODO: Need to check that the user has permission to create metrics for the new projects
-    return true;
+    const currentMetricProjects = existing.projects?.length
+      ? existing.projects
+      : [""];
+
+    const canUpdateExisting = currentMetricProjects.every((project) =>
+      this.hasPermission("createMetrics", project)
+    );
+
+    if (!canUpdateExisting) {
+      return false;
+    }
+
+    const updatedMetricProjects = updated.projects?.length
+      ? updated.projects
+      : [""];
+
+    return updatedMetricProjects.every((project) =>
+      this.hasPermission("createMetrics", project)
+    );
   }
 
   public canDeleteMetric(
