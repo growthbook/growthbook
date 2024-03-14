@@ -32,6 +32,16 @@ subset of users (like beta users), gradually roll out a new features, or turn an
 4. Add [Override Rules](/features/rules) to target users with a Forced Value, rollout your feature to a percentage of users, or run an experiment
 5. Learn about [Scheduling](/features/scheduling) features and different feature [Environments](/features/environments)
 
+### Requiring Approvals on Feature changes
+
+You are able to require draft feature flags to have a review before publishing.
+The only excption to this rule is if you are an admin you can Overide the review process from the reqest review modal to publish without a review.
+To set your organization to require reviews:
+
+1. Go to [General Settings](/settings) in growthbook
+2. Under the features section turn on **Require approval to publish changes**
+3. All Draft features will now require review before publishing
+
 ## SDK Connections
 
 In order to use feature flags in your application, you need to create an **SDK Connection** in GrowthBook.
