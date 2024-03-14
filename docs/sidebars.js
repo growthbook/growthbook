@@ -522,8 +522,18 @@ const sidebars = {
         {
           type: "category",
           label: "Experiments",
-          collapsed: true,
+          collapsed: false,
           items: [
+            {
+              type: "doc",
+              id: "kb/experiments/troubleshooting-experiments",
+              label: "Troubleshooting Experiments",
+            },
+            {
+              type: "doc",
+              id: "kb/experiments/aa-tests",
+              label: "A/A Testing in GrowthBook",
+            },
             {
               type: "doc",
               id: "kb/experiments/carryover-bias",

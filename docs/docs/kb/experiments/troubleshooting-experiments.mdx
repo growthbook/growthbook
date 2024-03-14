@@ -1,0 +1,98 @@
+---
+title: Troubleshooting Experiments
+description: Troubleshooting Experiments
+sidebar_label: Troubleshooting Experiments
+slug: troubleshooting-experiments
+---
+
+## Problem 1: No traffic flowing into the experiment
+
+There are a few common reasons why there may not be any data showing in the Results tab of your experiment's detail page, first among them is a lack of experiment traffic. You'll likely see a banner like this:
+
+![No Data Banner](/images/no-data-banner.png)
+
+Check the following to correct a lack of traffic to the experiment:
+
+- **Ensure the trackingCallback in the SDK is configured correctly.** It should be using the intended tracking library (e.g. Google Analytics [GA4], Segment, Amplitude) and actually emitting tracking events to your data warehouse.
+- **Ensure the Hash Attribute identifier is being set for each user.** When you start an experiment in GrowthBook, you need to choose which Attribute to use to assign users to variations, often the user `id`. If you do not set that Attribute when you instantiate the GrowthBook SDK, then users can't be assigned to the right variation and users will default to not entering the experiment at all.
+- **Ensure the Experiment Assignment Query in your data source is configured correctly.** You can find this query on your data source's detail page.
+
+## Problem 2: SRM errors (traffic imbalance) in the experiment
+
+A clue that the traffic to the experiment isn't balanced is the presence of a Sample Ratio Mismatch error, shown as a warning banner at the top of the Results tab.
+
+![SRM Warning](/images/srm.png)
+
+Whenever there is traffic imbalance in your GrowthBook experiment, the cause is usually one (or several) of these problems:
+
+1. **The trackingCallback is configured incorrectly**, which is causing it to send an event to your data warehouse *only under certain condition*s.
+2. **The Hash Attribute doesn't match the "Identifier Type" in your data source.**
+3. **You made a change to the experiment targeting after it started, or created a new phase without re-randomizing.**
+
+### Solution 1: Ensure the trackingCallback is triggered unconditionally
+
+The trackingCallback you configure is used by the SDK to send tracking events to your data warehouse whenever a user is exposed to an experiment. Make sure that whether the trackingCallback method sends event data is _not conditional_ on the experiment variation.
+
+As you create the GrowthBook-related logic in your application code, be careful not to have users in control variations emit trackingCallbacks under more conditions than users who are _not_ bucketed into the control variation. Otherwise, you are likely to have Sample Ratio Mismatch (SRM) issues.
+
+It is much better to emit a tracking event as soon as possible within the trackingCallback, before doing any other custom logic that may differ across users based on the experiment variations they are exposed to.
+
+### Solution 2: Ensure the Hash Attribute and Identifier Type match
+
+GrowthBook randomizes users according to the Hash Attribute that you set for each user, often a `user_id`. When you analyze experiments, you set an "Identifier Type" that corresponds to columns in your data warehouse. Ideally, the Hash Attribute that you choose for users is both (1) logged to the data warehouse in the trackingCallback, and (2) is used as the "Identifier Type" for all of these experiments. By doing this, you establish a 1:1 relationship between the Hash Attribute and the Identifier Type.
+
+For example, suppose you run experiments and you sometimes randomize users by `device_id` and sometimes randomize by `user_id`, setting the Hash Attribute as `device_id` or `user_id` respectively. You would set up your trackingCallback so that the Identifier Types are logged to your data warehouse with each experiment exposure.
+
+Then, you would also have two Identifier Types in your data source, one for each Hash Attribute (`device_id` and `user_id`), and define Experiment Assignment Queries to query your data source for all the experiments of each Identifier Type.
+
+If for some reason the Identifier in your data warehouse is different from your Hash Attribute, you could see Multiple Exposure warnings and Sample Ratio Mismatch (SRM) errors, because the ID chosen to randomize users doesn't match the ID on which queries are running in your data warehouse. You would fix this so that there is a 1:1 mapping between the Identifier and Hash Attribute by ensuring the Hash Attributes are always emitted to the data warehouse, and use set these values as the Identifier Types in GrowthBook.
+
+**Why might the Hash Attribute and Identifier Type be different?**
+
+There are times where it might be beneficial to have the Hash Attribute differ from the Identifier Type. The consequence is that there may be minor traffic imbalance or Multiple Exposures, but you may be willing to accept some slippage in the 1:1 mapping between Identifier Type and Hash Attribute in order to more easily join experiment exposure data with metric data.
+
+For example, on client-side experiments with Google Analytics (GA4), you may wish to avoid flickering by hashing on some custom ID, like `gbuuid` as we suggest in our [docs](/guide/GA4-google-analytics#generating-your-own-id), and not wait for the IDs provided by GA4.
+
+While you could send this custom ID in your trackingCallback as we suggest in our [docs](/guide/GA4-google-analytics#generating-your-own-id), you may prefer to use GA4 identifiers as the Identifier Type instead, because they are already tracked with many of the other GA4 events that you are using as Metrics*.*
+
+### Solution 3: Minimize Experiment targeting changes while running
+
+When you make changes to the targeting of an experiment or created a new phase without re-randomizing users, it's possible that the traffic to the experiment will become imbalanced. This is because the users who were already in the experiment may continue to be in the same variation at differing rates. Whenever creating a new phase, you should re-randomize traffic when possible, and only certain changes to an experiment's targeting conditions can be done without re-randomizing.
+
+You can read more about the [rules for changing experiment targeting](/app/experiment-configuration#making-changes-while-running) and [carryover bias](/kb/experiments/carryover-bias) in our documentation.
+
+If your experiment is suffering from these issues, unfortunately the only solution may be to restart the experiment (you can do this by creating a new phase and choosing to re-randomize traffic). Of course, some amount of bias and SRM may be preferable to throwing out your data, but this depends on the magnitude of the problem.
+
+## Problem 3: Metric averages don't look as expected
+
+It's important to ensure that the Metric values in the baseline and variation are what you would expect. This helps confirm that the Metrics are set up correctly and that they are joining properly to the Experiment Assignment Queries.
+
+In the image below, notice that the values look like reasonable, per-user averages. If there is no data or if the values are very different from what you'd expect, consider the solutions below.
+
+![Reasonable Metric Averages](/images/reasonable-metric-averages.png)
+
+### Solution: Understand the experiment's population
+
+Sometimes the Metric values in an experiment may surprise you if you are targeting an experiment to new users (values may be low!) or power users (values may be high!). Each experiment can have different targeting Attributes, and it is totally possible that the values are representing that experiment's population. Consider this before launching into in-depth investigations of your Metric's set-up.
+
+### Solution: Check the Metric's configuration
+
+You can confirm that the Metric is returning the right values in the table rows on a per-user basis. Navigate to the Metric page, edit the SQL for the Metric, and use the Edit SQL interface to run test queries and make modifications to make sure the rows you are getting are what you expect. The results should show the right identifiers, timestamps, and values.
+
+You should also make sure the [Metric Window](https://docs.growthbook.io/app/metrics#metric-windows) is not too short and not too long, otherwise it could be excluding or including too much data.
+
+### Solution: Make sure your Identifier Types are correct
+
+If you are seeing some users flow into your experiment but aren't seeing any Metric data, you should ensure that the Metric data is able to join to your experiment exposure data.
+
+This is illustrated in the image below. Notice the 38,919 total users in the upper left corner, but no data in the "Baseline", "Variation", or "Chance to Win" columns:
+
+![No Metric Values](/images/no-metric-values.png)
+
+GrowthBook relies on the Identifier Type in your data source to merge users in your experiment with Metric values. This is accomplished through the Experiment Assignment Query (for users) and the Metric (for Metric values). These Identifier Types must be the same, or linked by a Join Table, to run a query in GrowthBook. While we actually will throw an error if you can't join them, you may still have set up one or the other incorrectly to point to the wrong column, or the data in the columns for your Experiment Assignment Query and Metric may not overlap. It's a good idea to ensure that the values being produced by both queries are what you expect.
+
+### Solution: Understand the overall query logic better
+
+You can view the queries generated by GrowthBook by navigating to the experiment's Results tab, looking on the right side of the page (shown below) and clicking "View Queries". You can then use parts of these queries and debug them by running raw SQL in your own data warehouse to make sure that your configuration is correct.
+
+![View Queries Button](/images/view-queries-button.png)
