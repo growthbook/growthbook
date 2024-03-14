@@ -134,9 +134,10 @@ export default function UpgradeModal({ close, source }: Props) {
     const subject = organization.name
       ? "Inquiry about Enterprise Plan for " + organization.name
       : "Inquiry about Enterprise Plan";
-    window.location.href = `mailto:sales@growthbook.io?subject=${encodeURIComponent(
+    const mailtoLink = `mailto:sales@growthbook.io?subject=${encodeURIComponent(
       subject
     )}`;
+    window.open(mailtoLink, "_blank");
   }
 
   const startProTrial = async function (name?: string, email?: string) {
