@@ -522,7 +522,7 @@ const sidebars = {
         {
           type: "category",
           label: "Experiments",
-          collapsed: true,
+          collapsed: false,
           items: [
             {
               type: "doc",
