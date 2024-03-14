@@ -23,10 +23,11 @@ A clue that the traffic to the experiment isn't balanced is the presence of a Sa
 
 ![SRM Warning](/images/srm.png)
 
-Whenever there is traffic imbalance in your GrowthBook experiment, the cause is usually one (or both) of these problems:
+Whenever there is traffic imbalance in your GrowthBook experiment, the cause is usually one (or several) of these problems:
 
 1. **The trackingCallback is configured incorrectly**, which is causing it to send an event to your data warehouse *only under certain condition*s.
 2. **The Hash Attribute doesn't match the "Identifier Type" in your data source.**
+3. **You made a change to the experiment targeting after it started, or created a new phase without re-randomizing.**
 
 ### Solution 1: Ensure the trackingCallback is triggered unconditionally
 
@@ -53,6 +54,14 @@ There are times where it might be beneficial to have the Hash Attribute differ f
 For example, on client-side experiments with Google Analytics (GA4), you may wish to avoid flickering by hashing on some custom ID, like `gbuuid` as we suggest in our [docs](/guide/GA4-google-analytics#generating-your-own-id), and not wait for the IDs provided by GA4.
 
 While you could send this custom ID in your trackingCallback as we suggest in our [docs](/guide/GA4-google-analytics#generating-your-own-id), you may prefer to use GA4 identifiers as the Identifier Type instead, because they are already tracked with many of the other GA4 events that you are using as Metrics*.*
+
+### Solution 3: Minimize Experiment targeting changes while running
+
+When you make changes to the targeting of an experiment or created a new phase without re-randomizing users, it's possible that the traffic to the experiment will become imbalanced. This is because the users who were already in the experiment may continue to be in the same variation at differing rates. Whenever creating a new phase, you should re-randomize traffic when possible, and only certain changes to an experiment's targeting conditions can be done without re-randomizing.
+
+You can read more about the [rules for changing experiment targeting](/app/experiment-configuration#making-changes-while-running) and [carryover bias](/kb/experiments/carryover-bias) in our documentation.
+
+If your experiment is suffering from these issues, unfortunately the only solution may be to restart the experiment (you can do this by creating a new phase and choosing to re-randomize traffic). Of course, some amount of bias and SRM may be preferable to throwing out your data, but this depends on the magnitude of the problem.
 
 ## Problem 3: Metric averages don't look as expected
 
