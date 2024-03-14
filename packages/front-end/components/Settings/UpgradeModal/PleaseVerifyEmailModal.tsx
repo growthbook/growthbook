@@ -92,7 +92,14 @@ export default function PleaseVerifyEmailModal({
             re-enter
           </a>{" "}
           your email address, or{" "}
-          <a href="mailto: support@growthbook.io">contact&nbsp;support</a>.
+          <a
+            href="mailto: support@growthbook.io"
+            target="_blank"
+            rel="noreferrer"
+          >
+            contact&nbsp;support
+          </a>
+          .
         </div>
       }
     >

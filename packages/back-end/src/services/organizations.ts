@@ -2,7 +2,7 @@ import { randomBytes } from "crypto";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import { Request } from "express";
-import { postNewSubscriptionUpdateToLicenseServer } from "enterprise";
+import { getLicense, postSubscriptionUpdateToLicenseServer } from "enterprise";
 import {
   createOrganization,
   findAllOrganizations,
@@ -237,13 +237,7 @@ export async function removeMember(
   updatedOrganization.members = members;
   updatedOrganization.pendingMembers = pendingMembers;
 
-  if (updatedOrganization.licenseKey) {
-    const seatsInUse = getNumberOfUniqueMembersAndInvites(updatedOrganization);
-    await postNewSubscriptionUpdateToLicenseServer(
-      updatedOrganization.licenseKey,
-      seatsInUse
-    );
-  }
+  await updateSubscriptionIfProLicense(updatedOrganization);
 
   return updatedOrganization;
 }
@@ -263,6 +257,22 @@ export async function revokeInvite(
 
 export function getInviteUrl(key: string) {
   return `${APP_ORIGIN}/invitation?key=${key}`;
+}
+
+async function updateSubscriptionIfProLicense(
+  organization: OrganizationInterface
+) {
+  if (organization.licenseKey) {
+    const license = await getLicense(organization.licenseKey);
+    if (license?.plan === "pro") {
+      // Only pro plans have a Stripe subscription that needs to get updated
+      const seatsInUse = getNumberOfUniqueMembersAndInvites(organization);
+      await postSubscriptionUpdateToLicenseServer(
+        organization.licenseKey,
+        seatsInUse
+      );
+    }
+  }
 }
 
 export async function addMemberToOrg({
@@ -315,13 +325,7 @@ export async function addMemberToOrg({
   updatedOrganization.members = members;
   updatedOrganization.pendingMembers = pendingMembers;
 
-  if (updatedOrganization.licenseKey) {
-    const seatsInUse = getNumberOfUniqueMembersAndInvites(updatedOrganization);
-    await postNewSubscriptionUpdateToLicenseServer(
-      updatedOrganization.licenseKey,
-      seatsInUse
-    );
-  }
+  await updateSubscriptionIfProLicense(updatedOrganization);
 }
 
 export async function addMembersToTeam({
@@ -537,13 +541,7 @@ export async function inviteUser({
   const updatedOrganization = cloneDeep(organization);
   updatedOrganization.invites = invites;
 
-  if (updatedOrganization.licenseKey) {
-    const seatsInUse = getNumberOfUniqueMembersAndInvites(updatedOrganization);
-    await postNewSubscriptionUpdateToLicenseServer(
-      updatedOrganization.licenseKey,
-      seatsInUse
-    );
-  }
+  await updateSubscriptionIfProLicense(updatedOrganization);
 
   let emailSent = false;
   if (isEmailEnabled()) {

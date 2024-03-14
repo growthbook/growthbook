@@ -137,7 +137,8 @@ export default function UpgradeModal({ close, source }: Props) {
     const mailtoLink = `mailto:sales@growthbook.io?subject=${encodeURIComponent(
       subject
     )}`;
-    window.open(mailtoLink, "_blank");
+    const newWindow = window.open(mailtoLink, "_blank", "noreferrer");
+    if (newWindow) newWindow.opener = null;
   }
 
   const startProTrial = async function (name?: string, email?: string) {

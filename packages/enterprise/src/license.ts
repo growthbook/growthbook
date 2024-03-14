@@ -547,7 +547,7 @@ export async function postCreateBillingSessionToLicenseServer(
   );
 }
 
-export async function postNewSubscriptionUpdateToLicenseServer(
+export async function postSubscriptionUpdateToLicenseServer(
   licenseId: string,
   seats: number
 ): Promise<LicenseInterface> {
