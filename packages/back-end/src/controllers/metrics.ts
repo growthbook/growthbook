@@ -519,10 +519,6 @@ export async function putMetric(
   if (!metric) {
     throw new Error("Could not find metric");
   }
-  //MKTODO: I can remove this
-  if (!context.permissions.canCreateMetric(metric)) {
-    context.permissions.throwPermissionError();
-  }
 
   const updates: Partial<MetricInterface> = {};
 
@@ -533,8 +529,7 @@ export async function putMetric(
     }
   });
 
-  //MKTODO: Replace with canUpdateMetric
-  if (updates.projects && !context.permissions.canCreateMetric(updates)) {
+  if (!context.permissions.canUpdateMetric(metric, updates)) {
     context.permissions.throwPermissionError();
   }
 

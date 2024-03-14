@@ -2017,3 +2017,249 @@ describe("PermissionsUtilClass.canCreateMetric check", () => {
     ).toEqual(true);
   });
 });
+
+describe("PermissionsUtilClass.canUpdateMetric check", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("canUpdateMetric should not allow updates if the user is an engineer (and doesn't have permission)", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    const metric: Pick<MetricInterface, "projects" | "managedBy"> = {
+      projects: ["abc123"],
+      managedBy: "",
+    };
+
+    const updates: Pick<MetricInterface, "projects"> = {
+      projects: ["abc123"],
+    };
+
+    expect(permissions.canUpdateMetric(metric, updates)).toEqual(false);
+  });
+
+  it("canUpdateMetric should block updates if the metric is official metric", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    const metric: Pick<MetricInterface, "projects" | "managedBy"> = {
+      projects: ["abc123"],
+      managedBy: "api",
+    };
+
+    const updates: Pick<MetricInterface, "projects"> = {
+      projects: ["abc123"],
+    };
+
+    expect(permissions.canUpdateMetric(metric, updates)).toEqual(false);
+  });
+
+  it("canUpdateMetric should allow updates if the metric projects are unchanged", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    const metric: Pick<MetricInterface, "projects" | "managedBy"> = {
+      projects: ["abc123"],
+      managedBy: "",
+    };
+
+    const updates: Pick<MetricInterface, "projects"> = {
+      projects: ["abc123"],
+    };
+
+    expect(permissions.canUpdateMetric(metric, updates)).toEqual(true);
+  });
+
+  it("canUpdateMetric should allow updates if the updates don't change the projects", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    const metric: Pick<MetricInterface, "projects" | "managedBy"> = {
+      projects: ["abc123"],
+      managedBy: "",
+    };
+
+    const updates: Pick<MetricInterface, "projects"> = {};
+
+    expect(permissions.canUpdateMetric(metric, updates)).toEqual(true);
+  });
+
+  it("canUpdateMetric should allow updates if the updates if the projects changed, but the user has permission in all of the projects", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    const metric: Pick<MetricInterface, "projects" | "managedBy"> = {
+      projects: ["abc123"],
+      managedBy: "",
+    };
+
+    const updates: Pick<MetricInterface, "projects"> = {
+      projects: ["abc123", "def456"],
+    };
+
+    expect(permissions.canUpdateMetric(metric, updates)).toEqual(true);
+  });
+
+  it("canUpdateMetric should not allow updates if the projects changed, and the user does not have permission in all of the projects", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          def456: {
+            permissions: roleToPermissionMap("readonly", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    const metric: Pick<MetricInterface, "projects" | "managedBy"> = {
+      projects: ["abc123"],
+      managedBy: "",
+    };
+
+    const updates: Pick<MetricInterface, "projects"> = {
+      projects: ["abc123", "def456"],
+    };
+
+    expect(permissions.canUpdateMetric(metric, updates)).toEqual(false);
+  });
+
+  it("canUpdateMetric should handle user with global no-access role correctly", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("noaccess", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          def456: {
+            permissions: roleToPermissionMap("experimenter", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    const metric: Pick<MetricInterface, "projects" | "managedBy"> = {
+      projects: ["def456"],
+      managedBy: "",
+    };
+
+    const updates: Pick<MetricInterface, "projects"> = {
+      projects: ["abc123", "def456"],
+    };
+
+    expect(permissions.canUpdateMetric(metric, updates)).toEqual(false);
+  });
+
+  it("canUpdateMetric should handle user with global no-access role correctly", async () => {
+    console.log("starting last test");
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("noaccess", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          def456: {
+            permissions: roleToPermissionMap("experimenter", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    const metric: Pick<MetricInterface, "projects" | "managedBy"> = {
+      projects: ["def456"],
+      managedBy: "",
+    };
+
+    const updates: Pick<MetricInterface, "projects"> = {
+      projects: [],
+    };
+
+    expect(permissions.canUpdateMetric(metric, updates)).toEqual(false);
+  });
+});

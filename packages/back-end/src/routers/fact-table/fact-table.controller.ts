@@ -365,12 +365,7 @@ export const putFactMetric = async (
     throw new Error("Could not find fact metric with that id");
   }
 
-  //MKTODO: Replace with canUpdateMetric
-  // Check permissions for both the existing projects and new ones (if they are being changed)
-  if (!context.permissions.canCreateMetric(factMetric)) {
-    context.permissions.throwPermissionError();
-  }
-  if (data.projects && !context.permissions.canCreateMetric(data)) {
+  if (!context.permissions.canUpdateMetric(factMetric, data)) {
     context.permissions.throwPermissionError();
   }
 

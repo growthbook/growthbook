@@ -48,9 +48,14 @@ export default function DataSourceMetrics({
 
   const metrics: MetricInterface[] | undefined = data?.metrics;
 
-  const editMetricsPermissions: { [id: string]: boolean } = {};
+  const editMetricsPermissions: {
+    [id: string]: { canCreate: boolean; canUpdate: boolean };
+  } = {};
   metrics?.forEach((m) => {
-    editMetricsPermissions[m.id] = permissionsUtil.canCreateMetric(m);
+    editMetricsPermissions[m.id] = {
+      canCreate: permissionsUtil.canCreateMetric(m),
+      canUpdate: permissionsUtil.canUpdateMetric(m, m),
+    };
   });
 
   // Auto-generated metrics inherit the data source's projects, so check that the user has createMetric permission for all of them
@@ -247,27 +252,30 @@ export default function DataSourceMetrics({
                               </Tooltip>
                             ) : null}
                           </div>
-                          {editMetricsPermissions[metric.id] ? (
+                          {editMetricsPermissions[metric.id].canCreate ||
+                          editMetricsPermissions[metric.id].canUpdate ? (
                             <MoreMenu className="px-2">
-                              <button
-                                className="btn dropdown-item py-2"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  e.preventDefault();
-                                  setModalData({
-                                    current: {
-                                      ...metric,
-                                      managedBy: "",
-                                      name: metric.name + " (copy)",
-                                    },
-                                    edit: false,
-                                    duplicate: true,
-                                  });
-                                }}
-                              >
-                                <FaRegCopy /> Duplicate
-                              </button>
-                              {!metric.managedBy ? (
+                              {editMetricsPermissions[metric.id].canCreate ? (
+                                <button
+                                  className="btn dropdown-item py-2"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    setModalData({
+                                      current: {
+                                        ...metric,
+                                        managedBy: "",
+                                        name: metric.name + " (copy)",
+                                      },
+                                      edit: false,
+                                      duplicate: true,
+                                    });
+                                  }}
+                                >
+                                  <FaRegCopy /> Duplicate
+                                </button>
+                              ) : null}
+                              {editMetricsPermissions[metric.id].canUpdate ? (
                                 <button
                                   className="btn dropdown-item py-2"
                                   color=""

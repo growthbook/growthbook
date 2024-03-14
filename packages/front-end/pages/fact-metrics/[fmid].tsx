@@ -194,8 +194,9 @@ export default function FactMetricPage() {
     );
   }
 
-  const canEdit =
-    !factMetric.managedBy && permissionsUtil.canCreateMetric(factMetric);
+  // canUpdateMetric takes in the current metrics + any updates - canEdit is used to determine if we should show the "Edit" buttons, so pass in the existing metric twice
+  const canEdit = permissionsUtil.canUpdateMetric(factMetric, factMetric);
+  const canDelete = permissionsUtil.canDeleteMetric(factMetric);
 
   let regressionAdjustmentAvailableForMetric = true;
   let regressionAdjustmentAvailableForMetricReason = <></>;
@@ -256,19 +257,21 @@ export default function FactMetricPage() {
             <MetricName id={factMetric.id} />
           </h1>
         </div>
-        {canEdit && (
+        {canEdit || canDelete ? (
           <div className="ml-auto">
             <MoreMenu>
-              <button
-                className="dropdown-item"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setEditOpen(true);
-                }}
-              >
-                Edit Metric
-              </button>
-              {permissionsUtil.canDeleteMetric(factMetric) ? (
+              {canEdit ? (
+                <button
+                  className="dropdown-item"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setEditOpen(true);
+                  }}
+                >
+                  Edit Metric
+                </button>
+              ) : null}
+              {canDelete ? (
                 <DeleteButton
                   className="dropdown-item"
                   displayName="Metric"
@@ -285,7 +288,7 @@ export default function FactMetricPage() {
               ) : null}
             </MoreMenu>
           </div>
-        )}
+        ) : null}
       </div>
       <div className="row mb-4">
         {projects.length > 0 ? (

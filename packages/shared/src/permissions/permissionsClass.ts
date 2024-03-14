@@ -24,9 +24,11 @@ export class Permissions {
   }
 
   public canUpdateMetric(
-    existing: Pick<MetricInterface, "projects">,
+    existing: Pick<MetricInterface, "projects" | "managedBy">,
     updated: Pick<MetricInterface, "projects">
   ): boolean {
+    if (existing.managedBy) return false;
+
     const currentMetricProjects = existing.projects?.length
       ? existing.projects
       : [""];
@@ -39,13 +41,20 @@ export class Permissions {
       return false;
     }
 
-    const updatedMetricProjects = updated.projects?.length
-      ? updated.projects
-      : [""];
+    let hasPermission = true;
 
-    return updatedMetricProjects.every((project) =>
-      this.hasPermission("createMetrics", project)
-    );
+    // if updated.projects is undefined, the user isn't trying to update the projects, so we can return true
+    if (updated.projects) {
+      const updatedMetricProjects = updated.projects?.length
+        ? updated.projects
+        : [""];
+
+      hasPermission = updatedMetricProjects.every((project) =>
+        this.hasPermission("createMetrics", project)
+      );
+    }
+
+    return hasPermission;
   }
 
   public canDeleteMetric(

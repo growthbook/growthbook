@@ -69,7 +69,6 @@ export async function postSampleData(
   const orgId = org.id;
   const statsEngine = org.settings?.statsEngine || DEFAULT_STATS_ENGINE;
 
-  //MKTODO: Is this check necessary?
   req.checkPermissions("createAnalyses", "");
 
   if (!permissions.canCreateMetric({})) {

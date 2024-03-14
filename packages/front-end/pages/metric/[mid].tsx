@@ -138,8 +138,8 @@ const MetricPage: FC = () => {
   }
 
   const metric = data.metric;
-  const canEditMetric =
-    permissionsUtil.canCreateMetric(metric) && !metric.managedBy;
+  // canUpdateMetric currently takes the existing metric, and any updates - but in this case, there are no updates, so just pass in the existing twice
+  const canEditMetric = permissionsUtil.canUpdateMetric(metric, metric);
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;

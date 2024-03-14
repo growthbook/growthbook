@@ -51,7 +51,7 @@ export default function FactMetricList({ factTable }: Props) {
     searchFields: ["name^3", "description"],
   });
 
-  const canEdit = permissionsUtil.canCreateMetric(factTable);
+  const canCreateMetrics = permissionsUtil.canCreateMetric(factTable);
 
   return (
     <>
@@ -84,7 +84,7 @@ export default function FactMetricList({ factTable }: Props) {
         <div className="col-auto">
           <Tooltip
             body={
-              canEdit
+              canCreateMetrics
                 ? ""
                 : `You don't have permission to add metrics to this fact table`
             }
@@ -93,10 +93,10 @@ export default function FactMetricList({ factTable }: Props) {
               className="btn btn-primary"
               onClick={(e) => {
                 e.preventDefault();
-                if (!canEdit) return;
+                if (!canCreateMetrics) return;
                 setNewOpen(true);
               }}
-              disabled={!canEdit}
+              disabled={!canCreateMetrics}
             >
               <GBAddCircle /> Add Metric
             </button>

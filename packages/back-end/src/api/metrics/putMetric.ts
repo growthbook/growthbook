@@ -15,11 +15,6 @@ export const putMetric = createApiRequestHandler(putMetricValidator)(
       throw new Error("Metric not found");
     }
 
-    //MKTODO: Replace with canUpdateMetric
-    if (!req.context.permissions.canCreateMetric(metric)) {
-      req.context.permissions.throwPermissionError();
-    }
-
     const validationResult = putMetricApiPayloadIsValid(req.body);
 
     if (!validationResult.valid) {
@@ -27,6 +22,10 @@ export const putMetric = createApiRequestHandler(putMetricValidator)(
     }
 
     const updated = putMetricApiPayloadToMetricInterface(req.body);
+
+    if (!req.context.permissions.canUpdateMetric(metric, updated)) {
+      req.context.permissions.throwPermissionError();
+    }
 
     await updateMetric(req.context, metric, updated);
 
