@@ -10,8 +10,8 @@ import { stringToBoolean } from "shared/util";
 import { ProxyAgent } from "proxy-agent";
 import { LicenseModel } from "./models/licenseModel";
 
-export const LICENSE_SERVER =
-  "https://central_license_server.growthbook.io/api/v1/";
+export const LICENSE_SERVER = "http://localhost:8080/api/v1/";
+//"https://central_license_server.growthbook.io/api/v1/";
 
 const logger = pino();
 
@@ -456,7 +456,7 @@ async function callLicenseServer(url: string, body: string, method = "POST") {
     const errorText = await serverResult.text();
     logger.error(`License Server error (${serverResult.status}): ${errorText}`);
     throw new LicenseServerError(
-      `License server errored with ${errorText}`,
+      `License server errored with: ${errorText}`,
       serverResult.status
     );
   }
@@ -823,15 +823,22 @@ function shouldLimitAccessDueToExpiredLicense(
     return false;
   }
 
-  // Check if the license is in trial and has an expiration date
+  // Limit access if it is a pro or pro_sso license and it has been canceled regardless of the dateExpires.
+  // (If a payment failed stripe will cancel the subscription but the dateExpires will still be in the future.)
+  if (
+    ["pro", "pro_sso"].includes(licenseData.plan || "") &&
+    licenseData.stripeSubscription?.status === "canceled"
+  ) {
+    return true;
+  }
+
+  // Limit access if it is a trial, or a remote downgraded enterprise license and it has expired
   if (
     (licenseData.isTrial || licenseData.remoteDowngrade) &&
     licenseData.dateExpires
   ) {
-    // Create a date object for the expiration date
     const expirationDate = new Date(licenseData.dateExpires);
 
-    // Check if the adjusted expiration date is in the past
     if (expirationDate < new Date()) {
       // The license is expired
       return true;

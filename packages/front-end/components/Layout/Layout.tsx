@@ -295,7 +295,9 @@ const Layout = (): React.ReactElement => {
   const [upgradeModal, setUpgradeModal] = useState(false);
   const showUpgradeButton =
     ["oss", "starter"].includes(accountPlan || "") ||
-    (license?.isTrial && !hasPaymentMethod);
+    (license?.isTrial && !hasPaymentMethod) ||
+    (["pro", "pro_sso"].includes(accountPlan || "") &&
+      license?.stripeSubscription?.status === "canceled");
 
   // hacky:
   const router = useRouter();

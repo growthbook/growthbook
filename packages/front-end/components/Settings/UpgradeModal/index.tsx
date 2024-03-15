@@ -43,7 +43,14 @@ export default function UpgradeModal({ close, source }: Props) {
     false
   );
 
-  const { name, email, accountPlan, permissions, license } = useUser();
+  const {
+    name,
+    email,
+    accountPlan,
+    permissions,
+    license,
+    effectiveAccountPlan,
+  } = useUser();
 
   const { organization, refreshOrganization } = useUser();
 
@@ -65,6 +72,10 @@ export default function UpgradeModal({ close, source }: Props) {
 
   const daysToGo = license ? daysLeft(license.dateExpires) : 0;
 
+  const hasCanceledSubscription =
+    ["pro", "pro_sso"].includes(license?.plan || "") &&
+    license?.stripeSubscription?.status === "canceled";
+
   const trackContext = {
     accountPlan,
     source,
@@ -80,17 +91,20 @@ export default function UpgradeModal({ close, source }: Props) {
 
   useEffect(() => {
     if (
-      ["pro", "pro_sso", "enterprise"].includes(accountPlan || "") &&
+      ["pro", "pro_sso", "enterprise"].includes(effectiveAccountPlan || "") &&
       !license?.isTrial
     ) {
       close();
     }
-  }, [accountPlan, license, close]);
+  }, [effectiveAccountPlan, license, close]);
 
   const startPro = async () => {
     setError("");
     try {
-      if (license?.stripeSubscription) {
+      if (
+        license?.stripeSubscription &&
+        license?.stripeSubscription.status != "canceled"
+      ) {
         const res = await apiCall<{ url: string }>(`/subscription/manage`, {
           method: "POST",
         });
@@ -317,17 +331,51 @@ export default function UpgradeModal({ close, source }: Props) {
                 styles.upgradeModal
               )}
             >
-              {!license?.isTrial && (
-                <div className="row bg-main-color p-3 mb-3 rounded">
-                  <span>You are currently using the </span>
-                  <b className="mx-1"> {licensePlanText} </b> version of
-                  Growthbook with{" "}
-                  <Link href="/settings/team" className="mx-1 font-weight-bold">
-                    {currentUsers} team members
-                  </Link>
-                  ↗
-                </div>
-              )}
+              {!license?.isTrial &&
+                (daysToGo >= 0 && !hasCanceledSubscription ? (
+                  <div className="row bg-main-color p-3 mb-3 rounded">
+                    <span>You are currently using the </span>
+                    <b className="mx-1"> {licensePlanText} </b> version of
+                    Growthbook with{" "}
+                    <Link
+                      href="/settings/team"
+                      className="mx-1 font-weight-bold"
+                    >
+                      {currentUsers} team members
+                    </Link>
+                    ↗
+                  </div>
+                ) : daysToGo < 0 ? (
+                  <div className="row p-3 mb-3 rounded alert-danger">
+                    {" "}
+                    <span>
+                      Your old <b className="mx-1">{licensePlanText}</b> version
+                      of Growthbook with{" "}
+                      <Link
+                        href="/settings/team"
+                        className="mx-1 font-weight-bold"
+                      >
+                        {currentUsers} team members
+                      </Link>
+                      ↗ expired. Renew below.
+                    </span>
+                  </div>
+                ) : (
+                  <div className="row p-3 mb-3 rounded alert-danger">
+                    {" "}
+                    <span>
+                      Your old <b className="mx-1">{licensePlanText}</b> version
+                      of Growthbook with{" "}
+                      <Link
+                        href="/settings/team"
+                        className="mx-1 font-weight-bold"
+                      >
+                        {currentUsers} team members
+                      </Link>
+                      ↗ was cancelled. Renew below.
+                    </span>
+                  </div>
+                ))}
               {license?.isTrial && (
                 <div
                   className={`row p-3 mb-3 rounded ${
@@ -338,14 +386,32 @@ export default function UpgradeModal({ close, source }: Props) {
                       : "bg-main-color"
                   }`}
                 >
-                  <span>
-                    You have <b>{daysLeft(license.dateExpires)} days</b> left in
-                    your {licensePlanText} of Growthbook with{" "}
-                  </span>
-                  <Link href="/settings/team" className="mx-1 font-weight-bold">
-                    {currentUsers} team members
-                  </Link>
-                  ↗
+                  {(daysToGo >= 0 && (
+                    <div>
+                      <span>
+                        You have <b>{daysLeft(license.dateExpires)} days</b>{" "}
+                        left in your {licensePlanText} of Growthbook with{" "}
+                      </span>
+                      <Link
+                        href="/settings/team"
+                        className="mx-1 font-weight-bold"
+                      >
+                        {currentUsers} team members
+                      </Link>
+                      ↗
+                    </div>
+                  )) || (
+                    <div>
+                      <span>Your {licensePlanText} of Growthbook with </span>
+                      <Link
+                        href="/settings/team"
+                        className="mx-1 font-weight-bold"
+                      >
+                        {currentUsers} team members
+                      </Link>
+                      ↗<span> has expired</span>
+                    </div>
+                  )}
                 </div>
               )}
               <div className="row">

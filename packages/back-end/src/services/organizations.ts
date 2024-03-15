@@ -252,7 +252,11 @@ export async function revokeInvite(
     invites,
   });
 
-  return organization;
+  const updatedOrganization = cloneDeep(organization);
+  updatedOrganization.invites = invites;
+  await updateSubscriptionIfProLicense(updatedOrganization);
+
+  return updatedOrganization;
 }
 
 export function getInviteUrl(key: string) {

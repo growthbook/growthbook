@@ -201,11 +201,19 @@ export default function AccountPlanNotices() {
       return (
         <Tooltip
           body={
-            <>
-              Your license expired on{" "}
-              <strong>{date(license.dateExpires)}</strong>. Contact
-              sales@growthbook.io to renew.
-            </>
+            license.plan === "enterprise" ? (
+              <>
+                Your license expired on{" "}
+                <strong>{date(license.dateExpires)}</strong>. Contact
+                sales@growthbook.io to renew.
+              </>
+            ) : (
+              <>
+                Your license expired on{" "}
+                <strong>{date(license.dateExpires)}</strong>. Go to your
+                settings &gt; billing page to renew.
+              </>
+            )
           }
         >
           <div className="alert alert-danger py-1 px-2 d-none d-md-block mb-0 mr-1">
@@ -216,7 +224,10 @@ export default function AccountPlanNotices() {
     }
 
     // More seats than the license allows for
-    if (activeAndInvitedUsers > license.seats) {
+    if (
+      license.plan === "enterprise" &&
+      activeAndInvitedUsers > license.seats
+    ) {
       return (
         <Tooltip
           body={

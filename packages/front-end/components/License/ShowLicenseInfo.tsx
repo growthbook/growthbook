@@ -82,7 +82,7 @@ const ShowLicenseInfo: FC<{
             {permissions.manageBilling && !usesLicenseInfoOnModel && (
               <div className="form-group row mt-3 mb-0">
                 {showInput && (
-                  <div className="col-sm-4">
+                  <div className="col-sm-2">
                     <div>
                       <strong>License Key: </strong>
                     </div>
@@ -113,6 +113,22 @@ const ShowLicenseInfo: FC<{
                 {license &&
                   license.plan && ( // A license might not have a plan if a stripe pro form is not filled out
                     <>
+                      {["pro", "pro_sso"].includes(license.plan) && (
+                        <div className="col-sm-2">
+                          <div>Status:</div>
+                          <span
+                            className={`text-muted ${
+                              !["active", "trialing"].includes(
+                                license.stripeSubscription?.status || ""
+                              )
+                                ? "alert-danger"
+                                : ""
+                            }`}
+                          >
+                            {license.stripeSubscription?.status}
+                          </span>
+                        </div>
+                      )}
                       <div className="col-sm-2">
                         <div>Issued:</div>
                         <span className="text-muted">

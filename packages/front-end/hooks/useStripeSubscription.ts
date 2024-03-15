@@ -58,7 +58,9 @@ export default function useStripeSubscription() {
     (stripeSubscription?.canceled_at || 0) * 1000
   ).toDateString();
 
-  const pendingCancelation = stripeSubscription?.cancel_at_period_end;
+  const pendingCancelation =
+    stripeSubscription?.status !== "canceled" &&
+    stripeSubscription?.cancel_at_period_end;
 
   const disableSelfServeBilling =
     organization?.disableSelfServeBilling || false;

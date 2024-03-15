@@ -115,7 +115,7 @@ export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
 
   const { org } = getContextFromReq(req);
 
-  let discountAmount, discountMessage, unitPrice;
+  let discountAmount, discountMessage, unitPrice, currentSeatsPaidFor;
 
   //TODO: Remove once all orgs have moved license info off of the org
   if (!org.licenseKey) {
@@ -125,18 +125,19 @@ export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
     const coupon = await getCoupon(org.discountCode);
     discountAmount = (-1 * (coupon?.amount_off || 0)) / 100;
     discountMessage = coupon?.name || "";
+    currentSeatsPaidFor = org.subscription?.qty || 0;
   } else {
     const license = await getLicense(org.licenseKey);
 
     unitPrice = license?.stripeSubscription?.price || 20;
     discountAmount = license?.stripeSubscription?.discountAmount || 0;
     discountMessage = license?.stripeSubscription?.discountMessage || "";
+    currentSeatsPaidFor = license?.stripeSubscription?.qty || 0;
   }
 
   // TODO: handle pricing tiers
   const additionalSeatPrice = unitPrice;
   const activeAndInvitedUsers = getNumberOfUniqueMembersAndInvites(org);
-  const currentSeatsPaidFor = org.subscription?.qty || 0;
   const subtotal = activeAndInvitedUsers * unitPrice;
   const total = Math.max(0, subtotal + discountAmount);
 

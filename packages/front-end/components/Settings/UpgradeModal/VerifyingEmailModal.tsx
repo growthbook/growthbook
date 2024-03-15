@@ -4,6 +4,7 @@ import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import LicenseSuccessModal from "./LicenseSuccessModal";
+import UpgradeModal from ".";
 
 export default function VerifyingEmailModal() {
   const { apiCall } = useAuth();
@@ -19,6 +20,8 @@ export default function VerifyingEmailModal() {
 
   const [verifyEmailSuccess, setVerifyEmailSuccess] = useState(false);
   const [verifyEmailError, setVerifyEmailError] = useState("");
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
   useEffect(() => {
     if (!emailVerificationToken) return;
     setVerifyingEmail(true);
@@ -53,6 +56,17 @@ export default function VerifyingEmailModal() {
     );
   }
 
+  if (showUpgradeModal) {
+    router.replace(router.pathname, router.pathname, { shallow: true });
+    return (
+      <UpgradeModal
+        close={() => setShowUpgradeModal(false)}
+        reason="To fix an error verifying email."
+        source="verify email"
+      />
+    );
+  }
+
   return (
     <Modal
       open={true}
@@ -62,7 +76,24 @@ export default function VerifyingEmailModal() {
       size="md"
       header={<h3>Verifying your account...</h3>}
     >
-      <div>Please be patient while we verify your account.</div>
+      {verifyEmailError ? (
+        <div>
+          <span>
+            There was an error trying to verify your email. Please{" "}
+            <a
+              href="#"
+              onClick={() => {
+                setShowUpgradeModal(true);
+              }}
+            >
+              try again.
+            </a>
+          </span>
+          <div className="alert alert-danger">{verifyEmailError}</div>
+        </div>
+      ) : (
+        <div>Please be patient while we verify your account.</div>
+      )}
     </Modal>
   );
 }
