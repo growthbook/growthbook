@@ -1665,11 +1665,7 @@ export async function postSnapshot(
     return;
   }
 
-  console.log("hit the post snapshot endpoint");
-
   req.checkPermissions("runQueries", experiment.project || "");
-
-  console.log("hasPermission");
 
   let project = null;
   if (experiment.project) {
