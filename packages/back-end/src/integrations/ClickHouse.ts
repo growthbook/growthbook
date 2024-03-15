@@ -35,9 +35,6 @@ export default class ClickHouse extends SqlIntegration {
       username: this.params.username,
       password: this.params.password,
       database: this.params.database,
-      additional_headers: {
-        "x-clickhouse-format": "JSON",
-      },
       application: "GrowthBook",
     });
     const results = await client.query({ query: sql, format: "JSON" });
