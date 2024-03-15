@@ -2815,9 +2815,7 @@
     uuid "^8.0.0"
 
 "@growthbook/growthbook@^0.34.0":
-  version "0.34.0"
-  resolved "https://registry.yarnpkg.com/@growthbook/growthbook/-/growthbook-0.34.0.tgz#df5275fafbbe055c7cfeea2953a4218a9ec9027f"
-  integrity sha512-3K5JL8QftX7y77EpieYg9anXVYb6+ZafTsrNCWp0HOdmtf4lxHOzCUYwuYDaS3bvmaeIUWJ5hYcOTc6WhNbfJw==
+  version "0.35.0"
   dependencies:
     dom-mutator "^0.6.0"
 

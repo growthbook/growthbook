@@ -1,4 +1,4 @@
-import { createClient } from "@clickhouse/client";
+import { createClient, ResponseJSON } from "@clickhouse/client";
 import { decryptDataSourceParams } from "../services/datasource";
 import { ClickHouseConnectionParams } from "../../types/integrations/clickhouse";
 import { QueryResponse } from "../types/Integration";
@@ -40,8 +40,19 @@ export default class ClickHouse extends SqlIntegration {
       },
       application: "GrowthBook",
     });
-    const results = await client.query({ query: sql });
-    return { rows: Array.from(await results.json()) };
+    const results = await client.query({ query: sql, format: "JSON" });
+    // eslint-disable-next-line
+    const data: ResponseJSON<Record<string, any>[]> = await results.json();
+    return {
+      rows: data.data ? data.data : [],
+      statistics: data.statistics
+        ? {
+            executionDurationMs: data.statistics.elapsed,
+            rowsProcessed: data.statistics.rows_read,
+            bytesProcessed: data.statistics.bytes_read,
+          }
+        : undefined,
+    };
   }
   toTimestamp(date: Date) {
     return `toDateTime('${date
