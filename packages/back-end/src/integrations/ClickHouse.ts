@@ -36,6 +36,9 @@ export default class ClickHouse extends SqlIntegration {
       password: this.params.password,
       database: this.params.database,
       application: "GrowthBook",
+      clickhouse_settings: {
+        max_execution_time: Math.min(this.params.maxExecutionTime ?? 240, 1800),
+      },
     });
     const results = await client.query({ query: sql, format: "JSON" });
     // eslint-disable-next-line
