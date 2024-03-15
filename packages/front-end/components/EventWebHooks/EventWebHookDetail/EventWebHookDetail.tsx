@@ -2,7 +2,7 @@ import { EventWebHookInterface } from "back-end/types/event-webhook";
 import React, { FC, useCallback, useState } from "react";
 import pick from "lodash/pick";
 import { TbWebhook } from "react-icons/tb";
-import { FaAngleLeft, FaPencilAlt } from "react-icons/fa";
+import { FaAngleLeft, FaPencilAlt, FaPaperPlane } from "react-icons/fa";
 import classNames from "classnames";
 import { useRouter } from "next/router";
 import Link from "next/link";
@@ -39,13 +39,48 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
   isModalOpen,
   editError,
 }) => {
-  const { lastState, lastRunAt, url, events, name, signingKey } = eventWebHook;
+  const {
+    id: webhookId,
+    lastState,
+    lastRunAt,
+    url,
+    events,
+    name,
+    signingKey,
+  } = eventWebHook;
+
+  const { apiCall } = useAuth();
 
   const iconForState = useIconForState(eventWebHook.lastState);
 
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 1500,
   });
+
+  const onTestWebhook = useCallback(async () => {
+    // Keep the modal open and display error
+    //const handleCreateError = (message: string) => {
+    //setCreateError(`Failed to test webhook: ${message}`);
+    //};
+
+    try {
+      const response = await apiCall<{
+        error?: string;
+        eventId?: string;
+      }>("/event-webhooks/test", {
+        method: "POST",
+        body: JSON.stringify({ webhookId }),
+      });
+
+      if (response.error) {
+        //handleCreateError(response.error || "Unknown error");
+      } else {
+        //setCreateError(null);
+      }
+    } catch (e) {
+      //handleCreateError("Unknown error");
+    }
+  }, [webhookId, apiCall]);
 
   return (
     <div>
@@ -70,6 +105,14 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           >
             <FaPencilAlt className="mr-1" />
             Edit
+          </button>
+
+          <button
+            onClick={onTestWebhook}
+            className="btn btn-sm btn-outline-secondary mr-1"
+          >
+            <FaPaperPlane className="mr-1" />
+            Test
           </button>
 
           <DeleteButton

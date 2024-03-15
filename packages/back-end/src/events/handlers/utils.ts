@@ -83,7 +83,7 @@ export const getFilterDataForNotificationEvent = (
           : [],
       };
 
-    case "test.event":
+    case "webhook.test":
       return { tags: [], projects: [] };
 
     default:
@@ -122,7 +122,7 @@ export const filterEventForEnvironments = ({
         environments,
       });
 
-    case "test.event":
+    case "webhook.test":
       return true;
 
     default:

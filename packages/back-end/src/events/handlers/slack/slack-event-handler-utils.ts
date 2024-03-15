@@ -82,10 +82,12 @@ export const getSlackDataForNotificationEvent = (
         ),
       };
 
-    case "test.event":
+    case "webhook.test":
       return {
         filterData,
-        slackMessage: buildSlackMessageForTestEvent(event.data.webhookId),
+        slackMessage: buildSlackMessageForWebhookTestEvent(
+          event.data.webhookId
+        ),
       };
 
     default:
@@ -264,7 +266,9 @@ const buildSlackMessageForExperimentUpdatedEvent = (
   };
 };
 
-const buildSlackMessageForTestEvent = (webhookId: string): SlackMessage => ({
+const buildSlackMessageForWebhookTestEvent = (
+  webhookId: string
+): SlackMessage => ({
   text: `This is a test event for webhook ${webhookId}`,
   blocks: [
     {

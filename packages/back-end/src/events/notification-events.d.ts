@@ -70,9 +70,9 @@ export type ExperimentDeletedNotificationEvent = NotificationEventPayload<
   }
 >;
 
-export type TestEvent = NotificationEventPayload<
-  "test.event",
-  unknown,
+export type WebhookTestEvent = NotificationEventPayload<
+  "webhook.test",
+  "webhook",
   { webhookId: string }
 >;
 
@@ -89,4 +89,4 @@ export type NotificationEvent =
   | ExperimentCreatedNotificationEvent
   | ExperimentUpdatedNotificationEvent
   | ExperimentDeletedNotificationEvent
-  | TestEvent;
+  | WebhookTestEvent;

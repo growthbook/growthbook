@@ -15,7 +15,7 @@ export const notificationEventNames = [
   // User
   "user.login",
   // Test
-  "test.event",
+  "webhook.test",
 ] as const;
 
 export type NotificationEventName = typeof notificationEventNames[number];
@@ -27,6 +27,7 @@ export const notificationEventResources = [
   "feature",
   "experiment",
   "user",
+  "webhook",
 ] as const;
 export type NotificationEventResource = typeof notificationEventResources[number];
 
