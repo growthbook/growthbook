@@ -70,6 +70,12 @@ export type ExperimentDeletedNotificationEvent = NotificationEventPayload<
   }
 >;
 
+export type TestEvent = NotificationEventPayload<
+  "test.event",
+  unknown,
+  { webhookId: string }
+>;
+
 // endregion Experiment
 
 /**
@@ -82,4 +88,5 @@ export type NotificationEvent =
   | FeatureDeletedNotificationEvent
   | ExperimentCreatedNotificationEvent
   | ExperimentUpdatedNotificationEvent
-  | ExperimentDeletedNotificationEvent;
+  | ExperimentDeletedNotificationEvent
+  | TestEvent;

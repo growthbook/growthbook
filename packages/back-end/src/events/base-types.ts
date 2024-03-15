@@ -14,6 +14,8 @@ export const notificationEventNames = [
   "experiment.deleted",
   // User
   "user.login",
+  // Test
+  "test.event",
 ] as const;
 
 export type NotificationEventName = typeof notificationEventNames[number];

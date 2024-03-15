@@ -82,6 +82,12 @@ export const getSlackDataForNotificationEvent = (
         ),
       };
 
+    case "test.event":
+      return {
+        filterData,
+        slackMessage: buildSlackMessageForTestEvent(event.data.webhookId),
+      };
+
     default:
       invalidEvent = event;
       throw `Invalid event: ${invalidEvent}`;
@@ -257,6 +263,19 @@ const buildSlackMessageForExperimentUpdatedEvent = (
     ],
   };
 };
+
+const buildSlackMessageForTestEvent = (webhookId: string): SlackMessage => ({
+  text: `This is a test event for webhook ${webhookId}`,
+  blocks: [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `This is a *test event* for ${webhookId}`,
+      },
+    },
+  ],
+});
 
 const buildSlackMessageForExperimentDeletedEvent = (
   experimentEvent: ExperimentDeletedNotificationEvent,

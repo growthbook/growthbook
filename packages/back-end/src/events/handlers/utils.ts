@@ -83,6 +83,9 @@ export const getFilterDataForNotificationEvent = (
           : [],
       };
 
+    case "test.event":
+      return { tags: [], projects: [] };
+
     default:
       invalidEvent = event;
       throw `Invalid event: ${invalidEvent}`;
@@ -118,6 +121,9 @@ export const filterEventForEnvironments = ({
         featureEvent: event,
         environments,
       });
+
+    case "test.event":
+      return true;
 
     default:
       invalidEvent = event;
