@@ -33,6 +33,10 @@ class Statistic(ABC):
         """
         return self.mean
 
+    @property
+    def _has_zero_variance(self) -> bool:
+        return self.variance <= 0.0
+
 
 @dataclass
 class SampleMeanStatistic(Statistic):
@@ -208,6 +212,10 @@ class QuantileStatistic(Statistic):
     main_denominator_sum_product: float
 
     @property
+    def _has_zero_variance(self) -> bool:
+        return self.variance_init <= 0.0 and self.n < 100
+
+    @property
     def mean(self) -> float:
         return self.q_hat
 
@@ -216,10 +224,17 @@ class QuantileStatistic(Statistic):
         return self.mean
 
     @property
-    def variance(self) -> float:
+    def variance_init(self) -> float:
         num = self.q_upper - self.q_lower
         den = 2 * scipy.stats.norm.ppf(0.975, loc=0, scale=1)
         return float((self.n - 1) * (num / den) ** 2)
+
+    @property
+    def variance(self) -> float:
+        if self.n < 100:
+            return self.variance_init
+        else:
+            return max(self.variance_init, float(1e-5))
 
 
 @dataclass
@@ -228,8 +243,8 @@ class QuantileStatisticClustered(QuantileStatistic):
     nu: float
 
     @property
-    def variance(self):
-        v_iid = super().variance
+    def variance_init(self):
+        v_iid = super().variance_init
         v_nu_iid = self.nu * (1.0 - self.nu) / self.n
         v_nu_cluster = self.get_cluster_variance
         return v_iid * v_nu_cluster / v_nu_iid

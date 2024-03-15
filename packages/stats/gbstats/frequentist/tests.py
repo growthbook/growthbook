@@ -38,9 +38,11 @@ class FrequentistTestResult(TestResult):
     error_message: Optional[str] = None
 
 
-def frequentist_diff(mean_a, mean_b, relative) -> float:
+def frequentist_diff(mean_a, mean_b, relative, mean_a_unadjusted=None) -> float:
+    if not mean_a_unadjusted:
+        mean_a_unadjusted = mean_a
     if relative:
-        return (mean_b - mean_a) / mean_a
+        return (mean_b - mean_a) / mean_a_unadjusted
     else:
         return mean_b - mean_a
 
@@ -106,7 +108,12 @@ class TTest(BaseABTest):
 
     @property
     def point_estimate(self) -> float:
-        return frequentist_diff(self.stat_a.mean, self.stat_b.mean, self.relative)
+        return frequentist_diff(
+            self.stat_a.mean,
+            self.stat_b.mean,
+            self.relative,
+            self.stat_a.unadjusted_mean,
+        )
 
     @property
     def critical_value(self) -> float:
