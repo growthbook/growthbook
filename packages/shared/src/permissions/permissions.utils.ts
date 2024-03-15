@@ -12,12 +12,12 @@ export const ENV_SCOPED_PERMISSIONS = [
 
 export const PROJECT_SCOPED_PERMISSIONS = [
   "readData",
-  "addComments", // This is "" issues
+  "addComments",
   "bypassApprovalChecks",
   "canReview",
   "createFeatureDrafts",
   "manageFeatures",
-  "manageProjects", // I think this should be a global permission
+  "manageProjects",
   "createAnalyses",
   "createIdeas",
   "createMetrics",
