@@ -212,6 +212,10 @@ class QuantileStatistic(Statistic):
         return self.q_hat
 
     @property
+    def unadjusted_mean(self) -> float:
+        return self.mean
+
+    @property
     def variance(self) -> float:
         num = self.q_upper - self.q_lower
         den = 2 * scipy.stats.norm.ppf(0.975, loc=0, scale=1)

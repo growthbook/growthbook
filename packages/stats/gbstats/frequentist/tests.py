@@ -38,12 +38,20 @@ class FrequentistTestResult(TestResult):
     error_message: Optional[str] = None
 
 
-def mean_diff(mean_a, mean_b) -> float:
-    return mean_b - mean_a
+def frequentist_diff(mean_a, mean_b, relative) -> float:
+    if relative:
+        return (mean_b - mean_a) / mean_a
+    else:
+        return mean_b - mean_a
 
 
-def absolute_var(var_a, n_a, var_b, n_b) -> float:
-    return var_b / n_b + var_a / n_a
+def frequentist_variance(var_a, mean_a, n_a, var_b, mean_b, n_b, relative) -> float:
+    if relative:
+        return var_b / (pow(mean_a, 2) * n_b) + var_a * pow(mean_b, 2) / (
+            pow(mean_a, 4) * n_a
+        )
+    else:
+        return var_b / n_b + var_a / n_a
 
 
 class TTest(BaseABTest):
@@ -86,23 +94,19 @@ class TTest(BaseABTest):
 
     @property
     def variance(self) -> float:
-        if self.relative:
-            return self.stat_b.variance / (
-                pow(self.stat_a.unadjusted_mean, 2) * self.stat_b.n
-            ) + self.stat_a.variance * pow(self.stat_b.unadjusted_mean, 2) / (
-                pow(self.stat_a.unadjusted_mean, 4) * self.stat_a.n
-            )
-        return absolute_var(
-            self.stat_a.variance, self.stat_a.n, self.stat_b.variance, self.stat_b.n
+        return frequentist_variance(
+            self.stat_a.variance,
+            self.stat_a.unadjusted_mean,
+            self.stat_a.n,
+            self.stat_b.variance,
+            self.stat_b.unadjusted_mean,
+            self.stat_b.n,
+            self.relative,
         )
 
     @property
     def point_estimate(self) -> float:
-        absolute_diff = mean_diff(self.stat_a.mean, self.stat_b.mean)
-        if self.relative:
-            return absolute_diff / self.stat_a.unadjusted_mean
-        else:
-            return absolute_diff
+        return frequentist_diff(self.stat_a.mean, self.stat_b.mean, self.relative)
 
     @property
     def critical_value(self) -> float:

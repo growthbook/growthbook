@@ -25,7 +25,7 @@ from gbstats.models.statistics import (
     QuantileStatistic,
     QuantileStatisticClustered,
 )
-from gbstats.frequentist.tests import mean_diff, absolute_var
+from gbstats.frequentist.tests import frequentist_diff, frequentist_variance
 
 # Configs
 
@@ -35,12 +35,6 @@ class GaussianPrior:
     mean: float = 0
     variance: float = 1
     pseudo_n: float = 0
-
-
-@dataclass
-class GaussianFlatPrior(GaussianPrior):
-    variance: float = 1e6
-    pseudo_n: float = 1
 
 
 @dataclass
@@ -69,17 +63,9 @@ class GaussianBayesianConfig(BayesianConfig):
 
 
 @dataclass
-class EffectConfigFlatPrior(GaussianBayesianConfig):
-    prior_a: GaussianPrior = field(default_factory=GaussianFlatPrior)
-    prior_b: GaussianPrior = field(default_factory=GaussianFlatPrior)
-    prior_effect: GaussianFlatPrior = field(default_factory=GaussianFlatPrior)
-
-
-@dataclass
-class EffectConfigStandardPrior(GaussianBayesianConfig):
-    prior_a: GaussianPrior = field(default_factory=GaussianFlatPrior)
-    prior_b: GaussianPrior = field(default_factory=GaussianFlatPrior)
+class EffectBayesianConfig(BayesianConfig):
     prior_effect: GaussianPrior = field(default_factory=GaussianPrior)
+    epsilon: float = 1e-4
 
 
 # Results
@@ -182,10 +168,6 @@ class BinomialBayesianABTest(BayesianABTest):
         super().__init__(stat_a, stat_b, config)
         self.prior_a = config.prior_a
         self.prior_b = config.prior_b
-        self.relative = config.difference_type == "relative"
-        self.scaled = config.difference_type == "scaled"
-        self.traffic_proportion_b = config.traffic_proportion_b
-        self.phase_length_days = config.phase_length_days
 
     def compute_result(self) -> BayesianTestResult:
         if self.stat_a.mean == 0:
@@ -256,10 +238,6 @@ class GaussianBayesianABTest(BayesianABTest):
         self.prior_a = config.prior_a
         self.prior_b = config.prior_b
         self.epsilon = config.epsilon
-        self.relative = config.difference_type == "relative"
-        self.scaled = config.difference_type == "scaled"
-        self.traffic_proportion_b = config.traffic_proportion_b
-        self.phase_length_days = config.phase_length_days
 
     def _is_log_approximation_inexact(
         self, mean_std_dev_pairs: Tuple[Tuple[float, float], Tuple[float, float]]
@@ -353,7 +331,7 @@ class GaussianBayesianABTest(BayesianABTest):
         return result
 
 
-class GaussianEffectABTest(GaussianBayesianABTest):
+class GaussianEffectABTest(BayesianABTest):
     def __init__(
         self,
         stat_a: Union[
@@ -368,7 +346,7 @@ class GaussianEffectABTest(GaussianBayesianABTest):
             QuantileStatistic,
             QuantileStatisticClustered,
         ],
-        config: Union[EffectConfigFlatPrior, EffectConfigStandardPrior],
+        config: EffectBayesianConfig,
     ):
         super().__init__(stat_a, stat_b, config)
         self.prior_effect = config.prior_effect
@@ -376,28 +354,57 @@ class GaussianEffectABTest(GaussianBayesianABTest):
         self.stat_b = stat_b
 
     def compute_result(self):
+        if self.stat_a.mean == 0 and self.relative:
+            return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
+        if self.has_empty_input():
+            return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)
+        if self._has_zero_variance():
+            return self._default_output(ZERO_NEGATIVE_VARIANCE_MESSAGE)
+
         self.compute_frequentist_moments()
-        self.compute_bayesian_moments()
-        risk = [self.risk]
-        ci = self.credible_interval(
-            self.mean_diff, self.std_diff, self.ccr, self.relative
+        self.construct_prior_by_variation()
+
+        mu_a, sd_a = Norm.posterior(
+            [
+                self.prior_a.mean,
+                np.sqrt(self.prior_a.variance),
+                self.prior_a.pseudo_n,
+            ],
+            [
+                self.stat_a.mean,
+                self.stat_a.stddev,
+                self.stat_a.n,
+            ],
         )
+        mu_b, sd_b = Norm.posterior(
+            [
+                self.prior_b.mean,
+                np.sqrt(self.prior_b.variance),
+                self.prior_b.pseudo_n,
+            ],
+            [
+                self.stat_b.mean,
+                self.stat_b.stddev,
+                self.stat_b.n,
+            ],
+        )
+        self.mean_diff = mu_b - mu_a
+        self.std_diff = np.sqrt(sd_a**2 + sd_b**2)
+        risk = [self.risk]
+        self.var_diff = frequentist_variance(
+            sd_a**2, mu_a, 1, sd_b**2, mu_b, 1, self.relative
+        )
+        self.std_diff = np.sqrt(self.var_diff)
+        self.mean_diff = frequentist_diff(mu_a, mu_b, self.relative)
         ctw = self.chance_to_win(self.mean_diff, self.std_diff)
-        if self.relative:
-            if self.stat_a.mean == 0.0:
-                raise ValueError(
-                    "Cannot compute relative effect when control mean is 0."
-                )
-            else:
-                self.mean_diff /= np.abs(self.stat_a.mean)
-                self.std_diff /= np.abs(self.stat_a.mean)
+        ci = self.credible_interval(self.mean_diff, self.std_diff, self.ccr, log=False)
         # probably better to tear these out of superclass, have this be standalone class
         result = BayesianTestResult(
             chance_to_win=ctw,
             expected=self.mean_diff,
             ci=ci,
             uplift=Uplift(
-                dist="lognormal" if self.relative else "normal",
+                dist="normal",
                 mean=self.mean_diff,
                 stddev=self.std_diff,
             ),
@@ -410,42 +417,35 @@ class GaussianEffectABTest(GaussianBayesianABTest):
         return result
 
     def compute_frequentist_moments(self):
-        self.absolute_diff = mean_diff(self.stat_a.mean, self.stat_b.mean)
-        self.absolute_var = absolute_var(
-            self.stat_a.variance, self.stat_a.n, self.stat_b.variance, self.stat_b.n
+        self.frequentist_var = frequentist_variance(
+            self.stat_a.variance,
+            self.stat_a.unadjusted_mean,
+            self.stat_a.n,
+            self.stat_b.variance,
+            self.stat_b.unadjusted_mean,
+            self.stat_b.n,
+            self.relative,
+        )
+        self.frequentist_diff = frequentist_diff(
+            self.stat_a.mean, self.stat_b.mean, self.relative
         )
 
-    def compute_bayesian_moments(self):
-        self.mean_diff = self.posterior_mean
-        self.std_diff = np.sqrt(self.posterior_variance)
-
-    @property
-    def posterior_variance(self):
-        return (self.data_precision + self.prior_precision) ** -1
-
-    @property
-    def posterior_mean(self):
-        weight_prior = self.prior_precision * self.prior_effect_mean
-        weight_data = self.data_precision * self.data_mean
-        return (weight_prior + weight_data) * self.posterior_variance
-
-    @property
-    def prior_effect_mean(self):
-        return self.prior_effect.mean
-
-    @property
-    def prior_precision(self):
-        return 1.0 / self.prior_effect.variance
-
-    @property
-    def data_mean(self):
-        return self.absolute_diff
-
-    @property
-    def data_precision(self):
-        if self.absolute_var == 0.0:
-            return 1e5
-        return 1.0 / self.absolute_var
+    def construct_prior_by_variation(self):
+        mu_0 = self.stat_a.mean
+        if self.relative:
+            mu_1 = mu_0 * (1.0 + self.prior_effect.mean)
+            v = (
+                self.prior_effect.variance
+                * mu_0**2
+                / (1.0 + self.prior_effect.mean**2)
+            )
+        else:
+            mu_1 = mu_0 + self.prior_effect.mean
+            v = 0.5 * self.prior_effect.variance
+        self.prior_a = GaussianPrior(mean=mu_0, variance=v, pseudo_n=1)
+        self.prior_b = GaussianPrior(mean=mu_1, variance=v, pseudo_n=1)
+        # self.prior_combined = GaussianBayesianConfig(difference_type="absolute", prior_a=self.prior_a, prior_b=self.prior_b)
+        # self.fit_bayesian = GaussianBayesianABTest(stat_a=self.stat_a, stat_b=self.stat_b, config=self.prior_combined).compute_result()
 
     @property
     def risk(self):
