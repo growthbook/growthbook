@@ -74,10 +74,6 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
   });
 
   const onTestWebhook = useCallback(async () => {
-    //const handleCreateError = (message: string) => {
-    //setCreateError(`Failed to test webhook: ${message}`);
-    //};
-
     try {
       const response = await apiCall<{
         error?: string;
