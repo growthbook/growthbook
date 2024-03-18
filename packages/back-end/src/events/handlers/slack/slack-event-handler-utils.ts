@@ -24,7 +24,7 @@ type DataForNotificationEvent = {
   slackMessage: SlackMessage;
 };
 
-export const getDataForNotificationEvent = (
+export const getSlackDataForNotificationEvent = (
   event: NotificationEvent,
   eventId: string
 ): DataForNotificationEvent | null => {
