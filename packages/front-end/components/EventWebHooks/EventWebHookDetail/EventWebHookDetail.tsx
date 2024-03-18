@@ -13,6 +13,7 @@ import { useAuth } from "@/services/auth";
 import Badge from "@/components/Badge";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import useApi from "@/hooks/useApi";
+import { useEventWebhookLogs } from "@/hooks/useEventWebhookLogs";
 import {
   EventWebHookEditParams,
   useIconForState,
@@ -22,6 +23,7 @@ import { EventWebHookAddEditModal } from "@/components/EventWebHooks/EventWebHoo
 
 type EventWebHookDetailProps = {
   eventWebHook: EventWebHookInterface;
+  mutateEventWebHook: () => void;
   onEdit: (data: EventWebHookEditParams) => Promise<void>;
   onDelete: () => Promise<void>;
   onEditModalOpen: () => void;
@@ -32,6 +34,7 @@ type EventWebHookDetailProps = {
 
 export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
   eventWebHook,
+  mutateEventWebHook,
   onEdit,
   onDelete,
   onEditModalOpen,
@@ -50,6 +53,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
   } = eventWebHook;
 
   const { apiCall } = useAuth();
+  const { mutate: mutateEventLogs } = useEventWebhookLogs(webhookId);
 
   const iconForState = useIconForState(eventWebHook.lastState);
 
@@ -77,10 +81,15 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
       } else {
         //setCreateError(null);
       }
+
+      setTimeout(() => {
+        mutateEventLogs();
+        mutateEventWebHook();
+      }, 1000);
     } catch (e) {
       //handleCreateError("Unknown error");
     }
-  }, [webhookId, apiCall]);
+  }, [mutateEventLogs, mutateEventWebHook, webhookId, apiCall]);
 
   return (
     <div>
@@ -332,6 +341,7 @@ export const EventWebHookDetailContainer = () => {
       onModalClose={() => setIsEditModalOpen(false)}
       eventWebHook={data.eventWebHook}
       editError={editError}
+      mutateEventWebHook={mutate}
     />
   );
 };
