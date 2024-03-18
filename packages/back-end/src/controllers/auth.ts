@@ -68,7 +68,7 @@ export async function postRefresh(req: Request, res: Response) {
       idToken,
       refreshToken: newRefreshToken,
       expiresIn,
-    } = await auth.refresh(req, refreshToken);
+    } = await auth.refresh(req, res, refreshToken);
 
     IdTokenCookie.setValue(idToken, req, res, expiresIn);
     if (newRefreshToken) {

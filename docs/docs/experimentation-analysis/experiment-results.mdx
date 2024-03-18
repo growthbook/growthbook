@@ -126,7 +126,7 @@ Every experiment automatically checks for a Sample Ratio Mismatch (SRM) and will
 
 ![SRM Warning](/images/srm.png)
 
-Like the warning says, you shouldn't trust the results since they are likely misleading. Instead, find and fix the source of the bug and restart the experiment.
+Like the warning says, you shouldn't trust the results since they are likely misleading. Instead, find and fix the source of the bug and restart the experiment. You can find more information about potential sources of the problems in our [troubleshooting guide](/kb/experiments/troubleshooting-experiments).
 
 Under the hood, we are conducting a standard chi-squared test for Sample Ratio Mismatch, which compares the distribution of observed units to the expected units and computes a p-value for the probability of observing this traffic split if the traffic split were truly unbiased.
 
