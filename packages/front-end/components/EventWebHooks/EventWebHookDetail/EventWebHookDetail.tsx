@@ -41,6 +41,7 @@ type State =
       type: "success";
       message: string;
     }
+  | { type: "loading" }
   | undefined;
 
 export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
@@ -74,6 +75,8 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
   });
 
   const onTestWebhook = useCallback(async () => {
+    setState({ type: "loading" });
+
     try {
       const response = await apiCall<{
         error?: string;
@@ -112,7 +115,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           All Webhooks
         </Link>
 
-        {state && (
+        {state && state.type !== "loading" && (
           <div className={`p-sm-1 mb-0 alert alert-${state.type}`}>
             {state.message}
           </div>
@@ -138,6 +141,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           <button
             onClick={onTestWebhook}
             className="btn btn-sm btn-outline-secondary mr-1"
+            disabled={state && state.type === "loading"}
           >
             <FaPaperPlane className="mr-1" />
             Test
