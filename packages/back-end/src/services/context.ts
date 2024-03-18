@@ -2,6 +2,7 @@ import {
   ReadAccessFilter,
   getReadAccessFilter,
   Permissions,
+  userHasPermission,
 } from "shared/permissions";
 import { uniq } from "lodash";
 import pino from "pino";
@@ -9,6 +10,7 @@ import { Request } from "express";
 import {
   MemberRole,
   OrganizationInterface,
+  Permission,
   UserPermissions,
 } from "../../types/organization";
 import { EventAuditUser } from "../events/event-types";
@@ -110,6 +112,32 @@ export class ReqContextClass implements ReqContextInterface {
     this.readAccessFilter = getReadAccessFilter(this.userPermissions);
 
     this.permissions = new Permissions(this.userPermissions, this.superAdmin);
+  }
+
+  // Check permissions
+  public hasPermission(
+    permission: Permission,
+    project?: string | (string | undefined)[] | undefined,
+    envs?: string[] | Set<string>
+  ) {
+    return userHasPermission(
+      this.superAdmin,
+      this.userPermissions,
+      permission,
+      project,
+      envs ? [...envs] : undefined
+    );
+  }
+
+  // Helper if you want to throw an error if the user does not have permission
+  public requirePermission(
+    permission: Permission,
+    project?: string | (string | undefined)[] | undefined,
+    envs?: string[] | Set<string>
+  ) {
+    if (!this.hasPermission(permission, project, envs)) {
+      throw new Error("You do not have permission to complete that action.");
+    }
   }
 
   // Record an audit log entry
