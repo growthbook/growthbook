@@ -83,7 +83,8 @@ const ClickHouseForm: FC<{
             value={params.maxExecutionTime}
             onChange={onParamChange}
             min={0}
-            max={1800}
+            max={3600}
+            placeholder={"Default: 1800"}
           />
         </div>
       </div>

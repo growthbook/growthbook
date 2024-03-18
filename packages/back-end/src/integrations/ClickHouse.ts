@@ -2,6 +2,7 @@ import { createClient, ResponseJSON } from "@clickhouse/client";
 import { decryptDataSourceParams } from "../services/datasource";
 import { ClickHouseConnectionParams } from "../../types/integrations/clickhouse";
 import { QueryResponse } from "../types/Integration";
+import { getHost } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
 
 export default class ClickHouse extends SqlIntegration {
@@ -27,17 +28,19 @@ export default class ClickHouse extends SqlIntegration {
   getSensitiveParamKeys(): string[] {
     return ["password"];
   }
+
   async runQuery(sql: string): Promise<QueryResponse> {
     const client = createClient({
-      host: `${this.params.url}${
-        this.params.port ? `:${this.params.port}` : ""
-      }`,
+      host: getHost(this.params.url, this.params.port),
       username: this.params.username,
       password: this.params.password,
       database: this.params.database,
       application: "GrowthBook",
       clickhouse_settings: {
-        max_execution_time: Math.min(this.params.maxExecutionTime ?? 240, 1800),
+        max_execution_time: Math.min(
+          this.params.maxExecutionTime ?? 1800,
+          3600
+        ),
       },
     });
     const results = await client.query({ query: sql, format: "JSON" });

@@ -116,6 +116,11 @@ export default function QueryStatsRow({
         values={queryStats.map((q) => q.bytesBilled)}
         format="bytes"
       />
+      <NumericQueryStatDisplay
+        stat="Rows Processed"
+        values={queryStats.map((q) => q.rowsProcessed)}
+        format="bytes"
+      />
       <BooleanQueryStatDisplay
         stat="Warehouse Cached"
         values={queryStats.map((q) => q.warehouseCachedResult)}

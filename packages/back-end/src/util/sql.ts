@@ -175,6 +175,21 @@ export function format(sql: string, dialect?: FormatDialect) {
   }
 }
 
+// used to support different server locations (e.g. for ClickHouse)
+export function getHost(
+  url: string | undefined,
+  port: number
+): string | undefined {
+  if (!url) return undefined;
+  try {
+    const host = new URL(url);
+    if (!host.port && port) host.port = port + "";
+    return host.origin;
+  } catch (e) {
+    return `${url}:${port}`;
+  }
+}
+
 // Recursively create list of metric denominators in order
 // For example, a "step3" metric has denominator "step2", which itself has denominator "step1"
 // If you pass "step3" into this, it will return ["step1","step2","step3"]
