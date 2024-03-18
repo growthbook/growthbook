@@ -32,6 +32,17 @@ type EventWebHookDetailProps = {
   editError: string | null;
 };
 
+type State =
+  | {
+      type: "danger";
+      message: string;
+    }
+  | {
+      type: "success";
+      message: string;
+    }
+  | undefined;
+
 export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
   eventWebHook,
   mutateEventWebHook,
@@ -54,6 +65,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
 
   const { apiCall } = useAuth();
   const { mutate: mutateEventLogs } = useEventWebhookLogs(webhookId);
+  const [state, setState] = useState<State>();
 
   const iconForState = useIconForState(eventWebHook.lastState);
 
@@ -62,7 +74,6 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
   });
 
   const onTestWebhook = useCallback(async () => {
-    // Keep the modal open and display error
     //const handleCreateError = (message: string) => {
     //setCreateError(`Failed to test webhook: ${message}`);
     //};
@@ -77,27 +88,39 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
       });
 
       if (response.error) {
-        //handleCreateError(response.error || "Unknown error");
-      } else {
-        //setCreateError(null);
+        setState({
+          type: "danger",
+          message: `Failed to test webhook: ${
+            response.error || "Unknown error"
+          }`,
+        });
+        return;
       }
+
+      setState({ type: "success", message: "Test event sucessfully sent!" });
 
       setTimeout(() => {
         mutateEventLogs();
         mutateEventWebHook();
       }, 1000);
     } catch (e) {
-      //handleCreateError("Unknown error");
+      setState({ type: "danger", message: "Unknown error" });
     }
   }, [mutateEventLogs, mutateEventWebHook, webhookId, apiCall]);
 
   return (
     <div>
-      <div className="mb-3">
-        <Link href="/settings/webhooks">
+      <div className="d-sm-flex mb-3 justify-content-between">
+        <Link href="/settings/webhooks" className="p-sm-1">
           <FaAngleLeft />
           All Webhooks
         </Link>
+
+        {state && (
+          <div className={`p-sm-1 mb-0 alert alert-${state.type}`}>
+            {state.message}
+          </div>
+        )}
       </div>
 
       <div className="d-sm-flex justify-content-between mb-3 mb-sm-0">
