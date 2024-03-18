@@ -57,11 +57,6 @@ export const postBulkImportFacts = createApiRequestHandler(
     function checkFactTablePermission(factTable: { projects?: string[] }) {
       req.checkPermissions("manageFactTables", factTable.projects || []);
     }
-    function checkFactMetricPermission(factMetric: { projects?: string[] }) {
-      if (!req.context.permissions.canCreateMetric(factMetric)) {
-        req.context.permissions.throwPermissionError();
-      }
-    }
 
     const projects = await findAllProjectsByOrganization(req.context);
     const projectIds = new Set(projects.map((p) => p.id));
@@ -210,8 +205,9 @@ export const postBulkImportFacts = createApiRequestHandler(
         const existing = factMetricMap.get(id);
         // Update existing fact metric
         if (existing) {
-          checkFactMetricPermission(existing);
-          if (data.projects) checkFactMetricPermission(data);
+          if (!req.context.permissions.canUpdateMetric(existing, data)) {
+            req.context.permissions.throwPermissionError();
+          }
 
           const changes = getUpdateFactMetricPropsFromBody(data, existing);
           await validateFactMetric(
@@ -228,7 +224,9 @@ export const postBulkImportFacts = createApiRequestHandler(
         }
         // Create new fact metric
         else {
-          checkFactMetricPermission(data);
+          if (!req.context.permissions.canCreateMetric(data)) {
+            req.context.permissions.throwPermissionError();
+          }
 
           const lookupFactTable = async (id: string) =>
             factTableMap.get(id) || null;

@@ -23,7 +23,7 @@ export const deleteFactMetric = createApiRequestHandler(
       );
     }
 
-    if (!req.context.permissions.canCreateMetric(factMetric)) {
+    if (!req.context.permissions.canDeleteMetric(factMetric)) {
       req.context.permissions.throwPermissionError();
     }
 

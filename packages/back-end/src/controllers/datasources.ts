@@ -65,14 +65,14 @@ export async function postSampleData(
   >
 ) {
   const context = getContextFromReq(req);
-  const { org, userId, permissions } = context;
+  const { org, userId } = context;
   const orgId = org.id;
   const statsEngine = org.settings?.statsEngine || DEFAULT_STATS_ENGINE;
 
   req.checkPermissions("createAnalyses", "");
 
-  if (!permissions.canCreateMetric({})) {
-    permissions.throwPermissionError();
+  if (!context.permissions.canCreateMetric({})) {
+    context.permissions.throwPermissionError();
   }
 
   const existingMetrics = await getSampleMetrics(context);
