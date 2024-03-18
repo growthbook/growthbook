@@ -24,13 +24,10 @@ type DataForNotificationEvent = {
   slackMessage: SlackMessage;
 };
 
-export const getSlackDataForNotificationEvent = (
+export const getSlackMessageForNotificationEvent = (
   event: NotificationEvent,
   eventId: string
-): DataForNotificationEvent | null => {
-  const filterData = getFilterDataForNotificationEvent(event);
-  if (!filterData) return null;
-
+): SlackMessage | null => {
   let invalidEvent: never;
 
   switch (event.event) {
@@ -38,62 +35,45 @@ export const getSlackDataForNotificationEvent = (
       return null;
 
     case "feature.created":
-      return {
-        filterData,
-        slackMessage: buildSlackMessageForFeatureCreatedEvent(event, eventId),
-      };
+      return buildSlackMessageForFeatureCreatedEvent(event, eventId);
 
     case "feature.updated":
-      return {
-        filterData,
-        slackMessage: buildSlackMessageForFeatureUpdatedEvent(event, eventId),
-      };
+      return buildSlackMessageForFeatureUpdatedEvent(event, eventId);
 
     case "feature.deleted":
-      return {
-        filterData,
-        slackMessage: buildSlackMessageForFeatureDeletedEvent(event, eventId),
-      };
+      return buildSlackMessageForFeatureDeletedEvent(event, eventId);
 
     case "experiment.created":
-      return {
-        filterData,
-        slackMessage: buildSlackMessageForExperimentCreatedEvent(
-          event,
-          eventId
-        ),
-      };
+      return buildSlackMessageForExperimentCreatedEvent(event, eventId);
 
     case "experiment.updated":
-      return {
-        filterData,
-        slackMessage: buildSlackMessageForExperimentUpdatedEvent(
-          event,
-          eventId
-        ),
-      };
+      return buildSlackMessageForExperimentUpdatedEvent(event, eventId);
 
     case "experiment.deleted":
-      return {
-        filterData,
-        slackMessage: buildSlackMessageForExperimentDeletedEvent(
-          event,
-          eventId
-        ),
-      };
+      return buildSlackMessageForExperimentDeletedEvent(event, eventId);
 
     case "webhook.test":
-      return {
-        filterData,
-        slackMessage: buildSlackMessageForWebhookTestEvent(
-          event.data.webhookId
-        ),
-      };
+      return buildSlackMessageForWebhookTestEvent(event.data.webhookId);
 
     default:
       invalidEvent = event;
       throw `Invalid event: ${invalidEvent}`;
   }
+};
+
+export const getSlackDataForNotificationEvent = (
+  event: NotificationEvent,
+  eventId: string
+): DataForNotificationEvent | null => {
+  if (event.event === "webhook.test") return null;
+
+  const filterData = getFilterDataForNotificationEvent(event);
+  if (!filterData) return null;
+
+  const slackMessage = getSlackMessageForNotificationEvent(event, eventId);
+  if (!slackMessage) return null;
+
+  return { filterData, slackMessage };
 };
 
 // endregion Filtering -> feature

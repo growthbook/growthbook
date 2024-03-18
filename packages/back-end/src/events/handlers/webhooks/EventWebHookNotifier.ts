@@ -10,7 +10,7 @@ import { findOrganizationById } from "../../../models/OrganizationModel";
 import { createEventWebHookLog } from "../../../models/EventWebHookLogModel";
 import { logger } from "../../../util/logger";
 import { cancellableFetch } from "../../../util/http.util";
-import { getSlackDataForNotificationEvent } from "../slack/slack-event-handler-utils";
+import { getSlackMessageForNotificationEvent } from "../slack/slack-event-handler-utils";
 import {
   EventWebHookErrorResult,
   EventWebHookResult,
@@ -113,19 +113,18 @@ export class EventWebHookNotifier implements Notifier {
           return eventPayload;
 
         case "slack": {
-          const data = getSlackDataForNotificationEvent(eventPayload, eventId);
-
-          if (!data) return null;
-
-          return data.slackMessage;
+          return getSlackMessageForNotificationEvent(eventPayload, eventId);
         }
 
         case "discord": {
-          const data = getSlackDataForNotificationEvent(eventPayload, eventId);
+          const data = getSlackMessageForNotificationEvent(
+            eventPayload,
+            eventId
+          );
 
           if (!data) return null;
 
-          return { content: data.slackMessage.text };
+          return { content: data.text };
         }
 
         case "ms-teams":
