@@ -11,12 +11,15 @@ import {
   getEventWebHookById,
   updateEventWebHook,
 } from "../../models/EventWebhookModel";
+import { createEvent } from "../../models/EventModel";
 import * as EventWebHookLog from "../../models/EventWebHookLogModel";
 
 import { AuthRequest } from "../../types/AuthRequest";
 import { getContextFromReq } from "../../services/organizations";
 import { EventWebHookLogInterface } from "../../../types/event-webhook-log";
+import { WebhookTestEvent } from "../../events/notification-events";
 import { NotificationEventName } from "../../events/base-types";
+import { EventNotifier } from "../../events/notifiers/EventNotifier";
 
 // region GET /event-webhooks
 
@@ -236,3 +239,58 @@ export const putEventWebHook = async (
 };
 
 // endregion PUT /event-webhooks/:eventWebHookId
+
+// region POST /event-webhooks/test
+
+type PostTestEventWebHooksRequest = AuthRequest & {
+  body: {
+    webhookId: string;
+  };
+};
+
+type PostTestEventWebHooksResponse = {
+  eventId: string;
+};
+
+export const createTestEventWebHook = async (
+  req: PostTestEventWebHooksRequest,
+  res: Response<PostTestEventWebHooksResponse | PrivateApiErrorResponse>
+) => {
+  req.checkPermissions("manageWebhooks");
+
+  const {
+    org: { id: organizationId },
+  } = getContextFromReq(req);
+  const { webhookId } = req.body;
+
+  const webhook = await EventWebHook.getEventWebHookById(
+    webhookId,
+    organizationId
+  );
+
+  if (!webhook) throw new Error(`Cannot find webhook with id ${webhookId}`);
+
+  const payload: WebhookTestEvent = {
+    event: "webhook.test",
+    object: "webhook",
+    data: { webhookId },
+    user: req.userId
+      ? {
+          type: "dashboard",
+          id: req.userId,
+          email: req.email,
+          name: req.name || "",
+        }
+      : null,
+  };
+
+  const emittedEvent = await createEvent(organizationId, payload);
+
+  if (!emittedEvent) throw new Error("Error while creating event!");
+
+  new EventNotifier(emittedEvent.id).perform();
+
+  return res.json({ eventId: emittedEvent.id });
+};
+
+// endregion POST /event-webhooks/test

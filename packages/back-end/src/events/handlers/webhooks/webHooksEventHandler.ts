@@ -1,4 +1,7 @@
-import { getAllEventWebHooksForEvent } from "../../../models/EventWebhookModel";
+import {
+  getEventWebHookById,
+  getAllEventWebHooksForEvent,
+} from "../../../models/EventWebhookModel";
 import { NotificationEventHandler } from "../../notifiers/EventNotifier";
 import {
   getFilterDataForNotificationEvent,
@@ -15,17 +18,30 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
     projects: [],
   };
 
-  const eventWebHooks = (
-    (await getAllEventWebHooksForEvent({
-      organizationId: event.organizationId,
-      eventName: event.data.event,
-      enabled: true,
-      tags,
-      projects,
-    })) || []
-  ).filter(({ environments = [] }) =>
-    filterEventForEnvironments({ event: event.data, environments })
-  );
+  const eventWebHooks = await (async () => {
+    if (event.data.event === "webhook.test") {
+      const webhook = await getEventWebHookById(
+        event.data.data.webhookId,
+        event.organizationId
+      );
+
+      if (!webhook) return [];
+
+      return [webhook];
+    } else {
+      return (
+        (await getAllEventWebHooksForEvent({
+          organizationId: event.organizationId,
+          eventName: event.data.event,
+          enabled: true,
+          tags,
+          projects,
+        })) || []
+      ).filter(({ environments = [] }) =>
+        filterEventForEnvironments({ event: event.data, environments })
+      );
+    }
+  })();
 
   eventWebHooks.forEach((eventWebHook) => {
     const notifier = new EventWebHookNotifier({
