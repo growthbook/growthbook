@@ -173,6 +173,18 @@ export default function ConditionInput(props: Props) {
               return;
             }
 
+            const attributeOptions = filteredAttributeSchema.map((s) => ({
+              label: s.property,
+              value: s.property,
+            }));
+
+            // if the field is not in the attributeOptions list, switch to advanced mode
+            if (
+              !attributeOptions.find((attribute) => attribute.value === field)
+            ) {
+              setAdvanced(true);
+            }
+
             const savedGroupOptions = savedGroups
               // First, limit to groups with the correct attribute
               .filter((g) => g.type === "list" && g.attributeKey === field)
@@ -304,10 +316,7 @@ export default function ConditionInput(props: Props) {
                   <div className="col-sm-12 col-md mb-2">
                     <SelectField
                       value={field}
-                      options={filteredAttributeSchema.map((s) => ({
-                        label: s.property,
-                        value: s.property,
-                      }))}
+                      options={attributeOptions}
                       name="field"
                       className={styles.firstselect}
                       onChange={(value) => {
