@@ -202,6 +202,7 @@ def create_joint_statistic(
 @dataclass
 class QuantileStatistic(Statistic):
     n: int  # number of events here
+    nu: float
     q_hat: float  # sample estimate
     q_lower: float
     q_upper: float
@@ -210,6 +211,9 @@ class QuantileStatistic(Statistic):
     denominator_sum: float  # denominator sum
     denominator_sum_squares: float
     main_denominator_sum_product: float
+
+    # Don't we need to similarly handle cases where the sample size and quantile range would make us go < 0 or > 1?
+    # We can return the quantile itself, but can't do inference so in those cases we need to output _default_output() as well.
 
     @property
     def _has_zero_variance(self) -> bool:
@@ -225,8 +229,11 @@ class QuantileStatistic(Statistic):
 
     @property
     def variance_init(self) -> float:
+        multiplier = scipy.stats.norm.ppf(0.975, loc=0, scale=1)
+        if self.n <= multiplier**2 * self.nu / (1.0 - self.nu):
+            return 0
         num = self.q_upper - self.q_lower
-        den = 2 * scipy.stats.norm.ppf(0.975, loc=0, scale=1)
+        den = 2 * multiplier
         return float((self.n - 1) * (num / den) ** 2)
 
     @property
@@ -240,7 +247,6 @@ class QuantileStatistic(Statistic):
 @dataclass
 class QuantileStatisticClustered(QuantileStatistic):
     n_clusters: int
-    nu: float
 
     @property
     def variance_init(self):
