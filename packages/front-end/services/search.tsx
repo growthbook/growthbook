@@ -11,6 +11,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import { useRouter } from "next/router";
 import Fuse from "fuse.js";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { ensure } from "@/types/utils";
 
 export function useAddComputedFields<T, ExtraFields>(
   items: T[] | undefined,
@@ -114,8 +115,8 @@ export function useSearch<T>({
     sorted.sort((a, b) => {
       const comp1 = a[sort.field];
       const comp2 = b[sort.field];
+      ensure(sort.dir);
       if (typeof comp1 === "string" && typeof comp2 === "string") {
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         return comp1.localeCompare(comp2) * sort.dir;
       }
       if (Array.isArray(comp1) && Array.isArray(comp2)) {
@@ -123,20 +124,16 @@ export function useSearch<T>({
         // We'll just sort length of the array, then by the first element alphabetically
         // This is typically for tags
         if (comp1.length !== comp2.length) {
-          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
           return (comp2.length - comp1.length) * sort.dir;
         }
         const temp1 = comp1[0] ?? "";
         const temp2 = comp2[0] ?? "";
         if (typeof temp1 === "string" && typeof temp2 === "string") {
-          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
           return temp1.localeCompare(temp2) * sort.dir;
         }
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         return (temp1 - temp2) * sort.dir;
       }
       if (typeof comp1 === "number" && typeof comp2 === "number") {
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         return (comp1 - comp2) * sort.dir;
       }
       return 0;
@@ -151,6 +148,9 @@ export function useSearch<T>({
       children: ReactNode;
     }> = ({ children, field, className = "" }) => {
       if (isFiltered) return <th className={className}>{children}</th>;
+      const { field: sortField, dir: sortDir } = sort;
+      ensure(sortField);
+      ensure(sortDir);
       return (
         <th className={className}>
           <span
@@ -159,8 +159,7 @@ export function useSearch<T>({
               e.preventDefault();
               setSort({
                 field,
-                // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                dir: sort.field === field ? sort.dir * -1 : 1,
+                dir: sortField === field ? sortDir * -1 : 1,
               });
             }}
           >
@@ -170,8 +169,7 @@ export function useSearch<T>({
               className={sort.field === field ? "activesort" : "inactivesort"}
             >
               {sort.field === field ? (
-                // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                sort.dir < 0 ? (
+                sortDir < 0 ? (
                   <FaSortDown />
                 ) : (
                   <FaSortUp />
@@ -228,8 +226,8 @@ export function filterFeaturesByEnvironment(
   }
   if (environmentFilter.has("all")) {
     environments.forEach((env) => {
-      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'boolean | undefined' is not assi... Remove this comment to see the full error message
-      environmentFilter.set(env, environmentFilter.get("all"));
+      const value = environmentFilter.get("all");
+      if (value) environmentFilter.set(env, value);
     });
   }
 
