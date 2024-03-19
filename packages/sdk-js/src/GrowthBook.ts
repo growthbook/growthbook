@@ -141,7 +141,7 @@ export class GrowthBook<
       this.ready = true;
     }
 
-    if (isBrowser && context.enableDevMode) {
+    if ((isBrowser || context.isBrowser) && context.enableDevMode) {
       window._growthbook = this;
       document.dispatchEvent(new Event("gbloaded"));
     }
@@ -425,7 +425,7 @@ export class GrowthBook<
     }
     unsubscribe(this);
 
-    if (isBrowser && window._growthbook === this) {
+    if ((isBrowser || this._ctx.isBrowser) && window._growthbook === this) {
       delete window._growthbook;
     }
 
@@ -471,6 +471,7 @@ export class GrowthBook<
   }
 
   private _runAutoExperiment(experiment: AutoExperiment, forceRerun?: boolean) {
+    console.log("run auto experiment", experiment.key, forceRerun);
     const existing = this._activeAutoExperiments.get(experiment);
 
     // If this is a manual experiment and it's not already running, skip
@@ -502,7 +503,9 @@ export class GrowthBook<
 
     // Apply new changes
     if (result.inExperiment) {
+      console.log("in exp", result);
       const undo = this._applyDOMChanges(result.value);
+      console.log("undo", undo);
       if (undo) {
         this._activeAutoExperiments.set(experiment, {
           undo,
@@ -581,7 +584,7 @@ export class GrowthBook<
     }
 
     // In browser environments, queue up feature usage to be tracked in batches
-    if (!isBrowser || !window.fetch) return;
+    if (!(isBrowser || this._ctx.isBrowser) || !window.fetch) return;
     this._rtQueue.push({
       key,
       on: res.on,
@@ -1304,6 +1307,13 @@ export class GrowthBook<
     bucket?: number,
     stickyBucketUsed?: boolean
   ): Result<T> {
+    console.log("_getResult", {
+      variationIndex,
+      hashUsed,
+      featureId,
+      bucket,
+      stickyBucketUsed,
+    });
     let inExperiment = true;
     // If assigned variation is not valid, use the baseline and mark the user as not in the experiment
     if (variationIndex < 0 || variationIndex >= experiment.variations.length) {
@@ -1342,7 +1352,10 @@ export class GrowthBook<
   }
 
   private _getContextUrl() {
-    return this._ctx.url || (isBrowser ? window.location.href : "");
+    return (
+      this._ctx.url ||
+      (isBrowser || this._ctx.isBrowser ? window.location.href : "")
+    );
   }
 
   private _urlIsValid(urlRegex: RegExp): boolean {
@@ -1365,7 +1378,7 @@ export class GrowthBook<
   }
 
   private _applyDOMChanges(changes: AutoExperimentVariation) {
-    if (!isBrowser) return;
+    if (!(isBrowser || this._ctx.isBrowser)) return;
     const undo: (() => void)[] = [];
     if (changes.css) {
       const s = document.createElement("style");

@@ -197,6 +197,7 @@ export interface Context {
   renderer?: null | RenderFunction;
   decryptionKey?: string;
   remoteEval?: boolean;
+  isBrowser?: boolean;
 }
 
 export type SubscriptionFunction = (
