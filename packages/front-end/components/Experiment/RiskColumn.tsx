@@ -23,7 +23,7 @@ export default function RiskColumn({
   riskVariation: number;
 }) {
   const { metricDefaults } = useOrganizationMetricDefaults();
-  const { relativeRisk, risk, showRisk } = getRiskByVariation(
+  const { risk, ...showRisk } = getRiskByVariation(
     riskVariation,
     row,
     metricDefaults
@@ -34,7 +34,7 @@ export default function RiskColumn({
   const winRiskThreshold = row.metric.winRisk ?? defaultWinRiskThreshold;
   const loseRiskThreshold = row.metric.loseRisk ?? defaultLoseRiskThreshold;
 
-  if (!row.variations[0]?.value || !showRisk) {
+  if (!row.variations[0]?.value || !showRisk.show) {
     return <td className="empty-td"></td>;
   }
 
@@ -43,16 +43,15 @@ export default function RiskColumn({
   return (
     <td
       className={clsx("chance variation align-middle", {
-        won: showRisk && relativeRisk <= winRiskThreshold,
-        lost: showRisk && relativeRisk >= loseRiskThreshold,
+        won: showRisk.relativeRisk <= winRiskThreshold,
+        lost: showRisk.relativeRisk >= loseRiskThreshold,
         warning:
-          showRisk &&
-          relativeRisk > winRiskThreshold &&
-          relativeRisk < loseRiskThreshold,
+          showRisk.relativeRisk > winRiskThreshold &&
+          showRisk.relativeRisk < loseRiskThreshold,
       })}
     >
       <div className="result-number">
-        {percentFormatter.format(relativeRisk)}
+        {percentFormatter.format(showRisk.relativeRisk)}
       </div>
       {showRatio && (
         <div>
