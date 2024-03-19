@@ -188,7 +188,7 @@ const InviteList: FC<{
                             <ProjectBadges
                               resourceType="member"
                               projectIds={[p.id]}
-                              className="badge-ellipsis align-middle font-weight-normal"
+                              className="badge-ellipsis short align-middle font-weight-normal"
                             />{" "}
                             — {pr.role}
                           </div>
