@@ -16,18 +16,8 @@ import { useUser } from "@/services/UserContext";
 const FeatureAttributesPage = (): React.ReactElement => {
   const permissions = usePermissions();
   const { apiCall } = useAuth();
-  const attributeSchema = useAttributeSchema(true);
   const { project } = useDefinitions();
-
-  const filteredAttributeSchema = attributeSchema.filter((attribute) => {
-    if (project) {
-      return (
-        attribute.projects?.length === 0 ||
-        attribute.projects?.includes(project)
-      );
-    }
-    return true;
-  });
+  const attributeSchema = useAttributeSchema(true, project);
 
   const canCreateAttributes = permissions.check(
     "manageTargetingAttributes",
@@ -167,8 +157,8 @@ const FeatureAttributesPage = (): React.ReactElement => {
               </tr>
             </thead>
             <tbody>
-              {filteredAttributeSchema?.length > 0 ? (
-                <>{filteredAttributeSchema.map((v, i) => drawRow(v, i))}</>
+              {attributeSchema?.length > 0 ? (
+                <>{attributeSchema.map((v, i) => drawRow(v, i))}</>
               ) : (
                 <>
                   <tr>

@@ -35,7 +35,7 @@ interface Props {
 export default function ConditionInput(props: Props) {
   const { savedGroups } = useDefinitions();
 
-  const attributes = useAttributeMap();
+  const attributes = useAttributeMap(props.project);
 
   const title = props.title || "Target by Attributes";
   const emptyText = props.emptyText || "Applied to everyone by default.";
@@ -50,15 +50,7 @@ export default function ConditionInput(props: Props) {
   );
   const [rawTextMode, setRawTextMode] = useState(false);
 
-  const attributeSchema = useAttributeSchema();
-
-  const filteredAttributeSchema = attributeSchema.filter((attribute) => {
-    return (
-      !props.project ||
-      !attribute.projects?.length ||
-      attribute.projects.includes(props.project)
-    );
-  });
+  const attributeSchema = useAttributeSchema(false, props.project);
 
   useEffect(() => {
     if (advanced) return;
@@ -142,7 +134,7 @@ export default function ConditionInput(props: Props) {
             className="d-inline-block ml-1 mt-2 link-purple font-weight-bold cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
-              const prop = filteredAttributeSchema[0];
+              const prop = attributeSchema[0];
               setConds([
                 {
                   field: prop?.property || "",
@@ -171,18 +163,6 @@ export default function ConditionInput(props: Props) {
             if (!attribute) {
               console.error("Attribute not found in attribute Map.");
               return;
-            }
-
-            const attributeOptions = filteredAttributeSchema.map((s) => ({
-              label: s.property,
-              value: s.property,
-            }));
-
-            // if the field is not in the attributeOptions list, switch to advanced mode
-            if (
-              !attributeOptions.find((attribute) => attribute.value === field)
-            ) {
-              setAdvanced(true);
             }
 
             const savedGroupOptions = savedGroups
@@ -316,7 +296,10 @@ export default function ConditionInput(props: Props) {
                   <div className="col-sm-12 col-md mb-2">
                     <SelectField
                       value={field}
-                      options={attributeOptions}
+                      options={attributeSchema.map((s) => ({
+                        label: s.property,
+                        value: s.property,
+                      }))}
                       name="field"
                       className={styles.firstselect}
                       onChange={(value) => {
@@ -475,12 +458,12 @@ export default function ConditionInput(props: Props) {
           })}
         </ul>
         <div className="d-flex align-items-center">
-          {filteredAttributeSchema.length > 0 && (
+          {attributeSchema.length > 0 && (
             <span
               className="link-purple font-weight-bold cursor-pointer"
               onClick={(e) => {
                 e.preventDefault();
-                const prop = filteredAttributeSchema[0];
+                const prop = attributeSchema[0];
                 setConds([
                   ...conds,
                   {
