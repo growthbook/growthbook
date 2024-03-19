@@ -1972,6 +1972,13 @@ export function visualChangesetsHaveChanges({
     return true;
   }
 
+  // If there are URL targeting differences
+  if (
+    !isEqual(oldVisualChangeset.urlPatterns, newVisualChangeset.urlPatterns)
+  ) {
+    return true;
+  }
+
   // Otherwise, there are no meaningful changes
   return false;
 }

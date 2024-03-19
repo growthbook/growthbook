@@ -101,6 +101,7 @@ const visualChangesetSchema = new mongoose.Schema<VisualChangesetInterface>({
         ],
       },
     ],
+    required: true,
   },
 });
 
@@ -269,7 +270,8 @@ export const createVisualChangeset = async ({
       organization: context.org.id,
       urlPatterns,
       editorUrl,
-      visualChanges: visualChanges || undefined,
+      visualChanges:
+        visualChanges || experiment.variations.map(genNewVisualChange),
     })
   );
 
