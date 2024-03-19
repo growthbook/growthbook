@@ -115,10 +115,10 @@ export const MembersTabView: FC = () => {
           />
         )}
       {organization &&
-        organization.invites &&
-        organization.invites.length > 0 && (
+        organization.pendingMembers &&
+        organization.pendingMembers.length > 0 && (
           <PendingMemberList
-            pendingMembers={organization.invites}
+            pendingMembers={organization.pendingMembers}
             mutate={refreshOrganization}
             project={currentProject}
           />
