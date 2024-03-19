@@ -1,5 +1,5 @@
 import router from "next/router";
-import React, { FC, useState } from "react";
+import { FC, useState } from "react";
 import { datetime } from "shared/dates";
 import Link from "next/link";
 import { FaUserLock } from "react-icons/fa";
