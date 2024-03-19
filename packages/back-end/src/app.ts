@@ -507,6 +507,14 @@ app.get(
   experimentsController.findOrCreateVisualEditorToken
 );
 
+// URL Redirects
+app.post(
+  "/experiments/:id/url-redirect",
+  experimentsController.postURLRedirect
+);
+app.put("/url-redirects/:id", experimentsController.putURLRedirect);
+app.delete("/url-redirects/:id", experimentsController.deleteURLRedirect);
+
 // Reports
 app.get("/report/:id", reportsController.getReport);
 app.put("/report/:id", reportsController.putReport);

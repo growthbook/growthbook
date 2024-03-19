@@ -1972,25 +1972,6 @@ export function visualChangesetsHaveChanges({
     return true;
   }
 
-  // If there are redirect url differences
-  const { persistQueryString: oldPersistQueryString } = oldVisualChangeset;
-  const { persistQueryString: newPersistQueryString } = newVisualChangeset;
-  const oldRedirects = oldVisualChangeset.urlRedirects?.map((r) => r.url);
-  const newRedirects = newVisualChangeset.urlRedirects?.map((r) => r.url);
-  if (!isEqual(oldRedirects, newRedirects)) {
-    return true;
-  }
-  if (oldPersistQueryString !== newPersistQueryString) {
-    return true;
-  }
-
-  // If there are URL targeting differences
-  if (
-    !isEqual(oldVisualChangeset.urlPatterns, newVisualChangeset.urlPatterns)
-  ) {
-    return true;
-  }
-
   // Otherwise, there are no meaningful changes
   return false;
 }

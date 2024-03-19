@@ -4669,25 +4669,6 @@ components:
                       type: string
                     insertBeforeSelector:
                       type: string
-        urlRedirects:
-          type: array
-          items:
-            type: object
-            required:
-              - url
-              - variation
-            properties:
-              url:
-                type: string
-              variation:
-                type: string
-        persistQueryString:
-          type: boolean
-        changeType:
-          type: string
-          enum:
-            - visualEditor
-            - urlRedirect
     VisualChange:
       type: object
       required:

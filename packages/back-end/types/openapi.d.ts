@@ -1157,13 +1157,6 @@ export interface components {
               insertBeforeSelector?: string;
             })[];
         })[];
-      urlRedirects?: ({
-          url: string;
-          variation: string;
-        })[];
-      persistQueryString?: boolean;
-      /** @enum {string} */
-      changeType?: "visualEditor" | "urlRedirect";
     };
     VisualChange: {
       description?: string;
@@ -4301,13 +4294,6 @@ export interface operations {
                         insertBeforeSelector?: string;
                       })[];
                   })[];
-                urlRedirects?: ({
-                    url: string;
-                    variation: string;
-                  })[];
-                persistQueryString?: boolean;
-                /** @enum {string} */
-                changeType?: "visualEditor" | "urlRedirect";
               })[];
           };
         };
@@ -4355,13 +4341,6 @@ export interface operations {
                       insertBeforeSelector?: string;
                     })[];
                 })[];
-              urlRedirects?: ({
-                  url: string;
-                  variation: string;
-                })[];
-              persistQueryString?: boolean;
-              /** @enum {string} */
-              changeType?: "visualEditor" | "urlRedirect";
             };
             experiment?: {
               id: string;
@@ -4511,13 +4490,6 @@ export interface operations {
                       insertBeforeSelector?: string;
                     })[];
                 })[];
-              urlRedirects?: ({
-                  url: string;
-                  variation: string;
-                })[];
-              persistQueryString?: boolean;
-              /** @enum {string} */
-              changeType?: "visualEditor" | "urlRedirect";
             };
           };
         };

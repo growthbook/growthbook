@@ -114,21 +114,24 @@ export const scrubExperiments = (
 
   for (let experiment of experiments) {
     // Filter out any url redirect auto experiments if not supported
-    if (!supportsRedirects && experiment.changeType === "urlRedirect") {
+    if (!supportsRedirects && experiment.changeType === "redirect") {
       continue;
     }
 
     if (!supportsPrerequisites) {
-      // Keep experiments that do not have any parentConditions
-      if ((experiment.parentConditions?.length ?? 0) === 0) {
-        // keep and scrub experiments
-        experiment = omit(
-          experiment,
-          removedExperimentKeys
-        ) as AutoExperimentWithProject;
-        newExperiments.push(experiment);
+      // Filter out experiments that have any parentConditions
+      if ((experiment.parentConditions?.length ?? 0) > 0) {
+        continue;
       }
+
+      // Scrub fields from the experiment
+      experiment = omit(
+        experiment,
+        removedExperimentKeys
+      ) as AutoExperimentWithProject;
     }
+
+    newExperiments.push(experiment);
   }
   return newExperiments;
 };

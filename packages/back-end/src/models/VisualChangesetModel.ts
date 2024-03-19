@@ -7,7 +7,6 @@ import { ExperimentInterface, Variation } from "../../types/experiment";
 import { ApiVisualChangeset } from "../../types/openapi";
 import { ReqContext } from "../../types/organization";
 import {
-  URLRedirect,
   VisualChange,
   VisualChangesetInterface,
   VisualChangesetURLPattern,
@@ -60,6 +59,7 @@ const visualChangesetSchema = new mongoose.Schema<VisualChangesetInterface>({
   },
   editorUrl: {
     type: String,
+    required: true,
   },
   experiment: {
     type: String,
@@ -102,19 +102,6 @@ const visualChangesetSchema = new mongoose.Schema<VisualChangesetInterface>({
       },
     ],
   },
-  urlRedirects: [
-    {
-      _id: false,
-      variation: String,
-      url: String,
-    },
-  ],
-  persistQueryString: Boolean,
-  changeType: {
-    type: String,
-    enum: ["visualEditor", "urlRedirect"],
-    required: true,
-  },
 });
 
 export type VisualChangesetDocument = mongoose.Document &
@@ -147,12 +134,6 @@ export function toVisualChangesetApiInterface(
       variation: c.variation,
       domMutations: c.domMutations,
     })),
-    urlRedirects: visualChangeset.urlRedirects?.map((r) => ({
-      url: r.url,
-      variation: r.variation,
-    })),
-    persistQueryString: visualChangeset.persistQueryString,
-    changeType: visualChangeset.changeType,
   };
 }
 
@@ -274,23 +255,13 @@ export const createVisualChangeset = async ({
   urlPatterns,
   editorUrl,
   visualChanges,
-  urlRedirects,
-  persistQueryString,
-  changeType,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
   urlPatterns: VisualChangesetURLPattern[];
-  editorUrl?: VisualChangesetInterface["editorUrl"];
+  editorUrl: VisualChangesetInterface["editorUrl"];
   visualChanges?: VisualChange[];
-  urlRedirects?: URLRedirect[];
-  persistQueryString?: boolean;
-  changeType?: VisualChangesetInterface["changeType"];
 }): Promise<VisualChangesetInterface> => {
-  if (!changeType) {
-    changeType = urlRedirects?.length ? "urlRedirect" : "visualEditor";
-  }
-
   const visualChangeset = toInterface(
     await VisualChangesetModel.create({
       id: uniqid("vcs_"),
@@ -298,14 +269,7 @@ export const createVisualChangeset = async ({
       organization: context.org.id,
       urlPatterns,
       editorUrl,
-      visualChanges:
-        visualChanges ||
-        (!urlRedirects?.length
-          ? experiment.variations.map(genNewVisualChange)
-          : undefined),
-      urlRedirects,
-      persistQueryString,
-      changeType,
+      visualChanges: visualChanges || undefined,
     })
   );
 
