@@ -119,7 +119,7 @@ export default function QueryStatsRow({
       <NumericQueryStatDisplay
         stat="Rows Processed"
         values={queryStats.map((q) => q.rowsProcessed)}
-        format="bytes"
+        format="number"
       />
       <BooleanQueryStatDisplay
         stat="Warehouse Cached"
