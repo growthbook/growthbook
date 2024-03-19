@@ -394,7 +394,7 @@ describe("getHost", () => {
       "http://localhost:8888"
     );
   });
-  it("tries it's best if url is malformeded", () => {
-    expect(getHost("localhost", 8080)).toEqual("localhost:8080");
+  it("errors if url is malformeded", () => {
+    expect(getHost("localhost", 8080)).toThrow(TypeError);
   });
 });
