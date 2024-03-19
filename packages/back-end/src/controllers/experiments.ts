@@ -9,7 +9,6 @@ import { getAllMetricRegressionAdjustmentStatuses } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
-import { isURLTargeted } from "@growthbook/growthbook";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
@@ -25,8 +24,6 @@ import {
   createExperiment,
   deleteExperimentByIdForOrganization,
   getAllExperiments,
-  getAllPayloadExperiments,
-  getAllURLRedirectExperiments,
   getExperimentById,
   getExperimentByTrackingKey,
   getPastExperimentsByDatasource,
@@ -102,13 +99,9 @@ import { getFactTableMap } from "../models/FactTableModel";
 import { OrganizationSettings, ReqContext } from "../../types/organization";
 import {
   createURLRedirect,
-  deleteURLRedirectById,
-  findURLRedirectById,
   findURLRedirectsByExperiment,
   syncURLRedirectsWithVariations,
-  updateURLRedirect,
 } from "../models/UrlRedirectModel";
-import { DestinationURL, URLRedirectInterface } from "../../types/url-redirect";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -2244,220 +2237,6 @@ export async function postPastExperiments(
       },
     });
   }
-}
-
-async function _validateRedirect(
-  origin: string,
-  destinations: DestinationURL[],
-  context: ReqContext,
-  experiment: ExperimentInterface,
-  urlRedirectId?: string
-) {
-  const payloadExperiments = await getAllPayloadExperiments(context);
-  const urlRedirects = await getAllURLRedirectExperiments(
-    context,
-    payloadExperiments
-  );
-  // TODO:
-  const originUrl = origin;
-
-  const existingRedirects = urlRedirects.filter(
-    (r) => r.urlRedirect.id !== urlRedirectId
-  );
-
-  existingRedirects.forEach((existing) => {
-    if (
-      isURLTargeted(originUrl, [
-        {
-          type: "simple",
-          pattern: existing.urlRedirect.urlPattern,
-          include: true,
-        },
-      ])
-    ) {
-      throw new Error("Origin URL matches an existing redirect's origin URL.");
-    }
-    existing.urlRedirect.destinationURLs?.forEach((d) => {
-      if (
-        isURLTargeted(d.url, [
-          {
-            type: "simple",
-            pattern: origin,
-            include: true,
-          },
-        ])
-      ) {
-        throw new Error(
-          "Origin URL targets the destination url of an existing redirect."
-        );
-      }
-    });
-    destinations.forEach((dest) => {
-      if (
-        isURLTargeted(dest.url, [
-          {
-            type: "simple",
-            pattern: existing.urlRedirect.urlPattern,
-            include: true,
-          },
-        ])
-      ) {
-        const variationName = experiment?.variations.find(
-          (v) => v.id === dest.variation
-        )?.name;
-        throw new Error(
-          variationName
-            ? `Origin URL of an existing redirect targets the destination URL for "${variationName}" in this redirect.`
-            : "Origin URL of an existing redirect targets a destination URL in this redirect."
-        );
-      }
-    });
-  });
-}
-
-export async function postURLRedirect(
-  req: AuthRequest<
-    Partial<URLRedirectInterface>,
-    { id: string },
-    { circularDependencyCheck?: string }
-  >,
-  res: Response
-) {
-  const context = getContextFromReq(req);
-  const { circularDependencyCheck } = req.query;
-
-  if (!req.body.urlPattern) {
-    throw new Error("urlPattern needs to be defined");
-  }
-  if (!req.body.destinationURLs) {
-    throw new Error("destinationURLs needs to be defined");
-  }
-
-  const experiment = await getExperimentById(context, req.params.id);
-
-  if (!experiment) {
-    throw new Error("Could not find experiment");
-  }
-
-  const variationIds = experiment?.variations.map((v) => v.id);
-  const reqVariationIds = req.body.destinationURLs.map((r) => r.variation);
-
-  const areValidVariations = variationIds?.every((v) =>
-    reqVariationIds.includes(v)
-  );
-  if (!areValidVariations) {
-    throw new Error("Invalid variation IDs for urlRedirects");
-  }
-
-  const origin = req.body.urlPattern;
-  const destinations = req.body.destinationURLs;
-
-  if (circularDependencyCheck === "true") {
-    await _validateRedirect(origin, destinations, context, experiment);
-  }
-
-  const envs = getAffectedEnvsForExperiment({
-    experiment,
-  });
-  envs.length > 0 &&
-    req.checkPermissions("runExperiments", experiment.project, envs);
-
-  const urlRedirect = await createURLRedirect({
-    experiment,
-    urlPattern: req.body.urlPattern,
-    destinationURLs: req.body.destinationURLs,
-    persistQueryString: !!req.body.persistQueryString,
-    context,
-  });
-
-  res.status(200).json({
-    status: 200,
-    urlRedirect,
-  });
-}
-
-export async function putURLRedirect(
-  req: AuthRequest<
-    Partial<URLRedirectInterface>,
-    { id: string },
-    { circularDependencyCheck?: string }
-  >,
-  res: Response
-) {
-  const context = getContextFromReq(req);
-  const { org } = context;
-  const { circularDependencyCheck } = req.query;
-
-  const urlRedirect = await findURLRedirectById(req.params.id, org.id);
-  if (!urlRedirect) {
-    throw new Error("URL Redirect not found");
-  }
-
-  const experiment = await getExperimentById(context, urlRedirect.experiment);
-  if (!experiment) {
-    throw new Error("Could not find experiment");
-  }
-
-  const origin = req.body.urlPattern ?? urlRedirect.urlPattern;
-  const destinations = req.body.destinationURLs ?? urlRedirect.destinationURLs;
-
-  if (circularDependencyCheck === "true") {
-    await _validateRedirect(
-      origin,
-      destinations,
-      context,
-      experiment,
-      urlRedirect.id
-    );
-  }
-
-  const updates: Partial<URLRedirectInterface> = {
-    urlPattern: req.body.urlPattern,
-    destinationURLs: req.body.destinationURLs,
-    persistQueryString: req.body.persistQueryString,
-  };
-
-  const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
-  req.checkPermissions("runExperiments", experiment?.project || "", envs);
-
-  await updateURLRedirect({
-    urlRedirect,
-    experiment,
-    context,
-    updates,
-  });
-
-  res.status(200).json({
-    status: 200,
-  });
-}
-
-export async function deleteURLRedirect(
-  req: AuthRequest<null, { id: string }>,
-  res: Response
-) {
-  const context = getContextFromReq(req);
-  const { org } = context;
-
-  const urlRedirect = await findURLRedirectById(req.params.id, org.id);
-  if (!urlRedirect) {
-    throw new Error("URL Redirect not found");
-  }
-
-  const experiment = await getExperimentById(context, urlRedirect.experiment);
-
-  const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
-  req.checkPermissions("runExperiments", experiment?.project || "", envs);
-
-  await deleteURLRedirectById({
-    urlRedirect,
-    experiment,
-    context,
-  });
-
-  res.status(200).json({
-    status: 200,
-  });
 }
 
 export async function postVisualChangeset(

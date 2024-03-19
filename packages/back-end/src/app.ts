@@ -105,6 +105,7 @@ import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/d
 import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
 import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
+import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
 
 const app = express();
 
@@ -508,12 +509,7 @@ app.get(
 );
 
 // URL Redirects
-app.post(
-  "/experiments/:id/url-redirect",
-  experimentsController.postURLRedirect
-);
-app.put("/url-redirects/:id", experimentsController.putURLRedirect);
-app.delete("/url-redirects/:id", experimentsController.deleteURLRedirect);
+app.use("/url-redirects", urlRedirectRouter);
 
 // Reports
 app.get("/report/:id", reportsController.getReport);
