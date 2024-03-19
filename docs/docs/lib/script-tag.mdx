@@ -164,24 +164,27 @@ You can use feature flags with this SDK, but it does require some manual coding 
 
 ```html
 <script>
-// Define a function that will be called every time features need to be re-evaluated
-function applyFeatureFlags(gb) {
-  // Modify the page based on a feature flag
-  if(gb.isOn("dark-mode")) {
-    document.documentElement.classList.add("dark-mode");
-  } else {
-    document.documentElement.classList.remove("dark-mode");
-  }
-}
-
 // Wait for the GrowthBook SDK to load before running
 window.growthbook_queue = window.growthbook_queue || [];
 window.growthbook_queue.push((gb) => {
-  // Call your function the first time
-  applyFeatureFlags(gb);
+  // Function that uses feature flags to make changes to the page
+  const applyFeatureFlags = () => {
+    if(gb.isOn("dark-mode")) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }
 
-  // Tell the SDK to call your function any time features change in the future
-  gb.setRenderer(() => applyFeatureFlags(gb));
+  // Call your function initially plus whenever new data is received
+  applyFeatureFlags();
+  document.addEventListener("growthbookdata", applyFeatureFlags)
 });
 </script>
 ```
+
+## Cookie Policy and GDPR
+
+This SDK persists a random unique identifier in a first-party cookie named `gbuuid`. This cookie is required to provide a consistent user experience to your visitors. Without this cookie, if you run an A/B test, a visitor might be re-bucketed into a different variation every time they visit your website.
+
+The `gbuuid` cookie does not contain any Personally Identifiable Information (it's just a randomly generated id). It is a first-party cookie that is never shared with any third-party services, not even GrowthBook itself. However, we still recommend adding this to your site's cookie policy if you have one.

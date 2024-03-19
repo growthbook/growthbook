@@ -171,13 +171,9 @@ Before you start your first experiment, you will first need to generate a **Clie
 
 You can also optionally include Draft Experiments (see below).
 
-Once you create an SDK Connection, you need to integrate GrowthBook into your website. There are 2 ways to do this - using our SDKs or using our pre-built script tag.
+Once you create an SDK Connection, you need to follow the steps to integrate GrowthBook into your website.
 
-### Option 1: Using our SDKs
-
-This option requires a developer, but allows for more customization and a deeper integration into your website. We especially recommend this approach if you also plan to use Feature Flags.
-
-View the full instructions for integrating either our [JavaScript](/lib/js) or [ReactJS](/lib/react) SDKs.
+The easiest and recommended way to do this is with our [Script Tag SDK](/lib/script-tag), which works out-of-the-box and doesn't require any configuration for most websites. It's also possible to use either our [JavaScript](/lib/js) or [ReactJS](/lib/react) SDKs, although these do require more up-front work to integrate into your application.
 
 :::note
 
@@ -187,72 +183,6 @@ If you've already been using our front-end SDKs for feature flagging, make sure 
 2. Follow the "Visual Editor" instructions in the SDK docs
 
 :::
-
-### Option 2: Pre-built Script Tag (best for Shopify, Webflow)
-
-This option is quick and easy and only requires the ability to insert a `<script>` tag into your site's source code. However, you do lose some flexibility compared to a full SDK integration.
-
-For this, you'll need the **Client Key** from the SDK Connection you created earlier.
-
-Add the following script tag to your website and replace `YOUR_CLIENT_KEY_HERE` with your actual client key:
-
-```html
-<script async
-  data-client-key="YOUR_CLIENT_KEY_HERE"
-  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
-></script>
-```
-
-For best performance, we recommend adding this script tag directly to your website's `<head>`, however it is also possible to load through something like Google Tag Manager if that is your only option.
-
-With the pre-built script tag, the following targeting attributes are set automatically:
-
-- `id` - creates a long-lived `gbuuid` cookie if it doesn't exist already
-- `url`
-- `path`
-- `host`
-- `query`
-- `deviceType` - either `mobile` or `desktop`
-- `browser` - one of `chrome`, `edge`, `firefox`, `safari`, or `unknown`
-- `utmSource`
-- `utmMedium`
-- `utmCampaign`
-- `utmTerm`
-- `utmContent`
-
-In addition, experiment events will be automatically tracked with both GA4 (using `dataLayer`) and Segment (using `analytics.track`) when available.
-
-You can override some settings by adding `data-*` attributes directly to the script tag. Here's an example of overriding the API host and setting a decryption key:
-
-```html
-<script async
-  data-api-host="https://growthbook-api.example.com"
-  data-client-key="YOUR_CLIENT_KEY_HERE"
-  data-decryption-key="YOUR_DECRYPTION_KEY_HERE"
-  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
-></script>
-```
-
-For more control, you can define a `window.growthbook_config` object BEFORE you load the script tag. This accepts the same settings as our [JavaScript SDK](/lib/js) and is especially useful when you have custom event tracking or attributes that you want to set.
-
-```html
-<script>
-window.growthbook_config = {
-  trackingCallback: (experiment, result) => {
-    customEventTracker("Viewed Experiment", {
-      experiment_id: experiment.key,
-      variation_id: result.key
-    })
-  },
-  // These will be merged with all of the auto-attributes above
-  attributes: {
-    customAttribute: "something"
-  }
-}
-</script>
-```
-
-And lastly, you can access the GrowthBook SDK instance at `window._growthbook` if you need low level access for any reason.
 
 ### Content Security Policy (CSP) Changes
 

@@ -177,6 +177,12 @@ const gb = new GrowthBook({
   attributes: getAttributes(),
 });
 
+// Set the renderer to fire a custom DOM event
+// This will let us attach multiple listeners
+gb.setRenderer(() => {
+  document.dispatchEvent(new CustomEvent("growthbookdata"));
+});
+
 // Load features/experiments
 gb.loadFeatures();
 
