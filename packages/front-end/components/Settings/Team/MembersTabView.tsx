@@ -106,10 +106,10 @@ export const MembersTabView: FC = () => {
         canInviteMembers={true}
       />
       {organization &&
-        organization.pendingMembers &&
-        organization.pendingMembers.length > 0 && (
-          <PendingMemberList
-            pendingMembers={organization.pendingMembers}
+        organization.invites &&
+        organization.invites.length > 0 && (
+          <InviteList
+            invites={organization.invites}
             mutate={refreshOrganization}
             project={currentProject}
           />
@@ -117,8 +117,8 @@ export const MembersTabView: FC = () => {
       {organization &&
         organization.invites &&
         organization.invites.length > 0 && (
-          <InviteList
-            invites={organization.invites}
+          <PendingMemberList
+            pendingMembers={organization.invites}
             mutate={refreshOrganization}
             project={currentProject}
           />

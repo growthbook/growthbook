@@ -1,5 +1,5 @@
 import router from "next/router";
-import { FC, useState } from "react";
+import React, { FC, useState } from "react";
 import { datetime } from "shared/dates";
 import Link from "next/link";
 import { FaUserLock } from "react-icons/fa";
@@ -63,7 +63,7 @@ const TeamPage: FC = () => {
       <div className="container pagecontents">
         <div className="mb-4">
           <Link href="/settings/team#teams">
-            <GBCircleArrowLeft />
+            <GBCircleArrowLeft className="mr-1" />
             Back to all teams
           </Link>
         </div>

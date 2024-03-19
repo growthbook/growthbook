@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import React, { FC, useState } from "react";
 import { FaCheck, FaTimes, FaUserCheck } from "react-icons/fa";
 import { PendingMember } from "back-end/types/organization";
 import { datetime } from "shared/dates";
@@ -25,6 +25,10 @@ const PendingMemberList: FC<{
   return (
     <div className="my-4">
       <h5>Pending Members{` (${pendingMembers.length})`}</h5>
+      <div className="text-muted mb-2">
+        Members who have requested to join this organization. They must be
+        manually approved.
+      </div>
       {roleModalUser && (
         <ChangeRoleModal
           displayInfo={roleModalUser.name || roleModalUser.email}

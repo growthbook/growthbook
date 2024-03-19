@@ -23,10 +23,7 @@ const TeamsList: FC = () => {
   const canManageTeam = permissions.check("manageTeam");
 
   return (
-    <div className="my-4">
-      <p>
-        Place organization members into teams to grant permissions by group.
-      </p>
+    <div className="mb-4">
       <div>
         {teams && teams.length > 0 ? (
           <table className="table appbox gbtable table-hover">
