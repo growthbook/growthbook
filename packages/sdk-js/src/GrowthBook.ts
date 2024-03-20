@@ -568,6 +568,10 @@ export class GrowthBook<
     }
   }
 
+  private _isRedirectExperiment(exp: AutoExperiment) {
+    return exp.variations.some((v) => Object.keys(v).includes("urlRedirect"));
+  }
+
   private _updateAllAutoExperiments(forceRerun?: boolean) {
     const experiments = this._ctx.experiments || [];
 
@@ -582,10 +586,12 @@ export class GrowthBook<
 
     // Re-run all new/updated experiments
     for (const exp of experiments) {
-      // There's an active redirect happening already, skip remaining tests
-      if (this._redirectedUrl) break;
+      const result = this._runAutoExperiment(exp, forceRerun);
 
-      this._runAutoExperiment(exp, forceRerun);
+      // Once you're in a redirect experiment, break out of the loop and don't run any further experiments
+      if (result?.inExperiment && this._isRedirectExperiment(exp)) {
+        break;
+      }
     }
   }
 
