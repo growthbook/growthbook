@@ -26,8 +26,9 @@ A clue that the traffic to the experiment isn't balanced is the presence of a Sa
 Whenever there is traffic imbalance in your GrowthBook experiment, the cause is usually one (or several) of these problems:
 
 1. **The trackingCallback is configured incorrectly**, which is causing it to send an event to your data warehouse *only under certain condition*s.
-2. **The Hash Attribute doesn't match the "Identifier Type" in your data source.**
-3. **You made a change to the experiment targeting after it started, or created a new phase without re-randomizing.**
+2. You are using an **Activation Metric** that is triggered differently by users across variations.
+3. **The Hash Attribute doesn't match the "Identifier Type" in your data source.**
+4. **You made a change to the experiment targeting after it started, or created a new phase without re-randomizing.**
 
 ### Solution 1: Ensure the trackingCallback is triggered unconditionally
 
@@ -37,7 +38,23 @@ As you create the GrowthBook-related logic in your application code, be careful 
 
 It is much better to emit a tracking event as soon as possible within the trackingCallback, before doing any other custom logic that may differ across users based on the experiment variations they are exposed to.
 
-### Solution 2: Ensure the Hash Attribute and Identifier Type match
+### Solution 2: Only use Activation Metrics that do not differ across variations
+
+If you are using an Activation Metric to filter users that get into your experiment analysis, you may be introducing bias if the Activation Metric is downstream of any differences between users in your variations.
+
+Similar to the above issue where your trackingCallback fires more for users in one variation than another, if you filter out users based on some activity that differs across variations then you could be introducing bias and causing SRM errors.
+
+The upshot is that you should not use an Activation Metric lightly. It should be a Metric that is downstream of changes to the user experience caused by the experiment. Imagine you want to check a user variation on page load, but you want to use an Activation Metric to only look at effects once user's open the checkout modal where the experiment is. If you have to load more data for users in variation vs. control then the page may crash or be slower for some users in your variation; if this happens before you measure the Activation, then you may be causing traffic imbalance as you will see fewer users in the variation in your experiment sample.
+
+In fact, using an Activation Metric that is downstream of any difference in variations can cause bias that is not picked up by SRM errors, so you should try to avoid this whenever possible.
+
+Best practices:
+
+- Try not to use Activation Metrics at all, and instead only use the SDK to look up experiment membership as close as possible to the actual experiment.
+- If you must use an Activation Metric, make sure it is not downstream of any differences in the user experience caused by the experiment.
+- Check the Health Tab on your experiment results to see traffic breakdowns by Activation Status to help you understand what your activation metric is doing to your sample.
+
+### Solution 3: Ensure the Hash Attribute and Identifier Type match
 
 GrowthBook randomizes users according to the Hash Attribute that you set for each user, often a `user_id`. When you analyze experiments, you set an "Identifier Type" that corresponds to columns in your data warehouse. Ideally, the Hash Attribute that you choose for users is both (1) logged to the data warehouse in the trackingCallback, and (2) is used as the "Identifier Type" for all of these experiments. By doing this, you establish a 1:1 relationship between the Hash Attribute and the Identifier Type.
 
@@ -55,7 +72,7 @@ For example, on client-side experiments with Google Analytics (GA4), you may wis
 
 While you could send this custom ID in your trackingCallback as we suggest in our [docs](/guide/GA4-google-analytics#generating-your-own-id), you may prefer to use GA4 identifiers as the Identifier Type instead, because they are already tracked with many of the other GA4 events that you are using as Metrics*.*
 
-### Solution 3: Minimize Experiment targeting changes while running
+### Solution 4: Minimize Experiment targeting changes while running
 
 When you make changes to the targeting of an experiment or created a new phase without re-randomizing users, it's possible that the traffic to the experiment will become imbalanced. This is because the users who were already in the experiment may continue to be in the same variation at differing rates. Whenever creating a new phase, you should re-randomize traffic when possible, and only certain changes to an experiment's targeting conditions can be done without re-randomizing.
 
