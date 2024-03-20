@@ -149,7 +149,6 @@ export default function AddLinkedChanges({
       ) : (
         <>
           <h4>Select Experiment Type</h4>
-          <p>Configure options for your selected experiment type.</p>
         </>
       )}
       <hr />
