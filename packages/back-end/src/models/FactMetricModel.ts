@@ -43,11 +43,13 @@ export class FactMetricDataModel extends BaseModel<FactMetricSchema> {
     updates: UpdateProps<FactMetricInterface>,
     newDoc: FactMetricInterface
   ): boolean {
-    const allProjects = [
-      ...new Set([...(existing.projects || []), ...(newDoc.projects || [])]),
-    ];
-
-    return this.context.hasPermission("createMetrics", allProjects);
+    if (!this.context.hasPermission("createMetrics", existing.projects || [])) {
+      return false;
+    }
+    if (!this.context.hasPermission("createMetrics", newDoc.projects || [])) {
+      return false;
+    }
+    return true;
   }
   protected canDelete(doc: FactMetricInterface): boolean {
     return this.context.hasPermission("createMetrics", doc.projects || []);
