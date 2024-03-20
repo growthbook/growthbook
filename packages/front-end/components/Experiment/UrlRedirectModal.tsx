@@ -9,6 +9,7 @@ import {
 } from "react-icons/fa";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
+import clsx from "clsx";
 import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Field from "@/components/Forms/Field";
@@ -119,10 +120,14 @@ const UrlRedirectModal: FC<{
     formState: { errors },
   } = form;
 
-  const [noRedirectToggle, setNoRedirectToggle] = useState<boolean[]>(
+  const [redirectToggle, setRedirectToggle] = useState<boolean[]>(
     form.watch("originUrl")
-      ? form.watch("destinationUrls").map((u) => !u)
-      : [true]
+      ? form.watch("destinationUrls").map((u) => !!u)
+      : () => {
+          const initialArray = Array(experiment.variations.length).fill(true);
+          initialArray[0] = false;
+          return initialArray;
+        }
   );
 
   const onSubmit = form.handleSubmit(async (value) => {
@@ -158,13 +163,13 @@ const UrlRedirectModal: FC<{
     close();
   });
 
-  const handleNoRedirectToggle = (i: number, enabled: boolean) => {
-    const newArray = [...noRedirectToggle];
+  const handleRedirectToggle = (i: number, enabled: boolean) => {
+    const newArray = [...redirectToggle];
     newArray[i] = enabled;
-    if (enabled) {
+    if (!enabled) {
       form.setValue(`destinationUrls.${i}`, "");
     }
-    setNoRedirectToggle(newArray);
+    setRedirectToggle(newArray);
   };
 
   return (
@@ -260,17 +265,19 @@ const UrlRedirectModal: FC<{
                   <div className="ml-auto">
                     <Toggle
                       id={`${v.name}_toggle_create`}
-                      label={"No redirect"}
+                      label={"Redirect"}
                       className="mr-3"
-                      value={noRedirectToggle[i]}
-                      setValue={(enabled) => handleNoRedirectToggle(i, enabled)}
+                      value={redirectToggle[i]}
+                      setValue={(enabled) => handleRedirectToggle(i, enabled)}
                       type="toggle"
                     />
                     <label
                       htmlFor={`${v.name}_toggle_redirect`}
-                      className="mr-2"
+                      className={clsx("mr-2", {
+                        "text-dark": redirectToggle[i],
+                      })}
                     >
-                      No redirect
+                      Redirect
                     </label>
                   </div>
                 </div>
@@ -278,28 +285,31 @@ const UrlRedirectModal: FC<{
                 <div>
                   <Field
                     required
-                    disabled={noRedirectToggle[i]}
+                    disabled={
+                      redirectToggle[i] !== undefined && !redirectToggle[i]
+                    }
                     placeholder={
-                      noRedirectToggle[i]
+                      !redirectToggle[i]
                         ? form.watch("originUrl")
                         : "Enter destination URL for users in this variation"
                     }
                     containerClassName="mb-2"
                     {...form.register(`destinationUrls.${i}`, {
-                      required: noRedirectToggle[i]
+                      required: !redirectToggle[i]
                         ? false
-                        : "Please enter a destination URL or select 'No redirect'",
+                        : "Please enter a destination URL or disable 'Redirect'",
                       validate: {
                         doesNotMatchOrigin: (_v) =>
                           !destinationMatchesOrigin ||
                           "This destination url matches the original URL and will not result in a redirect",
                         isValidUrl: (v) => {
-                          if (noRedirectToggle[i]) return true;
+                          if (!redirectToggle[i]) return true;
                           const validator = validateUrl(v);
                           return validator.isValid ? true : validator.message;
                         },
                       },
                     })}
+                    value={!redirectToggle ? "" : undefined}
                   />
                   {errors.destinationUrls?.[i] &&
                     errors.destinationUrls?.[i]?.message && (
@@ -320,25 +330,31 @@ const UrlRedirectModal: FC<{
             {...form.register("persistQueryString")}
             id={"toggle-persistQueryString"}
           />
-          <div className="text-muted ml-2">
+          <label
+            htmlFor="toggle-persistQueryString"
+            className="text-muted ml-2"
+          >
             <b>Persist Query String</b>
             <p>
               Keep this enabled to allow users’ queries, such as search terms,
               to carry over when redirecting.
             </p>
-          </div>
+          </label>
           <input
             type="checkbox"
             {...form.register("circularDependencyCheck")}
             id={"toggle-circularDependencyCheck"}
           />
-          <div className="text-muted ml-2">
+          <label
+            htmlFor="toggle-circularDependencyCheck"
+            className="text-muted ml-2"
+          >
             <b>Circular Dependency Check</b>
             <p>
               Keep this enabled to make sure your redirect does not conflict
               with any existing redirects
             </p>
-          </div>
+          </label>
         </div>
       </div>
     </Modal>
