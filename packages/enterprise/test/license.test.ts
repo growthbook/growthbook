@@ -282,7 +282,7 @@ describe("licenseInit and getLicense", () => {
             async () =>
               await licenseInit(licenseKey, userLicenseCodes, metaData)
           ).rejects.toThrowError(
-            "License server errored with internal server error"
+            "License server errored with: internal server error"
           );
         });
       });
