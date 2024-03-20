@@ -9,7 +9,6 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useEnvironments } from "@/services/features";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useUser } from "@/services/UserContext";
 import ChangeRoleModal from "./ChangeRoleModal";
 
 type ChangeRoleInfo = {
@@ -32,9 +31,6 @@ const InviteList: FC<{
   const [roleModal, setRoleModal] = useState<ChangeRoleInfo>(null);
   const [resending, setResending] = useState(false);
   const [resendMessage, setResendMessage] = useState<ReactElement | null>(null);
-
-  const { accountPlan, license } = useUser();
-  const actualPlan = license?.plan || accountPlan;
 
   const { projects } = useDefinitions();
   const environments = useEnvironments();
@@ -109,13 +105,8 @@ const InviteList: FC<{
     <div>
       <h5>Pending Invites{` (${invites.length})`}</h5>
       <div className="text-muted mb-2">
-        Invites that have been sent but have not yet been accepted.
-        {actualPlan !== "enterprise" && (
-          <>
-            {" "}
-            <strong>Invited users count towards plan seat limits.</strong>
-          </>
-        )}
+        Invites that have been sent but have not yet been accepted.{" "}
+        <strong>Invited users count towards plan seat limits.</strong>
       </div>
       {roleModal && (
         <ChangeRoleModal
