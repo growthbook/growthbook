@@ -276,9 +276,8 @@ export abstract class BaseModel<T extends BaseSchema> {
     }
 
     // Add default owner if empty
-    if ("owner" in props && props.owner === "") {
-      // TODO: is id the right thing to store here?
-      props.owner = this.context.userId || "";
+    if ("owner" in props && !props.owner) {
+      props.owner = this.context.userName || "";
     }
 
     const doc = {

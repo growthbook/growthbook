@@ -32,7 +32,7 @@ export class ReqContextClass {
   public models!: {
     factMetrics: FactMetricDataModel;
   };
-  private addModels() {
+  private initModels() {
     this.models = {
       factMetrics: new FactMetricDataModel(this),
     };
@@ -119,7 +119,7 @@ export class ReqContextClass {
     }
     this.readAccessFilter = getReadAccessFilter(this.permissions);
 
-    this.addModels();
+    this.initModels();
   }
 
   // Check permissions
