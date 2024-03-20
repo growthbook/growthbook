@@ -141,6 +141,8 @@ const MetricPage: FC = () => {
   // canUpdateMetric currently takes the existing metric, and any updates - but in this case, there are no updates, so just pass in the existing twice
   const canEditMetric =
     permissionsUtil.canUpdateMetric(metric, metric) && !metric.managedBy;
+  const canDeleteMetric =
+    permissionsUtil.canDeleteMetric(metric) && !metric.managedBy;
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
@@ -403,10 +405,10 @@ const MetricPage: FC = () => {
           <MetricName id={metric.id} />
         </h1>
         <div style={{ flex: 1 }} />
-        {canEditMetric && (
+        {canDeleteMetric || canEditMetric ? (
           <div className="col-auto">
             <MoreMenu>
-              {permissionsUtil.canDeleteMetric(metric) ? (
+              {canDeleteMetric ? (
                 <DeleteButton
                   className="btn dropdown-item py-2"
                   text="Delete"
@@ -423,28 +425,30 @@ const MetricPage: FC = () => {
                   displayName={"Metric '" + metric.name + "'"}
                 />
               ) : null}
-              <Button
-                className="btn dropdown-item py-2"
-                color=""
-                onClick={async () => {
-                  const newStatus =
-                    metric.status === "archived" ? "active" : "archived";
-                  await apiCall(`/metric/${metric.id}`, {
-                    method: "PUT",
-                    body: JSON.stringify({
-                      status: newStatus,
-                    }),
-                  });
-                  mutateDefinitions({});
-                  mutate();
-                }}
-              >
-                <FaArchive />{" "}
-                {metric.status === "archived" ? "Unarchive" : "Archive"}
-              </Button>
+              {canEditMetric ? (
+                <Button
+                  className="btn dropdown-item py-2"
+                  color=""
+                  onClick={async () => {
+                    const newStatus =
+                      metric.status === "archived" ? "active" : "archived";
+                    await apiCall(`/metric/${metric.id}`, {
+                      method: "PUT",
+                      body: JSON.stringify({
+                        status: newStatus,
+                      }),
+                    });
+                    mutateDefinitions({});
+                    mutate();
+                  }}
+                >
+                  <FaArchive />{" "}
+                  {metric.status === "archived" ? "Unarchive" : "Archive"}
+                </Button>
+              ) : null}
             </MoreMenu>
           </div>
-        )}
+        ) : null}
       </div>
       <div className="row mb-3 align-items-center">
         <div className="col">
