@@ -23,6 +23,7 @@ import {
   getContextFromReq,
   getEnvironments,
   getInviteUrl,
+  getNumberOfUniqueMembersAndInvites,
   importConfig,
   inviteUser,
   isEnterpriseSSO,
@@ -633,6 +634,10 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     }
   }
 
+  const filteredAttributes = settings?.attributeSchema?.filter((attribute) =>
+    hasReadAccess(context.readAccessFilter, attribute.projects || [])
+  );
+
   // Some other global org data needed by the front-end
   const apiKeys = await getAllApiKeysByOrganization(context);
   const enterpriseSSO = isEnterpriseSSO(req.loginMethod)
@@ -654,6 +659,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   });
 
   const currentUserPermissions = getUserPermissions(userId, org, teams || []);
+  const seatsInUse = getNumberOfUniqueMembersAndInvites(org);
 
   return res.status(200).json({
     status: 200,
@@ -680,12 +686,13 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       freeTrialDate: org.freeTrialDate,
       discountCode: org.discountCode || "",
       slackTeam: connections?.slack?.team,
-      settings,
+      settings: { ...settings, attributeSchema: filteredAttributes },
       autoApproveMembers: org.autoApproveMembers,
       members: org.members,
       messages: messages || [],
       pendingMembers: org.pendingMembers,
     },
+    seatsInUse,
   });
 }
 
@@ -980,6 +987,17 @@ export async function postInvite(
     projectRoles,
   } = req.body;
 
+  const license = getLicense();
+  if (
+    license &&
+    license.hardCap &&
+    getNumberOfUniqueMembersAndInvites(org) >= (license.seats || 0)
+  ) {
+    throw new Error(
+      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit."
+    );
+  }
+
   const { emailSent, inviteUrl } = await inviteUser({
     organization: org,
     email,
@@ -1178,7 +1196,9 @@ export async function putOrganization(
       } else if (k === "sdkInstructionsViewed" || k === "visualEditorEnabled") {
         req.checkPermissions("manageEnvironments", "", []);
       } else if (k === "attributeSchema") {
-        req.checkPermissions("manageTargetingAttributes");
+        throw new Error(
+          "Not supported: Updating organization attributes not supported via this route."
+        );
       } else if (k === "northStar") {
         req.checkPermissions("manageNorthStarMetric");
       } else if (k === "namespaces") {
@@ -1253,7 +1273,7 @@ export const autoAddGroupsAttribute = async (
   // Add missing `$groups` attribute automatically if it's being referenced by a Saved Group
   const { org } = getContextFromReq(req);
 
-  req.checkPermissions("manageTargetingAttributes");
+  req.checkPermissions("manageTargetingAttributes", []);
 
   let added = false;
 
@@ -1775,6 +1795,17 @@ export async function addOrphanedUser(
       status: 400,
       message: "Cannot add users who are already part of an organization",
     });
+  }
+
+  const license = getLicense();
+  if (
+    license &&
+    license.hardCap &&
+    getNumberOfUniqueMembersAndInvites(org) >= (license.seats || 0)
+  ) {
+    throw new Error(
+      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit."
+    );
   }
 
   await addMemberToOrg({

@@ -7,7 +7,6 @@ import { ExperimentInterface, Variation } from "../../types/experiment";
 import { ApiVisualChangeset } from "../../types/openapi";
 import { ReqContext } from "../../types/organization";
 import {
-  URLRedirect,
   VisualChange,
   VisualChangesetInterface,
   VisualChangesetURLPattern,
@@ -60,6 +59,7 @@ const visualChangesetSchema = new mongoose.Schema<VisualChangesetInterface>({
   },
   editorUrl: {
     type: String,
+    required: true,
   },
   experiment: {
     type: String,
@@ -101,15 +101,8 @@ const visualChangesetSchema = new mongoose.Schema<VisualChangesetInterface>({
         ],
       },
     ],
+    required: true,
   },
-  urlRedirects: [
-    {
-      _id: false,
-      variation: String,
-      url: String,
-    },
-  ],
-  persistQueryString: Boolean,
 });
 
 export type VisualChangesetDocument = mongoose.Document &
@@ -142,11 +135,6 @@ export function toVisualChangesetApiInterface(
       variation: c.variation,
       domMutations: c.domMutations,
     })),
-    urlRedirects: visualChangeset.urlRedirects?.map((r) => ({
-      url: r.url,
-      variation: r.variation,
-    })),
-    persistQueryString: visualChangeset.persistQueryString,
   };
 }
 
@@ -268,16 +256,12 @@ export const createVisualChangeset = async ({
   urlPatterns,
   editorUrl,
   visualChanges,
-  urlRedirects,
-  persistQueryString,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
   urlPatterns: VisualChangesetURLPattern[];
-  editorUrl?: VisualChangesetInterface["editorUrl"];
+  editorUrl: VisualChangesetInterface["editorUrl"];
   visualChanges?: VisualChange[];
-  urlRedirects?: URLRedirect[];
-  persistQueryString?: boolean;
 }): Promise<VisualChangesetInterface> => {
   const visualChangeset = toInterface(
     await VisualChangesetModel.create({
@@ -287,11 +271,7 @@ export const createVisualChangeset = async ({
       urlPatterns,
       editorUrl,
       visualChanges:
-        visualChanges || !urlRedirects
-          ? experiment.variations.map(genNewVisualChange)
-          : undefined,
-      urlRedirects,
-      persistQueryString,
+        visualChanges || experiment.variations.map(genNewVisualChange),
     })
   );
 

@@ -163,6 +163,8 @@ export type TrackingCallback = (
   result: Result<any>
 ) => void;
 
+export type RenderFunction = () => void;
+
 export interface Context {
   enabled?: boolean;
   attributes?: Attributes;
@@ -203,6 +205,7 @@ export interface Context {
   apiHostRequestHeaders?: Record<string, string>;
   streamingHostRequestHeaders?: Record<string, string>;
   clientKey?: string;
+  renderer?: null | RenderFunction;
   decryptionKey?: string;
   remoteEval?: boolean;
   navigate?: (url: string) => void;

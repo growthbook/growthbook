@@ -9,12 +9,18 @@ import { getAffectedSDKPayloadKeys } from "../util/features";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import { ApiReqContext } from "../../types/api";
 import { refreshSDKPayloadCache } from "./features";
-import { getEnvironmentIdsFromOrg } from "./organizations";
+import {
+  getContextForAgendaJobByOrgObject,
+  getEnvironmentIdsFromOrg,
+} from "./organizations";
 
 export async function savedGroupUpdated(
-  context: ReqContext | ApiReqContext,
+  baseContext: ReqContext | ApiReqContext,
   id: string
 ) {
+  // This is a background job, so create a new context with full read permissions
+  const context = getContextForAgendaJobByOrgObject(baseContext.org);
+
   // Use a map to build a list of unique SDK payload keys
   const payloadKeys: Map<string, SDKPayloadKey> = new Map();
   const addKeys = (keys: SDKPayloadKey[]) =>
@@ -43,7 +49,9 @@ export async function savedGroupUpdated(
       context,
       savedGroupExperiments
         .filter(
-          (exp) => includeExperimentInPayload(exp) && exp.hasVisualChangesets
+          (exp) =>
+            includeExperimentInPayload(exp) &&
+            (exp.hasVisualChangesets || exp.hasURLRedirects)
         )
         .map((exp) => exp.project || "")
     )

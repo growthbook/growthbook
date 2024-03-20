@@ -43,6 +43,7 @@ import {
 import { getAllFeatures } from "../models/FeatureModel";
 import {
   getAllPayloadExperiments,
+  getAllURLRedirectExperiments,
   getAllVisualExperiments,
 } from "../models/ExperimentModel";
 import { getFeatureDefinition, getParsedCondition } from "../util/features";
@@ -69,7 +70,12 @@ import {
 import { ArchetypeAttributeValues } from "../../types/archetype";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { triggerWebhookJobs } from "../jobs/updateAllJobs";
-import { getEnvironmentIdsFromOrg, getOrganizationById } from "./organizations";
+import { URLRedirectInterface } from "../../types/url-redirect";
+import {
+  getContextForAgendaJobByOrgObject,
+  getEnvironmentIdsFromOrg,
+  getOrganizationById,
+} from "./organizations";
 
 export type AttributeMap = Map<string, string>;
 
@@ -110,18 +116,26 @@ export function generateFeaturesPayload({
 }
 
 export type VisualExperiment = {
+  type: "visual";
   experiment: ExperimentInterface;
   visualChangeset: VisualChangesetInterface;
 };
+export type URLRedirectExperiment = {
+  type: "redirect";
+  experiment: ExperimentInterface;
+  urlRedirect: URLRedirectInterface;
+};
 
-export function generateVisualExperimentsPayload({
+export function generateAutoExperimentsPayload({
   visualExperiments,
+  urlRedirectExperiments,
   groupMap,
   features,
   environment,
   prereqStateCache = {},
 }: {
   visualExperiments: VisualExperiment[];
+  urlRedirectExperiments: URLRedirectExperiment[];
   groupMap: GroupMap;
   features: FeatureInterface[];
   environment: string;
@@ -140,24 +154,21 @@ export function generateVisualExperimentsPayload({
     prereqStateCache
   );
 
-  const urlRedirectExperiments = newVisualExperiments.filter(
-    (e) =>
-      e.visualChangeset.urlRedirects &&
-      e.visualChangeset.urlRedirects.length > 0
+  const newURLRedirectExperiments = reduceExperimentsWithPrerequisites(
+    urlRedirectExperiments,
+    features,
+    environment,
+    prereqStateCache
   );
 
-  const visualEditorExperiments = newVisualExperiments.filter(
-    (e) =>
-      !e.visualChangeset.urlRedirects ||
-      e.visualChangeset.urlRedirects.length === 0
-  );
-
-  const sortedVisualExperiments = urlRedirectExperiments.concat(
-    visualEditorExperiments
-  );
+  const sortedVisualExperiments = [
+    ...newURLRedirectExperiments,
+    ...newVisualExperiments,
+  ];
 
   const sdkExperiments: Array<AutoExperimentWithProject | null> = sortedVisualExperiments.map(
-    ({ experiment: e, visualChangeset: v }) => {
+    (data) => {
+      const { experiment: e } = data;
       if (e.status === "stopped" && e.excludeFromPayload) return null;
 
       const phase: ExperimentPhase | null = e.phases.slice(-1)?.[0] ?? null;
@@ -172,8 +183,6 @@ export function generateVisualExperimentsPayload({
         phase?.savedGroups
       );
 
-      const urlRedirects = v.urlRedirects;
-
       const prerequisites = (phase?.prerequisites ?? [])
         ?.map((p) => {
           const condition = getParsedCondition(groupMap, p.condition);
@@ -185,28 +194,47 @@ export function generateVisualExperimentsPayload({
         })
         .filter(Boolean) as ParentConditionInterface[];
 
-      if (!phase || (urlRedirects?.length && !v.urlPatterns)) return null;
+      if (!phase) return null;
 
       const exp: AutoExperimentWithProject = {
         key: e.trackingKey,
         status: e.status,
         project: e.project,
-        variations: urlRedirects
-          ? (urlRedirects.map((r) => ({
-              urlRedirect: r.url,
-            })) as AutoExperimentWithProject["variations"])
-          : (v.visualChanges.map((vc) => ({
-              css: vc.css,
-              js: vc.js || "",
-              domMutations: vc.domMutations,
-            })) as AutoExperimentWithProject["variations"]),
+        variations: e.variations.map((v) => {
+          if (data.type === "redirect") {
+            const match = data.urlRedirect.destinationURLs.find(
+              (d) => d.variation === v.id
+            );
+            return {
+              urlRedirect: match?.url || "",
+            };
+          }
+
+          const match = data.visualChangeset.visualChanges.find(
+            (vc) => vc.variation === v.id
+          );
+          return {
+            css: match?.css || "",
+            js: match?.js || "",
+            domMutations: match?.domMutations || [],
+          };
+        }) as AutoExperimentWithProject["variations"],
         hashVersion: e.hashVersion,
         hashAttribute: e.hashAttribute,
         fallbackAttribute: e.fallbackAttribute,
         disableStickyBucketing: e.disableStickyBucketing,
         bucketVersion: e.bucketVersion,
         minBucketVersion: e.minBucketVersion,
-        urlPatterns: v.urlPatterns,
+        urlPatterns:
+          data.type === "redirect"
+            ? [
+                {
+                  include: true,
+                  pattern: data.urlRedirect.urlPattern,
+                  type: "simple",
+                },
+              ]
+            : data.visualChangeset.urlPatterns,
         weights: phase.variationWeights,
         meta: e.variations.map((v) => ({ key: v.key, name: v.name })),
         filters: phase.namespace.enabled
@@ -227,14 +255,15 @@ export function generateVisualExperimentsPayload({
           : undefined,
         condition,
         coverage: phase.coverage,
+        changeType: data.type,
       };
 
       if (prerequisites.length) {
         exp.parentConditions = prerequisites;
       }
 
-      if (urlRedirects?.length && typeof v.persistQueryString !== "undefined") {
-        exp.persistQueryString = v.persistQueryString;
+      if (data.type === "redirect" && data.urlRedirect.persistQueryString) {
+        exp.persistQueryString = true;
       }
 
       return exp;
@@ -287,12 +316,16 @@ export async function getSavedGroupMap(
 }
 
 export async function refreshSDKPayloadCache(
-  context: ReqContext | ApiReqContext,
+  baseContext: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[],
   allFeatures: FeatureInterface[] | null = null,
   experimentMap?: Map<string, ExperimentInterface>,
   skipRefreshForProject?: string
 ) {
+  // This is a background job, so switch to using a background context
+  // This is required so that we have full read access to the entire org's data
+  const context = getContextForAgendaJobByOrgObject(baseContext.org);
+
   logger.debug(
     `Refreshing SDK Payloads for ${context.org.id}: ${JSON.stringify(
       payloadKeys
@@ -323,6 +356,10 @@ export async function refreshSDKPayloadCache(
     context,
     experimentMap
   );
+  const allURLRedirectExperiments = await getAllURLRedirectExperiments(
+    context,
+    experimentMap
+  );
 
   // For each affected environment, generate a new SDK payload and update the cache
   const environments = Array.from(
@@ -344,8 +381,9 @@ export async function refreshSDKPayloadCache(
       prereqStateCache,
     });
 
-    const experimentsDefinitions = generateVisualExperimentsPayload({
+    const experimentsDefinitions = generateAutoExperimentsPayload({
       visualExperiments: allVisualExperiments,
+      urlRedirectExperiments: allURLRedirectExperiments,
       groupMap,
       features: allFeatures,
       environment,
@@ -471,20 +509,18 @@ async function getFeatureDefinitionsResponse({
   experiments = scrubExperiments(experiments, capabilities);
 
   const includeAutoExperiments =
-    !!includeRedirectExperiments && !!includeVisualExperiments;
+    !!includeRedirectExperiments || !!includeVisualExperiments;
 
   if (includeAutoExperiments) {
     if (!includeRedirectExperiments) {
-      experiments = experiments.filter((e) =>
-        e.variations.some((v) => v.urlRedirect)
-      );
+      experiments = experiments.filter((e) => e.changeType !== "redirect");
     }
     if (!includeVisualExperiments) {
-      experiments = experiments.filter(
-        (e) => !e.variations.some((v) => v.urlRedirect)
-      );
+      experiments = experiments.filter((e) => e.changeType === "redirect");
     }
   }
+
+  experiments = experiments.map((exp) => omit(exp, ["changeType"]));
 
   if (!encryptionKey) {
     return {
@@ -628,10 +664,15 @@ export async function getFeatureDefinitions({
     context,
     experimentMap
   );
+  const allURLRedirectExperiments = await getAllURLRedirectExperiments(
+    context,
+    experimentMap
+  );
 
   // Generate visual experiments
-  const experimentsDefinitions = generateVisualExperimentsPayload({
+  const experimentsDefinitions = generateAutoExperimentsPayload({
     visualExperiments: allVisualExperiments,
+    urlRedirectExperiments: allURLRedirectExperiments,
     groupMap,
     features,
     environment,
@@ -1302,23 +1343,25 @@ export const reduceFeaturesWithPrerequisites = (
   return newFeatures;
 };
 
-export const reduceExperimentsWithPrerequisites = (
-  visualExperiments: VisualExperiment[],
+export const reduceExperimentsWithPrerequisites = <
+  T extends { experiment: ExperimentInterface }
+>(
+  experiments: T[],
   features: FeatureInterface[],
   environment: string,
   prereqStateCache: Record<string, Record<string, PrerequisiteStateResult>> = {}
-): VisualExperiment[] => {
+): T[] => {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
   const featuresMap = new Map(features.map((f) => [f.id, f]));
 
-  const newVisualExperiments: VisualExperiment[] = [];
-  for (const visualExperiment of visualExperiments) {
-    const phaseIndex = visualExperiment.experiment.phases.length - 1;
+  const newExperiments: T[] = [];
+  for (const data of experiments) {
+    const phaseIndex = data.experiment.phases.length - 1;
     const phase: ExperimentPhase | null =
-      visualExperiment.experiment.phases?.[phaseIndex] ?? null;
+      data.experiment.phases?.[phaseIndex] ?? null;
     if (!phase) continue;
-    const newVisualExperiment = cloneDeep(visualExperiment);
+    const newData = cloneDeep(data);
 
     const {
       removeRule,
@@ -1330,13 +1373,11 @@ export const reduceExperimentsWithPrerequisites = (
       prereqStateCache
     );
     if (!removeRule) {
-      newVisualExperiment.experiment.phases[
-        phaseIndex
-      ].prerequisites = newPrerequisites;
-      newVisualExperiments.push(newVisualExperiment);
+      newData.experiment.phases[phaseIndex].prerequisites = newPrerequisites;
+      newExperiments.push(newData);
     }
   }
-  return newVisualExperiments;
+  return newExperiments;
 };
 
 const getInlinePrerequisitesReductionInfo = (

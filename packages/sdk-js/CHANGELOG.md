@@ -1,5 +1,16 @@
 # Changelog
 
+## **0.35.0** - Mar 8, 2024
+
+- New `updateAttributes` method to make partial updates
+- Fix missing `await` in RedisStickyBucketService
+- New `context.renderer` option
+- Various improvements to `auto.min.js` script
+  - New `window.growthbook_queue` to make it easier to work with an async script tag
+  - New `pageTitle` auto attribute
+  - Fixed bugs with built-in GA4 and GTM tracking calls
+  - New `growthbookrefresh` DOM event you can trigger to for re-evaluation of auto attributes
+
 ## **0.34.0** - Feb 20, 2024
 
 - Prerequisite feature support for feature rules and experiments

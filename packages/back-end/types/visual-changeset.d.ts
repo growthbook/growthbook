@@ -7,11 +7,6 @@ interface DOMMutation {
   insertBeforeSelector?: string;
 }
 
-export interface URLRedirect {
-  url: string;
-  variation: string;
-}
-
 interface VisualChange {
   id: string;
   description: string;
@@ -30,10 +25,8 @@ export interface VisualChangesetURLPattern {
 export interface VisualChangesetInterface {
   id: string;
   organization: string;
-  urlPatterns: VisualChangesetURLPattern[]; // single URLPattern per URL Redirect Visual Changeset
+  urlPatterns: VisualChangesetURLPattern[];
   editorUrl: string;
   experiment: string;
   visualChanges: VisualChange[];
-  urlRedirects?: URLRedirect[];
-  persistQueryString?: boolean;
 }

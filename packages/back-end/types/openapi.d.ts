@@ -1157,11 +1157,6 @@ export interface components {
               insertBeforeSelector?: string;
             })[];
         })[];
-      urlRedirects?: ({
-          url: string;
-          variation: string;
-        })[];
-      persistQueryString?: boolean;
     };
     VisualChange: {
       description?: string;
@@ -4299,11 +4294,6 @@ export interface operations {
                         insertBeforeSelector?: string;
                       })[];
                   })[];
-                urlRedirects?: ({
-                    url: string;
-                    variation: string;
-                  })[];
-                persistQueryString?: boolean;
               })[];
           };
         };
@@ -4351,11 +4341,6 @@ export interface operations {
                       insertBeforeSelector?: string;
                     })[];
                 })[];
-              urlRedirects?: ({
-                  url: string;
-                  variation: string;
-                })[];
-              persistQueryString?: boolean;
             };
             experiment?: {
               id: string;
@@ -4505,11 +4490,6 @@ export interface operations {
                       insertBeforeSelector?: string;
                     })[];
                 })[];
-              urlRedirects?: ({
-                  url: string;
-                  variation: string;
-                })[];
-              persistQueryString?: boolean;
             };
           };
         };

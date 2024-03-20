@@ -237,7 +237,7 @@ export class RedisStickyBucketService extends StickyBucketService {
       ([attributeName, attributeValue]) => `${attributeName}||${attributeValue}`
     );
     if (!this.redis) return docs;
-    this.redis.mget(...keys).then((values) => {
+    await this.redis.mget(...keys).then((values) => {
       values.forEach((raw) => {
         try {
           const data = JSON.parse(raw || "{}");

@@ -101,28 +101,37 @@ export const scrubExperiments = (
   capabilities: SDKCapability[]
 ): AutoExperimentWithProject[] => {
   const removedExperimentKeys: string[] = [];
-  if (!capabilities.includes("prerequisites")) {
+  const supportsPrerequisites = capabilities.includes("prerequisites");
+  const supportsRedirects = capabilities.includes("urlRedirects");
+
+  if (supportsPrerequisites && supportsRedirects) return experiments;
+
+  if (!supportsPrerequisites) {
     removedExperimentKeys.push(...prerequisiteKeys);
-    const newExperiments: AutoExperimentWithProject[] = [];
-    // Keep experiments that do not have any parentConditions
-    for (let experiment of experiments) {
-      // filter out any url redirect auto experiments if not supported
-      if (
-        !capabilities.includes("urlRedirects") &&
-        experiment.variations.some((v) => v.urlRedirect)
-      ) {
+  }
+
+  const newExperiments: AutoExperimentWithProject[] = [];
+
+  for (let experiment of experiments) {
+    // Filter out any url redirect auto experiments if not supported
+    if (!supportsRedirects && experiment.changeType === "redirect") {
+      continue;
+    }
+
+    if (!supportsPrerequisites) {
+      // Filter out experiments that have any parentConditions
+      if ((experiment.parentConditions?.length ?? 0) > 0) {
         continue;
       }
-      if ((experiment.parentConditions?.length ?? 0) === 0) {
-        // keep and scrub experiments
-        experiment = omit(
-          experiment,
-          removedExperimentKeys
-        ) as AutoExperimentWithProject;
-        newExperiments.push(experiment);
-      }
+
+      // Scrub fields from the experiment
+      experiment = omit(
+        experiment,
+        removedExperimentKeys
+      ) as AutoExperimentWithProject;
     }
-    return newExperiments;
+
+    newExperiments.push(experiment);
   }
-  return experiments;
+  return newExperiments;
 };
