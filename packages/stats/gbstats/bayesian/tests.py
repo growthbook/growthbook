@@ -2,7 +2,6 @@ from abc import abstractmethod
 from dataclasses import field
 from typing import List, Optional, Tuple, Union
 
-import scipy.stats
 import numpy as np
 from pydantic.dataclasses import dataclass
 from scipy.stats import norm  # type: ignore
@@ -65,7 +64,6 @@ class GaussianBayesianConfig(BayesianConfig):
 @dataclass
 class EffectBayesianConfig(BayesianConfig):
     prior_effect: GaussianPrior = field(default_factory=GaussianPrior)
-    epsilon: float = 1e-4
 
 
 # Results
@@ -223,14 +221,10 @@ class GaussianBayesianABTest(BayesianABTest):
         stat_a: Union[
             SampleMeanStatistic,
             RatioStatistic,
-            QuantileStatistic,
-            QuantileStatisticClustered,
         ],
         stat_b: Union[
             SampleMeanStatistic,
             RatioStatistic,
-            QuantileStatistic,
-            QuantileStatisticClustered,
         ],
         config: GaussianBayesianConfig = GaussianBayesianConfig(),
     ):
@@ -444,8 +438,6 @@ class GaussianEffectABTest(BayesianABTest):
             v = 0.5 * self.prior_effect.variance
         self.prior_a = GaussianPrior(mean=mu_0, variance=v, pseudo_n=1)
         self.prior_b = GaussianPrior(mean=mu_1, variance=v, pseudo_n=1)
-        # self.prior_combined = GaussianBayesianConfig(difference_type="absolute", prior_a=self.prior_a, prior_b=self.prior_b)
-        # self.fit_bayesian = GaussianBayesianABTest(stat_a=self.stat_a, stat_b=self.stat_b, config=self.prior_combined).compute_result()
 
     @property
     def risk(self):
@@ -457,7 +449,7 @@ class GaussianEffectABTest(BayesianABTest):
             * np.max(
                 [
                     float(1e-5),
-                    scipy.stats.norm.cdf(0, loc=self.mean_diff, scale=self.std_diff),
+                    norm.cdf(0, loc=self.mean_diff, scale=self.std_diff),
                 ]  # type: ignore
             )
         )
@@ -465,7 +457,7 @@ class GaussianEffectABTest(BayesianABTest):
     @staticmethod
     def right_truncated_normal_mean(mu, sigma, threshold):
         b_centered = (threshold - mu) / sigma
-        b_centered_ratio = scipy.stats.norm.pdf(b_centered) / np.max(
-            [float(1e-5), scipy.stats.norm.cdf(b_centered, loc=0, scale=1)]  # type: ignore
+        b_centered_ratio = norm.pdf(b_centered) / np.max(
+            [float(1e-5), norm.cdf(b_centered, loc=0, scale=1)]  # type: ignore
         )
         return mu - sigma * b_centered_ratio

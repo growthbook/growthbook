@@ -10,6 +10,8 @@ from gbstats.bayesian.tests import (
     BinomialBayesianConfig,
     GaussianBayesianABTest,
     GaussianBayesianConfig,
+    GaussianEffectABTest,
+    EffectBayesianConfig,
 )
 from gbstats.frequentist.tests import (
     FrequentistConfig,
@@ -42,6 +44,8 @@ from gbstats.models.settings import (
 )
 from gbstats.models.statistics import (
     ProportionStatistic,
+    QuantileStatistic,
+    QuantileStatisticClustered,
     RatioStatistic,
     RegressionAdjustedStatistic,
     SampleMeanStatistic,
@@ -177,6 +181,7 @@ def get_configured_test(
 ) -> Union[
     BinomialBayesianABTest,
     GaussianBayesianABTest,
+    GaussianEffectABTest,
     SequentialTwoSidedTTest,
     TwoSidedTTest,
 ]:
@@ -211,12 +216,21 @@ def get_configured_test(
                 ),
             )
     else:
+        assert isinstance(
+            stat_a, type(stat_b)
+        ), "stat_a and stat_b must be of same type."
         if isinstance(stat_a, RegressionAdjustedStatistic) or isinstance(
             stat_b, RegressionAdjustedStatistic
         ):
             raise ValueError(RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR)
         stat_a_proportion = isinstance(stat_a, ProportionStatistic)
         stat_b_proportion = isinstance(stat_b, ProportionStatistic)
+        stat_a_quantile = isinstance(
+            stat_a, (QuantileStatistic, QuantileStatisticClustered)
+        )
+        stat_b_quantile = isinstance(
+            stat_b, (QuantileStatistic, QuantileStatisticClustered)
+        )
 
         if stat_a_proportion and stat_b_proportion:
             return BinomialBayesianABTest(
@@ -224,7 +238,18 @@ def get_configured_test(
                 stat_b,
                 BinomialBayesianConfig(**base_config, inverse=metric.inverse),
             )
-        elif not stat_a_proportion and not stat_b_proportion:
+        elif stat_a_quantile and stat_b_quantile:
+            return GaussianEffectABTest(
+                stat_a,
+                stat_b,
+                EffectBayesianConfig(**base_config, inverse=metric.inverse),
+            )
+        elif (
+            not stat_a_proportion
+            and not stat_b_proportion
+            and not stat_a_quantile
+            and not stat_b_quantile
+        ):
             return GaussianBayesianABTest(
                 stat_a,
                 stat_b,
