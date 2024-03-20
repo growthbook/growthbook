@@ -27,6 +27,7 @@
     "generate-api-types": "yarn generate-api-models && swagger-cli bundle -t yaml src/api/openapi/openapi.tmp.yaml -o generated/spec.yaml && node src/scripts/generate-openapi.mjs"
   },
   "dependencies": {
+    "@clickhouse/client": "^0.2.10",
     "@databricks/sql": "^1.8.1",
     "@dqbd/tiktoken": "^1.0.7",
     "@google-cloud/bigquery": "5",
@@ -51,7 +52,6 @@
     "async-lock": "^1.4.0",
     "aws-sdk": "^2.696.0",
     "body-parser": "^1.19.0",
-    "clickhouse": "^2.4.0",
     "compression": "^1.7.4",
     "cookie-parser": "^1.4.5",
     "cors": "^2.8.5",
