@@ -203,7 +203,7 @@ def create_joint_statistic(
 class QuantileStatistic(Statistic):
     n: int  # number of events here
     nu: float
-    ccr: float
+    alpha: float
     q_hat: float  # sample estimate
     q_lower: float
     q_upper: float
@@ -227,8 +227,10 @@ class QuantileStatistic(Statistic):
 
     @property
     def variance_init(self) -> float:
-        multiplier = scipy.stats.norm.ppf(1.0 - 0.5 * self.ccr, loc=0, scale=1)
-        if self.n <= multiplier**2 * self.nu / (1.0 - self.nu):
+        multiplier = scipy.stats.norm.ppf(1.0 - 0.5 * self.alpha, loc=0, scale=1)
+        quantile_above_one = self.n <= multiplier**2 * self.nu / (1.0 - self.nu)
+        quantile_below_zero = self.n <= multiplier**2 * (1.0 - self.nu) / self.nu
+        if quantile_above_one or quantile_below_zero:
             return 0
         num = self.q_upper - self.q_lower
         den = 2 * multiplier
