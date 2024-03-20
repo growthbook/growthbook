@@ -181,7 +181,7 @@ export function getHost(
   port: number
 ): string | undefined {
   if (!url) return undefined;
-  const host = new URL(url);
+  const host = new URL(!url.match(/^https?/) ? `http://${url}` : url);
   if (!host.port && port) host.port = port + "";
   return host.origin;
 }
