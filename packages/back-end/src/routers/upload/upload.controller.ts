@@ -20,7 +20,7 @@ const extensionsToMimetype: Record<string, string> = {
 
 export async function putUpload(req: AuthRequest<Buffer>, res: Response) {
   const contentType = req.headers["content-type"] as string;
-  req.checkPermissions("addComments", "");
+  req.checkPermissions("addComments", []);
 
   if (!(contentType in mimetypes)) {
     throw new Error(

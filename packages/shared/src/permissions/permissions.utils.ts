@@ -55,7 +55,12 @@ export const ALL_PERMISSIONS = [
   ...ENV_SCOPED_PERMISSIONS,
 ];
 
-export const READ_ONLY_PERMISSIONS = ["readData", "viewEvents", "runQueries"];
+export const READ_ONLY_PERMISSIONS = [
+  "readData",
+  "viewEvents",
+  "runQueries",
+  "addComments",
+];
 
 export function hasPermission(
   userPermissions: UserPermissions | undefined,
