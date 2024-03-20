@@ -5,9 +5,9 @@ import mongoose, { FilterQuery } from "mongoose";
 import { Collection } from "mongodb";
 import omit from "lodash/omit";
 import { z } from "zod";
-import { isEqual, pick, uniq } from "lodash";
+import { isEqual, pick } from "lodash";
 import { ApiReqContext } from "../../types/api";
-import { Permission, ReqContext } from "../../types/organization";
+import { ReqContext } from "../../types/organization";
 import { CreateProps, UpdateProps } from "../../types/models";
 import { logger } from "../util/logger";
 import { EventType } from "../../types/audit";
@@ -32,12 +32,6 @@ export interface ModelConfig<T extends BaseSchema> {
   schema: T;
   collectionName: string;
   idPrefix?: string;
-  permissions: {
-    read: Permission | Permission[];
-    create: Permission | Permission[];
-    update: Permission | Permission[];
-    delete: Permission | Permission[];
-  };
   auditLog: {
     entity: EntityType;
     createEvent: EventType;
@@ -75,6 +69,14 @@ export abstract class BaseModel<T extends BaseSchema> {
    ***************/
   protected config: ModelConfig<T>;
   protected abstract getConfig(): ModelConfig<T>;
+  protected abstract canRead(doc: z.infer<T>): boolean;
+  protected abstract canCreate(doc: z.infer<T>): boolean;
+  protected abstract canUpdate(
+    existing: z.infer<T>,
+    updates: UpdateProps<z.infer<T>>,
+    newDoc: z.infer<T>
+  ): boolean;
+  protected abstract canDelete(existing: z.infer<T>): boolean;
 
   /***************
    * Optional methods that can be overridden by subclasses as needed
@@ -85,7 +87,7 @@ export abstract class BaseModel<T extends BaseSchema> {
   protected async customValidation(doc: z.infer<T>) {
     // Do nothing by default
   }
-  protected async beforeCreate(props: z.infer<T>) {
+  protected async beforeCreate(doc: z.infer<T>) {
     // Do nothing by default
   }
   protected async afterCreate(doc: z.infer<T>) {
@@ -128,7 +130,15 @@ export abstract class BaseModel<T extends BaseSchema> {
     if (this.config.projectScoping === "none") {
       throw new Error("This model does not support projects");
     }
-    return project ? this._find({ project }) : this._find();
+
+    // If the project is empty, return all
+    if (!project) return this._find();
+
+    return this._find(
+      this.config.projectScoping === "single"
+        ? { project }
+        : { projects: project }
+    );
   }
   public create(props: unknown | CreateProps<z.infer<T>>): Promise<z.infer<T>> {
     return this._createOne(props);
@@ -210,7 +220,7 @@ export abstract class BaseModel<T extends BaseSchema> {
 
       // Filter out any docs the user doesn't have access to read
       if (this.config.projectScoping !== "none") {
-        if (!this._hasPermissions([migrated], this.config.permissions.read)) {
+        if (!this.canRead(migrated)) {
           continue;
         }
 
@@ -238,7 +248,7 @@ export abstract class BaseModel<T extends BaseSchema> {
 
     const migrated = this.migrate(this._removeMongooseFields(doc));
     if (this.config.projectScoping !== "none") {
-      if (!this._hasPermissions([migrated], this.config.permissions.read)) {
+      if (!this.canRead(migrated)) {
         return null;
       }
     }
@@ -279,7 +289,9 @@ export abstract class BaseModel<T extends BaseSchema> {
       dateUpdated: new Date(),
     } as z.infer<T>;
 
-    this._requirePermissions([doc], this.config.permissions.create);
+    if (!this.canCreate(doc)) {
+      throw new Error("You do not have access to create this resource");
+    }
 
     await this._standardFieldValidation(doc);
     await this.customValidation(doc);
@@ -376,7 +388,9 @@ export abstract class BaseModel<T extends BaseSchema> {
 
     const newDoc = { ...doc, ...allUpdates } as z.infer<T>;
 
-    this._requirePermissions([doc, newDoc], this.config.permissions.update);
+    if (!this.canUpdate(doc, updates, newDoc)) {
+      throw new Error("You do not have access to update this resource");
+    }
 
     await this._standardFieldValidation(updates as Partial<z.infer<T>>);
 
@@ -427,8 +441,9 @@ export abstract class BaseModel<T extends BaseSchema> {
   }
 
   protected async _deleteOne(doc: z.infer<T>) {
-    this._requirePermissions([doc], this.config.permissions.delete);
-
+    if (!this.canDelete(doc)) {
+      throw new Error("You do not have access to delete this resource");
+    }
     await this.beforeDelete(doc);
     await this._dangerousGetCollection().deleteOne({
       organization: this.context.org.id,
@@ -511,63 +526,6 @@ export abstract class BaseModel<T extends BaseSchema> {
           );
         });
     });
-  }
-
-  private _getProjectField(doc: z.infer<T>) {
-    if (this.config.projectScoping === "none") return undefined;
-    if (this.config.projectScoping === "single") {
-      return (doc as z.infer<T> & { project?: string }).project || undefined;
-    }
-    if (this.config.projectScoping === "multiple") {
-      return (
-        (doc as z.infer<T> & { projects?: string[] }).projects || undefined
-      );
-    }
-    return undefined;
-  }
-
-  private _hasPermissions(
-    docs: z.infer<T>[],
-    permissions: Permission | Permission[]
-  ) {
-    if (!Array.isArray(permissions)) {
-      permissions = [permissions];
-    }
-
-    const projects = uniq(
-      docs.flatMap((doc) => this._getAffectedProjects(doc))
-    );
-
-    for (const permission of permissions) {
-      if (
-        !docs.every((doc) =>
-          // TODO: support environment-scoped permission checks
-          this.context.hasPermission(
-            permission,
-            this._getProjectField(doc),
-            undefined
-          )
-        )
-      ) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  private _requirePermissions(
-    docs: z.infer<T>[],
-    permissions: Permission | Permission[]
-  ) {
-    if (!this._hasPermissions(docs, permissions)) {
-      throw new Error("You do not have permission to complete that action");
-    }
-  }
-
-  private _getAffectedProjects(doc: z.infer<T>) {
-    const projects = this._getProjectField(doc);
-    return Array.isArray(projects) ? projects : projects ? [projects] : [];
   }
 
   private async _standardFieldValidation(obj: Partial<z.infer<T>>) {

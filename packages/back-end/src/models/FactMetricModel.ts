@@ -7,6 +7,7 @@ import {
 import { ApiFactMetric } from "../../types/openapi";
 import { factMetricValidator } from "../routers/fact-table/fact-table.validators";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
+import { UpdateProps } from "../../types/models";
 import { BaseModel, ModelConfig } from "./BaseModel";
 import { getFactTableMap } from "./FactTableModel";
 
@@ -18,12 +19,6 @@ export class FactMetricDataModel extends BaseModel<FactMetricSchema> {
       schema: factMetricValidator,
       collectionName: "factmetrics",
       idPrefix: "fact__",
-      permissions: {
-        create: "createMetrics",
-        read: "readData",
-        update: "createMetrics",
-        delete: "createMetrics",
-      },
       auditLog: {
         entity: "metric",
         createEvent: "metric.create",
@@ -35,6 +30,27 @@ export class FactMetricDataModel extends BaseModel<FactMetricSchema> {
       readonlyFields: ["datasource"],
     };
     return config;
+  }
+
+  protected canRead(doc: FactMetricInterface): boolean {
+    return this.context.hasPermission("readData", doc.projects || []);
+  }
+  protected canCreate(doc: FactMetricInterface): boolean {
+    return this.context.hasPermission("createMetrics", doc.projects || []);
+  }
+  protected canUpdate(
+    existing: FactMetricInterface,
+    updates: UpdateProps<FactMetricInterface>,
+    newDoc: FactMetricInterface
+  ): boolean {
+    const allProjects = [
+      ...new Set([...(existing.projects || []), ...(newDoc.projects || [])]),
+    ];
+
+    return this.context.hasPermission("createMetrics", allProjects);
+  }
+  protected canDelete(doc: FactMetricInterface): boolean {
+    return this.context.hasPermission("createMetrics", doc.projects || []);
   }
 
   public static upgradeFactMetricDoc(
