@@ -1304,8 +1304,9 @@ export class GrowthBook<
       } else {
         this._track(call.experiment, call.result);
       }
-      this._deferredTrackingCalls.shift();
     });
+
+    this._deferredTrackingCalls = [];
 
     if (hasInvalidTrackingCall) {
       throw new Error("Invalid tracking data");
