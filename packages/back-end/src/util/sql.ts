@@ -181,9 +181,13 @@ export function getHost(
   port: number
 ): string | undefined {
   if (!url) return undefined;
-  const host = new URL(url);
-  if (!host.port && port) host.port = port + "";
-  return host.origin;
+  try {
+    const host = new URL(url);
+    if (!host.port && port) host.port = port + "";
+    return host.origin;
+  } catch (e) {
+    return `${url}:${port}`;
+  }
 }
 
 // Recursively create list of metric denominators in order
