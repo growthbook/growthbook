@@ -236,6 +236,12 @@ export type ExperimentMetricQueryResponseRows = {
   covariate_sum?: number;
   covariate_sum_squares?: number;
   main_covariate_sum_product?: number;
+
+  quantile?: number;
+  quantile_n?: number;
+  quantile_lower?: number;
+  quantile_upper?: number;
+  quantile_nstar?: number;
 }[];
 
 export type ExperimentFactMetricsQueryResponseRows = {

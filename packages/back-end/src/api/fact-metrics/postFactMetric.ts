@@ -23,7 +23,10 @@ import { OrganizationInterface } from "../../../types/organization";
 import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 
 export async function validateFactMetric(
-  data: Pick<FactMetricInterface, "numerator" | "denominator" | "metricType">,
+  data: Pick<
+    FactMetricInterface,
+    "numerator" | "denominator" | "metricType" | "quantileSettings"
+  >,
   getFactTable: (id: string) => Promise<FactTableInterface | null>
 ) {
   const numeratorFactTable = await getFactTable(data.numerator.factTableId);
@@ -66,6 +69,14 @@ export async function validateFactMetric(
     }
   } else if (data.denominator?.factTableId) {
     throw new Error("Denominator not allowed for non-ratio metric");
+  }
+
+  if (data.metricType === "quantile") {
+    // TODO undo when implemented
+    throw new Error("Quantile metrics not yet supported");
+    if (!data.quantileSettings) {
+      throw new Error("Must specify `quantileSettings` for Quantile metrics");
+    }
   }
 }
 
@@ -115,6 +126,7 @@ export async function getCreateMetricPropsFromBody(
     projects: [],
     tags: [],
     inverse: false,
+    quantileSettings: null,
     windowSettings: {
       type: scopedSettings.windowType.value ?? DEFAULT_FACT_METRIC_WINDOW,
       delayHours:

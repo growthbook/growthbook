@@ -1753,7 +1753,8 @@ export async function postSnapshot(
         users,
         metrics,
         analysisSettings,
-        metricMap
+        metricMap,
+        orgSettings
       );
       res.status(200).json({
         status: 200,

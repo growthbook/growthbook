@@ -153,31 +153,12 @@ export default class BigQuery extends SqlIntegration {
   castUserDateCol(column: string): string {
     return `CAST(${column} as DATETIME)`;
   }
-  percentileCapSelectClause(
-    values: {
-      valueCol: string;
-      outputCol: string;
-      percentile: number;
-      ignoreZeros: boolean;
-    }[],
-    metricTable: string,
-    where: string = ""
-  ): string {
-    return `
-    SELECT
-      ${values
-        .map((v) => {
-          const value = v.ignoreZeros
-            ? this.ifElse(`${v.valueCol} = 0`, "NULL", v.valueCol)
-            : v.valueCol;
-          return `APPROX_QUANTILES(${value}, 100000 IGNORE NULLS)[OFFSET(${Math.trunc(
-            100000 * v.percentile
-          )})] AS ${v.outputCol}`;
-        })
-        .join(",\n")}
-      FROM ${metricTable}
-      ${where}
-    `;
+  approxQuantile(value: string, quantile: string | number): string {
+    const multiplier = 10000;
+    const quantileVal = Number(quantile)
+      ? Math.trunc(multiplier * Number(quantile))
+      : `${multiplier} * ${quantile}`;
+    return `APPROX_QUANTILES(${value}, ${multiplier} IGNORE NULLS)[OFFSET(CAST(${quantileVal} AS INT64))]`;
   }
   getDefaultDatabase() {
     return this.params.projectId || "";

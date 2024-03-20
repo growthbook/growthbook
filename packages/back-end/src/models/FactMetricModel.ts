@@ -37,6 +37,12 @@ const factTableSchema = new mongoose.Schema({
     filters: [String],
   },
 
+  quantileSettings: {
+    type: { type: String },
+    quantile: Number,
+    ignoreZeros: Boolean,
+  },
+
   cappingSettings: {
     type: { type: String },
     value: Number,
@@ -172,6 +178,7 @@ export function toFactMetricApiInterface(
   factMetric: FactMetricInterface
 ): ApiFactMetric {
   const {
+    quantileSettings,
     cappingSettings,
     windowSettings,
     regressionAdjustmentDays,
@@ -187,6 +194,7 @@ export function toFactMetricApiInterface(
     ...otherFields,
     managedBy: factMetric.managedBy || "",
     denominator: denominator || undefined,
+    quantileSettings: quantileSettings || undefined,
     cappingSettings: {
       type: cappingSettings.type || "none",
       value: cappingSettings.value,

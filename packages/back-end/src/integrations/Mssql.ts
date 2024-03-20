@@ -65,29 +65,11 @@ export default class Mssql extends SqlIntegration {
   formatDateTimeString(col: string): string {
     return `CONVERT(VARCHAR(25), ${col}, 121)`;
   }
-  percentileCapSelectClause(
-    values: {
-      valueCol: string;
-      outputCol: string;
-      percentile: number;
-      ignoreZeros: boolean;
-    }[],
-    metricTable: string,
-    where: string = ""
+  approxQuantile(
+    value: string,
+    quantile: string | number,
   ): string {
-    return `
-    SELECT
-      ${values
-        .map((v) => {
-          const value = v.ignoreZeros
-            ? this.ifElse(`${v.valueCol} = 0`, "NULL", v.valueCol)
-            : v.valueCol;
-          return `APPROX_PERCENTILE_CONT(${v.percentile}) WITHIN GROUP (ORDER BY ${value}) AS ${v.outputCol}`;
-        })
-        .join(",\n")}
-      FROM ${metricTable}
-      ${where}
-    `;
+    return `APPROX_PERCENTILE_CONT(${quantile}) WITHIN GROUP (ORDER BY ${value})`;
   }
   getDefaultDatabase() {
     return this.params.database;

@@ -67,7 +67,11 @@ export function FilterBadges({
   );
 }
 
-function MetricType({ type }: { type: "proportion" | "mean" | "ratio" }) {
+function MetricType({
+  type,
+}: {
+  type: "proportion" | "mean" | "ratio" | "quantile";
+}) {
   if (type === "proportion") {
     return (
       <div>
@@ -89,6 +93,13 @@ function MetricType({ type }: { type: "proportion" | "mean" | "ratio" }) {
       <div>
         <strong>Ratio Metric</strong> - The ratio of two numeric values among
         experiment users
+      </div>
+    );
+  }
+  if (type === "quantile") {
+    return (
+      <div>
+        <strong>Quantile Metric</strong> - The quantile of some metric
       </div>
     );
   }

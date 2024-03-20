@@ -38,6 +38,16 @@ const endDate = new Date(endDateString); // but end it a bit early so we know it
 const USER_ID_TYPE = "user_id";
 const OUTPUT_DIR = "/tmp/json";
 
+function getTableString(engine: string) {
+  if (engine === "bigquery") {
+    return "sample.";
+  }
+  if (engine === "snowflake") {
+    return `"SAMPLE"."SAMPLE".`;
+  }
+  return "";
+}
+
 // helper methods
 function buildInterface(engine: string): DataSourceInterface {
   const engineInterface: DataSourceInterface = {
@@ -55,18 +65,18 @@ function buildInterface(engine: string): DataSourceInterface {
             id: "user_id",
             name: "",
             userIdType: USER_ID_TYPE,
-            query: `SELECT\nuserId as user_id,timestamp as timestamp,experimentId as experiment_id,variationId as variation_id,browser\nFROM ${
-              engine === "bigquery" ? "sample." : ""
-            }experiment_viewed`,
+            query: `SELECT\nuserId as user_id,timestamp as timestamp,experimentId as experiment_id,variationId as variation_id,browser\nFROM ${getTableString(
+              engine
+            )}experiment_viewed`,
             dimensions: ["browser"],
           },
         ],
         identityJoins: [
           {
             ids: ["user_id", "anonymous_id"],
-            query: `SELECT DISTINCT\nuserId as user_id,anonymousId as anonymous_id\nFROM ${
-              engine === "bigquery" ? "sample." : ""
-            }orders`,
+            query: `SELECT DISTINCT\nuserId as user_id,anonymousId as anonymous_id\nFROM ${getTableString(
+              engine
+            )}orders`,
           },
         ],
       },
@@ -99,7 +109,7 @@ function buildDimension(
         // lazy way to build user table
         sql: `SELECT DISTINCT userId AS user_id, ${
           exp.dimensionMetric
-        } AS value FROM ${engine === "bigquery" ? "sample." : ""}orders`,
+        } AS value FROM ${getTableString(engine)}orders`,
         dateCreated: null,
         dateUpdated: null,
       },
@@ -127,9 +137,9 @@ function buildSegment(
       datasource: "",
       userIdType: USER_ID_TYPE,
       name: exp.segment,
-      sql: `SELECT DISTINCT\nuserId as user_id,CAST('2022-01-01' AS DATE) as date\nFROM ${
-        engine === "bigquery" ? "sample." : ""
-      }experiment_viewed\nWHERE browser = 'Chrome'`,
+      sql: `SELECT DISTINCT\nuserId as user_id,CAST('2022-01-01' AS DATE) as date\nFROM ${getTableString(
+        engine
+      )}experiment_viewed\nWHERE browser = 'Chrome'`,
       dateCreated: currentDate,
       dateUpdated: currentDate,
     };
@@ -138,9 +148,16 @@ function buildSegment(
   }
 }
 
-function addDatabaseToMetric(metric: MetricInterface): MetricInterface {
+function addDatabaseToMetric(
+  metric: MetricInterface,
+  engine: string
+): MetricInterface {
+  const tableString = getTableString(engine);
+  if (!tableString) {
+    return metric;
+  }
   const newMetric = { ...metric };
-  newMetric.sql = newMetric.sql?.replace("FROM ", "FROM sample.");
+  newMetric.sql = newMetric.sql?.replace("FROM ", `FROM ${tableString}`);
   return newMetric;
 }
 
@@ -250,7 +267,7 @@ const filters: FactFilterInterface[] = (filterConfigData as FilterConfig[]).map(
 import factMetricConfigData from "./json/fact-metrics.json";
 type FactMetricConfig = Pick<
   FactMetricInterface,
-  "id" | "metricType" | "numerator"
+  "id" | "metricType" | "numerator" | "quantileSettings"
 >;
 const factMetricConfigs = factMetricConfigData as FactMetricConfig[];
 const baseFactMetric: Omit<
@@ -278,6 +295,8 @@ const baseFactMetric: Omit<
 
   // defaults that can be overriden in fact-metrics.json
   denominator: null,
+
+  quantileSettings: null,
 
   windowSettings: {
     type: "conversion",
@@ -437,11 +456,10 @@ engines.forEach((engine) => {
     .supportsWritingTables;
 
   const factTablesCopy = cloneDeep<FactTableInterface[]>(factTables);
-  if (engine === "bigquery") {
-    factTablesCopy.forEach(
-      (ft) => (ft.sql = ft.sql?.replace("FROM ", "FROM sample."))
-    );
-  }
+  factTablesCopy.forEach(
+    (ft) =>
+      (ft.sql = ft.sql?.replace("FROM ", `FROM ${getTableString(engine)}`))
+  );
   const factTableMap = new Map(factTablesCopy.map((f) => [f.id, f]));
 
   experimentConfigs.forEach((experimentConfig) => {
@@ -474,8 +492,8 @@ engines.forEach((engine) => {
         allActivationMetrics.find(
           (m) => m.id === experiment.activationMetric
         ) ?? null;
-      if (engine === "bigquery" && activationMetric) {
-        activationMetric = addDatabaseToMetric(activationMetric);
+      if (activationMetric) {
+        activationMetric = addDatabaseToMetric(activationMetric, engine);
       }
     }
 
@@ -608,9 +626,11 @@ engines.forEach((engine) => {
         );
       }
 
-      if (!isFactMetric(metric) && engine === "bigquery") {
-        metric = addDatabaseToMetric(metric);
-        denominatorMetrics = denominatorMetrics.map(addDatabaseToMetric);
+      if (!isFactMetric(metric)) {
+        metric = addDatabaseToMetric(metric, engine);
+        denominatorMetrics = denominatorMetrics.map((d) =>
+          addDatabaseToMetric(d, engine)
+        );
       }
 
       // non-pipeline version
@@ -630,15 +650,12 @@ engines.forEach((engine) => {
         engine: engine,
         sql: sql,
       });
-      if (metric.id === "nonbinom_null__purchased_value") {
-        console.log("===============================");
-        console.log(experiment.id);
-        console.dir(queryParams, { depth: null });
-      }
 
       // pipeline version
       if (pipelineEnabled) {
-        const unitsQueryFullName = `${unitsQueryParams.unitsTableFullName}_${metric.id}`;
+        const unitsQueryFullName = `${
+          engine === "snowflake" ? "GROWTHBOOK." : ""
+        }${unitsQueryParams.unitsTableFullName}_${metric.id}`;
         const unitsSql = integration.getExperimentUnitsTableQuery({
           ...unitsQueryParams,
           unitsTableFullName: unitsQueryFullName,

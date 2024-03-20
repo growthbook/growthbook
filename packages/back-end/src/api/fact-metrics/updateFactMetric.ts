@@ -31,6 +31,7 @@ export function getUpdateFactMetricPropsFromBody(
 
   const updates: UpdateFactMetricProps = {
     ...otherFields,
+    quantileSettings: otherFields.quantileSettings ?? undefined,
   };
 
   const metricType = updates.metricType;
