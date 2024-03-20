@@ -2238,3 +2238,209 @@ describe("PermissionsUtilClass.canUpdateMetric check", () => {
     expect(permissions.canUpdateMetric(metric, updates)).toEqual(false);
   });
 });
+
+describe("PermissionsUtilClass.canDeleteMetric check", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("canDeleteMetric should handle undefined projects correctly for engineer user", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canDeleteMetric({})).toEqual(false);
+  });
+
+  it("canDeleteMetric should handle undefined projects correctly for experimenter user", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canDeleteMetric({})).toEqual(true);
+  });
+
+  it("canDeleteMetric should handle empty projects array correctly for noaccess user", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("noaccess", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canDeleteMetric({ projects: [] })).toEqual(false);
+  });
+
+  it("canCreateMetric should handle empty projects array correctly for experimenter user", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canCreateMetric({ projects: [] })).toEqual(true);
+  });
+
+  it("canCreateMetric should handle valid projects array correctly for noaccess user", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("noaccess", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canCreateMetric({ projects: ["abc123"] })).toEqual(
+      false
+    );
+  });
+
+  it("canCreateMetric should handle valid projects array correctly for experimenter user", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canCreateMetric({ projects: ["abc123"] })).toEqual(true);
+  });
+
+  it("canCreateMetric should handle valid projects array correctly for experimenter user with project-level readonly role", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("readonly", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(permissions.canCreateMetric({ projects: ["abc123"] })).toEqual(
+      false
+    );
+  });
+
+  it("canCreateMetric should handle valid projects array correctly for readonly user with project-level experimenter role in only 1 of the two projects", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("experimenter", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(
+      // its false since the user doesn't have permission in all projects
+      permissions.canCreateMetric({ projects: ["abc123", "def456"] })
+    ).toEqual(false);
+  });
+
+  it("canCreateMetric should handle valid projects array correctly for readonly user with project-level experimenter and analyst roles", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("experimenter", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+          def456: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(
+      // its true since the user DOES have permission in all projects
+      permissions.canCreateMetric({ projects: ["abc123", "def456"] })
+    ).toEqual(true);
+  });
+});
