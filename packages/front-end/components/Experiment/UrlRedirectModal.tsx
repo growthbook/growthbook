@@ -128,7 +128,7 @@ const UrlRedirectModal: FC<{
   const onSubmit = form.handleSubmit(async (value) => {
     const payload = {
       urlPattern: value.originUrl,
-      urlRedirects: experiment.variations.map((v) => {
+      destinationURLs: experiment.variations.map((v) => {
         return {
           variation: v.id,
           url: value.destinationUrls[v.key],
