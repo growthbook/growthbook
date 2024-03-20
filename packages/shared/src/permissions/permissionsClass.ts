@@ -51,12 +51,6 @@ export class Permissions {
   ): boolean {
     const projects = obj.projects?.length ? obj.projects : [""];
 
-    if (READ_ONLY_PERMISSIONS.includes(permission)) {
-      return projects.some((project) =>
-        this.hasPermission(permission, project)
-      );
-    }
-
     return projects.every((project) => this.hasPermission(permission, project));
   }
 

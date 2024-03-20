@@ -20,7 +20,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "manageProjects",
   "createAnalyses",
   "createIdeas",
-  "createMetrics", // handled in hasPermissionClass
+  "createMetrics",
   "manageFactTables",
   "createDatasources",
   "editDatasourceSettings",
