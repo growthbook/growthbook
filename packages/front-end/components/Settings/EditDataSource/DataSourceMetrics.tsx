@@ -252,8 +252,9 @@ export default function DataSourceMetrics({
                               </Tooltip>
                             ) : null}
                           </div>
-                          {editMetricsPermissions[metric.id].canCreate ||
-                          editMetricsPermissions[metric.id].canUpdate ? (
+                          {!metric.managedBy &&
+                          (editMetricsPermissions[metric.id].canCreate ||
+                            editMetricsPermissions[metric.id].canUpdate) ? (
                             <MoreMenu className="px-2">
                               {editMetricsPermissions[metric.id].canCreate ? (
                                 <button

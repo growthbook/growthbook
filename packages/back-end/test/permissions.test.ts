@@ -2071,31 +2071,6 @@ describe("PermissionsUtilClass.canUpdateMetric check", () => {
     expect(permissions.canUpdateMetric(metric, updates)).toEqual(false);
   });
 
-  it("canUpdateMetric should block updates if the metric is official metric", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("experimenter", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
-      },
-      false
-    );
-
-    const metric: Pick<MetricInterface, "projects" | "managedBy"> = {
-      projects: ["abc123"],
-      managedBy: "api",
-    };
-
-    const updates: Pick<MetricInterface, "projects"> = {
-      projects: ["abc123"],
-    };
-
-    expect(permissions.canUpdateMetric(metric, updates)).toEqual(false);
-  });
-
   it("canUpdateMetric should allow updates if the metric projects are unchanged", async () => {
     const permissions = new Permissions(
       {

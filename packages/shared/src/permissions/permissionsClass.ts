@@ -1,5 +1,6 @@
 import { MetricInterface } from "back-end/types/metric";
 import { Permission, UserPermissions } from "back-end/types/organization";
+import { READ_ONLY_PERMISSIONS } from "./permissions.utils";
 class PermissionError extends Error {
   constructor(message: string) {
     super(message);
@@ -15,58 +16,28 @@ export class Permissions {
     this.superAdmin = superAdmin;
   }
 
-  public canCreateMetric(metric: Pick<MetricInterface, "projects">): boolean {
-    const metricProjects = metric.projects?.length ? metric.projects : [""];
+  public canCreateMetric = (
+    metric: Pick<MetricInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(metric, "createMetrics");
+  };
 
-    return metricProjects.every((project) =>
-      this.hasPermission("createMetrics", project)
-    );
-  }
-
-  public canUpdateMetric(
+  public canUpdateMetric = (
     existing: Pick<MetricInterface, "projects" | "managedBy">,
-    updated: Pick<MetricInterface, "projects">
-  ): boolean {
-    if (existing.managedBy) return false;
-
-    const currentMetricProjects = existing.projects?.length
-      ? existing.projects
-      : [""];
-
-    const canUpdateExisting = currentMetricProjects.every((project) =>
-      this.hasPermission("createMetrics", project)
+    updates: Pick<MetricInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "createMetrics"
     );
+  };
 
-    if (!canUpdateExisting) {
-      return false;
-    }
-
-    let hasPermission = true;
-
-    // if updated.projects is undefined, the user isn't trying to update the projects, so we can return true
-    if (updated.projects) {
-      const updatedMetricProjects = updated.projects?.length
-        ? updated.projects
-        : [""];
-
-      hasPermission = updatedMetricProjects.every((project) =>
-        this.hasPermission("createMetrics", project)
-      );
-    }
-
-    return hasPermission;
-  }
-
-  public canDeleteMetric(
+  public canDeleteMetric = (
     metric: Pick<MetricInterface, "projects" | "managedBy">
-  ): boolean {
-    if (metric.managedBy) return false;
-    const metricProjects = metric.projects?.length ? metric.projects : [""];
-
-    return metricProjects.every((project) =>
-      this.hasPermission("createMetrics", project)
-    );
-  }
+  ): boolean => {
+    return this.checkProjectFilterPermission(metric, "createMetrics");
+  };
 
   public throwPermissionError(): void {
     throw new PermissionError(
@@ -74,7 +45,42 @@ export class Permissions {
     );
   }
 
-  protected hasPermission(
+  private checkProjectFilterPermission(
+    obj: { projects?: string[] },
+    permission: Permission
+  ): boolean {
+    const projects = obj.projects?.length ? obj.projects : [""];
+
+    if (READ_ONLY_PERMISSIONS.includes(permission)) {
+      return projects.some((project) =>
+        this.hasPermission(permission, project)
+      );
+    }
+
+    return projects.every((project) => this.hasPermission(permission, project));
+  }
+
+  private checkProjectFilterUpdatePermission(
+    existing: { projects?: string[] },
+    updates: { projects?: string[] },
+    permission: Permission
+  ): boolean {
+    // check if the user has permission to update based on the existing projects
+    if (!this.checkProjectFilterPermission(existing, permission)) {
+      return false;
+    }
+
+    // if the updates include projects, check if the user has permission to update based on the new projects
+    if (
+      "projects" in updates &&
+      !this.checkProjectFilterPermission(updates, permission)
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  private hasPermission(
     permissionToCheck: Permission,
     project: string,
     envs?: string[]
