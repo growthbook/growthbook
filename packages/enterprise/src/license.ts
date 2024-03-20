@@ -48,6 +48,7 @@ export type CommercialFeature =
   | "no-access-role"
   | "teams"
   | "sticky-bucketing"
+  | "require-approvals"
   | "code-references"
   | "prerequisites"
   | "prerequisite-targeting"
@@ -59,6 +60,7 @@ export interface LicenseInterface {
   companyName: string; // Name of the organization on the license
   organizationId?: string; // OrganizationId (keys prior to 12/2022 do not contain this field)
   seats: number; // Maximum number of seats on the license
+  hardCap: boolean; // True if this license has a hard cap on the number of seats
   dateCreated: string; // Date the license was issued
   dateExpires: string; // Date the license expires
   name: string; // Name of the person who signed up for the license
@@ -100,7 +102,7 @@ export interface LicenseInterface {
   signedChecksum: string; // Checksum of the license data signed with the private key
 }
 
-// Old style license keys where the license data is encrypted in the key itself
+// Old/Airgapped style license keys where the license data is encrypted in the key itself
 type LicenseData = {
   // Unique id for the license key
   ref: string;
@@ -110,6 +112,8 @@ type LicenseData = {
   org?: string;
   // Max number of seats
   qty: number;
+  // True if this license has a hard cap on the number of seats (keys prior to 03/2024 do not contain this field)
+  hardCap?: boolean;
   // Date issued
   iat: string;
   // Expiration date
@@ -189,6 +193,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "custom-launch-checklist",
     "no-access-role",
     "sticky-bucketing",
+    "require-approvals",
     "code-references",
     "prerequisites",
     "prerequisite-targeting",
@@ -301,6 +306,7 @@ function getVerifiedLicenseData(key: string): Partial<LicenseInterface> {
     companyName: decodedLicense.sub,
     organizationId: decodedLicense.org,
     seats: decodedLicense.qty,
+    hardCap: decodedLicense.hardCap || false,
     dateCreated: decodedLicense.iat,
     dateExpires: decodedLicense.exp,
     isTrial: decodedLicense.trial,

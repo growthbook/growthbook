@@ -69,7 +69,11 @@ import {
 import { ArchetypeAttributeValues } from "../../types/archetype";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { triggerWebhookJobs } from "../jobs/updateAllJobs";
-import { getEnvironmentIdsFromOrg, getOrganizationById } from "./organizations";
+import {
+  getContextForAgendaJobByOrgObject,
+  getEnvironmentIdsFromOrg,
+  getOrganizationById,
+} from "./organizations";
 
 export type AttributeMap = Map<string, string>;
 
@@ -260,12 +264,16 @@ export async function getSavedGroupMap(
 }
 
 export async function refreshSDKPayloadCache(
-  context: ReqContext | ApiReqContext,
+  baseContext: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[],
   allFeatures: FeatureInterface[] | null = null,
   experimentMap?: Map<string, ExperimentInterface>,
   skipRefreshForProject?: string
 ) {
+  // This is a background job, so switch to using a background context
+  // This is required so that we have full read access to the entire org's data
+  const context = getContextForAgendaJobByOrgObject(baseContext.org);
+
   logger.debug(
     `Refreshing SDK Payloads for ${context.org.id}: ${JSON.stringify(
       payloadKeys

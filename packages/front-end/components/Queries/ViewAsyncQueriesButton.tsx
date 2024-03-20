@@ -13,7 +13,7 @@ const ViewAsyncQueriesButton: FC<{
   className?: string;
   inline?: boolean;
   ctaCommponent?: (onClick: () => void) => ReactNode;
-  newUi?: boolean;
+  condensed?: boolean;
   icon?: JSX.Element | string | null;
   status?: QueryStatus;
 }> = ({
@@ -24,14 +24,14 @@ const ViewAsyncQueriesButton: FC<{
   className = "",
   inline = false,
   ctaCommponent,
-  newUi = false,
+  condensed = false,
   icon,
   status,
 }) => {
   const [open, setOpen] = useState(false);
 
   if (!className)
-    className = newUi ? `btn btn-${color} border-0` : `btn btn-${color}`;
+    className = condensed ? `btn btn-${color} border-0` : `btn btn-${color}`;
 
   return (
     <>
@@ -62,11 +62,11 @@ const ViewAsyncQueriesButton: FC<{
           <button
             className={clsx(className, {
               disabled: queries.length === 0,
-              "pl-2 pr-1 py-0 d-flex align-items-center": newUi,
+              "pl-2 pr-1 py-0 d-flex align-items-center": condensed,
             })}
             style={{
               ...(queries.length === 0 ? { cursor: "not-allowed" } : {}),
-              ...(newUi ? { height: 35 } : {}),
+              ...(condensed ? { height: 35 } : {}),
             }}
             type="button"
             onClick={(e) => {
@@ -77,15 +77,15 @@ const ViewAsyncQueriesButton: FC<{
           >
             <span
               className={clsx("h4", {
-                "position-relative d-flex m-0 d-inline-block align-top pr-3": newUi,
-                "pr-2": !newUi,
+                "position-relative d-flex m-0 d-inline-block align-top pr-3": condensed,
+                "pr-2": !condensed,
               })}
             >
               {icon !== undefined ? icon : <FaDatabase />}
             </span>{" "}
             {display}
             {queries.length > 0 ? (
-              newUi ? (
+              condensed ? (
                 <div
                   className="d-inline-block position-absolute"
                   style={{

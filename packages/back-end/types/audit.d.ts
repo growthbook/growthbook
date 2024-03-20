@@ -1,6 +1,9 @@
 import { EntityType } from "../src/types/Audit";
 
 export type EventType =
+  | "attribute.create"
+  | "attribute.update"
+  | "attribute.delete"
   | "experiment.create"
   | "experiment.update"
   | "experiment.start"

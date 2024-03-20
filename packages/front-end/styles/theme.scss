@@ -95,6 +95,10 @@
   --graph-color-16: #88e616;
   --graph-color-17: #16e6b5;
   --graph-color-18: #14b8ff;
+
+  --header-revision-log: #ebe4ff;
+
+  --callout-grey: #e8e8e8;
 }
 
 @mixin dark-theme {
@@ -195,6 +199,10 @@
   --graph-color-16: #88e616;
   --graph-color-17: #16e6b5;
   --graph-color-18: #14b8ff;
+
+  --header-revision-log: #33255b;
+
+  --callout-grey: #2a2a2a;
 }
 
 .theme--light {
