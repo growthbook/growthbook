@@ -13,6 +13,8 @@ export const ENV_SCOPED_PERMISSIONS = [
 export const PROJECT_SCOPED_PERMISSIONS = [
   "readData",
   "addComments",
+  "bypassApprovalChecks",
+  "canReview",
   "createFeatureDrafts",
   "manageFeatures",
   "manageProjects",
@@ -53,7 +55,12 @@ export const ALL_PERMISSIONS = [
   ...ENV_SCOPED_PERMISSIONS,
 ];
 
-export const READ_ONLY_PERMISSIONS = ["readData", "viewEvents", "runQueries"];
+export const READ_ONLY_PERMISSIONS = [
+  "readData",
+  "viewEvents",
+  "runQueries",
+  "addComments",
+];
 
 export function hasPermission(
   userPermissions: UserPermissions | undefined,

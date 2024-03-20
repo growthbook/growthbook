@@ -32,6 +32,12 @@ export const EditMode = () => {
           url: "http://192.168.0.15:1115/events/webhooks?v=1",
           name: "Main REST API",
           enabled: true,
+          tags: [],
+          environments: [],
+          projects: [],
+          payloadType: "raw",
+          method: "POST",
+          headers: "{}",
         },
       }}
     />

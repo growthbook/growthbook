@@ -23,6 +23,7 @@ import {
   getContextFromReq,
   getEnvironments,
   getInviteUrl,
+  getNumberOfUniqueMembersAndInvites,
   importConfig,
   inviteUser,
   isEnterpriseSSO,
@@ -657,6 +658,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   });
 
   const currentUserPermissions = getUserPermissions(userId, org, teams || []);
+  const seatsInUse = getNumberOfUniqueMembersAndInvites(org);
 
   return res.status(200).json({
     status: 200,
@@ -689,6 +691,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       messages: messages || [],
       pendingMembers: org.pendingMembers,
     },
+    seatsInUse,
   });
 }
 
@@ -982,6 +985,17 @@ export async function postInvite(
     environments,
     projectRoles,
   } = req.body;
+
+  const license = getLicense();
+  if (
+    license &&
+    license.hardCap &&
+    getNumberOfUniqueMembersAndInvites(org) >= (license.seats || 0)
+  ) {
+    throw new Error(
+      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit."
+    );
+  }
 
   const { emailSent, inviteUrl } = await inviteUser({
     organization: org,
@@ -1780,6 +1794,17 @@ export async function addOrphanedUser(
       status: 400,
       message: "Cannot add users who are already part of an organization",
     });
+  }
+
+  const license = getLicense();
+  if (
+    license &&
+    license.hardCap &&
+    getNumberOfUniqueMembersAndInvites(org) >= (license.seats || 0)
+  ) {
+    throw new Error(
+      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit."
+    );
   }
 
   await addMemberToOrg({

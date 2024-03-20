@@ -2057,8 +2057,8 @@ export async function cancelPastExperiments(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  // Passing in an empty string for "project" since pastExperiments don't have projects
-  req.checkPermissions("runQueries", "");
+  // for safety, check if the user has runQueries globally or in atleast 1 project
+  req.checkPermissions("runQueries", []);
 
   const context = getContextFromReq(req);
   const { org } = context;
