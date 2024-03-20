@@ -66,7 +66,7 @@ export class GrowthBook<
 
   // Properties and methods that start with "_" are mangled by Terser (saves ~150 bytes)
   private _ctx: Context;
-  private _renderer: null | (() => void);
+  private _renderer: null | RenderFunction;
   private _redirectedUrl: string;
   private _trackedExperiments: Set<unknown>;
   private _trackedFeatures: Record<string, string>;
@@ -1290,18 +1290,30 @@ export class GrowthBook<
   }
 
   public fireDeferredTrackingCalls() {
+    let hasInvalidTrackingCall = false;
     this._deferredTrackingCalls.forEach((call: TrackingData) => {
       if (!call || !call.experiment || !call.result) {
-        throw new Error("Invalid tracking data");
+        this.log("Invalid deferred tracking call", { call: call });
+        hasInvalidTrackingCall = true;
+      } else {
+        this._track(call.experiment, call.result);
       }
-      this._track(call.experiment, call.result);
+      this._deferredTrackingCalls.shift();
     });
-    this._deferredTrackingCalls = [];
+
+    if (hasInvalidTrackingCall) {
+      throw new Error("Invalid tracking data");
+    }
   }
 
   public setTrackingCallback(callback: TrackingCallback) {
     this._ctx.trackingCallback = callback;
-    this.fireDeferredTrackingCalls();
+
+    try {
+      this.fireDeferredTrackingCalls();
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   private _track<T>(experiment: Experiment<T>, result: Result<T>) {
