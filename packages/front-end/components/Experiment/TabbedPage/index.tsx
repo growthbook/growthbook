@@ -11,6 +11,7 @@ import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useRouter } from "next/router";
 import { DifferenceType } from "back-end/types/stats";
+import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
@@ -50,6 +51,7 @@ export interface Props {
   idea?: IdeaInterface;
   editVariations?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
+  urlRedirects: URLRedirectInterface[];
   newPhase?: (() => void) | null;
   editPhases?: (() => void) | null;
   editPhase?: ((i: number | null) => void) | null;
@@ -68,6 +70,7 @@ export default function TabbedPage({
   idea,
   editVariations,
   visualChangesets,
+  urlRedirects,
   editPhases,
   editTargeting,
   newPhase,
@@ -233,6 +236,7 @@ export default function TabbedPage({
           mutate={mutate}
         />
       )}
+      {/* TODO: Update Experiment Header props to include redirest and pipe through to StartExperimentBanner */}
       <ExperimentHeader
         experiment={experiment}
         tab={tab}
@@ -327,6 +331,7 @@ export default function TabbedPage({
             setVisualEditorModal={setVisualEditorModal}
             setUrlRedirectModal={setUrlRedirectModal}
             visualChangesets={visualChangesets}
+            urlRedirects={urlRedirects}
             editTargeting={!viewingOldPhase ? editTargeting : undefined}
             linkedFeatures={linkedFeatures}
             connections={connections}
@@ -347,6 +352,7 @@ export default function TabbedPage({
           )}
         </div>
         <div className={tab === "results" ? "d-block" : "d-none d-print-block"}>
+          {/* TODO: Update ResultsTab props to include redirest and pipe through to StartExperimentBanner */}
           <ResultsTab
             experiment={experiment}
             mutate={mutate}

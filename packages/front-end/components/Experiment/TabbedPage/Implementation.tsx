@@ -4,6 +4,7 @@ import {
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { URLRedirectInterface } from "back-end/types/url-redirect";
 import usePermissions from "@/hooks/usePermissions";
 import { StartExperimentBanner } from "@/components/Experiment/StartExperimentBanner";
 import AddLinkedChanges from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
@@ -16,6 +17,7 @@ import TargetingInfo from "./TargetingInfo";
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   visualChangesets: VisualChangesetInterface[];
+  urlRedirects: URLRedirectInterface[];
   mutate: () => void;
   editTargeting?: (() => void) | null;
   setFeatureModal: (open: boolean) => void;
@@ -29,6 +31,7 @@ export interface Props {
 export default function Implementation({
   experiment,
   visualChangesets,
+  urlRedirects,
   mutate,
   editTargeting,
   setFeatureModal,
@@ -56,11 +59,9 @@ export default function Implementation({
     hasVisualEditorPermission && experiment.status === "draft";
 
   const hasLinkedChanges =
-    visualChangesets.length > 0 || linkedFeatures.length > 0;
-
-  const visualChanges = visualChangesets.filter((c) => !c.urlRedirects?.length);
-
-  const redirects = visualChangesets.filter((c) => c.urlRedirects?.length);
+    visualChangesets.length > 0 ||
+    linkedFeatures.length > 0 ||
+    urlRedirects.length > 0;
 
   if (!hasLinkedChanges) {
     if (experiment.status === "draft") {
@@ -74,6 +75,7 @@ export default function Implementation({
             setUrlRedirectModal={setUrlRedirectModal}
           />
           <div className="mt-1">
+            {/* TODO: Pipe through redirects */}
             <StartExperimentBanner
               experiment={experiment}
               mutateExperiment={mutate}
@@ -105,9 +107,7 @@ export default function Implementation({
       </div>
       <VisualLinkedChanges
         setVisualEditorModal={setVisualEditorModal}
-        visualChangesets={visualChangesets.filter(
-          (c) => !c.urlRedirects?.length
-        )}
+        visualChangesets={visualChangesets}
         canAddChanges={canAddLinkedChanges}
         canEditVisualChangesets={hasVisualEditorPermission}
         mutate={mutate}
@@ -121,9 +121,7 @@ export default function Implementation({
       />
       <RedirectLinkedChanges
         setUrlRedirectModal={setUrlRedirectModal}
-        visualChangesets={visualChangesets.filter(
-          (c) => c.urlRedirects?.length
-        )}
+        urlRedirects={urlRedirects}
         experiment={experiment}
         canAddChanges={canAddLinkedChanges}
         mutate={mutate}
@@ -132,25 +130,12 @@ export default function Implementation({
         experiment={experiment}
         numLinkedChanges={0}
         hasLinkedFeatures={linkedFeatures.length > 0}
-        hasLinkedRedirects={redirects.length > 0}
-        hasVisualChanges={visualChanges.length > 0}
+        hasLinkedRedirects={urlRedirects.length > 0}
+        hasVisualChanges={visualChangesets.length > 0}
         setFeatureModal={setFeatureModal}
         setVisualEditorModal={setVisualEditorModal}
         setUrlRedirectModal={setUrlRedirectModal}
       />
-      {/* </div> */}
-      {/* {hasLinkedChanges && (
-        <div className="col-md-4 col-lg-4 col-12 mb-3">
-          <div className="appbox p-3 h-100 mb-0">
-            <TargetingInfo
-              experiment={experiment}
-              editTargeting={editTargeting}
-              phaseIndex={phases.length - 1}
-            />
-          </div>
-        </div>
-      )} */}
-      {/* </div> */}
       {hasLinkedChanges && (
         <div className="appbox p-3 h-100 mb-4">
           <TargetingInfo
@@ -164,6 +149,7 @@ export default function Implementation({
 
       {experiment.status === "draft" && (
         <div className="mt-1">
+          {/* TODO: Pipe through redirects */}
           <StartExperimentBanner
             experiment={experiment}
             mutateExperiment={mutate}

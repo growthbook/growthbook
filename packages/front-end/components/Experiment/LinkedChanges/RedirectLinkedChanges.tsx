@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { diffChars } from "diff";
+import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { useAuth } from "@/services/auth";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
@@ -10,14 +10,14 @@ import styles from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges.
 
 interface RedirectLinkedChangesProps {
   setUrlRedirectModal: (boolean) => void;
-  visualChangesets: VisualChangesetInterface[];
+  urlRedirects: URLRedirectInterface[];
   experiment: ExperimentInterfaceStringDates;
   canAddChanges: boolean;
   mutate: () => void;
 }
 
 interface RedirectProps {
-  visualChangeset: VisualChangesetInterface;
+  urlRedirect: URLRedirectInterface;
   experiment: ExperimentInterfaceStringDates;
   canEdit: boolean;
   mutate: () => void;
@@ -56,14 +56,14 @@ function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
 }
 
 const Redirect = ({
-  visualChangeset,
+  urlRedirect,
   experiment,
   mutate,
   canEdit,
 }: RedirectProps) => {
   const { apiCall } = useAuth();
   const [editingRedirect, setEditingRedirect] = useState<boolean>(false);
-  const originUrl = visualChangeset.urlPatterns[0].pattern;
+  const originUrl = urlRedirect.urlPattern;
 
   return (
     <>
@@ -71,7 +71,7 @@ const Redirect = ({
         <UrlRedirectModal
           mode="edit"
           experiment={experiment}
-          visualChangeset={visualChangeset}
+          urlRedirect={urlRedirect}
           mutate={mutate}
           close={() => setEditingRedirect(false)}
         />
@@ -92,7 +92,7 @@ const Redirect = ({
               <DeleteButton
                 className="btn-sm ml-4"
                 onClick={async () => {
-                  await apiCall(`/visual-changesets/${visualChangeset.id}`, {
+                  await apiCall(`/url-redirects/${urlRedirect.id}`, {
                     method: "DELETE",
                   });
                   mutate();
@@ -129,11 +129,10 @@ const Redirect = ({
               </span>
               <div className="col pl-0">
                 <h5 className="mb-0">{v.name}</h5>
-                {visualChangeset.urlRedirects &&
-                visualChangeset.urlRedirects[i]?.url ? (
+                {urlRedirect.destinationURLs[i]?.url ? (
                   <UrlDifferenceRenderer
-                    url1={visualChangeset.urlPatterns[0].pattern}
-                    url2={visualChangeset.urlRedirects[i].url}
+                    url1={urlRedirect.urlPattern}
+                    url2={urlRedirect.destinationURLs[i].url}
                   />
                 ) : (
                   <i className="text-muted">No redirect</i>
@@ -149,12 +148,12 @@ const Redirect = ({
 
 export default function RedirectLinkedChanges({
   setUrlRedirectModal,
-  visualChangesets,
+  urlRedirects,
   experiment,
   canAddChanges,
   mutate,
 }: RedirectLinkedChangesProps) {
-  const redirectCount = visualChangesets.length;
+  const redirectCount = urlRedirects.length;
 
   return (
     <LinkedChangesContainer
@@ -165,10 +164,10 @@ export default function RedirectLinkedChanges({
       onAddChange={() => setUrlRedirectModal(true)}
     >
       <div>
-        {visualChangesets.map((v, i) => (
-          <div className={i > 0 ? "mt-3" : undefined} key={v.id}>
+        {urlRedirects.map((r, i) => (
+          <div className={i > 0 ? "mt-3" : undefined} key={r.id}>
             <Redirect
-              visualChangeset={v}
+              urlRedirect={r}
               experiment={experiment}
               mutate={mutate}
               canEdit={canAddChanges}

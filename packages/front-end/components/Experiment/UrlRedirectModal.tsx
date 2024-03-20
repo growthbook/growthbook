@@ -1,4 +1,3 @@
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -9,6 +8,7 @@ import {
   FaExternalLinkAlt,
 } from "react-icons/fa";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
+import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Field from "@/components/Forms/Field";
@@ -89,11 +89,11 @@ const UrlRedirectSdkAlert = ({
 const UrlRedirectModal: FC<{
   mode: "add" | "edit";
   experiment: ExperimentInterfaceStringDates;
-  visualChangeset?: VisualChangesetInterface;
+  urlRedirect?: URLRedirectInterface;
   mutate: () => void;
   close: () => void;
   cta?: string;
-}> = ({ mode, experiment, visualChangeset, mutate, close, cta }) => {
+}> = ({ mode, experiment, urlRedirect, mutate, close, cta }) => {
   const { apiCall } = useAuth();
   const { data: sdkConnectionsData } = useSDKConnections();
 
@@ -109,9 +109,9 @@ const UrlRedirectModal: FC<{
 
   const form = useForm({
     defaultValues: {
-      originUrl: visualChangeset?.urlPatterns[0].pattern ?? "",
-      destinationUrls: visualChangeset?.urlRedirects?.map((r) => r.url) ?? [""],
-      persistQueryString: visualChangeset?.persistQueryString || true,
+      originUrl: urlRedirect?.urlPattern ?? "",
+      destinationUrls: urlRedirect?.destinationURLs?.map((r) => r.url) ?? [""],
+      persistQueryString: urlRedirect?.persistQueryString || true,
       circularDependencyCheck: true,
     },
   });
@@ -127,13 +127,7 @@ const UrlRedirectModal: FC<{
 
   const onSubmit = form.handleSubmit(async (value) => {
     const payload = {
-      urlPatterns: [
-        {
-          type: "simple",
-          pattern: value.originUrl,
-          include: true,
-        },
-      ],
+      urlPattern: value.originUrl,
       urlRedirects: experiment.variations.map((v) => {
         return {
           variation: v.id,
@@ -143,17 +137,17 @@ const UrlRedirectModal: FC<{
       persistQueryString: value.persistQueryString,
     };
     if (mode === "add") {
-      await apiCall<{ visualChangeset: VisualChangesetInterface }>(
-        `/experiments/${experiment.id}/visual-changeset/?circularDependencyCheck=${value.circularDependencyCheck}`,
+      await apiCall<{ urlRedirect: URLRedirectInterface }>(
+        `/url-redirects/?circularDependencyCheck=${value.circularDependencyCheck}`,
         {
           method: "POST",
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ ...payload, experiment: experiment.id }),
         }
       );
       mutate();
     } else {
       await apiCall(
-        `/visual-changesets/${visualChangeset?.id}/?circularDependencyCheck=${value.circularDependencyCheck}`,
+        `/url-redirects/${urlRedirect?.id}/?circularDependencyCheck=${value.circularDependencyCheck}`,
         {
           method: "PUT",
           body: JSON.stringify(payload),

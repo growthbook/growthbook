@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { RxLightningBolt } from "react-icons/rx";
+import { RxDesktop } from "react-icons/rx";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { datetime, ago } from "shared/dates";
@@ -7,6 +7,7 @@ import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import clsx from "clsx";
+import { FaLink } from "react-icons/fa";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
@@ -372,9 +373,9 @@ const ExperimentsPage = (): React.ReactElement => {
                           {e.hasVisualChangesets ? (
                             <Tooltip
                               className="d-flex align-items-center ml-2"
-                              body="Auto Experiment"
+                              body="Visual experiment"
                             >
-                              <RxLightningBolt className="text-blue" />
+                              <RxDesktop className="text-blue" />
                             </Tooltip>
                           ) : null}
                           {(e.linkedFeatures || []).length > 0 ? (
@@ -383,6 +384,14 @@ const ExperimentsPage = (): React.ReactElement => {
                               body="Linked Feature Flag"
                             >
                               <BsFlag className="text-blue" />
+                            </Tooltip>
+                          ) : null}
+                          {e.hasURLRedirects ? (
+                            <Tooltip
+                              className="d-flex align-items-center ml-2"
+                              body="URL Redirect experiment"
+                            >
+                              <FaLink className="text-blue" />
                             </Tooltip>
                           ) : null}
                         </div>
