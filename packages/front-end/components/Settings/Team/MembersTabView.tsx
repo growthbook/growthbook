@@ -75,7 +75,7 @@ export const MembersTabView: FC = () => {
     );
   }
 
-  const renterEmailOnStripe = async () => {
+  const reenterEmailOnStripe = async () => {
     setError("");
     try {
       const res = await apiCall<{ url: string }>(`/subscription/manage`, {
@@ -101,7 +101,7 @@ export const MembersTabView: FC = () => {
           plan="Pro"
           isTrial={false}
           error={error}
-          reenterEmail={renterEmailOnStripe}
+          reenterEmail={reenterEmailOnStripe}
         />
       )}
       {justSubscribedForPro && (isCloud() || license?.emailVerified) && (

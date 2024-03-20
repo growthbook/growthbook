@@ -141,7 +141,8 @@ export default function AccountPlanNotices() {
         </Tooltip>
       );
     }
-    if (!license.emailVerified && license.plan) {
+
+    if (license.emailVerified === false && license.plan) {
       return (
         <Tooltip
           body={

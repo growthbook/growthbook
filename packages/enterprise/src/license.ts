@@ -10,8 +10,9 @@ import { stringToBoolean } from "shared/util";
 import { ProxyAgent } from "proxy-agent";
 import { LicenseModel } from "./models/licenseModel";
 
-export const LICENSE_SERVER = "http://localhost:8080/api/v1/";
-//"https://central_license_server.growthbook.io/api/v1/";
+export const LICENSE_SERVER_URL =
+  process.env.LICENSE_SERVER_URL ||
+  "https://central_license_server.growthbook.io/api/v1/";
 
 const logger = pino();
 
@@ -473,7 +474,7 @@ async function callLicenseServer(url: string, body: string, method = "POST") {
 export async function postVerifyEmailToLicenseServer(
   emailVerificationToken: string
 ) {
-  const url = `${LICENSE_SERVER}license/verify-email`;
+  const url = `${LICENSE_SERVER_URL}license/verify-email`;
   return callLicenseServer(
     url,
     JSON.stringify({
@@ -489,7 +490,7 @@ export async function postNewProTrialSubscriptionToLicenseServer(
   email: string,
   seats: number
 ) {
-  const url = `${LICENSE_SERVER}subscription/new-pro-trial`;
+  const url = `${LICENSE_SERVER_URL}subscription/new-pro-trial`;
   return callLicenseServer(
     url,
     JSON.stringify({
@@ -512,7 +513,7 @@ export async function postNewProSubscriptionToLicenseServer(
   seats: number,
   returnUrl: string
 ) {
-  const url = `${LICENSE_SERVER}subscription/new`;
+  const url = `${LICENSE_SERVER_URL}subscription/new`;
   return callLicenseServer(
     url,
     JSON.stringify({
@@ -531,7 +532,7 @@ export async function postNewProSubscriptionToLicenseServer(
 export async function postNewSubscriptionSuccessToLicenseServer(
   checkoutSessionId: string
 ): Promise<LicenseInterface> {
-  const url = `${LICENSE_SERVER}subscription/success`;
+  const url = `${LICENSE_SERVER_URL}subscription/success`;
   return await callLicenseServer(
     url,
     JSON.stringify({
@@ -543,7 +544,7 @@ export async function postNewSubscriptionSuccessToLicenseServer(
 export async function postCreateBillingSessionToLicenseServer(
   licenseId: string
 ): Promise<{ url: string; status: number }> {
-  const url = `${LICENSE_SERVER}subscription/manage`;
+  const url = `${LICENSE_SERVER_URL}subscription/manage`;
   return await callLicenseServer(
     url,
     JSON.stringify({
@@ -557,7 +558,7 @@ export async function postSubscriptionUpdateToLicenseServer(
   licenseId: string,
   seats: number
 ): Promise<LicenseInterface> {
-  const url = `${LICENSE_SERVER}subscription/update`;
+  const url = `${LICENSE_SERVER_URL}subscription/update`;
   const license = await callLicenseServer(
     url,
     JSON.stringify({
@@ -583,7 +584,7 @@ export async function postCreateTrialEnterpriseLicenseToLicenseServer(
     ctaSource: string;
   }
 ) {
-  const url = `${LICENSE_SERVER}license/new-enterprise-trial`;
+  const url = `${LICENSE_SERVER_URL}license/new-enterprise-trial`;
   return await callLicenseServer(
     url,
     JSON.stringify({
@@ -601,7 +602,7 @@ export async function postCreateTrialEnterpriseLicenseToLicenseServer(
 export async function postResendEmailVerificationEmailToLicenseServer(
   organizationId: string
 ) {
-  const url = `${LICENSE_SERVER}license/resend-license-email`;
+  const url = `${LICENSE_SERVER_URL}license/resend-license-email`;
   return await callLicenseServer(
     url,
     JSON.stringify({
@@ -637,7 +638,7 @@ async function getLicenseDataFromServer(
   metaData: LicenseMetaData
 ): Promise<LicenseInterface> {
   logger.info("Getting license data from server for " + licenseId);
-  const url = `${LICENSE_SERVER}license/${licenseId}/check`;
+  const url = `${LICENSE_SERVER_URL}license/${licenseId}/check`;
 
   const license = await callLicenseServer(
     url,

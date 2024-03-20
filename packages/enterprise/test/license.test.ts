@@ -2,7 +2,7 @@ import fetch, { Response } from "node-fetch";
 
 import cloneDeep from "lodash/cloneDeep";
 import {
-  LICENSE_SERVER,
+  LICENSE_SERVER_URL,
   licenseInit,
   getLicense,
   resetInMemoryLicenseCache,
@@ -94,7 +94,7 @@ describe("licenseInit and getLicense", () => {
   });
 
   it("should not be calling localhost for the license server", async () => {
-    expect(LICENSE_SERVER).not.toContain("localhost");
+    expect(LICENSE_SERVER_URL).not.toContain("localhost");
   });
 
   it("should set licenseData to null if licenseKey is not provided", async () => {
@@ -131,7 +131,7 @@ describe("licenseInit and getLicense", () => {
         await licenseInit(licenseKey, userLicenseCodes, metaData);
 
         expect(fetch).toHaveBeenCalledWith(
-          `${LICENSE_SERVER}license/${licenseKey}/check`,
+          `${LICENSE_SERVER_URL}license/${licenseKey}/check`,
           expect.objectContaining({
             method: "PUT",
             headers: {
@@ -206,7 +206,7 @@ describe("licenseInit and getLicense", () => {
         await licenseInit(licenseKey, userLicenseCodes, metaData);
 
         expect(fetch).toHaveBeenCalledWith(
-          `${LICENSE_SERVER}license/${licenseKey}/check`,
+          `${LICENSE_SERVER_URL}license/${licenseKey}/check`,
           expect.objectContaining({
             method: "PUT",
             headers: {
