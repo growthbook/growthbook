@@ -140,6 +140,7 @@ const SRMWarning: FC<{
                   <li>
                     <b>Analysis</b>
                     <ul>
+                      <li>Activation Metric influenced by variations</li>
                       <li>Broken filtering (e.g. bot removal)</li>
                       <li>Missing data in data warehouse</li>
                     </ul>
