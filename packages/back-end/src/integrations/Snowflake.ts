@@ -46,7 +46,6 @@ export default class Snowflake extends SqlIntegration {
   getInformationSchemaWhereClause(): string {
     return "table_schema NOT IN ('INFORMATION_SCHEMA')";
   }
-
   getDefaultDatabase() {
     return this.params.database || "";
   }

@@ -200,11 +200,9 @@ export function getExperimentMetricFormatter(
         return getColumnRefFormatter(metric.numerator, getFactTableById);
       })();
 
+    case "quantile":
     case "mean":
     default:
-      return getColumnRefFormatter(metric.numerator, getFactTableById);
-
-    case "quantile":
       return getColumnRefFormatter(metric.numerator, getFactTableById);
   }
 }

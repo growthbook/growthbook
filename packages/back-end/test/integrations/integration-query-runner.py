@@ -386,6 +386,9 @@ def main(engines, filters, branch, skip_cache):
             continue
         if filters and all([f not in test_case["name"] for f in filters]):
             continue
+        if "base " not in test_case["name"]:
+            continue
+        print_sql(test_case["sql"])
         key = engine + "::" + test_case["sql"]
         if not skip_cache and key in cache and "error" not in cache[key]:
             print("cache: ", test_case["name"])

@@ -53,6 +53,8 @@ import {
   DimensionSlicesQueryParams,
   ExperimentFactMetricsQueryParams,
   ExperimentFactMetricsQueryResponse,
+  QuantileSQLConfig,
+  FactMetricData,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
@@ -80,38 +82,7 @@ export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
 
 const N_STAR_VALUES = [100, 1000, 10000, 100000, 1000000];
-export type QuantileSQLConfig = {
-  quantileValue: number;
-  ignoreZeros: boolean;
-  alpha: number;
-  nstars: number[];
-};
 
-export type FactMetricData = {
-  alias: string;
-  id: string;
-  metric: ExperimentMetricInterface;
-  ratioMetric: boolean;
-  funnelMetric: boolean;
-  quantileMetric: "" | MetricQuantileSettings["type"];
-  quantileSQLConfig: QuantileSQLConfig;
-  regressionAdjusted: boolean;
-  regressionAdjustmentHours: number;
-  overrideConversionWindows: boolean;
-  isPercentileCapped: boolean;
-  capCoalesceMetric: string;
-  capCoalesceDenominator: string;
-  capCoalesceCovariate: string;
-  minMetricDelay: number;
-  raMetricSettings: {
-    hours: number;
-    minDelay: number;
-    alias: string;
-  };
-  metricStart: Date;
-  metricEnd: Date | null;
-  maxHoursToConvert: number;
-};
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
   settings: DataSourceSettings;
@@ -1929,7 +1900,8 @@ export default abstract class SqlIntegration
                   data.metric,
                   data.overrideConversionWindows,
                   settings.endDate,
-                  cumulativeDate
+                  cumulativeDate,
+                  data.quantileMetric ? data.quantileSQLConfig : undefined
                 )} as ${data.alias}_value
                 ${
                   data.ratioMetric
@@ -2014,10 +1986,7 @@ export default abstract class SqlIntegration
           ${eventQuantileData
             .map(
               (data) =>
-                `, ${this.numberOfEventsColumn(
-                  `umj.${data.alias}_value`,
-                  data.quantileSQLConfig.ignoreZeros
-                )} AS ${data.alias}_n_events`
+                `, COUNT(umj.${data.alias}_value) AS ${data.alias}_n_events`
             )
             .join("\n")}
         FROM
@@ -2133,10 +2102,7 @@ export default abstract class SqlIntegration
                     data.quantileSQLConfig,
                     `${data.alias}_`
                   )}
-                  , ${this.numberOfEventsColumn(
-                    `m.${data.alias}_value`,
-                    data.quantileSQLConfig.ignoreZeros
-                  )} AS ${data.alias}_quantile_n`
+                  , COUNT(m.${data.alias}_value) AS ${data.alias}_quantile_n`
                 : ""
             }
             ${
@@ -2481,7 +2447,8 @@ export default abstract class SqlIntegration
             metric,
             overrideConversionWindows,
             settings.endDate,
-            cumulativeDate
+            cumulativeDate,
+            quantileMetric ? quantileSQLConfig : undefined
           )} as value
         FROM
           ${funnelMetric ? "__denominatorUsers" : "__distinctUsers"} d
@@ -2499,7 +2466,18 @@ export default abstract class SqlIntegration
       )
       ${
         quantileMetric === "event"
-          ? this.getQuantileMetricCTE(quantileSQLConfig, "__userMetricJoin")
+          ? `
+          , __quantileMetric AS (
+            SELECT
+              m.variation,
+              m.dimension
+              ${this.getQuantileGridColumns(quantileSQLConfig, "")}
+          FROM
+            __userMetricJoin m
+          GROUP BY
+            m.variation,
+            m.dimension
+          )`
           : ""
       }
       , __userMetricAgg as (
@@ -2514,14 +2492,7 @@ export default abstract class SqlIntegration
             undefined,
             "umj.value"
           )} as value
-          ${
-            quantileMetric === "event"
-              ? `, ${this.numberOfEventsColumn(
-                  `umj.value`,
-                  quantileSQLConfig.ignoreZeros
-                )} AS n_events`
-              : ""
-          }
+          ${quantileMetric === "event" ? `, COUNT(umj.value) AS n_events` : ""}
         FROM
           __userMetricJoin umj
         ${
@@ -2680,10 +2651,7 @@ export default abstract class SqlIntegration
         ${
           quantileMetric === "unit"
             ? `${this.getQuantileGridColumns(quantileSQLConfig, "")}
-            , ${this.numberOfEventsColumn(
-              "m.value",
-              quantileSQLConfig.ignoreZeros
-            )} AS quantile_n`
+            , COUNT(m.value) AS quantile_n`
             : ""
         }
         ${
@@ -2766,51 +2734,18 @@ export default abstract class SqlIntegration
     };
   }
 
-  quantileMultiplier(
-    quantile: number,
-    eventCount: string = "COUNT(*)",
-    alpha: number = 0.05,
-    type: "" | "lower" | "upper" = ""
-  ): string {
-    if (!type) return `${quantile}`;
-
-    const critVal = normal.quantile(1 - alpha / 2, 0, 1).toFixed(8);
-    const numerator = (quantile * (1 - quantile)).toFixed(8);
-
-    const quantileString = `${quantile} ${
-      type === "lower" ? "-" : "+"
-    } ${critVal} * SQRT(${numerator} / ${eventCount})`;
-    return `
-      CASE 
-          WHEN ${quantileString} < 0 THEN 0
-          WHEN ${quantileString} > 1 THEN 1
-          ELSE ${quantileString}
-      END
-    `;
-  }
-
-  numberOfEventsColumn(value: string, ignoreZeros: boolean): string {
-    return `SUM(${this.ifElse(
-      `${
-        ignoreZeros ? this.ifElse(`${value} = 0`, "NULL", value) : value
-      } IS NOT NULL`,
-      "1",
-      "0"
-    )})`;
-  }
   approxQuantile(value: string, quantile: string | number): string {
     return `APPROX_PERCENTILE(${value}, ${quantile})`;
   }
+
   quantileColumn(
     valueCol: string,
     outputCol: string,
-    quantile: string | number,
-    ignoreZeros: boolean
+    quantile: string | number
   ): string {
-    const value = ignoreZeros
-      ? this.ifElse(`${valueCol} = 0`, "NULL", valueCol)
-      : valueCol;
-    return `${this.approxQuantile(value, quantile)} AS ${outputCol}`;
+    // note: no need to ignore zeros in the next two methods
+    // since we remove them for quantile metrics in userMetricJoin
+    return `${this.approxQuantile(valueCol, quantile)} AS ${outputCol}`;
   }
 
   percentileCapSelectClause(
@@ -2826,9 +2761,12 @@ export default abstract class SqlIntegration
     return `
       SELECT
         ${values
-          .map(({ valueCol, outputCol, percentile, ignoreZeros }) =>
-            this.quantileColumn(valueCol, outputCol, percentile, ignoreZeros)
-          )
+          .map(({ valueCol, outputCol, percentile, ignoreZeros }) => {
+            const value = ignoreZeros
+              ? this.ifElse(`${valueCol} = 0`, "NULL", valueCol)
+              : valueCol;
+            return this.quantileColumn(value, outputCol, percentile);
+          })
           .join(",\n")}
       FROM ${metricTable}
       ${where}
@@ -3273,21 +3211,19 @@ AND event_name = '${eventName}'`,
     metricQuantileSettings: MetricQuantileSettings,
     alpha: number
   ): QuantileSQLConfig {
-    const q: QuantileSQLConfig = {
+    return {
       quantileValue: metricQuantileSettings.quantile,
       ignoreZeros: metricQuantileSettings.ignoreZeros,
       alpha: alpha,
       nstars: N_STAR_VALUES,
     };
-    return q;
   }
 
   getQuantileGridColumns(quantileConfig: QuantileSQLConfig, prefix: string) {
     return `, ${this.quantileColumn(
       `m.${prefix}value`,
       `${prefix}quantile`,
-      quantileConfig.quantileValue,
-      quantileConfig.ignoreZeros
+      quantileConfig.quantileValue
     )}
     ${quantileConfig.nstars
       .map((nstar) => {
@@ -3299,36 +3235,15 @@ AND event_name = '${eventName}'`,
         return `, ${this.quantileColumn(
           `m.${prefix}value`,
           `${prefix}quantile_lower_${nstar}`,
-          lower,
-          quantileConfig.ignoreZeros
+          lower
         )}
           , ${this.quantileColumn(
             `m.${prefix}value`,
             `${prefix}quantile_upper_${nstar}`,
-            upper,
-            quantileConfig.ignoreZeros
+            upper
           )}`;
       })
       .join("\n")}`;
-  }
-
-  getQuantileMetricCTE(
-    quantileConfig: QuantileSQLConfig,
-    baseTable: string
-  ): string {
-    return `
-      , __quantileMetric AS (
-        SELECT
-          m.variation,
-          m.dimension
-          ${this.getQuantileGridColumns(quantileConfig, "")}
-      FROM
-        ${baseTable} m
-      GROUP BY
-        m.variation,
-        m.dimension
-      )
-      `;
   }
 
   getFilterValues(
@@ -3708,7 +3623,8 @@ AND event_name = '${eventName}'`,
     metric: ExperimentMetricInterface,
     overrideConversionWindows: boolean,
     endDate: Date,
-    cumulativeDate: boolean
+    cumulativeDate: boolean,
+    quantileSQLConfig?: QuantileSQLConfig
   ): string {
     return `${this.ifElse(
       `${this.getConversionWindowClause(
@@ -3719,6 +3635,7 @@ AND event_name = '${eventName}'`,
         cumulativeDate,
         overrideConversionWindows
       )}
+        ${quantileSQLConfig?.ignoreZeros ? `AND ${col} != 0` : ""}
         ${
           cumulativeDate ? `AND ${this.dateTrunc("m.timestamp")} <= dr.day` : ""
         }
@@ -3742,6 +3659,8 @@ AND event_name = '${eventName}'`,
         columnRef?.column === "$$distinctUsers"
       ) {
         return `MAX(COALESCE(${valueColumn}, 0))`;
+      } else if (columnRef?.column === "$$count") {
+        return `COUNT(${valueColumn})`;
       } else if (
         metric.metricType === "quantile" &&
         metric.quantileSettings?.type === "event"
@@ -3751,8 +3670,12 @@ AND event_name = '${eventName}'`,
           "1",
           "0"
         )})`;
-      } else if (columnRef?.column === "$$count") {
-        return `COUNT(${valueColumn})`;
+      } else if (
+        metric.metricType === "quantile" &&
+        metric.quantileSettings?.type === "unit" &&
+        metric.quantileSettings?.ignoreZeros
+      ) {
+        return `SUM(${valueColumn})`;
       } else {
         return `SUM(COALESCE(${valueColumn}, 0))`;
       }

@@ -65,10 +65,7 @@ export default class Mssql extends SqlIntegration {
   formatDateTimeString(col: string): string {
     return `CONVERT(VARCHAR(25), ${col}, 121)`;
   }
-  approxQuantile(
-    value: string,
-    quantile: string | number,
-  ): string {
+  approxQuantile(value: string, quantile: string | number): string {
     return `APPROX_PERCENTILE_CONT(${quantile}) WITHIN GROUP (ORDER BY ${value})`;
   }
   getDefaultDatabase() {
