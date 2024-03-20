@@ -25,6 +25,10 @@ const PendingMemberList: FC<{
   return (
     <div className="my-4">
       <h5>Pending Members{` (${pendingMembers.length})`}</h5>
+      <div className="text-muted mb-2">
+        Members who have requested to join this organization. They must be
+        manually approved.
+      </div>
       {roleModalUser && (
         <ChangeRoleModal
           displayInfo={roleModalUser.name || roleModalUser.email}
@@ -82,7 +86,7 @@ const PendingMemberList: FC<{
                             <ProjectBadges
                               resourceType="member"
                               projectIds={[p.id]}
-                              className="badge-ellipsis align-middle font-weight-normal"
+                              className="badge-ellipsis short align-middle font-weight-normal"
                             />
                             — {pr.role}
                           </div>
