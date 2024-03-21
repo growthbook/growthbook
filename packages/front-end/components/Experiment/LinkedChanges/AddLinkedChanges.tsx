@@ -9,6 +9,7 @@ import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import styles from "@/components/Experiment/LinkedChanges/AddLinkedChanges.module.scss";
 import { ICON_PROPERTIES, LinkedChange } from "./constants";
 
 const LINKED_CHANGES = {
@@ -66,6 +67,9 @@ const AddLinkedChangeRow = ({
       project: experiment.project ?? "",
     }).includes(sdkCapabilityKey as SDKCapability);
 
+  const isCTAClickable =
+    (!commercialFeature || hasVisualEditorFeature) && hasSDKWithFeature;
+
   return (
     <div className="d-flex">
       <span
@@ -90,9 +94,21 @@ const AddLinkedChangeRow = ({
       </span>
       <div className="flex-grow-1">
         <div className="d-flex justify-content-between">
-          <b>{header}</b>
-          {(!commercialFeature || hasVisualEditorFeature) &&
-          hasSDKWithFeature ? (
+          <b
+            className={isCTAClickable ? styles.sectionHeader : undefined}
+            onClick={() => {
+              if (isCTAClickable) {
+                setModal(true);
+                track(`Open ${type} modal`, {
+                  source: "add-linked-changes",
+                  action: "add",
+                });
+              }
+            }}
+          >
+            {header}
+          </b>
+          {isCTAClickable ? (
             <div
               className="btn btn-link p-0"
               onClick={() => {

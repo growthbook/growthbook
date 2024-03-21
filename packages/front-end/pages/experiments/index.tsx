@@ -7,7 +7,7 @@ import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import clsx from "clsx";
-import { FaLink } from "react-icons/fa";
+import { PiShuffle } from "react-icons/pi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
@@ -391,7 +391,7 @@ const ExperimentsPage = (): React.ReactElement => {
                               className="d-flex align-items-center ml-2"
                               body="URL Redirect experiment"
                             >
-                              <FaLink className="text-blue" />
+                              <PiShuffle className="text-blue" />
                             </Tooltip>
                           ) : null}
                         </div>

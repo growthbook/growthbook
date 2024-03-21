@@ -1,14 +1,10 @@
 import React, { useState } from "react";
-import {
-  FaAngleRight,
-  FaExclamationTriangle,
-  FaLink,
-  FaLock,
-} from "react-icons/fa";
+import { FaAngleRight, FaExclamationTriangle, FaLock } from "react-icons/fa";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { BsLightningFill } from "react-icons/bs";
 import { RxDesktop } from "react-icons/rx";
+import { PiShuffle } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
@@ -198,7 +194,7 @@ export default function SDKConnectionsList() {
                           </>
                         }
                       >
-                        <FaLink className="mx-1 text-blue" />
+                        <PiShuffle className="mx-1 text-blue" />
                       </Tooltip>
                     )}
                   </td>
