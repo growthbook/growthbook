@@ -15,7 +15,7 @@ export async function postDiscussions(
   >,
   res: Response
 ) {
-  req.checkPermissions("addComments", "");
+  req.checkPermissions("addComments", []);
 
   const { org, userId, email, userName } = getContextFromReq(req);
   const { parentId, parentType } = req.params;
@@ -53,7 +53,7 @@ export async function deleteComment(
   >,
   res: Response
 ) {
-  req.checkPermissions("addComments", "");
+  req.checkPermissions("addComments", []);
 
   const { org, userId } = getContextFromReq(req);
   const { parentId, parentType, index } = req.params;
@@ -103,7 +103,7 @@ export async function putComment(
   >,
   res: Response
 ) {
-  req.checkPermissions("addComments", "");
+  req.checkPermissions("addComments", []);
 
   const { org, userId } = getContextFromReq(req);
   const { parentId, parentType, index } = req.params;
