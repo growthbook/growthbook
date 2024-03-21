@@ -1299,7 +1299,7 @@ export class GrowthBook<
     let hasInvalidTrackingCall = false;
     this._deferredTrackingCalls.forEach((call: TrackingData) => {
       if (!call || !call.experiment || !call.result) {
-        this.log("Invalid deferred tracking call", { call: call });
+        console.error("Invalid deferred tracking call", { call: call });
         hasInvalidTrackingCall = true;
       } else {
         this._track(call.experiment, call.result);
