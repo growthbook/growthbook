@@ -556,7 +556,6 @@ const NewDataSourceForm: FC<{
             />
           </div>
         )}
-        {/* @ts-expect-error TS(2786) If you come across this, please fix it!: 'ConnectionSettings' cannot be used as a JSX compo... Remove this comment to see the full error message */}
         <ConnectionSettings
           datasource={datasource}
           existing={existing}
