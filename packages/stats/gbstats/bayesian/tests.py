@@ -45,7 +45,7 @@ class BetaPrior:
 @dataclass
 class BayesianConfig(BaseConfig):
     inverse: bool = False
-    ccr: float = 0.05
+    alpha: float = 0.05
 
 
 @dataclass
@@ -91,7 +91,7 @@ class BayesianABTest(BaseABTest):
         config: BayesianConfig = BayesianConfig(),
     ):
         super().__init__(stat_a, stat_b)
-        self.ccr = config.ccr
+        self.alpha = config.alpha
         self.inverse = config.inverse
         self.relative = config.difference_type == "relative"
         self.scaled = config.difference_type == "scaled"
@@ -121,9 +121,9 @@ class BayesianABTest(BaseABTest):
         return self.stat_a.n == 0 or self.stat_b.n == 0
 
     def credible_interval(
-        self, mean_diff: float, std_diff: float, ccr: float, log: bool
+        self, mean_diff: float, std_diff: float, alpha: float, log: bool
     ) -> List[float]:
-        ci = norm.ppf([ccr / 2, 1 - ccr / 2], mean_diff, std_diff)
+        ci = norm.ppf([alpha / 2, 1 - alpha / 2], mean_diff, std_diff)
 
         if log:
             return (np.exp(ci) - 1).tolist()
@@ -194,7 +194,7 @@ class BinomialBayesianABTest(BayesianABTest):
         else:
             expected = mean_diff
 
-        ci = self.credible_interval(mean_diff, std_diff, self.ccr, self.relative)
+        ci = self.credible_interval(mean_diff, std_diff, self.alpha, self.relative)
         ctw = self.chance_to_win(mean_diff, std_diff)
 
         result = BayesianTestResult(
@@ -304,7 +304,7 @@ class GaussianBayesianABTest(BayesianABTest):
 
         risk = Norm.risk(mu_a, sd_a, mu_b, sd_b).tolist()
 
-        ci = self.credible_interval(mean_diff, std_diff, self.ccr, self.relative)
+        ci = self.credible_interval(mean_diff, std_diff, self.alpha, self.relative)
         ctw = self.chance_to_win(mean_diff, std_diff)
 
         result = BayesianTestResult(
@@ -391,7 +391,9 @@ class GaussianEffectABTest(BayesianABTest):
         self.std_diff = np.sqrt(self.var_diff)
         self.mean_diff = frequentist_diff(mu_a, mu_b, self.relative)
         ctw = self.chance_to_win(self.mean_diff, self.std_diff)
-        ci = self.credible_interval(self.mean_diff, self.std_diff, self.ccr, log=False)
+        ci = self.credible_interval(
+            self.mean_diff, self.std_diff, self.alpha, log=False
+        )
         # probably better to tear these out of superclass, have this be standalone class
         result = BayesianTestResult(
             chance_to_win=ctw,
@@ -436,8 +438,12 @@ class GaussianEffectABTest(BayesianABTest):
         else:
             mu_1 = mu_0 + self.prior_effect.mean
             v = 0.5 * self.prior_effect.variance
-        self.prior_a = GaussianPrior(mean=mu_0, variance=v, pseudo_n=1)
-        self.prior_b = GaussianPrior(mean=mu_1, variance=v, pseudo_n=1)
+        self.prior_a = GaussianPrior(
+            mean=mu_0, variance=v, pseudo_n=self.prior_effect.pseudo_n
+        )
+        self.prior_b = GaussianPrior(
+            mean=mu_1, variance=v, pseudo_n=self.prior_effect.pseudo_n
+        )
 
     @property
     def risk(self):

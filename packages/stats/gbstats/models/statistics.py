@@ -204,9 +204,9 @@ class QuantileStatistic(Statistic):
     n: int  # number of events here
     nu: float
     alpha: float
-    q_hat: float  # sample estimate
-    q_lower: float
-    q_upper: float
+    quantile_hat: float  # sample estimate
+    quantile_lower: float
+    quantile_upper: float
     main_sum: float  # numerator sum
     main_sum_squares: float
     denominator_sum: float  # denominator sum
@@ -215,11 +215,11 @@ class QuantileStatistic(Statistic):
 
     @property
     def _has_zero_variance(self) -> bool:
-        return self.variance_init <= 0.0 and self.n < 100
+        return self.variance_init <= 0.0 and self.n < 1000
 
     @property
     def mean(self) -> float:
-        return self.q_hat
+        return self.quantile_hat
 
     @property
     def unadjusted_mean(self) -> float:
@@ -232,7 +232,7 @@ class QuantileStatistic(Statistic):
         quantile_below_zero = self.n <= multiplier**2 * (1.0 - self.nu) / self.nu
         if quantile_above_one or quantile_below_zero:
             return 0
-        num = self.q_upper - self.q_lower
+        num = self.quantile_upper - self.quantile_lower
         den = 2 * multiplier
         return float((self.n - 1) * (num / den) ** 2)
 
