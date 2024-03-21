@@ -168,12 +168,12 @@ const MetricsPage = (): React.ReactElement => {
   );
 
   const editMetricsPermissions: {
-    [id: string]: { canCreate: boolean; canUpdate: boolean };
+    [id: string]: { canDuplicate: boolean; canUpdate: boolean };
   } = {};
   filteredMetrics.forEach((m) => {
     editMetricsPermissions[m.id] = {
-      canCreate: permissionsUtil.canCreateMetric(m),
-      canUpdate: permissionsUtil.canUpdateMetric(m, m),
+      canDuplicate: permissionsUtil.canCreateMetric(m),
+      canUpdate: permissionsUtil.canUpdateMetric(m, {}),
     };
   });
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
@@ -384,8 +384,7 @@ const MetricsPage = (): React.ReactElement => {
 
             if (
               metric.onDuplicate &&
-              editMetricsPermissions[metric.id].canCreate &&
-              permissionsUtil.canCreateMetric(metric) &&
+              editMetricsPermissions[metric.id].canDuplicate &&
               envAllowsCreatingMetrics()
             ) {
               moreMenuLinks.push(

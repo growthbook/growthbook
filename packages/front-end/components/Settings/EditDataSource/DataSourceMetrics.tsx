@@ -49,12 +49,12 @@ export default function DataSourceMetrics({
   const metrics: MetricInterface[] | undefined = data?.metrics;
 
   const editMetricsPermissions: {
-    [id: string]: { canCreate: boolean; canUpdate: boolean };
+    [id: string]: { canDuplicate: boolean; canUpdate: boolean };
   } = {};
   metrics?.forEach((m) => {
     editMetricsPermissions[m.id] = {
-      canCreate: permissionsUtil.canCreateMetric(m),
-      canUpdate: permissionsUtil.canUpdateMetric(m, m),
+      canDuplicate: permissionsUtil.canCreateMetric(m),
+      canUpdate: permissionsUtil.canUpdateMetric(m, {}),
     };
   });
 
@@ -253,10 +253,11 @@ export default function DataSourceMetrics({
                             ) : null}
                           </div>
                           {!metric.managedBy &&
-                          (editMetricsPermissions[metric.id].canCreate ||
+                          (editMetricsPermissions[metric.id].canDuplicate ||
                             editMetricsPermissions[metric.id].canUpdate) ? (
                             <MoreMenu className="px-2">
-                              {editMetricsPermissions[metric.id].canCreate ? (
+                              {editMetricsPermissions[metric.id]
+                                .canDuplicate ? (
                                 <button
                                   className="btn dropdown-item py-2"
                                   onClick={(e) => {

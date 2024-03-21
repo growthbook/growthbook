@@ -171,13 +171,15 @@ export const postDemoDatasourceProject = async (
   req.checkPermissions("manageProjects", "");
   req.checkPermissions("createDatasources", "");
   req.checkPermissions("createAnalyses", "");
-  if (!context.permissions.canCreateMetric({})) {
-    context.permissions.throwPermissionError();
-  }
 
   const { org, environments } = context;
 
   const demoProjId = getDemoDatasourceProjectIdForOrganization(org.id);
+
+  if (!context.permissions.canCreateMetric({ projects: [demoProjId] })) {
+    context.permissions.throwPermissionError();
+  }
+
   const existingDemoProject: ProjectInterface | null = await findProjectById(
     context,
     demoProjId

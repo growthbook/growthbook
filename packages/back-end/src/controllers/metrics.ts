@@ -292,7 +292,9 @@ export async function getMetricsFromTrackedEvents(
 
   // When we create auto metrics, they inherit the data source's projects, so we check if the user
   // has permission to createMetrics for the data source's projects
-  if (!context.permissions.canCreateMetric(dataSourceObj)) {
+  if (
+    !context.permissions.canCreateMetric({ projects: dataSourceObj.projects })
+  ) {
     context.permissions.throwPermissionError();
   }
 

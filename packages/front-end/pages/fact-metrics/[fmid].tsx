@@ -194,10 +194,8 @@ export default function FactMetricPage() {
     );
   }
 
-  // canUpdateMetric takes in the current metrics + any updates - canEdit is used to determine if we should show the "Edit" buttons, so pass in the existing metric twice
   const canEdit =
-    permissionsUtil.canUpdateMetric(factMetric, factMetric) &&
-    !factMetric.managedBy;
+    permissionsUtil.canUpdateMetric(factMetric, {}) && !factMetric.managedBy;
   const canDelete =
     permissionsUtil.canDeleteMetric(factMetric) && !factMetric.managedBy;
 

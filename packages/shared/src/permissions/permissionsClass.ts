@@ -22,7 +22,7 @@ export class Permissions {
   };
 
   public canUpdateMetric = (
-    existing: Pick<MetricInterface, "projects" | "managedBy">,
+    existing: Pick<MetricInterface, "projects">,
     updates: Pick<MetricInterface, "projects">
   ): boolean => {
     return this.checkProjectFilterUpdatePermission(
@@ -33,7 +33,7 @@ export class Permissions {
   };
 
   public canDeleteMetric = (
-    metric: Pick<MetricInterface, "projects" | "managedBy">
+    metric: Pick<MetricInterface, "projects">
   ): boolean => {
     return this.checkProjectFilterPermission(metric, "createMetrics");
   };
