@@ -11,7 +11,6 @@ import { FeatureInterface } from "back-end/types/feature";
 import { useRouter } from "next/router";
 import Fuse from "fuse.js";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import { ensure } from "@/types/utils";
 
 export function useAddComputedFields<T, ExtraFields>(
   items: T[] | undefined,
@@ -67,7 +66,7 @@ export function useSearch<T>({
 }: SearchProps<T>): SearchReturn<T> {
   const [sort, setSort] = useLocalStorage(`${localStorageKey}:sort-dir`, {
     field: defaultSortField,
-    dir: defaultSortDir,
+    dir: defaultSortDir || 1,
   });
 
   const router = useRouter();
@@ -115,7 +114,6 @@ export function useSearch<T>({
     sorted.sort((a, b) => {
       const comp1 = a[sort.field];
       const comp2 = b[sort.field];
-      ensure(sort.dir);
       if (typeof comp1 === "string" && typeof comp2 === "string") {
         return comp1.localeCompare(comp2) * sort.dir;
       }
@@ -148,9 +146,6 @@ export function useSearch<T>({
       children: ReactNode;
     }> = ({ children, field, className = "" }) => {
       if (isFiltered) return <th className={className}>{children}</th>;
-      const { field: sortField, dir: sortDir } = sort;
-      ensure(sortField);
-      ensure(sortDir);
       return (
         <th className={className}>
           <span
@@ -159,7 +154,7 @@ export function useSearch<T>({
               e.preventDefault();
               setSort({
                 field,
-                dir: sortField === field ? sortDir * -1 : 1,
+                dir: sort.field === field ? sort.dir * -1 : 1,
               });
             }}
           >
@@ -169,7 +164,7 @@ export function useSearch<T>({
               className={sort.field === field ? "activesort" : "inactivesort"}
             >
               {sort.field === field ? (
-                sortDir < 0 ? (
+                sort.dir < 0 ? (
                   <FaSortDown />
                 ) : (
                   <FaSortUp />
