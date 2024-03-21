@@ -1,4 +1,4 @@
-import React, { Fragment, ReactElement } from "react";
+import React, { Fragment, ReactElement, useEffect } from "react";
 import {
   Deck,
   Slide,
@@ -52,6 +52,20 @@ const Presentation = ({
 }: Props): ReactElement => {
   const { getExperimentMetricById } = useDefinitions();
   const orgSettings = useOrgSettings();
+
+  // Interval to force the results table to redraw (currently needed for window-size-based rendering)
+  // - ideally would have rerendered on slide number, but spectacle doesn't seem to expose this
+  const [redraw, setRedraw] = React.useState(false);
+  useEffect(() => {
+    setRedraw(true);
+    const interval = window.setInterval(() => {
+      setRedraw((r) => !r);
+    }, 1000);
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, []);
+
   const em = new Map<
     string,
     {
@@ -289,7 +303,7 @@ const Presentation = ({
                 snapshot?.analyses[0]?.settings?.sequentialTesting
               }
               differenceType={snapshot?.analyses[0]?.settings?.differenceType}
-              isTabActive={true}
+              isTabActive={redraw}
               mainTableOnly={true}
               noStickyHeader={true}
               noTooltip={true}

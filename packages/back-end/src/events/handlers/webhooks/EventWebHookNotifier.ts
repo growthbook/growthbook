@@ -10,6 +10,7 @@ import { findOrganizationById } from "../../../models/OrganizationModel";
 import { createEventWebHookLog } from "../../../models/EventWebHookLogModel";
 import { logger } from "../../../util/logger";
 import { cancellableFetch } from "../../../util/http.util";
+import { getSlackMessageForNotificationEvent } from "../slack/slack-event-handler-utils";
 import {
   EventWebHookErrorResult,
   EventWebHookResult,
@@ -99,7 +100,42 @@ export class EventWebHookNotifier implements Notifier {
       );
     }
 
-    const payload = event.data;
+    const eventPayload = event.data;
+
+    const payload = (() => {
+      let invalidPayloadType: never;
+      const { payloadType } = eventWebHook;
+
+      if (!payloadType) return eventPayload;
+
+      switch (payloadType) {
+        case "raw":
+          return eventPayload;
+
+        case "slack": {
+          return getSlackMessageForNotificationEvent(eventPayload, eventId);
+        }
+
+        case "discord": {
+          const data = getSlackMessageForNotificationEvent(
+            eventPayload,
+            eventId
+          );
+
+          if (!data) return null;
+
+          return { content: data.text };
+        }
+
+        case "ms-teams":
+          // TODO: not implemented
+          return eventPayload;
+
+        default:
+          invalidPayloadType = payloadType;
+          throw `Invalid payload type: ${invalidPayloadType}`;
+      }
+    })();
 
     if (!payload) {
       // Unsupported events return a null payload
