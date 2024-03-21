@@ -574,13 +574,14 @@ pre {
       &:not(.noStickyHeader) {
         position: sticky;
         top: 95px;
+        @media (max-width: 900px) {
+          position: static;
+        }
       }
       background-color: var(--surface-background-color);
       z-index: 800;
       box-shadow: 0 -1px 0 var(--text-link-hover-color) inset;
-      @media (max-width: 900px) {
-        position: static;
-      }
+
       &.graph-cell {
         z-index: 801;
       }
