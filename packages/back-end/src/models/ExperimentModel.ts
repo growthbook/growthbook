@@ -384,7 +384,7 @@ export async function updateExperiment({
   experiment: ExperimentInterface;
   changes: Changeset;
   bypassWebhooks?: boolean;
-}): Promise<ExperimentInterface | null> {
+}): Promise<ExperimentInterface> {
   await ExperimentModel.updateOne(
     {
       id: experiment.id,
