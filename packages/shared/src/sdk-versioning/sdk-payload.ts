@@ -102,7 +102,7 @@ export const scrubExperiments = (
 ): AutoExperimentWithProject[] => {
   const removedExperimentKeys: string[] = [];
   const supportsPrerequisites = capabilities.includes("prerequisites");
-  const supportsRedirects = capabilities.includes("urlRedirects");
+  const supportsRedirects = capabilities.includes("redirects");
 
   if (supportsPrerequisites && supportsRedirects) return experiments;
 

@@ -41,11 +41,11 @@ import { useUser } from "@/services/UserContext";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import useSchemaFormOptions from "@/hooks/useSchemaFormOptions";
 import { GBCuped } from "@/components/Icons";
-import usePermissions from "@/hooks/usePermissions";
 import { useCurrency } from "@/hooks/useCurrency";
 import ConfirmModal from "@/components/ConfirmModal";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { MetricWindowSettingsForm } from "./MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "./MetricCappingSettingsForm";
 import { MetricDelayHours } from "./MetricDelayHours";
@@ -215,7 +215,7 @@ const MetricForm: FC<MetricFormProps> = ({
   } = useDefinitions();
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const [step, setStep] = useState(initialStep);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
@@ -586,7 +586,7 @@ const MetricForm: FC<MetricFormProps> = ({
     ctaEnabled = false;
     // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '"The acceptable risk percentage cannot be hi... Remove this comment to see the full error message
     disabledMessage = riskError;
-  } else if (!permissions.check("createMetrics", project)) {
+  } else if (!permissionsUtil.canCreateMetric({ projects: [project] })) {
     ctaEnabled = false;
     // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '"You don't have permission to create metrics... Remove this comment to see the full error message
     disabledMessage = "You don't have permission to create metrics.";

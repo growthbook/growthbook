@@ -115,7 +115,7 @@ export const createURLRedirect = async ({
 
   // mark the experiment as having a url redirect
   if (!experiment.hasURLRedirects) {
-    await updateExperiment({
+    experiment = await updateExperiment({
       context,
       experiment,
       changes: { hasURLRedirects: true },
