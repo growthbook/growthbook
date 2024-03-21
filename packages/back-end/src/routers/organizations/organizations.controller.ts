@@ -122,10 +122,9 @@ import { getAllFactMetricsForOrganization } from "../../models/FactMetricModel";
 import { TeamInterface } from "../../../types/team";
 import { queueSingleWebhookById } from "../../jobs/sdkWebhooks";
 import { initializeLicense } from "../../services/licenseData";
-import {
-  findSDKConnectionsByOrganization,
-  updateSDKConnectionProjects,
-} from "../../models/SdkConnectionModel";
+import { findSDKConnectionsByOrganization } from "../../models/SdkConnectionModel";
+import {triggerSingleSDKWebhookJobs} from "../../jobs/updateAllJobs";
+import {SDKConnectionInterface} from "../../../types/sdk-connection";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -1293,7 +1292,14 @@ export async function putOrganization(
           const hasChanges =
             JSON.stringify(connection.projects) !== JSON.stringify(newProjects);
           if (hasChanges) {
-            await updateSDKConnectionProjects(context, connection, newProjects);
+            const isUsingProxy = !!(connection.proxy.enabled && connection.proxy.host);
+            await triggerSingleSDKWebhookJobs(
+              context.org.id,
+              connection,
+              { projects: newProjects } as Partial<SDKConnectionInterface>,
+              connection.proxy,
+              isUsingProxy
+            );
           }
         }
       }

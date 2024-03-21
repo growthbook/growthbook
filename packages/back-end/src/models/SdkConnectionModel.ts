@@ -322,34 +322,6 @@ export async function deleteSDKConnectionById(
   });
 }
 
-export async function updateSDKConnectionProjects(
-  context: ReqContext | ApiReqContext,
-  connection: SDKConnectionInterface,
-  projects: string[]
-) {
-  await SDKConnectionModel.updateOne(
-    {
-      organization: connection.organization,
-      id: connection.id,
-    },
-    {
-      $set: {
-        projects,
-        dateUpdated: new Date(),
-      },
-    }
-  );
-
-  const isUsingProxy = !!(connection.proxy.enabled && connection.proxy.host);
-  await triggerSingleSDKWebhookJobs(
-    context.org.id,
-    connection,
-    { projects } as Partial<SDKConnectionInterface>,
-    connection.proxy,
-    isUsingProxy
-  );
-}
-
 export async function markSDKConnectionUsed(key: string) {
   await SDKConnectionModel.updateOne(
     { key },

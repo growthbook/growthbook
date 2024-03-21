@@ -173,23 +173,6 @@ export default function EnvironmentModal({
             restrictive than before. {sdkConnections.length} SDK Connection
             {sdkConnections.length === 1 ? "" : "s"} using this environment may
             be impacted.
-            {sdkConnectionsThatWillHaveNoProjects.length > 0 && (
-              <div className="mt-3">
-                Additionally, after this change, the following SDK Connection
-                {sdkConnectionsThatWillHaveNoProjects.length === 1
-                  ? ""
-                  : "s"}{" "}
-                will have no projects and will be reset to include{" "}
-                <strong>all projects</strong>:{" "}
-                <ul className="pl-3 mb-0">
-                  {sdkConnectionsThatWillHaveNoProjects.map((c) => (
-                    <li key={c.id} className="my-1" style={{ maxWidth: 320 }}>
-                      <a href={`/sdks/${c.id}`}>{c.name}</a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </div>
         )}
       </div>

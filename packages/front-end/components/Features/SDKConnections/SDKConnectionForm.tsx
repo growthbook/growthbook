@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { FaCheck, FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
+import {FaCheck, FaExclamationCircle, FaExclamationTriangle, FaInfoCircle} from "react-icons/fa";
 import clsx from "clsx";
 import {
   getConnectionSDKCapabilities,
@@ -180,10 +180,19 @@ export default function SDKConnectionForm({
     filteredProjectIds.includes(p.id)
   );
 
-  const projectsOptions = filteredProjects.map((p) => ({
+  const disallowedProjects = projects.filter((p) => {
+    if (!selectedProjects?.includes(p.id)) return false;
+    if ((selectedEnvironment?.projects?.length ?? 0) === 0) return false;
+    if (!selectedEnvironment?.projects?.includes(p.id)) return true;
+    return false;
+  })
+  const projectsOptions = [...filteredProjects, ...disallowedProjects].map((p) => ({
     label: p.name,
     value: p.id,
   }));
+  const selectedValidProjects = selectedProjects?.filter((p) => {
+    return disallowedProjects?.find((dp) => dp.id === p) === undefined;
+  });
 
   if (initialValue.projects) {
     initialValue.projects.forEach((p) => {
@@ -259,20 +268,24 @@ export default function SDKConnectionForm({
     }
   }, [languages, languageError, setLanguageError]);
 
-  const projectIdsStr = JSON.stringify(projectIds);
-  const selectedProjectsStr = JSON.stringify(selectedProjects);
-  useEffect(
-    () => {
-      if (!selectedEnvironment) return;
-      if (!selectedProjects) return;
-      form.setValue(
-        "projects",
-        filterProjectsByEnvironment(selectedProjects, selectedEnvironment)
-      );
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [projectIdsStr, selectedProjectsStr, selectedEnvironment?.id]
-  );
+  // todo: make changing the environment update (clear) the projects
+
+  // todo: make setting projects === [] turn off `filterByProjects`
+
+  // const projectIdsStr = JSON.stringify(projectIds);
+  // const selectedProjectsStr = JSON.stringify(selectedProjects);
+  // useEffect(
+  //   () => {
+  //     if (!selectedEnvironment) return;
+  //     if (!selectedProjects) return;
+  //     form.setValue(
+  //       "projects",
+  //       filterProjectsByEnvironment(selectedProjects, selectedEnvironment) ?? []
+  //     );
+  //   },
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  //   [projectIdsStr, selectedProjectsStr, selectedEnvironment?.id]
+  // );
 
   return (
     <Modal
@@ -409,8 +422,7 @@ export default function SDKConnectionForm({
           />
         </div>
 
-        <div className="row" style={{ gap: "1.5rem" }}>
-          <div className="col">
+          <div className="mb-4">
             <SelectField
               label="Environment"
               required
@@ -418,6 +430,7 @@ export default function SDKConnectionForm({
               value={form.watch("environment")}
               onChange={(env) => form.setValue("environment", env)}
               options={environments.map((e) => ({ label: e.id, value: e.id }))}
+              sort={false}
               formatOptionLabel={({ value, label }) => {
                 const selectedEnvironment = environments.find(
                   (e) => e.id === value
@@ -429,11 +442,11 @@ export default function SDKConnectionForm({
                     <div className="flex-1" />
                     {numProjects > 0 ? (
                       <div className="text-muted small">
-                        {numProjects} project{numProjects === 1 ? "" : "s"}
+                        Includes {numProjects} project{numProjects === 1 ? "" : "s"}
                       </div>
                     ) : (
                       <div className="text-muted small font-italic">
-                        All projects
+                        Includes all projects
                       </div>
                     )}
                   </div>
@@ -442,24 +455,51 @@ export default function SDKConnectionForm({
             />
           </div>
 
-          {projectsOptions.length > 0 && (
-            <div className="col">
+          {/*{projectsOptions.length > 0 && (*/}
+            <div className="mb-4">
+              <label>
+                Filter by Projects
+                {!!selectedProjects?.length && (
+                  <>
+                    {" "}
+                    ({selectedValidProjects?.length ?? 0})
+                  </>
+                )}
+              </label>
               <MultiSelectField
-                label="Filter by Project"
                 placeholder={
                   environmentHasProjects
                     ? "All Environment Projects"
                     : "All Projects"
                 }
+                containerClassName="w-100"
                 value={form.watch("projects") || []}
                 onChange={(projects) => form.setValue("projects", projects)}
                 options={projectsOptions}
                 sort={false}
                 closeMenuOnSelect={true}
+                formatOptionLabel={({value, label}) => {
+                  const disallowed = disallowedProjects?.find((p) => p.id === value);
+                  return disallowed ? (
+                    <Tooltip body="This project is not allowed in the selected environment and will not be included in the SDK payload.">
+                      <del className="text-danger">
+                        <FaExclamationTriangle className="mr-1" />
+                        {label}
+                      </del>
+                    </Tooltip>
+                  ) : (
+                    label
+                  );
+                }}
               />
+              {disallowedProjects.length > 0 && (
+                <div className="text-danger mt-2 small px-1">
+                  <FaExclamationTriangle className="mr-1" />
+                  This SDK Connection references {disallowedProjects.length} project{disallowedProjects.length !== 1 && "s"} that {disallowedProjects.length === 1 ? "is" : "are"} not allowed in the selected environment. This may have occurred as a result of a project being removed from the selected environment.
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          {/*)}*/}
 
         {languageEnvironment !== "backend" && (
           <>
