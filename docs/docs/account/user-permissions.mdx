@@ -28,7 +28,7 @@ The table below lists the roles available in GrowthBook and their associated per
 |      Metrics      |     -     |       View       |             View              |                     View                      |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |
 |    Dimensions     |     -     |       View       |             View              |                     View                      |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |
 |     Segments      |     -     |       View       |             View              |                     View                      |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |
-|    Datasources    |     -     |       View       |             View              |                     View                      |                        View<br></br>Edit\*                        |                        View<br></br>Edit\*                        |                   View<br></br>Add<br></br>Edit                   |
+|    Datasources    |     -     |       View       |             View              |                     View                      |                               View                                |                               View                                |                   View<br></br>Add<br></br>Edit                   |
 |       Ideas       |     -     |       View       | View<br></br>Add<br></br>Edit |         View<br></br>Add<br></br>Edit         |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |
 |  SDK Connections  |     -     | View<br></br>Add |       View<br></br>Add        |         View<br></br>Add<br></br>Edit         |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |
 |    Attributes     |     -     |       View       |             View              |         View<br></br>Add<br></br>Edit         |                               View                                |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |
@@ -41,8 +41,6 @@ The table below lists the roles available in GrowthBook and their associated per
 |    Manage Team    |     -     |        -         |               -               |                       -                       |                                 -                                 |                                 -                                 |                                Yes                                |
 |    Manage Plan    |     -     |        -         |               -               |                       -                       |                                 -                                 |                                 -                                 |                                Yes                                |
 |  Manage Billing   |     -     |        -         |               -               |                       -                       |                                 -                                 |                                 -                                 |                                Yes                                |
-
-\*_Limited to editing a subset of data source settings - identifier types, experiment assignment queries, Jupyter Notebook queries and Data Pipeline settings. Editing datasource name, projects, description, and connection parameters requires Admin permissions._
 
 #### Environment Specific Limits
 
@@ -76,7 +74,7 @@ If you need to apply these rules to many users as once, you can create a Team wi
 
 :::note
 
-Within GrowthBook, not all resources are project-specific. For example, `Saved Groups`, `Dimensions`, `Segments`, `Namespaces`, `Environments`, `Presentations`, and `Ideas` all live at the organization level. This means that all users, regardless of role, will be able to view these resources.
+Within GrowthBook, not all resources are project-specific. For example, `Attributes`, `Saved Groups`, `Namespaces`, `Environments`, `Presentations`, and `Ideas` all live at the organization level. This means that all users, regardless of role, will be able to view these resources.
 
 If security of these resources is paramount to your organization, we recommend creating a separate organization, and keeping the resources you want to hide in that organization.
 
