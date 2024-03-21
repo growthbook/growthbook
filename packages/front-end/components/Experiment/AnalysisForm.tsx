@@ -180,7 +180,6 @@ const AnalysisForm: FC<{
   );
 
   // Error: Type instantiation is excessively deep and possibly infinite.
-  // eslint-disable-next-line
   const variations = useFieldArray({
     control: form.control,
     name: "variations",

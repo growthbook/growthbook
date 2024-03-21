@@ -51,8 +51,7 @@ const NorthStarMetricDisplay = ({
     : data.experiments;
   let analysis = data.metric.analysis;
   if (!analysis || !("average" in analysis)) {
-    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'MetricAnaly... Remove this comment to see the full error message
-    analysis = null;
+    analysis = undefined;
   }
   const { status } = getQueryStatus(metric.queries || [], metric.analysisError);
   const hasQueries = metric.queries?.length > 0;
