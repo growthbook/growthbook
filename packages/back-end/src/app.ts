@@ -105,6 +105,7 @@ import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/d
 import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
 import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
+import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
 
 const app = express();
 
@@ -474,10 +475,6 @@ app.post(
   reportsController.postReportFromSnapshot
 );
 app.post(
-  "/experiments/:id/visual-changeset",
-  experimentsController.postVisualChangeset
-);
-app.post(
   "/experiments/launch-checklist",
   experimentLaunchChecklistController.postExperimentLaunchChecklist
 );
@@ -495,6 +492,10 @@ app.put(
 );
 
 // Visual Changesets
+app.post(
+  "/experiments/:id/visual-changeset",
+  experimentsController.postVisualChangeset
+);
 app.put("/visual-changesets/:id", experimentsController.putVisualChangeset);
 app.delete(
   "/visual-changesets/:id",
@@ -506,6 +507,9 @@ app.get(
   "/visual-editor/key",
   experimentsController.findOrCreateVisualEditorToken
 );
+
+// URL Redirects
+app.use("/url-redirects", urlRedirectRouter);
 
 // Reports
 app.get("/report/:id", reportsController.getReport);
