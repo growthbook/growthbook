@@ -258,38 +258,36 @@ export default function FactMetricPage() {
             <MetricName id={factMetric.id} />
           </h1>
         </div>
-        {canEdit || canDelete ? (
-          <div className="ml-auto">
-            <MoreMenu>
-              {canEdit ? (
-                <button
-                  className="dropdown-item"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setEditOpen(true);
-                  }}
-                >
-                  Edit Metric
-                </button>
-              ) : null}
-              {canDelete ? (
-                <DeleteButton
-                  className="dropdown-item"
-                  displayName="Metric"
-                  useIcon={false}
-                  text="Delete Metric"
-                  onClick={async () => {
-                    await apiCall(`/fact-metrics/${factMetric.id}`, {
-                      method: "DELETE",
-                    });
-                    mutateDefinitions();
-                    router.push("/metrics");
-                  }}
-                />
-              ) : null}
-            </MoreMenu>
-          </div>
-        ) : null}
+        <div className="ml-auto">
+          <MoreMenu>
+            {canEdit ? (
+              <button
+                className="dropdown-item"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setEditOpen(true);
+                }}
+              >
+                Edit Metric
+              </button>
+            ) : null}
+            {canDelete ? (
+              <DeleteButton
+                className="dropdown-item"
+                displayName="Metric"
+                useIcon={false}
+                text="Delete Metric"
+                onClick={async () => {
+                  await apiCall(`/fact-metrics/${factMetric.id}`, {
+                    method: "DELETE",
+                  });
+                  mutateDefinitions();
+                  router.push("/metrics");
+                }}
+              />
+            ) : null}
+          </MoreMenu>
+        </div>
       </div>
       <div className="row mb-4">
         {projects.length > 0 ? (

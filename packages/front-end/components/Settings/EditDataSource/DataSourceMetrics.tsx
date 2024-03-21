@@ -252,59 +252,54 @@ export default function DataSourceMetrics({
                               </Tooltip>
                             ) : null}
                           </div>
-                          {editMetricsPermissions[metric.id].canDuplicate ||
-                          (!metric.managedBy &&
-                            editMetricsPermissions[metric.id].canUpdate) ? (
-                            <MoreMenu className="px-2">
-                              {editMetricsPermissions[metric.id]
-                                .canDuplicate ? (
-                                <button
-                                  className="btn dropdown-item py-2"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    e.preventDefault();
-                                    setModalData({
-                                      current: {
-                                        ...metric,
-                                        managedBy: "",
-                                        name: metric.name + " (copy)",
-                                      },
-                                      edit: false,
-                                      duplicate: true,
-                                    });
-                                  }}
-                                >
-                                  <FaRegCopy /> Duplicate
-                                </button>
-                              ) : null}
-                              {!metric.managedBy &&
-                              editMetricsPermissions[metric.id].canUpdate ? (
-                                <button
-                                  className="btn dropdown-item py-2"
-                                  color=""
-                                  onClick={async () => {
-                                    const newStatus =
-                                      metric.status === "archived"
-                                        ? "active"
-                                        : "archived";
-                                    await apiCall(`/metric/${metric.id}`, {
-                                      method: "PUT",
-                                      body: JSON.stringify({
-                                        status: newStatus,
-                                      }),
-                                    });
-                                    mutateDefinitions({});
-                                    mutate();
-                                  }}
-                                >
-                                  <FaArchive />{" "}
-                                  {metric.status === "archived"
-                                    ? "Unarchive"
-                                    : "Archive"}
-                                </button>
-                              ) : null}
-                            </MoreMenu>
-                          ) : null}
+                          <MoreMenu className="px-2">
+                            {editMetricsPermissions[metric.id].canDuplicate ? (
+                              <button
+                                className="btn dropdown-item py-2"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  setModalData({
+                                    current: {
+                                      ...metric,
+                                      managedBy: "",
+                                      name: metric.name + " (copy)",
+                                    },
+                                    edit: false,
+                                    duplicate: true,
+                                  });
+                                }}
+                              >
+                                <FaRegCopy /> Duplicate
+                              </button>
+                            ) : null}
+                            {!metric.managedBy &&
+                            editMetricsPermissions[metric.id].canUpdate ? (
+                              <button
+                                className="btn dropdown-item py-2"
+                                color=""
+                                onClick={async () => {
+                                  const newStatus =
+                                    metric.status === "archived"
+                                      ? "active"
+                                      : "archived";
+                                  await apiCall(`/metric/${metric.id}`, {
+                                    method: "PUT",
+                                    body: JSON.stringify({
+                                      status: newStatus,
+                                    }),
+                                  });
+                                  mutateDefinitions({});
+                                  mutate();
+                                }}
+                              >
+                                <FaArchive />{" "}
+                                {metric.status === "archived"
+                                  ? "Unarchive"
+                                  : "Archive"}
+                              </button>
+                            ) : null}
+                          </MoreMenu>
                         </div>
                       </div>
                     </Link>

@@ -501,15 +501,13 @@ const MetricsPage = (): React.ReactElement => {
                     e.preventDefault();
                   }}
                 >
-                  {moreMenuLinks.length ? (
-                    <MoreMenu>
-                      {moreMenuLinks.map((menuItem, i) => (
-                        <div key={`${menuItem}-${i}`} className="d-inline">
-                          {menuItem}
-                        </div>
-                      ))}
-                    </MoreMenu>
-                  ) : null}
+                  <MoreMenu>
+                    {moreMenuLinks.map((menuItem, i) => (
+                      <div key={`${menuItem}-${i}`} className="d-inline">
+                        {menuItem}
+                      </div>
+                    ))}
+                  </MoreMenu>
                 </td>
               </tr>
             );
