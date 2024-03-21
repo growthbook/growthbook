@@ -102,11 +102,6 @@ const UrlRedirectModal: FC<{
     connections: sdkConnectionsData?.connections ?? [],
     project: experiment.project ?? "",
   }).includes("urlRedirects");
-  const hasSDKWithNoRedirects = !getConnectionsSDKCapabilities({
-    connections: sdkConnectionsData?.connections ?? [],
-    mustMatchAllConnections: true,
-    project: experiment.project ?? "",
-  }).includes("urlRedirects");
 
   const form = useForm({
     defaultValues: {
@@ -196,9 +191,7 @@ const UrlRedirectModal: FC<{
       ctaEnabled={hasSDKWithRedirects}
     >
       <div className="mx-3">
-        {!hasSDKWithNoRedirects && (
-          <UrlRedirectSdkAlert hasSDKWithRedirects={hasSDKWithRedirects} />
-        )}
+        <UrlRedirectSdkAlert hasSDKWithRedirects={hasSDKWithRedirects} />
         <div className="d-flex align-items-baseline mt-3">
           <h4>Original URL</h4>
           <Tooltip

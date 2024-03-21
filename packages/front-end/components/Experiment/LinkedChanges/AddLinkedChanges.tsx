@@ -144,11 +144,11 @@ export default function AddLinkedChanges({
     <div className="appbox p-4 my-4">
       {sectionsToRender.length < possibleSections.length ? (
         <>
-          <h4>Add Additional Changes</h4>
+          <h4>Add Implementation</h4>
         </>
       ) : (
         <>
-          <h4>Select Experiment Type</h4>
+          <h4>Select an Implementation</h4>
         </>
       )}
       <hr />
