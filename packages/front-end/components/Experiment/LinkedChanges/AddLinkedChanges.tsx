@@ -1,17 +1,24 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { CommercialFeature } from "enterprise";
+import {
+  SDKCapability,
+  getConnectionsSDKCapabilities,
+} from "shared/sdk-versioning";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { ICON_PROPERTIES, LinkedChange } from "./constants";
 
-const LINKED_CHANGE_COPY = {
+const LINKED_CHANGES = {
   "feature-flag": {
     header: "Feature Flag",
     cta: "Link Feature Flag",
     description:
       "Use feature flags and SDKs to make changes in your front-end, back-end or mobile application code.",
     commercialFeature: false,
+    sdkCapabilityKey: "",
   },
   "visual-editor": {
     header: "Visual Editor",
@@ -19,6 +26,7 @@ const LINKED_CHANGE_COPY = {
     description:
       "Use our no-code browser extension to A/B test minor changes, such as headings or button text.",
     commercialFeature: true,
+    sdkCapabilityKey: "visualEditor",
   },
   redirects: {
     header: "URL Redirects",
@@ -26,6 +34,7 @@ const LINKED_CHANGE_COPY = {
     description:
       "Use our no-code tool to A/B test URL redirects for whole pages, or to test parts of a URL.",
     commercialFeature: true,
+    sdkCapabilityKey: "redirects",
   },
 };
 
@@ -33,15 +42,29 @@ const AddLinkedChangeRow = ({
   type,
   setModal,
   hasVisualEditorFeature,
+  experiment,
 }: {
   type: LinkedChange;
   setModal: (boolean) => void;
   hasVisualEditorFeature: boolean;
+  experiment: ExperimentInterfaceStringDates;
 }) => {
-  const { header, cta, description, commercialFeature } = LINKED_CHANGE_COPY[
-    type
-  ];
+  const {
+    header,
+    cta,
+    description,
+    commercialFeature,
+    sdkCapabilityKey,
+  } = LINKED_CHANGES[type];
   const { component: Icon, color } = ICON_PROPERTIES[type];
+  const { data: sdkConnectionsData } = useSDKConnections();
+
+  const hasSDKWithFeature =
+    type === "feature-flag" ||
+    getConnectionsSDKCapabilities({
+      connections: sdkConnectionsData?.connections ?? [],
+      project: experiment.project ?? "",
+    }).includes(sdkCapabilityKey as SDKCapability);
 
   return (
     <div className="d-flex">
@@ -68,7 +91,8 @@ const AddLinkedChangeRow = ({
       <div className="flex-grow-1">
         <div className="d-flex justify-content-between">
           <b>{header}</b>
-          {!commercialFeature || hasVisualEditorFeature ? (
+          {(!commercialFeature || hasVisualEditorFeature) &&
+          hasSDKWithFeature ? (
             <div
               className="btn btn-link p-0"
               onClick={() => {
@@ -81,10 +105,17 @@ const AddLinkedChangeRow = ({
             >
               {cta}
             </div>
-          ) : (
+          ) : commercialFeature && !hasVisualEditorFeature ? (
             <PremiumTooltip commercialFeature={type as CommercialFeature}>
               <div className="btn btn-link p-0 disabled">{cta}</div>
             </PremiumTooltip>
+          ) : (
+            <Tooltip
+              body={`The SDKs in this project don't support ${header}. Upgrade your SDK(s) or add a supported SDK.`}
+              tipPosition="top"
+            >
+              <div className="btn btn-link disabled p-0">{cta}</div>
+            </Tooltip>
           )}
         </div>
         <p className="mt-2 mb-1">{description}</p>
@@ -160,6 +191,7 @@ export default function AddLinkedChanges({
                 type={s as LinkedChange}
                 setModal={sections[s].setModal}
                 hasVisualEditorFeature={hasVisualEditorFeature}
+                experiment={experiment}
               />
               {i < sectionsToRender.length - 1 && <hr />}
             </div>

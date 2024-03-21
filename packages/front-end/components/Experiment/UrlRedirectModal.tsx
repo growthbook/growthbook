@@ -101,7 +101,7 @@ const UrlRedirectModal: FC<{
   const hasSDKWithRedirects = getConnectionsSDKCapabilities({
     connections: sdkConnectionsData?.connections ?? [],
     project: experiment.project ?? "",
-  }).includes("urlRedirects");
+  }).includes("redirects");
 
   const form = useForm({
     defaultValues: {
