@@ -10,6 +10,7 @@ import {
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import clsx from "clsx";
+import { FaTriangleExclamation } from "react-icons/fa6";
 import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Field from "@/components/Forms/Field";
@@ -29,10 +30,16 @@ function validateUrl(
       return { isValid: true };
     }
 
-    return { isValid: false, message: "Please specify a valid protocol" };
+    return {
+      isValid: false,
+      message: `Incomplete URL. Specify a valid URL starting with "http:// or "https://"`,
+    };
   } catch (_) {
     if (!urlString.startsWith("http") && !urlString.startsWith("https")) {
-      return { isValid: false, message: "Please specify a valid protocol" };
+      return {
+        isValid: false,
+        message: `Incomplete URL. Specify a valid URL starting with "http:// or "https://"`,
+      };
     }
     return { isValid: false, message: "Invalid URL" };
   }
@@ -234,6 +241,7 @@ const UrlRedirectModal: FC<{
         <div className="mt-3">
           <h4>Destination URLs</h4>
           {experiment.variations.map((v, i) => {
+            let warning: string | undefined;
             const destinationMatchesOrigin =
               !!form.watch("originUrl") &&
               form.watch(`destinationUrls.${i}`) &&
@@ -245,6 +253,18 @@ const UrlRedirectModal: FC<{
                 },
               ]) ||
                 form.watch("originUrl") === form.watch(`destinationUrls.${i}`));
+            try {
+              const originUrl = new URL(form.watch("originUrl"));
+              const variantUrl = new URL(form.watch(`destinationUrls.${i}`));
+              if (originUrl.protocol !== variantUrl.protocol) {
+                warning = `Destination URL is using "${variantUrl.protocol}" and the origin URL is using "${originUrl.protocol}"`;
+              }
+              if (originUrl.host !== variantUrl.host) {
+                warning = `Destination URL is "${variantUrl.host}" and the origin URL is "${originUrl.host}"`;
+              }
+            } catch (e) {
+              //ts-ignore
+            }
 
             return (
               <div
@@ -285,6 +305,11 @@ const UrlRedirectModal: FC<{
                 <div>
                   <Field
                     required
+                    className={clsx({
+                      "border-danger":
+                        errors.destinationUrls?.[i] &&
+                        errors.destinationUrls?.[i]?.message,
+                    })}
                     disabled={
                       redirectToggle[i] !== undefined && !redirectToggle[i]
                     }
@@ -313,11 +338,16 @@ const UrlRedirectModal: FC<{
                   />
                   {errors.destinationUrls?.[i] &&
                     errors.destinationUrls?.[i]?.message && (
-                      <div className="alert alert-warning mt-3">
+                      <div className="text-danger mt-2">
                         <FaExclamationCircle />{" "}
                         {errors.destinationUrls?.[i]?.message}
                       </div>
                     )}
+                  {!errors.destinationUrls?.[i] && !!warning && (
+                    <div className="text-warning-orange mt-2">
+                      <FaTriangleExclamation /> {warning}
+                    </div>
+                  )}
                 </div>
               </div>
             );
