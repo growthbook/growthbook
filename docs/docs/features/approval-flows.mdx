@@ -5,13 +5,13 @@ sidebar_label: Approval Flows
 slug: features/approval-flows
 ---
 
-# Approval Flow doc
+# Approval Flows
 
 With Approval flows, you can require approval before publishing any change to an existing feature flag. Approval flows help reduce errors by making sure changes to features have been viewed and approved by someone else in your organization.
 
 ## Settings page
 
-Approval flows can be enabled for your organization on the settings page.
+Approval flows can be enabled for your organization on the settings page. Once turned on, every role besides `Admin` will need to request approval for a feature flag.
 
 ![approvals-org-settings.png](/images/features/approval-flows/approvals-org-settings.png)
 
@@ -19,7 +19,7 @@ Approval flows can be enabled for your organization on the settings page.
 
 ### Draft
 
-A Draft is created whenever you make changes to an existing Feature and save it. If you have not turned on approval flows, you can directly publish your changes. When you turn on Feature Approval flows, you have to request a review before publishing changes.
+A Draft is created whenever you make changes to an existing Feature and save it. If you have not turned on approval flows, you can directly publish your changes. When you turn on Approval Flows for Features, you have to request a review before publishing changes.
 
 ![approvals-approve-flow-1.png](/images/features/approval-flows/approvals-approve-flow-1.png)
 
@@ -27,11 +27,13 @@ A Draft is created whenever you make changes to an existing Feature and save it.
 
 Requesting a review is changing the status on your draft to tell other people in your organization that your feature is ready to publish and you need someone to review to ensure that you have no errors before publishing. Before requesting a review, make sure that you add a detailed comment describing the changes that you have made so everyone can understand the intent of your request.
 
-When a request is made it will show up in the [Drafts column](/features) on the features overview page. The status will change to `pending review`. You will be able to sort by date updated to see your newly requested change at the top of the list.
+When a request is made it will show up in the Drafts tab on your Features overview page. The status will be set to `Pending Review` when you have requested a review. You will be able to sort by date updated to see your newly requested change at the top of the list.
 
 ![approvals-see-list.png](/images/features/approval-flows/approvals-see-list.png)
 
 ### Reviewing
+
+Anyone that has the ability to "Edit" or "Add" a Feature Flag (see [Permissions](/account/user-permissions)) can serve as a reviewer, besides the user who created the request.
 
 After clicking on the feature, you will be able to open the review modal by clicking `Awaiting Approval`.
 
@@ -41,11 +43,11 @@ From here, you can see the diff between the currently published changes as well 
 
 ![approvals-approve-flow-3-review.png](/images/features/approval-flows/approvals-approve-flow-3-review.png)
 
-After clicking next you are able to write your review in the comment box and select the correct status you want. the status are:
+After clicking next you are able to write your review in the comment box and select the correct status you want. The statuses are:
 
-- `Comment` - which is mainly used if you are wanting to say something without reviewing the Changes
+- `Comment` - which is mainly used if you are wanting to say something without reviewing the changes
 - `Request Changes` - use this status if you think that there needs to be changes made
-- `Approve` - if everything look correct you can approve
+- `Approve` - if everything look correct
 
 ![approvals-approve-flow-4.png](/images/features/approval-flows/approvals-approve-flow-4.png)
 
@@ -53,16 +55,12 @@ Once the changes are `Approved`, the changes will be able to be published.
 
 ![approvals-approve-flow-3.5.png](/images/features/approval-flows/approvals-approve-flow-3.5.png)
 
-Publish permissions are required in order to be able to review feature changes.
-
 ### Publishing
 
-Any one with Publish permissions will be able to publish the changes once they are marked as `Approved` . Admins are able to publish features without requiring a review, by clicking the box at the top of the modal to bypass the review.
+Any one with permission to Add or Edit Feature flags will be able to publish the changes once they are marked as `Approved`. Admins are able to publish features without requiring a review, by clicking the box at the top of the modal to bypass the review.
 
 ![approvals-approve-flow-5.5.png](/images/features/approval-flows/approvals-approve-flow-5.5.png)
 
-Once the changes are published you’ll see a green bar indicating that the version is live.
+Once the changes are published you'll see a green bar indicating that the version is live.
 
 ![approvals-approve-flow-5-done.png](/images/features/approval-flows/approvals-approve-flow-5-done.png)
-
-###
