@@ -59,9 +59,9 @@ export default function Implementation({
     hasVisualEditorPermission && experiment.status === "draft";
 
   const hasLinkedChanges =
-    visualChangesets.length > 0 ||
+    experiment.hasVisualChangesets ||
     linkedFeatures.length > 0 ||
-    urlRedirects.length > 0;
+    experiment.hasURLRedirects;
 
   if (!hasLinkedChanges) {
     if (experiment.status === "draft") {
@@ -130,8 +130,6 @@ export default function Implementation({
         experiment={experiment}
         numLinkedChanges={0}
         hasLinkedFeatures={linkedFeatures.length > 0}
-        hasLinkedRedirects={urlRedirects.length > 0}
-        hasVisualChanges={visualChangesets.length > 0}
         setFeatureModal={setFeatureModal}
         setVisualEditorModal={setVisualEditorModal}
         setUrlRedirectModal={setUrlRedirectModal}

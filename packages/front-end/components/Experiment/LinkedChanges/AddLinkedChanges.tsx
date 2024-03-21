@@ -42,12 +42,12 @@ const LINKED_CHANGES = {
 const AddLinkedChangeRow = ({
   type,
   setModal,
-  hasVisualEditorFeature,
+  hasFeature,
   experiment,
 }: {
   type: LinkedChange;
   setModal: (boolean) => void;
-  hasVisualEditorFeature: boolean;
+  hasFeature: boolean;
   experiment: ExperimentInterfaceStringDates;
 }) => {
   const {
@@ -68,7 +68,7 @@ const AddLinkedChangeRow = ({
     }).includes(sdkCapabilityKey as SDKCapability);
 
   const isCTAClickable =
-    (!commercialFeature || hasVisualEditorFeature) && hasSDKWithFeature;
+    (!commercialFeature || hasFeature) && hasSDKWithFeature;
 
   return (
     <div className="d-flex">
@@ -121,7 +121,7 @@ const AddLinkedChangeRow = ({
             >
               {cta}
             </div>
-          ) : commercialFeature && !hasVisualEditorFeature ? (
+          ) : commercialFeature && !hasFeature ? (
             <PremiumTooltip commercialFeature={type as CommercialFeature}>
               <div className="btn btn-link p-0 disabled">{cta}</div>
             </PremiumTooltip>
@@ -144,8 +144,6 @@ export default function AddLinkedChanges({
   experiment,
   numLinkedChanges,
   hasLinkedFeatures,
-  hasVisualChanges,
-  hasLinkedRedirects,
   setFeatureModal,
   setVisualEditorModal,
   setUrlRedirectModal,
@@ -153,8 +151,6 @@ export default function AddLinkedChanges({
   experiment: ExperimentInterfaceStringDates;
   numLinkedChanges: number;
   hasLinkedFeatures?: boolean;
-  hasVisualChanges?: boolean;
-  hasLinkedRedirects?: boolean;
   setVisualEditorModal: (state: boolean) => unknown;
   setFeatureModal: (state: boolean) => unknown;
   setUrlRedirectModal: (state: boolean) => unknown;
@@ -162,6 +158,7 @@ export default function AddLinkedChanges({
   const { hasCommercialFeature } = useUser();
 
   const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
+  const hasURLRedirectsFeature = hasCommercialFeature("redirects");
 
   if (experiment.status !== "draft") return null;
   if (experiment.archived) return null;
@@ -174,11 +171,11 @@ export default function AddLinkedChanges({
       setModal: setFeatureModal,
     },
     "visual-editor": {
-      render: !hasVisualChanges,
+      render: !experiment.hasVisualChangesets,
       setModal: setVisualEditorModal,
     },
     redirects: {
-      render: !hasLinkedRedirects,
+      render: !experiment.hasURLRedirects,
       setModal: setUrlRedirectModal,
     },
   };
@@ -206,7 +203,13 @@ export default function AddLinkedChanges({
               <AddLinkedChangeRow
                 type={s as LinkedChange}
                 setModal={sections[s].setModal}
-                hasVisualEditorFeature={hasVisualEditorFeature}
+                hasFeature={
+                  s === "visual-editor"
+                    ? hasVisualEditorFeature
+                    : s === "redirects"
+                    ? hasURLRedirectsFeature
+                    : true
+                }
                 experiment={experiment}
               />
               {i < sectionsToRender.length - 1 && <hr />}
