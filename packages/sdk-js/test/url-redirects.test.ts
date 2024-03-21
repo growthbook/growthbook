@@ -4,13 +4,13 @@ import { sleep } from "./visual-changes.test";
 describe("urlRedirects", () => {
   const realLocation = window.location;
 
-  beforeAll(() => {
+  beforeEach(() => {
     // @ts-expect-error: Ignoring operand for delete operator needing to be optional for testing
     delete window.location;
     window.location = { ...realLocation, replace: jest.fn() };
   });
 
-  afterAll(() => {
+  afterEach(() => {
     window.location = realLocation;
   });
 
