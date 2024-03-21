@@ -95,9 +95,12 @@ export const updateFactMetric = createApiRequestHandler(
     if (!factMetric) {
       throw new Error("Could not find factMetric with that id");
     }
-    req.checkPermissions("createMetrics", factMetric.projects);
 
     const updates = getUpdateFactMetricPropsFromBody(req.body, factMetric);
+
+    if (!req.context.permissions.canUpdateMetric(factMetric, updates)) {
+      req.context.permissions.throwPermissionError();
+    }
 
     if (updates.projects?.length) {
       const projects = await findAllProjectsByOrganization(req.context);

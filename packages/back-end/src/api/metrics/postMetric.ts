@@ -18,8 +18,6 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(
       throw new Error(`Invalid data source: ${datasourceId}`);
     }
 
-    req.checkPermissions("createMetrics", req.body?.projects ?? "");
-
     const validationResult = postMetricApiPayloadIsValid(req.body, datasource);
     if (!validationResult.valid) {
       throw new Error(validationResult.error);
@@ -30,6 +28,10 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(
       req.organization,
       datasource
     );
+
+    if (!req.context.permissions.canCreateMetric(metric)) {
+      req.context.permissions.throwPermissionError();
+    }
 
     const createdMetric = await createMetric(metric);
 
