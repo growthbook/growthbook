@@ -6,7 +6,7 @@ declare global {
     growthbook_queue?:
       | Array<(gb: GrowthBook) => void>
       | { push: (cb: (gb: GrowthBook) => void) => void };
-    growthbook_config?: Context;
+    growthbook_config?: Context & { uuid?: string };
     // eslint-disable-next-line
     dataLayer?: any[];
     analytics?: {
@@ -16,6 +16,10 @@ declare global {
     gtag?: (...args: any) => void;
   }
 }
+
+const currentScript = document.currentScript;
+const dataContext = currentScript ? currentScript.dataset : {};
+const windowContext = window.growthbook_config || {};
 
 function setCookie(name: string, value: string) {
   const d = new Date();
@@ -43,7 +47,7 @@ function genUUID() {
 }
 
 const COOKIE_NAME = "gbuuid";
-let uuid = "";
+let uuid = windowContext.uuid || dataContext.uuid || "";
 function persistUUID() {
   setCookie(COOKIE_NAME, uuid);
 }
@@ -153,10 +157,6 @@ function getAutoAttributes(useCookies = true) {
     ...getUtmAttributes(),
   };
 }
-
-const currentScript = document.currentScript;
-const dataContext = currentScript ? currentScript.dataset : {};
-const windowContext = window.growthbook_config || {};
 
 function getAttributes() {
   // Merge auto attributes and user-supplied attributes
