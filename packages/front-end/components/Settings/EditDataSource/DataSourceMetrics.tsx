@@ -252,8 +252,8 @@ export default function DataSourceMetrics({
                               </Tooltip>
                             ) : null}
                           </div>
-                          {!metric.managedBy &&
-                          (editMetricsPermissions[metric.id].canDuplicate ||
+                          {editMetricsPermissions[metric.id].canDuplicate ||
+                          (!metric.managedBy &&
                             editMetricsPermissions[metric.id].canUpdate) ? (
                             <MoreMenu className="px-2">
                               {editMetricsPermissions[metric.id]
@@ -277,7 +277,8 @@ export default function DataSourceMetrics({
                                   <FaRegCopy /> Duplicate
                                 </button>
                               ) : null}
-                              {editMetricsPermissions[metric.id].canUpdate ? (
+                              {!metric.managedBy &&
+                              editMetricsPermissions[metric.id].canUpdate ? (
                                 <button
                                   className="btn dropdown-item py-2"
                                   color=""
