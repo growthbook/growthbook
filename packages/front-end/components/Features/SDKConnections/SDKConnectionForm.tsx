@@ -165,7 +165,7 @@ export default function SDKConnectionForm({
     "visualEditor"
   );
 
-  const showRedirectSettings = latestSdkCapabilities.includes("urlRedirects");
+  const showRedirectSettings = latestSdkCapabilities.includes("redirects");
 
   const projectsOptions = projects.map((p) => ({
     label: p.name,
@@ -259,7 +259,7 @@ export default function SDKConnectionForm({
         if (!latestSdkCapabilities.includes("visualEditor")) {
           value.includeVisualExperiments = false;
         }
-        if (!latestSdkCapabilities.includes("urlRedirects")) {
+        if (!latestSdkCapabilities.includes("redirects")) {
           value.includeRedirectExperiments = false;
         }
         if (
