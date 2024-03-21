@@ -17,7 +17,8 @@ import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { DocLink } from "@/components/DocLink";
+import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
+import useSDKConnections from "@/hooks/useSDKConnections";
 
 type CheckListItem = {
   display: string | ReactElement;
@@ -53,6 +54,7 @@ export function PreLaunchChecklist({
   const { hasCommercialFeature } = useUser();
   const permissions = usePermissions();
   const [checkListOpen, setCheckListOpen] = useState(true);
+  const [showSdkForm, setShowSdkForm] = useState(false);
   const [updatingChecklist, setUpdatingChecklist] = useState(false);
   const showEditChecklistLink =
     hasCommercialFeature("custom-launch-checklist") &&
@@ -66,6 +68,8 @@ export function PreLaunchChecklist({
   const { data } = useApi<{ checklist: ExperimentLaunchChecklistInterface }>(
     "/experiments/launch-checklist"
   );
+  const { data: sdkConnections } = useSDKConnections();
+  const connections = sdkConnections?.connections || [];
 
   //Merge the GB checklist items with org's custom checklist items
   const checklist: CheckListItem[] = useMemo(() => {
@@ -343,128 +347,152 @@ export function PreLaunchChecklist({
   if (experiment.status !== "draft") return null;
 
   return (
-    <div>
-      <div className="appbox bg-white my-2 p-3">
-        <div className="d-flex flex-row align-items-center justify-content-between">
-          <h4
-            role="button"
-            className="m-0"
-            onClick={(e) => {
-              e.preventDefault();
-              setCheckListOpen(!checkListOpen);
-            }}
-          >
-            Pre-Launch Checklist{" "}
-            {data && checklistItemsRemaining !== null ? (
-              <span
-                className={`badge ${
-                  checklistItemsRemaining === 0
-                    ? "badge-success"
-                    : "badge-warning"
-                } mx-2 my-0`}
-              >
-                {checklistItemsRemaining === 0 ? (
-                  <FaCheck size={10} />
-                ) : (
-                  checklistItemsRemaining
-                )}
-              </span>
-            ) : null}
-          </h4>
-          <div className="d-flex align-items-center">
-            {showEditChecklistLink ? (
-              <Link
-                href={"/settings?editCheckListModal=true"}
-                style={{ textDecoration: "none" }}
-              >
-                <span className="text-purple">Edit</span>
-              </Link>
-            ) : null}
-            <button
-              className="btn text-dark"
+    <>
+      {showSdkForm && (
+        <InitialSDKConnectionForm
+          close={() => setShowSdkForm(false)}
+          includeCheck={true}
+          cta="Continue"
+          goToNextStep={() => {
+            setShowSdkForm(false);
+          }}
+        />
+      )}
+      <div>
+        <div className="appbox bg-white my-2 p-3">
+          <div className="d-flex flex-row align-items-center justify-content-between">
+            <h4
+              role="button"
+              className="m-0"
               onClick={(e) => {
                 e.preventDefault();
                 setCheckListOpen(!checkListOpen);
               }}
             >
-              <FaChevronRight
-                size={12}
-                style={{
-                  transform: `rotate(${checkListOpen ? "90deg" : "0deg"})`,
+              Pre-Launch Checklist{" "}
+              {data && checklistItemsRemaining !== null ? (
+                <span
+                  className={`badge ${
+                    checklistItemsRemaining === 0
+                      ? "badge-success"
+                      : "badge-warning"
+                  } mx-2 my-0`}
+                >
+                  {checklistItemsRemaining === 0 ? (
+                    <FaCheck size={10} />
+                  ) : (
+                    checklistItemsRemaining
+                  )}
+                </span>
+              ) : null}
+            </h4>
+            <div className="d-flex align-items-center">
+              {showEditChecklistLink ? (
+                <Link
+                  href={"/settings?editCheckListModal=true"}
+                  style={{ textDecoration: "none" }}
+                >
+                  <span className="text-purple">Edit</span>
+                </Link>
+              ) : null}
+              <button
+                className="btn text-dark"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setCheckListOpen(!checkListOpen);
                 }}
-              />
-            </button>
-          </div>
-        </div>
-        {checkListOpen ? (
-          <div className="row border-top pt-2 mt-2">
-            <div className="col-auto text-left mt-2">
-              {!data ? (
-                <LoadingSpinner />
-              ) : (
-                <ul style={{ fontSize: "1.1em" }} className="ml-0 pl-0">
-                  {checklist.map((item, i) => (
-                    <li
-                      key={i}
-                      style={{
-                        listStyleType: "none",
-                        marginLeft: 0,
-                        marginBottom: 6,
-                      }}
-                    >
-                      <div className="d-flex align-items-center">
-                        <Tooltip
-                          body="GrowthBook calculates the completion of this task automatically."
-                          shouldDisplay={item.type === "auto"}
-                        >
-                          <input
-                            type="checkbox"
-                            disabled={
-                              !canEditExperiment ||
-                              (item.type === "manual" && updatingChecklist) ||
-                              (item.type === "auto" &&
-                                item.status === "incomplete")
-                            }
-                            className="ml-0 pl-0 mr-2 "
-                            checked={item.status === "complete"}
-                            onChange={async (e) => {
-                              updateTaskStatus(e.target.checked, item.key);
-                            }}
-                          />
-                        </Tooltip>
-                        <span
-                          style={{
-                            textDecoration:
-                              item.status === "complete"
-                                ? "line-through"
-                                : "none",
-                          }}
-                        >
-                          {item.display}
-                        </span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              >
+                <FaChevronRight
+                  size={12}
+                  style={{
+                    transform: `rotate(${checkListOpen ? "90deg" : "0deg"})`,
+                  }}
+                />
+              </button>
             </div>
           </div>
-        ) : null}
-        {data && !verifiedConnections.length ? (
-          <div
-            className={clsx(
-              "alert alert-danger",
-              !checkListOpen ? "mt-2 pt-2" : ""
-            )}
-          >
-            <strong>
-              Before you can run an experiment, you need to integrate GrowthBook
-              into your app.{" "}
-              <DocLink docSection="quick_start_sdks">Learn More</DocLink>
-            </strong>
-          </div>
-        ) : null}
+          {checkListOpen ? (
+            <div className="row border-top pt-2 mt-2">
+              <div className="col-auto text-left mt-2">
+                {!data ? (
+                  <LoadingSpinner />
+                ) : (
+                  <ul style={{ fontSize: "1.1em" }} className="ml-0 pl-0">
+                    {checklist.map((item, i) => (
+                      <li
+                        key={i}
+                        style={{
+                          listStyleType: "none",
+                          marginLeft: 0,
+                          marginBottom: 6,
+                        }}
+                      >
+                        <div className="d-flex align-items-center">
+                          <Tooltip
+                            body="GrowthBook calculates the completion of this task automatically."
+                            shouldDisplay={item.type === "auto"}
+                          >
+                            <input
+                              type="checkbox"
+                              disabled={
+                                !canEditExperiment ||
+                                (item.type === "manual" && updatingChecklist) ||
+                                (item.type === "auto" &&
+                                  item.status === "incomplete")
+                              }
+                              className="ml-0 pl-0 mr-2 "
+                              checked={item.status === "complete"}
+                              onChange={async (e) => {
+                                updateTaskStatus(e.target.checked, item.key);
+                              }}
+                            />
+                          </Tooltip>
+                          <span
+                            style={{
+                              textDecoration:
+                                item.status === "complete"
+                                  ? "line-through"
+                                  : "none",
+                            }}
+                          >
+                            {item.display}
+                          </span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          ) : null}
+          {data && !verifiedConnections.length ? (
+            <div
+              className={clsx(
+                "alert alert-danger",
+                !checkListOpen ? "mt-2 pt-2" : ""
+              )}
+            >
+              <strong>
+                Before you can run an experiment, you need to integrate
+                GrowthBook into your app.{" "}
+              </strong>
+              {connections.length > 0 ? (
+                <Link href="/sdks">Manage SDK Connections</Link>
+              ) : (
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowSdkForm(true);
+                  }}
+                >
+                  Add SDK Connection
+                </a>
+              )}
+            </div>
+          ) : null}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
