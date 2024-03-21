@@ -907,8 +907,6 @@ const EditorPage: FC = () => {
                 onClick={async (e) => {
                   e.preventDefault();
                   try {
-                    // eslint-disable-next-line
-                    // @ts-ignore
                     const captureStream = await navigator.mediaDevices.getDisplayMedia(
                       {
                         video: {},
