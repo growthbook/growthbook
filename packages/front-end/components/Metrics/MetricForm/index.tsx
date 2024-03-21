@@ -580,15 +580,13 @@ const MetricForm: FC<MetricFormProps> = ({
   );
 
   let ctaEnabled = true;
-  let disabledMessage = null;
+  let disabledMessage: string | null = null;
 
   if (riskError) {
     ctaEnabled = false;
-    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '"The acceptable risk percentage cannot be hi... Remove this comment to see the full error message
     disabledMessage = riskError;
-  } else if (!permissionsUtil.canCreateMetric({ projects: [project] })) {
+  } else if (!permissionsUtil.canCreateMetric({ projects: value.projects })) {
     ctaEnabled = false;
-    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '"You don't have permission to create metrics... Remove this comment to see the full error message
     disabledMessage = "You don't have permission to create metrics.";
   }
 
