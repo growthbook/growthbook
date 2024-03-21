@@ -42,8 +42,6 @@ export async function getEstimatedImpact(
   req: AuthRequest<{ metric: string; segment?: string; ideaId?: string }>,
   res: Response
 ) {
-  req.checkPermissions("createIdeas", "");
-
   const { metric, segment, ideaId } = req.body;
 
   const idea = await getIdeaById(ideaId || "");

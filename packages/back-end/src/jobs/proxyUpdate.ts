@@ -80,6 +80,7 @@ const proxyUpdate = trackJob(
       includeVisualExperiments: connection.includeVisualExperiments,
       includeDraftExperiments: connection.includeDraftExperiments,
       includeExperimentNames: connection.includeExperimentNames,
+      includeRedirectExperiments: connection.includeRedirectExperiments,
       hashSecureAttributes: connection.hashSecureAttributes,
     });
 

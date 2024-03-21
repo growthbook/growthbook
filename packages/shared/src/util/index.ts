@@ -23,7 +23,8 @@ export function getAffectedEnvsForExperiment({
   experiment: ExperimentInterface | ExperimentInterfaceStringDates;
 }): string[] {
   // Visual changesets are not environment-scoped, so it affects all of them
-  if (experiment.hasVisualChangesets) return ["__ALL__"];
+  if (experiment.hasVisualChangesets || experiment.hasURLRedirects)
+    return ["__ALL__"];
 
   // TODO: get actual environments for linked feature flags. We are being overly conservative here
   if (experiment.linkedFeatures && experiment.linkedFeatures.length > 0) {
@@ -86,6 +87,7 @@ export function experimentHasLinkedChanges(
   exp: ExperimentInterface | ExperimentInterfaceStringDates
 ): boolean {
   if (exp.hasVisualChangesets) return true;
+  if (exp.hasURLRedirects) return true;
   if (exp.linkedFeatures && exp.linkedFeatures.length > 0) return true;
   return false;
 }
@@ -100,7 +102,12 @@ export function includeExperimentInPayload(
   if (!experimentHasLinkedChanges(exp)) return false;
 
   // Exclude if experiment is a draft and there are no visual changes (feature flags always ignore draft experiment rules)
-  if (!exp.hasVisualChangesets && exp.status === "draft") return false;
+  if (
+    !exp.hasVisualChangesets &&
+    !exp.hasURLRedirects &&
+    exp.status === "draft"
+  )
+    return false;
 
   if (!exp.phases?.length) return false;
 
@@ -111,7 +118,11 @@ export function includeExperimentInPayload(
   }
 
   // If there are only linked features, make sure the rules/envs are published
-  if (linkedFeatures.length > 0 && !exp.hasVisualChangesets) {
+  if (
+    linkedFeatures.length > 0 &&
+    !exp.hasVisualChangesets &&
+    !exp.hasURLRedirects
+  ) {
     const hasFeaturesWithPublishedRules = linkedFeatures.some((feature) => {
       if (feature.archived) return false;
       const rules = getMatchingRules(
