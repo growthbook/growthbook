@@ -25,7 +25,7 @@ export async function postDiscussions(
   try {
     const projects = await getProjectsByParentId(context, parentType, parentId);
 
-    if (!context.permissions.canAddComments(projects)) {
+    if (!context.permissions.canAddComment(projects)) {
       context.permissions.throwPermissionError();
     }
     await addComment(
@@ -64,38 +64,35 @@ export async function deleteComment(
   try {
     const projects = await getProjectsByParentId(context, parentType, parentId);
 
-    if (!context.permissions.canAddComments(projects)) {
+    if (!context.permissions.canAddComment(projects)) {
       context.permissions.throwPermissionError();
     }
-  } catch (e) {
-    return res.status(400).json({
-      status: 400,
-      message: e.message,
-    });
-  }
 
-  const i = parseInt(index);
+    const i = parseInt(index);
 
-  const discussion = await getDiscussionByParent(org.id, parentType, parentId);
-  if (!discussion) {
-    return res.status(404).json({
-      status: 404,
-      message: "Discussion not found",
-    });
-  }
+    const discussion = await getDiscussionByParent(
+      org.id,
+      parentType,
+      parentId
+    );
+    if (!discussion) {
+      return res.status(404).json({
+        status: 404,
+        message: "Discussion not found",
+      });
+    }
 
-  const current = discussion.comments[parseInt(index)];
-  if (current && current?.userId !== userId) {
-    return res.status(403).json({
-      status: 403,
-      message: "Only the original author can delete a comment",
-    });
-  }
+    const current = discussion.comments[parseInt(index)];
+    if (current && current?.userId !== userId) {
+      return res.status(403).json({
+        status: 403,
+        message: "Only the original author can delete a comment",
+      });
+    }
 
-  discussion.comments.splice(i, 1);
-  discussion.markModified("comments");
+    discussion.comments.splice(i, 1);
+    discussion.markModified("comments");
 
-  try {
     await discussion.save();
     return res.status(200).json({
       status: 200,
@@ -127,40 +124,38 @@ export async function putComment(
   try {
     const projects = await getProjectsByParentId(context, parentType, parentId);
 
-    if (!context.permissions.canAddComments(projects)) {
+    if (!context.permissions.canAddComment(projects)) {
       context.permissions.throwPermissionError();
     }
-  } catch (e) {
-    return res.status(400).json({
-      status: 400,
-      message: e.message,
-    });
-  }
 
-  const i = parseInt(index);
+    const i = parseInt(index);
 
-  const discussion = await getDiscussionByParent(org.id, parentType, parentId);
-  if (!discussion || !discussion.comments[i]) {
-    return res.status(404).json({
-      status: 404,
-      message: "Discussion not found",
-    });
-  }
+    const discussion = await getDiscussionByParent(
+      org.id,
+      parentType,
+      parentId
+    );
+    if (!discussion || !discussion.comments[i]) {
+      return res.status(404).json({
+        status: 404,
+        message: "Discussion not found",
+      });
+    }
 
-  const current = discussion.comments[i];
-  if (current.userId !== userId) {
-    return res.status(403).json({
-      status: 403,
-      message: "Only the original author can edit a comment",
-    });
-  }
+    const current = discussion.comments[i];
+    if (current.userId !== userId) {
+      return res.status(403).json({
+        status: 403,
+        message: "Only the original author can edit a comment",
+      });
+    }
 
-  current.content = comment;
-  current.edited = true;
-  discussion.dateUpdated = new Date();
+    current.content = comment;
+    current.edited = true;
+    discussion.dateUpdated = new Date();
 
-  discussion.markModified("comments");
-  try {
+    discussion.markModified("comments");
+
     await discussion.save();
     return res.status(200).json({
       status: 200,

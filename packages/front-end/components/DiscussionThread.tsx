@@ -37,7 +37,7 @@ const DiscussionThread: FC<{
 
   const permissions = usePermissionsUtil();
 
-  if (!permissions.canAddComments(projects)) {
+  if (!permissions.canAddComment(projects)) {
     allowNewComments = false;
   }
 
