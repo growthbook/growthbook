@@ -118,7 +118,7 @@ const ProjectPage: FC = () => {
       <div className="container pagecontents">
         <div className="mb-2">
           <Link href="/projects">
-            <GBCircleArrowLeft />
+            <GBCircleArrowLeft className="mr-1" />
             Back to all projects
           </Link>
         </div>

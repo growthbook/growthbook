@@ -9,7 +9,11 @@ export type TokensResponse = {
 };
 
 export interface AuthConnection {
-  refresh(req: Request, refreshToken: string): Promise<TokensResponse>;
+  refresh(
+    req: Request,
+    res: Response,
+    refreshToken: string
+  ): Promise<TokensResponse>;
   getUnauthenticatedResponse(
     req: Request,
     res: Response

@@ -6,4 +6,5 @@ export interface ClickHouseConnectionParams {
   username?: string;
   password: string;
   database: string;
+  maxExecutionTime?: number;
 }

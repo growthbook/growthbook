@@ -70,6 +70,7 @@ export const SuccessfulRun = () => {
         action("onEdit")();
       }}
       eventWebHook={eventWebHookSuccessState}
+      mutateEventWebHook={() => undefined}
     />
   );
 };
@@ -88,6 +89,7 @@ export const FailedRun = () => {
         action("onEdit")();
       }}
       eventWebHook={eventWebHookFailedState}
+      mutateEventWebHook={() => undefined}
     />
   );
 };
@@ -106,6 +108,7 @@ export const WithoutRuns = () => {
         action("onEdit")();
       }}
       eventWebHook={eventWebHookNoState}
+      mutateEventWebHook={() => undefined}
     />
   );
 };
@@ -137,6 +140,7 @@ export const LotsOfEvents = () => {
         ...eventWebHookSuccessState,
         events: eventsList,
       }}
+      mutateEventWebHook={() => undefined}
     />
   );
 };

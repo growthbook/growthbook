@@ -10,7 +10,6 @@ import { GBCuped, GBEdit } from "@/components/Icons";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import PageHead from "@/components/Layout/PageHead";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
@@ -29,6 +28,7 @@ import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -162,7 +162,7 @@ export default function FactMetricPage() {
 
   const { apiCall } = useAuth();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const settings = useOrgSettings();
 
@@ -195,8 +195,9 @@ export default function FactMetricPage() {
   }
 
   const canEdit =
-    !factMetric.managedBy &&
-    permissions.check("createMetrics", factMetric.projects || "");
+    permissionsUtil.canUpdateMetric(factMetric, {}) && !factMetric.managedBy;
+  const canDelete =
+    permissionsUtil.canDeleteMetric(factMetric) && !factMetric.managedBy;
 
   let regressionAdjustmentAvailableForMetric = true;
   let regressionAdjustmentAvailableForMetricReason = <></>;
@@ -257,9 +258,9 @@ export default function FactMetricPage() {
             <MetricName id={factMetric.id} />
           </h1>
         </div>
-        {canEdit && (
-          <div className="ml-auto">
-            <MoreMenu>
+        <div className="ml-auto">
+          <MoreMenu>
+            {canEdit ? (
               <button
                 className="dropdown-item"
                 onClick={(e) => {
@@ -269,6 +270,8 @@ export default function FactMetricPage() {
               >
                 Edit Metric
               </button>
+            ) : null}
+            {canDelete ? (
               <DeleteButton
                 className="dropdown-item"
                 displayName="Metric"
@@ -282,9 +285,9 @@ export default function FactMetricPage() {
                   router.push("/metrics");
                 }}
               />
-            </MoreMenu>
-          </div>
-        )}
+            ) : null}
+          </MoreMenu>
+        </div>
       </div>
       <div className="row mb-4">
         {projects.length > 0 ? (

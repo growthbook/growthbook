@@ -150,7 +150,7 @@ const NorthStar: FC<{
             await apiCall("/organization", {
               method: "PUT",
               body: JSON.stringify({
-                settings: newSettings,
+                settings: { northStar: newSettings.northStar },
               }),
             });
             await refreshOrganization();

@@ -185,7 +185,7 @@ const WebhooksModal: FC<{
     >
       <Field label="Display Name" required {...form.register("name")} />
       <Field
-        label="HTTP(S) Endpoint"
+        label="Endpoint URL"
         placeholder="https://example.com"
         {...form.register("endpoint")}
         helpText={
