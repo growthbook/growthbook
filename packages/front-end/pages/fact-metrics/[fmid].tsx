@@ -67,7 +67,7 @@ export function FilterBadges({
   );
 }
 
-function MetricType({ type }: { type: "proportion" | "mean" | "ratio" }) {
+function MetricType({ type }: { type: "proportion" | "mean" | "ratio" | "quantile" }) {
   if (type === "proportion") {
     return (
       <div>

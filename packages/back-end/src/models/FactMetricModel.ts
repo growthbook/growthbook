@@ -178,7 +178,6 @@ export function toFactMetricApiInterface(
   factMetric: FactMetricInterface
 ): ApiFactMetric {
   const {
-    quantileSettings,
     cappingSettings,
     windowSettings,
     regressionAdjustmentDays,
@@ -190,11 +189,15 @@ export function toFactMetricApiInterface(
     ...otherFields
   } = omit(factMetric, ["organization"]);
 
+  const metricType = otherFields.metricType;
+  if (metricType === "quantile") {
+    throw new Error("Quantile metrics not avaiable yet");
+  }
   return {
     ...otherFields,
+    metricType: metricType,
     managedBy: factMetric.managedBy || "",
     denominator: denominator || undefined,
-    quantileSettings: quantileSettings || undefined,
     cappingSettings: {
       type: cappingSettings.type || "none",
       value: cappingSettings.value,
