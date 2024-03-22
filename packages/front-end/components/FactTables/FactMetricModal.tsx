@@ -66,10 +66,10 @@ function QuantileSelector({
   setValue: (v: MetricQuantileSettings) => void;
 }) {
   const options: { label: string; value: string }[] = [
-    { label: "Median (p50)", value: "0.5" },
-    { label: "p90", value: "0.9" },
-    { label: "p95", value: "0.95" },
-    { label: "p99", value: "0.99" },
+    { label: "Median (P50)", value: "0.5" },
+    { label: "P90", value: "0.9" },
+    { label: "P95", value: "0.95" },
+    { label: "P99", value: "0.99" },
     { label: "Custom", value: "custom" },
   ];
 
