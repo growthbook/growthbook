@@ -427,7 +427,7 @@ export function getSnapshotSettings({
     alpha:
       settings.statsEngine === "frequentist"
         ? organizationSettings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD
-        : (1 - (organizationSettings?.confidenceLevel ?? 0.95)) * 2,
+        : 0.05, // default to 0.05 for Bayesian as we default to 95% CIs
   };
 }
 
