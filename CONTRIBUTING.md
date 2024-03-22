@@ -168,7 +168,7 @@ Releasing SDK updates is a very manual process right now. It requires bumping ve
    - Add new entry to `packages/shared/src/sdk-versioning/sdk-versions/react.json`
 4. Do a global search for the old version strings for both Javascript and React to make sure nothing was missed. Update these instructions if needed.
 5. Run `yarn install`. There should be zero changes to `yarn.lock`. If there are, you missed something above.
-6. Create a PR and let CI complete successfully
+6. Create a PR and let CI complete successfully. Use the changelog entry as the PR description.
 7. Publish the Javascript SDK
    - `yarn build`
    - `npm publish`

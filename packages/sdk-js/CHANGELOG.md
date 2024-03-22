@@ -3,7 +3,7 @@
 ## **0.36.0** - Mar 21, 2024
 
 - Support for URL Redirect tests. New context options `navigate` (defualt `(url) => window.location.replace(url)`) and `navigateDelay` (default 100ms) for browsers. Plus, new method `getRedirectUrl()` for back-end/edge implementations.
-- Built-in anti-flicker snippet. Set context option `antiFlicker` to true to enable (defualt false). Control timeout with option `antiFlickerTimerout` (default 3500ms)
+- Built-in anti-flicker snippet. Set context option `antiFlicker` to true to enable (defualt false). Control timeout with option `antiFlickerTimeout` (default 3500ms)
 - New methods to deal with deferred tracking calls and server/client hydration
   - `setTrackingCallback` - Set or update the trackingCallback after initialization. Until a trackingCallback is set, all calls will be queued up.
   - `getDeferredTrackingCalls` - Get all queued tracking calls (in JSON format)
