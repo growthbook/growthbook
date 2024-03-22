@@ -75,6 +75,7 @@ import {
 import {
   ExperimentUpdateSchedule,
   OrganizationInterface,
+  OrganizationSettings,
   ReqContext,
 } from "../../types/organization";
 import { logger } from "../util/logger";
@@ -272,6 +273,7 @@ export async function getManualSnapshotData(
       1
     ),
     coverage: experiment.phases?.[phaseIndex]?.coverage ?? 1,
+    alpha: snapshotSettings.alpha ?? DEFAULT_P_VALUE_THRESHOLD,
     analyses: [{ ...analysisSettings, regressionAdjusted: false }], // no RA for manual snapshots
     metrics: metricSettings,
     queryResults: queryResults,
@@ -367,12 +369,14 @@ export function getSnapshotSettings({
   settings,
   metricRegressionAdjustmentStatuses,
   metricMap,
+  organizationSettings,
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
   settings: ExperimentSnapshotAnalysisSettings;
   metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
   metricMap: Map<string, ExperimentMetricInterface>;
+  organizationSettings?: OrganizationSettings;
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -420,6 +424,10 @@ export function getSnapshotSettings({
       weight: phase.variationWeights[i] || 0,
     })),
     coverage: phase.coverage ?? 1,
+    alpha:
+      settings.statsEngine === "frequentist"
+        ? organizationSettings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD
+        : (1 - (organizationSettings?.confidenceLevel ?? 0.95)) * 2,
   };
 }
 
@@ -431,7 +439,8 @@ export async function createManualSnapshot(
     [key: string]: MetricStats[];
   },
   analysisSettings: ExperimentSnapshotAnalysisSettings,
-  metricMap: Map<string, ExperimentMetricInterface>
+  metricMap: Map<string, ExperimentMetricInterface>,
+  organizationSettings?: OrganizationSettings
 ) {
   const snapshotSettings = getSnapshotSettings({
     experiment,
@@ -439,6 +448,7 @@ export async function createManualSnapshot(
     settings: analysisSettings,
     metricRegressionAdjustmentStatuses: [],
     metricMap,
+    organizationSettings,
   });
 
   const { srm, variations } = await getManualSnapshotData(
@@ -571,6 +581,7 @@ export async function createSnapshot({
     settings: defaultAnalysisSettings,
     metricRegressionAdjustmentStatuses,
     metricMap,
+    organizationSettings: organization.settings,
   });
 
   const data: ExperimentSnapshotInterface = {

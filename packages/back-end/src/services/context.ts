@@ -1,7 +1,6 @@
 import {
   ReadAccessFilter,
   getReadAccessFilter,
-  Permissions,
   userHasPermission,
 } from "shared/permissions";
 import { uniq } from "lodash";
@@ -43,9 +42,8 @@ export class ReqContextClass implements ReqContextInterface {
   public apiKey?: string;
   public req?: Request;
   public logger: pino.BaseLogger;
-  public permissions: Permissions;
 
-  protected userPermissions: UserPermissions;
+  protected permissions: UserPermissions;
 
   public constructor({
     org,
@@ -92,7 +90,7 @@ export class ReqContextClass implements ReqContextInterface {
       this.email = user.email;
       this.userName = user.name || "";
       this.superAdmin = user.superAdmin || false;
-      this.userPermissions = getUserPermissions(user.id, org, teams || []);
+      this.permissions = getUserPermissions(user.id, org, teams || []);
     }
     // If an API key or background job is making this request
     else {
@@ -100,7 +98,7 @@ export class ReqContextClass implements ReqContextInterface {
         throw new Error("Role must be provided for API key or background job");
       }
 
-      this.userPermissions = {
+      this.permissions = {
         global: {
           permissions: roleToPermissionMap(role, org),
           limitAccessByEnvironment: false,
@@ -109,9 +107,7 @@ export class ReqContextClass implements ReqContextInterface {
         projects: {},
       };
     }
-    this.readAccessFilter = getReadAccessFilter(this.userPermissions);
-
-    this.permissions = new Permissions(this.userPermissions, this.superAdmin);
+    this.readAccessFilter = getReadAccessFilter(this.permissions);
   }
 
   // Check permissions
@@ -122,7 +118,7 @@ export class ReqContextClass implements ReqContextInterface {
   ) {
     return userHasPermission(
       this.superAdmin,
-      this.userPermissions,
+      this.permissions,
       permission,
       project,
       envs ? [...envs] : undefined

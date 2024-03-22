@@ -2,6 +2,7 @@ import { promisify } from "util";
 import { PythonShell } from "python-shell";
 import { getSnapshotAnalysis } from "shared/util";
 import { hoursBetween } from "shared/dates";
+import { DEFAULT_P_VALUE_THRESHOLD } from "shared/constants";
 import { APP_ORIGIN } from "../util/secrets";
 import { findSnapshotById } from "../models/ExperimentSnapshotModel";
 import { getExperimentById } from "../models/ExperimentModel";
@@ -153,7 +154,8 @@ export async function generateNotebook(
         analysisSettings,
         args.variations,
         args.coverage ?? 1,
-        phaseLengthDays
+        phaseLengthDays,
+        snapshotSettings.alpha ?? DEFAULT_P_VALUE_THRESHOLD
       ),
     ],
     metrics: metricSettings,

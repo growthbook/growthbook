@@ -61,6 +61,7 @@ export interface ExperimentReportArgs {
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
   pValueThreshold?: number;
+  alpha?: number;
 }
 export interface ExperimentReportResultDimension {
   name: string;
