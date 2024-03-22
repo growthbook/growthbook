@@ -49,15 +49,15 @@ const sdks: SDKRecords = {
   other: other_json,
 };
 
-// Default SDK versions as of 5/5/2024
+// Default SDK versions as of 5/22/2024
 const defaultSdkVersions: Record<SDKLanguage, string> = {
   "nocode-other": "0.0.0",
   "nocode-webflow": "0.0.0",
   "nocode-shopify": "0.0.0",
   "nocode-wordpress": "0.0.0",
-  javascript: "0.35.0",
-  nodejs: "0.35.0",
-  react: "0.25.0",
+  javascript: "0.36.0",
+  nodejs: "0.36.0",
+  react: "0.26.0",
   php: "1.2.0",
   python: "1.0.0",
   ruby: "1.2.2",
