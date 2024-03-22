@@ -383,7 +383,7 @@ export default function TabbedPage({
             type="experiment"
             id={experiment.id}
             allowNewComments={!experiment.archived}
-            project={experiment.project}
+            projects={experiment.project ? [experiment.project] : []}
           />
         </div>
       </div>

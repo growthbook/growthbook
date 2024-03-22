@@ -9,7 +9,7 @@ import { date } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
-import usePermissions from "@/hooks/usePermissions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingSpinner from "./LoadingSpinner";
 import Avatar from "./Avatar/Avatar";
 import DeleteButton from "./DeleteButton/DeleteButton";
@@ -19,25 +19,25 @@ import Markdown from "./Markdown/Markdown";
 const DiscussionThread: FC<{
   type: DiscussionParentType;
   id: string;
+  projects: string[];
   allowNewComments?: boolean;
   showTitle?: boolean;
   title?: string;
-  project?: string;
 }> = ({
   type,
   id,
   allowNewComments = true,
   showTitle = false,
   title = "Add comment",
-  project,
+  projects,
 }) => {
   const { apiCall } = useAuth();
   const { userId, users } = useUser();
   const [edit, setEdit] = useState<number | null>(null);
 
-  const permissions = usePermissions();
+  const permissions = usePermissionsUtil();
 
-  if (!permissions.check("addComments", project)) {
+  if (!permissions.canAddComments(projects)) {
     allowNewComments = false;
   }
 

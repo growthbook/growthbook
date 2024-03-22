@@ -5,6 +5,7 @@ import {
   addComment,
   getDiscussionByParent,
   getLastNDiscussions,
+  getProjectsByParentId,
 } from "../services/discussions";
 import { getContextFromReq } from "../services/organizations";
 
@@ -15,15 +16,18 @@ export async function postDiscussions(
   >,
   res: Response
 ) {
-  req.checkPermissions("addComments", []);
+  const context = getContextFromReq(req);
+  const { org, userId, email, userName } = context;
 
-  const { org, userId, email, userName } = getContextFromReq(req);
   const { parentId, parentType } = req.params;
   const { comment } = req.body;
 
   try {
-    // TODO: validate that parentType and parentId are valid for this organization
+    const projects = await getProjectsByParentId(context, parentType, parentId);
 
+    if (!context.permissions.canAddComments(projects)) {
+      context.permissions.throwPermissionError();
+    }
     await addComment(
       org.id,
       parentType,
@@ -53,10 +57,22 @@ export async function deleteComment(
   >,
   res: Response
 ) {
-  req.checkPermissions("addComments", []);
-
-  const { org, userId } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
   const { parentId, parentType, index } = req.params;
+
+  try {
+    const projects = await getProjectsByParentId(context, parentType, parentId);
+
+    if (!context.permissions.canAddComments(projects)) {
+      context.permissions.throwPermissionError();
+    }
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
 
   const i = parseInt(index);
 
@@ -103,11 +119,23 @@ export async function putComment(
   >,
   res: Response
 ) {
-  req.checkPermissions("addComments", []);
-
-  const { org, userId } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
   const { parentId, parentType, index } = req.params;
   const { comment } = req.body;
+
+  try {
+    const projects = await getProjectsByParentId(context, parentType, parentId);
+
+    if (!context.permissions.canAddComments(projects)) {
+      context.permissions.throwPermissionError();
+    }
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
 
   const i = parseInt(index);
 
