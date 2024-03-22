@@ -1,15 +1,10 @@
 import { MetricType } from "back-end/types/metric";
 import {
-  GlobalPermission,
-  ProjectScopedPermission,
-} from "back-end/types/organization";
-import {
   ColumnInterface,
   ColumnRef,
   FactTableInterface,
 } from "back-end/types/fact-table";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { PermissionFunctions } from "@/services/UserContext";
 
 export const defaultWinRiskThreshold = 0.0025;
 export const defaultLoseRiskThreshold = 0.0125;
@@ -220,21 +215,4 @@ export function getMetricFormatter(
   }
 
   return formatPercent;
-}
-
-export function checkMetricProjectPermissions(
-  metric: { projects?: string[] },
-  permissions: Record<GlobalPermission, boolean> & PermissionFunctions,
-  permission: ProjectScopedPermission = "createMetrics"
-): boolean {
-  let hasPermission = true;
-  if (metric?.projects?.length) {
-    for (const project of metric.projects) {
-      hasPermission = permissions.check(permission, project);
-      if (!hasPermission) break;
-    }
-  } else {
-    hasPermission = permissions.check(permission, "");
-  }
-  return hasPermission;
 }
