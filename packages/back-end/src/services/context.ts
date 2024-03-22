@@ -20,7 +20,7 @@ import {
   getEnvironmentIdsFromOrg,
 } from "../util/organization.util";
 import { TeamInterface } from "../../types/team";
-import { FactMetricDataModel } from "../models/FactMetricModel";
+import { FactMetricModel } from "../models/FactMetricModel";
 import { ProjectInterface } from "../../types/project";
 import { findAllProjectsByOrganization } from "../models/ProjectModel";
 import { addTags, getAllTags } from "../models/TagModel";
@@ -31,11 +31,11 @@ import { logger } from "../util/logger";
 export class ReqContextClass {
   // Models
   public models!: {
-    factMetrics: FactMetricDataModel;
+    factMetrics: FactMetricModel;
   };
   private initModels() {
     this.models = {
-      factMetrics: new FactMetricDataModel(this),
+      factMetrics: new FactMetricModel(this),
     };
   }
 

@@ -13,7 +13,7 @@ import { getFactTableMap } from "./FactTableModel";
 
 type FactMetricSchema = typeof factMetricValidator;
 
-export class FactMetricDataModel extends BaseModel<FactMetricSchema> {
+export class FactMetricModel extends BaseModel<FactMetricSchema> {
   protected getConfig() {
     const config: ModelConfig<FactMetricSchema> = {
       schema: factMetricValidator,
@@ -36,23 +36,16 @@ export class FactMetricDataModel extends BaseModel<FactMetricSchema> {
     return this.context.hasPermission("readData", doc.projects || []);
   }
   protected canCreate(doc: FactMetricInterface): boolean {
-    return this.context.hasPermission("createMetrics", doc.projects || []);
+    return this.context.permissions.canCreateMetric(doc);
   }
   protected canUpdate(
     existing: FactMetricInterface,
-    updates: UpdateProps<FactMetricInterface>,
-    newDoc: FactMetricInterface
+    updates: UpdateProps<FactMetricInterface>
   ): boolean {
-    if (!this.context.hasPermission("createMetrics", existing.projects || [])) {
-      return false;
-    }
-    if (!this.context.hasPermission("createMetrics", newDoc.projects || [])) {
-      return false;
-    }
-    return true;
+    return this.context.permissions.canUpdateMetric(existing, updates);
   }
   protected canDelete(doc: FactMetricInterface): boolean {
-    return this.context.hasPermission("createMetrics", doc.projects || []);
+    return this.context.permissions.canDeleteMetric(doc);
   }
 
   public static upgradeFactMetricDoc(
@@ -81,7 +74,7 @@ export class FactMetricDataModel extends BaseModel<FactMetricSchema> {
   }
 
   protected migrate(legacyDoc: unknown): FactMetricInterface {
-    return FactMetricDataModel.upgradeFactMetricDoc(
+    return FactMetricModel.upgradeFactMetricDoc(
       legacyDoc as LegacyFactMetricInterface
     );
   }
