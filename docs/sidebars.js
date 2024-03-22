@@ -77,6 +77,11 @@ const sidebars = {
           id: "features/code-references",
           label: "Code References",
         },
+        {
+          type: "doc",
+          id: "features/approval-flows",
+          label: "Approval Flows",
+        },
       ],
     },
     {

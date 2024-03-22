@@ -120,6 +120,7 @@ export async function getPayloadParamsFromApiKey(
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
+  includeRedirectExperiments?: boolean;
   hashSecureAttributes?: boolean;
   remoteEvalEnabled?: boolean;
 }> {
@@ -149,6 +150,7 @@ export async function getPayloadParamsFromApiKey(
       includeVisualExperiments: connection.includeVisualExperiments,
       includeDraftExperiments: connection.includeDraftExperiments,
       includeExperimentNames: connection.includeExperimentNames,
+      includeRedirectExperiments: connection.includeRedirectExperiments,
       hashSecureAttributes: connection.hashSecureAttributes,
       remoteEvalEnabled: connection.remoteEvalEnabled,
     };
@@ -210,6 +212,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       includeVisualExperiments,
       includeDraftExperiments,
       includeExperimentNames,
+      includeRedirectExperiments,
       hashSecureAttributes,
       remoteEvalEnabled,
     } = await getPayloadParamsFromApiKey(key, req);
@@ -231,6 +234,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       includeVisualExperiments,
       includeDraftExperiments,
       includeExperimentNames,
+      includeRedirectExperiments,
       hashSecureAttributes,
     });
 
@@ -292,6 +296,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
       includeVisualExperiments,
       includeDraftExperiments,
       includeExperimentNames,
+      includeRedirectExperiments,
       hashSecureAttributes,
       remoteEvalEnabled,
     } = await getPayloadParamsFromApiKey(key, req);
@@ -324,6 +329,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
       includeVisualExperiments,
       includeDraftExperiments,
       includeExperimentNames,
+      includeRedirectExperiments,
       hashSecureAttributes,
     });
 

@@ -122,8 +122,6 @@ export async function getCreateMetricPropsFromBody(
 
 export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
   async (req): Promise<PostFactMetricResponse> => {
-    req.checkPermissions("createMetrics", req.body.projects || "");
-
     const lookupFactTable = async (id: string) => getFactTable(req.context, id);
 
     const data = await getCreateMetricPropsFromBody(
