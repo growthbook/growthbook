@@ -96,6 +96,13 @@ function MetricType({
       </div>
     );
   }
+  if (type === "quantile") {
+    return (
+      <div>
+        <strong>Quantile Metric</strong> - The quantile of some metric
+      </div>
+    );
+  }
 
   return null;
 }

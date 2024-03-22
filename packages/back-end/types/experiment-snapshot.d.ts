@@ -145,7 +145,6 @@ export interface ExperimentSnapshotSettings {
   endDate: Date;
   variations: SnapshotSettingsVariation[];
   coverage?: number;
-  alpha?: number;
 }
 
 export interface ExperimentSnapshotInterface {
@@ -196,7 +195,6 @@ export interface ExperimentMetricAnalysisParams {
   variations: ExperimentReportVariation[];
   phaseLengthHours: number;
   coverage: number;
-  alpha: number;
 
   analyses: ExperimentSnapshotAnalysisSettings[];
 

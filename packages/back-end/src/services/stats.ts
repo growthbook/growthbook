@@ -107,8 +107,7 @@ export function getAnalysisSettingsForStatsEngine(
   settings: ExperimentSnapshotAnalysisSettings,
   variations: ExperimentReportVariation[],
   coverage: number,
-  phaseLengthDays: number,
-  alpha: number
+  phaseLengthDays: number
 ) {
   const sortedVariations = putBaselineVariationFirst(
     variations,
@@ -118,6 +117,8 @@ export function getAnalysisSettingsForStatsEngine(
   const sequentialTestingTuningParameterNumber =
     Number(settings.sequentialTestingTuningParameter) ||
     DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+  const pValueThresholdNumber =
+    Number(settings.pValueThreshold) || DEFAULT_P_VALUE_THRESHOLD;
 
   const analysisData: AnalysisSettingsForStatsEngine = {
     var_names: sortedVariations.map((v) => v.name),
@@ -130,7 +131,7 @@ export function getAnalysisSettingsForStatsEngine(
     sequential_tuning_parameter: sequentialTestingTuningParameterNumber,
     difference_type: settings.differenceType,
     phase_length_days: phaseLengthDays,
-    alpha: Number(alpha),
+    alpha: pValueThresholdNumber,
     max_dimensions:
       settings.dimensions[0]?.substring(0, 8) === "pre:date"
         ? 9999
@@ -147,7 +148,6 @@ export async function analyzeExperimentMetric(
     metrics,
     phaseLengthHours,
     coverage,
-    alpha,
     analyses,
     queryResults,
   } = params;
@@ -162,7 +162,6 @@ export async function analyzeExperimentMetric(
         a,
         variations,
         coverage,
-        alpha,
         phaseLengthDays
       )
     ),
@@ -391,7 +390,6 @@ export async function analyzeExperimentResults({
       hoursBetween(snapshotSettings.startDate, snapshotSettings.endDate),
       1
     ),
-    alpha: snapshotSettings.alpha ?? DEFAULT_P_VALUE_THRESHOLD,
     variations: snapshotSettings.variations.map((v, i) => ({
       ...v,
       name: variationNames[i] || v.id,

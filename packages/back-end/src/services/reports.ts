@@ -96,7 +96,7 @@ export function reportArgsFromSnapshot(
     sequentialTestingEnabled: analysisSettings.sequentialTesting,
     sequentialTestingTuningParameter:
       analysisSettings.sequentialTestingTuningParameter,
-    alpha: snapshot.settings.alpha,
+    pValueThreshold: analysisSettings.pValueThreshold,
   };
 }
 
@@ -155,7 +155,6 @@ export function getSnapshotSettingsFromReportArgs(
       weight: v.weight,
     })),
     coverage: args.coverage,
-    alpha: args.alpha,
   };
   const analysisSettings = getAnalysisSettingsFromReportArgs(args);
 
