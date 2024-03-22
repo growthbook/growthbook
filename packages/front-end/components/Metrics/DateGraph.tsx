@@ -19,7 +19,7 @@ import { ScaleLinear } from "d3-scale";
 import { date, getValidDate } from "shared/dates";
 import { getMetricFormatter } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
-import { ensureAndReturn } from "@/types/utils";
+import { ensureAndReturn, PartialOn } from "@/types/utils";
 import styles from "./DateGraph.module.scss";
 
 interface Datapoint {
@@ -115,7 +115,7 @@ function getTooltipContents(
             </div>
           )}
           <div className={styles.secondary}>
-            <em>n</em>: {Math.round(ensureAndReturn(d.c))}
+            <em>n</em>: {d.c && Math.round(d.c)}
           </div>
         </>
       )}
@@ -154,13 +154,20 @@ type ExperimentDisplayData = {
   };
 };
 
+// If status is draft, allow partial values, otherwise require everything.
+export type DraftExperiment = PartialOn<
+  ExperimentInterfaceStringDates,
+  "status",
+  "draft"
+>;
+
 interface DateGraphProps {
   type: MetricType;
   smoothBy?: "day" | "week";
   method?: "avg" | "sum";
   dates: Datapoint[];
   showStdDev?: boolean;
-  experiments?: Partial<ExperimentInterfaceStringDates>[];
+  experiments?: DraftExperiment[];
   height?: number;
   margin?: [number, number, number, number];
   onHover?: (ret: { d: number | null }) => void;
@@ -234,8 +241,8 @@ const DateGraph: FC<DateGraphProps> = ({
     experiments.forEach((e) => {
       if (e.status !== "draft") {
         const expLines: ExperimentDisplayData = {
-          name: ensureAndReturn(e.name),
-          id: ensureAndReturn(e.id),
+          name: e.name,
+          id: e.id,
           color: "rgb(136, 132, 216)",
           band: 0,
           result: e.results,
