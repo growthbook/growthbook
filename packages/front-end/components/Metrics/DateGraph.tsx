@@ -19,7 +19,7 @@ import { ScaleLinear } from "d3-scale";
 import { date, getValidDate } from "shared/dates";
 import { getMetricFormatter } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
-import { ensureAndReturn, PartialOn } from "@/types/utils";
+import { PartialOn } from "@/types/utils";
 import styles from "./DateGraph.module.scss";
 
 interface Datapoint {
@@ -196,7 +196,7 @@ const DateGraph: FC<DateGraphProps> = ({
     () =>
       dates.map((row, i) => {
         const key = getValidDate(row.d).getTime();
-        let value = method === "avg" ? row.v : row.v * ensureAndReturn(row.c);
+        let value = method === "avg" ? row.v : row.v * (row.c || 1);
         let stddev = method === "avg" ? row.s : 0;
         const count = row.c || 1;
 
@@ -205,12 +205,10 @@ const DateGraph: FC<DateGraphProps> = ({
           const windowedDates = dates.slice(Math.max(i - 6, 0), i + 1);
           const days = windowedDates.length;
           const sumValue = windowedDates.reduce((acc, cur) => {
-            return (
-              acc + (method === "avg" ? cur.v : cur.v * ensureAndReturn(cur.c))
-            );
+            return acc + (method === "avg" ? cur.v : cur.v * (cur.c || 1));
           }, 0);
           const sumStddev = windowedDates.reduce((acc, cur) => {
-            return acc + (method === "avg" ? ensureAndReturn(cur.s) : 0);
+            return acc + (method === "avg" && cur.s ? cur.s : 0);
           }, 0);
           value = days ? sumValue / days : 0;
           stddev = days ? sumStddev / days : 0;
@@ -284,9 +282,9 @@ const DateGraph: FC<DateGraphProps> = ({
     });
     // get all the experiments in order of start date.
     experimentDates.sort((a, b) => {
-      return ensureAndReturn(a.dateStarted) > ensureAndReturn(b.dateStarted)
-        ? 1
-        : -1;
+      if (!a.dateStarted || !b.dateStarted) return 0;
+
+      return a.dateStarted > b.dateStarted ? 1 : -1;
     });
 
     // get bands:
@@ -302,7 +300,7 @@ const DateGraph: FC<DateGraphProps> = ({
         } else {
           let fits = true;
           for (let i = 0; i < curBands.length; i++) {
-            if (ensureAndReturn(ed.dateStarted) < curBands[i].dateEnded) {
+            if (ed.dateStarted && ed.dateStarted < curBands[i].dateEnded) {
               // it will not fit, there is an overlapping test.
               fits = false;
             }
@@ -521,19 +519,17 @@ const DateGraph: FC<DateGraphProps> = ({
                           <rect
                             key={e.id}
                             fill={e.color}
-                            x={xScale(
-                              new Date(ensureAndReturn(e.dateStarted)).getTime()
-                            )}
+                            x={
+                              e.dateStarted
+                                ? xScale(new Date(e.dateStarted).getTime())
+                                : 0
+                            }
                             y={0}
                             width={
-                              xScale(
-                                new Date(ensureAndReturn(e.dateEnded)).getTime()
-                              ) -
-                              xScale(
-                                new Date(
-                                  ensureAndReturn(e.dateStarted)
-                                ).getTime()
-                              )
+                              e.dateEnded && e.dateStarted
+                                ? xScale(new Date(e.dateEnded).getTime()) -
+                                  xScale(new Date(e.dateStarted).getTime())
+                                : 0
                             }
                             style={{ opacity: 0.15 }}
                             height={graphHeight}
@@ -600,9 +596,7 @@ const DateGraph: FC<DateGraphProps> = ({
                           y1={(d) => yScale(addStddev(d.v, d.s, 2, true))}
                           fill={"url(#stripe-pattern)"}
                           opacity={0.3}
-                          defined={(d, i) =>
-                            ensureAndReturn(d?.oor || data?.[i - 1]?.oor)
-                          }
+                          defined={(d, i) => !!(d?.oor || data?.[i - 1]?.oor)}
                           curve={curveMonotoneX}
                         />
                         <AreaClosed
@@ -613,9 +607,7 @@ const DateGraph: FC<DateGraphProps> = ({
                           y1={(d) => yScale(addStddev(d.v, d.s, 1, true))}
                           fill={"url(#stripe-pattern)"}
                           opacity={0.3}
-                          defined={(d, i) =>
-                            ensureAndReturn(d?.oor || data?.[i - 1]?.oor)
-                          }
+                          defined={(d, i) => !!(d?.oor || data?.[i - 1]?.oor)}
                           curve={curveMonotoneX}
                         />
                       </>
@@ -642,9 +634,7 @@ const DateGraph: FC<DateGraphProps> = ({
                     strokeDasharray={"2,5"}
                     strokeWidth={2}
                     curve={curveMonotoneX}
-                    defined={(d, i) =>
-                      ensureAndReturn(d?.oor || data?.[i - 1]?.oor)
-                    }
+                    defined={(d, i) => !!(d?.oor || data?.[i - 1]?.oor)}
                   />
                 )}
 
@@ -691,16 +681,16 @@ const DateGraph: FC<DateGraphProps> = ({
                 >
                   {experimentDates.map((e, i) => {
                     const rectWidth =
-                      xScale(new Date(ensureAndReturn(e.dateEnded)).getTime()) -
-                      xScale(
-                        new Date(ensureAndReturn(e.dateStarted)).getTime()
-                      );
+                      e.dateEnded && e.dateStarted
+                        ? xScale(new Date(e.dateEnded).getTime()) -
+                          xScale(new Date(e.dateStarted).getTime())
+                        : 0;
                     e.tipPosition = {
                       top: height,
-                      left:
-                        xScale(
-                          new Date(ensureAndReturn(e.dateStarted)).getTime()
-                        ) + Math.min(150, rectWidth / 2),
+                      left: e.dateStarted
+                        ? xScale(new Date(e.dateStarted).getTime()) +
+                          Math.min(150, rectWidth / 2)
+                        : 0,
                     };
 
                     // as this is loading, xScale may return negative numbers, which throws errors in <rect>.
@@ -709,13 +699,12 @@ const DateGraph: FC<DateGraphProps> = ({
                       <rect
                         key={i}
                         fill={e.color}
-                        x={xScale(
-                          new Date(ensureAndReturn(e.dateStarted)).getTime()
-                        )}
-                        y={
-                          ensureAndReturn(e.band) *
-                          (expBarHeight + expBarMargin)
+                        x={
+                          e.dateStarted
+                            ? xScale(new Date(e.dateStarted).getTime())
+                            : 0
                         }
+                        y={e.band ? e.band * (expBarHeight + expBarMargin) : 0}
                         width={rectWidth}
                         style={{ opacity: e.opacity }}
                         rx={4}
@@ -768,10 +757,14 @@ const DateGraph: FC<DateGraphProps> = ({
                     </Link>
                   </p>
                   <p className="mb-1">
-                    {date(ensureAndReturn(highlightExp.dateStarted))} -{" "}
-                    {highlightExp.status === "running"
+                    {highlightExp.dateStarted
+                      ? date(highlightExp.dateStarted)
+                      : ""}{" "}
+                    -{" "}
+                    {highlightExp.status === "running" ||
+                    !highlightExp.dateEnded
                       ? ""
-                      : date(ensureAndReturn(highlightExp.dateEnded))}
+                      : date(highlightExp.dateEnded)}
                   </p>
                   <p className="mb-1">
                     {highlightExp.status === "running" ? (
