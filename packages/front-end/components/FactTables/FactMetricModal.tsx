@@ -368,7 +368,7 @@ export default function FactMetricModal({
         type: "",
         value: 0,
       },
-      quantileSettings: existing?.quantileSettings || undefined,
+      quantileSettings: existing?.quantileSettings || null,
       windowSettings: existing?.windowSettings || {
         type: DEFAULT_FACT_METRIC_WINDOW,
         delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
