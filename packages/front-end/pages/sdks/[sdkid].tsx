@@ -9,7 +9,10 @@ import {
   FaQuestionCircle,
 } from "react-icons/fa";
 import { BsArrowRepeat, BsLightningFill } from "react-icons/bs";
-import { filterProjectsByEnvironment } from "shared/util";
+import {
+  filterProjectsByEnvironment,
+  getDisallowedProjects,
+} from "shared/util";
 import clsx from "clsx";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBEdit, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
@@ -179,6 +182,16 @@ export default function SDKConnectionPage() {
   );
   const showAllEnvironmentProjects =
     (connection?.projects?.length ?? 0) === 0 && filteredProjectIds.length > 0;
+  const disallowedProjects = getDisallowedProjects(
+    projects,
+    connection?.projects ?? [],
+    environment
+  );
+  const disallowedProjectIds = disallowedProjects.map((p) => p.id);
+  const filteredProjectIdsWithDisallowed = [
+    ...filteredProjectIds,
+    ...disallowedProjectIds,
+  ];
 
   const hasPermission = connection
     ? permissions.check("manageEnvironments", connection.projects, [
@@ -293,8 +306,11 @@ export default function SDKConnectionPage() {
               >
                 <ProjectBadges
                   projectIds={
-                    filteredProjectIds.length ? filteredProjectIds : undefined
+                    filteredProjectIdsWithDisallowed.length
+                      ? filteredProjectIdsWithDisallowed
+                      : undefined
                   }
+                  invalidProjectIds={disallowedProjectIds}
                   resourceType="sdk connection"
                 />
               </div>

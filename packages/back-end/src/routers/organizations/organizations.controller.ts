@@ -10,7 +10,6 @@ import {
   setLicense,
 } from "enterprise";
 import { hasReadAccess } from "shared/permissions";
-import { filterProjectsByEnvironment } from "shared/util";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -123,8 +122,8 @@ import { TeamInterface } from "../../../types/team";
 import { queueSingleWebhookById } from "../../jobs/sdkWebhooks";
 import { initializeLicense } from "../../services/licenseData";
 import { findSDKConnectionsByOrganization } from "../../models/SdkConnectionModel";
-import {triggerSingleSDKWebhookJobs} from "../../jobs/updateAllJobs";
-import {SDKConnectionInterface} from "../../../types/sdk-connection";
+import { triggerSingleSDKWebhookJobs } from "../../jobs/updateAllJobs";
+import { SDKConnectionInterface } from "../../../types/sdk-connection";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -1276,33 +1275,26 @@ export async function putOrganization(
       });
     });
 
-    // May need to update SDK Connections to reflect project changes in environments
+    // Trigger SDK webhooks to reflect project changes in environments
+    const affectedConnections = new Set<SDKConnectionInterface>();
     if (envsWithModifiedProjects.length) {
       const connections = await findSDKConnectionsByOrganization(context);
-
       for (const env of envsWithModifiedProjects) {
-        const affectedConnections = connections.filter(
-          (c) => c.environment === env.id
-        );
-        for (const connection of affectedConnections) {
-          const newProjects = filterProjectsByEnvironment(
-            connection.projects,
-            env
-          );
-          const hasChanges =
-            JSON.stringify(connection.projects) !== JSON.stringify(newProjects);
-          if (hasChanges) {
-            const isUsingProxy = !!(connection.proxy.enabled && connection.proxy.host);
-            await triggerSingleSDKWebhookJobs(
-              context.org.id,
-              connection,
-              { projects: newProjects } as Partial<SDKConnectionInterface>,
-              connection.proxy,
-              isUsingProxy
-            );
-          }
-        }
+        const affected = connections.filter((c) => c.environment === env.id);
+        affected.forEach((c) => affectedConnections.add(c));
       }
+    }
+    for (const connection of affectedConnections) {
+      const isUsingProxy = !!(
+        connection.proxy.enabled && connection.proxy.host
+      );
+      await triggerSingleSDKWebhookJobs(
+        context.org.id,
+        connection,
+        {},
+        connection.proxy,
+        isUsingProxy
+      );
     }
 
     res.status(200).json({

@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { BsLightningFill } from "react-icons/bs";
 import { RxDesktop } from "react-icons/rx";
-import { filterProjectsByEnvironment } from "shared/util";
+import {
+  filterProjectsByEnvironment,
+  getDisallowedProjects,
+} from "shared/util";
 import clsx from "clsx";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -100,6 +103,16 @@ export default function SDKConnectionsList() {
               const showAllEnvironmentProjects =
                 connection.projects.length === 0 &&
                 filteredProjectIds.length > 0;
+              const disallowedProjects = getDisallowedProjects(
+                projects,
+                connection?.projects ?? [],
+                environment
+              );
+              const disallowedProjectIds = disallowedProjects.map((p) => p.id);
+              const filteredProjectIdsWithDisallowed = [
+                ...filteredProjectIds,
+                ...disallowedProjectIds,
+              ];
 
               return (
                 <tr
@@ -147,10 +160,11 @@ export default function SDKConnectionsList() {
                       >
                         <ProjectBadges
                           projectIds={
-                            filteredProjectIds.length
-                              ? filteredProjectIds
+                            filteredProjectIdsWithDisallowed.length
+                              ? filteredProjectIdsWithDisallowed
                               : undefined
                           }
+                          invalidProjectIds={disallowedProjectIds}
                           resourceType="sdk connection"
                         />
                       </div>

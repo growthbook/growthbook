@@ -1,5 +1,6 @@
 import clsx from "clsx";
-import { FaInfoCircle } from "react-icons/fa";
+import { FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
+import React from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/components/Badge";
 import Tooltip from "./Tooltip/Tooltip";
@@ -15,6 +16,7 @@ export interface Props {
     | "attribute"
     | "sdk connection";
   projectIds?: string[];
+  invalidProjectIds?: string[];
   sort?: boolean;
   className?: string;
 }
@@ -22,6 +24,7 @@ export interface Props {
 export default function ProjectBadges({
   resourceType,
   projectIds,
+  invalidProjectIds = [],
   sort = true,
   className = "badge-ellipsis short",
 }: Props) {
@@ -62,7 +65,22 @@ export default function ProjectBadges({
         if (!p?.name) return;
         return (
           <Badge
-            content={p.name}
+            content={
+              invalidProjectIds.includes(p.id) ? (
+                <Tooltip
+                  popperClassName="text-left"
+                  popperStyle={{ lineHeight: 1.5 }}
+                  body="This project is not allowed in the selected environment and will not be included in the SDK payload."
+                >
+                  <del className="text-danger">
+                    <FaExclamationTriangle className="mr-1" />
+                    {p.name}
+                  </del>
+                </Tooltip>
+              ) : (
+                p.name
+              )
+            }
             key={p.name}
             className={clsx(
               project === p?.id ? "badge-primary bg-purple" : "badge-gray",

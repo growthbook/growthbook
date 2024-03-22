@@ -5,7 +5,7 @@ import {
   MergeResultChanges,
   MergeStrategy,
   autoMerge,
-  filterProjectsByEnvironment,
+  filterProjectsByEnvironmentWithNull,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -233,7 +233,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     const environmentDoc = context.org?.settings?.environments?.find(
       (e) => e.id === environment
     );
-    const filteredProjects = filterProjectsByEnvironment(
+    const filteredProjects = filterProjectsByEnvironmentWithNull(
       projects,
       environmentDoc,
       true
@@ -326,7 +326,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
     const environmentDoc = context.org?.settings?.environments?.find(
       (e) => e.id === environment
     );
-    const filteredProjects = filterProjectsByEnvironment(
+    const filteredProjects = filterProjectsByEnvironmentWithNull(
       projects,
       environmentDoc,
       true

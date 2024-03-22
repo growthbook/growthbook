@@ -1,4 +1,4 @@
-import { filterProjectsByEnvironment } from "shared/util";
+import { filterProjectsByEnvironmentWithNull } from "shared/util";
 import {
   FeatureDefinitionSDKPayload,
   getFeatureDefinitions,
@@ -30,7 +30,7 @@ export const getSdkPayload = createApiRequestHandler()(
     const environmentDoc = req.context.org?.settings?.environments?.find(
       (e) => e.id === environment
     );
-    const filteredProjects = filterProjectsByEnvironment(
+    const filteredProjects = filterProjectsByEnvironmentWithNull(
       projects,
       environmentDoc,
       true

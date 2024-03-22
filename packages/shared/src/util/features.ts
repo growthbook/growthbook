@@ -14,6 +14,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { evalCondition } from "@growthbook/growthbook";
 import { Environment } from "back-end/types/organization";
+import { ProjectInterface } from "back-end/types/project";
 import { getValidDate } from "../dates";
 import { getMatchingRules, includeExperimentInPayload } from ".";
 
@@ -755,6 +756,24 @@ export function filterProjectsByEnvironment(
   });
 }
 
+export function filterProjectsByEnvironmentWithNull(
+  projects: string[],
+  environment?: Environment,
+  applyEnvironmentProjectsToAll: boolean = false
+): string[] | null {
+  let filteredProjects: string[] | null = filterProjectsByEnvironment(
+    projects,
+    environment,
+    applyEnvironmentProjectsToAll
+  );
+  // If projects were scrubbed by environment and nothing is left, then we should
+  // return null (no projects) instead of [] (all projects)
+  if (projects.length && !filteredProjects.length) {
+    filteredProjects = null;
+  }
+  return filteredProjects;
+}
+
 export function featureHasEnvironment(
   feature: FeatureInterface,
   environment: Environment
@@ -774,4 +793,26 @@ export function filterEnvironmentsByFeature(
   feature: FeatureInterface
 ): Environment[] {
   return environments.filter((env) => featureHasEnvironment(feature, env));
+}
+
+export function getDisallowedProjectIds(
+  projects: string[],
+  environment?: Environment
+) {
+  if (!environment) return [];
+  return projects.filter((p) => {
+    if ((environment?.projects?.length ?? 0) === 0) return false;
+    if (!environment?.projects?.includes(p)) return true;
+    return false;
+  });
+}
+
+export function getDisallowedProjects(
+  allProjects: ProjectInterface[],
+  projects: string[],
+  environment?: Environment
+) {
+  return allProjects.filter((p) =>
+    getDisallowedProjectIds(projects, environment).includes(p.id)
+  );
 }

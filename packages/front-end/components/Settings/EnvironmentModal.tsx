@@ -53,12 +53,6 @@ export default function EnvironmentModal({
     (removedProjects.length > 0 && selectedProjects.length > 0) ||
     ((existing?.projects ?? []).length === 0 && addedProjects.length > 0);
 
-  const sdkConnectionsThatWillHaveNoProjects = sdkConnections.filter((c) => {
-    const projects = c.projects || [];
-    if (projects.length === 0) return false;
-    return projects.every((p) => removedProjects.includes(p));
-  });
-
   const { refreshOrganization } = useUser();
 
   const { projects } = useDefinitions();
