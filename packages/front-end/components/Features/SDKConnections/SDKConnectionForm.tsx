@@ -280,25 +280,6 @@ export default function SDKConnectionForm({
     }
   }, [languages, languageError, setLanguageError]);
 
-  // todo: make changing the environment update (clear) the projects
-
-  // todo: make setting projects === [] turn off `filterByProjects`
-
-  // const projectIdsStr = JSON.stringify(projectIds);
-  // const selectedProjectsStr = JSON.stringify(selectedProjects);
-  // useEffect(
-  //   () => {
-  //     if (!selectedEnvironment) return;
-  //     if (!selectedProjects) return;
-  //     form.setValue(
-  //       "projects",
-  //       filterProjectsByEnvironment(selectedProjects, selectedEnvironment) ?? []
-  //     );
-  //   },
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
-  //   [projectIdsStr, selectedProjectsStr, selectedEnvironment?.id]
-  // );
-
   return (
     <Modal
       header={edit ? "Edit SDK Connection" : "New SDK Connection"}
@@ -440,7 +421,10 @@ export default function SDKConnectionForm({
             required
             placeholder="Choose one..."
             value={form.watch("environment")}
-            onChange={(env) => form.setValue("environment", env)}
+            onChange={(env) => {
+              form.setValue("environment", env);
+              form.setValue("projects", []); // Reset projects when environment changes
+            }}
             options={environments.map((e) => ({ label: e.id, value: e.id }))}
             sort={false}
             formatOptionLabel={({ value, label }) => {
