@@ -41,4 +41,8 @@ export default class Postgres extends SqlIntegration {
   getInformationSchemaWhereClause(): string {
     return "table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast')";
   }
+  approxQuantile(value: string, quantile: string | number): string {
+    // no approx in postgres
+    return `PERCENTILE_CONT(${quantile}) WITHIN GROUP (ORDER BY ${value})`;
+  }
 }

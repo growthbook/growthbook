@@ -29,6 +29,62 @@
     }
   },
   {
+    "id": "fact_quantile__purchased_value_event",
+    "metricType": "quantile",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "amount",
+      "filters": []
+    },
+    "quantileSettings": {
+      "type": "event",
+      "quantile": 0.9,
+      "ignoreZeros": false
+    }
+  },
+  {
+    "id": "fact_quantile__purchased_value_unit",
+    "metricType": "quantile",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "amount",
+      "filters": []
+    },
+    "quantileSettings": {
+      "type": "unit",
+      "quantile": 0.9,
+      "ignoreZeros": false
+    }
+  },
+  {
+    "id": "fact_quantile__purchased_value_event_ignoreZeros",
+    "metricType": "quantile",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "amount",
+      "filters": []
+    },
+    "quantileSettings": {
+      "type": "event",
+      "quantile": 0.9,
+      "ignoreZeros": true
+    }
+  },
+  {
+    "id": "fact_quantile__purchased_value_unit_ignoreZeros",
+    "metricType": "quantile",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "amount",
+      "filters": []
+    },
+    "quantileSettings": {
+      "type": "unit",
+      "quantile": 0.9,
+      "ignoreZeros": true
+    }
+  },
+  {
     "id": "fact_nonbinom_null__purchased_value_regressionadjusted",
     "metricType": "mean",
     "numerator": {
