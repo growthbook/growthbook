@@ -37,6 +37,7 @@ properties:
     type: boolean
   type:
     type: string
+    enum: ["rollout"]
   value:
     type: string
   coverage:

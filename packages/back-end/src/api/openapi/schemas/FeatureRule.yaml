@@ -3,3 +3,10 @@ anyOf:
   - $ref: "./FeatureRolloutRule.yaml"
   - $ref: "./FeatureExperimentRule.yaml"
   - $ref: "./FeatureExperimentRefRule.yaml"
+discriminator:
+  propertyName: type
+  mapping:
+    force: "#/components/schemas/FeatureForceRule"
+    rollout: "#/components/schemas/FeatureRolloutRule"
+    experiment: "#/components/schemas/FeatureExperimentRule"
+    experiment-ref: "#/components/schemas/FeatureExperimentRefRule"

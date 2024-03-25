@@ -15,6 +15,7 @@ properties:
     type: boolean
   type:
     type: string
+    enum: ["experiment-ref"]
   condition:
     type: string
   variations:

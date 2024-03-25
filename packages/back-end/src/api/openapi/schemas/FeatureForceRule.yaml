@@ -35,5 +35,6 @@ properties:
     type: boolean
   type:
     type: string
+    enum: ["force"]
   value:
     type: string
