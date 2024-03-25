@@ -1,5 +1,6 @@
 import fetch from "node-fetch";
 import { Response } from "express";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { getContextFromReq } from "@back-end/src/services/organizations";
 import {
   createOrgGbKeys,
@@ -22,7 +23,6 @@ import {
   VercelEnvVar,
   CreateEnvParams,
 } from "@back-end/types/vercel";
-import { AuthRequest } from "@back-end/src/types/AuthRequest";
 
 export async function getHasToken(req: AuthRequest, res: Response) {
   const { org } = await getContextFromReq(req);

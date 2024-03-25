@@ -1,8 +1,8 @@
 import { Response } from "express";
 import { v4 as uuidv4 } from "uuid";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { getImageData, uploadFile } from "@back-end/src/services/files";
 import { getContextFromReq } from "@back-end/src/services/organizations";
-import { AuthRequest } from "@back-end/src/types/AuthRequest";
 
 const mimetypes: Record<string, string> = {
   "image/png": "png",
@@ -20,7 +20,7 @@ const extensionsToMimetype: Record<string, string> = {
 
 export async function putUpload(req: AuthRequest<Buffer>, res: Response) {
   const contentType = req.headers["content-type"] as string;
-  req.checkPermissions("addComments", "");
+  req.checkPermissions("addComments", []);
 
   if (!(contentType in mimetypes)) {
     throw new Error(

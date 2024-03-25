@@ -1,4 +1,4 @@
-import { ReactNode, FC, useState } from "react";
+import React, { ReactNode, FC, useState } from "react";
 import uniqId from "uniqid";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
@@ -32,6 +32,11 @@ const MoreMenu: FC<{
     ],
     whileElementsMounted: autoUpdate,
   });
+
+  // If there are no children, don't render the dropdown
+  if (!React.Children.toArray(children).some((child) => !!child)) {
+    return null;
+  }
 
   return (
     <div className={`dropdown position-relative ${className}`} id={id}>

@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { getContextFromReq } from "@back-end/src/services/organizations";
 import { getSourceIntegrationObject } from "@back-end/src/services/datasource";
 import {
@@ -35,7 +36,6 @@ import {
 } from "@back-end/src/models/FactMetricModel";
 import { getDataSourceById } from "@back-end/src/models/DataSourceModel";
 import { DataSourceInterface } from "@back-end/types/datasource";
-import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { runRefreshColumnsQuery } from "@back-end/src/jobs/refreshFactTableColumns";
 
 export const getFactTables = async (
@@ -337,7 +337,9 @@ export const postFactMetric = async (
   const data = req.body;
   const context = getContextFromReq(req);
 
-  req.checkPermissions("createMetrics", data.projects || "");
+  if (!context.permissions.canCreateMetric(data)) {
+    context.permissions.throwPermissionError();
+  }
 
   const factMetric = await createFactMetric(context, data);
 
@@ -363,10 +365,8 @@ export const putFactMetric = async (
     throw new Error("Could not find fact metric with that id");
   }
 
-  // Check permissions for both the existing projects and new ones (if they are being changed)
-  req.checkPermissions("createMetrics", factMetric.projects);
-  if (data.projects) {
-    req.checkPermissions("createMetrics", data.projects || "");
+  if (!context.permissions.canUpdateMetric(factMetric, data)) {
+    context.permissions.throwPermissionError();
   }
 
   await updateFactMetric(context, factMetric, data);
@@ -388,7 +388,10 @@ export const deleteFactMetric = async (
   if (!factMetric) {
     throw new Error("Could not find fact metric with that id");
   }
-  req.checkPermissions("createMetrics", factMetric.projects);
+
+  if (!context.permissions.canDeleteMetric(factMetric)) {
+    context.permissions.throwPermissionError();
+  }
 
   await deleteFactMetricInDb(context, factMetric);
 

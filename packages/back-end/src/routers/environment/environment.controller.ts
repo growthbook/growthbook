@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import {
   getEnvironments,
   getContextFromReq,
@@ -6,7 +7,6 @@ import {
 import { Environment } from "@back-end/types/organization";
 import { PrivateApiErrorResponse } from "@back-end/types/api";
 import { updateOrganization } from "@back-end/src/models/OrganizationModel";
-import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { addEnvironmentToOrganizationEnvironments } from "@back-end/src/util/environments";
 import { EventAuditUserForResponseLocals } from "@back-end/src/events/event-types";
 

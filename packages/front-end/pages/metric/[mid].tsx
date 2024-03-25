@@ -31,7 +31,6 @@ import { useAuth } from "@front-end/services/auth";
 import {
   defaultWinRiskThreshold,
   defaultLoseRiskThreshold,
-  checkMetricProjectPermissions,
   getMetricFormatter,
 } from "@front-end/services/metrics";
 import MetricForm from "@front-end/components/Metrics/MetricForm";
@@ -69,10 +68,12 @@ import { useUser } from "@front-end/services/UserContext";
 import PageHead from "@front-end/components/Layout/PageHead";
 import { capitalizeFirstLetter } from "@front-end/services/utils";
 import MetricName from "@front-end/components/Metrics/MetricName";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 
 const MetricPage: FC = () => {
   const router = useRouter();
   const { mid } = router.query;
+  const permissionsUtil = usePermissionsUtil();
   const permissions = usePermissions();
   const displayCurrency = useCurrency();
   const { apiCall } = useAuth();
@@ -138,9 +139,9 @@ const MetricPage: FC = () => {
 
   const metric = data.metric;
   const canEditMetric =
-    checkMetricProjectPermissions(metric, permissions) && !metric.managedBy;
-  const canEditProjects =
-    permissions.check("createMetrics", "") && !metric.managedBy;
+    permissionsUtil.canUpdateMetric(metric, {}) && !metric.managedBy;
+  const canDeleteMetric =
+    permissionsUtil.canDeleteMetric(metric) && !metric.managedBy;
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
@@ -403,9 +404,9 @@ const MetricPage: FC = () => {
           <MetricName id={metric.id} />
         </h1>
         <div style={{ flex: 1 }} />
-        {canEditMetric && (
-          <div className="col-auto">
-            <MoreMenu>
+        <div className="col-auto">
+          <MoreMenu>
+            {canDeleteMetric ? (
               <DeleteButton
                 className="btn dropdown-item py-2"
                 text="Delete"
@@ -421,6 +422,8 @@ const MetricPage: FC = () => {
                 useIcon={true}
                 displayName={"Metric '" + metric.name + "'"}
               />
+            ) : null}
+            {canEditMetric ? (
               <Button
                 className="btn dropdown-item py-2"
                 color=""
@@ -440,9 +443,9 @@ const MetricPage: FC = () => {
                 <FaArchive />{" "}
                 {metric.status === "archived" ? "Unarchive" : "Archive"}
               </Button>
-            </MoreMenu>
-          </div>
-        )}
+            ) : null}
+          </MoreMenu>
+        </div>
       </div>
       <div className="row mb-3 align-items-center">
         <div className="col">
@@ -459,7 +462,7 @@ const MetricPage: FC = () => {
               className="badge-ellipsis align-middle"
             />
           )}
-          {canEditProjects && (
+          {canEditMetric && (
             <a
               href="#"
               className="ml-2"
@@ -963,7 +966,7 @@ const MetricPage: FC = () => {
             <RightRailSection
               title="Projects"
               open={() => setEditProjects(true)}
-              canOpen={canEditProjects}
+              canOpen={canEditMetric}
             >
               <RightRailSectionGroup>
                 {metric?.projects?.length ? (

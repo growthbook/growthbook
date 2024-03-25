@@ -7,6 +7,7 @@ import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { getContextFromReq } from "@back-end/src/services/organizations";
 import {
   createMetric,
@@ -33,7 +34,6 @@ import { getMetricMap } from "@back-end/src/models/MetricModel";
 import { createFeature } from "@back-end/src/models/FeatureModel";
 import { getFactTableMap } from "@back-end/src/models/FactTableModel";
 import { MetricWindowSettings } from "@back-end/types/fact-table";
-import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { EventAuditUserForResponseLocals } from "@back-end/src/events/event-types";
 
 // region Constants for Demo Datasource
@@ -172,14 +172,20 @@ export const postDemoDatasourceProject = async (
     EventAuditUserForResponseLocals
   >
 ) => {
+  const context = getContextFromReq(req);
+
   req.checkPermissions("manageProjects", "");
   req.checkPermissions("createDatasources", "");
-  req.checkPermissions("createMetrics", "");
   req.checkPermissions("createAnalyses", "");
-  const context = getContextFromReq(req);
+
   const { org, environments } = context;
 
   const demoProjId = getDemoDatasourceProjectIdForOrganization(org.id);
+
+  if (!context.permissions.canCreateMetric({ projects: [demoProjId] })) {
+    context.permissions.throwPermissionError();
+  }
+
   const existingDemoProject: ProjectInterface | null = await findProjectById(
     context,
     demoProjId

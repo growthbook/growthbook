@@ -4,7 +4,7 @@ import { getSlackIntegrationsForFilters } from "@back-end/src/models/SlackIntegr
 import { NotificationEventHandler } from "@back-end/src/events/notifiers/EventNotifier";
 import { filterEventForEnvironments } from "@back-end/src/events/handlers/utils";
 import {
-  getDataForNotificationEvent,
+  getSlackDataForNotificationEvent,
   getSlackIntegrationContextBlock,
   sendSlackMessage,
 } from "./slack-event-handler-utils";
@@ -18,7 +18,7 @@ export const slackEventHandler: NotificationEventHandler = async ({
   organizationId,
   id,
 }) => {
-  const result = getDataForNotificationEvent(data, id);
+  const result = getSlackDataForNotificationEvent(data, id);
   if (!result) {
     // Unsupported events do not return a result
     return;

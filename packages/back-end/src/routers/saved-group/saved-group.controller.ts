@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import { isEqual } from "lodash";
 import { validateCondition } from "shared/util";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { getContextFromReq } from "@back-end/src/services/organizations";
 import {
   auditDetailsCreate,
@@ -20,7 +21,6 @@ import {
   getSavedGroupById,
   updateSavedGroupById,
 } from "@back-end/src/models/SavedGroupModel";
-import { AuthRequest } from "@back-end/src/types/AuthRequest";
 
 // region POST /saved-groups
 

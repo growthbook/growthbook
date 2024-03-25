@@ -2,6 +2,7 @@ import { Response } from "express";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getSnapshotAnalysis } from "shared/util";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { getIntegrationFromDatasourceId } from "@back-end/src/services/datasource";
 import { generateReportNotebook } from "@back-end/src/services/notebook";
 import { getContextFromReq } from "@back-end/src/services/organizations";
@@ -23,7 +24,6 @@ import {
 import { getFactTableMap } from "@back-end/src/models/FactTableModel";
 import { ExperimentInterface } from "@back-end/types/experiment";
 import { ReportInterface } from "@back-end/types/report";
-import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { ReportQueryRunner } from "@back-end/src/queryRunners/ReportQueryRunner";
 
 export async function postReportFromSnapshot(
@@ -248,8 +248,6 @@ export async function putReport(
   req: AuthRequest<Partial<ReportInterface>, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createAnalyses", "");
-
   const context = getContextFromReq(req);
   const { org } = context;
 
@@ -264,6 +262,8 @@ export async function putReport(
     report.experimentId || ""
   );
 
+  // Reports don't have projects, but the experiment does, so check that
+  req.checkPermissions("createAnalyses", experiment?.project || "");
   req.checkPermissions("runQueries", experiment?.project || "");
 
   const updates: Partial<ReportInterface> = {};

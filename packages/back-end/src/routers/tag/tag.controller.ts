@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { getContextFromReq } from "@back-end/src/services/organizations";
 import { ApiErrorResponse } from "@back-end/types/api";
 import { TagInterface } from "@back-end/types/tag";
@@ -7,7 +8,6 @@ import { removeTagInMetrics } from "@back-end/src/models/MetricModel";
 import { removeTagInFeature } from "@back-end/src/models/FeatureModel";
 import { removeTagFromSlackIntegration } from "@back-end/src/models/SlackIntegrationModel";
 import { removeTagFromExperiments } from "@back-end/src/models/ExperimentModel";
-import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { EventAuditUserForResponseLocals } from "@back-end/src/events/event-types";
 
 // region POST /tag

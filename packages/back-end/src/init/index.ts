@@ -1,5 +1,5 @@
-import { initializeLicense } from "@back-end/src/services/licenseData";
 import { logger } from "@back-end/src/util/logger";
+import { initializeLicenseForOrg } from "@back-end/src/services/licenseData";
 import mongoInit from "./mongo";
 import { queueInit } from "./queue";
 
@@ -9,7 +9,7 @@ export async function init() {
     initPromise = (async () => {
       await mongoInit();
       await queueInit();
-      await initializeLicense();
+      await initializeLicenseForOrg();
     })();
   }
   try {

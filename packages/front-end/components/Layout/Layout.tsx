@@ -11,6 +11,7 @@ import {
 import { FaArrowRight } from "react-icons/fa";
 import { getGrowthBookBuild } from "@front-end/services/env";
 import { useUser } from "@front-end/services/UserContext";
+import useStripeSubscription from "@front-end/hooks/useStripeSubscription";
 import useOrgSettings from "@front-end/hooks/useOrgSettings";
 import {
   GBDatabase,
@@ -20,11 +21,11 @@ import {
 } from "@front-end/components/Icons";
 import { inferDocUrl } from "@front-end/components/DocLink";
 import UpgradeModal from "@front-end/components/Settings/UpgradeModal";
-import ProjectSelector from "./ProjectSelector";
-import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
-import TopNav from "./TopNav";
-import styles from "./Layout.module.scss";
 import { usePageHead } from "./PageHead";
+import styles from "./Layout.module.scss";
+import TopNav from "./TopNav";
+import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
+import ProjectSelector from "./ProjectSelector";
 
 const navlinks: SidebarLinkProps[] = [
   {
@@ -222,7 +223,6 @@ const navlinks: SidebarLinkProps[] = [
         name: "Billing",
         href: "/settings/billing",
         path: /^settings\/billing/,
-        cloudOnly: true,
         permissions: ["manageBilling"],
       },
       {
@@ -287,13 +287,17 @@ const backgroundShade = (color: string) => {
 const Layout = (): React.ReactElement => {
   const [open, setOpen] = useState(false);
   const settings = useOrgSettings();
-  const { accountPlan } = useUser();
+  const { accountPlan, license } = useUser();
+  const { hasPaymentMethod } = useStripeSubscription();
 
   const { breadcrumb } = usePageHead();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  const showUpgradeButton = ["oss", "starter"].includes(accountPlan);
+  const showUpgradeButton =
+    ["oss", "starter"].includes(accountPlan || "") ||
+    (license?.isTrial && !hasPaymentMethod) ||
+    (["pro", "pro_sso"].includes(accountPlan || "") &&
+      license?.stripeSubscription?.status === "canceled");
 
   // hacky:
   const router = useRouter();
@@ -449,15 +453,9 @@ const Layout = (): React.ReactElement => {
               className="btn btn-premium btn-block font-weight-normal"
               onClick={() => setUpgradeModal(true)}
             >
-              {accountPlan === "oss" ? (
-                <>
-                  Try Enterprise <GBPremiumBadge />
-                </>
-              ) : (
-                <>
-                  Try Pro <GBPremiumBadge />
-                </>
-              )}
+              <>
+                Upgrade <GBPremiumBadge />
+              </>
             </button>
           )}
           <a

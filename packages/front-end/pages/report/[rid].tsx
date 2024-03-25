@@ -73,6 +73,11 @@ export default function ReportPage() {
 
   const { apiCall } = useAuth();
 
+  const canCreateAnalyses = permissions.check(
+    "createAnalyses",
+    experimentData?.experiment.project || ""
+  );
+
   // todo: move to report args
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
@@ -207,34 +212,33 @@ export default function ReportPage() {
               Go to experiment results
             </Link>
           )}
-          {permissions.check("createAnalyses", "") &&
-            (userId === report?.userId || !report?.userId) && (
-              <DeleteButton
-                displayName="Custom Report"
-                link={false}
-                className="float-right btn-sm"
-                text="delete"
-                useIcon={true}
-                onClick={async () => {
-                  await apiCall<{ status: number; message?: string }>(
-                    `/report/${report.id}`,
-                    {
-                      method: "DELETE",
-                    }
-                  );
-                  trackReport(
-                    "delete",
-                    "DeleteButton",
-                    datasource?.type || null,
-                    report
-                  );
-                  router.push(`/experiment/${report.experimentId}#results`);
-                }}
-              />
-            )}
+          {canCreateAnalyses && (userId === report?.userId || !report?.userId) && (
+            <DeleteButton
+              displayName="Custom Report"
+              link={false}
+              className="float-right btn-sm"
+              text="delete"
+              useIcon={true}
+              onClick={async () => {
+                await apiCall<{ status: number; message?: string }>(
+                  `/report/${report.id}`,
+                  {
+                    method: "DELETE",
+                  }
+                );
+                trackReport(
+                  "delete",
+                  "DeleteButton",
+                  datasource?.type || null,
+                  report
+                );
+                router.push(`/experiment/${report.experimentId}#results`);
+              }}
+            />
+          )}
           <h1 className="mb-0 mt-2">
             {report.title}{" "}
-            {permissions.check("createAnalyses", "") &&
+            {canCreateAnalyses &&
               (userId === report?.userId || !report?.userId) && (
                 <a
                   className="ml-2 cursor-pointer"
@@ -265,7 +269,7 @@ export default function ReportPage() {
           active={active}
           setActive={setActive}
           newStyle={true}
-          navClassName={permissions.check("createAnalyses", "") ? "" : "d-none"}
+          navClassName={canCreateAnalyses ? "" : "d-none"}
         >
           <Tab key="results" anchor="results" display="Results" padding={false}>
             <div className="pt-3 px-3">
@@ -322,10 +326,7 @@ export default function ReportPage() {
                   )}
                 </div>
                 <div className="col-auto">
-                  {permissions.check(
-                    "runQueries",
-                    experimentData?.experiment.project || ""
-                  ) && (
+                  {canCreateAnalyses && (
                     <form
                       onSubmit={async (e) => {
                         e.preventDefault();
@@ -383,11 +384,10 @@ export default function ReportPage() {
                       }
                     }}
                     supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
-                    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => void) | null' is not assignable to ty... Remove this comment to see the full error message
                     editMetrics={
-                      permissions.check("createAnalyses", "")
+                      canCreateAnalyses
                         ? () => setActive("Configuration")
-                        : null
+                        : undefined
                     }
                     generateReport={false}
                     notebookUrl={`/report/${report.id}/notebook`}
@@ -399,6 +399,7 @@ export default function ReportPage() {
                     variations={variations}
                     metrics={report.args.metrics}
                     trackingKey={report.title}
+                    project={experimentData?.experiment.project || ""}
                   />
                 </div>
               </div>
@@ -433,10 +434,7 @@ export default function ReportPage() {
                         ago(report.args.startDate) +
                         ". Give it a little longer and click the 'Refresh' button to check again."}
                     {!report.results &&
-                      permissions.check(
-                        "runQueries",
-                        experimentData?.experiment.project || ""
-                      ) &&
+                      canCreateAnalyses &&
                       `Click the "Refresh" button.`}
                   </div>
                 )}
@@ -601,12 +599,11 @@ export default function ReportPage() {
               </div>
             )}
           </Tab>
-          {permissions.check("createAnalyses", "") && (
+          {canCreateAnalyses && (
             <Tab
               key="configuration"
               anchor="configuration"
               display="Configuration"
-              visible={permissions.check("createAnalyses", "")}
               forceRenderOnFocus={true}
             >
               <h2>Configuration</h2>

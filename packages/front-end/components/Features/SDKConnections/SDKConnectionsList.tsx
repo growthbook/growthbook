@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { BsLightningFill } from "react-icons/bs";
 import { RxDesktop } from "react-icons/rx";
+import { PiShuffle } from "react-icons/pi";
 import { useDefinitions } from "@front-end/services/DefinitionsContext";
 import LoadingOverlay from "@front-end/components/LoadingOverlay";
 import {
@@ -16,8 +17,8 @@ import useSDKConnections from "@front-end/hooks/useSDKConnections";
 import StatusCircle from "@front-end/components/Helpers/StatusCircle";
 import ProjectBadges from "@front-end/components/ProjectBadges";
 import Tooltip from "@front-end/components/Tooltip/Tooltip";
-import SDKLanguageLogo from "./SDKLanguageLogo";
 import SDKConnectionForm from "./SDKConnectionForm";
+import SDKLanguageLogo from "./SDKLanguageLogo";
 
 export default function SDKConnectionsList() {
   const { data, mutate, error } = useSDKConnections();
@@ -187,6 +188,17 @@ export default function SDKConnectionsList() {
                         }
                       >
                         <RxDesktop className="mx-1 text-blue" />
+                      </Tooltip>
+                    )}
+                    {connection.includeRedirectExperiments && (
+                      <Tooltip
+                        body={
+                          <>
+                            <strong>URL Redirects</strong> are supported
+                          </>
+                        }
+                      >
+                        <PiShuffle className="mx-1 text-blue" />
                       </Tooltip>
                     )}
                   </td>

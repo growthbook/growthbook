@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import {
   getPresentationById,
   getPresentationsByOrganization,
@@ -12,7 +13,6 @@ import {
 } from "@back-end/src/services/organizations";
 import { ExperimentInterface } from "@back-end/types/experiment";
 import { PresentationInterface } from "@back-end/types/presentation";
-import { AuthRequest } from "@back-end/src/types/AuthRequest";
 
 export async function getPresentations(req: AuthRequest, res: Response) {
   const { org } = getContextFromReq(req);

@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
-import { UnauthenticatedResponse } from "@back-end/types/sso-connection";
 import { AuthRequest } from "@back-end/src/types/AuthRequest";
+import { UnauthenticatedResponse } from "@back-end/types/sso-connection";
 
 export type TokensResponse = {
   idToken: string;
@@ -9,7 +9,11 @@ export type TokensResponse = {
 };
 
 export interface AuthConnection {
-  refresh(req: Request, refreshToken: string): Promise<TokensResponse>;
+  refresh(
+    req: Request,
+    res: Response,
+    refreshToken: string
+  ): Promise<TokensResponse>;
   getUnauthenticatedResponse(
     req: Request,
     res: Response

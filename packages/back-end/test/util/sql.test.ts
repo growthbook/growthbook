@@ -5,6 +5,7 @@ import {
   format,
   replaceCountStar,
   determineColumnTypes,
+  getHost,
 } from "@back-end/src/util/sql";
 
 describe("backend", () => {
@@ -381,5 +382,22 @@ from
         ])
       ).toEqual([{ column: "col", datatype: "number" }]);
     });
+  });
+});
+
+describe("getHost", () => {
+  it("works as expected", () => {
+    expect(getHost("http://localhost", 8080)).toEqual("http://localhost:8080");
+    expect(getHost("https://localhost", 8080)).toEqual(
+      "https://localhost:8080"
+    );
+  });
+  it("prefers port in url", () => {
+    expect(getHost("http://localhost:8888", 8080)).toEqual(
+      "http://localhost:8888"
+    );
+  });
+  it("tries best if URL is malformed", () => {
+    expect(getHost("localhost", 8080)).toEqual("http://localhost:8080");
   });
 });

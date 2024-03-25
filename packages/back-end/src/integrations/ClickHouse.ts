@@ -1,6 +1,7 @@
-import { ClickHouse as ClickHouseClient } from "clickhouse";
-import { decryptDataSourceParams } from "@back-end/src/services/datasource";
+import { createClient, ResponseJSON } from "@clickhouse/client";
+import { getHost } from "@back-end/src/util/sql";
 import { ClickHouseConnectionParams } from "@back-end/types/integrations/clickhouse";
+import { decryptDataSourceParams } from "@back-end/src/services/datasource";
 import { QueryResponse } from "@back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
@@ -27,29 +28,34 @@ export default class ClickHouse extends SqlIntegration {
   getSensitiveParamKeys(): string[] {
     return ["password"];
   }
+
   async runQuery(sql: string): Promise<QueryResponse> {
-    const client = new ClickHouseClient({
-      url: this.params.url,
-      port: this.params.port,
-      basicAuth: this.params.username
-        ? {
-            username: this.params.username,
-            password: this.params.password,
-          }
-        : null,
-      format: "json",
-      debug: false,
-      raw: false,
-      config: {
-        database: this.params.database,
-      },
-      reqParams: {
-        headers: {
-          "x-clickhouse-format": "JSON",
-        },
+    const client = createClient({
+      host: getHost(this.params.url, this.params.port),
+      username: this.params.username,
+      password: this.params.password,
+      database: this.params.database,
+      application: "GrowthBook",
+      clickhouse_settings: {
+        max_execution_time: Math.min(
+          this.params.maxExecutionTime ?? 1800,
+          3600
+        ),
       },
     });
-    return { rows: Array.from(await client.query(sql).toPromise()) };
+    const results = await client.query({ query: sql, format: "JSON" });
+    // eslint-disable-next-line
+    const data: ResponseJSON<Record<string, any>[]> = await results.json();
+    return {
+      rows: data.data ? data.data : [],
+      statistics: data.statistics
+        ? {
+            executionDurationMs: data.statistics.elapsed,
+            rowsProcessed: data.statistics.rows_read,
+            bytesProcessed: data.statistics.bytes_read,
+          }
+        : undefined,
+    };
   }
   toTimestamp(date: Date) {
     return `toDateTime('${date

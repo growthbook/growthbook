@@ -49,7 +49,9 @@ export async function savedGroupUpdated(
       context,
       savedGroupExperiments
         .filter(
-          (exp) => includeExperimentInPayload(exp) && exp.hasVisualChangesets
+          (exp) =>
+            includeExperimentInPayload(exp) &&
+            (exp.hasVisualChangesets || exp.hasURLRedirects)
         )
         .map((exp) => exp.project || "")
     )

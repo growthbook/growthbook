@@ -1,7 +1,8 @@
 import type { ReadAccessFilter } from "shared/permissions";
 import type pino from "pino";
 import type { Request } from "express";
-import type { EventAuditUser } from "@back-end/src/events/event-types";
+import { Permissions } from "shared/permissions";
+import type { EventAuditUser } from "@back-end/srcevents/event-types";
 import { MemberRole, OrganizationInterface, Permission } from "./organization";
 import { TeamInterface } from "./team";
 import { AuditInterface } from "./audit";
@@ -22,6 +23,7 @@ export interface ReqContextInterface {
   apiKey?: string;
   req?: Request;
   logger: pino.BaseLogger;
+  permissions: Permissions;
 
   hasPermission(
     permission: Permission,

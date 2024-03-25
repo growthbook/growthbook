@@ -1,9 +1,12 @@
-import { getAllEventWebHooksForEvent } from "@back-end/src/models/EventWebhookModel";
-import { NotificationEventHandler } from "@back-end/src/events/notifiers/EventNotifier";
 import {
   getFilterDataForNotificationEvent,
   filterEventForEnvironments,
 } from "@back-end/src/events/handlers/utils";
+import {
+  getEventWebHookById,
+  getAllEventWebHooksForEvent,
+} from "@back-end/src/models/EventWebhookModel";
+import { NotificationEventHandler } from "@back-end/src/events/notifiers/EventNotifier";
 import { EventWebHookNotifier } from "./EventWebHookNotifier";
 
 /**
@@ -15,17 +18,30 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
     projects: [],
   };
 
-  const eventWebHooks = (
-    (await getAllEventWebHooksForEvent({
-      organizationId: event.organizationId,
-      eventName: event.data.event,
-      enabled: true,
-      tags,
-      projects,
-    })) || []
-  ).filter(({ environments = [] }) =>
-    filterEventForEnvironments({ event: event.data, environments })
-  );
+  const eventWebHooks = await (async () => {
+    if (event.data.event === "webhook.test") {
+      const webhook = await getEventWebHookById(
+        event.data.data.webhookId,
+        event.organizationId
+      );
+
+      if (!webhook) return [];
+
+      return [webhook];
+    } else {
+      return (
+        (await getAllEventWebHooksForEvent({
+          organizationId: event.organizationId,
+          eventName: event.data.event,
+          enabled: true,
+          tags,
+          projects,
+        })) || []
+      ).filter(({ environments = [] }) =>
+        filterEventForEnvironments({ event: event.data, environments })
+      );
+    }
+  })();
 
   eventWebHooks.forEach((eventWebHook) => {
     const notifier = new EventWebHookNotifier({

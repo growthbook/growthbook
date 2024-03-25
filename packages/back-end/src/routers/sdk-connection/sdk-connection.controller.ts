@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import { orgHasPremiumFeature } from "enterprise";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { getContextFromReq } from "@back-end/src/services/organizations";
 import {
   SDKConnectionInterface,
@@ -15,7 +16,6 @@ import {
   findSDKConnectionsByOrganization,
   testProxyConnection,
 } from "@back-end/src/models/SdkConnectionModel";
-import { AuthRequest } from "@back-end/src/types/AuthRequest";
 
 export const getSDKConnections = async (
   req: AuthRequest,

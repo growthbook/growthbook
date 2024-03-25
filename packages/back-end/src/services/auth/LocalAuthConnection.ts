@@ -26,7 +26,11 @@ const jwtCheck = jwtExpress({
 });
 
 export class LocalAuthConnection implements AuthConnection {
-  async refresh(req: Request, refreshToken: string): Promise<TokensResponse> {
+  async refresh(
+    req: Request,
+    res: Response,
+    refreshToken: string
+  ): Promise<TokensResponse> {
     const userId = await getUserIdFromAuthRefreshToken(refreshToken);
     if (!userId) {
       throw new Error("No user found with that refresh token");

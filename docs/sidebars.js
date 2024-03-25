@@ -77,6 +77,11 @@ const sidebars = {
           id: "features/code-references",
           label: "Code References",
         },
+        {
+          type: "doc",
+          id: "features/approval-flows",
+          label: "Approval Flows",
+        },
       ],
     },
     {
@@ -97,6 +102,12 @@ const sidebars = {
           type: "doc",
           id: "visual-editor",
           label: "Visual Editor",
+        },
+        {
+          type: "doc",
+          id: "running-experiments/url-redirects",
+          label: "URL Redirects",
+          className: "pill-new",
         },
         {
           type: "doc",
@@ -522,8 +533,18 @@ const sidebars = {
         {
           type: "category",
           label: "Experiments",
-          collapsed: true,
+          collapsed: false,
           items: [
+            {
+              type: "doc",
+              id: "kb/experiments/troubleshooting-experiments",
+              label: "Troubleshooting Experiments",
+            },
+            {
+              type: "doc",
+              id: "kb/experiments/aa-tests",
+              label: "A/A Testing in GrowthBook",
+            },
             {
               type: "doc",
               id: "kb/experiments/carryover-bias",

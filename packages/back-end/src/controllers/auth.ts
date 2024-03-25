@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import {
   deleteAuthCookies,
   getAuthConnection,
@@ -29,7 +30,6 @@ import { getSSOConnectionByEmailDomain } from "@back-end/src/models/SSOConnectio
 import { resetMinTokenDate } from "@back-end/src/models/UserModel";
 import { AuthRefreshModel } from "@back-end/src/models/AuthRefreshModel";
 import { UserInterface } from "@back-end/types/user";
-import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import {
   createUser,
   getUserByEmail,
@@ -68,7 +68,7 @@ export async function postRefresh(req: Request, res: Response) {
       idToken,
       refreshToken: newRefreshToken,
       expiresIn,
-    } = await auth.refresh(req, refreshToken);
+    } = await auth.refresh(req, res, refreshToken);
 
     IdTokenCookie.setValue(idToken, req, res, expiresIn);
     if (newRefreshToken) {

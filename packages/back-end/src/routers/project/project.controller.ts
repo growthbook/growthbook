@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { getContextFromReq } from "@back-end/src/services/organizations";
 import { ApiErrorResponse } from "@back-end/types/api";
 import { ProjectInterface, ProjectSettings } from "@back-end/types/project";
@@ -30,7 +31,6 @@ import {
   deleteAllSlackIntegrationsForAProject,
   removeProjectFromSlackIntegration,
 } from "@back-end/src/models/SlackIntegrationModel";
-import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { EventAuditUserForResponseLocals } from "@back-end/src/events/event-types";
 
 // region POST /projects
@@ -197,7 +197,9 @@ export const deleteProject = async (
   // Clean up metrics
   if (deleteMetrics) {
     try {
-      req.checkPermissions("createAnalyses", id);
+      if (!context.permissions.canDeleteMetric({ projects: [id] })) {
+        context.permissions.throwPermissionError();
+      }
 
       await deleteAllMetricsForAProject({
         projectId: id,

@@ -110,6 +110,7 @@ export default function CodeTextArea({
                 placeholder={placeholder}
                 fontSize="1em"
                 {...heightProps}
+                readOnly={fieldProps.disabled}
                 onCursorChange={(e) =>
                   setCursorData &&
                   setCursorData({

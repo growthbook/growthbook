@@ -2,32 +2,7 @@ import { randomBytes } from "crypto";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import { Request } from "express";
-import { getDefaultRole } from "@back-end/src/util/organization.util";
-import { logger } from "@back-end/src/util/logger";
-import { APP_ORIGIN, IS_CLOUD } from "@back-end/src/util/secrets";
-import { addTags } from "@back-end/src/models/TagModel";
-import { getAllExperiments } from "@back-end/src/models/ExperimentModel";
-import {
-  createSegment,
-  findSegmentById,
-  updateSegment,
-} from "@back-end/src/models/SegmentModel";
-import {
-  createDimension,
-  findDimensionById,
-  updateDimension,
-} from "@back-end/src/models/DimensionModel";
-import {
-  ALLOWED_METRIC_TYPES,
-  getMetricById,
-  updateMetric,
-} from "@back-end/src/models/MetricModel";
-import {
-  createDataSource,
-  getDataSourceById,
-  updateDataSource,
-} from "@back-end/src/models/DataSourceModel";
-import { UserModel } from "@back-end/src/models/UserModel";
+import { getLicense, postSubscriptionUpdateToLicenseServer } from "enterprise";
 import {
   createOrganization,
   findAllOrganizations,
@@ -36,12 +11,38 @@ import {
   findOrganizationsByDomain,
   updateOrganization,
 } from "@back-end/src/models/OrganizationModel";
-import { LegacyExperimentPhase } from "@back-end/types/experiment";
-import { SegmentInterface } from "@back-end/types/segment";
-import { SSOConnectionInterface } from "@back-end/types/sso-connection";
-import { DataSourceInterface } from "@back-end/types/datasource";
-import { DimensionInterface } from "@back-end/types/dimension";
+import { APP_ORIGIN, IS_CLOUD } from "@back-end/src/util/secrets";
+import { UserModel } from "@back-end/src/models/UserModel";
+import {
+  createDataSource,
+  getDataSourceById,
+  updateDataSource,
+} from "@back-end/src/models/DataSourceModel";
+import {
+  ALLOWED_METRIC_TYPES,
+  getMetricById,
+  updateMetric,
+} from "@back-end/src/models/MetricModel";
+import {
+  createDimension,
+  findDimensionById,
+  updateDimension,
+} from "@back-end/src/models/DimensionModel";
+import { logger } from "@back-end/src/util/logger";
+import { getDefaultRole } from "@back-end/src/util/organization.util";
+import {
+  createSegment,
+  findSegmentById,
+  updateSegment,
+} from "@back-end/src/models/SegmentModel";
+import { getAllExperiments } from "@back-end/src/models/ExperimentModel";
+import { addTags } from "@back-end/src/models/TagModel";
 import { MetricInterface } from "@back-end/types/metric";
+import { DimensionInterface } from "@back-end/types/dimension";
+import { DataSourceInterface } from "@back-end/types/datasource";
+import { SSOConnectionInterface } from "@back-end/types/sso-connection";
+import { SegmentInterface } from "@back-end/types/segment";
+import { LegacyExperimentPhase } from "@back-end/types/experiment";
 import { ApiReqContext, ExperimentOverride } from "@back-end/types/api";
 import {
   ExpandedMember,
@@ -57,16 +58,16 @@ import {
 } from "@back-end/types/organization";
 import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { ConfigFile } from "@back-end/src/init/config";
-import { ReqContextClass } from "./context";
-import { getUsersByIds } from "./users";
-import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
-import { createMetric } from "./experiments";
+import { markInstalled } from "./auth";
 import {
   encryptParams,
   getSourceIntegrationObject,
   mergeParams,
 } from "./datasource";
-import { markInstalled } from "./auth";
+import { createMetric } from "./experiments";
+import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
+import { getUsersByIds } from "./users";
+import { ReqContextClass } from "./context";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
@@ -232,7 +233,13 @@ export async function removeMember(
     pendingMembers,
   });
 
-  return organization;
+  const updatedOrganization = cloneDeep(organization);
+  updatedOrganization.members = members;
+  updatedOrganization.pendingMembers = pendingMembers;
+
+  await updateSubscriptionIfProLicense(updatedOrganization);
+
+  return updatedOrganization;
 }
 
 export async function revokeInvite(
@@ -245,11 +252,31 @@ export async function revokeInvite(
     invites,
   });
 
-  return organization;
+  const updatedOrganization = cloneDeep(organization);
+  updatedOrganization.invites = invites;
+  await updateSubscriptionIfProLicense(updatedOrganization);
+
+  return updatedOrganization;
 }
 
 export function getInviteUrl(key: string) {
   return `${APP_ORIGIN}/invitation?key=${key}`;
+}
+
+async function updateSubscriptionIfProLicense(
+  organization: OrganizationInterface
+) {
+  if (organization.licenseKey) {
+    const license = await getLicense(organization.licenseKey);
+    if (license?.plan === "pro") {
+      // Only pro plans have a Stripe subscription that needs to get updated
+      const seatsInUse = getNumberOfUniqueMembersAndInvites(organization);
+      await postSubscriptionUpdateToLicenseServer(
+        organization.licenseKey,
+        seatsInUse
+      );
+    }
+  }
 }
 
 export async function addMemberToOrg({
@@ -297,6 +324,12 @@ export async function addMemberToOrg({
     members,
     pendingMembers,
   });
+
+  const updatedOrganization = cloneDeep(organization);
+  updatedOrganization.members = members;
+  updatedOrganization.pendingMembers = pendingMembers;
+
+  await updateSubscriptionIfProLicense(updatedOrganization);
 }
 
 export async function addMembersToTeam({
@@ -509,13 +542,15 @@ export async function inviteUser({
     invites,
   });
 
-  // append the new invites to the existin object (or refetch)
-  organization.invites = invites;
+  const updatedOrganization = cloneDeep(organization);
+  updatedOrganization.invites = invites;
+
+  await updateSubscriptionIfProLicense(updatedOrganization);
 
   let emailSent = false;
   if (isEmailEnabled()) {
     try {
-      await sendInviteEmail(organization, key);
+      await sendInviteEmail(updatedOrganization, key);
       emailSent = true;
     } catch (e) {
       logger.error(e, "Error sending invite email");

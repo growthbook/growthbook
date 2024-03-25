@@ -1,22 +1,25 @@
 import type { Response } from "express";
-import { getContextFromReq } from "@back-end/src/services/organizations";
-import { PrivateApiErrorResponse } from "@back-end/types/api";
-import {
-  EventWebHookInterface,
-  EventWebHookPayloadType,
-  EventWebHookMethod,
-} from "@back-end/types/event-webhook";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import * as EventWebHook from "@back-end/src/models/EventWebhookModel";
 import {
   deleteEventWebHookById,
   getEventWebHookById,
   updateEventWebHook,
 } from "@back-end/src/models/EventWebhookModel";
+import { createEvent } from "@back-end/src/models/EventModel";
 import * as EventWebHookLog from "@back-end/src/models/EventWebHookLogModel";
+import {
+  EventWebHookInterface,
+  EventWebHookPayloadType,
+  EventWebHookMethod,
+} from "@back-end/types/event-webhook";
+import { PrivateApiErrorResponse } from "@back-end/types/api";
 
 import { EventWebHookLogInterface } from "@back-end/types/event-webhook-log";
-import { AuthRequest } from "@back-end/src/types/AuthRequest";
+import { getContextFromReq } from "@back-end/src/services/organizations";
+import { WebhookTestEvent } from "@back-end/src/events/notification-events";
 import { NotificationEventName } from "@back-end/src/events/base-types";
+import { EventNotifier } from "@back-end/src/events/notifiers/EventNotifier";
 
 // region GET /event-webhooks
 
@@ -236,3 +239,58 @@ export const putEventWebHook = async (
 };
 
 // endregion PUT /event-webhooks/:eventWebHookId
+
+// region POST /event-webhooks/test
+
+type PostTestEventWebHooksRequest = AuthRequest & {
+  body: {
+    webhookId: string;
+  };
+};
+
+type PostTestEventWebHooksResponse = {
+  eventId: string;
+};
+
+export const createTestEventWebHook = async (
+  req: PostTestEventWebHooksRequest,
+  res: Response<PostTestEventWebHooksResponse | PrivateApiErrorResponse>
+) => {
+  req.checkPermissions("manageWebhooks");
+
+  const {
+    org: { id: organizationId },
+  } = getContextFromReq(req);
+  const { webhookId } = req.body;
+
+  const webhook = await EventWebHook.getEventWebHookById(
+    webhookId,
+    organizationId
+  );
+
+  if (!webhook) throw new Error(`Cannot find webhook with id ${webhookId}`);
+
+  const payload: WebhookTestEvent = {
+    event: "webhook.test",
+    object: "webhook",
+    data: { webhookId },
+    user: req.userId
+      ? {
+          type: "dashboard",
+          id: req.userId,
+          email: req.email,
+          name: req.name || "",
+        }
+      : null,
+  };
+
+  const emittedEvent = await createEvent(organizationId, payload);
+
+  if (!emittedEvent) throw new Error("Error while creating event!");
+
+  new EventNotifier(emittedEvent.id).perform();
+
+  return res.json({ eventId: emittedEvent.id });
+};
+
+// endregion POST /event-webhooks/test

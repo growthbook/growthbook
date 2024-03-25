@@ -22,6 +22,7 @@ export const getSdkPayload = createApiRequestHandler()(
       includeVisualExperiments,
       includeDraftExperiments,
       includeExperimentNames,
+      includeRedirectExperiments,
       hashSecureAttributes,
     } = await getPayloadParamsFromApiKey(key, req);
 
@@ -34,6 +35,7 @@ export const getSdkPayload = createApiRequestHandler()(
       includeVisualExperiments,
       includeDraftExperiments,
       includeExperimentNames,
+      includeRedirectExperiments,
       hashSecureAttributes,
     });
 

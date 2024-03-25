@@ -1,26 +1,26 @@
 import { Request, Response, NextFunction } from "express";
 import { hasPermission } from "shared/permissions";
 import { EventAuditUserApiKey } from "@back-end/src/events/event-types";
-import { getOrganizationById } from "@back-end/src/services/organizations";
-import { initializeLicense } from "@back-end/src/services/licenseData";
-import { ReqContextClass } from "@back-end/src/services/context";
+import { lookupOrganizationByApiKey } from "@back-end/src/models/ApiKeyModel";
+import { getCustomLogProps } from "@back-end/src/util/logger";
+import { isApiKeyForUserInOrganization } from "@back-end/src/util/api-key.util";
 import {
   getUserPermissions,
   roleToPermissionMap,
 } from "@back-end/src/util/organization.util";
-import { isApiKeyForUserInOrganization } from "@back-end/src/util/api-key.util";
-import { getCustomLogProps } from "@back-end/src/util/logger";
 import { getTeamsForOrganization } from "@back-end/src/models/TeamModel";
-import { lookupOrganizationByApiKey } from "@back-end/src/models/ApiKeyModel";
-import { TeamInterface } from "@back-end/types/team";
-import { ApiKeyInterface } from "@back-end/types/apikey";
 import {
   MemberRole,
   OrganizationInterface,
   Permission,
 } from "@back-end/types/organization";
+import { ApiKeyInterface } from "@back-end/types/apikey";
 import { ApiRequestLocals } from "@back-end/types/api";
+import { TeamInterface } from "@back-end/types/team";
+import { getOrganizationById } from "@back-end/src/services/organizations";
 import { getUserById } from "@back-end/src/services/users";
+import { initializeLicenseForOrg } from "@back-end/src/services/licenseData";
+import { ReqContextClass } from "@back-end/src/services/context";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
@@ -171,7 +171,7 @@ export default function authenticateApiRequestMiddleware(
       };
 
       // init license for org if it exists
-      await initializeLicense(req.organization.licenseKey);
+      await initializeLicenseForOrg(req.organization);
 
       // Continue to the actual request handler
       next();

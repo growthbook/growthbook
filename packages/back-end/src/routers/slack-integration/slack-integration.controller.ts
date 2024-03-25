@@ -1,9 +1,9 @@
 import type { Response } from "express";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { getContextFromReq } from "@back-end/src/services/organizations";
 import { ApiErrorResponse } from "@back-end/types/api";
 import { SlackIntegrationInterface } from "@back-end/types/slack-integration";
 import * as SlackIntegration from "@back-end/src/models/SlackIntegrationModel";
-import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { NotificationEventName } from "@back-end/src/events/base-types";
 
 // region GET /integrations/slack

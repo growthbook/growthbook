@@ -2,7 +2,7 @@ import React, { FC, useCallback, useEffect, useMemo, useState } from "react";
 import _ from "lodash";
 import { EventWebHookLogInterface } from "back-end/types/event-webhook-log";
 import { useRouter } from "next/router";
-import useApi from "@front-end/hooks/useApi";
+import { useEventWebhookLogs } from "@front-end/hooks/useEventWebhookLogs";
 import { EventWebHookLogItem } from "./EventWebHookLogItem/EventWebHookLogItem";
 import { EventWebHookLogActiveItem } from "./EventWebHookLogActiveItem/EventWebHookLogActiveItem";
 
@@ -65,9 +65,7 @@ export const EventWebHookLogs: FC<EventWebHookLogsProps> = ({
 export const EventWebHookLogsContainer = () => {
   const router = useRouter();
   const { eventwebhookid: eventWebHookId } = router.query;
-  const { data, error } = useApi<{
-    eventWebHookLogs: EventWebHookLogInterface[];
-  }>(`/event-webhooks/logs/${eventWebHookId}`);
+  const { data, error } = useEventWebhookLogs(`${eventWebHookId}`);
 
   const [activeLog, setActiveLog] = useState<EventWebHookLogInterface | null>(
     null

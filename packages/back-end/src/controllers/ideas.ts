@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { FilterQuery } from "mongoose";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import {
   getIdeasByOrganization,
   createIdea,
@@ -20,7 +21,6 @@ import { IdeaDocument } from "@back-end/src/models/IdeasModel";
 import { getExperimentByIdea } from "@back-end/src/models/ExperimentModel";
 import { Vote } from "@back-end/types/vote";
 import { IdeaInterface } from "@back-end/types/idea";
-import { AuthRequest } from "@back-end/src/types/AuthRequest";
 
 export async function getIdeas(
   // eslint-disable-next-line
@@ -45,8 +45,6 @@ export async function getEstimatedImpact(
   req: AuthRequest<{ metric: string; segment?: string; ideaId?: string }>,
   res: Response
 ) {
-  req.checkPermissions("createIdeas", "");
-
   const { metric, segment, ideaId } = req.body;
 
   const idea = await getIdeaById(ideaId || "");

@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import { orgHasPremiumFeature } from "enterprise";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import {
   getEnvironments,
   getContextFromReq,
@@ -29,7 +30,6 @@ import { FeatureTestResult } from "@back-end/types/feature";
 import { getFeature } from "@back-end/src/models/FeatureModel";
 import { getAllPayloadExperiments } from "@back-end/src/models/ExperimentModel";
 import { getRevision } from "@back-end/src/models/FeatureRevisionModel";
-import { AuthRequest } from "@back-end/src/types/AuthRequest";
 
 type GetArchetypeResponse = {
   status: 200;

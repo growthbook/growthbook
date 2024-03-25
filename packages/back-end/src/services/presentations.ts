@@ -1,4 +1,5 @@
 import uniqid from "uniqid";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { PresentationModel } from "@back-end/src/models/PresentationModel";
 import { getExperimentsByIds } from "@back-end/src/models/ExperimentModel";
 import { getLatestSnapshot } from "@back-end/src/models/ExperimentSnapshotModel";
@@ -10,7 +11,6 @@ import { ExperimentInterface } from "@back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "@back-end/types/experiment-snapshot";
 import { ReqContext } from "@back-end/types/organization";
 import { ApiReqContext } from "@back-end/types/api";
-import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { userHasAccess } from "./organizations";
 
 //import {query} from "@back-end/src/config/postgres";

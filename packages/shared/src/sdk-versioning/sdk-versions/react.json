@@ -1,6 +1,10 @@
 {
   "versions": [
     {
+      "version": "0.26.0",
+      "capabilities": ["redirects"]
+    },
+    {
       "version": "0.25.0"
     },
     {

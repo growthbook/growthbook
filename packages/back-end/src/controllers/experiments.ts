@@ -11,31 +11,6 @@ import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
 import { EventAuditUserForResponseLocals } from "@back-end/src/events/event-types";
 import {
-  createManualSnapshot,
-  createSnapshot,
-  createSnapshotAnalysis,
-  getAdditionalExperimentAnalysisSettings,
-  getDefaultExperimentAnalysisSettings,
-  getExperimentMetricById,
-  getLinkedFeatureInfo,
-} from "@back-end/src/services/experiments";
-import {
-  getIntegrationFromDatasourceId,
-  getSourceIntegrationObject,
-} from "@back-end/src/services/datasource";
-import {
-  getContextFromReq,
-  userHasAccess,
-} from "@back-end/src/services/organizations";
-import { removeExperimentFromPresentations } from "@back-end/src/services/presentations";
-import { generateExperimentNotebook } from "@back-end/src/services/notebook";
-import {
-  auditDetailsCreate,
-  auditDetailsDelete,
-  auditDetailsUpdate,
-} from "@back-end/src/services/audit";
-import { IMPORT_LIMIT_DAYS } from "@back-end/src/util/secrets";
-import {
   createExperiment,
   deleteExperimentByIdForOrganization,
   getAllExperiments,
@@ -69,6 +44,13 @@ import {
 import { getMetricById, getMetricMap } from "@back-end/src/models/MetricModel";
 import { IdeaModel } from "@back-end/src/models/IdeasModel";
 import { getDataSourceById } from "@back-end/src/models/DataSourceModel";
+import { IMPORT_LIMIT_DAYS } from "@back-end/src/util/secrets";
+import {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+} from "@back-end/types/experiment-snapshot";
+import { VisualChangesetInterface } from "@back-end/types/visual-changeset";
+import { ApiReqContext, PrivateApiErrorResponse } from "@back-end/types/api";
 import {
   findAllProjectsByOrganization,
   findProjectById,
@@ -82,12 +64,12 @@ import {
   upsertWatch,
 } from "@back-end/src/models/WatchModel";
 import { getFactTableMap } from "@back-end/src/models/FactTableModel";
-import { ApiReqContext, PrivateApiErrorResponse } from "@back-end/types/api";
-import { VisualChangesetInterface } from "@back-end/types/visual-changeset";
+import { OrganizationSettings, ReqContext } from "@back-end/types/organization";
 import {
-  ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotInterface,
-} from "@back-end/types/experiment-snapshot";
+  createURLRedirect,
+  findURLRedirectsByExperiment,
+  syncURLRedirectsWithVariations,
+} from "@back-end/src/models/UrlRedirectModel";
 import { IdeaInterface } from "@back-end/types/idea";
 import {
   Changeset,
@@ -99,13 +81,36 @@ import {
   Variation,
 } from "@back-end/types/experiment";
 import { MetricInterface, MetricStats } from "@back-end/types/metric";
-import { OrganizationSettings, ReqContext } from "@back-end/types/organization";
+import {
+  auditDetailsCreate,
+  auditDetailsDelete,
+  auditDetailsUpdate,
+} from "@back-end/src/services/audit";
+import { generateExperimentNotebook } from "@back-end/src/services/notebook";
+import { removeExperimentFromPresentations } from "@back-end/src/services/presentations";
+import {
+  getContextFromReq,
+  userHasAccess,
+} from "@back-end/src/services/organizations";
+import {
+  getIntegrationFromDatasourceId,
+  getSourceIntegrationObject,
+} from "@back-end/src/services/datasource";
+import {
+  createManualSnapshot,
+  createSnapshot,
+  createSnapshotAnalysis,
+  getAdditionalExperimentAnalysisSettings,
+  getDefaultExperimentAnalysisSettings,
+  getExperimentMetricById,
+  getLinkedFeatureInfo,
+} from "@back-end/src/services/experiments";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
 } from "@back-end/src/types/AuthRequest";
-import { PastExperimentsQueryRunner } from "@back-end/src/queryRunners/PastExperimentsQueryRunner";
 import { ExperimentResultsQueryRunner } from "@back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { PastExperimentsQueryRunner } from "@back-end/src/queryRunners/PastExperimentsQueryRunner";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -289,12 +294,18 @@ export async function getExperiment(
     org.id
   );
 
+  const urlRedirects = await findURLRedirectsByExperiment(
+    experiment.id,
+    org.id
+  );
+
   const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
 
   res.status(200).json({
     status: 200,
     experiment,
     visualChangesets,
+    urlRedirects,
     linkedFeatures,
     idea,
   });
@@ -584,6 +595,20 @@ export async function postExperiments(
           visualChanges: visualChangeset.visualChanges,
         });
       }
+
+      const urlRedirects = await findURLRedirectsByExperiment(
+        req.query.originalId,
+        org.id
+      );
+      for (const urlRedirect of urlRedirects) {
+        await createURLRedirect({
+          experiment,
+          destinationURLs: urlRedirect.destinationURLs,
+          context,
+          persistQueryString: urlRedirect.persistQueryString,
+          urlPattern: urlRedirect.urlPattern,
+        });
+      }
     }
 
     await req.audit({
@@ -738,6 +763,7 @@ export async function postExperiment(
     "project",
     "regressionAdjustmentEnabled",
     "hasVisualChangesets",
+    "hasURLRedirects",
     "sequentialTestingEnabled",
     "sequentialTestingTuningParameter",
     "statsEngine",
@@ -829,6 +855,22 @@ export async function postExperiment(
         visualChangesets.map((vc) =>
           syncVisualChangesWithVariations({
             visualChangeset: vc,
+            experiment: updated,
+            context,
+          })
+        )
+      );
+    }
+
+    const urlRedirects = await findURLRedirectsByExperiment(
+      experiment.id,
+      org.id
+    );
+    if (urlRedirects.length) {
+      await Promise.all(
+        urlRedirects.map((urlRedirect) =>
+          syncURLRedirectsWithVariations({
+            urlRedirect,
             experiment: updated,
             context,
           })
@@ -2066,8 +2108,8 @@ export async function cancelPastExperiments(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  // Passing in an empty string for "project" since pastExperiments don't have projects
-  req.checkPermissions("runQueries", "");
+  // for safety, check if the user has runQueries globally or in atleast 1 project
+  req.checkPermissions("runQueries", []);
 
   const context = getContextFromReq(req);
   const { org } = context;
@@ -2211,7 +2253,6 @@ export async function postVisualChangeset(
   res: Response
 ) {
   const context = getContextFromReq(req);
-
   if (!req.body.urlPatterns) {
     throw new Error("urlPatterns needs to be defined");
   }
@@ -2261,6 +2302,15 @@ export async function putVisualChangeset(
     context,
     visualChangeset.experiment
   );
+  if (!experiment) {
+    throw new Error("Could not find experiment");
+  }
+
+  const updates: Partial<VisualChangesetInterface> = {
+    editorUrl: req.body.editorUrl,
+    urlPatterns: req.body.urlPatterns,
+    visualChanges: req.body.visualChanges,
+  };
 
   const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
   req.checkPermissions("runExperiments", experiment?.project || "", envs);
@@ -2269,7 +2319,7 @@ export async function putVisualChangeset(
     visualChangeset,
     experiment,
     context,
-    updates: req.body,
+    updates,
   });
 
   res.status(200).json({

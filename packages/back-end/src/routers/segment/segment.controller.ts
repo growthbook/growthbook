@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import uniqid from "uniqid";
 import { FilterQuery } from "mongoose";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { getContextFromReq } from "@back-end/src/services/organizations";
 import { getIdeasByQuery } from "@back-end/src/services/ideas";
 import { ApiErrorResponse } from "@back-end/types/api";
@@ -24,7 +25,6 @@ import {
 import { MetricInterface } from "@back-end/types/metric";
 import { SegmentInterface } from "@back-end/types/segment";
 import { ExperimentInterface } from "@back-end/types/experiment";
-import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { EventAuditUserForResponseLocals } from "@back-end/src/events/event-types";
 
 // region GET /segments

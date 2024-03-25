@@ -370,8 +370,8 @@ async function refreshInstance(
   data = await instance.decryptPayload(data, undefined, polyfills.SubtleCrypto);
 
   await instance.refreshStickyBuckets(data);
-  instance.setExperiments(data.experiments || instance.getExperiments());
   instance.setFeatures(data.features || instance.getFeatures());
+  instance.setExperiments(data.experiments || instance.getExperiments());
 }
 
 async function fetchFeatures(

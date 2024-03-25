@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
@@ -18,7 +19,6 @@ import {
   updateTeamMetadata,
 } from "@back-end/src/models/TeamModel";
 import { MemberRoleWithProjects } from "@back-end/types/organization";
-import { AuthRequest } from "@back-end/src/types/AuthRequest";
 
 // region POST /teams
 

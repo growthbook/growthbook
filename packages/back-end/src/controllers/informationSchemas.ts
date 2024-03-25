@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { fetchTableData } from "@back-end/src/services/informationSchema";
 import { getContextFromReq } from "@back-end/src/services/organizations";
 import { getPath } from "@back-end/src/util/informationSchemas";
@@ -9,7 +10,6 @@ import {
   getInformationSchemaTableById,
 } from "@back-end/src/models/InformationSchemaTablesModel";
 import { Column } from "@back-end/src/types/Integration";
-import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { queueUpdateStaleInformationSchemaTable } from "@back-end/src/jobs/updateStaleInformationSchemaTable";
 import { queueUpdateInformationSchema } from "@back-end/src/jobs/updateInformationSchema";
 import { queueCreateInformationSchema } from "@back-end/src/jobs/createInformationSchema";

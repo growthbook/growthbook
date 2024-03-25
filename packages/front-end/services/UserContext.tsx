@@ -31,7 +31,7 @@ import {
 } from "react";
 import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
-import { userHasPermission } from "shared/permissions";
+import { Permissions, userHasPermission } from "shared/permissions";
 import { isCloud, isMultiOrg, isSentryEnabled } from "@front-end/services/env";
 import useApi from "@front-end/hooks/useApi";
 import { useAuth, UserOrganizations } from "@front-end/services/auth";
@@ -49,6 +49,7 @@ type OrgSettingsResponse = {
   accountPlan: AccountPlan;
   effectiveAccountPlan: AccountPlan;
   commercialFeatures: CommercialFeature[];
+  license: LicenseInterface;
   licenseKey?: string;
   currentUserPermissions: UserPermissions;
   teams: TeamInterface[];
@@ -115,6 +116,7 @@ export interface UserContextValue {
   teams?: Team[];
   error?: string;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
+  permissionsUtil: Permissions;
 }
 
 interface UserResponse {
@@ -125,7 +127,6 @@ interface UserResponse {
   verified: boolean;
   superAdmin: boolean;
   organizations?: UserOrganizations;
-  license?: LicenseInterface;
   currentUserPermissions: UserPermissions;
 }
 
@@ -147,6 +148,17 @@ export const UserContext = createContext<UserContextValue>({
   seatsInUse: 0,
   teams: [],
   hasCommercialFeature: () => false,
+  permissionsUtil: new Permissions(
+    {
+      global: {
+        permissions: {},
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    },
+    false
+  ),
 });
 
 export function useUser() {
@@ -265,21 +277,12 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     void updateUser();
   }, [isAuthenticated, updateUser]);
 
-  // Refresh user and org after loading license
+  // Refresh org after loading license
   useEffect(() => {
     if (orgId) {
       void refreshOrganization();
     }
-    if (isAuthenticated) {
-      void updateUser();
-    }
-  }, [
-    orgId,
-    isAuthenticated,
-    currentOrg?.organization?.licenseKey,
-    refreshOrganization,
-    updateUser,
-  ]);
+  }, [orgId, currentOrg?.organization?.licenseKey, refreshOrganization]);
 
   // Update growthbook tarageting attributes
   const growthbook = useGrowthBook<AppFeatures>();
@@ -295,7 +298,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       cloud: isCloud(),
       multiOrg: isMultiOrg(),
       accountPlan: currentOrg?.accountPlan || "unknown",
-      hasLicenseKey: !!data?.license,
+      hasLicenseKey: !!currentOrg?.organization?.licenseKey,
       freeSeats: currentOrg?.organization?.freeSeats || 3,
       discountCode: currentOrg?.organization?.discountCode || "",
     });
@@ -355,6 +358,18 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     permissionsCheck,
   ]);
 
+  const permissionsUtil = new Permissions(
+    currentOrg?.currentUserPermissions || {
+      global: {
+        permissions: {},
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    },
+    data?.superAdmin || false
+  );
+
   return (
     <UserContext.Provider
       value={{
@@ -373,8 +388,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         refreshOrganization: refreshOrganization as () => Promise<void>,
         roles: currentOrg?.roles || [],
         permissions,
+        permissionsUtil,
         settings: currentOrg?.organization?.settings || {},
-        license: data?.license,
+        license: currentOrg?.license,
         enterpriseSSO: currentOrg?.enterpriseSSO || undefined,
         accountPlan: currentOrg?.accountPlan,
         effectiveAccountPlan: currentOrg?.effectiveAccountPlan,

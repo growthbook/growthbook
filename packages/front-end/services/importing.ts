@@ -432,9 +432,14 @@ export const transformLDFeatureFlag = (
     }
 
     // First add targeting rules
-    const targets = (envData.targets || []).concat(
-      envData.contextTargets || []
-    );
+    const targets: { values: string[]; variation: number }[] = [];
+    (envData.targets || [])
+      .concat(envData.contextTargets || [])
+      .forEach((t) => {
+        if (t?.values?.length) {
+          targets.push(t);
+        }
+      });
     targets.forEach((target, i) => {
       rules.push({
         type: "force",

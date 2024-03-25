@@ -4,12 +4,13 @@ import {
   getEventWebHookById,
   updateEventWebHookStatus,
 } from "@back-end/src/models/EventWebhookModel";
-import { EventWebHookInterface } from "@back-end/types/event-webhook";
 import { findOrganizationById } from "@back-end/src/models/OrganizationModel";
 import { createEventWebHookLog } from "@back-end/src/models/EventWebHookLogModel";
+import { EventWebHookInterface } from "@back-end/types/event-webhook";
+import { getAgendaInstance } from "@back-end/src/services/queueing";
 import { logger } from "@back-end/src/util/logger";
 import { cancellableFetch } from "@back-end/src/util/http.util";
-import { getAgendaInstance } from "@back-end/src/services/queueing";
+import { getSlackMessageForNotificationEvent } from "@back-end/src/events/handlers/slack/slack-event-handler-utils";
 import {
   EventWebHookErrorResult,
   EventWebHookResult,
@@ -99,7 +100,42 @@ export class EventWebHookNotifier implements Notifier {
       );
     }
 
-    const payload = event.data;
+    const eventPayload = event.data;
+
+    const payload = (() => {
+      let invalidPayloadType: never;
+      const { payloadType } = eventWebHook;
+
+      if (!payloadType) return eventPayload;
+
+      switch (payloadType) {
+        case "raw":
+          return eventPayload;
+
+        case "slack": {
+          return getSlackMessageForNotificationEvent(eventPayload, eventId);
+        }
+
+        case "discord": {
+          const data = getSlackMessageForNotificationEvent(
+            eventPayload,
+            eventId
+          );
+
+          if (!data) return null;
+
+          return { content: data.text };
+        }
+
+        case "ms-teams":
+          // TODO: not implemented
+          return eventPayload;
+
+        default:
+          invalidPayloadType = payloadType;
+          throw `Invalid payload type: ${invalidPayloadType}`;
+      }
+    })();
 
     if (!payload) {
       // Unsupported events return a null payload

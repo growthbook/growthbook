@@ -257,6 +257,7 @@ export async function queueSingleWebhookById(webhookId: string) {
       includeVisualExperiments: connection.includeVisualExperiments,
       includeDraftExperiments: connection.includeDraftExperiments,
       includeExperimentNames: connection.includeExperimentNames,
+      includeRedirectExperiments: connection.includeRedirectExperiments,
       hashSecureAttributes: connection.hashSecureAttributes,
     });
 
@@ -329,6 +330,7 @@ export async function queueGlobalWebhooks(
           includeVisualExperiments: connection.includeVisualExperiments,
           includeDraftExperiments: connection.includeDraftExperiments,
           includeExperimentNames: connection.includeExperimentNames,
+          includeRedirectExperiments: connection.includeRedirectExperiments,
           hashSecureAttributes: connection.hashSecureAttributes,
         });
 

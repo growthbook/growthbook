@@ -44,14 +44,14 @@ import { useUser } from "@front-end/services/UserContext";
 import EditSqlModal from "@front-end/components/SchemaBrowser/EditSqlModal";
 import useSchemaFormOptions from "@front-end/hooks/useSchemaFormOptions";
 import { GBCuped } from "@front-end/components/Icons";
-import usePermissions from "@front-end/hooks/usePermissions";
 import { useCurrency } from "@front-end/hooks/useCurrency";
 import ConfirmModal from "@front-end/components/ConfirmModal";
 import { useDemoDataSourceProject } from "@front-end/hooks/useDemoDataSourceProject";
 import FactMetricModal from "@front-end/components/FactTables/FactMetricModal";
-import { MetricWindowSettingsForm } from "./MetricWindowSettingsForm";
-import { MetricCappingSettingsForm } from "./MetricCappingSettingsForm";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 import { MetricDelayHours } from "./MetricDelayHours";
+import { MetricCappingSettingsForm } from "./MetricCappingSettingsForm";
+import { MetricWindowSettingsForm } from "./MetricWindowSettingsForm";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -218,7 +218,7 @@ const MetricForm: FC<MetricFormProps> = ({
   } = useDefinitions();
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const [step, setStep] = useState(initialStep);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
@@ -583,15 +583,13 @@ const MetricForm: FC<MetricFormProps> = ({
   );
 
   let ctaEnabled = true;
-  let disabledMessage = null;
+  let disabledMessage: string | null = null;
 
   if (riskError) {
     ctaEnabled = false;
-    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '"The acceptable risk percentage cannot be hi... Remove this comment to see the full error message
     disabledMessage = riskError;
-  } else if (!permissions.check("createMetrics", project)) {
+  } else if (!permissionsUtil.canCreateMetric({ projects: value.projects })) {
     ctaEnabled = false;
-    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '"You don't have permission to create metrics... Remove this comment to see the full error message
     disabledMessage = "You don't have permission to create metrics.";
   }
 

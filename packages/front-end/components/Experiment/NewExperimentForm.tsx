@@ -500,6 +500,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   form.setValue("phases.0.prerequisites", prerequisites)
                 }
                 environments={envs}
+                project={form.watch("project")}
                 setPrerequisiteTargetingSdkIssues={
                   setPrerequisiteTargetingSdkIssues
                 }

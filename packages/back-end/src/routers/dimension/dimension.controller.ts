@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import uniqid from "uniqid";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { getContextFromReq } from "@back-end/src/services/organizations";
 import { PrivateApiErrorResponse } from "@back-end/types/api";
 import { DimensionInterface } from "@back-end/types/dimension";
@@ -11,7 +12,6 @@ import {
   updateDimension,
 } from "@back-end/src/models/DimensionModel";
 import { getDataSourceById } from "@back-end/src/models/DataSourceModel";
-import { AuthRequest } from "@back-end/src/types/AuthRequest";
 
 // region GET /dimensions
 
