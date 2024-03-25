@@ -105,10 +105,10 @@ export function PreLaunchChecklist({
       return manualChecklistStatus[index].status === "complete";
     }
     const items: CheckListItem[] = [];
-    // At least one linked change
     const hasLinkedChanges =
       linkedFeatures.some((f) => f.state === "live" || f.state === "draft") ||
-      visualChangesets.length > 0;
+      experiment.hasVisualChangesets ||
+      experiment.hasURLRedirects;
     items.push({
       display: (
         <>
@@ -124,7 +124,7 @@ export function PreLaunchChecklist({
               Linked Feature or Visual Editor change
             </a>
           ) : (
-            "Linked Feature or Visual Editor change"
+            "Linked Feature, Visual Editor change, or URL redirect"
           )}
           .
         </>

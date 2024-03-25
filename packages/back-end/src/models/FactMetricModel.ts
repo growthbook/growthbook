@@ -37,6 +37,12 @@ const factTableSchema = new mongoose.Schema({
     filters: [String],
   },
 
+  quantileSettings: {
+    type: { type: String },
+    quantile: Number,
+    ignoreZeros: Boolean,
+  },
+
   cappingSettings: {
     type: { type: String },
     value: Number,
@@ -183,8 +189,10 @@ export function toFactMetricApiInterface(
     ...otherFields
   } = omit(factMetric, ["organization"]);
 
+  const metricType = otherFields.metricType;
   return {
     ...otherFields,
+    metricType: metricType === "quantile" ? "mean" : metricType, // TODO-quantile
     managedBy: factMetric.managedBy || "",
     denominator: denominator || undefined,
     cappingSettings: {

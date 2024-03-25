@@ -154,7 +154,11 @@ const RunQueriesButton: FC<{
             onClick={async (e) => {
               e.preventDefault();
               onSubmit?.();
-              await apiCall(cancelEndpoint, { method: "POST" });
+              try {
+                await apiCall(cancelEndpoint, { method: "POST" });
+              } catch (e) {
+                console.error(e);
+              }
               await mutate();
             }}
             title="Cancel"

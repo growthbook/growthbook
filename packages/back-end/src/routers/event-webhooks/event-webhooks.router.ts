@@ -122,4 +122,16 @@ router.put(
   eventWebHooksController.putEventWebHook
 );
 
+router.post(
+  "/event-webhooks/test",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        webhookId: z.string().trim().min(1),
+      })
+      .strict(),
+  }),
+  eventWebHooksController.createTestEventWebHook
+);
+
 export { router as eventWebHooksRouter };

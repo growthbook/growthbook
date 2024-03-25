@@ -40,4 +40,7 @@ export type AppFeatures = {
   "fact-tables": boolean;
   "health-tab": boolean;
   "github-integration": boolean;
+  "pylon-config": Record<string, unknown>;
+  "no-access-role-type": boolean;
+  "quantile-metrics": boolean;
 };

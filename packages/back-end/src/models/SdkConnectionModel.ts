@@ -48,6 +48,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   includeVisualExperiments: Boolean,
   includeDraftExperiments: Boolean,
   includeExperimentNames: Boolean,
+  includeRedirectExperiments: Boolean,
   connected: Boolean,
   remoteEvalEnabled: Boolean,
   key: {
@@ -159,6 +160,7 @@ export const createSDKConnectionValidator = z
     includeVisualExperiments: z.boolean().optional(),
     includeDraftExperiments: z.boolean().optional(),
     includeExperimentNames: z.boolean().optional(),
+    includeRedirectExperiments: z.boolean().optional(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     remoteEvalEnabled: z.boolean().optional(),
@@ -227,6 +229,7 @@ export const editSDKConnectionValidator = z
     includeVisualExperiments: z.boolean().optional(),
     includeDraftExperiments: z.boolean().optional(),
     includeExperimentNames: z.boolean().optional(),
+    includeRedirectExperiments: z.boolean().optional(),
     remoteEvalEnabled: z.boolean().optional(),
   })
   .strict();
@@ -276,6 +279,7 @@ export async function editSDKConnection(
     "includeVisualExperiments",
     "includeDraftExperiments",
     "includeExperimentNames",
+    "includeRedirectExperiments",
     "remoteEvalEnabled",
   ] as const;
   keysRequiringProxyUpdate.forEach((key) => {
@@ -472,6 +476,7 @@ export function toApiSDKConnectionInterface(
     includeVisualExperiments: connection.includeVisualExperiments,
     includeDraftExperiments: connection.includeDraftExperiments,
     includeExperimentNames: connection.includeExperimentNames,
+    includeRedirectExperiments: connection.includeRedirectExperiments,
     key: connection.key,
     proxyEnabled: connection.proxy.enabled,
     proxyHost: connection.proxy.host,

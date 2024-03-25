@@ -4,6 +4,7 @@ import {
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { URLRedirectInterface } from "back-end/types/url-redirect";
 import React, { ReactElement, useState } from "react";
 import { IdeaInterface } from "back-end/types/idea";
 import {
@@ -53,6 +54,7 @@ const ExperimentPage = (): ReactElement => {
     idea?: IdeaInterface;
     visualChangesets: VisualChangesetInterface[];
     linkedFeatures: LinkedFeatureInfo[];
+    urlRedirects: URLRedirectInterface[];
   }>(`/experiment/${eid}`);
 
   useSwitchOrg(data?.experiment?.organization ?? null);
@@ -66,7 +68,12 @@ const ExperimentPage = (): ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const { experiment, visualChangesets = [], linkedFeatures = [] } = data;
+  const {
+    experiment,
+    visualChangesets = [],
+    linkedFeatures = [],
+    urlRedirects = [],
+  } = data;
 
   const canEditExperiment =
     permissions.check("createAnalyses", experiment.project) &&
@@ -164,10 +171,11 @@ const ExperimentPage = (): ReactElement => {
           additionalMessage={
             experiment.status !== "draft" &&
             (experiment.linkedFeatures?.length ||
-              experiment.hasVisualChangesets) ? (
+              experiment.hasVisualChangesets ||
+              experiment.hasURLRedirects) ? (
               <div className="alert alert-danger">
-                Changing the project may prevent your linked Feature Flags and
-                Visual Changes from being sent to users.
+                Changing the project may prevent your linked Feature Flags,
+                Visual Changes, and URL Redirects from being sent to users.
               </div>
             ) : null
           }
@@ -223,6 +231,7 @@ const ExperimentPage = (): ReactElement => {
             linkedFeatures={linkedFeatures}
             mutate={mutate}
             visualChangesets={visualChangesets}
+            urlRedirects={urlRedirects}
             editMetrics={editMetrics}
             editResult={editResult}
             editVariations={editVariations}

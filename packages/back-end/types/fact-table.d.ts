@@ -17,6 +17,7 @@ import {
   cappingSettingsValidator,
   windowSettingsValidator,
   cappingTypeValidator,
+  quantileSettingsValidator,
 } from "../src/routers/fact-table/fact-table.validators";
 import { TestQueryRow } from "../src/types/Integration";
 
@@ -68,6 +69,8 @@ export type ColumnRef = z.infer<typeof columnRefValidator>;
 
 export type FactMetricType = z.infer<typeof metricTypeValidator>;
 
+export type MetricQuantileSettings = z.infer<typeof quantileSettingsValidator>;
+
 export type CappingType = z.infer<typeof cappingTypeValidator>;
 export type MetricCappingSettings = z.infer<typeof cappingSettingsValidator>;
 
@@ -93,6 +96,8 @@ export interface FactMetricInterface {
   metricType: FactMetricType;
   numerator: ColumnRef;
   denominator: ColumnRef | null;
+
+  quantileSettings: MetricQuantileSettings | null;
 
   cappingSettings: MetricCappingSettings;
   windowSettings: MetricWindowSettings;
