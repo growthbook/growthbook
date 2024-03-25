@@ -21,11 +21,11 @@ export const postVisualChange = createApiRequestHandler(
 
     req.checkPermissions("manageVisualChanges", experiment.project);
 
-    const res = await createVisualChange(
-      req.params.id,
-      req.organization.id,
-      req.body
-    );
+    const res = await createVisualChange(req.params.id, req.organization.id, {
+      ...req.body,
+      css: req.body.css || "",
+      description: req.body.description || "",
+    });
 
     return res;
   }
