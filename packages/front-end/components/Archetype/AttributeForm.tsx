@@ -16,7 +16,6 @@ export interface Props {
   initialValues?: ArchetypeAttributeValues;
   jsonCTA?: string;
   useJSONButton?: boolean;
-  projectFilter?: string;
 }
 
 export default function AttributeForm({
@@ -24,7 +23,6 @@ export default function AttributeForm({
   initialValues = {},
   jsonCTA = "Test Attributes",
   useJSONButton = true,
-  projectFilter = "",
 }: Props) {
   const [formValues, setFormValues] = useState({});
   const [jsonAttributes, setJsonAttributes] = useState<string>(
@@ -33,7 +31,7 @@ export default function AttributeForm({
   const [jsonErrors, setJsonErrors] = useState<string | null>();
   const [tab, setTab] = useState<"simple" | "adv">("simple");
 
-  const attributeSchema = useAttributeSchema(true, projectFilter);
+  const attributeSchema = useAttributeSchema(true);
 
   const orderedAttributes = useMemo<SDKAttributeSchema>(
     () => [

@@ -76,7 +76,7 @@ export default function AssignmentTester({ feature, version }: Props) {
   const { hasCommercialFeature } = useUser();
   const hasArchetypeAccess = hasCommercialFeature("archetypes");
 
-  const attributeSchema = useAttributeSchema(true, feature.project);
+  const attributeSchema = useAttributeSchema(true);
 
   const orderedAttributes = useMemo(
     () => [
@@ -365,7 +365,6 @@ export default function AssignmentTester({ feature, version }: Props) {
                   onChange={(attrs) => {
                     setFormValues(attrs);
                   }}
-                  projectFilter={feature.project}
                 />
                 <div className="mt-2">
                   <PremiumTooltip commercialFeature="archetypes">
