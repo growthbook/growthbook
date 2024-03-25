@@ -4,6 +4,7 @@ import { useState } from "react";
 import { FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import { ColumnRef, FactTableInterface } from "back-end/types/fact-table";
 import { FaTriangleExclamation } from "react-icons/fa6";
+import { quantileMetricType } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBCuped, GBEdit } from "@/components/Icons";
@@ -67,7 +68,13 @@ export function FilterBadges({
   );
 }
 
-function MetricType({ type }: { type: "proportion" | "mean" | "ratio" }) {
+function MetricType({
+  type,
+  quantileType,
+}: {
+  type: "proportion" | "mean" | "ratio" | "quantile";
+  quantileType?: "" | "unit" | "event";
+}) {
   if (type === "proportion") {
     return (
       <div>
@@ -92,6 +99,14 @@ function MetricType({ type }: { type: "proportion" | "mean" | "ratio" }) {
       </div>
     );
   }
+  if (type === "quantile") {
+    return (
+      <div>
+        <strong>Quantile Metric</strong> - The quantile of some values{" "}
+        {quantileType === "unit" ? "after aggregating per user" : ""}
+      </div>
+    );
+  }
 
   return null;
 }
@@ -99,10 +114,12 @@ function MetricType({ type }: { type: "proportion" | "mean" | "ratio" }) {
 function ColumnRefSQL({
   columnRef,
   isProportion,
+  quantileType,
   showFrom,
 }: {
   columnRef: ColumnRef | null;
   isProportion?: boolean;
+  quantileType?: "" | "unit" | "event";
   showFrom?: boolean;
 }) {
   const { getFactTableById } = useDefinitions();
@@ -129,15 +146,18 @@ function ColumnRefSQL({
       ? "COUNT(*)"
       : id === "$$distinctUsers"
       ? `COUNT(DISTINCT \`User Identifier\`)`
+      : quantileType === "event"
+      ? `\`${name || columnRef.column}\``
       : `SUM(\`${name || columnRef.column}\`)`;
 
   const from = showFrom ? `\nFROM \`${factTable.name}\`` : "";
 
   const sqlExtra = where.length > 0 ? `\nWHERE ${where.join(" AND ")}` : "";
+  const groupBy = quantileType === "unit" ? `\nGROUP BY \`Identifier\`` : "";
 
   return (
     <div className="d-flex align-items-center">
-      <InlineCode language="sql" code={column + from + sqlExtra} />
+      <InlineCode language="sql" code={column + from + sqlExtra + groupBy} />
       {colData?.deleted && (
         <div className="ml-2">
           <Tooltip body="This column is no longer being returned from the Fact Table">
@@ -359,17 +379,38 @@ export default function FactMetricPage() {
           <div className="mb-5">
             <h3>Metric Definition</h3>
             <div className="mb-2">
-              <MetricType type={factMetric.metricType} />
+              <MetricType
+                type={factMetric.metricType}
+                quantileType={quantileMetricType(factMetric)}
+              />
             </div>
             <div className="appbox p-3 mb-3">
               <div className="d-flex mb-3">
                 <strong className="mr-2" style={{ width: 120 }}>
-                  Numerator
+                  {factMetric.metricType === "quantile"
+                    ? `${capitalizeFirstLetter(
+                        quantileMetricType(factMetric)
+                      )} Quantile`
+                    : "Numerator"}
                 </strong>
                 <div>
+                  {factMetric.metricType === "quantile" ? (
+                    <div className="mb-1">
+                      {factMetric.metricType === "quantile"
+                        ? `The ${
+                            factMetric.quantileSettings?.quantile
+                          } quantile${
+                            factMetric.quantileSettings?.ignoreZeros
+                              ? ", ignoring zeros, "
+                              : ""
+                          } of`
+                        : null}
+                    </div>
+                  ) : null}
                   <ColumnRefSQL
                     columnRef={factMetric.numerator}
                     showFrom={true}
+                    quantileType={quantileMetricType(factMetric)}
                     isProportion={factMetric.metricType === "proportion"}
                   />
                 </div>
@@ -378,31 +419,37 @@ export default function FactMetricPage() {
                   <FactTableLink id={factMetric.numerator.factTableId} />
                 </div>
               </div>
-              <hr />
-              <div className="d-flex">
-                <strong className="mr-2" style={{ width: 120 }}>
-                  Denominator
-                </strong>
-                <div>
-                  {factMetric.metricType === "ratio" ? (
-                    <ColumnRefSQL
-                      columnRef={factMetric.denominator}
-                      showFrom={true}
-                    />
-                  ) : (
-                    <em>All Experiment Users</em>
-                  )}
-                </div>
-                {factMetric.metricType === "ratio" &&
-                  factMetric.denominator?.factTableId &&
-                  factMetric.denominator.factTableId !==
-                    factMetric.numerator.factTableId && (
-                    <div className="ml-auto">
-                      View Fact Table:{" "}
-                      <FactTableLink id={factMetric.denominator.factTableId} />
+              {factMetric.metricType !== "quantile" ? (
+                <>
+                  <hr />
+                  <div className="d-flex">
+                    <strong className="mr-2" style={{ width: 120 }}>
+                      Denominator
+                    </strong>
+                    <div>
+                      {factMetric.metricType === "ratio" ? (
+                        <ColumnRefSQL
+                          columnRef={factMetric.denominator}
+                          showFrom={true}
+                        />
+                      ) : (
+                        <em>All Experiment Users</em>
+                      )}
                     </div>
-                  )}
-              </div>
+                    {factMetric.metricType === "ratio" &&
+                      factMetric.denominator?.factTableId &&
+                      factMetric.denominator.factTableId !==
+                        factMetric.numerator.factTableId && (
+                        <div className="ml-auto">
+                          View Fact Table:{" "}
+                          <FactTableLink
+                            id={factMetric.denominator.factTableId}
+                          />
+                        </div>
+                      )}
+                  </div>{" "}
+                </>
+              ) : null}
             </div>
           </div>
 
