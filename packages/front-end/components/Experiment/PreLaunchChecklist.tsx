@@ -287,6 +287,8 @@ export function PreLaunchChecklist({
     data,
     editTargeting,
     experiment.description,
+    experiment.hasURLRedirects,
+    experiment.hasVisualChangesets,
     experiment.hypothesis,
     experiment.manualLaunchChecklist,
     experiment.phases.length,
