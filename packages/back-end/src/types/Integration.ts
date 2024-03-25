@@ -36,10 +36,7 @@ export class DataSourceNotSupportedError extends Error {
 
 export type MetricAggregationType = "pre" | "post" | "noWindow";
 
-export type QuantileSQLConfig = {
-  quantileValue: number;
-  ignoreZeros: boolean;
-  alpha: number;
+export type MetricQuantileSQLSettings = MetricQuantileSettings & {
   nstars: number[];
 };
 
@@ -50,7 +47,7 @@ export type FactMetricData = {
   ratioMetric: boolean;
   funnelMetric: boolean;
   quantileMetric: "" | MetricQuantileSettings["type"];
-  quantileSQLConfig: QuantileSQLConfig;
+  metricQuantileSQLSettings: MetricQuantileSQLSettings;
   regressionAdjusted: boolean;
   regressionAdjustmentHours: number;
   overrideConversionWindows: boolean;

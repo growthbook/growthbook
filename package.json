@@ -29,6 +29,7 @@
     "packages/*"
   ],
   "dependencies": {
+    "patch-package": "^8.0.0",
     "wsrun": "^5.2.4"
   },
   "devDependencies": {
@@ -47,7 +48,6 @@
     "growthbook": "^0.2.1",
     "husky": "^7.0.0",
     "lint-staged": "^10.2.7",
-    "patch-package": "^8.0.0",
     "plop": "^3.1.1",
     "prettier": "^2.2.1",
     "typescript": "5.3.3"

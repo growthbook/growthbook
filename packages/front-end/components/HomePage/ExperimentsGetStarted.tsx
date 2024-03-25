@@ -329,8 +329,9 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     text={
                       <p>
                         Design a new A/B test from scratch using either{" "}
-                        <strong>Feature Flags</strong> or our{" "}
-                        <strong>Visual Editor</strong>. Then, integrate our SDK
+                        <strong>Feature Flags</strong>, our{" "}
+                        <strong>Visual Editor</strong>, or{" "}
+                        <strong>URL Redirects</strong>. Then, integrate our SDK
                         into your application and start collecting and analyzing
                         data from your users.
                       </p>

@@ -3,12 +3,10 @@ import {
   createFactFilterPropsValidator,
   createColumnPropsValidator,
   createFactTablePropsValidator,
-  createFactMetricPropsValidator,
   numberFormatValidator,
   updateFactFilterPropsValidator,
   updateColumnPropsValidator,
   updateFactTablePropsValidator,
-  updateFactMetricPropsValidator,
   columnRefValidator,
   metricTypeValidator,
   factTableColumnTypeValidator,
@@ -17,9 +15,11 @@ import {
   cappingSettingsValidator,
   windowSettingsValidator,
   cappingTypeValidator,
+  factMetricValidator,
   quantileSettingsValidator,
 } from "../src/routers/fact-table/fact-table.validators";
 import { TestQueryRow } from "../src/types/Integration";
+import { CreateProps, UpdateProps } from "./models";
 
 export type FactTableColumnType = z.infer<typeof factTableColumnTypeValidator>;
 export type NumberFormat = z.infer<typeof numberFormatValidator>;
@@ -79,39 +79,7 @@ export type ConversionWindowUnit = z.infer<
 >;
 export type MetricWindowSettings = z.infer<typeof windowSettingsValidator>;
 
-export interface FactMetricInterface {
-  id: string;
-  organization: string;
-  managedBy?: "" | "api";
-  owner: string;
-  datasource: string;
-  dateCreated: Date | null;
-  dateUpdated: Date | null;
-  name: string;
-  description: string;
-  tags: string[];
-  projects: string[];
-  inverse: boolean;
-
-  metricType: FactMetricType;
-  numerator: ColumnRef;
-  denominator: ColumnRef | null;
-
-  quantileSettings: MetricQuantileSettings | null;
-
-  cappingSettings: MetricCappingSettings;
-  windowSettings: MetricWindowSettings;
-
-  maxPercentChange: number;
-  minPercentChange: number;
-  minSampleSize: number;
-  winRisk: number;
-  loseRisk: number;
-
-  regressionAdjustmentOverride: boolean;
-  regressionAdjustmentEnabled: boolean;
-  regressionAdjustmentDays: number;
-}
+export type FactMetricInterface = z.infer<typeof factMetricValidator>;
 
 export type LegacyFactMetricInterface = FactMetricInterface & {
   capping?: CappingType;
@@ -140,12 +108,8 @@ export type TestFactFilterProps = z.infer<typeof testFactFilterPropsValidator>;
 export type UpdateColumnProps = z.infer<typeof updateColumnPropsValidator>;
 export type CreateColumnProps = z.infer<typeof createColumnPropsValidator>;
 
-export type CreateFactMetricProps = z.infer<
-  typeof createFactMetricPropsValidator
->;
-export type UpdateFactMetricProps = z.infer<
-  typeof updateFactMetricPropsValidator
->;
+export type CreateFactMetricProps = CreateProps<FactMetricInterface>;
+export type UpdateFactMetricProps = UpdateProps<FactMetricInterface>;
 
 export type FactTableMap = Map<string, FactTableInterface>;
 
