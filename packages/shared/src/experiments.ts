@@ -2,6 +2,7 @@ import { MetricInterface } from "back-end/types/metric";
 import {
   FactMetricInterface,
   FactTableMap,
+  MetricQuantileSettings,
   MetricWindowSettings,
 } from "back-end/types/fact-table";
 import { TemplateVariables } from "back-end/types/sql";
@@ -60,6 +61,15 @@ export function isRatioMetric(
   return !!denominatorMetric && !isBinomialMetric(denominatorMetric);
 }
 
+export function quantileMetricType(
+  m: ExperimentMetricInterface
+): "" | MetricQuantileSettings["type"] {
+  if (isFactMetric(m) && m.metricType === "quantile") {
+    return m.quantileSettings?.type || "";
+  }
+  return "";
+}
+
 export function isFunnelMetric(
   m: ExperimentMetricInterface,
   denominatorMetric?: ExperimentMetricInterface
@@ -75,7 +85,8 @@ export function isRegressionAdjusted(
   return (
     (m.regressionAdjustmentDays ?? 0) > 0 &&
     !!m.regressionAdjustmentEnabled &&
-    !isRatioMetric(m, denominatorMetric)
+    !isRatioMetric(m, denominatorMetric) &&
+    !quantileMetricType(m)
   );
 }
 

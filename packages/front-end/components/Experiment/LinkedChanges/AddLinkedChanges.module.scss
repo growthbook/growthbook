@@ -1,0 +1,9 @@
+.sectionHeader {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  &:hover {
+    color: var(--text-link-hover-color);
+    text-decoration: underline;
+  }
+}

@@ -11,6 +11,7 @@ import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useRouter } from "next/router";
 import { DifferenceType } from "back-end/types/stats";
+import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
@@ -28,6 +29,7 @@ import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
 import EditExperimentNameForm from "@/components/Experiment/EditExperimentNameForm";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
+import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import ExperimentHeader from "./ExperimentHeader";
 import ProjectTagBar from "./ProjectTagBar";
 import SetupTabOverview from "./SetupTabOverview";
@@ -49,6 +51,7 @@ export interface Props {
   idea?: IdeaInterface;
   editVariations?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
+  urlRedirects: URLRedirectInterface[];
   newPhase?: (() => void) | null;
   editPhases?: (() => void) | null;
   editPhase?: ((i: number | null) => void) | null;
@@ -67,6 +70,7 @@ export default function TabbedPage({
   idea,
   editVariations,
   visualChangesets,
+  urlRedirects,
   editPhases,
   editTargeting,
   newPhase,
@@ -88,6 +92,7 @@ export default function TabbedPage({
   const [watchersModal, setWatchersModal] = useState(false);
   const [visualEditorModal, setVisualEditorModal] = useState(false);
   const [featureModal, setFeatureModal] = useState(false);
+  const [urlRedirectModal, setUrlRedirectModal] = useState(false);
   const [healthNotificationCount, setHealthNotificationCount] = useState(0);
 
   // Results tab filters
@@ -208,6 +213,15 @@ export default function TabbedPage({
           cta="Open Visual Editor"
         />
       )}
+      {urlRedirectModal && (
+        <UrlRedirectModal
+          mode="add"
+          experiment={experiment}
+          mutate={mutate}
+          close={() => setUrlRedirectModal(false)}
+          cta="Add Redirect"
+        />
+      )}
       {statusModal && (
         <EditStatusModal
           experiment={experiment}
@@ -222,6 +236,7 @@ export default function TabbedPage({
           mutate={mutate}
         />
       )}
+      {/* TODO: Update Experiment Header props to include redirest and pipe through to StartExperimentBanner */}
       <ExperimentHeader
         experiment={experiment}
         tab={tab}
@@ -314,7 +329,9 @@ export default function TabbedPage({
             mutate={mutate}
             setFeatureModal={setFeatureModal}
             setVisualEditorModal={setVisualEditorModal}
+            setUrlRedirectModal={setUrlRedirectModal}
             visualChangesets={visualChangesets}
+            urlRedirects={urlRedirects}
             editTargeting={!viewingOldPhase ? editTargeting : undefined}
             linkedFeatures={linkedFeatures}
             connections={connections}
@@ -335,6 +352,7 @@ export default function TabbedPage({
           )}
         </div>
         <div className={tab === "results" ? "d-block" : "d-none d-print-block"}>
+          {/* TODO: Update ResultsTab props to include redirest and pipe through to StartExperimentBanner */}
           <ResultsTab
             experiment={experiment}
             mutate={mutate}

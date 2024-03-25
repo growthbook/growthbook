@@ -115,6 +115,7 @@ export async function getCreateMetricPropsFromBody(
     projects: [],
     tags: [],
     inverse: false,
+    quantileSettings: null, // TODO-quantile
     windowSettings: {
       type: scopedSettings.windowType.value ?? DEFAULT_FACT_METRIC_WINDOW,
       delayHours:

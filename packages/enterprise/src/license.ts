@@ -44,6 +44,7 @@ export type CommercialFeature =
   | "code-references"
   | "prerequisites"
   | "prerequisite-targeting"
+  | "redirects"
   | "multiple-sdk-webhooks";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -119,6 +120,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "sticky-bucketing",
     "code-references",
     "prerequisites",
+    "redirects",
     "multiple-sdk-webhooks",
   ]),
   pro_sso: new Set<CommercialFeature>([
@@ -138,6 +140,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "sticky-bucketing",
     "code-references",
     "prerequisites",
+    "redirects",
     "multiple-sdk-webhooks",
   ]),
   enterprise: new Set<CommercialFeature>([
@@ -168,6 +171,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "code-references",
     "prerequisites",
     "prerequisite-targeting",
+    "redirects",
     "multiple-sdk-webhooks",
   ]),
 };

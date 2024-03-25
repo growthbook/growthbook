@@ -117,9 +117,11 @@ export function StartExperimentBanner({
   // At least one linked change
   const hasLinkedChanges =
     linkedFeatures.some((f) => f.state === "live" || f.state === "draft") ||
-    visualChangesets.length > 0;
+    experiment.hasVisualChangesets ||
+    experiment.hasURLRedirects;
   checklist.push({
-    display: "Add at least one Linked Feature or Visual Editor change.",
+    display:
+      "Add at least one Linked Feature, Visual Editor change, or URL redirect.",
     status: hasLinkedChanges ? "success" : "error",
     action:
       openSetupTab && !hasLinkedChanges ? (

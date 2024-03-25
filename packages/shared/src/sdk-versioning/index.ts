@@ -50,6 +50,7 @@ const sdks: SDKRecords = {
 };
 
 // Default SDK versions as of 12/5/2023
+// DO NOT UPDATE. Used to migrate SDK connections created before we started storing versions
 const defaultSdkVersions: Record<SDKLanguage, string> = {
   "nocode-other": "0.0.0",
   "nocode-webflow": "0.0.0",
