@@ -7,7 +7,6 @@ import {
   getEffectiveAccountPlan,
   getLicense,
   orgHasPremiumFeature,
-  setLicense,
 } from "enterprise";
 import { hasReadAccess } from "shared/permissions";
 import {
@@ -119,7 +118,7 @@ import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { getAllFactMetricsForOrganization } from "../../models/FactMetricModel";
 import { TeamInterface } from "../../../types/team";
 import { queueSingleWebhookById } from "../../jobs/sdkWebhooks";
-import { initializeLicense } from "../../services/licenseData";
+import { initializeLicenseForOrg } from "../../services/licenseData";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -618,15 +617,13 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     externalId,
   } = org;
 
-  if (!IS_CLOUD && licenseKey) {
+  let license;
+  if (licenseKey) {
     // automatically set the license data based on org license key
-    const licenseData = getLicense();
-    if (
-      !licenseData ||
-      (licenseData.organizationId && licenseData.organizationId !== id)
-    ) {
+    license = getLicense(org.licenseKey);
+    if (!license || (license.organizationId && license.organizationId !== id)) {
       try {
-        await initializeLicense(licenseKey);
+        license = await initializeLicenseForOrg(org);
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error("setting license failed", e);
@@ -672,6 +669,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     members: expandedMembers,
     currentUserPermissions,
     teams: teamsWithMembers,
+    license,
     organization: {
       invites,
       ownerEmail,
@@ -1934,27 +1932,12 @@ export async function putLicenseKey(
     throw new Error("missing license key");
   }
 
-  const currentLicenseData = getLicense();
-  let licenseData = null;
-  let error = null;
   try {
-    // set new license
-    licenseData = await initializeLicense(licenseKey);
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error("setting new license failed", e);
-    error = e;
-  }
-  if (!licenseData) {
-    // setting license failed, revert to previous
-    try {
-      await setLicense(currentLicenseData);
-    } catch (e) {
-      // reverting also failed
-      // eslint-disable-next-line no-console
-      console.error("reverting to old license failed", e);
-      await setLicense(null);
-    }
+    org.licenseKey = licenseKey;
+    await initializeLicenseForOrg(org);
+  } catch (error) {
+    // As we show this error on the front-end, show a more generic invalid license key error
+    // if the error is not related to being able to connect to the license server
     if (error.message.includes("Could not connect")) {
       throw new Error(error?.message);
     } else {
