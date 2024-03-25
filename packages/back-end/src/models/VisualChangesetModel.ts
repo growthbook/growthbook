@@ -277,7 +277,7 @@ export const createVisualChangeset = async ({
 
   // mark the experiment as having a visual changeset
   if (!experiment.hasVisualChangesets) {
-    await updateExperiment({
+    experiment = await updateExperiment({
       context,
       experiment,
       changes: { hasVisualChangesets: true },

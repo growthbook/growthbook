@@ -489,6 +489,7 @@ function TargetingForm({
               form.setValue("prerequisites", prerequisites)
             }
             environments={envs}
+            project={experiment.project}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }

@@ -172,6 +172,7 @@ export interface ExperimentInterface {
   ideaSource?: string;
   regressionAdjustmentEnabled?: boolean;
   hasVisualChangesets?: boolean;
+  hasURLRedirects?: boolean;
   linkedFeatures?: string[];
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
