@@ -7,24 +7,9 @@ import {
   getEffectiveAccountPlan,
   getLicense,
   orgHasPremiumFeature,
+  setLicense,
 } from "enterprise";
 import { hasReadAccess } from "shared/permissions";
-import {
-  ALLOW_SELF_ORG_CREATION,
-  APP_ORIGIN,
-  IS_CLOUD,
-  IS_MULTI_ORG,
-} from "@back-end/src/util/secrets";
-import {
-  getDefaultRole,
-  getRoles,
-  getUserPermissions,
-} from "@back-end/src/util/organization.util";
-import {
-  AuthRequest,
-  ResponseWithStatusAndError,
-} from "@back-end/src/types/AuthRequest";
-import { EntityType } from "@back-end/src/types/Audit";
 import { getAllTags } from "@back-end/src/models/TagModel";
 import { getAllFeatures } from "@back-end/src/models/FeatureModel";
 import { findDimensionsByOrganization } from "@back-end/src/models/DimensionModel";
@@ -76,18 +61,6 @@ import {
 import { getTeamsForOrganization } from "@back-end/src/models/TeamModel";
 import { getAllFactTablesForOrganization } from "@back-end/src/models/FactTableModel";
 import { getAllFactMetricsForOrganization } from "@back-end/src/models/FactMetricModel";
-import { ExperimentRule, NamespaceValue } from "@back-end/types/feature";
-import { WebhookInterface, WebhookMethod } from "@back-end/types/webhook";
-import {
-  Invite,
-  MemberRole,
-  MemberRoleWithProjects,
-  NamespaceUsage,
-  OrganizationInterface,
-  OrganizationSettings,
-  SDKAttribute,
-} from "@back-end/types/organization";
-import { TeamInterface } from "@back-end/types/team";
 import { usingOpenId } from "@back-end/src/services/auth";
 import {
   createWebhook,
@@ -126,9 +99,37 @@ import {
   removeMember,
   revokeInvite,
 } from "@back-end/src/services/organizations";
-import { initializeLicenseForOrg } from "@back-end/src/services/licenseData";
-import { queueSingleWebhookById } from "@back-end/src/jobs/sdkWebhooks";
+import { initializeLicense } from "@back-end/src/services/licenseData";
+import { EntityType } from "@back-end/src/types/Audit";
+import {
+  getDefaultRole,
+  getRoles,
+  getUserPermissions,
+} from "@back-end/src/util/organization.util";
+import { ExperimentRule, NamespaceValue } from "@back-end/types/feature";
+import { WebhookInterface, WebhookMethod } from "@back-end/types/webhook";
 import { ConfigFile } from "@back-end/src/init/config";
+import {
+  ALLOW_SELF_ORG_CREATION,
+  APP_ORIGIN,
+  IS_CLOUD,
+  IS_MULTI_ORG,
+} from "@back-end/src/util/secrets";
+import {
+  Invite,
+  MemberRole,
+  MemberRoleWithProjects,
+  NamespaceUsage,
+  OrganizationInterface,
+  OrganizationSettings,
+  SDKAttribute,
+} from "@back-end/types/organization";
+import {
+  AuthRequest,
+  ResponseWithStatusAndError,
+} from "@back-end/src/types/AuthRequest";
+import { TeamInterface } from "@back-end/types/team";
+import { queueSingleWebhookById } from "@back-end/src/jobs/sdkWebhooks";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -627,13 +628,15 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     externalId,
   } = org;
 
-  let license;
-  if (licenseKey) {
+  if (!IS_CLOUD && licenseKey) {
     // automatically set the license data based on org license key
-    license = getLicense(org.licenseKey);
-    if (!license || (license.organizationId && license.organizationId !== id)) {
+    const licenseData = getLicense();
+    if (
+      !licenseData ||
+      (licenseData.organizationId && licenseData.organizationId !== id)
+    ) {
       try {
-        license = await initializeLicenseForOrg(org);
+        await initializeLicense(licenseKey);
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error("setting license failed", e);
@@ -679,7 +682,6 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     members: expandedMembers,
     currentUserPermissions,
     teams: teamsWithMembers,
-    license,
     organization: {
       invites,
       ownerEmail,
@@ -1942,12 +1944,27 @@ export async function putLicenseKey(
     throw new Error("missing license key");
   }
 
+  const currentLicenseData = getLicense();
+  let licenseData = null;
+  let error = null;
   try {
-    org.licenseKey = licenseKey;
-    await initializeLicenseForOrg(org);
-  } catch (error) {
-    // As we show this error on the front-end, show a more generic invalid license key error
-    // if the error is not related to being able to connect to the license server
+    // set new license
+    licenseData = await initializeLicense(licenseKey);
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error("setting new license failed", e);
+    error = e;
+  }
+  if (!licenseData) {
+    // setting license failed, revert to previous
+    try {
+      await setLicense(currentLicenseData);
+    } catch (e) {
+      // reverting also failed
+      // eslint-disable-next-line no-console
+      console.error("reverting to old license failed", e);
+      await setLicense(null);
+    }
     if (error.message.includes("Could not connect")) {
       throw new Error(error?.message);
     } else {

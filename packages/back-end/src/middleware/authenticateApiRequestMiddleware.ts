@@ -1,26 +1,26 @@
 import { Request, Response, NextFunction } from "express";
 import { hasPermission } from "shared/permissions";
-import { EventAuditUserApiKey } from "@back-end/src/events/event-types";
 import { lookupOrganizationByApiKey } from "@back-end/src/models/ApiKeyModel";
-import { getCustomLogProps } from "@back-end/src/util/logger";
-import { isApiKeyForUserInOrganization } from "@back-end/src/util/api-key.util";
-import {
-  getUserPermissions,
-  roleToPermissionMap,
-} from "@back-end/src/util/organization.util";
+import { getOrganizationById } from "@back-end/src/services/organizations";
 import { getTeamsForOrganization } from "@back-end/src/models/TeamModel";
+import { getUserById } from "@back-end/src/services/users";
+import { initializeLicense } from "@back-end/src/services/licenseData";
+import { ReqContextClass } from "@back-end/src/services/context";
+import { ApiRequestLocals } from "@back-end/types/api";
+import { getCustomLogProps } from "@back-end/src/util/logger";
+import { EventAuditUserApiKey } from "@back-end/src/events/event-types";
+import { isApiKeyForUserInOrganization } from "@back-end/src/util/api-key.util";
 import {
   MemberRole,
   OrganizationInterface,
   Permission,
 } from "@back-end/types/organization";
+import {
+  getUserPermissions,
+  roleToPermissionMap,
+} from "@back-end/src/util/organization.util";
 import { ApiKeyInterface } from "@back-end/types/apikey";
-import { ApiRequestLocals } from "@back-end/types/api";
 import { TeamInterface } from "@back-end/types/team";
-import { getOrganizationById } from "@back-end/src/services/organizations";
-import { getUserById } from "@back-end/src/services/users";
-import { initializeLicenseForOrg } from "@back-end/src/services/licenseData";
-import { ReqContextClass } from "@back-end/src/services/context";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
@@ -171,7 +171,7 @@ export default function authenticateApiRequestMiddleware(
       };
 
       // init license for org if it exists
-      await initializeLicenseForOrg(req.organization);
+      await initializeLicense(req.organization.licenseKey);
 
       // Continue to the actual request handler
       next();

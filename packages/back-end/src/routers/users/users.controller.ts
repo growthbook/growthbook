@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { AuthRequest } from "@back-end/src/types/AuthRequest";
+import { getLicense } from "enterprise";
 import { findOrganizationsByMemberId } from "@back-end/src/models/OrganizationModel";
 import { UserModel } from "@back-end/src/models/UserModel";
 import {
@@ -9,14 +9,16 @@ import {
 } from "@back-end/src/models/WatchModel";
 import { getFeature } from "@back-end/src/models/FeatureModel";
 import { getExperimentById } from "@back-end/src/models/ExperimentModel";
+import { usingOpenId } from "@back-end/src/services/auth";
+import { createUser, getUserByEmail } from "@back-end/src/services/users";
 import {
   addMemberFromSSOConnection,
   findVerifiedOrgForNewUser,
   getContextFromReq,
   validateLoginMethod,
 } from "@back-end/src/services/organizations";
-import { createUser, getUserByEmail } from "@back-end/src/services/users";
-import { usingOpenId } from "@back-end/src/services/auth";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
+import { IS_CLOUD } from "@back-end/src/util/secrets";
 
 function isValidWatchEntityType(type: string): boolean {
   if (type === "experiment" || type === "feature") {
@@ -74,6 +76,7 @@ export async function getUser(req: AuthRequest, res: Response) {
     userName: req.name,
     email: req.email,
     superAdmin: !!req.superAdmin,
+    license: !IS_CLOUD && getLicense(),
     organizations: validOrgs.map((org) => {
       return {
         id: org.id,

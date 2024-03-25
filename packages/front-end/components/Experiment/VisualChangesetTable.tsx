@@ -1,7 +1,6 @@
 import { FC, Fragment, useCallback, useState } from "react";
 import {
   ExperimentInterfaceStringDates,
-  LegacyVariation,
   Variation,
 } from "back-end/types/experiment";
 import {
@@ -10,7 +9,6 @@ import {
   VisualChangesetURLPattern,
 } from "back-end/types/visual-changeset";
 import { FaPencilAlt, FaTimesCircle } from "react-icons/fa";
-import Link from "next/link";
 import clsx from "clsx";
 import track from "@front-end/services/track";
 import { GBEdit } from "@front-end/components/Icons";
@@ -30,9 +28,6 @@ type Props = {
   mutate: () => void;
   canEditVisualChangesets: boolean;
 };
-
-const isLegacyVariation = (v: Partial<LegacyVariation>): v is LegacyVariation =>
-  !!v.css || (v?.dom?.length ?? 0) > 0;
 
 const drawChange = ({
   i,
@@ -253,8 +248,6 @@ export const VisualChangesetTable: FC<Props> = ({
     visualChangeIndex: number;
   } | null>(null);
 
-  const hasLegacyVisualChanges = variations.some((v) => isLegacyVariation(v));
-
   const deleteVisualChangeset = useCallback(
     async (id: string) => {
       await apiCall(`/visual-changesets/${id}`, {
@@ -355,17 +348,6 @@ export const VisualChangesetTable: FC<Props> = ({
           </LinkedChange>
         );
       })}
-
-      {hasLegacyVisualChanges && experiment.status === "draft" ? (
-        <div className="alert alert-warning mt-3">
-          <div className="mb-1">
-            Your experiment has changes created with the legacy visual editor
-          </div>
-          <Link href={`/experiments/designer/${experiment.id}`}>
-            Open Legacy Visual Editor
-          </Link>
-        </div>
-      ) : null}
 
       {editingVisualChangeset ? (
         <VisualChangesetModal

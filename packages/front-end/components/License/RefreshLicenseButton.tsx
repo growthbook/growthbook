@@ -7,11 +7,11 @@ import Button from "@front-end/components/Button";
 
 const RefreshLicenseButton: FC = () => {
   const { apiCall } = useAuth();
-  const { refreshOrganization } = useUser();
+  const { updateUser, refreshOrganization } = useUser();
 
   const refresh = async () => {
     const res = await apiCall<{ status: number; license: LicenseInterface }>(
-      `/license`,
+      `/admin/license`,
       {
         method: "GET",
       }
@@ -20,6 +20,7 @@ const RefreshLicenseButton: FC = () => {
     if (res.status !== 200) {
       throw new Error("There was an error fetching the license");
     }
+    updateUser();
     refreshOrganization();
   };
 

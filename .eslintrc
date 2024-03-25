@@ -141,7 +141,6 @@
         "./packages/front-end/components/Tabs/ControlledTabs.tsx",
         "./packages/front-end/components/TempMessage.tsx",
         "./packages/front-end/hooks/useStripeSubscription.ts",
-        "./packages/front-end/pages/experiments/designer/*.tsx",
         "./packages/front-end/pages/experiments/index.tsx",
         "./packages/front-end/pages/idea/*iid*.tsx",
         "./packages/front-end/pages/index.tsx",

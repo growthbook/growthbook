@@ -3,17 +3,18 @@ import { FaPencilAlt } from "react-icons/fa";
 import { date } from "shared/dates";
 import usePermissions from "@front-end/hooks/usePermissions";
 import { useUser } from "@front-end/services/UserContext";
+import { isCloud } from "@front-end/services/env";
 import EditLicenseModal from "@front-end/components/Settings/EditLicenseModal";
 import { GBPremiumBadge } from "@front-end/components/Icons";
 import UpgradeModal from "@front-end/components/Settings/UpgradeModal";
 import AccountPlanNotices from "@front-end/components/Layout/AccountPlanNotices";
-import DownloadLicenseUsageButton from "./DownloadLicenseUsageButton";
 import RefreshLicenseButton from "./RefreshLicenseButton";
+import DownloadLicenseUsageButton from "./DownloadLicenseUsageButton";
 
 const ShowLicenseInfo: FC<{
   showInput?: boolean;
 }> = ({ showInput = true }) => {
-  const { accountPlan, license, refreshOrganization, organization } = useUser();
+  const { accountPlan, license, refreshOrganization } = useUser();
   const permissions = usePermissions();
   const [editLicenseOpen, setEditLicenseOpen] = useState(false);
 
@@ -32,10 +33,6 @@ const ShowLicenseInfo: FC<{
       : actualPlan === "pro_sso"
       ? "Pro + SSO"
       : "Starter") + (license && license.isTrial ? " (trial)" : "");
-
-  // TODO: Remove this once we have migrated all organizations to use the license key
-  const usesLicenseInfoOnModel =
-    !showUpgradeButton && !organization?.licenseKey;
 
   return (
     <div>
@@ -72,17 +69,23 @@ const ShowLicenseInfo: FC<{
                     className="btn btn-premium font-weight-normal"
                     onClick={() => setUpgradeModal(true)}
                   >
-                    <>
-                      Upgrade <GBPremiumBadge />
-                    </>
+                    {accountPlan === "oss" ? (
+                      <>
+                        Try Enterprise <GBPremiumBadge />
+                      </>
+                    ) : (
+                      <>
+                        Try Pro <GBPremiumBadge />
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
             )}
-            {permissions.manageBilling && !usesLicenseInfoOnModel && (
+            {!isCloud() && permissions.manageBilling && (
               <div className="form-group row mt-3 mb-0">
                 {showInput && (
-                  <div className="col-sm-2">
+                  <div className="col-sm-4">
                     <div>
                       <strong>License Key: </strong>
                     </div>
@@ -110,45 +113,25 @@ const ShowLicenseInfo: FC<{
                     </a>
                   </div>
                 )}
-                {license &&
-                  license.plan && ( // A license might not have a plan if a stripe pro form is not filled out
-                    <>
-                      {["pro", "pro_sso"].includes(license.plan) && (
-                        <div className="col-sm-2">
-                          <div>Status:</div>
-                          <span
-                            className={`text-muted ${
-                              !["active", "trialing"].includes(
-                                license.stripeSubscription?.status || ""
-                              )
-                                ? "alert-danger"
-                                : ""
-                            }`}
-                          >
-                            {license.stripeSubscription?.status}
-                          </span>
-                        </div>
-                      )}
-                      <div className="col-sm-2">
-                        <div>Issued:</div>
-                        <span className="text-muted">
-                          {date(license.dateCreated)}
-                        </span>
-                      </div>
-                      <div className="col-sm-2">
-                        <div>Expires:</div>
-                        <span className="text-muted">
-                          {date(license.dateExpires)}
-                        </span>
-                      </div>
-                      <div className="col-sm-2">
-                        <div>Seats:</div>
-                        <span className="text-muted">{license.seats}</span>
-                      </div>
-                    </>
-                  )}
                 {license && (
                   <>
+                    <div className="col-sm-2">
+                      <div>Issued:</div>
+                      <span className="text-muted">
+                        {date(license.dateCreated)}
+                      </span>
+                    </div>
+                    <div className="col-sm-2">
+                      <div>Expires:</div>
+                      <span className="text-muted">
+                        {date(license.dateExpires)}
+                      </span>
+                    </div>
+                    <div className="col-sm-2">
+                      <div>Seats:</div>
+                      <span className="text-muted">{license.seats}</span>
+                    </div>
+
                     {license.id.startsWith("license") && (
                       <div className="col-sm-2">
                         <RefreshLicenseButton />

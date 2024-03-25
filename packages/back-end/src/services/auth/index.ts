@@ -1,15 +1,15 @@
 import { NextFunction, Request, Response } from "express";
 import { SSO_CONFIG } from "enterprise";
 import { userHasPermission } from "shared/permissions";
-import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { markUserAsVerified, UserModel } from "@back-end/src/models/UserModel";
 import { hasOrganization } from "@back-end/src/models/OrganizationModel";
 import { insertAudit } from "@back-end/src/models/AuditModel";
 import { getTeamsForOrganization } from "@back-end/src/models/TeamModel";
+import { IS_CLOUD } from "@back-end/src/util/secrets";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { Permission } from "@back-end/types/organization";
 import { UserInterface } from "@back-end/types/user";
 import { AuditInterface } from "@back-end/types/audit";
-import { IS_CLOUD } from "@back-end/src/util/secrets";
 import { getUserByEmail } from "@back-end/src/services/users";
 import {
   IdTokenCookie,
@@ -22,11 +22,11 @@ import {
   EventAuditUserForResponseLocals,
   EventAuditUserLoggedIn,
 } from "@back-end/src/events/event-types";
+import { initializeLicense } from "@back-end/src/services/licenseData";
 import {
   getOrganizationById,
   validateLoginMethod,
 } from "@back-end/src/services/organizations";
-import { initializeLicenseForOrg } from "@back-end/src/services/licenseData";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
@@ -171,7 +171,7 @@ export async function processJWT(
         }
 
         // init license for org if it exists
-        await initializeLicenseForOrg(req.organization);
+        await initializeLicense(req.organization.licenseKey);
       } else {
         res.status(404).json({
           status: 404,

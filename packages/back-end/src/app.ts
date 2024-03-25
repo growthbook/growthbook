@@ -62,9 +62,6 @@ const discussionsController = wrapController(discussionsControllerRaw);
 import * as adminControllerRaw from "./controllers/admin";
 const adminController = wrapController(adminControllerRaw);
 
-import * as licenseControllerRaw from "./controllers/license";
-const licenseController = wrapController(licenseControllerRaw);
-
 import * as stripeControllerRaw from "./controllers/stripe";
 const stripeController = wrapController(stripeControllerRaw);
 
@@ -345,11 +342,7 @@ app.use(organizationsRouter);
 app.use("/environment", environmentRouter);
 
 app.post("/oauth/google", datasourcesController.postGoogleOauthRedirect);
-app.post(
-  "/subscription/new-pro-trial",
-  stripeController.postNewProTrialSubscription
-);
-app.post("/subscription/new", stripeController.postNewProSubscription);
+app.post("/subscription/checkout", stripeController.postNewSubscription);
 app.get("/subscription/quote", stripeController.getSubscriptionQuote);
 app.post("/subscription/manage", stripeController.postCreateBillingSession);
 app.post("/subscription/success", stripeController.postSubscriptionSuccess);
@@ -683,19 +676,8 @@ app.use("/teams", teamRouter);
 
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);
-
-// License
-app.get("/license", licenseController.getLicenseData);
-app.get("/license/report", licenseController.getLicenseReport);
-app.post(
-  "/license/enterprise-trial",
-  licenseController.postCreateTrialEnterpriseLicense
-);
-app.post(
-  "/license/resend-verification-email",
-  licenseController.postResendEmailVerificationEmail
-);
-app.post("/license/verify-email", licenseController.postVerifyEmail);
+app.get("/admin/license", adminController.getLicenseData);
+app.get("/admin/license-report", adminController.getLicenseReport);
 
 // Meta info
 app.get("/meta/ai", (req, res) => {
