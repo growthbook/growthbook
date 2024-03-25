@@ -247,10 +247,6 @@ const otherPageTitles = [
     title: "Activity Feed",
   },
   {
-    path: /^experiments\/designer/,
-    title: "Visual Experiment Designer",
-  },
-  {
     path: /^integrations\/vercel/,
     title: "Vercel Integration",
   },
