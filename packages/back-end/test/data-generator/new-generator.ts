@@ -141,6 +141,9 @@ function getBrowser(): string {
 }
 
 function normalInt(min: number, max: number): number {
+  if (max < min) throw "Invalid value!";
+  if (min === max) return min;
+
   const mean = (max - min) / 2 + min;
   const stddev = (max - min) / 3;
 

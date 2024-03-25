@@ -152,6 +152,8 @@ export class FactMetricModel extends BaseModel<FactMetricSchema> {
     } else if (data.denominator?.factTableId) {
       throw new Error("Denominator not allowed for non-ratio metric");
     }
+
+    // TODO-quantile add validation for quantile metrics
   }
 
   public toApiInterface(factMetric: FactMetricInterface): ApiFactMetric {
@@ -164,11 +166,14 @@ export class FactMetricModel extends BaseModel<FactMetricSchema> {
       dateCreated,
       dateUpdated,
       denominator,
+      metricType,
       ...otherFields
     } = omit(factMetric, ["organization"]);
 
     return {
       ...otherFields,
+      // TODO-quantile
+      metricType: metricType === "quantile" ? "mean" : metricType,
       cappingSettings: {
         ...cappingSettings,
         type: cappingSettings.type || "none",

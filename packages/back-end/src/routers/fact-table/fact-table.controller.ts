@@ -55,7 +55,10 @@ async function testFilterQuery(
   }
 
   const sql = integration.getTestQuery(
-    `SELECT * FROM (${factTable.sql}) f WHERE ${filter}`,
+    // Must have a newline after factTable sql in case it ends with a comment
+    `SELECT * FROM (
+      ${factTable.sql}
+    ) f WHERE ${filter}`,
     {
       eventName: factTable.eventName,
     }
