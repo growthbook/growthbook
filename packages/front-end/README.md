@@ -406,36 +406,3 @@ useSearch({
   filterResults,
 });
 ```
-
-## Storybook
-
-The project uses [Storybook](https://storybook.js.org/) to help with the development of presentational components.
-
-To run the server at http://localhost:6006 you can execute the following command:
-
-    yarn storybook
-
-When creating a new component, it is recommended to create a directory for it with the same name, and in that directory include both the component and the stories file. Here's an example:
-
-```
-packages/front-end/components/DeleteButton
-├── DeleteButton.stories.tsx
-└── DeleteButton.tsx
-
-0 directories, 2 files
-```
-
-A story must include a default export with a `title` and the component as `component`, as well as named exports of examples. Here's an example.
-
-```tsx
-export default {
-  component: MyComponent,
-  title: "MyComponent",
-};
-
-export const Default = () => {
-  return <MyComponent />;
-};
-```
-
-See files with suffix `.stories.tsx` for real examples that include how to implement a variety of helpful add-ons (e.g. actions, knobs, etc.)
