@@ -116,7 +116,6 @@ import {
 import { EntityType } from "../../types/Audit";
 import { getTeamsForOrganization } from "../../models/TeamModel";
 import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
-import { getAllFactMetricsForOrganization } from "../../models/FactMetricModel";
 import { TeamInterface } from "../../../types/team";
 import { queueSingleWebhookById } from "../../jobs/sdkWebhooks";
 import { initializeLicense } from "../../services/licenseData";
@@ -147,7 +146,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     getAllSavedGroups(orgId),
     findAllProjectsByOrganization(context),
     getAllFactTablesForOrganization(context),
-    getAllFactMetricsForOrganization(context),
+    context.models.factMetrics.getAll(),
   ]);
 
   return res.status(200).json({
