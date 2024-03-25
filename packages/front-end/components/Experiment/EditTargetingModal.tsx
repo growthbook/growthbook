@@ -394,9 +394,23 @@ function TargetingForm({
   const hasLinkedChanges =
     !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
 
-  const attributeSchema = useAttributeSchema();
+  const attributeSchema = useAttributeSchema(false, experiment.project);
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
+
+  const hashAttributeOptions = attributeSchema
+    .filter((s) => !hasHashAttributes || s.hashAttribute)
+    .map((s) => ({ label: s.property, value: s.property }));
+
+  if (
+    form.watch("hashAttribute") &&
+    !hashAttributeOptions.find((o) => o.value === form.watch("hashAttribute"))
+  ) {
+    hashAttributeOptions.push({
+      label: form.watch("hashAttribute"),
+      value: form.watch("hashAttribute"),
+    });
+  }
 
   const { getDatasourceById } = useDefinitions();
   const datasource = experiment.datasource
@@ -436,9 +450,7 @@ function TargetingForm({
               containerClassName="flex-1"
               label="Assign variation based on attribute"
               labelClassName="font-weight-bold"
-              options={attributeSchema
-                .filter((s) => !hasHashAttributes || s.hashAttribute)
-                .map((s) => ({ label: s.property, value: s.property }))}
+              options={hashAttributeOptions}
               sort={false}
               value={form.watch("hashAttribute")}
               onChange={(v) => {
@@ -448,7 +460,10 @@ function TargetingForm({
                 "Will be hashed together with the Tracking Key to determine which variation to assign"
               }
             />
-            <FallbackAttributeSelector form={form} />
+            <FallbackAttributeSelector
+              form={form}
+              attributeSchema={attributeSchema}
+            />
           </div>
           <HashVersionSelector
             value={form.watch("hashVersion")}

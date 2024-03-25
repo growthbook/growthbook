@@ -85,7 +85,7 @@ export default function RuleModal({
   setVersion,
   revisions,
 }: Props) {
-  const attributeSchema = useAttributeSchema();
+  const attributeSchema = useAttributeSchema(false, feature.project);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const { namespaces } = useOrgSettings();
