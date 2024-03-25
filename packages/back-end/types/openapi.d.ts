@@ -413,7 +413,8 @@ export interface components {
                 })[];
               id: string;
               enabled: boolean;
-              type: string;
+              /** @enum {string} */
+              type: "force";
               value: string;
             }) | ({
               description: string;
@@ -425,7 +426,8 @@ export interface components {
                 })[];
               id: string;
               enabled: boolean;
-              type: string;
+              /** @enum {string} */
+              type: "rollout";
               value: string;
               coverage: number;
               hashAttribute: string;
@@ -434,7 +436,8 @@ export interface components {
               condition: string;
               id: string;
               enabled: boolean;
-              type: string;
+              /** @enum {string} */
+              type: "experiment";
               trackingKey?: string;
               hashAttribute?: string;
               fallbackAttribute?: string;
@@ -456,7 +459,8 @@ export interface components {
               description: string;
               id: string;
               enabled: boolean;
-              type: string;
+              /** @enum {string} */
+              type: "experiment-ref";
               condition?: string;
               variations: ({
                   value: string;
@@ -479,7 +483,8 @@ export interface components {
                   })[];
                 id: string;
                 enabled: boolean;
-                type: string;
+                /** @enum {string} */
+                type: "force";
                 value: string;
               }) | ({
                 description: string;
@@ -491,7 +496,8 @@ export interface components {
                   })[];
                 id: string;
                 enabled: boolean;
-                type: string;
+                /** @enum {string} */
+                type: "rollout";
                 value: string;
                 coverage: number;
                 hashAttribute: string;
@@ -500,7 +506,8 @@ export interface components {
                 condition: string;
                 id: string;
                 enabled: boolean;
-                type: string;
+                /** @enum {string} */
+                type: "experiment";
                 trackingKey?: string;
                 hashAttribute?: string;
                 fallbackAttribute?: string;
@@ -522,7 +529,8 @@ export interface components {
                 description: string;
                 id: string;
                 enabled: boolean;
-                type: string;
+                /** @enum {string} */
+                type: "experiment-ref";
                 condition?: string;
                 variations: ({
                     value: string;
@@ -560,7 +568,8 @@ export interface components {
             })[];
           id: string;
           enabled: boolean;
-          type: string;
+          /** @enum {string} */
+          type: "force";
           value: string;
         }) | ({
           description: string;
@@ -572,7 +581,8 @@ export interface components {
             })[];
           id: string;
           enabled: boolean;
-          type: string;
+          /** @enum {string} */
+          type: "rollout";
           value: string;
           coverage: number;
           hashAttribute: string;
@@ -581,7 +591,8 @@ export interface components {
           condition: string;
           id: string;
           enabled: boolean;
-          type: string;
+          /** @enum {string} */
+          type: "experiment";
           trackingKey?: string;
           hashAttribute?: string;
           fallbackAttribute?: string;
@@ -603,7 +614,8 @@ export interface components {
           description: string;
           id: string;
           enabled: boolean;
-          type: string;
+          /** @enum {string} */
+          type: "experiment-ref";
           condition?: string;
           variations: ({
               value: string;
@@ -626,7 +638,8 @@ export interface components {
               })[];
             id: string;
             enabled: boolean;
-            type: string;
+            /** @enum {string} */
+            type: "force";
             value: string;
           }) | ({
             description: string;
@@ -638,7 +651,8 @@ export interface components {
               })[];
             id: string;
             enabled: boolean;
-            type: string;
+            /** @enum {string} */
+            type: "rollout";
             value: string;
             coverage: number;
             hashAttribute: string;
@@ -647,7 +661,8 @@ export interface components {
             condition: string;
             id: string;
             enabled: boolean;
-            type: string;
+            /** @enum {string} */
+            type: "experiment";
             trackingKey?: string;
             hashAttribute?: string;
             fallbackAttribute?: string;
@@ -669,7 +684,8 @@ export interface components {
             description: string;
             id: string;
             enabled: boolean;
-            type: string;
+            /** @enum {string} */
+            type: "experiment-ref";
             condition?: string;
             variations: ({
                 value: string;
@@ -691,7 +707,8 @@ export interface components {
         })[];
       id: string;
       enabled: boolean;
-      type: string;
+      /** @enum {string} */
+      type: "force";
       value: string;
     }) | ({
       description: string;
@@ -703,7 +720,8 @@ export interface components {
         })[];
       id: string;
       enabled: boolean;
-      type: string;
+      /** @enum {string} */
+      type: "rollout";
       value: string;
       coverage: number;
       hashAttribute: string;
@@ -712,7 +730,8 @@ export interface components {
       condition: string;
       id: string;
       enabled: boolean;
-      type: string;
+      /** @enum {string} */
+      type: "experiment";
       trackingKey?: string;
       hashAttribute?: string;
       fallbackAttribute?: string;
@@ -734,7 +753,8 @@ export interface components {
       description: string;
       id: string;
       enabled: boolean;
-      type: string;
+      /** @enum {string} */
+      type: "experiment-ref";
       condition?: string;
       variations: ({
           value: string;
@@ -767,7 +787,8 @@ export interface components {
         })[];
       id: string;
       enabled: boolean;
-      type: string;
+      /** @enum {string} */
+      type: "force";
       value: string;
     };
     FeatureRolloutRule: {
@@ -780,7 +801,8 @@ export interface components {
         })[];
       id: string;
       enabled: boolean;
-      type: string;
+      /** @enum {string} */
+      type: "rollout";
       value: string;
       coverage: number;
       hashAttribute: string;
@@ -790,7 +812,8 @@ export interface components {
       condition: string;
       id: string;
       enabled: boolean;
-      type: string;
+      /** @enum {string} */
+      type: "experiment";
       trackingKey?: string;
       hashAttribute?: string;
       fallbackAttribute?: string;
@@ -813,7 +836,8 @@ export interface components {
       description: string;
       id: string;
       enabled: boolean;
-      type: string;
+      /** @enum {string} */
+      type: "experiment-ref";
       condition?: string;
       variations: ({
           value: string;
@@ -1381,7 +1405,8 @@ export interface operations {
                           })[];
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "force";
                         value: string;
                       }) | ({
                         description: string;
@@ -1393,7 +1418,8 @@ export interface operations {
                           })[];
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "rollout";
                         value: string;
                         coverage: number;
                         hashAttribute: string;
@@ -1402,7 +1428,8 @@ export interface operations {
                         condition: string;
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "experiment";
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
@@ -1424,7 +1451,8 @@ export interface operations {
                         description: string;
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "experiment-ref";
                         condition?: string;
                         variations: ({
                             value: string;
@@ -1447,7 +1475,8 @@ export interface operations {
                             })[];
                           id: string;
                           enabled: boolean;
-                          type: string;
+                          /** @enum {string} */
+                          type: "force";
                           value: string;
                         }) | ({
                           description: string;
@@ -1459,7 +1488,8 @@ export interface operations {
                             })[];
                           id: string;
                           enabled: boolean;
-                          type: string;
+                          /** @enum {string} */
+                          type: "rollout";
                           value: string;
                           coverage: number;
                           hashAttribute: string;
@@ -1468,7 +1498,8 @@ export interface operations {
                           condition: string;
                           id: string;
                           enabled: boolean;
-                          type: string;
+                          /** @enum {string} */
+                          type: "experiment";
                           trackingKey?: string;
                           hashAttribute?: string;
                           fallbackAttribute?: string;
@@ -1490,7 +1521,8 @@ export interface operations {
                           description: string;
                           id: string;
                           enabled: boolean;
-                          type: string;
+                          /** @enum {string} */
+                          type: "experiment-ref";
                           condition?: string;
                           variations: ({
                               value: string;
@@ -1695,7 +1727,8 @@ export interface operations {
                         })[];
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "force";
                       value: string;
                     }) | ({
                       description: string;
@@ -1707,7 +1740,8 @@ export interface operations {
                         })[];
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "rollout";
                       value: string;
                       coverage: number;
                       hashAttribute: string;
@@ -1716,7 +1750,8 @@ export interface operations {
                       condition: string;
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "experiment";
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
@@ -1738,7 +1773,8 @@ export interface operations {
                       description: string;
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "experiment-ref";
                       condition?: string;
                       variations: ({
                           value: string;
@@ -1761,7 +1797,8 @@ export interface operations {
                           })[];
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "force";
                         value: string;
                       }) | ({
                         description: string;
@@ -1773,7 +1810,8 @@ export interface operations {
                           })[];
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "rollout";
                         value: string;
                         coverage: number;
                         hashAttribute: string;
@@ -1782,7 +1820,8 @@ export interface operations {
                         condition: string;
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "experiment";
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
@@ -1804,7 +1843,8 @@ export interface operations {
                         description: string;
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "experiment-ref";
                         condition?: string;
                         variations: ({
                             value: string;
@@ -1874,7 +1914,8 @@ export interface operations {
                         })[];
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "force";
                       value: string;
                     }) | ({
                       description: string;
@@ -1886,7 +1927,8 @@ export interface operations {
                         })[];
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "rollout";
                       value: string;
                       coverage: number;
                       hashAttribute: string;
@@ -1895,7 +1937,8 @@ export interface operations {
                       condition: string;
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "experiment";
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
@@ -1917,7 +1960,8 @@ export interface operations {
                       description: string;
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "experiment-ref";
                       condition?: string;
                       variations: ({
                           value: string;
@@ -1940,7 +1984,8 @@ export interface operations {
                           })[];
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "force";
                         value: string;
                       }) | ({
                         description: string;
@@ -1952,7 +1997,8 @@ export interface operations {
                           })[];
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "rollout";
                         value: string;
                         coverage: number;
                         hashAttribute: string;
@@ -1961,7 +2007,8 @@ export interface operations {
                         condition: string;
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "experiment";
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
@@ -1983,7 +2030,8 @@ export interface operations {
                         description: string;
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "experiment-ref";
                         condition?: string;
                         variations: ({
                             value: string;
@@ -2177,7 +2225,8 @@ export interface operations {
                         })[];
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "force";
                       value: string;
                     }) | ({
                       description: string;
@@ -2189,7 +2238,8 @@ export interface operations {
                         })[];
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "rollout";
                       value: string;
                       coverage: number;
                       hashAttribute: string;
@@ -2198,7 +2248,8 @@ export interface operations {
                       condition: string;
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "experiment";
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
@@ -2220,7 +2271,8 @@ export interface operations {
                       description: string;
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "experiment-ref";
                       condition?: string;
                       variations: ({
                           value: string;
@@ -2243,7 +2295,8 @@ export interface operations {
                           })[];
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "force";
                         value: string;
                       }) | ({
                         description: string;
@@ -2255,7 +2308,8 @@ export interface operations {
                           })[];
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "rollout";
                         value: string;
                         coverage: number;
                         hashAttribute: string;
@@ -2264,7 +2318,8 @@ export interface operations {
                         condition: string;
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "experiment";
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
@@ -2286,7 +2341,8 @@ export interface operations {
                         description: string;
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "experiment-ref";
                         condition?: string;
                         variations: ({
                             value: string;
@@ -2360,7 +2416,8 @@ export interface operations {
                         })[];
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "force";
                       value: string;
                     }) | ({
                       description: string;
@@ -2372,7 +2429,8 @@ export interface operations {
                         })[];
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "rollout";
                       value: string;
                       coverage: number;
                       hashAttribute: string;
@@ -2381,7 +2439,8 @@ export interface operations {
                       condition: string;
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "experiment";
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
@@ -2403,7 +2462,8 @@ export interface operations {
                       description: string;
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "experiment-ref";
                       condition?: string;
                       variations: ({
                           value: string;
@@ -2426,7 +2486,8 @@ export interface operations {
                           })[];
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "force";
                         value: string;
                       }) | ({
                         description: string;
@@ -2438,7 +2499,8 @@ export interface operations {
                           })[];
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "rollout";
                         value: string;
                         coverage: number;
                         hashAttribute: string;
@@ -2447,7 +2509,8 @@ export interface operations {
                         condition: string;
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "experiment";
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
@@ -2469,7 +2532,8 @@ export interface operations {
                         description: string;
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "experiment-ref";
                         condition?: string;
                         variations: ({
                             value: string;
