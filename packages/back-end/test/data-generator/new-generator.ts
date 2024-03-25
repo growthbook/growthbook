@@ -379,6 +379,10 @@ function purchase(
     ),
   });
   trackExperiment(data, res, "confirmation-email", sim);
+  sim.dataTables.userRetention[parseInt(data.userId)] += normalInt(
+    res.value - 10,
+    res.value + 10
+  );
 }
 
 function getTimestamp(currentDate: Date) {
@@ -591,7 +595,7 @@ const {
     "user-count",
     "csv-dir",
     "messy-data",
-    "key-prexix",
+    "key-prefix",
   ],
   default: {
     days: "60",
