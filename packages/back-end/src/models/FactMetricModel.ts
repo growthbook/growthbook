@@ -190,12 +190,9 @@ export function toFactMetricApiInterface(
   } = omit(factMetric, ["organization"]);
 
   const metricType = otherFields.metricType;
-  if (metricType === "quantile") {
-    throw new Error("Quantile metrics not avaiable yet");
-  }
   return {
     ...otherFields,
-    metricType: metricType,
+    metricType: metricType === "quantile" ? "mean" : metricType, // TODO-quantile
     managedBy: factMetric.managedBy || "",
     denominator: denominator || undefined,
     cappingSettings: {
