@@ -1,6 +1,6 @@
 import { FC } from "react";
-import ApiKeys from "@/components/Settings/ApiKeys";
-import usePermissions from "@/hooks/usePermissions";
+import ApiKeys from "@front-end/components/Settings/ApiKeys";
+import usePermissions from "@front-end/hooks/usePermissions";
 
 const ApiKeysPage: FC = () => {
   const permissions = usePermissions();

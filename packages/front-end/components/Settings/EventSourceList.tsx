@@ -1,6 +1,6 @@
 import { SchemaFormat } from "back-end/types/datasource";
 import React from "react";
-import { eventSchema, eventSchemas } from "@/services/eventSchema";
+import { eventSchema, eventSchemas } from "@front-end/services/eventSchema";
 import styles from "./EventSourceList.module.scss";
 
 export interface Props {

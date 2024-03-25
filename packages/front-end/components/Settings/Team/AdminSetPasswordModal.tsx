@@ -1,9 +1,9 @@
 import React from "react";
 import { useForm } from "react-hook-form";
 import { ExpandedMember } from "back-end/types/organization";
-import Field from "@/components/Forms/Field";
-import Modal from "@/components/Modal";
-import { useAuth } from "@/services/auth";
+import Field from "@front-end/components/Forms/Field";
+import Modal from "@front-end/components/Modal";
+import { useAuth } from "@front-end/services/auth";
 
 type Props = {
   member: ExpandedMember;

@@ -1,29 +1,29 @@
-import { DataSourceInterface } from "../../../types/datasource";
-import { FactMetricInterface } from "../../../types/fact-table";
-import { PostBulkImportFactsResponse } from "../../../types/openapi";
-import { queueFactTableColumnsRefresh } from "../../jobs/refreshFactTableColumns";
-import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
+import { postBulkImportFactsValidator } from "@back-end/src/validators/openapi";
+import { DataSourceInterface } from "@back-end/types/datasource";
+import { FactMetricInterface } from "@back-end/types/fact-table";
+import { PostBulkImportFactsResponse } from "@back-end/types/openapi";
+import { getDataSourcesByOrganization } from "@back-end/src/models/DataSourceModel";
 import {
   createFactMetric,
   getAllFactMetricsForOrganization,
   updateFactMetric,
-} from "../../models/FactMetricModel";
+} from "@back-end/src/models/FactMetricModel";
 import {
   createFactFilter,
   createFactTable,
   updateFactTable,
   updateFactFilter,
   getFactTableMap,
-} from "../../models/FactTableModel";
-import { findAllProjectsByOrganization } from "../../models/ProjectModel";
-import { addTags } from "../../models/TagModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { postBulkImportFactsValidator } from "../../validators/openapi";
+} from "@back-end/src/models/FactTableModel";
+import { findAllProjectsByOrganization } from "@back-end/src/models/ProjectModel";
+import { addTags } from "@back-end/src/models/TagModel";
+import { createApiRequestHandler } from "@back-end/src/util/handler";
+import { queueFactTableColumnsRefresh } from "@back-end/src/jobs/refreshFactTableColumns";
+import { getUpdateFactMetricPropsFromBody } from "@back-end/src/api/fact-metrics/updateFactMetric";
 import {
   getCreateMetricPropsFromBody,
   validateFactMetric,
-} from "../fact-metrics/postFactMetric";
-import { getUpdateFactMetricPropsFromBody } from "../fact-metrics/updateFactMetric";
+} from "@back-end/src/api/fact-metrics/postFactMetric";
 
 export const postBulkImportFacts = createApiRequestHandler(
   postBulkImportFactsValidator

@@ -1,6 +1,6 @@
 import { FC } from "react";
 import { FeatureValueType } from "back-end/types/feature";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField from "@front-end/components/Forms/SelectField";
 
 const ValueTypeField: FC<{
   onChange: (v: FeatureValueType) => void;

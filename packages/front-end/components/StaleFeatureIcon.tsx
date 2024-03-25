@@ -1,6 +1,6 @@
 import { StaleFeatureReason } from "shared/util";
 import { BsStopwatch } from "react-icons/bs";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 import styles from "./StaleFeatureIcon.module.scss";
 
 const staleReasonToMessageMap: Record<StaleFeatureReason, string> = {

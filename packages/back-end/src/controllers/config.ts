@@ -1,19 +1,22 @@
 import fs from "fs";
 import path from "path";
 import { Request, Response } from "express";
-import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
-import { APP_ORIGIN } from "../util/secrets";
+import {
+  getContextForAgendaJobByOrgId,
+  getExperimentOverrides,
+} from "@back-end/src/services/organizations";
+import { APP_ORIGIN } from "@back-end/src/util/secrets";
+import { lookupOrganizationByApiKey } from "@back-end/src/models/ApiKeyModel";
+import { getAllExperiments } from "@back-end/src/models/ExperimentModel";
 import {
   ExperimentInterface,
   LegacyExperimentPhase,
   LegacyVariation,
-} from "../../types/experiment";
-import { ErrorResponse, ExperimentOverridesResponse } from "../../types/api";
+} from "@back-end/types/experiment";
 import {
-  getContextForAgendaJobByOrgId,
-  getExperimentOverrides,
-} from "../services/organizations";
-import { getAllExperiments } from "../models/ExperimentModel";
+  ErrorResponse,
+  ExperimentOverridesResponse,
+} from "@back-end/types/api";
 
 export function canAutoAssignExperiment(
   experiment: ExperimentInterface

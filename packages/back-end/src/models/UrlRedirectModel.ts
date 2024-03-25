@@ -2,11 +2,14 @@ import { isEqual, keyBy } from "lodash";
 import omit from "lodash/omit";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { ExperimentInterface } from "../../types/experiment";
-import { ReqContext } from "../../types/organization";
-import { DestinationURL, URLRedirectInterface } from "../../types/url-redirect";
-import { refreshSDKPayloadCache } from "../services/features";
-import { ApiReqContext } from "../../types/api";
+import { ExperimentInterface } from "@back-end/types/experiment";
+import { ReqContext } from "@back-end/types/organization";
+import {
+  DestinationURL,
+  URLRedirectInterface,
+} from "@back-end/types/url-redirect";
+import { ApiReqContext } from "@back-end/types/api";
+import { refreshSDKPayloadCache } from "@back-end/src/services/features";
 import {
   getExperimentById,
   getPayloadKeys,

@@ -1,33 +1,42 @@
 import fs from "fs";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
-import { DataSourceInterface, DataSourceType } from "../../types/datasource";
+import {
+  DataSourceInterface,
+  DataSourceType,
+} from "@back-end/types/datasource";
 import {
   AttributionModel,
   ExperimentInterface,
   ExperimentPhase,
   MetricOverride,
   Variation,
-} from "../../types/experiment";
-import { SegmentInterface } from "../../types/segment";
+} from "@back-end/types/experiment";
+import { SegmentInterface } from "@back-end/types/segment";
 import {
   Dimension,
   ExperimentFactMetricsQueryParams,
   ExperimentMetricQueryParams,
   ExperimentUnitsQueryParams,
-} from "../../src/types/Integration";
-import { MetricInterface, MetricType } from "../../types/metric";
-import { getFactMetricGroup } from "../../src/queryRunners/ExperimentResultsQueryRunner";
-import { getSourceIntegrationObject } from "../../src/services/datasource";
-import { getSnapshotSettings } from "../../src/services/experiments";
-import { expandDenominatorMetrics } from "../../src/util/sql";
+} from "@back-end/src/types/Integration";
+import { MetricInterface, MetricType } from "@back-end/types/metric";
+import { getFactMetricGroup } from "@back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { getSourceIntegrationObject } from "@back-end/src/services/datasource";
+import { getSnapshotSettings } from "@back-end/src/services/experiments";
+import { expandDenominatorMetrics } from "@back-end/src/util/sql";
 import {
   FactFilterInterface,
   ColumnInterface,
   FactMetricInterface,
   FactTableInterface,
   MetricCappingSettings,
-} from "../../types/fact-table";
+} from "@back-end/types/fact-table";
+import experimentConfigData from "./json/experiments.json";
+import factTableConfigData from "./json/fact-tables.json";
+import factMetricConfigData from "./json/fact-metrics.json";
+import filterConfigData from "./json/filters.json";
+import columnConfigData from "./json/columns.json";
+import metricConfigData from "./json/metrics.json";
 
 const currentDate = new Date();
 const endDateString = "2022-02-01T00:00:00"; // premature end date to ensure some filter
@@ -155,7 +164,6 @@ type TestMetricConfig = {
   cappingSettings?: MetricCappingSettings;
   denominator?: string;
 };
-import metricConfigData from "./json/metrics.json";
 const metricConfigs = metricConfigData as TestMetricConfig[];
 
 // Pseudo-MetricInterface, missing the fields in TestMetricConfig
@@ -221,7 +229,6 @@ const analysisMetrics: MetricInterface[] = metricConfigs.map(
 type ColumnConfig = Pick<ColumnInterface, "name" | "column">;
 type FilterConfig = Pick<FactFilterInterface, "id" | "value">;
 
-import columnConfigData from "./json/columns.json";
 const columns: ColumnInterface[] = (columnConfigData as ColumnConfig[]).map(
   (f) => ({
     dateCreated: new Date(),
@@ -236,7 +243,6 @@ const columns: ColumnInterface[] = (columnConfigData as ColumnConfig[]).map(
   })
 );
 
-import filterConfigData from "./json/filters.json";
 const filters: FactFilterInterface[] = (filterConfigData as FilterConfig[]).map(
   (f) => ({
     dateCreated: new Date(),
@@ -247,7 +253,6 @@ const filters: FactFilterInterface[] = (filterConfigData as FilterConfig[]).map(
   })
 );
 
-import factMetricConfigData from "./json/fact-metrics.json";
 type FactMetricConfig = Pick<
   FactMetricInterface,
   "id" | "metricType" | "numerator"
@@ -301,7 +306,6 @@ const analysisFactMetrics: FactMetricInterface[] = factMetricConfigs.map(
 );
 
 type FactTableConfig = Pick<FactTableInterface, "id" | "sql">;
-import factTableConfigData from "./json/fact-tables.json";
 const factTables: FactTableInterface[] = (factTableConfigData as FactTableConfig[]).map(
   (partialFactTable) => ({
     organization: "",
@@ -346,7 +350,6 @@ const metricRegressionAdjustmentStatuses = [
 }));
 
 // IMPORT AND BUILD TEST EXPERIMENTS
-import experimentConfigData from "./json/experiments.json";
 
 type DimensionType =
   | "user"

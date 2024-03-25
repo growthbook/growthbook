@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
-import { useAuth, safeLogout } from "@/services/auth";
-import WatchProvider from "@/services/WatchProvider";
-import { UserContextProvider, useUser } from "@/services/UserContext";
+import { useAuth, safeLogout } from "@front-end/services/auth";
+import WatchProvider from "@front-end/services/WatchProvider";
+import { UserContextProvider, useUser } from "@front-end/services/UserContext";
 import LoadingOverlay from "./LoadingOverlay";
 import CreateOrganization from "./Auth/CreateOrganization";
 import InAppHelp from "./Auth/InAppHelp";

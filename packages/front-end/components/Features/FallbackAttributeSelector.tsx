@@ -8,16 +8,16 @@ import {
 } from "react-icons/fa";
 import { FaGear } from "react-icons/fa6";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { useAttributeSchema } from "@/services/features";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import usePermissions from "@/hooks/usePermissions";
-import { useUser } from "@/services/UserContext";
-import { useAuth } from "@/services/auth";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import { DocLink } from "@/components/DocLink";
-import SelectField from "@/components/Forms/SelectField";
-import Toggle from "@/components/Forms/Toggle";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import { useAttributeSchema } from "@front-end/services/features";
+import PremiumTooltip from "@front-end/components/Marketing/PremiumTooltip";
+import usePermissions from "@front-end/hooks/usePermissions";
+import { useUser } from "@front-end/services/UserContext";
+import { useAuth } from "@front-end/services/auth";
+import useSDKConnections from "@front-end/hooks/useSDKConnections";
+import { DocLink } from "@front-end/components/DocLink";
+import SelectField from "@front-end/components/Forms/SelectField";
+import Toggle from "@front-end/components/Forms/Toggle";
 
 export interface Props {
   // eslint-disable-next-line

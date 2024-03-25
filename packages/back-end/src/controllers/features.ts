@@ -6,20 +6,39 @@ import {
   getConnectionSDKCapabilities,
   SDKCapability,
 } from "shared/sdk-versioning";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import {
-  ExperimentRefRule,
-  FeatureInterface,
-  FeaturePrerequisite,
-  FeatureRule,
-  FeatureTestResult,
-} from "../../types/feature";
-import { AuthRequest } from "../types/AuthRequest";
+  EventAuditUserForResponseLocals,
+  EventAuditUserLoggedIn,
+} from "@back-end/src/events/event-types";
 import {
   getEnvironments,
   getEnvironmentIdsFromOrg,
   getContextFromReq,
   getContextForAgendaJobByOrgId,
-} from "../services/organizations";
+} from "@back-end/src/services/organizations";
+import {
+  addIdsToRules,
+  arrayMove,
+  evaluateFeature,
+  generateRuleId,
+  getFeatureDefinitions,
+  getSavedGroupMap,
+} from "@back-end/src/services/features";
+import {
+  auditDetailsCreate,
+  auditDetailsUpdate,
+  auditDetailsDelete,
+} from "@back-end/src/services/audit";
+import { getEnabledEnvironments } from "@back-end/src/util/features";
+import { logger } from "@back-end/src/util/logger";
+import {
+  FASTLY_SERVICE_ID,
+  CACHE_CONTROL_MAX_AGE,
+  CACHE_CONTROL_STALE_IF_ERROR,
+  CACHE_CONTROL_STALE_WHILE_REVALIDATE,
+} from "@back-end/src/util/secrets";
+import { getSurrogateKeysFromEnvironments } from "@back-end/src/util/cdn.util";
 import {
   addFeatureRule,
   createFeature,
@@ -36,23 +55,9 @@ import {
   migrateDraft,
   applyRevisionChanges,
   addLinkedExperiment,
-} from "../models/FeatureModel";
-import { getRealtimeUsageByHour } from "../models/RealtimeModel";
-import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
-import {
-  addIdsToRules,
-  arrayMove,
-  evaluateFeature,
-  generateRuleId,
-  getFeatureDefinitions,
-  getSavedGroupMap,
-} from "../services/features";
-import { FeatureUsageRecords } from "../../types/realtime";
-import {
-  auditDetailsCreate,
-  auditDetailsUpdate,
-  auditDetailsDelete,
-} from "../services/audit";
+} from "@back-end/src/models/FeatureModel";
+import { getRealtimeUsageByHour } from "@back-end/src/models/RealtimeModel";
+import { lookupOrganizationByApiKey } from "@back-end/src/models/ApiKeyModel";
 import {
   ReviewSubmittedType,
   cleanUpPreviousRevisions,
@@ -67,38 +72,33 @@ import {
   markRevisionAsReviewRequested,
   submitReviewAndComments,
   updateRevision,
-} from "../models/FeatureRevisionModel";
-import { getEnabledEnvironments } from "../util/features";
+} from "@back-end/src/models/FeatureRevisionModel";
 import {
   findSDKConnectionByKey,
   markSDKConnectionUsed,
-} from "../models/SdkConnectionModel";
-import { logger } from "../util/logger";
-import { addTagsDiff } from "../models/TagModel";
-import {
-  EventAuditUserForResponseLocals,
-  EventAuditUserLoggedIn,
-} from "../events/event-types";
-import {
-  FASTLY_SERVICE_ID,
-  CACHE_CONTROL_MAX_AGE,
-  CACHE_CONTROL_STALE_IF_ERROR,
-  CACHE_CONTROL_STALE_WHILE_REVALIDATE,
-} from "../util/secrets";
-import { upsertWatch } from "../models/WatchModel";
-import { getSurrogateKeysFromEnvironments } from "../util/cdn.util";
-import { FeatureRevisionInterface } from "../../types/feature-revision";
+} from "@back-end/src/models/SdkConnectionModel";
+import { addTagsDiff } from "@back-end/src/models/TagModel";
+import { upsertWatch } from "@back-end/src/models/WatchModel";
 import {
   addLinkedFeatureToExperiment,
   getExperimentById,
   getExperimentsByIds,
   getExperimentsByTrackingKeys,
   getAllPayloadExperiments,
-} from "../models/ExperimentModel";
-import { ReqContext } from "../../types/organization";
-import { ExperimentInterface } from "../../types/experiment";
-import { ApiReqContext } from "../../types/api";
-import { getAllCodeRefsForFeature } from "../models/FeatureCodeRefs";
+} from "@back-end/src/models/ExperimentModel";
+import { getAllCodeRefsForFeature } from "@back-end/src/models/FeatureCodeRefs";
+import { FeatureRevisionInterface } from "@back-end/types/feature-revision";
+import { ReqContext } from "@back-end/types/organization";
+import { ExperimentInterface } from "@back-end/types/experiment";
+import { ApiReqContext } from "@back-end/types/api";
+import { FeatureUsageRecords } from "@back-end/types/realtime";
+import {
+  ExperimentRefRule,
+  FeatureInterface,
+  FeaturePrerequisite,
+  FeatureRule,
+  FeatureTestResult,
+} from "@back-end/types/feature";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {

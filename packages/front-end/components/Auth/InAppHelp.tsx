@@ -2,10 +2,10 @@ import { useFeature } from "@growthbook/growthbook-react";
 import { useEffect, useState } from "react";
 import { BsQuestionLg, BsXLg } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
-import { useUser } from "@/services/UserContext";
-import { isCloud } from "@/services/env";
-import { GBPremiumBadge } from "@/components/Icons";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
+import { useUser } from "@front-end/services/UserContext";
+import { isCloud } from "@front-end/services/env";
+import { GBPremiumBadge } from "@front-end/components/Icons";
+import UpgradeModal from "@front-end/components/Settings/UpgradeModal";
 
 export default function InAppHelp() {
   const config = useFeature("pylon-config").value;

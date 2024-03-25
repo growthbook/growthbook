@@ -1,15 +1,15 @@
-import { CreateFactTableProps } from "../../../types/fact-table";
-import { PostFactTableResponse } from "../../../types/openapi";
-import { queueFactTableColumnsRefresh } from "../../jobs/refreshFactTableColumns";
-import { getDataSourceById } from "../../models/DataSourceModel";
+import { postFactTableValidator } from "@back-end/src/validators/openapi";
+import { CreateFactTableProps } from "@back-end/types/fact-table";
+import { PostFactTableResponse } from "@back-end/types/openapi";
+import { getDataSourceById } from "@back-end/src/models/DataSourceModel";
 import {
   createFactTable,
   toFactTableApiInterface,
-} from "../../models/FactTableModel";
-import { findAllProjectsByOrganization } from "../../models/ProjectModel";
-import { addTags } from "../../models/TagModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { postFactTableValidator } from "../../validators/openapi";
+} from "@back-end/src/models/FactTableModel";
+import { findAllProjectsByOrganization } from "@back-end/src/models/ProjectModel";
+import { addTags } from "@back-end/src/models/TagModel";
+import { createApiRequestHandler } from "@back-end/src/util/handler";
+import { queueFactTableColumnsRefresh } from "@back-end/src/jobs/refreshFactTableColumns";
 
 export const postFactTable = createApiRequestHandler(postFactTableValidator)(
   async (req): Promise<PostFactTableResponse> => {

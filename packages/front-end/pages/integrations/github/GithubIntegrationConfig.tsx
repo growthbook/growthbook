@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { GithubIntegrationInterface } from "back-end/types/github";
-import { useAuth } from "@/services/auth";
+import { useAuth } from "@front-end/services/auth";
 
 export default function GithubIntegrationConfig({
   githubIntegration,

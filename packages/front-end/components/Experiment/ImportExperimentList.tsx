@@ -4,24 +4,24 @@ import { PastExperimentsInterface } from "back-end/types/past-experiments";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getValidDate, ago, date, datetime, daysBetween } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
-import { useAddComputedFields, useSearch } from "@/services/search";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useAuth } from "@/services/auth";
-import useApi from "@/hooks/useApi";
-import { getExposureQuery } from "@/services/datasources";
-import usePermissions from "@/hooks/usePermissions";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { isCloud } from "@/services/env";
+import { useAddComputedFields, useSearch } from "@front-end/services/search";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { useAuth } from "@front-end/services/auth";
+import useApi from "@front-end/hooks/useApi";
+import { getExposureQuery } from "@front-end/services/datasources";
+import usePermissions from "@front-end/hooks/usePermissions";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import { isCloud } from "@front-end/services/env";
 import RunQueriesButton, {
   getQueryStatus,
-} from "@/components/Queries/RunQueriesButton";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
-import Toggle from "@/components/Forms/Toggle";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { generateVariationId } from "@/services/features";
+} from "@front-end/components/Queries/RunQueriesButton";
+import Field from "@front-end/components/Forms/Field";
+import SelectField from "@front-end/components/Forms/SelectField";
+import Toggle from "@front-end/components/Forms/Toggle";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import ViewAsyncQueriesButton from "@front-end/components/Queries/ViewAsyncQueriesButton";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { generateVariationId } from "@front-end/services/features";
 
 const numberFormatter = new Intl.NumberFormat();
 

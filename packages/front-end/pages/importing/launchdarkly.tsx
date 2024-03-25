@@ -1,7 +1,7 @@
 import React from "react";
 import { NextPage } from "next";
-import ImportFromLaunchDarkly from "@/components/importing/ImportFromLaunchDarkly/ImportFromLaunchDarkly";
-import { useFeatureDisabledRedirect } from "@/hooks/useFeatureDisabledRedirect";
+import ImportFromLaunchDarkly from "@front-end/components/importing/ImportFromLaunchDarkly/ImportFromLaunchDarkly";
+import { useFeatureDisabledRedirect } from "@front-end/hooks/useFeatureDisabledRedirect";
 
 const ImportFromLaunchDarklyPage: NextPage = () => {
   const { shouldRender } = useFeatureDisabledRedirect("import-from-x");

@@ -12,7 +12,19 @@ import {
   getMetricTemplateVariables,
 } from "shared/experiments";
 import { AUTOMATIC_DIMENSION_OTHER_NAME } from "shared/constants";
-import { MetricInterface, MetricType } from "../../types/metric";
+import { IMPORT_LIMIT_DAYS } from "@back-end/src/util/secrets";
+import {
+  getBaseIdTypeAndJoins,
+  compileSqlTemplate,
+  format,
+  FormatDialect,
+  replaceCountStar,
+} from "@back-end/src/util/sql";
+import { formatInformationSchema } from "@back-end/src/util/informationSchemas";
+import { logger } from "@back-end/src/util/logger";
+import { applyMetricOverrides } from "@back-end/src/util/integration";
+import { FactTableMap } from "@back-end/src/models/FactTableModel";
+import { MetricInterface, MetricType } from "@back-end/types/metric";
 import {
   DataSourceSettings,
   DataSourceProperties,
@@ -20,7 +32,15 @@ import {
   DataSourceType,
   SchemaFormatConfig,
   AutoMetricSchemas,
-} from "../../types/datasource";
+} from "@back-end/types/datasource";
+import { DimensionInterface } from "@back-end/types/dimension";
+import { SegmentInterface } from "@back-end/types/segment";
+import { ExperimentSnapshotSettings } from "@back-end/types/experiment-snapshot";
+import { SQLVars, TemplateVariables } from "@back-end/types/sql";
+import {
+  FactFilterInterface,
+  FactMetricInterface,
+} from "@back-end/types/fact-table";
 import {
   MetricValueParams,
   SourceIntegrationInterface,
@@ -51,27 +71,7 @@ import {
   DimensionSlicesQueryParams,
   ExperimentFactMetricsQueryParams,
   ExperimentFactMetricsQueryResponse,
-} from "../types/Integration";
-import { DimensionInterface } from "../../types/dimension";
-import { IMPORT_LIMIT_DAYS } from "../util/secrets";
-import { SegmentInterface } from "../../types/segment";
-import {
-  getBaseIdTypeAndJoins,
-  compileSqlTemplate,
-  format,
-  FormatDialect,
-  replaceCountStar,
-} from "../util/sql";
-import { formatInformationSchema } from "../util/informationSchemas";
-import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
-import { SQLVars, TemplateVariables } from "../../types/sql";
-import { FactTableMap } from "../models/FactTableModel";
-import { logger } from "../util/logger";
-import {
-  FactFilterInterface,
-  FactMetricInterface,
-} from "../../types/fact-table";
-import { applyMetricOverrides } from "../util/integration";
+} from "@back-end/src/types/Integration";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;

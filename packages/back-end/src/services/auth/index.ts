@@ -1,29 +1,32 @@
 import { NextFunction, Request, Response } from "express";
 import { SSO_CONFIG } from "enterprise";
 import { userHasPermission } from "shared/permissions";
-import { IS_CLOUD } from "../../util/secrets";
-import { AuthRequest } from "../../types/AuthRequest";
-import { markUserAsVerified, UserModel } from "../../models/UserModel";
-import { getOrganizationById, validateLoginMethod } from "../organizations";
-import { Permission } from "../../../types/organization";
-import { UserInterface } from "../../../types/user";
-import { AuditInterface } from "../../../types/audit";
-import { getUserByEmail } from "../users";
-import { hasOrganization } from "../../models/OrganizationModel";
+import { markUserAsVerified, UserModel } from "@back-end/src/models/UserModel";
+import { hasOrganization } from "@back-end/src/models/OrganizationModel";
+import { insertAudit } from "@back-end/src/models/AuditModel";
+import { getTeamsForOrganization } from "@back-end/src/models/TeamModel";
+import { IS_CLOUD } from "@back-end/src/util/secrets";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
+import { Permission } from "@back-end/types/organization";
+import { UserInterface } from "@back-end/types/user";
+import { AuditInterface } from "@back-end/types/audit";
+import { getUserByEmail } from "@back-end/src/services/users";
 import {
   IdTokenCookie,
   AuthChecksCookie,
   RefreshTokenCookie,
   SSOConnectionIdCookie,
-} from "../../util/cookie";
-import { getUserPermissions } from "../../util/organization.util";
+} from "@back-end/src/util/cookie";
+import { getUserPermissions } from "@back-end/src/util/organization.util";
 import {
   EventAuditUserForResponseLocals,
   EventAuditUserLoggedIn,
-} from "../../events/event-types";
-import { insertAudit } from "../../models/AuditModel";
-import { getTeamsForOrganization } from "../../models/TeamModel";
-import { initializeLicense } from "../licenseData";
+} from "@back-end/src/events/event-types";
+import { initializeLicense } from "@back-end/src/services/licenseData";
+import {
+  getOrganizationById,
+  validateLoginMethod,
+} from "@back-end/src/services/organizations";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";

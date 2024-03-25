@@ -3,9 +3,9 @@ import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { PValueCorrection } from "back-end/types/stats";
-import { pValueFormatter, RowResults } from "@/services/experiments";
-import NotEnoughData from "@/components/Experiment/NotEnoughData";
-import { GBSuspicious } from "@/components/Icons";
+import { pValueFormatter, RowResults } from "@front-end/services/experiments";
+import NotEnoughData from "@front-end/components/Experiment/NotEnoughData";
+import { GBSuspicious } from "@front-end/components/Icons";
 
 interface Props
   extends DetailedHTMLProps<

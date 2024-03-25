@@ -1,6 +1,6 @@
 import uniqid from "uniqid";
-import { Comment, DiscussionParentType } from "../../types/discussion";
-import { DiscussionModel } from "../models/DiscussionModel";
+import { DiscussionModel } from "@back-end/src/models/DiscussionModel";
+import { Comment, DiscussionParentType } from "@back-end/types/discussion";
 
 export async function getDiscussionByParent(
   organization: string,

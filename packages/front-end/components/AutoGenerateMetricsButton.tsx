@@ -2,7 +2,7 @@ import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
 import { FaPlus } from "react-icons/fa";
 import clsx from "clsx";
 import { useMemo } from "react";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
 
 type Props = {
   setShowAutoGenerateMetricsModal: (value: boolean) => void;

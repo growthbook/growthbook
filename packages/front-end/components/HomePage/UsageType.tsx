@@ -1,4 +1,4 @@
-import Button from "@/components/Button";
+import Button from "@front-end/components/Button";
 
 export default function UsageType({
   onSelect,

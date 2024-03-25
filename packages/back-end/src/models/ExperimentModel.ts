@@ -5,36 +5,36 @@ import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
 import { hasReadAccess } from "shared/permissions";
 import {
+  ExperimentCreatedNotificationEvent,
+  ExperimentDeletedNotificationEvent,
+  ExperimentUpdatedNotificationEvent,
+} from "@back-end/src/events/notification-events";
+import { EventNotifier } from "@back-end/src/events/notifiers/EventNotifier";
+import { logger } from "@back-end/src/util/logger";
+import { upgradeExperimentDoc } from "@back-end/src/util/migrations";
+import { getAffectedSDKPayloadKeys } from "@back-end/src/util/features";
+import {
   Changeset,
   ExperimentInterface,
   LegacyExperimentInterface,
   Variation,
-} from "../../types/experiment";
-import { ReqContext } from "../../types/organization";
-import { VisualChange } from "../../types/visual-changeset";
+} from "@back-end/types/experiment";
+import { ReqContext } from "@back-end/types/organization";
+import { VisualChange } from "@back-end/types/visual-changeset";
+import { SDKPayloadKey } from "@back-end/types/sdk-payload";
+import { FeatureInterface } from "@back-end/types/feature";
+import { ApiReqContext } from "@back-end/types/api";
 import {
   determineNextDate,
   generateTrackingKey,
   toExperimentApiInterface,
-} from "../services/experiments";
-import {
-  ExperimentCreatedNotificationEvent,
-  ExperimentDeletedNotificationEvent,
-  ExperimentUpdatedNotificationEvent,
-} from "../events/notification-events";
-import { EventNotifier } from "../events/notifiers/EventNotifier";
-import { logger } from "../util/logger";
-import { upgradeExperimentDoc } from "../util/migrations";
+} from "@back-end/src/services/experiments";
 import {
   refreshSDKPayloadCache,
   URLRedirectExperiment,
   VisualExperiment,
-} from "../services/features";
-import { SDKPayloadKey } from "../../types/sdk-payload";
-import { FeatureInterface } from "../../types/feature";
-import { getAffectedSDKPayloadKeys } from "../util/features";
-import { getEnvironmentIdsFromOrg } from "../services/organizations";
-import { ApiReqContext } from "../../types/api";
+} from "@back-end/src/services/features";
+import { getEnvironmentIdsFromOrg } from "@back-end/src/services/organizations";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";

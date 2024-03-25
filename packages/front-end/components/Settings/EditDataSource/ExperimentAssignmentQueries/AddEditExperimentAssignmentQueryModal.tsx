@@ -8,13 +8,13 @@ import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
 import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
-import Code from "@/components/SyntaxHighlighting/Code";
-import StringArrayField from "@/components/Forms/StringArrayField";
-import Toggle from "@/components/Forms/Toggle";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
-import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
+import StringArrayField from "@front-end/components/Forms/StringArrayField";
+import Toggle from "@front-end/components/Forms/Toggle";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import Modal from "@front-end/components/Modal";
+import Field from "@front-end/components/Forms/Field";
+import EditSqlModal from "@front-end/components/SchemaBrowser/EditSqlModal";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;

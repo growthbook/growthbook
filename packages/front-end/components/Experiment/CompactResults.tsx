@@ -15,24 +15,24 @@ import Link from "next/link";
 import { FaAngleRight, FaTimes, FaUsers } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { ExperimentMetricInterface, getMetricLink } from "shared/experiments";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
 import {
   applyMetricOverrides,
   setAdjustedPValuesOnResults,
   ExperimentTableRow,
   useRiskVariation,
   setAdjustedCIs,
-} from "@/services/experiments";
-import { GBCuped } from "@/components/Icons";
-import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
+} from "@front-end/services/experiments";
+import { GBCuped } from "@front-end/components/Icons";
+import { QueryStatusData } from "@front-end/components/Queries/RunQueriesButton";
 import {
   ResultsMetricFilters,
   sortAndFilterMetricsByTags,
-} from "@/components/Experiment/Results";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
-import MetricName from "@/components/Metrics/MetricName";
+} from "@front-end/components/Experiment/Results";
+import usePValueThreshold from "@front-end/hooks/usePValueThreshold";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import MetricTooltipBody from "@front-end/components/Metrics/MetricTooltipBody";
+import MetricName from "@front-end/components/Metrics/MetricName";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";

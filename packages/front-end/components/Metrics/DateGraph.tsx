@@ -17,8 +17,8 @@ import {
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ScaleLinear } from "d3-scale";
 import { date, getValidDate } from "shared/dates";
-import { getMetricFormatter } from "@/services/metrics";
-import { useCurrency } from "@/hooks/useCurrency";
+import { getMetricFormatter } from "@front-end/services/metrics";
+import { useCurrency } from "@front-end/hooks/useCurrency";
 import styles from "./DateGraph.module.scss";
 type TooltipData = { x: number; y: number; d: Datapoint };
 

@@ -1,7 +1,7 @@
 import React from "react";
 import { NextPage } from "next";
-import { ImportYourData } from "@/components/importing/ImportYourData/ImportYourData";
-import { useFeatureDisabledRedirect } from "@/hooks/useFeatureDisabledRedirect";
+import { ImportYourData } from "@front-end/components/importing/ImportYourData/ImportYourData";
+import { useFeatureDisabledRedirect } from "@front-end/hooks/useFeatureDisabledRedirect";
 
 /**
  * A page to host all "Import from X" sections. To start, since we only have one,

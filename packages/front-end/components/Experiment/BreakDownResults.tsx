@@ -11,23 +11,23 @@ import {
   StatsEngine,
 } from "back-end/types/stats";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
 import {
   applyMetricOverrides,
   setAdjustedPValuesOnResults,
   ExperimentTableRow,
   useRiskVariation,
   setAdjustedCIs,
-} from "@/services/experiments";
-import ResultsTable from "@/components/Experiment/ResultsTable";
-import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
-import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
+} from "@front-end/services/experiments";
+import ResultsTable from "@front-end/components/Experiment/ResultsTable";
+import { QueryStatusData } from "@front-end/components/Queries/RunQueriesButton";
+import { getRenderLabelColumn } from "@front-end/components/Experiment/CompactResults";
+import usePValueThreshold from "@front-end/hooks/usePValueThreshold";
 import {
   ResultsMetricFilters,
   sortAndFilterMetricsByTags,
-} from "@/components/Experiment/Results";
-import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
+} from "@front-end/components/Experiment/Results";
+import ResultsMetricFilter from "@front-end/components/Experiment/ResultsMetricFilter";
 import UsersTable from "./UsersTable";
 
 type TableDef = {

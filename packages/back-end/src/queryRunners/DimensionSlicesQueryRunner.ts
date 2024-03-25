@@ -1,16 +1,16 @@
 import {
-  ExperimentDimension,
-  DimensionSlicesQueryResponseRows,
-} from "../types/Integration";
+  getDimensionSlicesById,
+  updateDimensionSlices,
+} from "@back-end/src/models/DimensionSlicesModel";
 import {
   DimensionSlicesInterface,
   DimensionSlicesResult,
-} from "../../types/dimension";
-import { Queries } from "../../types/query";
+} from "@back-end/types/dimension";
+import { Queries } from "@back-end/types/query";
 import {
-  getDimensionSlicesById,
-  updateDimensionSlices,
-} from "../models/DimensionSlicesModel";
+  ExperimentDimension,
+  DimensionSlicesQueryResponseRows,
+} from "@back-end/src/types/Integration";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 export type DimensionSlicesParams = {
   exposureQueryId: string;

@@ -16,17 +16,17 @@ import {
   FeaturePrerequisite,
   SavedGroupTargeting,
 } from "back-end/types/feature";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import PremiumTooltip from "@front-end/components/Marketing/PremiumTooltip";
 import {
   ChangeType,
   ReleasePlan,
-} from "@/components/Experiment/EditTargetingModal";
-import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
-import { StickyBucketingTooltip } from "@/components/Features/FallbackAttributeSelector";
-import SelectField from "@/components/Forms/SelectField";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { DocLink } from "@/components/DocLink";
+} from "@front-end/components/Experiment/EditTargetingModal";
+import TargetingInfo from "@front-end/components/Experiment/TabbedPage/TargetingInfo";
+import { StickyBucketingTooltip } from "@front-end/components/Features/FallbackAttributeSelector";
+import SelectField from "@front-end/components/Forms/SelectField";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { DocLink } from "@front-end/components/DocLink";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;

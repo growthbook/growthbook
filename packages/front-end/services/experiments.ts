@@ -21,12 +21,12 @@ import {
   ExperimentMetricInterface,
   isBinomialMetric,
 } from "shared/experiments";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import { useOrganizationMetricDefaults } from "@front-end/hooks/useOrganizationMetricDefaults";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
   getExperimentMetricFormatter,
-} from "@/services/metrics";
+} from "@front-end/services/metrics";
 
 export type ExperimentTableRow = {
   label: string;

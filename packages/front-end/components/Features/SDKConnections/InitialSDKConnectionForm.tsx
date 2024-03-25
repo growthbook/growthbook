@@ -1,9 +1,9 @@
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import React, { ReactElement, useEffect, useState } from "react";
 import { FeatureInterface } from "back-end/types/feature";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import CodeSnippetModal from "@/components/Features/CodeSnippetModal";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import useSDKConnections from "@front-end/hooks/useSDKConnections";
+import CodeSnippetModal from "@front-end/components/Features/CodeSnippetModal";
 import SDKConnectionForm from "./SDKConnectionForm";
 
 export default function InitialSDKConnectionForm({

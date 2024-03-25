@@ -13,6 +13,9 @@
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,
     "rootDir": "src",
+    "paths": {
+      "@back-end/*": ["../back-end/*"]
+    },
     "resolveJsonModule": true
   },
   "include": ["src/**/*"]

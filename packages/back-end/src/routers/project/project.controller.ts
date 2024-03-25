@@ -1,37 +1,37 @@
 import type { Response } from "express";
-import { AuthRequest } from "../../types/AuthRequest";
-import { ApiErrorResponse } from "../../../types/api";
-import { getContextFromReq } from "../../services/organizations";
-import { ProjectInterface, ProjectSettings } from "../../../types/project";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
+import { getContextFromReq } from "@back-end/src/services/organizations";
+import { ApiErrorResponse } from "@back-end/types/api";
+import { ProjectInterface, ProjectSettings } from "@back-end/types/project";
 import {
   createProject,
   deleteProjectById,
   findProjectById,
   updateProject,
   updateProjectSettings,
-} from "../../models/ProjectModel";
+} from "@back-end/src/models/ProjectModel";
 import {
   deleteAllDataSourcesForAProject,
   removeProjectFromDatasources,
-} from "../../models/DataSourceModel";
+} from "@back-end/src/models/DataSourceModel";
 import {
   deleteAllMetricsForAProject,
   removeProjectFromMetrics,
-} from "../../models/MetricModel";
+} from "@back-end/src/models/MetricModel";
 import {
   deleteAllFeaturesForAProject,
   removeProjectFromFeatures,
-} from "../../models/FeatureModel";
-import { removeProjectFromProjectRoles } from "../../models/OrganizationModel";
+} from "@back-end/src/models/FeatureModel";
+import { removeProjectFromProjectRoles } from "@back-end/src/models/OrganizationModel";
 import {
   deleteAllExperimentsForAProject,
   removeProjectFromExperiments,
-} from "../../models/ExperimentModel";
+} from "@back-end/src/models/ExperimentModel";
 import {
   deleteAllSlackIntegrationsForAProject,
   removeProjectFromSlackIntegration,
-} from "../../models/SlackIntegrationModel";
-import { EventAuditUserForResponseLocals } from "../../events/event-types";
+} from "@back-end/src/models/SlackIntegrationModel";
+import { EventAuditUserForResponseLocals } from "@back-end/src/events/event-types";
 
 // region POST /projects
 

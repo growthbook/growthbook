@@ -3,26 +3,29 @@ import uniqid from "uniqid";
 import { cloneDeep, isEqual } from "lodash";
 import { hasReadAccess } from "shared/permissions";
 import {
-  DataSourceInterface,
-  DataSourceParams,
-  DataSourceSettings,
-  DataSourceType,
-} from "../../types/datasource";
-import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
-import { getOauth2Client } from "../integrations/GoogleAnalytics";
-import {
   encryptParams,
   getSourceIntegrationObject,
   testDataSourceConnection,
   testQueryValidity,
-} from "../services/datasource";
-import { usingFileConfig, getConfigDatasources } from "../init/config";
-import { upgradeDatasourceObject } from "../util/migrations";
-import { ApiDataSource } from "../../types/openapi";
-import { queueCreateInformationSchema } from "../jobs/createInformationSchema";
-import { IS_CLOUD } from "../util/secrets";
-import { ReqContext } from "../../types/organization";
-import { ApiReqContext } from "../../types/api";
+} from "@back-end/src/services/datasource";
+import { upgradeDatasourceObject } from "@back-end/src/util/migrations";
+import { IS_CLOUD } from "@back-end/src/util/secrets";
+import { ApiDataSource } from "@back-end/types/openapi";
+import { ReqContext } from "@back-end/types/organization";
+import { ApiReqContext } from "@back-end/types/api";
+import { GoogleAnalyticsParams } from "@back-end/types/integrations/googleanalytics";
+import {
+  DataSourceInterface,
+  DataSourceParams,
+  DataSourceSettings,
+  DataSourceType,
+} from "@back-end/types/datasource";
+import { getOauth2Client } from "@back-end/src/integrations/GoogleAnalytics";
+import {
+  usingFileConfig,
+  getConfigDatasources,
+} from "@back-end/src/init/config";
+import { queueCreateInformationSchema } from "@back-end/src/jobs/createInformationSchema";
 import { findAllOrganizations } from "./OrganizationModel";
 
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({

@@ -2,11 +2,11 @@ import React, { FC, useCallback, useMemo, useState } from "react";
 import { FaKey } from "react-icons/fa";
 import Link from "next/link";
 import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
-import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";
-import ApiKeysModal from "@/components/Settings/ApiKeysModal";
-import { useAuth } from "@/services/auth";
-import { groupApiKeysByType } from "@/services/secret-api-keys.utils";
-import useApi from "@/hooks/useApi";
+import { ApiKeysTable } from "@front-end/components/ApiKeysTable/ApiKeysTable";
+import ApiKeysModal from "@front-end/components/Settings/ApiKeysModal";
+import { useAuth } from "@front-end/services/auth";
+import { groupApiKeysByType } from "@front-end/services/secret-api-keys.utils";
+import useApi from "@front-end/hooks/useApi";
 
 type PersonalAccessTokensProps = {
   accessTokens: ApiKeyInterface[];

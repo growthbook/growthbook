@@ -5,25 +5,30 @@ import {
   isRatioMetric,
 } from "shared/experiments";
 import chunk from "lodash/chunk";
+import { parseDimensionId } from "@back-end/src/services/experiments";
+import {
+  analyzeExperimentResults,
+  analyzeExperimentTraffic,
+} from "@back-end/src/services/stats";
+import { getOrganizationById } from "@back-end/src/services/organizations";
+import { expandDenominatorMetrics } from "@back-end/src/util/sql";
+import { FactTableMap } from "@back-end/src/models/FactTableModel";
+import { findSegmentById } from "@back-end/src/models/SegmentModel";
+import {
+  findSnapshotById,
+  updateSnapshot,
+} from "@back-end/src/models/ExperimentSnapshotModel";
+import { OrganizationInterface } from "@back-end/types/organization";
+import { FactMetricInterface } from "@back-end/types/fact-table";
+import { SegmentInterface } from "@back-end/types/segment";
+import { Queries, QueryPointer, QueryStatus } from "@back-end/types/query";
+import { MetricInterface } from "@back-end/types/metric";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotHealth,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
-} from "../../types/experiment-snapshot";
-import { MetricInterface } from "../../types/metric";
-import { Queries, QueryPointer, QueryStatus } from "../../types/query";
-import { SegmentInterface } from "../../types/segment";
-import {
-  findSnapshotById,
-  updateSnapshot,
-} from "../models/ExperimentSnapshotModel";
-import { findSegmentById } from "../models/SegmentModel";
-import { parseDimensionId } from "../services/experiments";
-import {
-  analyzeExperimentResults,
-  analyzeExperimentTraffic,
-} from "../services/stats";
+} from "@back-end/types/experiment-snapshot";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentDimension,
@@ -34,13 +39,8 @@ import {
   ExperimentResults,
   ExperimentUnitsQueryParams,
   SourceIntegrationInterface,
-} from "../types/Integration";
-import { expandDenominatorMetrics } from "../util/sql";
-import { getOrganizationById } from "../services/organizations";
-import { FactTableMap } from "../models/FactTableModel";
-import { OrganizationInterface } from "../../types/organization";
-import { FactMetricInterface } from "../../types/fact-table";
-import SqlIntegration from "../integrations/SqlIntegration";
+} from "@back-end/src/types/Integration";
+import SqlIntegration from "@back-end/src/integrations/SqlIntegration";
 import {
   QueryRunner,
   QueryMap,

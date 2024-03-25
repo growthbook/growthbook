@@ -11,17 +11,17 @@ import {
 import { date } from "shared/dates";
 import stringify from "json-stringify-pretty-compact";
 import Collapsible from "react-collapsible";
-import Field from "@/components/Forms/Field";
-import Pagination from "@/components/Pagination";
-import { useUser } from "@/services/UserContext";
-import Code from "@/components/SyntaxHighlighting/Code";
-import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
-import { isCloud, isMultiOrg } from "@/services/env";
-import EditOrganization from "@/components/Admin/EditOrganization";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import CreateOrganization from "@/components/Admin/CreateOrganization";
-import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
-import { useAuth } from "@/services/auth";
+import Field from "@front-end/components/Forms/Field";
+import Pagination from "@front-end/components/Pagination";
+import { useUser } from "@front-end/services/UserContext";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
+import OrphanedUsersList from "@front-end/components/Settings/Team/OrphanedUsersList";
+import { isCloud, isMultiOrg } from "@front-end/services/env";
+import EditOrganization from "@front-end/components/Admin/EditOrganization";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import CreateOrganization from "@front-end/components/Admin/CreateOrganization";
+import ShowLicenseInfo from "@front-end/components/License/ShowLicenseInfo";
+import { useAuth } from "@front-end/services/auth";
 
 const numberFormatter = new Intl.NumberFormat();
 

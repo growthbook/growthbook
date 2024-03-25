@@ -1,7 +1,7 @@
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { ChangeEventHandler } from "react";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import Field from "@/components/Forms/Field";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import Field from "@front-end/components/Forms/Field";
 
 export interface Props {
   datasource: Partial<DataSourceInterfaceWithParams>;

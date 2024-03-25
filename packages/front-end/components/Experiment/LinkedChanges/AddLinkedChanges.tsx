@@ -4,12 +4,12 @@ import {
   SDKCapability,
   getConnectionsSDKCapabilities,
 } from "shared/sdk-versioning";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { useUser } from "@/services/UserContext";
-import track from "@/services/track";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import styles from "@/components/Experiment/LinkedChanges/AddLinkedChanges.module.scss";
+import PremiumTooltip from "@front-end/components/Marketing/PremiumTooltip";
+import { useUser } from "@front-end/services/UserContext";
+import track from "@front-end/services/track";
+import useSDKConnections from "@front-end/hooks/useSDKConnections";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import styles from "@front-end/components/Experiment/LinkedChanges/AddLinkedChanges.module.scss";
 import { ICON_PROPERTIES, LinkedChange } from "./constants";
 
 const LINKED_CHANGES = {

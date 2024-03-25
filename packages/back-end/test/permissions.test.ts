@@ -6,11 +6,11 @@ import {
 import {
   getUserPermissions,
   roleToPermissionMap,
-} from "../src/util/organization.util";
-import { OrganizationInterface } from "../types/organization";
-import { TeamInterface } from "../types/team";
-import { FeatureInterface } from "../types/feature";
-import { MetricInterface } from "../types/metric";
+} from "@back-end/src/util/organization.util";
+import { OrganizationInterface } from "@back-end/types/organization";
+import { TeamInterface } from "@back-end/types/team";
+import { FeatureInterface } from "@back-end/types/feature";
+import { MetricInterface } from "@back-end/types/metric";
 
 describe("Build base user permissions", () => {
   const testOrg: OrganizationInterface = {

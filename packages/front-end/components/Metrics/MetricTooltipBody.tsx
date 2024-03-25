@@ -4,10 +4,10 @@ import React from "react";
 import {
   capitalizeFirstLetter,
   isNullUndefinedOrEmpty,
-} from "@/services/utils";
-import { ExperimentTableRow } from "@/services/experiments";
-import Markdown from "@/components/Markdown/Markdown";
-import SortedTags from "@/components/Tags/SortedTags";
+} from "@front-end/services/utils";
+import { ExperimentTableRow } from "@front-end/services/experiments";
+import Markdown from "@front-end/components/Markdown/Markdown";
+import SortedTags from "@front-end/components/Tags/SortedTags";
 import styles from "./MetricToolTipBody.module.scss";
 import MetricName from "./MetricName";
 

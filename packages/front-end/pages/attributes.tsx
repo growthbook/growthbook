@@ -1,17 +1,17 @@
 import React, { useState } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
 import { SDKAttribute } from "back-end/types/organization";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { GBAddCircle } from "@/components/Icons";
-import usePermissions from "@/hooks/usePermissions";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import { useAuth } from "@/services/auth";
-import { useAttributeSchema } from "@/services/features";
-import AttributeModal from "@/components/Features/AttributeModal";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import ProjectBadges from "@/components/ProjectBadges";
-import { useUser } from "@/services/UserContext";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { GBAddCircle } from "@front-end/components/Icons";
+import usePermissions from "@front-end/hooks/usePermissions";
+import MoreMenu from "@front-end/components/Dropdown/MoreMenu";
+import { useAuth } from "@front-end/services/auth";
+import { useAttributeSchema } from "@front-end/services/features";
+import AttributeModal from "@front-end/components/Features/AttributeModal";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import ProjectBadges from "@front-end/components/ProjectBadges";
+import { useUser } from "@front-end/services/UserContext";
 
 const FeatureAttributesPage = (): React.ReactElement => {
   const permissions = usePermissions();

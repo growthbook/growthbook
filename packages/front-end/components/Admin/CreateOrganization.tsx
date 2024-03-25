@@ -1,6 +1,6 @@
 import { useState, FC } from "react";
-import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
+import { useAuth } from "@front-end/services/auth";
+import Modal from "@front-end/components/Modal";
 
 const CreateOrganization: FC<{
   onCreate: () => void;

@@ -1,5 +1,5 @@
 import { SDKLanguage } from "back-end/types/sdk-connection";
-import Code from "@/components/SyntaxHighlighting/Code";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
 
 function rubySymbol(name: string): string {
   return name.match(/[^a-zA-Z0-9_]+/) ? `'${name}'` : `:${name}`;

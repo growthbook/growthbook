@@ -1,23 +1,26 @@
 import { Response } from "express";
 import { FilterQuery } from "mongoose";
-import { AuthRequest } from "../types/AuthRequest";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import {
   getIdeasByOrganization,
   createIdea,
   getIdeaById,
   deleteIdeaById,
   getIdeasByQuery,
-} from "../services/ideas";
-import { IdeaInterface } from "../../types/idea";
-import { addTagsDiff } from "../models/TagModel";
-import { Vote } from "../../types/vote";
-import { getContextFromReq, userHasAccess } from "../services/organizations";
+} from "@back-end/src/services/ideas";
+import {
+  getContextFromReq,
+  userHasAccess,
+} from "@back-end/src/services/organizations";
+import { addTagsDiff } from "@back-end/src/models/TagModel";
 import {
   getImpactEstimate,
   ImpactEstimateModel,
-} from "../models/ImpactEstimateModel";
-import { IdeaDocument } from "../models/IdeasModel";
-import { getExperimentByIdea } from "../models/ExperimentModel";
+} from "@back-end/src/models/ImpactEstimateModel";
+import { IdeaDocument } from "@back-end/src/models/IdeasModel";
+import { getExperimentByIdea } from "@back-end/src/models/ExperimentModel";
+import { Vote } from "@back-end/types/vote";
+import { IdeaInterface } from "@back-end/types/idea";
 
 export async function getIdeas(
   // eslint-disable-next-line

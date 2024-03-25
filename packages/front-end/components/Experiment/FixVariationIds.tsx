@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import uniq from "lodash/uniq";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
+import Modal from "@front-end/components/Modal";
+import Field from "@front-end/components/Forms/Field";
 
 export interface Props {
   setVariationIds: (ids: string[]) => Promise<void>;

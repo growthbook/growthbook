@@ -1,10 +1,10 @@
 import { MemberRole } from "back-end/types/organization";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import Button from "@/components/Button";
-import SelectField from "@/components/Forms/SelectField";
-import { useUser } from "@/services/UserContext";
-import { useAuth } from "@/services/auth";
+import Button from "@front-end/components/Button";
+import SelectField from "@front-end/components/Forms/SelectField";
+import { useUser } from "@front-end/services/UserContext";
+import { useAuth } from "@front-end/services/auth";
 
 export default function UpdateDefaultRoleForm() {
   const { refreshOrganization, organization, roles } = useUser();

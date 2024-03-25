@@ -2,26 +2,26 @@ import { Request, Response } from "express";
 import { Stripe } from "stripe";
 import { isActiveSubscriptionStatus } from "enterprise";
 import {
-  APP_ORIGIN,
-  STRIPE_PRICE,
-  STRIPE_WEBHOOK_SECRET,
-  IS_CLOUD,
-} from "../util/secrets";
-import { AuthRequest } from "../types/AuthRequest";
-import {
   getNumberOfUniqueMembersAndInvites,
   getContextFromReq,
-} from "../services/organizations";
+} from "@back-end/src/services/organizations";
 import {
   updateSubscriptionInDb,
   stripe,
   getCoupon,
   getPrice,
   getStripeCustomerId,
-} from "../services/stripe";
-import { SubscriptionQuote } from "../../types/organization";
-import { sendStripeTrialWillEndEmail } from "../services/email";
-import { logger } from "../util/logger";
+} from "@back-end/src/services/stripe";
+import { sendStripeTrialWillEndEmail } from "@back-end/src/services/email";
+import {
+  APP_ORIGIN,
+  STRIPE_PRICE,
+  STRIPE_WEBHOOK_SECRET,
+  IS_CLOUD,
+} from "@back-end/src/util/secrets";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
+import { SubscriptionQuote } from "@back-end/types/organization";
+import { logger } from "@back-end/src/util/logger";
 
 export async function postNewSubscription(
   req: AuthRequest<{ qty: number; returnUrl: string }>,

@@ -1,7 +1,10 @@
-import { createApiRequestHandler } from "../../util/handler";
-import { getMetricValidator } from "../../validators/openapi";
-import { getMetricById, deleteMetricById } from "../../models/MetricModel";
-import { DeleteMetricResponse } from "../../../types/openapi";
+import { getMetricValidator } from "@back-end/src/validators/openapi";
+import {
+  getMetricById,
+  deleteMetricById,
+} from "@back-end/src/models/MetricModel";
+import { DeleteMetricResponse } from "@back-end/types/openapi";
+import { createApiRequestHandler } from "@back-end/src/util/handler";
 
 export const deleteMetricHandler = createApiRequestHandler(getMetricValidator)(
   async (req): Promise<DeleteMetricResponse> => {

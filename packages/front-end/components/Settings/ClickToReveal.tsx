@@ -1,8 +1,8 @@
 import clsx from "clsx";
 import { useState } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
-import LoadingSpinner from "@/components/LoadingSpinner";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import LoadingSpinner from "@front-end/components/LoadingSpinner";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 import ClickToCopy from "./ClickToCopy";
 import styles from "./ClickToReveal.module.scss";
 

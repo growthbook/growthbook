@@ -1,18 +1,18 @@
 import { FC, useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import InviteList from "@/components/Settings/Team/InviteList";
-import MemberList from "@/components/Settings/Team/MemberList";
-import { useAuth } from "@/services/auth";
-import SSOSettings from "@/components/Settings/SSOSettings";
-import { useUser } from "@/services/UserContext";
-import usePermissions from "@/hooks/usePermissions";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import SelectField from "@/components/Forms/SelectField";
-import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
-import PendingMemberList from "@/components/Settings/Team/PendingMemberList";
-import { isMultiOrg } from "@/services/env";
-import AutoApproveMembersToggle from "@/components/Settings/Team/AutoApproveMembersToggle";
-import UpdateDefaultRoleForm from "@/components/Settings/Team/UpdateDefaultRoleForm";
+import InviteList from "@front-end/components/Settings/Team/InviteList";
+import MemberList from "@front-end/components/Settings/Team/MemberList";
+import { useAuth } from "@front-end/services/auth";
+import SSOSettings from "@front-end/components/Settings/SSOSettings";
+import { useUser } from "@front-end/services/UserContext";
+import usePermissions from "@front-end/hooks/usePermissions";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import SelectField from "@front-end/components/Forms/SelectField";
+import OrphanedUsersList from "@front-end/components/Settings/Team/OrphanedUsersList";
+import PendingMemberList from "@front-end/components/Settings/Team/PendingMemberList";
+import { isMultiOrg } from "@front-end/services/env";
+import AutoApproveMembersToggle from "@front-end/components/Settings/Team/AutoApproveMembersToggle";
+import UpdateDefaultRoleForm from "@front-end/components/Settings/Team/UpdateDefaultRoleForm";
 
 export const MembersTabView: FC = () => {
   const {

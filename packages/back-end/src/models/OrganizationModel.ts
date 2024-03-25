@@ -6,9 +6,9 @@ import {
   Member,
   OrganizationInterface,
   OrganizationMessage,
-} from "../../types/organization";
-import { upgradeOrganizationDoc } from "../util/migrations";
-import { ApiOrganization } from "../../types/openapi";
+} from "@back-end/types/organization";
+import { upgradeOrganizationDoc } from "@back-end/src/util/migrations";
+import { ApiOrganization } from "@back-end/types/openapi";
 
 const baseMemberFields = {
   _id: false,

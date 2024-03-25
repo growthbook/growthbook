@@ -1,10 +1,10 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import React, { DetailedHTMLProps, HTMLAttributes } from "react";
 import { ExperimentMetricInterface } from "shared/experiments";
-import useConfidenceLevels from "@/hooks/useConfidenceLevels";
-import { hasEnoughData, isStatSig } from "@/services/experiments";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
+import useConfidenceLevels from "@front-end/hooks/useConfidenceLevels";
+import { hasEnoughData, isStatSig } from "@front-end/services/experiments";
+import { useOrganizationMetricDefaults } from "@front-end/hooks/useOrganizationMetricDefaults";
+import usePValueThreshold from "@front-end/hooks/usePValueThreshold";
 import AlignedGraph from "./AlignedGraph";
 
 interface Props

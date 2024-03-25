@@ -2,11 +2,11 @@ import { useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { diffChars } from "diff";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
-import { useAuth } from "@/services/auth";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
-import LinkedChangesContainer from "@/components/Experiment/LinkedChanges/LinkedChangesContainer";
-import styles from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges.module.scss";
+import { useAuth } from "@front-end/services/auth";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import UrlRedirectModal from "@front-end/components/Experiment/UrlRedirectModal";
+import LinkedChangesContainer from "@front-end/components/Experiment/LinkedChanges/LinkedChangesContainer";
+import styles from "@front-end/components/Experiment/LinkedChanges/RedirectLinkedChanges.module.scss";
 
 interface RedirectLinkedChangesProps {
   setUrlRedirectModal: (boolean) => void;

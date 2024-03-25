@@ -23,18 +23,18 @@ import {
   getTypeAndVariations,
   transformLDFeatureFlag,
   transformLDProjectsToGBProject,
-} from "@/services/importing";
-import Field from "@/components/Forms/Field";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import Code from "@/components/SyntaxHighlighting/Code";
-import Modal from "@/components/Modal";
-import Button from "@/components/Button";
-import { ApiCallType, useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useEnvironments, useFeaturesList } from "@/services/features";
-import { useUser } from "@/services/UserContext";
-import { useSessionStorage } from "@/hooks/useSessionStorage";
-import LoadingSpinner from "@/components/LoadingSpinner";
+} from "@front-end/services/importing";
+import Field from "@front-end/components/Forms/Field";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
+import Modal from "@front-end/components/Modal";
+import Button from "@front-end/components/Button";
+import { ApiCallType, useAuth } from "@front-end/services/auth";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { useEnvironments, useFeaturesList } from "@front-end/services/features";
+import { useUser } from "@front-end/services/UserContext";
+import { useSessionStorage } from "@front-end/hooks/useSessionStorage";
+import LoadingSpinner from "@front-end/components/LoadingSpinner";
 
 type ImportStatus = "invalid" | "skipped" | "pending" | "completed" | "failed";
 

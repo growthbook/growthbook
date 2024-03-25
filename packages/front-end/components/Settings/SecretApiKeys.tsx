@@ -1,9 +1,9 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
 import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
 import { FaKey } from "react-icons/fa";
-import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
-import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";
+import { useAuth } from "@front-end/services/auth";
+import usePermissions from "@front-end/hooks/usePermissions";
+import { ApiKeysTable } from "@front-end/components/ApiKeysTable/ApiKeysTable";
 import ApiKeysModal from "./ApiKeysModal";
 
 const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({

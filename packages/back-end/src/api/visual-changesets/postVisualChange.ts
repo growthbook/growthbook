@@ -1,10 +1,10 @@
-import { PostVisualChangeResponse } from "../../../types/openapi";
-import { createApiRequestHandler } from "../../util/handler";
+import { postVisualChangeValidator } from "@back-end/src/validators/openapi";
+import { PostVisualChangeResponse } from "@back-end/types/openapi";
 import {
   createVisualChange,
   findExperimentByVisualChangesetId,
-} from "../../models/VisualChangesetModel";
-import { postVisualChangeValidator } from "../../validators/openapi";
+} from "@back-end/src/models/VisualChangesetModel";
+import { createApiRequestHandler } from "@back-end/src/util/handler";
 
 export const postVisualChange = createApiRequestHandler(
   postVisualChangeValidator

@@ -1,16 +1,16 @@
 import { Agenda, Job, JobAttributesData } from "agenda";
-import { getAgendaInstance } from "../../../services/queueing";
-import { getEvent } from "../../../models/EventModel";
+import { getEvent } from "@back-end/src/models/EventModel";
 import {
   getEventWebHookById,
   updateEventWebHookStatus,
-} from "../../../models/EventWebhookModel";
-import { EventWebHookInterface } from "../../../../types/event-webhook";
-import { findOrganizationById } from "../../../models/OrganizationModel";
-import { createEventWebHookLog } from "../../../models/EventWebHookLogModel";
-import { logger } from "../../../util/logger";
-import { cancellableFetch } from "../../../util/http.util";
-import { getSlackMessageForNotificationEvent } from "../slack/slack-event-handler-utils";
+} from "@back-end/src/models/EventWebhookModel";
+import { findOrganizationById } from "@back-end/src/models/OrganizationModel";
+import { createEventWebHookLog } from "@back-end/src/models/EventWebHookLogModel";
+import { EventWebHookInterface } from "@back-end/types/event-webhook";
+import { getAgendaInstance } from "@back-end/src/services/queueing";
+import { logger } from "@back-end/src/util/logger";
+import { cancellableFetch } from "@back-end/src/util/http.util";
+import { getSlackMessageForNotificationEvent } from "@back-end/src/events/handlers/slack/slack-event-handler-utils";
 import {
   EventWebHookErrorResult,
   EventWebHookResult,

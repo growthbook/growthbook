@@ -1,10 +1,10 @@
 import { ApiKeyInterface } from "back-end/types/apikey";
 import { useEffect, useState } from "react";
 import { FaKey, FaPencilAlt } from "react-icons/fa";
-import { getApiHost, isCloud } from "@/services/env";
-import Code from "@/components/SyntaxHighlighting/Code";
-import { DocLink } from "@/components/DocLink";
-import SelectField from "@/components/Forms/SelectField";
+import { getApiHost, isCloud } from "@front-end/services/env";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
+import { DocLink } from "@front-end/components/DocLink";
+import SelectField from "@front-end/components/Forms/SelectField";
 import ApiKeysModal from "./ApiKeysModal";
 
 export default function VisualEditorInstructions({

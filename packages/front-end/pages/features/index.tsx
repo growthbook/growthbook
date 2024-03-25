@@ -7,46 +7,46 @@ import { ago, datetime } from "shared/dates";
 import { isFeatureStale, StaleFeatureReason } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaTriangleExclamation } from "react-icons/fa6";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBAddCircle } from "@/components/Icons";
-import FeatureModal from "@/components/Features/FeatureModal";
-import ValueDisplay from "@/components/Features/ValueDisplay";
-import track from "@/services/track";
-import FeaturesGetStarted from "@/components/HomePage/FeaturesGetStarted";
-import useOrgSettings from "@/hooks/useOrgSettings";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import { GBAddCircle } from "@front-end/components/Icons";
+import FeatureModal from "@front-end/components/Features/FeatureModal";
+import ValueDisplay from "@front-end/components/Features/ValueDisplay";
+import track from "@front-end/services/track";
+import FeaturesGetStarted from "@front-end/components/HomePage/FeaturesGetStarted";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
 import {
   filterFeaturesByEnvironment,
   removeEnvFromSearchTerm,
   useSearch,
-} from "@/services/search";
-import EnvironmentToggle from "@/components/Features/EnvironmentToggle";
-import RealTimeFeatureGraph from "@/components/Features/RealTimeFeatureGraph";
+} from "@front-end/services/search";
+import EnvironmentToggle from "@front-end/components/Features/EnvironmentToggle";
+import RealTimeFeatureGraph from "@front-end/components/Features/RealTimeFeatureGraph";
 import {
   getFeatureDefaultValue,
   getRules,
   useFeaturesList,
   useRealtimeData,
   useEnvironments,
-} from "@/services/features";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import Pagination from "@/components/Pagination";
+} from "@front-end/services/features";
+import MoreMenu from "@front-end/components/Dropdown/MoreMenu";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import Pagination from "@front-end/components/Pagination";
 import TagsFilter, {
   filterByTags,
   useTagsFilter,
-} from "@/components/Tags/TagsFilter";
-import SortedTags from "@/components/Tags/SortedTags";
-import Toggle from "@/components/Forms/Toggle";
-import usePermissions from "@/hooks/usePermissions";
-import WatchButton from "@/components/WatchButton";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Field from "@/components/Forms/Field";
-import { useUser } from "@/services/UserContext";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import StaleFeatureIcon from "@/components/StaleFeatureIcon";
-import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
-import Tab from "@/components/Tabs/Tab";
-import Tabs from "@/components/Tabs/Tabs";
+} from "@front-end/components/Tags/TagsFilter";
+import SortedTags from "@front-end/components/Tags/SortedTags";
+import Toggle from "@front-end/components/Forms/Toggle";
+import usePermissions from "@front-end/hooks/usePermissions";
+import WatchButton from "@front-end/components/WatchButton";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Field from "@front-end/components/Forms/Field";
+import { useUser } from "@front-end/services/UserContext";
+import useSDKConnections from "@front-end/hooks/useSDKConnections";
+import StaleFeatureIcon from "@front-end/components/StaleFeatureIcon";
+import StaleDetectionModal from "@front-end/components/Features/StaleDetectionModal";
+import Tab from "@front-end/components/Tabs/Tab";
+import Tabs from "@front-end/components/Tabs/Tabs";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;

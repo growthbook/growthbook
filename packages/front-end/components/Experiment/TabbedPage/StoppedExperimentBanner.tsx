@@ -7,11 +7,11 @@ import {
   experimentHasLinkedChanges,
   includeExperimentInPayload,
 } from "shared/util";
-import { DocLink } from "@/components/DocLink";
-import ConfirmButton from "@/components/Modal/ConfirmButton";
-import { useAuth } from "@/services/auth";
-import Markdown from "@/components/Markdown/Markdown";
-import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
+import { DocLink } from "@front-end/components/DocLink";
+import ConfirmButton from "@front-end/components/Modal/ConfirmButton";
+import { useAuth } from "@front-end/services/auth";
+import Markdown from "@front-end/components/Markdown/Markdown";
+import ResultsIndicator from "@front-end/components/Experiment/ResultsIndicator";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;

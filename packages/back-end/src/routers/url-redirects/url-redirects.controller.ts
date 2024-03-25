@@ -1,27 +1,27 @@
 import type { Response } from "express";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { isURLTargeted } from "@growthbook/growthbook";
-import { AuthRequest } from "../../types/AuthRequest";
-import { getContextFromReq } from "../../services/organizations";
-import {
-  CreateURLRedirectProps,
-  DestinationURL,
-  URLRedirectInterface,
-  UpdateURLRedirectProps,
-} from "../../../types/url-redirect";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import {
   getAllPayloadExperiments,
   getAllURLRedirectExperiments,
   getExperimentById,
-} from "../../models/ExperimentModel";
+} from "@back-end/src/models/ExperimentModel";
 import {
   createURLRedirect,
   deleteURLRedirectById,
   findURLRedirectById,
   updateURLRedirect,
-} from "../../models/UrlRedirectModel";
-import { ReqContext } from "../../../types/organization";
-import { ExperimentInterface } from "../../../types/experiment";
+} from "@back-end/src/models/UrlRedirectModel";
+import {
+  CreateURLRedirectProps,
+  DestinationURL,
+  URLRedirectInterface,
+  UpdateURLRedirectProps,
+} from "@back-end/types/url-redirect";
+import { ReqContext } from "@back-end/types/organization";
+import { ExperimentInterface } from "@back-end/types/experiment";
+import { getContextFromReq } from "@back-end/src/services/organizations";
 import {
   createUrlRedirectValidator,
   updateUrlRedirectValidator,

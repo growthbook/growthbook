@@ -1,7 +1,7 @@
 import * as Sentry from "@sentry/react";
 import { useRouter } from "next/router";
 import { useEffect } from "react";
-import { isSentryEnabled } from "@/services/env";
+import { isSentryEnabled } from "@front-end/services/env";
 
 export default function Custom404() {
   const ind = Math.ceil(Math.random() * 2);

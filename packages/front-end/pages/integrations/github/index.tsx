@@ -2,9 +2,9 @@ import { NextPage } from "next";
 import { useRouter } from "next/router";
 import { GithubIntegrationInterface } from "back-end/types/github";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import useApi from "@/hooks/useApi";
-import usePermissions from "@/hooks/usePermissions";
-import { AppFeatures } from "@/types/app-features";
+import useApi from "@front-end/hooks/useApi";
+import usePermissions from "@front-end/hooks/usePermissions";
+import { AppFeatures } from "@front-end/types/app-features";
 import GithubIntegrationConfig from "./GithubIntegrationConfig";
 import GithubIntegrationConnect from "./GithubIntegrationConnect";
 

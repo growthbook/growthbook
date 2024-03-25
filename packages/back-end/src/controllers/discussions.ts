@@ -1,12 +1,12 @@
 import { Response } from "express";
-import { AuthRequest } from "../types/AuthRequest";
-import { DiscussionParentType } from "../../types/discussion";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import {
   addComment,
   getDiscussionByParent,
   getLastNDiscussions,
-} from "../services/discussions";
-import { getContextFromReq } from "../services/organizations";
+} from "@back-end/src/services/discussions";
+import { getContextFromReq } from "@back-end/src/services/organizations";
+import { DiscussionParentType } from "@back-end/types/discussion";
 
 export async function postDiscussions(
   req: AuthRequest<

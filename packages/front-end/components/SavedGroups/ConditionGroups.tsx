@@ -1,18 +1,18 @@
 import { SavedGroupInterface } from "back-end/types/saved-group";
 import { useMemo, useState } from "react";
 import { ago } from "shared/dates";
-import usePermissions from "@/hooks/usePermissions";
-import { useAuth } from "@/services/auth";
-import { useEnvironments, useFeaturesList } from "@/services/features";
-import { useSearch } from "@/services/search";
-import { getSavedGroupMessage } from "@/pages/saved-groups";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Button";
-import { GBAddCircle } from "@/components/Icons";
-import Field from "@/components/Forms/Field";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import ConditionDisplay from "@/components/Features/ConditionDisplay";
+import usePermissions from "@front-end/hooks/usePermissions";
+import { useAuth } from "@front-end/services/auth";
+import { useEnvironments, useFeaturesList } from "@front-end/services/features";
+import { useSearch } from "@front-end/services/search";
+import { getSavedGroupMessage } from "@front-end/pages/saved-groups";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import Button from "@front-end/components/Button";
+import { GBAddCircle } from "@front-end/components/Icons";
+import Field from "@front-end/components/Forms/Field";
+import MoreMenu from "@front-end/components/Dropdown/MoreMenu";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import ConditionDisplay from "@front-end/components/Features/ConditionDisplay";
 import SavedGroupForm from "./SavedGroupForm";
 
 export interface Props {

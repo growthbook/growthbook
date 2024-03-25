@@ -5,9 +5,12 @@ import {
 import React, { useCallback, useMemo } from "react";
 import { FaFileExport } from "react-icons/fa";
 import { Parser } from "json2csv";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { ExperimentTableRow, getRiskByVariation } from "@/services/experiments";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import {
+  ExperimentTableRow,
+  getRiskByVariation,
+} from "@front-end/services/experiments";
+import { useOrganizationMetricDefaults } from "@front-end/hooks/useOrganizationMetricDefaults";
 
 type CsvRow = {
   date?: string;

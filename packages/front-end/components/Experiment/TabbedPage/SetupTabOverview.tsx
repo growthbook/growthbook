@@ -1,9 +1,9 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
-import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
-import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
-import VariationsTable from "@/components/Experiment/VariationsTable";
+import MarkdownInlineEdit from "@front-end/components/Markdown/MarkdownInlineEdit";
+import { useAuth } from "@front-end/services/auth";
+import usePermissions from "@front-end/hooks/usePermissions";
+import HeaderWithEdit from "@front-end/components/Layout/HeaderWithEdit";
+import VariationsTable from "@front-end/components/Experiment/VariationsTable";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;

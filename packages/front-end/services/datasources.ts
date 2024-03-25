@@ -11,7 +11,7 @@ import {
   GlobalPermission,
   ProjectScopedPermission,
 } from "back-end/types/organization";
-import { PermissionFunctions } from "@/services/UserContext";
+import { PermissionFunctions } from "@front-end/services/UserContext";
 
 function camelToUnderscore(orig) {
   return orig

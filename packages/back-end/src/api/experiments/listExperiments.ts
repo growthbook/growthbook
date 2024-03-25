@@ -1,12 +1,12 @@
-import { ListExperimentsResponse } from "../../../types/openapi";
-import { getAllExperiments } from "../../models/ExperimentModel";
-import { toExperimentApiInterface } from "../../services/experiments";
+import { toExperimentApiInterface } from "@back-end/src/services/experiments";
+import { listExperimentsValidator } from "@back-end/src/validators/openapi";
+import { getAllExperiments } from "@back-end/src/models/ExperimentModel";
+import { ListExperimentsResponse } from "@back-end/types/openapi";
 import {
   applyFilter,
   applyPagination,
   createApiRequestHandler,
-} from "../../util/handler";
-import { listExperimentsValidator } from "../../validators/openapi";
+} from "@back-end/src/util/handler";
 
 export const listExperiments = createApiRequestHandler(
   listExperimentsValidator

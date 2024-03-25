@@ -1,5 +1,5 @@
-import useStripeSubscription from "@/hooks/useStripeSubscription";
-import { isCloud } from "@/services/env";
+import useStripeSubscription from "@front-end/hooks/useStripeSubscription";
+import { isCloud } from "@front-end/services/env";
 
 const currencyFormatter = new Intl.NumberFormat(undefined, {
   style: "currency",

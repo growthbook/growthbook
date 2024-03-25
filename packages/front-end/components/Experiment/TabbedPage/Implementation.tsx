@@ -5,13 +5,13 @@ import {
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
-import usePermissions from "@/hooks/usePermissions";
-import { StartExperimentBanner } from "@/components/Experiment/StartExperimentBanner";
-import AddLinkedChanges from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
-import RedirectLinkedChanges from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
-import FeatureLinkedChanges from "@/components/Experiment/LinkedChanges/FeatureLinkedChanges";
-import VisualLinkedChanges from "@/components/Experiment/LinkedChanges/VisualLinkedChanges";
-import { ExperimentTab } from "@/components/Experiment/TabbedPage";
+import usePermissions from "@front-end/hooks/usePermissions";
+import { StartExperimentBanner } from "@front-end/components/Experiment/StartExperimentBanner";
+import AddLinkedChanges from "@front-end/components/Experiment/LinkedChanges/AddLinkedChanges";
+import RedirectLinkedChanges from "@front-end/components/Experiment/LinkedChanges/RedirectLinkedChanges";
+import FeatureLinkedChanges from "@front-end/components/Experiment/LinkedChanges/FeatureLinkedChanges";
+import VisualLinkedChanges from "@front-end/components/Experiment/LinkedChanges/VisualLinkedChanges";
+import { ExperimentTab } from "@front-end/components/Experiment/TabbedPage";
 import TargetingInfo from "./TargetingInfo";
 
 export interface Props {

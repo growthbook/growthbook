@@ -1,26 +1,26 @@
 import { Request, Response, NextFunction } from "express";
 import { hasPermission } from "shared/permissions";
-import { ApiRequestLocals } from "../../types/api";
-import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
-import { getOrganizationById } from "../services/organizations";
-import { getCustomLogProps } from "../util/logger";
-import { EventAuditUserApiKey } from "../events/event-types";
-import { isApiKeyForUserInOrganization } from "../util/api-key.util";
+import { lookupOrganizationByApiKey } from "@back-end/src/models/ApiKeyModel";
+import { getOrganizationById } from "@back-end/src/services/organizations";
+import { getTeamsForOrganization } from "@back-end/src/models/TeamModel";
+import { getUserById } from "@back-end/src/services/users";
+import { initializeLicense } from "@back-end/src/services/licenseData";
+import { ReqContextClass } from "@back-end/src/services/context";
+import { ApiRequestLocals } from "@back-end/types/api";
+import { getCustomLogProps } from "@back-end/src/util/logger";
+import { EventAuditUserApiKey } from "@back-end/src/events/event-types";
+import { isApiKeyForUserInOrganization } from "@back-end/src/util/api-key.util";
 import {
   MemberRole,
   OrganizationInterface,
   Permission,
-} from "../../types/organization";
+} from "@back-end/types/organization";
 import {
   getUserPermissions,
   roleToPermissionMap,
-} from "../util/organization.util";
-import { ApiKeyInterface } from "../../types/apikey";
-import { getTeamsForOrganization } from "../models/TeamModel";
-import { TeamInterface } from "../../types/team";
-import { getUserById } from "../services/users";
-import { initializeLicense } from "../services/licenseData";
-import { ReqContextClass } from "../services/context";
+} from "@back-end/src/util/organization.util";
+import { ApiKeyInterface } from "@back-end/types/apikey";
+import { TeamInterface } from "@back-end/types/team";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,

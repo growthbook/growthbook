@@ -2,13 +2,13 @@ import clsx from "clsx";
 import { FaCaretDown } from "react-icons/fa";
 import { FC } from "react";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useAuth } from "@/services/auth";
-import Field from "@/components/Forms/Field";
-import { useSearch } from "@/services/search";
-import usePermissions from "@/hooks/usePermissions";
-import Dropdown from "@/components/Dropdown/Dropdown";
-import DropdownLink from "@/components/Dropdown/DropdownLink";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { useAuth } from "@front-end/services/auth";
+import Field from "@front-end/components/Forms/Field";
+import { useSearch } from "@front-end/services/search";
+import usePermissions from "@front-end/hooks/usePermissions";
+import Dropdown from "@front-end/components/Dropdown/Dropdown";
+import DropdownLink from "@front-end/components/Dropdown/DropdownLink";
 import LetterAvatar from "./LetterAvatar";
 
 const demoBadge = {

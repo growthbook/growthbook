@@ -1,9 +1,9 @@
 import { MemberRoleWithProjects } from "back-end/types/organization";
 import { useForm } from "react-hook-form";
-import Modal from "@/components/Modal";
-import { useAuth } from "@/services/auth";
-import { Team } from "@/services/UserContext";
-import RoleSelector from "@/components/Settings/Team/RoleSelector";
+import Modal from "@front-end/components/Modal";
+import { useAuth } from "@front-end/services/auth";
+import { Team } from "@front-end/services/UserContext";
+import RoleSelector from "@front-end/components/Settings/Team/RoleSelector";
 
 export const PermissionsModal = ({
   team,

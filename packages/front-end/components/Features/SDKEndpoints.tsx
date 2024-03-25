@@ -1,16 +1,16 @@
 import { FC, useState } from "react";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import { FaExclamationTriangle, FaKey } from "react-icons/fa";
-import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useEnvironments } from "@/services/features";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import ApiKeysModal from "@/components/Settings/ApiKeysModal";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import ClickToReveal from "@/components/Settings/ClickToReveal";
-import ClickToCopy from "@/components/Settings/ClickToCopy";
+import { useAuth } from "@front-end/services/auth";
+import usePermissions from "@front-end/hooks/usePermissions";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { useEnvironments } from "@front-end/services/features";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import ApiKeysModal from "@front-end/components/Settings/ApiKeysModal";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import MoreMenu from "@front-end/components/Dropdown/MoreMenu";
+import ClickToReveal from "@front-end/components/Settings/ClickToReveal";
+import ClickToCopy from "@front-end/components/Settings/ClickToCopy";
 import { getApiBaseUrl } from "./CodeSnippetModal";
 
 const SDKEndpoints: FC<{

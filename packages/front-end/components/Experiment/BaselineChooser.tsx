@@ -7,10 +7,10 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
-import Dropdown from "@/components/Dropdown/Dropdown";
-import { useAuth } from "@/services/auth";
-import track from "@/services/track";
-import LoadingSpinner from "@/components/LoadingSpinner";
+import Dropdown from "@front-end/components/Dropdown/Dropdown";
+import { useAuth } from "@front-end/services/auth";
+import track from "@front-end/services/track";
+import LoadingSpinner from "@front-end/components/LoadingSpinner";
 import { analysisUpdate } from "./DifferenceTypeChooser";
 
 export interface Props {

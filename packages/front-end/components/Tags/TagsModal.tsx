@@ -2,9 +2,9 @@ import { useForm } from "react-hook-form";
 import { HexColorPicker } from "react-colorful";
 import React from "react";
 import { TagInterface } from "back-end/types/tag";
-import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
+import { useAuth } from "@front-end/services/auth";
+import Modal from "@front-end/components/Modal";
+import Field from "@front-end/components/Forms/Field";
 import styles from "./TagsModal.module.scss";
 import Tag from "./Tag";
 

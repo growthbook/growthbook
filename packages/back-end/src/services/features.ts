@@ -23,12 +23,30 @@ import {
   SDKCapability,
 } from "shared/sdk-versioning";
 import cloneDeep from "lodash/cloneDeep";
+import { getAllFeatures } from "@back-end/src/models/FeatureModel";
 import {
-  ApiReqContext,
-  AutoExperimentWithProject,
-  FeatureDefinition,
-  FeatureDefinitionWithProject,
-} from "../../types/api";
+  getAllPayloadExperiments,
+  getAllURLRedirectExperiments,
+  getAllVisualExperiments,
+} from "@back-end/src/models/ExperimentModel";
+import {
+  getFeatureDefinition,
+  getParsedCondition,
+} from "@back-end/src/util/features";
+import { getAllSavedGroups } from "@back-end/src/models/SavedGroupModel";
+import {
+  getSDKPayload,
+  updateSDKPayload,
+} from "@back-end/src/models/SdkPayloadModel";
+import { logger } from "@back-end/src/util/logger";
+import { promiseAllChunks } from "@back-end/src/util/promise";
+import {
+  Environment,
+  OrganizationInterface,
+  ReqContext,
+  SDKAttribute,
+  SDKAttributeSchema,
+} from "@back-end/types/organization";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
@@ -39,38 +57,29 @@ import {
   FeatureTestResult,
   ExperimentRefRule,
   FeaturePrerequisite,
-} from "../../types/feature";
-import { getAllFeatures } from "../models/FeatureModel";
+} from "@back-end/types/feature";
 import {
-  getAllPayloadExperiments,
-  getAllURLRedirectExperiments,
-  getAllVisualExperiments,
-} from "../models/ExperimentModel";
-import { getFeatureDefinition, getParsedCondition } from "../util/features";
-import { getAllSavedGroups } from "../models/SavedGroupModel";
+  ApiReqContext,
+  AutoExperimentWithProject,
+  FeatureDefinition,
+  FeatureDefinitionWithProject,
+} from "@back-end/types/api";
+import { GroupMap } from "@back-end/types/saved-group";
+import { SDKPayloadKey } from "@back-end/types/sdk-payload";
+import { ApiFeature, ApiFeatureEnvironment } from "@back-end/types/openapi";
 import {
-  Environment,
-  OrganizationInterface,
-  ReqContext,
-  SDKAttribute,
-  SDKAttributeSchema,
-} from "../../types/organization";
-import { getSDKPayload, updateSDKPayload } from "../models/SdkPayloadModel";
-import { logger } from "../util/logger";
-import { promiseAllChunks } from "../util/promise";
-import { GroupMap } from "../../types/saved-group";
-import { SDKPayloadKey } from "../../types/sdk-payload";
-import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
-import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { VisualChangesetInterface } from "../../types/visual-changeset";
+  ExperimentInterface,
+  ExperimentPhase,
+} from "@back-end/types/experiment";
+import { VisualChangesetInterface } from "@back-end/types/visual-changeset";
+import { ArchetypeAttributeValues } from "@back-end/types/archetype";
+import { FeatureRevisionInterface } from "@back-end/types/feature-revision";
+import { URLRedirectInterface } from "@back-end/types/url-redirect";
+import { triggerWebhookJobs } from "@back-end/src/jobs/updateAllJobs";
 import {
   ApiFeatureEnvSettings,
   ApiFeatureEnvSettingsRules,
-} from "../api/features/postFeature";
-import { ArchetypeAttributeValues } from "../../types/archetype";
-import { FeatureRevisionInterface } from "../../types/feature-revision";
-import { triggerWebhookJobs } from "../jobs/updateAllJobs";
-import { URLRedirectInterface } from "../../types/url-redirect";
+} from "@back-end/src/api/features/postFeature";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,

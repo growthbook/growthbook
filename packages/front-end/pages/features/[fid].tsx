@@ -9,15 +9,15 @@ import {
   getDependentFeatures,
   mergeRevision,
 } from "shared/util";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import useApi from "@/hooks/useApi";
-import PageHead from "@/components/Layout/PageHead";
-import FeaturesHeader from "@/components/Features/FeaturesHeader";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
-import FeaturesOverview from "@/components/Features/FeaturesOverview";
-import FeaturesStats from "@/components/Features/FeaturesStats";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { useEnvironments, useFeaturesList } from "@/services/features";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import useApi from "@front-end/hooks/useApi";
+import PageHead from "@front-end/components/Layout/PageHead";
+import FeaturesHeader from "@front-end/components/Features/FeaturesHeader";
+import { useLocalStorage } from "@front-end/hooks/useLocalStorage";
+import FeaturesOverview from "@front-end/components/Features/FeaturesOverview";
+import FeaturesStats from "@front-end/components/Features/FeaturesStats";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import { useEnvironments, useFeaturesList } from "@front-end/services/features";
 
 const featureTabs = ["overview", "stats"] as const;
 export type FeatureTab = typeof featureTabs[number];

@@ -1,18 +1,21 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import SRMDrawer from "@/components/HealthTab/SRMDrawer";
-import MultipleExposuresDrawer from "@/components/HealthTab/MultipleExposuresDrawer";
-import { useUser } from "@/services/UserContext";
-import usePermissions from "@/hooks/usePermissions";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import Button from "@/components/Button";
-import TrafficCard from "@/components/HealthTab/TrafficCard";
-import { IssueTags, IssueValue } from "@/components/HealthTab/IssueTags";
-import LoadingSpinner from "@/components/LoadingSpinner";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import track from "@/services/track";
-import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import SRMDrawer from "@front-end/components/HealthTab/SRMDrawer";
+import MultipleExposuresDrawer from "@front-end/components/HealthTab/MultipleExposuresDrawer";
+import { useUser } from "@front-end/services/UserContext";
+import usePermissions from "@front-end/hooks/usePermissions";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import Button from "@front-end/components/Button";
+import TrafficCard from "@front-end/components/HealthTab/TrafficCard";
+import {
+  IssueTags,
+  IssueValue,
+} from "@front-end/components/HealthTab/IssueTags";
+import LoadingSpinner from "@front-end/components/LoadingSpinner";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import track from "@front-end/services/track";
+import { useSnapshot } from "@front-end/components/Experiment/SnapshotProvider";
 import {
   HealthTabConfigParams,
   HealthTabOnboardingModal,

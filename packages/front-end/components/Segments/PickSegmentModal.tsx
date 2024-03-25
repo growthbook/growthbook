@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { useForm } from "react-hook-form";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Field from "@/components/Forms/Field";
-import Modal from "@/components/Modal";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Field from "@front-end/components/Forms/Field";
+import Modal from "@front-end/components/Modal";
 
 export default function PickSegmentModal({
   close,

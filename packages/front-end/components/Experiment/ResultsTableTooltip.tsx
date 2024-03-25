@@ -17,25 +17,25 @@ import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { RxInfoCircled } from "react-icons/rx";
 import { MdSwapCalls } from "react-icons/md";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
-import NotEnoughData from "@/components/Experiment/NotEnoughData";
+import NotEnoughData from "@front-end/components/Experiment/NotEnoughData";
 import {
   getEffectLabel,
   pValueFormatter,
   RowResults,
-} from "@/services/experiments";
-import { GBSuspicious } from "@/components/Icons";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
+} from "@front-end/services/experiments";
+import { GBSuspicious } from "@front-end/components/Icons";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import MetricValueColumn from "@front-end/components/Experiment/MetricValueColumn";
 import {
   formatNumber,
   formatPercent,
   getColumnRefFormatter,
   getExperimentMetricFormatter,
-} from "@/services/metrics";
-import { useCurrency } from "@/hooks/useCurrency";
-import { capitalizeFirstLetter } from "@/services/utils";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
+} from "@front-end/services/metrics";
+import { useCurrency } from "@front-end/hooks/useCurrency";
+import { capitalizeFirstLetter } from "@front-end/services/utils";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import usePValueThreshold from "@front-end/hooks/usePValueThreshold";
 
 export const TOOLTIP_WIDTH = 400;
 export const TOOLTIP_HEIGHT = 400; // Used for over/under layout calculation. Actual height may vary.

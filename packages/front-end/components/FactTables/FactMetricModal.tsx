@@ -15,35 +15,35 @@ import {
 } from "back-end/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
 import omit from "lodash/omit";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
   formatNumber,
-} from "@/services/metrics";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { useUser } from "@/services/UserContext";
-import { useAuth } from "@/services/auth";
-import track from "@/services/track";
-import Modal from "@/components/Modal";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Field from "@/components/Forms/Field";
-import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
-import Toggle from "@/components/Forms/Toggle";
-import RiskThresholds from "@/components/Metrics/MetricForm/RiskThresholds";
-import Tabs from "@/components/Tabs/Tabs";
-import Tab from "@/components/Tabs/Tab";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { GBAddCircle, GBArrowLeft, GBCuped } from "@/components/Icons";
-import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
-import ButtonSelectField from "@/components/Forms/ButtonSelectField";
-import { MetricWindowSettingsForm } from "@/components/Metrics/MetricForm/MetricWindowSettingsForm";
-import { MetricCappingSettingsForm } from "@/components/Metrics/MetricForm/MetricCappingSettingsForm";
-import { OfficialBadge } from "@/components/Metrics/MetricName";
-import { MetricDelayHours } from "@/components/Metrics/MetricForm/MetricDelayHours";
+} from "@front-end/services/metrics";
+import { useOrganizationMetricDefaults } from "@front-end/hooks/useOrganizationMetricDefaults";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import { useUser } from "@front-end/services/UserContext";
+import { useAuth } from "@front-end/services/auth";
+import track from "@front-end/services/track";
+import Modal from "@front-end/components/Modal";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import SelectField from "@front-end/components/Forms/SelectField";
+import MultiSelectField from "@front-end/components/Forms/MultiSelectField";
+import Field from "@front-end/components/Forms/Field";
+import InlineCode from "@front-end/components/SyntaxHighlighting/InlineCode";
+import Toggle from "@front-end/components/Forms/Toggle";
+import RiskThresholds from "@front-end/components/Metrics/MetricForm/RiskThresholds";
+import Tabs from "@front-end/components/Tabs/Tabs";
+import Tab from "@front-end/components/Tabs/Tab";
+import PremiumTooltip from "@front-end/components/Marketing/PremiumTooltip";
+import { GBAddCircle, GBArrowLeft, GBCuped } from "@front-end/components/Icons";
+import { getNewExperimentDatasourceDefaults } from "@front-end/components/Experiment/NewExperimentForm";
+import ButtonSelectField from "@front-end/components/Forms/ButtonSelectField";
+import { MetricWindowSettingsForm } from "@front-end/components/Metrics/MetricForm/MetricWindowSettingsForm";
+import { MetricCappingSettingsForm } from "@front-end/components/Metrics/MetricForm/MetricCappingSettingsForm";
+import { OfficialBadge } from "@front-end/components/Metrics/MetricName";
+import { MetricDelayHours } from "@front-end/components/Metrics/MetricForm/MetricDelayHours";
 
 export interface Props {
   close?: () => void;

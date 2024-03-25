@@ -2,13 +2,13 @@ import { ApiKeyInterface, PublishableApiKey } from "back-end/types/apikey";
 import Link from "next/link";
 import { useEffect } from "react";
 import { FaAngleRight, FaExternalLinkAlt } from "react-icons/fa";
-import useApi from "@/hooks/useApi";
-import usePermissions from "@/hooks/usePermissions";
-import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useEnvironments } from "@/services/features";
-import SelectField from "@/components/Forms/SelectField";
-import LoadingSpinner from "@/components/LoadingSpinner";
+import useApi from "@front-end/hooks/useApi";
+import usePermissions from "@front-end/hooks/usePermissions";
+import { useAuth } from "@front-end/services/auth";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { useEnvironments } from "@front-end/services/features";
+import SelectField from "@front-end/components/Forms/SelectField";
+import LoadingSpinner from "@front-end/components/LoadingSpinner";
 
 export interface Props {
   apiKey: string;

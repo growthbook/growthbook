@@ -1,42 +1,42 @@
 import { Request, Response } from "express";
-import {
-  createForgotPasswordToken,
-  deleteForgotPasswordToken,
-  getUserIdFromForgotPasswordToken,
-} from "../models/ForgotPasswordModel";
-import {
-  createOrganization,
-  hasOrganization,
-} from "../models/OrganizationModel";
-import { IS_CLOUD } from "../util/secrets";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import {
   deleteAuthCookies,
   getAuthConnection,
   isNewInstallation,
   markInstalled,
   validatePasswordFormat,
-} from "../services/auth";
+} from "@back-end/src/services/auth";
+import {
+  getEmailFromUserId,
+  getContextFromReq,
+} from "@back-end/src/services/organizations";
 import {
   IdTokenCookie,
   RefreshTokenCookie,
   SSOConnectionIdCookie,
-} from "../util/cookie";
+} from "@back-end/src/util/cookie";
+import { IS_CLOUD } from "@back-end/src/util/secrets";
 import {
-  getEmailFromUserId,
-  getContextFromReq,
-} from "../services/organizations";
+  createOrganization,
+  hasOrganization,
+} from "@back-end/src/models/OrganizationModel";
+import {
+  createForgotPasswordToken,
+  deleteForgotPasswordToken,
+  getUserIdFromForgotPasswordToken,
+} from "@back-end/src/models/ForgotPasswordModel";
+import { getSSOConnectionByEmailDomain } from "@back-end/src/models/SSOConnectionModel";
+import { resetMinTokenDate } from "@back-end/src/models/UserModel";
+import { AuthRefreshModel } from "@back-end/src/models/AuthRefreshModel";
+import { UserInterface } from "@back-end/types/user";
 import {
   createUser,
   getUserByEmail,
   getUserById,
   updatePassword,
   verifyPassword,
-} from "../services/users";
-import { AuthRequest } from "../types/AuthRequest";
-import { getSSOConnectionByEmailDomain } from "../models/SSOConnectionModel";
-import { UserInterface } from "../../types/user";
-import { resetMinTokenDate } from "../models/UserModel";
-import { AuthRefreshModel } from "../models/AuthRefreshModel";
+} from "@back-end/src/services/users";
 
 export async function getHasOrganizations(req: Request, res: Response) {
   const hasOrg = IS_CLOUD ? true : await hasOrganization();

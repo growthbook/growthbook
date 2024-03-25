@@ -2,10 +2,10 @@ import { FC } from "react";
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import CodeTextArea from "@/components/Forms/CodeTextArea";
-import Code from "@/components/SyntaxHighlighting/Code";
-import Modal from "@/components/Modal";
-import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
+import CodeTextArea from "@front-end/components/Forms/CodeTextArea";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
+import Modal from "@front-end/components/Modal";
+import { DataSourceQueryEditingModalBaseProps } from "@front-end/components/Settings/EditDataSource/types";
 
 type EditJupyterNotebookQueryRunnerProps = DataSourceQueryEditingModalBaseProps;
 

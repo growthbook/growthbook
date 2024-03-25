@@ -5,9 +5,9 @@ import {
   getColumnRefFormatter,
   getExperimentMetricFormatter,
   getMetricFormatter,
-} from "@/services/metrics";
-import { useCurrency } from "@/hooks/useCurrency";
-import { useDefinitions } from "@/services/DefinitionsContext";
+} from "@front-end/services/metrics";
+import { useCurrency } from "@front-end/hooks/useCurrency";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
 
 const numberFormatter = Intl.NumberFormat("en-US", {
   notation: "compact",

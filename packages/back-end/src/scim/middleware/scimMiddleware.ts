@@ -1,8 +1,8 @@
 import { Response, NextFunction } from "express";
 import { orgHasPremiumFeature } from "enterprise";
-import { AuthRequest } from "../../types/AuthRequest";
-import { usingOpenId } from "../../services/auth";
-import { ScimError } from "../../../types/scim";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
+import { usingOpenId } from "@back-end/src/services/auth";
+import { ScimError } from "@back-end/types/scim";
 
 export default function scimMiddleware(
   req: AuthRequest,

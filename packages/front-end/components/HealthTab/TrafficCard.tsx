@@ -6,17 +6,17 @@ import { ExperimentReportVariation } from "back-end/types/report";
 import { useEffect, useMemo, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { FaCircle } from "react-icons/fa6";
-import { useUser } from "@/services/UserContext";
-import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
-import track from "@/services/track";
-import { formatTrafficSplit } from "@/services/utils";
-import { formatNumber } from "@/services/metrics";
+import { useUser } from "@front-end/services/UserContext";
+import { DEFAULT_SRM_THRESHOLD } from "@front-end/pages/settings";
+import track from "@front-end/services/track";
+import { formatTrafficSplit } from "@front-end/services/utils";
+import { formatNumber } from "@front-end/services/metrics";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
-} from "@/components/Experiment/ExperimentDateGraph";
-import Toggle from "@/components/Forms/Toggle";
-import SelectField from "@/components/Forms/SelectField";
-import Tooltip from "@/components/Tooltip/Tooltip";
+} from "@front-end/components/Experiment/ExperimentDateGraph";
+import Toggle from "@front-end/components/Forms/Toggle";
+import SelectField from "@front-end/components/Forms/SelectField";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 import { transformDimensionData } from "./DimensionIssues";
 
 const numberFormatter = new Intl.NumberFormat();

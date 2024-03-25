@@ -6,30 +6,33 @@ import { isFeatureStale } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaHome, FaExclamationTriangle, FaCode } from "react-icons/fa";
 import { ImBlocked } from "react-icons/im";
-import { useUser } from "@/services/UserContext";
-import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
-import StaleFeatureIcon from "@/components/StaleFeatureIcon";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import ConfirmButton from "@/components/Modal/ConfirmButton";
-import usePermissions from "@/hooks/usePermissions";
-import { getEnabledEnvironments, useEnvironments } from "@/services/features";
-import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { GBEdit } from "@/components/Icons";
-import SortedTags from "@/components/Tags/SortedTags";
-import WatchButton from "@/components/WatchButton";
-import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
-import track from "@/services/track";
-import TabButtons from "@/components/Tabs/TabButtons";
-import TabButton from "@/components/Tabs/TabButton";
-import Modal from "@/components/Modal";
-import HistoryTable from "@/components/HistoryTable";
-import FeatureImplementationModal from "@/components/Features/FeatureImplementationModal";
-import FeatureModal from "@/components/Features/FeatureModal";
-import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
-import { FeatureTab } from "@/pages/features/[fid]";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
+import { useUser } from "@front-end/services/UserContext";
+import { DeleteDemoDatasourceButton } from "@front-end/components/DemoDataSourcePage/DemoDataSourcePage";
+import StaleFeatureIcon from "@front-end/components/StaleFeatureIcon";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import ConfirmButton from "@front-end/components/Modal/ConfirmButton";
+import usePermissions from "@front-end/hooks/usePermissions";
+import {
+  getEnabledEnvironments,
+  useEnvironments,
+} from "@front-end/services/features";
+import { useAuth } from "@front-end/services/auth";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { GBEdit } from "@front-end/components/Icons";
+import SortedTags from "@front-end/components/Tags/SortedTags";
+import WatchButton from "@front-end/components/WatchButton";
+import MarkdownInlineEdit from "@front-end/components/Markdown/MarkdownInlineEdit";
+import track from "@front-end/services/track";
+import TabButtons from "@front-end/components/Tabs/TabButtons";
+import TabButton from "@front-end/components/Tabs/TabButton";
+import Modal from "@front-end/components/Modal";
+import HistoryTable from "@front-end/components/HistoryTable";
+import FeatureImplementationModal from "@front-end/components/Features/FeatureImplementationModal";
+import FeatureModal from "@front-end/components/Features/FeatureModal";
+import StaleDetectionModal from "@front-end/components/Features/StaleDetectionModal";
+import { FeatureTab } from "@front-end/pages/features/[fid]";
+import MoreMenu from "@front-end/components/Dropdown/MoreMenu";
 
 export default function FeaturesHeader({
   feature,

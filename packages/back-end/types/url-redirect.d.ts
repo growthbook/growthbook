@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   createUrlRedirectValidator,
   updateUrlRedirectValidator,
-} from "../src/routers/url-redirects/url-redirects.validators";
+} from "@back-end/src/routers/url-redirects/url-redirects.validators";
 
 export interface DestinationURL {
   url: string;

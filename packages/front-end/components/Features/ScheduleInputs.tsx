@@ -3,11 +3,11 @@ import clsx from "clsx";
 import { format } from "date-fns";
 import { format as formatTimeZone } from "date-fns-tz";
 import React, { useEffect, useState } from "react";
-import { useUser } from "@/services/UserContext";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
-import Toggle from "@/components/Forms/Toggle";
-import UpgradeLabel from "@/components/Marketing/UpgradeLabel";
+import { useUser } from "@front-end/services/UserContext";
+import Field from "@front-end/components/Forms/Field";
+import SelectField from "@front-end/components/Forms/SelectField";
+import Toggle from "@front-end/components/Forms/Toggle";
+import UpgradeLabel from "@front-end/components/Marketing/UpgradeLabel";
 import styles from "./ScheduleInputs.module.scss";
 
 interface Props {

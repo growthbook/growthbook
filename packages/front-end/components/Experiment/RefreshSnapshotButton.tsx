@@ -6,10 +6,10 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
 } from "back-end/types/experiment-snapshot";
-import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { trackSnapshot } from "@/services/track";
-import Button from "@/components/Button";
+import { useAuth } from "@front-end/services/auth";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { trackSnapshot } from "@front-end/services/track";
+import Button from "@front-end/components/Button";
 import ManualSnapshotForm from "./ManualSnapshotForm";
 
 const RefreshSnapshotButton: FC<{

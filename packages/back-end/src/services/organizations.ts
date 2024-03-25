@@ -9,10 +9,40 @@ import {
   findOrganizationByInviteKey,
   findOrganizationsByDomain,
   updateOrganization,
-} from "../models/OrganizationModel";
-import { APP_ORIGIN, IS_CLOUD } from "../util/secrets";
-import { AuthRequest } from "../types/AuthRequest";
-import { UserModel } from "../models/UserModel";
+} from "@back-end/src/models/OrganizationModel";
+import { APP_ORIGIN, IS_CLOUD } from "@back-end/src/util/secrets";
+import { UserModel } from "@back-end/src/models/UserModel";
+import {
+  createDataSource,
+  getDataSourceById,
+  updateDataSource,
+} from "@back-end/src/models/DataSourceModel";
+import {
+  ALLOWED_METRIC_TYPES,
+  getMetricById,
+  updateMetric,
+} from "@back-end/src/models/MetricModel";
+import {
+  createDimension,
+  findDimensionById,
+  updateDimension,
+} from "@back-end/src/models/DimensionModel";
+import { logger } from "@back-end/src/util/logger";
+import { getDefaultRole } from "@back-end/src/util/organization.util";
+import {
+  createSegment,
+  findSegmentById,
+  updateSegment,
+} from "@back-end/src/models/SegmentModel";
+import { getAllExperiments } from "@back-end/src/models/ExperimentModel";
+import { addTags } from "@back-end/src/models/TagModel";
+import { MetricInterface } from "@back-end/types/metric";
+import { DimensionInterface } from "@back-end/types/dimension";
+import { DataSourceInterface } from "@back-end/types/datasource";
+import { SSOConnectionInterface } from "@back-end/types/sso-connection";
+import { SegmentInterface } from "@back-end/types/segment";
+import { LegacyExperimentPhase } from "@back-end/types/experiment";
+import { ApiReqContext, ExperimentOverride } from "@back-end/types/api";
 import {
   ExpandedMember,
   Invite,
@@ -24,39 +54,9 @@ import {
   PendingMember,
   ProjectMemberRole,
   ReqContext,
-} from "../../types/organization";
-import { ApiReqContext, ExperimentOverride } from "../../types/api";
-import { ConfigFile } from "../init/config";
-import {
-  createDataSource,
-  getDataSourceById,
-  updateDataSource,
-} from "../models/DataSourceModel";
-import {
-  ALLOWED_METRIC_TYPES,
-  getMetricById,
-  updateMetric,
-} from "../models/MetricModel";
-import { MetricInterface } from "../../types/metric";
-import {
-  createDimension,
-  findDimensionById,
-  updateDimension,
-} from "../models/DimensionModel";
-import { DimensionInterface } from "../../types/dimension";
-import { DataSourceInterface } from "../../types/datasource";
-import { SSOConnectionInterface } from "../../types/sso-connection";
-import { logger } from "../util/logger";
-import { getDefaultRole } from "../util/organization.util";
-import { SegmentInterface } from "../../types/segment";
-import {
-  createSegment,
-  findSegmentById,
-  updateSegment,
-} from "../models/SegmentModel";
-import { getAllExperiments } from "../models/ExperimentModel";
-import { LegacyExperimentPhase } from "../../types/experiment";
-import { addTags } from "../models/TagModel";
+} from "@back-end/types/organization";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
+import { ConfigFile } from "@back-end/src/init/config";
 import { markInstalled } from "./auth";
 import {
   encryptParams,

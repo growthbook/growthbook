@@ -1,6 +1,12 @@
 import { KnownBlock } from "@slack/web-api";
-import { logger } from "../../../util/logger";
-import { cancellableFetch } from "../../../util/http.util";
+import { logger } from "@back-end/src/util/logger";
+import { cancellableFetch } from "@back-end/src/util/http.util";
+import { SlackIntegrationInterface } from "@back-end/types/slack-integration";
+import { APP_ORIGIN } from "@back-end/src/util/secrets";
+import {
+  FilterDataForNotificationEvent,
+  getFilterDataForNotificationEvent,
+} from "@back-end/src/events/handlers/utils";
 import {
   ExperimentCreatedNotificationEvent,
   ExperimentDeletedNotificationEvent,
@@ -9,13 +15,7 @@ import {
   FeatureDeletedNotificationEvent,
   FeatureUpdatedNotificationEvent,
   NotificationEvent,
-} from "../../notification-events";
-import { SlackIntegrationInterface } from "../../../../types/slack-integration";
-import { APP_ORIGIN } from "../../../util/secrets";
-import {
-  FilterDataForNotificationEvent,
-  getFilterDataForNotificationEvent,
-} from "../utils";
+} from "@back-end/src/events/notification-events";
 
 // region Filtering
 

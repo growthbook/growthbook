@@ -11,12 +11,12 @@ import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import clsx from "clsx";
 import { FaTriangleExclamation } from "react-icons/fa6";
-import { useAuth } from "@/services/auth";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import Field from "@/components/Forms/Field";
-import Modal from "@/components/Modal";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import Toggle from "@/components/Forms/Toggle";
+import { useAuth } from "@front-end/services/auth";
+import useSDKConnections from "@front-end/hooks/useSDKConnections";
+import Field from "@front-end/components/Forms/Field";
+import Modal from "@front-end/components/Modal";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import Toggle from "@front-end/components/Forms/Toggle";
 
 function validateUrl(
   urlString: string

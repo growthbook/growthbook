@@ -1,13 +1,13 @@
 import { FC, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
 import { date } from "shared/dates";
-import usePermissions from "@/hooks/usePermissions";
-import { useUser } from "@/services/UserContext";
-import { isCloud } from "@/services/env";
-import EditLicenseModal from "@/components/Settings/EditLicenseModal";
-import { GBPremiumBadge } from "@/components/Icons";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
-import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
+import usePermissions from "@front-end/hooks/usePermissions";
+import { useUser } from "@front-end/services/UserContext";
+import { isCloud } from "@front-end/services/env";
+import EditLicenseModal from "@front-end/components/Settings/EditLicenseModal";
+import { GBPremiumBadge } from "@front-end/components/Icons";
+import UpgradeModal from "@front-end/components/Settings/UpgradeModal";
+import AccountPlanNotices from "@front-end/components/Layout/AccountPlanNotices";
 import RefreshLicenseButton from "./RefreshLicenseButton";
 import DownloadLicenseUsageButton from "./DownloadLicenseUsageButton";
 

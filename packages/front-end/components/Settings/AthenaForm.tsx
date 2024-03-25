@@ -1,7 +1,7 @@
 import { FC, ChangeEventHandler } from "react";
 import { AthenaConnectionParams } from "back-end/types/integrations/athena";
-import { isCloud } from "@/services/env";
-import Field from "@/components/Forms/Field";
+import { isCloud } from "@front-end/services/env";
+import Field from "@front-end/components/Forms/Field";
 
 const AthenaForm: FC<{
   params: Partial<AthenaConnectionParams>;

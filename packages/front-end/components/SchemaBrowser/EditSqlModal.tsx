@@ -4,19 +4,19 @@ import { FaPlay } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
 import clsx from "clsx";
 import { TemplateVariables } from "back-end/types/sql";
-import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { validateSQL } from "@/services/datasources";
-import CodeTextArea from "@/components/Forms/CodeTextArea";
-import Modal from "@/components/Modal";
-import { CursorData } from "@/components/Segments/SegmentForm";
-import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
-import Button from "@/components/Button";
+import { useAuth } from "@front-end/services/auth";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { validateSQL } from "@front-end/services/datasources";
+import CodeTextArea from "@front-end/components/Forms/CodeTextArea";
+import Modal from "@front-end/components/Modal";
+import { CursorData } from "@front-end/components/Segments/SegmentForm";
+import DisplayTestQueryResults from "@front-end/components/Settings/DisplayTestQueryResults";
+import Button from "@front-end/components/Button";
 import {
   usesEventName,
   usesValueColumn,
-} from "@/components/Metrics/MetricForm";
-import Field from "@/components/Forms/Field";
+} from "@front-end/components/Metrics/MetricForm";
+import Field from "@front-end/components/Forms/Field";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 

@@ -10,24 +10,24 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { OrganizationSettings } from "@back-end/types/organization";
-import { useAuth } from "@/services/auth";
-import { hasFileConfig, isCloud } from "@/services/env";
-import TempMessage from "@/components/TempMessage";
-import Button from "@/components/Button";
+import { useAuth } from "@front-end/services/auth";
+import { hasFileConfig, isCloud } from "@front-end/services/env";
+import TempMessage from "@front-end/components/TempMessage";
+import Button from "@front-end/components/Button";
 import {
   OrganizationSettingsWithMetricDefaults,
   useOrganizationMetricDefaults,
-} from "@/hooks/useOrganizationMetricDefaults";
-import { useUser } from "@/services/UserContext";
-import SelectField from "@/components/Forms/SelectField";
-import { useCurrency } from "@/hooks/useCurrency";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import OrganizationAndLicenseSettings from "@/components/GeneralSettings/OrganizationAndLicenseSettings";
-import ImportSettings from "@/components/GeneralSettings/ImportSettings";
-import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetricSettings";
-import ExperimentSettings from "@/components/GeneralSettings/ExperimentSettings";
-import MetricsSettings from "@/components/GeneralSettings/MetricsSettings";
-import FeaturesSettings from "@/components/GeneralSettings/FeaturesSettings";
+} from "@front-end/hooks/useOrganizationMetricDefaults";
+import { useUser } from "@front-end/services/UserContext";
+import SelectField from "@front-end/components/Forms/SelectField";
+import { useCurrency } from "@front-end/hooks/useCurrency";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import OrganizationAndLicenseSettings from "@front-end/components/GeneralSettings/OrganizationAndLicenseSettings";
+import ImportSettings from "@front-end/components/GeneralSettings/ImportSettings";
+import NorthStarMetricSettings from "@front-end/components/GeneralSettings/NorthStarMetricSettings";
+import ExperimentSettings from "@front-end/components/GeneralSettings/ExperimentSettings";
+import MetricsSettings from "@front-end/components/GeneralSettings/MetricsSettings";
+import FeaturesSettings from "@front-end/components/GeneralSettings/FeaturesSettings";
 
 export const DEFAULT_SRM_THRESHOLD = 0.001;
 

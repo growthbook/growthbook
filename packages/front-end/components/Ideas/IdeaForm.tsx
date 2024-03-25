@@ -1,11 +1,11 @@
 import { FC } from "react";
 import { IdeaInterface } from "back-end/types/idea";
 import { useForm } from "react-hook-form";
-import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "@/components/Modal";
-import TagsInput from "@/components/Tags/TagsInput";
-import Field from "@/components/Forms/Field";
+import { useAuth } from "@front-end/services/auth";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Modal from "@front-end/components/Modal";
+import TagsInput from "@front-end/components/Tags/TagsInput";
+import Field from "@front-end/components/Forms/Field";
 
 const IdeaForm: FC<{
   idea: Partial<IdeaInterface>;

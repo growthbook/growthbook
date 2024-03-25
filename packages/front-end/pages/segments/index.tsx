@@ -6,18 +6,18 @@ import { MetricInterface } from "back-end/types/metric";
 import Link from "next/link";
 import clsx from "clsx";
 import { ago } from "shared/dates";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Button";
-import SegmentForm from "@/components/Segments/SegmentForm";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { useAuth } from "@/services/auth";
-import { GBAddCircle } from "@/components/Icons";
-import usePermissions from "@/hooks/usePermissions";
-import Code, { Language } from "@/components/SyntaxHighlighting/Code";
-import { hasFileConfig, storeSegmentsInMongo } from "@/services/env";
-import { DocLink } from "@/components/DocLink";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import Button from "@front-end/components/Button";
+import SegmentForm from "@front-end/components/Segments/SegmentForm";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import { useAuth } from "@front-end/services/auth";
+import { GBAddCircle } from "@front-end/components/Icons";
+import usePermissions from "@front-end/hooks/usePermissions";
+import Code, { Language } from "@front-end/components/SyntaxHighlighting/Code";
+import { hasFileConfig, storeSegmentsInMongo } from "@front-end/services/env";
+import { DocLink } from "@front-end/components/DocLink";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 
 const SegmentPage: FC = () => {
   const {

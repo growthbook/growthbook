@@ -13,14 +13,14 @@ import {
   ChecklistTask,
   ExperimentLaunchChecklistInterface,
 } from "back-end/types/experimentLaunchChecklist";
-import track from "@/services/track";
-import { useAuth } from "@/services/auth";
-import { useCelebration } from "@/hooks/useCelebration";
-import useApi from "@/hooks/useApi";
-import Button from "@/components/Button";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import ConfirmButton from "@/components/Modal/ConfirmButton";
-import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
+import track from "@front-end/services/track";
+import { useAuth } from "@front-end/services/auth";
+import { useCelebration } from "@front-end/hooks/useCelebration";
+import useApi from "@front-end/hooks/useApi";
+import Button from "@front-end/components/Button";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import ConfirmButton from "@front-end/components/Modal/ConfirmButton";
+import InitialSDKConnectionForm from "@front-end/components/Features/SDKConnections/InitialSDKConnectionForm";
 
 type ManualChecklist = {
   key: string;

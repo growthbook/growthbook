@@ -1,5 +1,5 @@
 import { FC, createContext, useContext, ReactNode, useMemo } from "react";
-import useApi from "@/hooks/useApi";
+import useApi from "@front-end/hooks/useApi";
 
 type WatchContextValue = {
   watchedExperiments: string[];

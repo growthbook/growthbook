@@ -1,14 +1,23 @@
 import cloneDeep from "lodash/cloneDeep";
+import { decryptDataSourceParams } from "@back-end/src/services/datasource";
+import { formatQuery, runQuery } from "@back-end/src/services/mixpanel";
+import { DEFAULT_CONVERSION_WINDOW_HOURS } from "@back-end/src/util/secrets";
+import {
+  conditionToJavascript,
+  getAggregateFunctions,
+  getMixpanelPropertyColumn,
+} from "@back-end/src/util/mixpanel";
+import { compileSqlTemplate } from "@back-end/src/util/sql";
+import { applyMetricOverrides } from "@back-end/src/util/integration";
 import {
   DataSourceProperties,
   DataSourceSettings,
   DataSourceType,
-} from "../../types/datasource";
-import { DimensionInterface } from "../../types/dimension";
-import { MixpanelConnectionParams } from "../../types/integrations/mixpanel";
-import { MetricInterface, MetricType } from "../../types/metric";
-import { decryptDataSourceParams } from "../services/datasource";
-import { formatQuery, runQuery } from "../services/mixpanel";
+} from "@back-end/types/datasource";
+import { DimensionInterface } from "@back-end/types/dimension";
+import { MixpanelConnectionParams } from "@back-end/types/integrations/mixpanel";
+import { MetricInterface, MetricType } from "@back-end/types/metric";
+import { ExperimentSnapshotSettings } from "@back-end/types/experiment-snapshot";
 import {
   DimensionSlicesQueryResponse,
   ExperimentAggregateUnitsQueryResponse,
@@ -21,16 +30,7 @@ import {
   MetricValueQueryResponseRows,
   PastExperimentQueryResponse,
   SourceIntegrationInterface,
-} from "../types/Integration";
-import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
-import {
-  conditionToJavascript,
-  getAggregateFunctions,
-  getMixpanelPropertyColumn,
-} from "../util/mixpanel";
-import { compileSqlTemplate } from "../util/sql";
-import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
-import { applyMetricOverrides } from "../util/integration";
+} from "@back-end/src/types/Integration";
 
 export default class Mixpanel implements SourceIntegrationInterface {
   type!: DataSourceType;

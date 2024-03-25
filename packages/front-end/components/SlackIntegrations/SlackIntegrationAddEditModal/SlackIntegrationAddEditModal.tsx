@@ -6,15 +6,15 @@ import { TagInterface } from "back-end/types/tag";
 import {
   eventWebHookEventOptions,
   notificationEventNames,
-} from "@/components/EventWebHooks/utils";
+} from "@front-end/components/EventWebHooks/utils";
 import {
   SlackIntegrationEditParams,
   SlackIntegrationModalMode,
-} from "@/components/SlackIntegrations/slack-integrations-utils";
-import Modal from "@/components/Modal";
-import TagsInput from "@/components/Tags/TagsInput";
-import Field from "@/components/Forms/Field";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+} from "@front-end/components/SlackIntegrations/slack-integrations-utils";
+import Modal from "@front-end/components/Modal";
+import TagsInput from "@front-end/components/Tags/TagsInput";
+import Field from "@front-end/components/Forms/Field";
+import MultiSelectField from "@front-end/components/Forms/MultiSelectField";
 
 type SlackIntegrationAddEditModalProps = {
   projects: {

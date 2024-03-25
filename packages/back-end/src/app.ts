@@ -5,8 +5,8 @@ import cors from "cors";
 import asyncHandler from "express-async-handler";
 import compression from "compression";
 import * as Sentry from "@sentry/node";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import { usingFileConfig } from "./init/config";
-import { AuthRequest } from "./types/AuthRequest";
 import {
   APP_ORIGIN,
   CORS_ORIGIN_REGEX,

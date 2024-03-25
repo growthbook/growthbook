@@ -2,9 +2,9 @@ import { ExperimentPhaseStringDates } from "back-end/types/experiment";
 import { useState } from "react";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import { date } from "shared/dates";
-import { phaseSummary } from "@/services/utils";
-import ConditionDisplay from "@/components/Features/ConditionDisplay";
-import { GBEdit } from "@/components/Icons";
+import { phaseSummary } from "@front-end/services/utils";
+import ConditionDisplay from "@front-end/components/Features/ConditionDisplay";
+import { GBEdit } from "@front-end/components/Icons";
 
 export interface Props {
   i: number;

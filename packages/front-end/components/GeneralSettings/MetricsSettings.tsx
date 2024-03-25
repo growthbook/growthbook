@@ -1,8 +1,8 @@
 import { useFormContext } from "react-hook-form";
-import { hasFileConfig } from "@/services/env";
-import { supportedCurrencies } from "@/services/settings";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
+import { hasFileConfig } from "@front-end/services/env";
+import { supportedCurrencies } from "@front-end/services/settings";
+import Field from "@front-end/components/Forms/Field";
+import SelectField from "@front-end/components/Forms/SelectField";
 
 export default function MetricsSettings() {
   const form = useFormContext();

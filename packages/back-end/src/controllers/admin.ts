@@ -1,9 +1,12 @@
 import crypto from "crypto";
 import { Response } from "express";
-import { AuthRequest } from "../types/AuthRequest";
-import { findAllOrganizations } from "../models/OrganizationModel";
-import { getLicenseMetaData, initializeLicense } from "../services/licenseData";
-import { getUserLicenseCodes } from "../services/users";
+import { findAllOrganizations } from "@back-end/src/models/OrganizationModel";
+import {
+  getLicenseMetaData,
+  initializeLicense,
+} from "@back-end/src/services/licenseData";
+import { getUserLicenseCodes } from "@back-end/src/services/users";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 
 export async function getOrganizations(
   req: AuthRequest<never, never, { page?: string; search?: string }>,

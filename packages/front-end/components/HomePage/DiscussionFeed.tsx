@@ -1,11 +1,11 @@
 import { FC } from "react";
 import { useRouter } from "next/router";
 import { date } from "shared/dates";
-import useApi from "@/hooks/useApi";
-import { useUser } from "@/services/UserContext";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import Avatar from "@/components/Avatar/Avatar";
-import Markdown from "@/components/Markdown/Markdown";
+import useApi from "@front-end/hooks/useApi";
+import { useUser } from "@front-end/services/UserContext";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import Avatar from "@front-end/components/Avatar/Avatar";
+import Markdown from "@front-end/components/Markdown/Markdown";
 
 const DiscussionFeed: FC<{
   num?: number;

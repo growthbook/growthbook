@@ -1,7 +1,7 @@
 import React from "react";
 import { NextPage } from "next";
-import { SlackIntegrationsListViewContainer } from "@/components/SlackIntegrations/SlackIntegrationsListView/SlackIntegrationsListView";
-import usePermissions from "@/hooks/usePermissions";
+import { SlackIntegrationsListViewContainer } from "@front-end/components/SlackIntegrations/SlackIntegrationsListView/SlackIntegrationsListView";
+import usePermissions from "@front-end/hooks/usePermissions";
 
 const SlackIntegrationsPage: NextPage = () => {
   const permissions = usePermissions();

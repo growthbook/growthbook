@@ -1,10 +1,10 @@
 import React, { FC, useCallback, useState } from "react";
 import { FaPencilAlt, FaPlus } from "react-icons/fa";
-import { checkDatasourceProjectPermissions } from "@/services/datasources";
-import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
-import { EditJupyterNotebookQueryRunner } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/EditJupyterNotebookQueryRunner";
-import usePermissions from "@/hooks/usePermissions";
-import Code from "@/components/SyntaxHighlighting/Code";
+import { checkDatasourceProjectPermissions } from "@front-end/services/datasources";
+import { DataSourceQueryEditingModalBaseProps } from "@front-end/components/Settings/EditDataSource/types";
+import { EditJupyterNotebookQueryRunner } from "@front-end/components/Settings/EditDataSource/DataSourceJupypterQuery/EditJupyterNotebookQueryRunner";
+import usePermissions from "@front-end/hooks/usePermissions";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
 
 type DataSourceJupyterNotebookQueryProps = DataSourceQueryEditingModalBaseProps;
 

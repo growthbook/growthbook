@@ -1,9 +1,12 @@
 import { Athena } from "aws-sdk";
 import { ResultSet } from "aws-sdk/clients/athena";
-import { AthenaConnectionParams } from "../../types/integrations/athena";
-import { logger } from "../util/logger";
-import { IS_CLOUD } from "../util/secrets";
-import { ExternalIdCallback, QueryResponse } from "../types/Integration";
+import { logger } from "@back-end/src/util/logger";
+import { IS_CLOUD } from "@back-end/src/util/secrets";
+import { AthenaConnectionParams } from "@back-end/types/integrations/athena";
+import {
+  ExternalIdCallback,
+  QueryResponse,
+} from "@back-end/src/types/Integration";
 
 function getAthenaInstance(params: AthenaConnectionParams) {
   if (!IS_CLOUD && params.authType === "auto") {

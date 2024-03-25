@@ -1,16 +1,16 @@
 import { FactTableInterface } from "back-end/types/fact-table";
 import { useState } from "react";
-import { useAuth } from "@/services/auth";
-import { useSearch } from "@/services/search";
-import usePermissions from "@/hooks/usePermissions";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Field from "@/components/Forms/Field";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { GBAddCircle } from "@/components/Icons";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
-import { OfficialBadge } from "@/components/Metrics/MetricName";
+import { useAuth } from "@front-end/services/auth";
+import { useSearch } from "@front-end/services/search";
+import usePermissions from "@front-end/hooks/usePermissions";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Field from "@front-end/components/Forms/Field";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { GBAddCircle } from "@front-end/components/Icons";
+import MoreMenu from "@front-end/components/Dropdown/MoreMenu";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import InlineCode from "@front-end/components/SyntaxHighlighting/InlineCode";
+import { OfficialBadge } from "@front-end/components/Metrics/MetricName";
 import FactFilterModal from "./FactFilterModal";
 
 export interface Props {

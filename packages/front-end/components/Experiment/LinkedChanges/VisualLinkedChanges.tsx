@@ -1,6 +1,6 @@
-import track from "@/services/track";
-import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
-import LinkedChangesContainer from "@/components/Experiment/LinkedChanges/LinkedChangesContainer";
+import track from "@front-end/services/track";
+import { VisualChangesetTable } from "@front-end/components/Experiment/VisualChangesetTable";
+import LinkedChangesContainer from "@front-end/components/Experiment/LinkedChanges/LinkedChangesContainer";
 
 export default function VisualLinkedChanges({
   setVisualEditorModal,

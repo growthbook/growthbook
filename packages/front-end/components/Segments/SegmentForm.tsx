@@ -3,15 +3,15 @@ import { SegmentInterface } from "back-end/types/segment";
 import { useForm } from "react-hook-form";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { isProjectListValidForProject } from "shared/util";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
-import { validateSQL } from "@/services/datasources";
-import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
-import useMembers from "@/hooks/useMembers";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
-import Code from "@/components/SyntaxHighlighting/Code";
+import Field from "@front-end/components/Forms/Field";
+import SelectField from "@front-end/components/Forms/SelectField";
+import { validateSQL } from "@front-end/services/datasources";
+import { useAuth } from "@front-end/services/auth";
+import Modal from "@front-end/components/Modal";
+import useMembers from "@front-end/hooks/useMembers";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import EditSqlModal from "@front-end/components/SchemaBrowser/EditSqlModal";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
 
 export type CursorData = {
   row: number;

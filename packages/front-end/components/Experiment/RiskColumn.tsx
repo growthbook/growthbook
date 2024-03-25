@@ -1,14 +1,17 @@
 import clsx from "clsx";
 import { isBinomialMetric } from "shared/experiments";
-import { ExperimentTableRow, getRiskByVariation } from "@/services/experiments";
+import {
+  ExperimentTableRow,
+  getRiskByVariation,
+} from "@front-end/services/experiments";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
   getExperimentMetricFormatter,
-} from "@/services/metrics";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import { useCurrency } from "@/hooks/useCurrency";
-import { useDefinitions } from "@/services/DefinitionsContext";
+} from "@front-end/services/metrics";
+import { useOrganizationMetricDefaults } from "@front-end/hooks/useOrganizationMetricDefaults";
+import { useCurrency } from "@front-end/hooks/useCurrency";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",

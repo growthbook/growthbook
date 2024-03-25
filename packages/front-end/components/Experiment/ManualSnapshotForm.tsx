@@ -6,15 +6,15 @@ import {
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { MetricInterface, MetricStats } from "back-end/types/metric";
 import { useForm } from "react-hook-form";
-import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import { useAuth } from "@front-end/services/auth";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
 import {
   getMetricConversionTitle,
   getMetricFormatter,
-} from "@/services/metrics";
-import { trackSnapshot } from "@/services/track";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
+} from "@front-end/services/metrics";
+import { trackSnapshot } from "@front-end/services/track";
+import Modal from "@front-end/components/Modal";
+import Field from "@front-end/components/Forms/Field";
 
 const ManualSnapshotForm: FC<{
   experiment: ExperimentInterfaceStringDates;

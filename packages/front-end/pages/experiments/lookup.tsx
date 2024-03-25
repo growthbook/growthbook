@@ -3,10 +3,10 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import { FaAngleLeft } from "react-icons/fa";
-import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import NewExperimentForm from "@front-end/components/Experiment/NewExperimentForm";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import { useAuth } from "@front-end/services/auth";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
 
 export default function ExperimentLookupPage() {
   const router = useRouter();

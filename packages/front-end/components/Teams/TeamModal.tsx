@@ -1,10 +1,10 @@
 import { useForm } from "react-hook-form";
 import { MemberRoleWithProjects } from "back-end/types/organization";
-import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
-import { Team } from "@/services/UserContext";
-import RoleSelector from "@/components/Settings/Team/RoleSelector";
+import { useAuth } from "@front-end/services/auth";
+import Modal from "@front-end/components/Modal";
+import Field from "@front-end/components/Forms/Field";
+import { Team } from "@front-end/services/UserContext";
+import RoleSelector from "@front-end/components/Settings/Team/RoleSelector";
 
 export default function TeamModal({
   existing,

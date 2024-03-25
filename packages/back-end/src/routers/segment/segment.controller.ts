@@ -1,31 +1,31 @@
 import type { Response } from "express";
 import uniqid from "uniqid";
 import { FilterQuery } from "mongoose";
-import { AuthRequest } from "../../types/AuthRequest";
-import { ApiErrorResponse } from "../../../types/api";
-import { getContextFromReq } from "../../services/organizations";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
+import { getContextFromReq } from "@back-end/src/services/organizations";
+import { getIdeasByQuery } from "@back-end/src/services/ideas";
+import { ApiErrorResponse } from "@back-end/types/api";
 import {
   createSegment,
   deleteSegmentById,
   findSegmentById,
   findSegmentsByOrganization,
   updateSegment,
-} from "../../models/SegmentModel";
-import { getDataSourceById } from "../../models/DataSourceModel";
-import { getIdeasByQuery } from "../../services/ideas";
-import { IdeaDocument, IdeaModel } from "../../models/IdeasModel";
+} from "@back-end/src/models/SegmentModel";
+import { getDataSourceById } from "@back-end/src/models/DataSourceModel";
+import { IdeaDocument, IdeaModel } from "@back-end/src/models/IdeasModel";
 import {
   getMetricsUsingSegment,
   removeSegmentFromAllMetrics,
-} from "../../models/MetricModel";
+} from "@back-end/src/models/MetricModel";
 import {
   deleteExperimentSegment,
   getExperimentsUsingSegment,
-} from "../../models/ExperimentModel";
-import { MetricInterface } from "../../../types/metric";
-import { SegmentInterface } from "../../../types/segment";
-import { ExperimentInterface } from "../../../types/experiment";
-import { EventAuditUserForResponseLocals } from "../../events/event-types";
+} from "@back-end/src/models/ExperimentModel";
+import { MetricInterface } from "@back-end/types/metric";
+import { SegmentInterface } from "@back-end/types/segment";
+import { ExperimentInterface } from "@back-end/types/experiment";
+import { EventAuditUserForResponseLocals } from "@back-end/src/events/event-types";
 
 // region GET /segments
 

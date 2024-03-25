@@ -2,34 +2,37 @@ import Agenda, { Job } from "agenda";
 import { getScopedSettings } from "shared/settings";
 import { getSnapshotAnalysis } from "shared/util";
 import {
-  getExperimentById,
-  getExperimentsToUpdate,
-  getExperimentsToUpdateLegacy,
-  updateExperiment,
-} from "../models/ExperimentModel";
-import { getDataSourceById } from "../models/DataSourceModel";
-import { isEmailEnabled, sendExperimentChangesEmail } from "../services/email";
+  isEmailEnabled,
+  sendExperimentChangesEmail,
+} from "@back-end/src/services/email";
 import {
   createSnapshot,
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
   getExperimentMetricById,
   getRegressionAdjustmentInfo,
-} from "../services/experiments";
+} from "@back-end/src/services/experiments";
 import {
   getConfidenceLevelsForOrg,
   getContextForAgendaJobByOrgId,
-} from "../services/organizations";
-import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
-import { ExperimentInterface } from "../../types/experiment";
-import { getMetricMap } from "../models/MetricModel";
-import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
-import { logger } from "../util/logger";
-import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
-import { findProjectById } from "../models/ProjectModel";
-import { getExperimentWatchers } from "../models/WatchModel";
-import { getFactTableMap } from "../models/FactTableModel";
-import { ApiReqContext } from "../../types/api";
+} from "@back-end/src/services/organizations";
+import { EXPERIMENT_REFRESH_FREQUENCY } from "@back-end/src/util/secrets";
+import { logger } from "@back-end/src/util/logger";
+import { getLatestSnapshot } from "@back-end/src/models/ExperimentSnapshotModel";
+import { getMetricMap } from "@back-end/src/models/MetricModel";
+import { getDataSourceById } from "@back-end/src/models/DataSourceModel";
+import {
+  getExperimentById,
+  getExperimentsToUpdate,
+  getExperimentsToUpdateLegacy,
+  updateExperiment,
+} from "@back-end/src/models/ExperimentModel";
+import { findProjectById } from "@back-end/src/models/ProjectModel";
+import { getExperimentWatchers } from "@back-end/src/models/WatchModel";
+import { getFactTableMap } from "@back-end/src/models/FactTableModel";
+import { ExperimentSnapshotInterface } from "@back-end/types/experiment-snapshot";
+import { ExperimentInterface } from "@back-end/types/experiment";
+import { ApiReqContext } from "@back-end/types/api";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;

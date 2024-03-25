@@ -1,8 +1,8 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
-import { useAuth } from "@/services/auth";
-import Field from "@/components/Forms/Field";
-import Modal from "@/components/Modal";
+import { useAuth } from "@front-end/services/auth";
+import Field from "@front-end/components/Forms/Field";
+import Modal from "@front-end/components/Modal";
 
 const ChangePasswordModal: FC<{
   close: () => void;

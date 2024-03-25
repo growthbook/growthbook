@@ -10,10 +10,10 @@ import {
   mergeResultHasChanges,
 } from "shared/util";
 import clsx from "clsx";
-import { useEnvironments } from "@/services/features";
-import { useAuth } from "@/services/auth";
-import PagedModal from "@/components/Modal/PagedModal";
-import Page from "@/components/Modal/Page";
+import { useEnvironments } from "@front-end/services/features";
+import { useAuth } from "@front-end/services/auth";
+import PagedModal from "@front-end/components/Modal/PagedModal";
+import Page from "@front-end/components/Modal/Page";
 import { ExpandableDiff } from "./DraftModal";
 
 export interface Props {

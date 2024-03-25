@@ -2,14 +2,14 @@ import React, { FC, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useAuth } from "@/services/auth";
-import { useUser } from "@/services/UserContext";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
-import Toggle from "@/components/Forms/Toggle";
-import Modal from "@/components/Modal";
-import MetricsSelector from "@/components/Experiment/MetricsSelector";
-import Field from "@/components/Forms/Field";
+import { useAuth } from "@front-end/services/auth";
+import { useUser } from "@front-end/services/UserContext";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import { useLocalStorage } from "@front-end/hooks/useLocalStorage";
+import Toggle from "@front-end/components/Forms/Toggle";
+import Modal from "@front-end/components/Modal";
+import MetricsSelector from "@front-end/components/Experiment/MetricsSelector";
+import Field from "@front-end/components/Forms/Field";
 import NorthStarMetricDisplay from "./NorthStarMetricDisplay";
 
 const NorthStar: FC<{

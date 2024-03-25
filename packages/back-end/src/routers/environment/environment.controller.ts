@@ -1,14 +1,14 @@
 import type { Response } from "express";
-import { AuthRequest } from "../../types/AuthRequest";
-import { PrivateApiErrorResponse } from "../../../types/api";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
 import {
   getEnvironments,
   getContextFromReq,
-} from "../../services/organizations";
-import { EventAuditUserForResponseLocals } from "../../events/event-types";
-import { Environment } from "../../../types/organization";
-import { addEnvironmentToOrganizationEnvironments } from "../../util/environments";
-import { updateOrganization } from "../../models/OrganizationModel";
+} from "@back-end/src/services/organizations";
+import { Environment } from "@back-end/types/organization";
+import { PrivateApiErrorResponse } from "@back-end/types/api";
+import { updateOrganization } from "@back-end/src/models/OrganizationModel";
+import { addEnvironmentToOrganizationEnvironments } from "@back-end/src/util/environments";
+import { EventAuditUserForResponseLocals } from "@back-end/src/events/event-types";
 
 type CreateEnvironmentRequest = AuthRequest<{
   environment: Environment;

@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useEffect } from "react";
-import { AppFeatures } from "@/types/app-features";
+import { AppFeatures } from "@front-end/types/app-features";
 
 type UseFeatureDisabledRedirect = {
   ready: boolean;

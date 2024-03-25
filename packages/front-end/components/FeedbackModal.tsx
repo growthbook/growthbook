@@ -1,8 +1,8 @@
 import { ReactElement, ReactNode, useRef, useState } from "react";
-import Field from "@/components/Forms/Field";
-import Modal from "@/components/Modal";
-import track from "@/services/track";
-import { useUser } from "@/services/UserContext";
+import Field from "@front-end/components/Forms/Field";
+import Modal from "@front-end/components/Modal";
+import track from "@front-end/services/track";
+import { useUser } from "@front-end/services/UserContext";
 
 interface Props {
   open: boolean;

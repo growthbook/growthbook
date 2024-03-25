@@ -2,8 +2,8 @@ import { createHash } from "crypto";
 import { SDKLanguage } from "back-end/types/sdk-connection";
 import stringify from "json-stringify-pretty-compact";
 import { SDKAttributeSchema } from "back-end/types/organization";
-import { useAttributeSchema } from "@/services/features";
-import Code from "@/components/SyntaxHighlighting/Code";
+import { useAttributeSchema } from "@front-end/services/features";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
 
 function phpArrayFormat(json: unknown) {
   return stringify(json)

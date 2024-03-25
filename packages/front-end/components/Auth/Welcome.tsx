@@ -1,9 +1,9 @@
 import { ReactElement, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
-import track from "@/services/track";
-import { getApiHost } from "@/services/env";
-import Field from "@/components/Forms/Field";
+import track from "@front-end/services/track";
+import { getApiHost } from "@front-end/services/env";
+import Field from "@front-end/components/Forms/Field";
 import WelcomeFrame from "./WelcomeFrame";
 
 export default function Welcome({

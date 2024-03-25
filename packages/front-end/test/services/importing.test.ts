@@ -4,7 +4,7 @@ import {
   transformLDEnvironmentsToGBEnvironment,
   transformLDFeatureFlagToGBFeature,
   transformLDProjectsToGBProject,
-} from "@/services/importing";
+} from "@front-end/services/importing";
 
 describe("importing utils", () => {
   describe("transformLDEnvironmentsToGBEnvironment", () => {

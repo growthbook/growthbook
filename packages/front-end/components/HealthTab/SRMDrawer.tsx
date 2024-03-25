@@ -5,12 +5,12 @@ import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
 } from "back-end/types/datasource";
-import { useUser } from "@/services/UserContext";
-import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
-import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
-import SRMWarning from "@/components/Experiment/SRMWarning";
-import { DataPointVariation } from "@/components/Experiment/ExperimentDateGraph";
-import { HealthTabConfigParams } from "@/components/Experiment/TabbedPage/HealthTabOnboardingModal";
+import { useUser } from "@front-end/services/UserContext";
+import { DEFAULT_SRM_THRESHOLD } from "@front-end/pages/settings";
+import VariationUsersTable from "@front-end/components/Experiment/TabbedPage/VariationUsersTable";
+import SRMWarning from "@front-end/components/Experiment/SRMWarning";
+import { DataPointVariation } from "@front-end/components/Experiment/ExperimentDateGraph";
+import { HealthTabConfigParams } from "@front-end/components/Experiment/TabbedPage/HealthTabOnboardingModal";
 import { HealthStatus, StatusBadge } from "./StatusBadge";
 import { DimensionIssues } from "./DimensionIssues";
 import { IssueValue } from "./IssueTags";

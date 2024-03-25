@@ -9,29 +9,32 @@ import isEqual from "lodash/isEqual";
 import React, { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
 import { MdInfoOutline } from "react-icons/md";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import { useIncrementer } from "@/hooks/useIncrementer";
-import { useAuth } from "@/services/auth";
-import { getEqualWeights } from "@/services/utils";
-import { useAttributeSchema, useEnvironments } from "@/services/features";
-import ReleaseChangesForm from "@/components/Experiment/ReleaseChangesForm";
-import PagedModal from "@/components/Modal/PagedModal";
-import Page from "@/components/Modal/Page";
-import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
-import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
-import FeatureVariationsInput from "@/components//Features/FeatureVariationsInput";
-import ConditionInput from "@/components//Features/ConditionInput";
-import NamespaceSelector from "@/components//Features/NamespaceSelector";
-import SelectField from "@/components//Forms/SelectField";
+import useSDKConnections from "@front-end/hooks/useSDKConnections";
+import { useIncrementer } from "@front-end/hooks/useIncrementer";
+import { useAuth } from "@front-end/services/auth";
+import { getEqualWeights } from "@front-end/services/utils";
+import {
+  useAttributeSchema,
+  useEnvironments,
+} from "@front-end/services/features";
+import ReleaseChangesForm from "@front-end/components/Experiment/ReleaseChangesForm";
+import PagedModal from "@front-end/components/Modal/PagedModal";
+import Page from "@front-end/components/Modal/Page";
+import TargetingInfo from "@front-end/components/Experiment/TabbedPage/TargetingInfo";
+import FallbackAttributeSelector from "@front-end/components/Features/FallbackAttributeSelector";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import PrerequisiteTargetingField from "@front-end/components/Features/PrerequisiteTargetingField";
+import FeatureVariationsInput from "@front-end/components//Features/FeatureVariationsInput";
+import ConditionInput from "@front-end/components//Features/ConditionInput";
+import NamespaceSelector from "@front-end/components//Features/NamespaceSelector";
+import SelectField from "@front-end/components//Forms/SelectField";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
-} from "@/components/Features/SavedGroupTargetingField";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
+} from "@front-end/components/Features/SavedGroupTargetingField";
+import Modal from "@front-end/components/Modal";
+import Field from "@front-end/components/Forms/Field";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";

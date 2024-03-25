@@ -3,14 +3,18 @@ import { FC, useState } from "react";
 import { datetime } from "shared/dates";
 import Link from "next/link";
 import { FaUserLock } from "react-icons/fa";
-import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
-import TeamModal from "@/components/Teams/TeamModal";
-import { AddMembersModal } from "@/components/Teams/AddMembersModal";
-import { PermissionsModal } from "@/components/Settings/Teams/PermissionModal";
-import { useUser } from "@/services/UserContext";
+import { useAuth } from "@front-end/services/auth";
+import usePermissions from "@front-end/hooks/usePermissions";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import {
+  GBAddCircle,
+  GBCircleArrowLeft,
+  GBEdit,
+} from "@front-end/components/Icons";
+import TeamModal from "@front-end/components/Teams/TeamModal";
+import { AddMembersModal } from "@front-end/components/Teams/AddMembersModal";
+import { PermissionsModal } from "@front-end/components/Settings/Teams/PermissionModal";
+import { useUser } from "@front-end/services/UserContext";
 
 const TeamPage: FC = () => {
   const { apiCall } = useAuth();

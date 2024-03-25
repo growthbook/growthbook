@@ -6,13 +6,13 @@ import {
   distributeWeights,
   getEqualWeights,
   percentToDecimal,
-} from "@/services/utils";
+} from "@front-end/services/utils";
 import {
   generateVariationId,
   getDefaultVariationValue,
-} from "@/services/features";
-import { GBAddCircle } from "@/components/Icons";
-import Tooltip from "@/components/Tooltip/Tooltip";
+} from "@front-end/services/features";
+import { GBAddCircle } from "@front-end/components/Icons";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 import styles from "./VariationsInput.module.scss";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import {

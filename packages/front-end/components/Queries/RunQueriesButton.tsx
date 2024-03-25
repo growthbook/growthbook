@@ -5,8 +5,8 @@ import { FaPlay } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
 import { getValidDate } from "shared/dates";
 import { FaXmark } from "react-icons/fa6";
-import { useAuth } from "@/services/auth";
-import LoadingSpinner from "@/components/LoadingSpinner";
+import { useAuth } from "@front-end/services/auth";
+import LoadingSpinner from "@front-end/components/LoadingSpinner";
 
 function getTimeDisplay(seconds: number): string {
   if (seconds < 120) {

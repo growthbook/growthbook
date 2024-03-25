@@ -1,9 +1,9 @@
 import { useForm } from "react-hook-form";
 import { FeatureInterface } from "back-end/types/feature";
 import { validateFeatureValue } from "shared/util";
-import { useAuth } from "@/services/auth";
-import { getFeatureDefaultValue } from "@/services/features";
-import Modal from "@/components/Modal";
+import { useAuth } from "@front-end/services/auth";
+import { getFeatureDefaultValue } from "@front-end/services/features";
+import Modal from "@front-end/components/Modal";
 import FeatureValueField from "./FeatureValueField";
 
 export interface Props {

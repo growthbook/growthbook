@@ -1,11 +1,11 @@
 import React from "react";
 import { ApiKeyInterface } from "back-end/types/apikey";
-import SDKConnectionsList from "@/components/Features/SDKConnections/SDKConnectionsList";
-import Tabs from "@/components/Tabs/Tabs";
-import Tab from "@/components/Tabs/Tab";
-import SDKEndpoints from "@/components/Features/SDKEndpoints";
-import Webhooks from "@/components/Settings/Webhooks";
-import useApi from "@/hooks/useApi";
+import SDKConnectionsList from "@front-end/components/Features/SDKConnections/SDKConnectionsList";
+import Tabs from "@front-end/components/Tabs/Tabs";
+import Tab from "@front-end/components/Tabs/Tab";
+import SDKEndpoints from "@front-end/components/Features/SDKEndpoints";
+import Webhooks from "@front-end/components/Settings/Webhooks";
+import useApi from "@front-end/hooks/useApi";
 
 export default function SDKsPage() {
   const { data, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");

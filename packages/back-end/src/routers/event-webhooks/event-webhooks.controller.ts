@@ -1,25 +1,25 @@
 import type { Response } from "express";
-import { PrivateApiErrorResponse } from "../../../types/api";
-import {
-  EventWebHookInterface,
-  EventWebHookPayloadType,
-  EventWebHookMethod,
-} from "../../../types/event-webhook";
-import * as EventWebHook from "../../models/EventWebhookModel";
+import { AuthRequest } from "@back-end/src/types/AuthRequest";
+import * as EventWebHook from "@back-end/src/models/EventWebhookModel";
 import {
   deleteEventWebHookById,
   getEventWebHookById,
   updateEventWebHook,
-} from "../../models/EventWebhookModel";
-import { createEvent } from "../../models/EventModel";
-import * as EventWebHookLog from "../../models/EventWebHookLogModel";
+} from "@back-end/src/models/EventWebhookModel";
+import { createEvent } from "@back-end/src/models/EventModel";
+import * as EventWebHookLog from "@back-end/src/models/EventWebHookLogModel";
+import {
+  EventWebHookInterface,
+  EventWebHookPayloadType,
+  EventWebHookMethod,
+} from "@back-end/types/event-webhook";
+import { PrivateApiErrorResponse } from "@back-end/types/api";
 
-import { AuthRequest } from "../../types/AuthRequest";
-import { getContextFromReq } from "../../services/organizations";
-import { EventWebHookLogInterface } from "../../../types/event-webhook-log";
-import { WebhookTestEvent } from "../../events/notification-events";
-import { NotificationEventName } from "../../events/base-types";
-import { EventNotifier } from "../../events/notifiers/EventNotifier";
+import { EventWebHookLogInterface } from "@back-end/types/event-webhook-log";
+import { getContextFromReq } from "@back-end/src/services/organizations";
+import { WebhookTestEvent } from "@back-end/src/events/notification-events";
+import { NotificationEventName } from "@back-end/src/events/base-types";
+import { EventNotifier } from "@back-end/src/events/notifiers/EventNotifier";
 
 // region GET /event-webhooks
 

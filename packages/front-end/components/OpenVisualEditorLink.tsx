@@ -1,11 +1,11 @@
 import { FC, useMemo, useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { getApiHost } from "@/services/env";
-import track from "@/services/track";
-import { appendQueryParamsToURL } from "@/services/utils";
-import { AuthContextValue, useAuth } from "@/services/auth";
-import { growthbook } from "@/pages/_app";
+import { getApiHost } from "@front-end/services/env";
+import track from "@front-end/services/track";
+import { appendQueryParamsToURL } from "@front-end/services/utils";
+import { AuthContextValue, useAuth } from "@front-end/services/auth";
+import { growthbook } from "@front-end/pages/_app";
 import Modal from "./Modal";
 import Button from "./Button";
 

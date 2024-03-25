@@ -1,21 +1,24 @@
 import Agenda from "agenda";
-import { Queries } from "../../types/query";
+import { trackJob } from "@back-end/src/services/otel";
+import { logger } from "@back-end/src/util/logger";
 import {
   findRunningSnapshotsByQueryId,
   updateSnapshot,
-} from "../models/ExperimentSnapshotModel";
+} from "@back-end/src/models/ExperimentSnapshotModel";
 import {
   findRunningMetricsByQueryId,
   updateMetricQueriesAndStatus,
-} from "../models/MetricModel";
+} from "@back-end/src/models/MetricModel";
 import {
   findRunningPastExperimentsByQueryId,
   updatePastExperiments,
-} from "../models/PastExperimentsModel";
-import { getStaleQueries } from "../models/QueryModel";
-import { findReportsByQueryId, updateReport } from "../models/ReportModel";
-import { trackJob } from "../services/otel";
-import { logger } from "../util/logger";
+} from "@back-end/src/models/PastExperimentsModel";
+import { getStaleQueries } from "@back-end/src/models/QueryModel";
+import {
+  findReportsByQueryId,
+  updateReport,
+} from "@back-end/src/models/ReportModel";
+import { Queries } from "@back-end/types/query";
 const JOB_NAME = "expireOldQueries";
 
 function updateQueryStatus(queries: Queries, ids: Set<string>) {
