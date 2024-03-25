@@ -490,7 +490,7 @@ export abstract class BaseModel<T extends BaseSchema> {
 
     // Always create a unique index for organization and id
     this._dangerousGetCollection()
-      .createIndex({ organization: 1, id: 1 }, { unique: true })
+      .createIndex({ id: 1, organization: 1 }, { unique: true })
       .catch((err) => {
         logger.error(
           `Error creating org/id unique index for ${this.config.collectionName}`,
