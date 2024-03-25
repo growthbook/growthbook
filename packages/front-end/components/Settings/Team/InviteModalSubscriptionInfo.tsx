@@ -1,5 +1,5 @@
 import useStripeSubscription from "@/hooks/useStripeSubscription";
-import { useUser } from "@/services/UserContext";
+import { isCloud } from "@/services/env";
 
 const currencyFormatter = new Intl.NumberFormat(undefined, {
   style: "currency",
@@ -14,22 +14,20 @@ export default function InviteModalSubscriptionInfo() {
     quote,
     loading,
   } = useStripeSubscription();
-  const { license } = useUser();
   if (loading) return null;
 
-  if (!hasActiveSubscription) return null;
+  if (!hasActiveSubscription || !isCloud()) return null;
   if (activeAndInvitedUsers < freeSeats) return null;
 
   return (
     <p className="mt-3 mb-0 alert-warning alert">
-      This user will be assigned a new seat, which will cost an extra{" "}
+      This user will be assigned a new seat{" "}
       {quote?.additionalSeatPrice && (
         <strong>
           ({currencyFormatter.format(quote.additionalSeatPrice || 0)}
-          /month)
+          /month).
         </strong>
       )}
-      {license?.isTrial ? " once your trial ends" : ""}.
     </p>
   );
 }

@@ -9,7 +9,6 @@ import {
 } from "../../types/organization";
 import { upgradeOrganizationDoc } from "../util/migrations";
 import { ApiOrganization } from "../../types/openapi";
-import { IS_CLOUD } from "../util/secrets";
 
 const baseMemberFields = {
   _id: false,
@@ -227,12 +226,10 @@ export async function findAllOrganizations(
 
   return { organizations: docs.map(toInterface), total };
 }
-
 export async function findOrganizationById(id: string) {
   const doc = await OrganizationModel.findOne({ id });
   return doc ? toInterface(doc) : null;
 }
-
 export async function updateOrganization(
   id: string,
   update: Partial<OrganizationInterface>
@@ -266,32 +263,6 @@ export async function findOrganizationByStripeCustomerId(id: string) {
     stripeCustomerId: id,
   });
 
-  return doc ? toInterface(doc) : null;
-}
-
-export async function getAllInviteEmailsInDb() {
-  if (IS_CLOUD) {
-    throw new Error("getAllInviteEmailsInDb() is not supported on cloud");
-  }
-
-  const organizations = await OrganizationModel.find(
-    {},
-    { "invites.email": 1 }
-  );
-
-  const inviteEmails: string[] = organizations.reduce(
-    (emails: string[], organization) => {
-      const orgEmails = organization.invites.map((invite) => invite.email);
-      return emails.concat(orgEmails);
-    },
-    []
-  );
-
-  return inviteEmails;
-}
-
-export async function getOrganization() {
-  const doc = await OrganizationModel.findOne();
   return doc ? toInterface(doc) : null;
 }
 
