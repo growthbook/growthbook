@@ -167,17 +167,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
-  const attributeSchema = useAttributeSchema();
-
-  const filteredAttributeSchema = attributeSchema.filter((attribute) => {
-    return (
-      !project ||
-      !attribute.projects?.length ||
-      attribute.projects.includes(project)
-    );
-  });
+  const attributeSchema = useAttributeSchema(false, project);
   const hasHashAttributes =
-    filteredAttributeSchema.filter((x) => x.hashAttribute).length > 0;
+    attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
@@ -465,7 +457,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   containerClassName="flex-1"
                   label="Assign variation based on attribute"
                   labelClassName="font-weight-bold"
-                  options={filteredAttributeSchema
+                  options={attributeSchema
                     .filter((s) => !hasHashAttributes || s.hashAttribute)
                     .map((s) => ({ label: s.property, value: s.property }))}
                   sort={false}
