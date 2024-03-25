@@ -82,9 +82,9 @@ const UrlRedirectSdkAlert = ({
               URL Redirects are only supported in the following SDKs and
               versions:
               <ul className="mb-1">
-                <li>Javascript &gt;= 0.35.0</li>
-                <li>React &gt;= 0.25.0</li>
-                <li>Node &gt;= 0.35.0</li>
+                <li>Javascript &gt;= 0.36.0</li>
+                <li>React &gt;= 0.26.0</li>
+                <li>Node &gt;= 0.36.0</li>
               </ul>
             </>
           }
