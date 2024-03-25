@@ -23,7 +23,7 @@ import {
 } from "../../events/event-types";
 import { insertAudit } from "../../models/AuditModel";
 import { getTeamsForOrganization } from "../../models/TeamModel";
-import { initializeLicenseForOrg } from "../licenseData";
+import { initializeLicense } from "../licenseData";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
@@ -168,7 +168,7 @@ export async function processJWT(
         }
 
         // init license for org if it exists
-        await initializeLicenseForOrg(req.organization);
+        await initializeLicense(req.organization.licenseKey);
       } else {
         res.status(404).json({
           status: 404,

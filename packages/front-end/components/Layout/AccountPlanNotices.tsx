@@ -37,8 +37,7 @@ export default function AccountPlanNotices() {
   }
 
   // GrowthBook Cloud-specific Notices
-  // TODO: Get rid of this logic once we have migrated all organizations to use the license key
-  if (isCloud() && permissions.manageBilling && !license) {
+  if (isCloud() && permissions.manageBilling) {
     // On an active trial
     const trialRemaining = trialEnd ? daysLeft(trialEnd) : -1;
     if (subscriptionStatus === "trialing" && trialRemaining >= 0) {
@@ -99,28 +98,8 @@ export default function AccountPlanNotices() {
     }
   }
 
-  // Notices for accounts using a license key
-  if (license) {
-    if (license?.usingMongoCache) {
-      // Cache is good for a week
-      const cachedDataGoodUntil = new Date(
-        new Date(license.dateUpdated).getTime() + 7 * 24 * 60 * 60 * 1000
-      );
-      const daysLeftInCache = daysLeft(cachedDataGoodUntil.toDateString());
-      if (daysLeftInCache < 5) {
-        return (
-          <Tooltip
-            body={<>Please make sure that you have whitelisted 75.2.109.47</>}
-          >
-            <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
-              <FaExclamationTriangle /> Could not contact license server. Fix
-              within {daysLeftInCache} days.
-            </div>
-          </Tooltip>
-        );
-      }
-    }
-
+  // Self-hosted-specific Notices
+  if (!isCloud() && license) {
     // Trial license is up
     const licenseTrialRemaining = license.isTrial
       ? daysLeft(license.dateExpires)
@@ -141,60 +120,23 @@ export default function AccountPlanNotices() {
         </Tooltip>
       );
     }
-
-    if (license.emailVerified === false && license.plan) {
+    if (licenseTrialRemaining >= 0) {
       return (
         <Tooltip
           body={
             <>
-              An email was sent to {license.email}. If you can&apos;t find it,
-              check your spam folder, or restart the upgrade process.
+              Contact sales@growthbook.io if you need more time or would like to
+              upgrade
             </>
           }
         >
-          <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
-            Check email to verify account and activate {license.plan}{" "}
-            {license.isTrial ? "trial" : "license"}.
+          <div className="alert alert-warning py-1 px-2 mb-0 d-none d-md-block mr-1">
+            <span className="badge badge-warning">{licenseTrialRemaining}</span>{" "}
+            day
+            {licenseTrialRemaining === 1 ? "" : "s"} left in trial
           </div>
         </Tooltip>
       );
-    }
-
-    if (licenseTrialRemaining >= 0) {
-      if (license.plan === "enterprise") {
-        return (
-          <Tooltip
-            body={
-              <>
-                Contact sales@growthbook.io if you need more time or would like
-                to upgrade
-              </>
-            }
-          >
-            <div className="alert alert-warning py-1 px-2 mb-0 d-none d-md-block mr-1">
-              <span className="badge badge-warning">
-                {licenseTrialRemaining}
-              </span>{" "}
-              day
-              {licenseTrialRemaining === 1 ? "" : "s"} left in trial
-            </div>
-          </Tooltip>
-        );
-      } else {
-        return (
-          <button
-            className="alert alert-warning py-1 px-2 mb-0 d-none d-md-block mr-1"
-            onClick={(e) => {
-              e.preventDefault();
-              router.push("/settings/billing");
-            }}
-          >
-            <div className="badge badge-warning">{licenseTrialRemaining}</div>{" "}
-            day
-            {licenseTrialRemaining === 1 ? "" : "s"} left in trial
-          </button>
-        );
-      }
     }
 
     // License expired
@@ -202,19 +144,11 @@ export default function AccountPlanNotices() {
       return (
         <Tooltip
           body={
-            license.plan === "enterprise" ? (
-              <>
-                Your license expired on{" "}
-                <strong>{date(license.dateExpires)}</strong>. Contact
-                sales@growthbook.io to renew.
-              </>
-            ) : (
-              <>
-                Your license expired on{" "}
-                <strong>{date(license.dateExpires)}</strong>. Go to your
-                settings &gt; billing page to renew.
-              </>
-            )
+            <>
+              Your license expired on{" "}
+              <strong>{date(license.dateExpires)}</strong>. Contact
+              sales@growthbook.io to renew.
+            </>
           }
         >
           <div className="alert alert-danger py-1 px-2 d-none d-md-block mb-0 mr-1">
@@ -225,10 +159,7 @@ export default function AccountPlanNotices() {
     }
 
     // More seats than the license allows for
-    if (
-      license.plan === "enterprise" &&
-      activeAndInvitedUsers > license.seats
-    ) {
+    if (activeAndInvitedUsers > license.seats) {
       return (
         <Tooltip
           body={
