@@ -24,7 +24,7 @@ const scrypt = promisify(crypto.scrypt);
 // e.g. dev and production, will have the same code and be treated as a single seat.
 export async function getUserLicenseCodes() {
   if (IS_CLOUD) {
-    throw new Error("getAllUserLicenseCodes() is not supported in cloud");
+    throw new Error("getUserLicenseCodes() is not supported in cloud");
   }
 
   const users = await UserModel.aggregate([

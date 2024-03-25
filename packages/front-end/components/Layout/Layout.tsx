@@ -11,6 +11,7 @@ import {
 import { FaArrowRight } from "react-icons/fa";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
+import useStripeSubscription from "@/hooks/useStripeSubscription";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
   GBDatabase,
@@ -222,7 +223,6 @@ const navlinks: SidebarLinkProps[] = [
         name: "Billing",
         href: "/settings/billing",
         path: /^settings\/billing/,
-        cloudOnly: true,
         permissions: ["manageBilling"],
       },
       {
@@ -287,13 +287,17 @@ const backgroundShade = (color: string) => {
 const Layout = (): React.ReactElement => {
   const [open, setOpen] = useState(false);
   const settings = useOrgSettings();
-  const { accountPlan } = useUser();
+  const { accountPlan, license } = useUser();
+  const { hasPaymentMethod } = useStripeSubscription();
 
   const { breadcrumb } = usePageHead();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  const showUpgradeButton = ["oss", "starter"].includes(accountPlan);
+  const showUpgradeButton =
+    ["oss", "starter"].includes(accountPlan || "") ||
+    (license?.isTrial && !hasPaymentMethod) ||
+    (["pro", "pro_sso"].includes(accountPlan || "") &&
+      license?.stripeSubscription?.status === "canceled");
 
   // hacky:
   const router = useRouter();
@@ -449,15 +453,9 @@ const Layout = (): React.ReactElement => {
               className="btn btn-premium btn-block font-weight-normal"
               onClick={() => setUpgradeModal(true)}
             >
-              {accountPlan === "oss" ? (
-                <>
-                  Try Enterprise <GBPremiumBadge />
-                </>
-              ) : (
-                <>
-                  Try Pro <GBPremiumBadge />
-                </>
-              )}
+              <>
+                Upgrade <GBPremiumBadge />
+              </>
             </button>
           )}
           <a
