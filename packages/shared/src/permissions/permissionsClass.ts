@@ -1,3 +1,4 @@
+import { FeatureInterface } from "back-end/types/feature";
 import { MetricInterface } from "back-end/types/metric";
 import { Permission, UserPermissions } from "back-end/types/organization";
 class PermissionError extends Error {
@@ -36,6 +37,15 @@ export class Permissions {
     metric: Pick<MetricInterface, "projects">
   ): boolean => {
     return this.checkProjectFilterPermission(metric, "createMetrics");
+  };
+
+  public canCreateFeatureDrafts = (
+    feature: Pick<FeatureInterface, "project">
+  ) => {
+    return this.checkProjectFilterPermission(
+      { projects: feature.project ? [feature.project] : [] },
+      "createFeatureDrafts"
+    );
   };
 
   public throwPermissionError(): void {

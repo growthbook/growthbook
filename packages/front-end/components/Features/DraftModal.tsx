@@ -10,6 +10,7 @@ import usePermissions from "@/hooks/usePermissions";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import Field from "@/components/Forms/Field";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export interface Props {
   feature: FeatureInterface;
@@ -73,6 +74,7 @@ export default function DraftModal({
 }: Props) {
   const environments = useEnvironments();
   const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const { apiCall } = useAuth();
 
@@ -169,7 +171,7 @@ export default function DraftModal({
       closeCta="Cancel"
       size="max"
       secondaryCTA={
-        permissions.check("createFeatureDrafts", feature.project) ? (
+        permissionsUtil.canCreateFeatureDrafts(feature) ? (
           <Button
             color="outline-danger"
             onClick={async () => {
