@@ -12,10 +12,27 @@ on:
       - "Dockerfile"
       - ".dockerignore"
 jobs:
+  check_ci_skip:
+    runs-on: ubuntu-latest
+    outputs:
+      ci_skip: ${{ steps.check_ci_skip.outputs.ci_skip }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Check if CI should be skipped
+        id: check_ci_skip
+        shell: bash
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          ./.github/scripts/ci-skip.sh
+
   # Build and publish the commit to docker
   docker:
     runs-on: ubuntu-latest
-    if: ${{ github.repository == 'growthbook/growthbook' }}
+    needs: [check_ci_skip]
+    if: ${{ github.repository == 'growthbook/growthbook' && needs.check_ci_skip.outputs.ci_skip != 'true' }}
     permissions:
       contents: read
       id-token: write
