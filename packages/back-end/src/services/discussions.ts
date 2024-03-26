@@ -1,10 +1,10 @@
 import uniqid from "uniqid";
 import { Comment, DiscussionParentType } from "../../types/discussion";
 import { DiscussionModel } from "../models/DiscussionModel";
-import { ReqContextInterface } from "../../types/context";
 import { getExperimentById } from "../models/ExperimentModel";
 import { getFeature } from "../models/FeatureModel";
 import { getMetricById } from "../models/MetricModel";
+import { ReqContext } from "../../types/organization";
 import { getIdeaById } from "./ideas";
 
 export async function getDiscussionByParent(
@@ -26,7 +26,7 @@ export async function getAllDiscussionsByOrg(organization: string) {
 }
 
 export async function getProjectsByParentId(
-  context: ReqContextInterface,
+  context: ReqContext,
   parentType: DiscussionParentType,
   parentId: string
 ): Promise<string[]> {
