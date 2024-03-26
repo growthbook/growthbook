@@ -567,7 +567,7 @@ export function isFeatureCyclic(
       const env = feature.environmentSettings?.[eid];
       if (!env?.rules) continue;
       for (const rule of env.rules || []) {
-        if (rule.prerequisites?.length) {
+        if (rule?.prerequisites?.length) {
           const rulePrerequisiteIds = rule.prerequisites.map((p) => p.id);
           prerequisiteIds.push(...rulePrerequisiteIds);
         }
