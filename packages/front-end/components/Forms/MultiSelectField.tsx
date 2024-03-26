@@ -142,7 +142,7 @@ const MultiSelectField: FC<
             }}
             components={{
               // eslint-disable-next-line
-              // @ts-ignore We're failing to provide a required index prop to SortableElement
+              // @ts-expect-error We're failing to provide a required index prop to SortableElement
               MultiValue: SortableMultiValue,
               MultiValueLabel: SortableMultiValueLabel,
               Option: OptionWithTitle,
