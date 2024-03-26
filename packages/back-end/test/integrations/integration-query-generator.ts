@@ -569,13 +569,17 @@ engines.forEach((engine) => {
       dimensions: dimension ? [dimension] : [],
       segment: segment,
       unitsTableFullName: `${
-        engine === "bigquery" ? "sample." : ""
+        engine === "bigquery"
+          ? "sample."
+          : engine === "snowflake"
+          ? `"SAMPLE".GROWTHBOOK.`
+          : ""
       }growthbook_tmp_units_${experiment.id}`,
       includeIdJoins: true,
     };
 
     // RUN FACT METRICS GROUPED
-    Object.entries(groups).forEach(([groupName, group]) => {
+    Object.entries(groups).forEach(([groupName, group], i) => {
       const queryParams: ExperimentFactMetricsQueryParams = {
         activationMetric,
         dimensions: dimension ? [dimension] : [],
@@ -597,7 +601,7 @@ engines.forEach((engine) => {
         });
 
         if (pipelineEnabled) {
-          const unitsQueryFullName = `${unitsQueryParams.unitsTableFullName}_${groupName}`;
+          const unitsQueryFullName = `${unitsQueryParams.unitsTableFullName}_${i}`;
           const sql = integration.getExperimentFactMetricsQuery({
             ...queryParams,
             useUnitsTable: true,
@@ -663,9 +667,7 @@ engines.forEach((engine) => {
 
       // pipeline version
       if (pipelineEnabled) {
-        const unitsQueryFullName = `${
-          engine === "snowflake" ? "GROWTHBOOK." : ""
-        }${unitsQueryParams.unitsTableFullName}_${metric.id}`;
+        const unitsQueryFullName = `${unitsQueryParams.unitsTableFullName}_${metric.id}`;
         const unitsSql = integration.getExperimentUnitsTableQuery({
           ...unitsQueryParams,
           unitsTableFullName: unitsQueryFullName,
