@@ -1,6 +1,7 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { MetricInterface } from "back-end/types/metric";
 import { Permission, UserPermissions } from "back-end/types/organization";
+import { READ_ONLY_PERMISSIONS } from "./permissions.utils";
 class PermissionError extends Error {
   constructor(message: string) {
     super(message);
@@ -57,6 +58,10 @@ export class Permissions {
     );
   };
 
+  public canAddComment = (projects: string[]): boolean => {
+    return this.checkProjectFilterPermission({ projects }, "addComments");
+  };
+
   public throwPermissionError(): void {
     throw new PermissionError(
       "You do not have permission to perform this action"
@@ -69,6 +74,18 @@ export class Permissions {
   ): boolean {
     const projects = obj.projects?.length ? obj.projects : [""];
 
+    if (READ_ONLY_PERMISSIONS.includes(permission)) {
+      if (
+        projects.length === 1 &&
+        !projects[0] &&
+        Object.keys(this.userPermissions.projects).length
+      ) {
+        projects.push(...Object.keys(this.userPermissions.projects));
+      }
+      return projects.some((project) =>
+        this.hasPermission(permission, project)
+      );
+    }
     return projects.every((project) => this.hasPermission(permission, project));
   }
 
