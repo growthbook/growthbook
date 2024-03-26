@@ -1,5 +1,9 @@
 import clsx from "clsx";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  isFactMetric,
+  quantileMetricType,
+} from "shared/experiments";
 import React from "react";
 import {
   capitalizeFirstLetter,
@@ -52,6 +56,32 @@ const MetricTooltipBody = ({
           shouldShowEllipsis={false}
           useFlex={true}
         />
+      ),
+    },
+    {
+      show: !!quantileMetricType(metric),
+      label: "Quantile",
+      body: (
+        <>
+          {isFactMetric(metric) && metric.quantileSettings
+            ? metric.quantileSettings.quantile
+            : null}
+        </>
+      ),
+    },
+    {
+      show: !!quantileMetricType(metric),
+      label: "Quantile Type",
+      body: (
+        <>
+          {isFactMetric(metric) && metric.quantileSettings
+            ? `${
+                metric.quantileSettings.type === "unit"
+                  ? "After unit aggregation"
+                  : "Across events"
+              }${metric.quantileSettings.ignoreZeros ? "(ignoring zeros)" : ""}`
+            : null}
+        </>
       ),
     },
     {

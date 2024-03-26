@@ -53,8 +53,7 @@ export default function LinkedChange({
                     className="ml-4"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    View Feature
-                    <FaExternalLinkAlt />
+                    View Feature <FaExternalLinkAlt />
                   </Link>
                 </div>
               </>

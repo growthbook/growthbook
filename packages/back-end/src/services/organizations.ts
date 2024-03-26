@@ -2,6 +2,7 @@ import { randomBytes } from "crypto";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import { Request } from "express";
+import { getLicense, postSubscriptionUpdateToLicenseServer } from "enterprise";
 import {
   createOrganization,
   findAllOrganizations,
@@ -68,6 +69,11 @@ import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
 import { getUsersByIds } from "./users";
 import { ReqContextClass } from "./context";
 
+export {
+  getEnvironments,
+  getEnvironmentIdsFromOrg,
+} from "../util/organization.util";
+
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
 }
@@ -125,28 +131,6 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
     teams: req.teams,
     req: req as Request,
   });
-}
-
-export function getEnvironmentIdsFromOrg(org: OrganizationInterface): string[] {
-  return getEnvironments(org).map((e) => e.id);
-}
-
-export function getEnvironments(org: OrganizationInterface) {
-  if (!org.settings?.environments || !org.settings?.environments?.length) {
-    return [
-      {
-        id: "dev",
-        description: "",
-        toggleOnList: true,
-      },
-      {
-        id: "production",
-        description: "",
-        toggleOnList: true,
-      },
-    ];
-  }
-  return org.settings.environments;
 }
 
 export async function getConfidenceLevelsForOrg(id: string) {
@@ -232,7 +216,13 @@ export async function removeMember(
     pendingMembers,
   });
 
-  return organization;
+  const updatedOrganization = cloneDeep(organization);
+  updatedOrganization.members = members;
+  updatedOrganization.pendingMembers = pendingMembers;
+
+  await updateSubscriptionIfProLicense(updatedOrganization);
+
+  return updatedOrganization;
 }
 
 export async function revokeInvite(
@@ -245,11 +235,31 @@ export async function revokeInvite(
     invites,
   });
 
-  return organization;
+  const updatedOrganization = cloneDeep(organization);
+  updatedOrganization.invites = invites;
+  await updateSubscriptionIfProLicense(updatedOrganization);
+
+  return updatedOrganization;
 }
 
 export function getInviteUrl(key: string) {
   return `${APP_ORIGIN}/invitation?key=${key}`;
+}
+
+async function updateSubscriptionIfProLicense(
+  organization: OrganizationInterface
+) {
+  if (organization.licenseKey) {
+    const license = await getLicense(organization.licenseKey);
+    if (license?.plan === "pro") {
+      // Only pro plans have a Stripe subscription that needs to get updated
+      const seatsInUse = getNumberOfUniqueMembersAndInvites(organization);
+      await postSubscriptionUpdateToLicenseServer(
+        organization.licenseKey,
+        seatsInUse
+      );
+    }
+  }
 }
 
 export async function addMemberToOrg({
@@ -297,6 +307,12 @@ export async function addMemberToOrg({
     members,
     pendingMembers,
   });
+
+  const updatedOrganization = cloneDeep(organization);
+  updatedOrganization.members = members;
+  updatedOrganization.pendingMembers = pendingMembers;
+
+  await updateSubscriptionIfProLicense(updatedOrganization);
 }
 
 export async function addMembersToTeam({
@@ -509,13 +525,15 @@ export async function inviteUser({
     invites,
   });
 
-  // append the new invites to the existin object (or refetch)
-  organization.invites = invites;
+  const updatedOrganization = cloneDeep(organization);
+  updatedOrganization.invites = invites;
+
+  await updateSubscriptionIfProLicense(updatedOrganization);
 
   let emailSent = false;
   if (isEmailEnabled()) {
     try {
-      await sendInviteEmail(organization, key);
+      await sendInviteEmail(updatedOrganization, key);
       emailSent = true;
     } catch (e) {
       logger.error(e, "Error sending invite email");
