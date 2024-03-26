@@ -344,7 +344,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
         setLastStep(step);
         setStep(-1);
       }}
-      includeCloseCta={false}
+      includeCloseCta={true}
       secondaryCTA={secondaryCTA}
       size="lg"
       header={header}
