@@ -49,6 +49,8 @@ export interface Props {
   editTags?: (() => void) | null;
   editProject?: (() => void) | null;
   idea?: IdeaInterface;
+  checklistItemsRemaining: number | null;
+  setChecklistItemsRemaining: (value: number | null) => void;
   editVariations?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
   urlRedirects: URLRedirectInterface[];
@@ -76,6 +78,8 @@ export default function TabbedPage({
   newPhase,
   editMetrics,
   editResult,
+  checklistItemsRemaining,
+  setChecklistItemsRemaining,
 }: Props) {
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__${experiment.id}`,
@@ -152,6 +156,19 @@ export default function TabbedPage({
 
   const { data: sdkConnectionsData } = useSDKConnections();
   const connections = sdkConnectionsData?.connections || [];
+
+  const projectConnections = connections.filter(
+    (connection) =>
+      !connection.projects.length ||
+      connection.projects.includes(experiment.project || "")
+  );
+  const matchingConnections = projectConnections.filter(
+    (connection) =>
+      !visualChangesets.length || connection.includeVisualExperiments
+  );
+  const verifiedConnections = matchingConnections.filter(
+    (connection) => connection.connected
+  );
 
   const watcherIds = useApi<{
     userIds: string[];
@@ -250,13 +267,12 @@ export default function TabbedPage({
         duplicate={duplicate}
         usersWatching={usersWatching}
         editResult={editResult || undefined}
-        connections={connections}
-        linkedFeatures={linkedFeatures}
-        visualChangesets={visualChangesets}
         editTargeting={editTargeting}
         newPhase={newPhase}
         editPhases={editPhases}
         healthNotificationCount={healthNotificationCount}
+        checklistItemsRemaining={checklistItemsRemaining}
+        verifiedConnections={verifiedConnections}
       />
       <div className="container pagecontents pb-4">
         {experiment.project ===
@@ -323,6 +339,12 @@ export default function TabbedPage({
             safeToEdit={safeToEdit}
             editVariations={!viewingOldPhase ? editVariations : undefined}
             disableEditing={viewingOldPhase}
+            linkedFeatures={linkedFeatures}
+            visualChangesets={visualChangesets}
+            editTargeting={editTargeting}
+            verifiedConnections={verifiedConnections}
+            checklistItemsRemaining={checklistItemsRemaining}
+            setChecklistItemsRemaining={setChecklistItemsRemaining}
           />
           <Implementation
             experiment={experiment}
@@ -334,8 +356,6 @@ export default function TabbedPage({
             urlRedirects={urlRedirects}
             editTargeting={!viewingOldPhase ? editTargeting : undefined}
             linkedFeatures={linkedFeatures}
-            connections={connections}
-            setTab={setTabAndScroll}
           />
           {experiment.status !== "draft" && (
             <div className="mt-3 mb-2 text-center d-print-none">

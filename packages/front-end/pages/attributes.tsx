@@ -16,8 +16,8 @@ import { useUser } from "@/services/UserContext";
 const FeatureAttributesPage = (): React.ReactElement => {
   const permissions = usePermissions();
   const { apiCall } = useAuth();
-  const attributeSchema = useAttributeSchema(true);
   const { project } = useDefinitions();
+  const attributeSchema = useAttributeSchema(true, project);
 
   const canCreateAttributes = permissions.check(
     "manageTargetingAttributes",

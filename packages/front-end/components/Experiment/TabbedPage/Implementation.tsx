@@ -3,15 +3,12 @@ import {
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import { URLRedirectInterface } from "back-end/types/url-redirect";
+import { URLRedirectInterface } from "@back-end/types/url-redirect";
 import usePermissions from "@/hooks/usePermissions";
-import { StartExperimentBanner } from "@/components/Experiment/StartExperimentBanner";
 import AddLinkedChanges from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
 import RedirectLinkedChanges from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
 import FeatureLinkedChanges from "@/components/Experiment/LinkedChanges/FeatureLinkedChanges";
 import VisualLinkedChanges from "@/components/Experiment/LinkedChanges/VisualLinkedChanges";
-import { ExperimentTab } from "@/components/Experiment/TabbedPage";
 import TargetingInfo from "./TargetingInfo";
 
 export interface Props {
@@ -24,8 +21,6 @@ export interface Props {
   setVisualEditorModal: (open: boolean) => void;
   setUrlRedirectModal: (open: boolean) => void;
   linkedFeatures: LinkedFeatureInfo[];
-  setTab: (tab: ExperimentTab) => void;
-  connections: SDKConnectionInterface[];
 }
 
 export default function Implementation({
@@ -38,8 +33,6 @@ export default function Implementation({
   setVisualEditorModal,
   setUrlRedirectModal,
   linkedFeatures,
-  setTab,
-  connections,
 }: Props) {
   const phases = experiment.phases || [];
 
@@ -66,28 +59,13 @@ export default function Implementation({
   if (!hasLinkedChanges) {
     if (experiment.status === "draft") {
       return (
-        <>
-          <AddLinkedChanges
-            experiment={experiment}
-            numLinkedChanges={0}
-            setFeatureModal={setFeatureModal}
-            setVisualEditorModal={setVisualEditorModal}
-            setUrlRedirectModal={setUrlRedirectModal}
-          />
-          <div className="mt-1">
-            {/* TODO: Pipe through redirects */}
-            <StartExperimentBanner
-              experiment={experiment}
-              mutateExperiment={mutate}
-              linkedFeatures={linkedFeatures}
-              visualChangesets={visualChangesets}
-              onStart={() => setTab("results")}
-              editTargeting={editTargeting}
-              connections={connections}
-              className="appbox p-4"
-            />
-          </div>
-        </>
+        <AddLinkedChanges
+          experiment={experiment}
+          numLinkedChanges={0}
+          setFeatureModal={setFeatureModal}
+          setVisualEditorModal={setVisualEditorModal}
+          setUrlRedirectModal={setUrlRedirectModal}
+        />
       );
     }
     return (
@@ -141,22 +119,6 @@ export default function Implementation({
             editTargeting={editTargeting}
             phaseIndex={phases.length - 1}
             horizontalView
-          />
-        </div>
-      )}
-
-      {experiment.status === "draft" && (
-        <div className="mt-1">
-          {/* TODO: Pipe through redirects */}
-          <StartExperimentBanner
-            experiment={experiment}
-            mutateExperiment={mutate}
-            linkedFeatures={linkedFeatures}
-            visualChangesets={visualChangesets}
-            onStart={() => setTab("results")}
-            editTargeting={editTargeting}
-            connections={connections}
-            className="appbox p-4"
           />
         </div>
       )}

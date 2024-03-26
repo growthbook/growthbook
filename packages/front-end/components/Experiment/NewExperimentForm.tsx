@@ -167,7 +167,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
-  const attributeSchema = useAttributeSchema();
+  const attributeSchema = useAttributeSchema(false, project);
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
@@ -469,7 +469,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     "Will be hashed together with the Experiment Id (tracking key) to determine which variation to assign"
                   }
                 />
-                <FallbackAttributeSelector form={form} />
+                <FallbackAttributeSelector
+                  form={form}
+                  attributeSchema={attributeSchema}
+                />
               </div>
 
               {hasSDKWithNoBucketingV2 && (
@@ -492,6 +495,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 defaultValue={form.watch("phases.0.condition") || ""}
                 onChange={(value) => form.setValue("phases.0.condition", value)}
                 key={conditionKey}
+                project={project}
               />
               <hr />
               <PrerequisiteTargetingField
