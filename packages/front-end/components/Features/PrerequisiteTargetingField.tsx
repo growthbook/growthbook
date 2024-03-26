@@ -73,8 +73,9 @@ export default function PrerequisiteTargetingField({
   }).includes("prerequisites");
 
   const { hasCommercialFeature } = useUser();
-  const hasPrerequisitesCommercialFeature =
-    true || hasCommercialFeature("prerequisite-targeting");
+  const hasPrerequisitesCommercialFeature = hasCommercialFeature(
+    "prerequisite-targeting"
+  );
 
   useEffect(() => {
     for (let i = 0; i < value.length; i++) {
