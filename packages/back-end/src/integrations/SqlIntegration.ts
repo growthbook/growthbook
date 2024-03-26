@@ -54,7 +54,6 @@ import {
   ExperimentFactMetricsQueryParams,
   ExperimentFactMetricsQueryResponse,
   FactMetricData,
-  MetricQuantileSQLSettings,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
@@ -524,6 +523,44 @@ export default abstract class SqlIntegration
     );
   }
 
+  getQuantileBoundsFromQueryResponse(
+    // eslint-disable-next-line
+    row: Record<string, any>,
+    prefix: string
+  ) {
+    // Finds the lower and upper bounds that correspond to the largest
+    // nstar that is smaller than the actual quantile n
+    const quantileData: {
+      [key: string]: number;
+    } = {};
+    if (row[`${prefix}quantile`] !== undefined) {
+      quantileData[`${prefix}quantile_n`] =
+        parseFloat(row[`${prefix}quantile_n`]) || 0;
+
+      // process grid for quantile data
+      N_STAR_VALUES.forEach((n) => {
+        const lowerColumn = `${prefix}quantile_lower_${n}`;
+        const upperColumn = `${prefix}quantile_upper_${n}`;
+        if (row[lowerColumn] === undefined || row[upperColumn] === undefined)
+          return;
+
+        if (
+          n < quantileData[`${prefix}quantile_n`] &&
+          // if N_STAR_VALUES isn't ascending need to make sure
+          // this n is the largest n we've seen so far
+          n > (Number(quantileData[`${prefix}quantile_nstar`]) || 0)
+        ) {
+          quantileData[`${prefix}quantile_lower`] =
+            parseFloat(row[lowerColumn]) || 0;
+          quantileData[`${prefix}quantile_upper`] =
+            parseFloat(row[upperColumn]) || 0;
+          quantileData[`${prefix}quantile_nstar`] = n;
+        }
+      });
+    }
+    return quantileData;
+  }
+
   async runExperimentFactMetricsQuery(
     query: string,
     setExternalId: ExternalIdCallback
@@ -542,12 +579,11 @@ export default abstract class SqlIntegration
       "covariate_sum_squares",
       "main_covariate_sum_product",
       "quantile",
-      "quantile_n",
     ];
 
     return {
       rows: rows.map((row) => {
-        const metricData: {
+        let metricData: {
           [key: string]: number | string;
         } = {};
         for (let i = 0; i < 100; i++) {
@@ -562,31 +598,10 @@ export default abstract class SqlIntegration
             }
           });
 
-          if (row[prefix + "quantile"] !== undefined) {
-            const quantile_n = parseFloat(row[prefix + "quantile_n"]) || 0;
-
-            // process grid for quantile data
-            N_STAR_VALUES.forEach((n) => {
-              const lowerColumn = `${prefix}quantile_lower_${n}`;
-              const upperColumn = `${prefix}quantile_upper_${n}`;
-              if (
-                row[lowerColumn] === undefined ||
-                row[upperColumn] === undefined
-              )
-                return;
-
-              if (
-                n < quantile_n &&
-                n > (Number(metricData[`${prefix}quantile_nstar`]) || 0)
-              ) {
-                metricData[`${prefix}quantile_lower`] =
-                  parseFloat(row[lowerColumn]) || 0;
-                metricData[`${prefix}quantile_upper`] =
-                  parseFloat(row[upperColumn]) || 0;
-                metricData[`${prefix}quantile_nstar`] = n;
-              }
-            });
-          }
+          metricData = {
+            ...metricData,
+            ...this.getQuantileBoundsFromQueryResponse(row, prefix),
+          };
         }
 
         return {
@@ -608,37 +623,6 @@ export default abstract class SqlIntegration
     const { rows, statistics } = await this.runQuery(query, setExternalId);
     return {
       rows: rows.map((row) => {
-        const quantileData: {
-          quantile_lower?: number;
-          quantile_upper?: number;
-          quantile_nstar?: number;
-        } = {};
-        if (row.quantile !== undefined) {
-          const quantile_n = parseFloat(row.quantile_n) || 0;
-
-          // process grid for quantile data
-          N_STAR_VALUES.forEach((n) => {
-            const lowerColumn = `quantile_lower_${n}`;
-            const upperColumn = `quantile_upper_${n}`;
-            if (
-              row[lowerColumn] === undefined ||
-              row[upperColumn] === undefined
-            )
-              return;
-
-            if (
-              n < quantile_n &&
-              n > (Number(quantileData["quantile_nstar"]) || 0)
-            ) {
-              quantileData["quantile_lower"] =
-                parseFloat(row[lowerColumn]) || 0;
-              quantileData["quantile_upper"] =
-                parseFloat(row[upperColumn]) || 0;
-              quantileData["quantile_nstar"] = n;
-            }
-          });
-        }
-
         return {
           variation: row.variation ?? "",
           dimension: row.dimension || "",
@@ -648,8 +632,7 @@ export default abstract class SqlIntegration
           main_sum_squares: parseFloat(row.main_sum_squares) || 0,
           ...(row.quantile !== undefined && {
             quantile: parseFloat(row.quantile) || 0,
-            quantile_n: parseFloat(row.quantile_n) || 0,
-            ...quantileData,
+            ...this.getQuantileBoundsFromQueryResponse(row, ""),
           }),
           ...(row.denominator_sum !== undefined && {
             denominator_sum: parseFloat(row.denominator_sum) || 0,
@@ -1538,15 +1521,11 @@ export default abstract class SqlIntegration
     const ratioMetric = isRatioMetric(metric);
     const funnelMetric = isFunnelMetric(metric);
     const quantileMetric = quantileMetricType(metric);
-    const metricQuantileSQLSettings: MetricQuantileSQLSettings = {
-      type: "unit",
-      quantile: 0,
-      ignoreZeros: false,
-      nstars: N_STAR_VALUES,
-      ...(isFactMetric(metric) && !!quantileMetric
-        ? metric.quantileSettings
-        : undefined),
-    };
+    const metricQuantileSettings: MetricQuantileSettings = (isFactMetric(
+      metric
+    ) && !!quantileMetric
+      ? metric.quantileSettings
+      : undefined) ?? { type: "unit", quantile: 0, ignoreZeros: false };
 
     // redundant checks to make sure configuration makes sense and we only build expensive queries for the cases
     // where RA is actually possible
@@ -1619,7 +1598,7 @@ export default abstract class SqlIntegration
       ratioMetric,
       funnelMetric,
       quantileMetric,
-      metricQuantileSQLSettings,
+      metricQuantileSettings,
       regressionAdjusted,
       regressionAdjustmentHours,
       overrideConversionWindows,
@@ -1643,7 +1622,7 @@ export default abstract class SqlIntegration
       alias: string;
       valueCol: string;
       outputCol: string;
-      metricQuantileSQLSettings: MetricQuantileSQLSettings;
+      metricQuantileSettings: MetricQuantileSettings;
     }[] = [];
     metricData
       .filter((m) => m.quantileMetric === quantileType)
@@ -1652,7 +1631,7 @@ export default abstract class SqlIntegration
           alias: m.alias,
           valueCol: `${m.alias}_value`,
           outputCol: `${m.alias}_value_quantile`,
-          metricQuantileSQLSettings: m.metricQuantileSQLSettings,
+          metricQuantileSettings: m.metricQuantileSettings,
         });
       });
     return quantileData;
@@ -1902,9 +1881,7 @@ export default abstract class SqlIntegration
                   data.overrideConversionWindows,
                   settings.endDate,
                   cumulativeDate,
-                  data.quantileMetric
-                    ? data.metricQuantileSQLSettings
-                    : undefined
+                  data.quantileMetric ? data.metricQuantileSettings : undefined
                 )} as ${data.alias}_value
                 ${
                   data.ratioMetric
@@ -1945,7 +1922,7 @@ export default abstract class SqlIntegration
           ${eventQuantileData
             .map((data) =>
               this.getQuantileGridColumns(
-                data.metricQuantileSQLSettings,
+                data.metricQuantileSettings,
                 `${data.alias}_`
               )
             )
@@ -2089,20 +2066,18 @@ export default abstract class SqlIntegration
                     data.alias
                   }_quantile_n
               , MAX(qm.${data.alias}_quantile) AS ${data.alias}_quantile
-                ${data.metricQuantileSQLSettings.nstars
-                  .map(
-                    (
-                      n
-                    ) => `, MAX(qm.${data.alias}_quantile_lower_${n}) AS ${data.alias}_quantile_lower_${n}
+                ${N_STAR_VALUES.map(
+                  (
+                    n
+                  ) => `, MAX(qm.${data.alias}_quantile_lower_${n}) AS ${data.alias}_quantile_lower_${n}
                         , MAX(qm.${data.alias}_quantile_upper_${n}) AS ${data.alias}_quantile_upper_${n}`
-                  )
-                  .join("\n")}`
+                ).join("\n")}`
                 : ""
             }
             ${
               data.quantileMetric === "unit"
                 ? `${this.getQuantileGridColumns(
-                    data.metricQuantileSQLSettings,
+                    data.metricQuantileSettings,
                     `${data.alias}_`
                   )}
                   , COUNT(m.${data.alias}_value) AS ${data.alias}_quantile_n`
@@ -2216,14 +2191,14 @@ export default abstract class SqlIntegration
     const funnelMetric = isFunnelMetric(metric, denominator);
 
     const quantileMetric = quantileMetricType(metric);
-    const metricQuantileSQLSettings: MetricQuantileSQLSettings = {
+    const metricQuantileSettings: MetricQuantileSettings = (isFactMetric(
+      metric
+    ) && !!quantileMetric
+      ? metric.quantileSettings
+      : undefined) ?? {
       type: "unit",
       quantile: 0,
       ignoreZeros: false,
-      nstars: N_STAR_VALUES,
-      ...(isFactMetric(metric) && !!quantileMetric
-        ? metric.quantileSettings
-        : undefined),
     };
 
     const cumulativeDate = false; // TODO enable flag for time series
@@ -2454,7 +2429,7 @@ export default abstract class SqlIntegration
             overrideConversionWindows,
             settings.endDate,
             cumulativeDate,
-            quantileMetric ? metricQuantileSQLSettings : undefined
+            quantileMetric ? metricQuantileSettings : undefined
           )} as value
         FROM
           ${funnelMetric ? "__denominatorUsers" : "__distinctUsers"} d
@@ -2477,7 +2452,7 @@ export default abstract class SqlIntegration
             SELECT
               m.variation,
               m.dimension
-              ${this.getQuantileGridColumns(metricQuantileSQLSettings, "")}
+              ${this.getQuantileGridColumns(metricQuantileSettings, "")}
           FROM
             __userMetricJoin m
           GROUP BY
@@ -2646,17 +2621,15 @@ export default abstract class SqlIntegration
           , SUM(COALESCE(m.n_events, 0) * ${capCoalesceMetric}) AS main_denominator_sum_product
           , SUM(COALESCE(m.n_events, 0)) AS quantile_n
           , MAX(qm.quantile) AS quantile
-            ${metricQuantileSQLSettings.nstars
-              .map(
-                (n) => `, MAX(qm.quantile_lower_${n}) AS quantile_lower_${n}
+            ${N_STAR_VALUES.map(
+              (n) => `, MAX(qm.quantile_lower_${n}) AS quantile_lower_${n}
                     , MAX(qm.quantile_upper_${n}) AS quantile_upper_${n}`
-              )
-              .join("\n")}`
+            ).join("\n")}`
             : ""
         }
         ${
           quantileMetric === "unit"
-            ? `${this.getQuantileGridColumns(metricQuantileSQLSettings, "")}
+            ? `${this.getQuantileGridColumns(metricQuantileSettings, "")}
             , COUNT(m.value) AS quantile_n`
             : ""
         }
@@ -3214,33 +3187,31 @@ AND event_name = '${eventName}'`,
   }
 
   getQuantileGridColumns(
-    metricQuantileSQLSettings: MetricQuantileSQLSettings,
+    metricQuantileSettings: MetricQuantileSettings,
     prefix: string
   ) {
     return `, ${this.quantileColumn(
       `m.${prefix}value`,
       `${prefix}quantile`,
-      metricQuantileSQLSettings.quantile
+      metricQuantileSettings.quantile
     )}
-    ${metricQuantileSQLSettings.nstars
-      .map((nstar) => {
-        const { lower, upper } = this.getQuantileBoundValues(
-          metricQuantileSQLSettings.quantile,
-          0.05,
-          nstar
-        );
-        return `, ${this.quantileColumn(
-          `m.${prefix}value`,
-          `${prefix}quantile_lower_${nstar}`,
-          lower
-        )}
+    ${N_STAR_VALUES.map((nstar) => {
+      const { lower, upper } = this.getQuantileBoundValues(
+        metricQuantileSettings.quantile,
+        0.05,
+        nstar
+      );
+      return `, ${this.quantileColumn(
+        `m.${prefix}value`,
+        `${prefix}quantile_lower_${nstar}`,
+        lower
+      )}
           , ${this.quantileColumn(
             `m.${prefix}value`,
             `${prefix}quantile_upper_${nstar}`,
             upper
           )}`;
-      })
-      .join("\n")}`;
+    }).join("\n")}`;
   }
 
   getFilterValues(
@@ -3621,7 +3592,7 @@ AND event_name = '${eventName}'`,
     overrideConversionWindows: boolean,
     endDate: Date,
     cumulativeDate: boolean,
-    metricQuantileSQLSettings?: MetricQuantileSQLSettings
+    metricQuantileSettings?: MetricQuantileSettings
   ): string {
     return `${this.ifElse(
       `${this.getConversionWindowClause(
@@ -3632,7 +3603,7 @@ AND event_name = '${eventName}'`,
         cumulativeDate,
         overrideConversionWindows
       )}
-        ${metricQuantileSQLSettings?.ignoreZeros ? `AND ${col} != 0` : ""}
+        ${metricQuantileSettings?.ignoreZeros ? `AND ${col} != 0` : ""}
         ${
           cumulativeDate ? `AND ${this.dateTrunc("m.timestamp")} <= dr.day` : ""
         }
