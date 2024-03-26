@@ -850,7 +850,6 @@ export async function postFeatureFork(
     baseVersion: revision.version,
     changes: revision,
     environments,
-    org,
   });
   await updateFeature(context, feature, {
     hasDrafts: true,
@@ -1052,7 +1051,6 @@ export async function postFeatureSync(
       changes,
       environments,
       comment: `Sync Feature`,
-      org: context.org,
     });
 
     updates.version = revision.version;
@@ -1085,7 +1083,7 @@ export async function postFeatureExperimentRefRule(
   >
 ) {
   const context = getContextFromReq(req);
-  const { environments, org } = context;
+  const { environments } = context;
   const { id } = req.params;
   const { rule } = req.body;
 
@@ -1157,7 +1155,6 @@ export async function postFeatureExperimentRefRule(
     changes,
     environments,
     comment: `Add Experiment - ${experiment.name}`,
-    org,
   });
 
   updates.version = revision.version;
@@ -1204,7 +1201,6 @@ async function getDraftRevision(
       feature,
       user: context.auditUser,
       environments: getEnvironmentIdsFromOrg(context.org),
-      org: context.org,
     });
 
     await updateFeature(context, feature, {
