@@ -6,6 +6,7 @@ import {
   MergeStrategy,
   autoMerge,
   checkIfRevisionNeedsReview,
+  resetReviewOnChange,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -671,7 +672,6 @@ export async function postFeaturePublish(
     baseRevision: base,
     revision,
     settings: org.settings,
-    environments,
   });
   if (!adminOverride && requiresReview && revision.status !== "approved") {
     throw new Error("needs review before publishing");
@@ -914,7 +914,7 @@ export async function postFeatureRule(
   >
 ) {
   const context = getContextFromReq(req);
-  const { environments } = context;
+  const { environments, org } = context;
   const { id, version } = req.params;
   const { environment, rule } = req.body;
 
@@ -931,7 +931,18 @@ export async function postFeatureRule(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
-  await addFeatureRule(revision, environment, rule, res.locals.eventAudit);
+  const resetReview = resetReviewOnChange(
+    feature,
+    [environment],
+    org?.settings
+  );
+  await addFeatureRule(
+    revision,
+    environment,
+    rule,
+    res.locals.eventAudit,
+    resetReview
+  );
 
   // If referencing a new experiment, add it to linkedExperiments
   if (
@@ -1332,7 +1343,7 @@ export async function putFeatureRule(
   >
 ) {
   const context = getContextFromReq(req);
-  const { environments } = context;
+  const { environments, org } = context;
   const { id, version } = req.params;
   const { environment, rule, i } = req.body;
 
@@ -1349,8 +1360,19 @@ export async function putFeatureRule(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
-
-  await editFeatureRule(revision, environment, i, rule, res.locals.eventAudit);
+  const resetReview = resetReviewOnChange(
+    feature,
+    [environment],
+    org?.settings
+  );
+  await editFeatureRule(
+    revision,
+    environment,
+    i,
+    rule,
+    res.locals.eventAudit,
+    resetReview
+  );
 
   res.status(200).json({
     status: 200,

@@ -640,7 +640,8 @@ export async function addFeatureRule(
   revision: FeatureRevisionInterface,
   env: string,
   rule: FeatureRule,
-  user: EventAuditUser
+  user: EventAuditUser,
+  resetReview?: boolean
 ) {
   if (!rule.id) {
     rule.id = generateRuleId();
@@ -648,9 +649,17 @@ export async function addFeatureRule(
 
   const changes = {
     rules: revision.rules || {},
+    status: revision.status,
   };
   changes.rules[env] = changes.rules[env] || [];
   changes.rules[env].push(rule);
+  if (
+    (revision.status === "approved" ||
+      revision.status === "changes-requested") &&
+    resetReview
+  ) {
+    changes.status = "pending-review";
+  }
   await updateRevision(revision, changes, {
     user,
     action: "add rule",
@@ -664,9 +673,10 @@ export async function editFeatureRule(
   environment: string,
   i: number,
   updates: Partial<FeatureRule>,
-  user: EventAuditUser
+  user: EventAuditUser,
+  resetReview?: boolean
 ) {
-  const changes = { rules: revision.rules || {} };
+  const changes = { rules: revision.rules || {}, status: revision.status };
 
   changes.rules[environment] = changes.rules[environment] || [];
   if (!changes.rules[environment][i]) {
@@ -677,6 +687,13 @@ export async function editFeatureRule(
     ...changes.rules[environment][i],
     ...updates,
   } as FeatureRule;
+  if (
+    (revision.status === "approved" ||
+      revision.status === "changes-requested") &&
+    resetReview
+  ) {
+    changes.status = "pending-review";
+  }
   await updateRevision(revision, changes, {
     user,
     action: "edit rule",

@@ -215,18 +215,6 @@ export default function FeaturesOverview({
   const { jsonSchema, validationEnabled, schemaDateUpdated } = getValidation(
     feature
   );
-  console.log(
-    checkIfRevisionNeedsReview({
-      feature,
-      baseRevision: revisions.find(
-        (r) => r.version === revision?.baseVersion
-      ) as FeatureRevisionInterface,
-      revision,
-      settings,
-      environments: environments.map((e) => e.id),
-    }),
-    "test"
-  );
   const requireReviews = checkIfRevisionNeedsReview({
     feature,
     baseRevision: revisions.find(
@@ -234,7 +222,6 @@ export default function FeaturesOverview({
     ) as FeatureRevisionInterface,
     revision,
     settings,
-    environments: environments.map((e) => e.id),
   });
   const isLive = revision?.version === feature.version;
   const isPendingReview =

@@ -13,7 +13,10 @@ import {
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { evalCondition } from "@growthbook/growthbook";
-import { OrganizationSettings } from "back-end/types/organization";
+import {
+  OrganizationSettings,
+  RequireReview,
+} from "back-end/types/organization";
 import { getValidDate } from "../dates";
 import { getMatchingRules, includeExperimentInPayload } from ".";
 
@@ -325,21 +328,19 @@ export function mergeResultHasChanges(mergeResult: AutoMergeResult): boolean {
 
   return false;
 }
-export function listupdatedEnviroments(
+export function listChangedEnviroments(
   base: RulesAndValues,
-  revision: RulesAndValues,
-  environments: string[]
+  revision: RulesAndValues
 ) {
   const enviromentsList: string[] = [];
-  environments.forEach((env) => {
-    const rules = revision.rules?.[env];
+  Object.keys(revision.rules)?.forEach((env) => {
+    const rules = revision.rules[env];
     if (!rules) return;
     if (isEqual(rules, base.rules[env] || [])) {
       return;
     }
-    enviromentsList.push();
+    enviromentsList.push(env);
   });
-
   return enviromentsList;
 }
 
@@ -744,6 +745,31 @@ export function getParsedPrereqCondition(condition: string) {
   }
   return undefined;
 }
+function checkEnvironmentsMatch(
+  feature: FeatureInterface,
+  enviroments: string[],
+  reviewSetting: RequireReview
+) {
+  for (const env of reviewSetting.enviroments) {
+    if (enviroments.includes(env)) {
+      return true;
+    }
+  }
+  // check projects
+  if (feature?.project && reviewSetting.projects.includes(feature?.project)) {
+    return true;
+  }
+  for (const tag of reviewSetting.tags) {
+    if (feature?.tags?.includes(tag)) {
+      return true;
+    }
+  }
+  return (
+    reviewSetting.enviroments.length === 0 &&
+    reviewSetting.projects.length === 0 &&
+    reviewSetting.tags.length === 0
+  ); //if everything is empty is means it is on for all.
+}
 export function featureRequiresReview(
   feature: FeatureInterface,
   requestedEnvironments: string[],
@@ -760,33 +786,41 @@ export function featureRequiresReview(
   }
 
   for (const reviewSetting of requiresReviewSettings) {
-    // check env
     if (reviewSetting.requireReview === true) {
-      for (const env of reviewSetting.enviroments) {
-        if (requestedEnvironments.includes(env)) {
-          return true;
-        }
-      }
-      // check projects
-      if (
-        feature?.project &&
-        reviewSetting.projects.includes(feature?.project)
-      ) {
-        return true;
-      }
-      for (const tag of reviewSetting.tags) {
-        if (feature?.tags?.includes(tag)) {
-          return true;
-        }
-      }
-      return (
-        reviewSetting.enviroments.length === 0 &&
-        reviewSetting.projects.length === 0 &&
-        reviewSetting.tags.length === 0
-      ); //if everything is empty is means it is on for all.
+      return checkEnvironmentsMatch(
+        feature,
+        requestedEnvironments,
+        reviewSetting
+      );
     }
   }
 
+  return false;
+}
+
+export function resetReviewOnChange(
+  feature: FeatureInterface,
+  requestedEnvironments: string[],
+  settings?: OrganizationSettings
+) {
+  const requiresReviewSettings = settings?.requireReviews;
+  //legacy check
+  if (
+    requiresReviewSettings === true ||
+    requiresReviewSettings === false ||
+    requiresReviewSettings === undefined
+  ) {
+    return !!requiresReviewSettings;
+  }
+  for (const reviewSetting of requiresReviewSettings) {
+    if (reviewSetting.resetReviewOnChange === true) {
+      return checkEnvironmentsMatch(
+        feature,
+        requestedEnvironments,
+        reviewSetting
+      );
+    }
+  }
   return false;
 }
 
@@ -794,24 +828,14 @@ export function checkIfRevisionNeedsReview({
   feature,
   baseRevision,
   revision,
-  environments,
   settings,
 }: {
   feature: FeatureInterface;
   baseRevision: FeatureRevisionInterface;
   revision: FeatureRevisionInterface;
-  environments: string[];
   settings?: OrganizationSettings;
 }) {
-  const changedEnvironments: string[] = [];
-  environments.forEach((env) => {
-    const rules = revision.rules?.[env];
-    if (!rules) return;
-    if (isEqual(rules, baseRevision.rules[env] || [])) {
-      return;
-    }
-    changedEnvironments.push(env);
-  });
+  const changedEnvironments = listChangedEnviroments(baseRevision, revision);
 
   return featureRequiresReview(feature, changedEnvironments, settings);
 }
