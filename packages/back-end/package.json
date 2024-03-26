@@ -18,7 +18,7 @@
     "test": "jest --forceExit --verbose --detectOpenHandles",
     "type-check": "tsc --pretty --noEmit",
     "unused-export-check": "npx ts-unused-exports tsconfig.json --findCompletelyUnusedFiles --allowUnusedTypes --showLineNumber",
-    "generate-dummy-data": "ts-node --swc ./test/data-generator/new-generator.ts",
+    "generate-dummy-data": "ts-node ./test/data-generator/new-generator.ts",
     "test-integration-queries": "./test/integrations/integration-query-test.sh",
     "watch-compile": "swc src -w --out-dir dist",
     "watch-dev": "delay 1 && nodemon --watch dist --watch '../shared/dist' --watch '../enterprise/dist' -e js ./dist/server.js",
@@ -134,6 +134,7 @@
     "cross-env": "^7.0.3",
     "delay-cli": "^2.0.0",
     "jest": "^27.1.1",
+    "minimist": "^1.2.8",
     "rimraf": "^3.0.2",
     "typescript": "5.3.3"
   },
