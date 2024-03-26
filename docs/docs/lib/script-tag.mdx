@@ -164,24 +164,39 @@ You can use feature flags with this SDK, but it does require some manual coding 
 
 ```html
 <script>
-// Define a function that will be called every time features need to be re-evaluated
-function applyFeatureFlags(gb) {
-  // Modify the page based on a feature flag
-  if(gb.isOn("dark-mode")) {
-    document.documentElement.classList.add("dark-mode");
-  } else {
-    document.documentElement.classList.remove("dark-mode");
-  }
-}
-
 // Wait for the GrowthBook SDK to load before running
 window.growthbook_queue = window.growthbook_queue || [];
 window.growthbook_queue.push((gb) => {
-  // Call your function the first time
-  applyFeatureFlags(gb);
+  // Function that uses feature flags to make changes to the page
+  const applyFeatureFlags = () => {
+    if(gb.isOn("dark-mode")) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }
 
-  // Tell the SDK to call your function any time features change in the future
-  gb.setRenderer(() => applyFeatureFlags(gb));
+  // Call your function initially plus whenever new data is received
+  applyFeatureFlags();
+  document.addEventListener("growthbookdata", applyFeatureFlags)
 });
 </script>
+```
+
+## Cookie Policy and GDPR
+
+By default, this SDK persists a random unique identifier in a first-party cookie named `gbuuid`. This cookie is required to provide a consistent user experience to your visitors. Without this cookie, if you run an A/B test, a visitor might be re-bucketed into a different variation every time they visit your website.
+
+The `gbuuid` cookie does not contain any Personally Identifiable Information (it's just a randomly generated id). It is a first-party cookie that is never shared with any third-party services, not even GrowthBook itself. However, we still recommend adding this to your site's cookie policy if you have one.
+
+### Delay Storing the Cookie Until Consent is Granted
+
+If you must delay persisting the `gbuuid` cookie until a user consents, you can add a `data-no-auto-cookies` attribute to the script tag.
+
+This will still generate a UUID for the user, but will not persist it. That means, if the user refreshes the page, they will have a new random UUID generated.
+
+You have the option to manually persist this cookie at any time, for example when a user grants consent on your cookie banner. All you need to do is fire this custom event from javascript:
+
+```js
+document.dispatchEvent(new CustomEvent("growthbookpersist"));
 ```

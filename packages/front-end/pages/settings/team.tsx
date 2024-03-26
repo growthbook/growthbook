@@ -39,11 +39,19 @@ const TeamPage: FC = () => {
               onSuccess={() => refreshOrganization()}
             />
           )}
-          <div className="filters md-form row mb-3 align-items-center">
-            <div className="col-auto d-flex">
-              <h1>
-                <PremiumTooltip commercialFeature="teams">Teams</PremiumTooltip>
-              </h1>
+          <div className="filters md-form row mb-1 align-items-center">
+            <div className="col-auto d-flex align-items-end">
+              <div>
+                <h1>
+                  <PremiumTooltip commercialFeature="teams">
+                    Teams
+                  </PremiumTooltip>
+                </h1>
+                <div className="text-muted mb-2">
+                  Place organization members into teams to grant permissions by
+                  group.
+                </div>
+              </div>
             </div>
             <div style={{ flex: 1 }} />
             <div className="col-auto">
