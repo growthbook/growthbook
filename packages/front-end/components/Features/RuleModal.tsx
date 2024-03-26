@@ -85,7 +85,7 @@ export default function RuleModal({
   setVersion,
   revisions,
 }: Props) {
-  const attributeSchema = useAttributeSchema();
+  const attributeSchema = useAttributeSchema(false, feature.project);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const { namespaces } = useOrgSettings();
@@ -171,6 +171,7 @@ export default function RuleModal({
     if (newRevision) {
       // merge form values into revision
       const newRule = form.getValues() as FeatureRule;
+      newRevision.rules[environment] = newRevision.rules[environment] || [];
       newRevision.rules[environment][i] = newRule;
     }
     const featuresMap = new Map(features.map((f) => [f.id, f]));
@@ -810,6 +811,7 @@ export default function RuleModal({
             defaultValue={form.watch("condition") || ""}
             onChange={(value) => form.setValue("condition", value)}
             key={conditionKey}
+            project={feature.project || ""}
           />
           <hr />
           <PrerequisiteTargetingField

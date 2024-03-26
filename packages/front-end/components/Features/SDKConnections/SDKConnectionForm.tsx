@@ -176,6 +176,8 @@ export default function SDKConnectionForm({
     "visualEditor"
   );
 
+  const showRedirectSettings = latestSdkCapabilities.includes("redirects");
+
   const selectedProjects = form.watch("projects");
   const selectedEnvironment = environments.find(
     (e) => e.id === form.watch("environment")
@@ -228,11 +230,13 @@ export default function SDKConnectionForm({
     if (!edit) {
       form.setValue("includeVisualExperiments", showVisualEditorSettings);
       form.setValue("includeDraftExperiments", showVisualEditorSettings);
+      form.setValue("includeRedirectExperiments", showRedirectSettings);
     } else if (!showVisualEditorSettings) {
       form.setValue("includeVisualExperiments", false);
       form.setValue("includeDraftExperiments", false);
+      form.setValue("includeRedirectExperiments", false);
     }
-  }, [showVisualEditorSettings, form, edit]);
+  }, [showVisualEditorSettings, form, edit, showRedirectSettings]);
 
   // complex setter for clicking a "SDK Payload Security" button
   useEffect(() => {
@@ -291,7 +295,13 @@ export default function SDKConnectionForm({
         if (!latestSdkCapabilities.includes("visualEditor")) {
           value.includeVisualExperiments = false;
         }
-        if (!value.includeVisualExperiments) {
+        if (!latestSdkCapabilities.includes("redirects")) {
+          value.includeRedirectExperiments = false;
+        }
+        if (
+          !value.includeVisualExperiments &&
+          !value.includeRedirectExperiments
+        ) {
           value.includeDraftExperiments = false;
         }
 
@@ -452,7 +462,6 @@ export default function SDKConnectionForm({
           />
         </div>
 
-        {/*{projectsOptions.length > 0 && (*/}
         <div className="mb-4">
           <label>
             Filter by Projects
@@ -499,7 +508,6 @@ export default function SDKConnectionForm({
             </div>
           )}
         </div>
-        {/*)}*/}
 
         {languageEnvironment !== "backend" && (
           <>
@@ -951,33 +959,54 @@ export default function SDKConnectionForm({
           </>
         )}
 
-        {showVisualEditorSettings && (
+        {(showVisualEditorSettings || showRedirectSettings) && (
           <>
-            <label>Visual experiments</label>
+            <label>Auto experiments</label>
             <div className="border rounded pt-2 pb-3 px-3 bg-light">
-              <div>
-                <label htmlFor="sdk-connection-visual-experiments-toggle">
-                  Include visual experiments in endpoint&apos;s response?
-                </label>
-                <div className="form-inline">
-                  <Toggle
-                    id="sdk-connection-visual-experiments-toggle"
-                    value={form.watch("includeVisualExperiments")}
-                    setValue={(val) =>
-                      form.setValue("includeVisualExperiments", val)
-                    }
-                  />
+              {showVisualEditorSettings && (
+                <div>
+                  <label htmlFor="sdk-connection-visual-experiments-toggle">
+                    Include visual experiments in endpoint&apos;s response?
+                  </label>
+                  <div className="form-inline">
+                    <Toggle
+                      id="sdk-connection-visual-experiments-toggle"
+                      value={form.watch("includeVisualExperiments")}
+                      setValue={(val) =>
+                        form.setValue("includeVisualExperiments", val)
+                      }
+                    />
+                  </div>
                 </div>
-              </div>
-              {form.watch("includeVisualExperiments") && (
+              )}
+
+              {showRedirectSettings && (
+                <div className="mt-3">
+                  <label htmlFor="sdk-connection-redirects-toggle">
+                    Include redirect experiments in endpoint&apos;s response?
+                  </label>
+                  <div className="form-inline">
+                    <Toggle
+                      id="sdk-connection-redirects-toggle"
+                      value={form.watch("includeRedirectExperiments")}
+                      setValue={(val) =>
+                        form.setValue("includeRedirectExperiments", val)
+                      }
+                    />
+                  </div>
+                </div>
+              )}
+
+              {(form.watch("includeVisualExperiments") ||
+                form.watch("includeRedirectExperiments")) && (
                 <>
                   <div className="mt-3">
                     <Tooltip
                       body={
                         <>
                           <p>
-                            In-development visual experiments will be sent to
-                            the SDK. We recommend only enabling this for
+                            In-development auto experiments will be sent to the
+                            SDK. We recommend only enabling this for
                             non-production environments.
                           </p>
                           <p className="mb-0">

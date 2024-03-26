@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { BsLightningFill } from "react-icons/bs";
 import { RxDesktop } from "react-icons/rx";
+import { PiShuffle } from "react-icons/pi";
 import {
   filterProjectsByEnvironment,
   getDisallowedProjects,
@@ -228,6 +229,17 @@ export default function SDKConnectionsList() {
                         }
                       >
                         <RxDesktop className="mx-1 text-blue" />
+                      </Tooltip>
+                    )}
+                    {connection.includeRedirectExperiments && (
+                      <Tooltip
+                        body={
+                          <>
+                            <strong>URL Redirects</strong> are supported
+                          </>
+                        }
+                      >
+                        <PiShuffle className="mx-1 text-blue" />
                       </Tooltip>
                     )}
                   </td>

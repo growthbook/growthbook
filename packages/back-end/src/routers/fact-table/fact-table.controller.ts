@@ -3,12 +3,10 @@ import { AuthRequest } from "../../types/AuthRequest";
 import { getContextFromReq } from "../../services/organizations";
 import {
   CreateFactFilterProps,
-  CreateFactMetricProps,
   CreateFactTableProps,
   FactMetricInterface,
   FactTableInterface,
   UpdateFactFilterProps,
-  UpdateFactMetricProps,
   UpdateColumnProps,
   UpdateFactTableProps,
   TestFactFilterProps,
@@ -26,13 +24,6 @@ import {
   updateFactFilter,
 } from "../../models/FactTableModel";
 import { addTags, addTagsDiff } from "../../models/TagModel";
-import {
-  createFactMetric,
-  getAllFactMetricsForOrganization,
-  getFactMetric,
-  updateFactMetric,
-  deleteFactMetric as deleteFactMetricInDb,
-} from "../../models/FactMetricModel";
 import { getSourceIntegrationObject } from "../../services/datasource";
 import { getDataSourceById } from "../../models/DataSourceModel";
 import { DataSourceInterface } from "../../../types/datasource";
@@ -64,7 +55,10 @@ async function testFilterQuery(
   }
 
   const sql = integration.getTestQuery(
-    `SELECT * FROM (${factTable.sql}) f WHERE ${filter}`,
+    // Must have a newline after factTable sql in case it ends with a comment
+    `SELECT * FROM (
+      ${factTable.sql}
+    ) f WHERE ${filter}`,
     {
       eventName: factTable.eventName,
     }
@@ -322,7 +316,7 @@ export const getFactMetrics = async (
 ) => {
   const context = getContextFromReq(req);
 
-  const factMetrics = await getAllFactMetricsForOrganization(context);
+  const factMetrics = await context.models.factMetrics.getAll();
 
   res.status(200).json({
     status: 200,
@@ -331,21 +325,13 @@ export const getFactMetrics = async (
 };
 
 export const postFactMetric = async (
-  req: AuthRequest<CreateFactMetricProps>,
+  req: AuthRequest<unknown>,
   res: Response<{ status: 200; factMetric: FactMetricInterface }>
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canCreateMetric(data)) {
-    context.permissions.throwPermissionError();
-  }
-
-  const factMetric = await createFactMetric(context, data);
-
-  if (data.tags.length > 0) {
-    await addTags(context.org.id, data.tags);
-  }
+  const factMetric = await context.models.factMetrics.create(data);
 
   res.status(200).json({
     status: 200,
@@ -354,24 +340,13 @@ export const postFactMetric = async (
 };
 
 export const putFactMetric = async (
-  req: AuthRequest<UpdateFactMetricProps, { id: string }>,
+  req: AuthRequest<unknown, { id: string }>,
   res: Response<{ status: 200 }>
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
 
-  const factMetric = await getFactMetric(context, req.params.id);
-  if (!factMetric) {
-    throw new Error("Could not find fact metric with that id");
-  }
-
-  if (!context.permissions.canUpdateMetric(factMetric, data)) {
-    context.permissions.throwPermissionError();
-  }
-
-  await updateFactMetric(context, factMetric, data);
-
-  await addTagsDiff(context.org.id, factMetric.tags, data.tags || []);
+  await context.models.factMetrics.updateById(req.params.id, data);
 
   res.status(200).json({
     status: 200,
@@ -384,16 +359,7 @@ export const deleteFactMetric = async (
 ) => {
   const context = getContextFromReq(req);
 
-  const factMetric = await getFactMetric(context, req.params.id);
-  if (!factMetric) {
-    throw new Error("Could not find fact metric with that id");
-  }
-
-  if (!context.permissions.canDeleteMetric(factMetric)) {
-    context.permissions.throwPermissionError();
-  }
-
-  await deleteFactMetricInDb(context, factMetric);
+  await context.models.factMetrics.deleteById(req.params.id);
 
   res.status(200).json({
     status: 200,
