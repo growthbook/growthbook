@@ -97,6 +97,13 @@ export async function getImpactEstimate(
 
   const queryResponse = await integration.runMetricValueQuery(
     query,
+    new Map<string, string>([
+      ["organization", context.org.id],
+      ["datasource", integration.datasource],
+      ["metric_id", metric],
+      ["metric_name", metricObj.name.replace(/\W/g, "").toLowerCase()],
+      ["query_type", "metricValue"],
+    ]),
     // We're not storing a query in Mongo for this, so we don't support cancelling here
     async () => {
       // Ignore calls to setExternalId

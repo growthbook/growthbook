@@ -65,12 +65,18 @@ export default class BigQuery extends SqlIntegration {
 
   async runQuery(
     sql: string,
+    labels: Map<string, string>,
     setExternalId?: ExternalIdCallback
   ): Promise<QueryResponse> {
     const client = this.getClient();
 
+    if (labels === undefined) {
+      labels = new Map<string, string>();
+    }
+    labels.set("integration", "growthbook");
+    labels.set("sql_integration", "bigquery");
     const [job] = await client.createQueryJob({
-      labels: { integration: "growthbook" },
+      labels: Object.fromEntries(labels),
       query: sql,
       useLegacySql: false,
     });
@@ -226,8 +232,15 @@ export default class BigQuery extends SqlIntegration {
       ORDER BY table_name;`;
 
       try {
+        const labels = new Map<string, string>([
+          ["call", "getInformationSchema"],
+          ["organization", this.organization],
+          ["sql_integration", "bigquery"],
+          ["datasource", this.datasource],
+        ]);
         const { rows: datasetResults } = await this.runQuery(
-          format(query, this.getFormatDialect())
+          format(query, this.getFormatDialect()),
+          labels
         );
 
         if (datasetResults.length > 0) {

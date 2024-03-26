@@ -40,6 +40,7 @@ const querySchema = new mongoose.Schema({
   rawResult: [],
   error: String,
   statistics: {},
+  labels: {},
   dependencies: [String],
   cachedQueryUsed: String,
 });
@@ -144,6 +145,7 @@ export async function createNewQuery({
   dependencies = [],
   running = false,
   queryType = "",
+  labels = new Map<string, string>(),
 }: {
   organization: string;
   datasource: string;
@@ -152,6 +154,7 @@ export async function createNewQuery({
   dependencies: string[];
   running: boolean;
   queryType: QueryType;
+  labels: Map<string, string>;
 }): Promise<QueryInterface> {
   const data: QueryInterface = {
     createdAt: new Date(),
@@ -161,6 +164,7 @@ export async function createNewQuery({
     language,
     organization,
     query,
+    labels: Object.fromEntries(labels),
     startedAt: running ? new Date() : undefined,
     status: running ? "running" : "queued",
     dependencies: dependencies,
@@ -185,6 +189,7 @@ export async function createNewQueryFromCached({
     language: existing.language,
     organization: existing.organization,
     query: existing.query,
+    labels: existing.labels,
     startedAt: existing.startedAt,
     finishedAt: existing.finishedAt,
     status: existing.status,
