@@ -4,7 +4,7 @@ import { FaArrowLeft } from "react-icons/fa";
 import { ProjectInterface } from "back-end/types/project";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { canCreateMetrics, hasFileConfig } from "@/services/env";
+import { envAllowsCreatingMetrics, hasFileConfig } from "@/services/env";
 import usePermissions from "@/hooks/usePermissions";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import MetricForm from "@/components/Metrics/MetricForm";
@@ -18,11 +18,13 @@ import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import Button from "@/components/Button";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const ExperimentsGetStarted = (): React.ReactElement => {
   const { metrics, datasources, mutateDefinitions, project } = useDefinitions();
 
   const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const [dataSourceOpen, setDataSourceOpen] = useState(false);
   const [metricsOpen, setMetricsOpen] = useState(false);
@@ -217,12 +219,14 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                         library to represent all of the KPIs for your business
                       </p>
                     }
-                    hideCTA={!canCreateMetrics()}
+                    hideCTA={!envAllowsCreatingMetrics()}
                     cta="Add metric"
                     finishedCTA="View metrics"
                     permissionsError={
-                      canCreateMetrics() &&
-                      !permissions.check("createMetrics", project) &&
+                      envAllowsCreatingMetrics() &&
+                      !permissionsUtil.canCreateMetric({
+                        projects: [project],
+                      }) &&
                       !hasMetrics
                     }
                     imageLeft={false}
@@ -325,8 +329,9 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     text={
                       <p>
                         Design a new A/B test from scratch using either{" "}
-                        <strong>Feature Flags</strong> or our{" "}
-                        <strong>Visual Editor</strong>. Then, integrate our SDK
+                        <strong>Feature Flags</strong>, our{" "}
+                        <strong>Visual Editor</strong>, or{" "}
+                        <strong>URL Redirects</strong>. Then, integrate our SDK
                         into your application and start collecting and analyzing
                         data from your users.
                       </p>

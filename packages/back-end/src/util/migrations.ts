@@ -34,10 +34,6 @@ import {
   LegacySavedGroupInterface,
   SavedGroupInterface,
 } from "../../types/saved-group";
-import {
-  FactMetricInterface,
-  LegacyFactMetricInterface,
-} from "../../types/fact-table";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -58,30 +54,6 @@ function adjustWeights(weights: number[]): number[] {
     else if (diff > 0 && j < nDiffs) d = -0.001;
     return +(v + d).toFixed(3);
   });
-}
-
-export function upgradeFactMetricDoc(
-  doc: LegacyFactMetricInterface
-): FactMetricInterface {
-  const newDoc: FactMetricInterface = { ...doc };
-
-  if (doc.windowSettings === undefined) {
-    newDoc.windowSettings = {
-      type: doc.hasConversionWindow ? "conversion" : "",
-      windowValue: doc.conversionWindowValue || DEFAULT_CONVERSION_WINDOW_HOURS,
-      windowUnit: doc.conversionWindowUnit || "hours",
-      delayHours: doc.conversionDelayHours || 0,
-    };
-  }
-
-  if (doc.cappingSettings === undefined) {
-    newDoc.cappingSettings = {
-      type: doc.capping || "",
-      value: doc.capValue || 0,
-    };
-  }
-
-  return newDoc;
 }
 
 export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {

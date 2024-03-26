@@ -31,7 +31,6 @@ import { useAuth } from "@/services/auth";
 import {
   defaultWinRiskThreshold,
   defaultLoseRiskThreshold,
-  checkMetricProjectPermissions,
   getMetricFormatter,
 } from "@/services/metrics";
 import MetricForm from "@/components/Metrics/MetricForm";
@@ -69,10 +68,12 @@ import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const MetricPage: FC = () => {
   const router = useRouter();
   const { mid } = router.query;
+  const permissionsUtil = usePermissionsUtil();
   const permissions = usePermissions();
   const displayCurrency = useCurrency();
   const { apiCall } = useAuth();
@@ -138,7 +139,9 @@ const MetricPage: FC = () => {
 
   const metric = data.metric;
   const canEditMetric =
-    checkMetricProjectPermissions(metric, permissions) && !metric.managedBy;
+    permissionsUtil.canUpdateMetric(metric, {}) && !metric.managedBy;
+  const canDeleteMetric =
+    permissionsUtil.canDeleteMetric(metric) && !metric.managedBy;
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
@@ -401,9 +404,9 @@ const MetricPage: FC = () => {
           <MetricName id={metric.id} />
         </h1>
         <div style={{ flex: 1 }} />
-        {canEditMetric && (
-          <div className="col-auto">
-            <MoreMenu>
+        <div className="col-auto">
+          <MoreMenu>
+            {canDeleteMetric ? (
               <DeleteButton
                 className="btn dropdown-item py-2"
                 text="Delete"
@@ -419,6 +422,8 @@ const MetricPage: FC = () => {
                 useIcon={true}
                 displayName={"Metric '" + metric.name + "'"}
               />
+            ) : null}
+            {canEditMetric ? (
               <Button
                 className="btn dropdown-item py-2"
                 color=""
@@ -438,9 +443,9 @@ const MetricPage: FC = () => {
                 <FaArchive />{" "}
                 {metric.status === "archived" ? "Unarchive" : "Archive"}
               </Button>
-            </MoreMenu>
-          </div>
-        )}
+            ) : null}
+          </MoreMenu>
+        </div>
       </div>
       <div className="row mb-3 align-items-center">
         <div className="col">
