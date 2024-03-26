@@ -1961,21 +1961,27 @@ export function visualChangesetsHaveChanges({
   oldVisualChangeset: VisualChangesetInterface;
   newVisualChangeset: VisualChangesetInterface;
 }): boolean {
-  // If there are visual change differences
-  const oldVisualChanges = oldVisualChangeset.visualChanges.map(
-    ({ css, js, domMutations }) => ({ css, js, domMutations })
-  );
-  const newVisualChanges = newVisualChangeset.visualChanges.map(
-    ({ css, js, domMutations }) => ({ css, js, domMutations })
-  );
-  if (!isEqual(oldVisualChanges, newVisualChanges)) {
-    return true;
-  }
-
   // If there are URL targeting differences
   if (
     !isEqual(oldVisualChangeset.urlPatterns, newVisualChangeset.urlPatterns)
   ) {
+    return true;
+  }
+
+  // If there are visual change differences
+  const oldVisualChanges = oldVisualChangeset.visualChanges?.map(
+    ({ css, js, domMutations }) => ({ css, js, domMutations })
+  );
+  const newVisualChanges = newVisualChangeset.visualChanges?.map(
+    ({ css, js, domMutations }) => ({ css, js, domMutations })
+  );
+
+  // If there are no visual changes in either set, there are no changes
+  if (!oldVisualChanges || !newVisualChanges) {
+    return false;
+  }
+
+  if (!isEqual(oldVisualChanges, newVisualChanges)) {
     return true;
   }
 
