@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FaChevronRight,
   FaDraftingCompass,
@@ -151,6 +151,13 @@ export default function FeaturesOverview({
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envs = environments.map((e) => e.id);
+
+  // Make sure you can't access an invalid env tab, since active env tab is persisted via localStorage
+  useEffect(() => {
+    if (!envs.includes(env)) {
+      setEnv(envs[0]);
+    }
+  }, [envs, env, setEnv]);
 
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 800,
