@@ -1,5 +1,9 @@
 import fs from "fs";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  isFactMetric,
+  quantileMetricType,
+} from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import { DataSourceInterface, DataSourceType } from "../../types/datasource";
 import {
@@ -615,6 +619,12 @@ engines.forEach((engine) => {
 
     // RUN FACT AND NON-FACT METRICS AS SINGLES
     jointMetrics.forEach((metric) => {
+      if (
+        quantileMetricType(metric) &&
+        !integration.getSourceProperties().hasEfficientPercentiles
+      ) {
+        return;
+      }
       // if override in experiment config, have to set it to the right id
       let denominatorMetrics: MetricInterface[] = [];
 
