@@ -73,9 +73,8 @@ export default function PrerequisiteTargetingField({
   }).includes("prerequisites");
 
   const { hasCommercialFeature } = useUser();
-  const hasPrerequisitesCommercialFeature = hasCommercialFeature(
-    "prerequisite-targeting"
-  );
+  const hasPrerequisitesCommercialFeature =
+    true || hasCommercialFeature("prerequisite-targeting");
 
   useEffect(() => {
     for (let i = 0; i < value.length; i++) {
@@ -154,6 +153,8 @@ export default function PrerequisiteTargetingField({
           enabled: true,
         };
         if (newRevision) {
+          newRevision.rules[environments[0]] =
+            newRevision.rules[environments[0]] || [];
           newRevision.rules[environments[0]].push(fakeRule);
         } else {
           newFeature.environmentSettings[environments[0]].rules.push(fakeRule);
