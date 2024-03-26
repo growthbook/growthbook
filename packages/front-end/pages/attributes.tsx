@@ -37,7 +37,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
       </td>
       <td
         className="text-gray"
-        style={{ maxWidth: "25vh", wordWrap: "break-word" }}
+        style={{ maxWidth: "20vw", wordWrap: "break-word" }}
       >
         {v.datatype}
         {v.datatype === "enum" && <>: ({v.enum})</>}
