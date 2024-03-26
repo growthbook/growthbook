@@ -2191,6 +2191,9 @@ export default abstract class SqlIntegration
     const funnelMetric = isFunnelMetric(metric, denominator);
 
     const quantileMetric = quantileMetricType(metric);
+    if (quantileMetric && !this.hasEfficientPercentile()) {
+      throw new Error("Quantile metrics not supported by this warehouse type");
+    }
     const metricQuantileSettings: MetricQuantileSettings = (isFactMetric(
       metric
     ) && !!quantileMetric
