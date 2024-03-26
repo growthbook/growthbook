@@ -844,12 +844,14 @@ export async function postFeatureFork(
 
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
+
   const newRevision = await createRevision({
     feature,
     user: res.locals.eventAudit,
     baseVersion: revision.version,
     changes: revision,
     environments,
+    org,
   });
   await updateFeature(context, feature, {
     hasDrafts: true,
@@ -972,7 +974,7 @@ export async function postFeatureSync(
   >
 ) {
   const context = getContextFromReq(req);
-  const { environments } = context;
+  const { environments, org } = context;
   const { id } = req.params;
 
   const feature = await getFeature(context, id);
@@ -1051,6 +1053,7 @@ export async function postFeatureSync(
       changes,
       environments,
       comment: `Sync Feature`,
+      org,
     });
 
     updates.version = revision.version;
@@ -1083,7 +1086,7 @@ export async function postFeatureExperimentRefRule(
   >
 ) {
   const context = getContextFromReq(req);
-  const { environments } = context;
+  const { environments, org } = context;
   const { id } = req.params;
   const { rule } = req.body;
 
@@ -1155,6 +1158,7 @@ export async function postFeatureExperimentRefRule(
     changes,
     environments,
     comment: `Add Experiment - ${experiment.name}`,
+    org,
   });
 
   updates.version = revision.version;
@@ -1196,11 +1200,13 @@ async function getDraftRevision(
   version: number
 ): Promise<FeatureRevisionInterface> {
   // This is the published version, create a new draft revision
+  const { org } = context;
   if (version === feature.version) {
     const newRevision = await createRevision({
       feature,
       user: context.auditUser,
       environments: getEnvironmentIdsFromOrg(context.org),
+      org,
     });
 
     await updateFeature(context, feature, {

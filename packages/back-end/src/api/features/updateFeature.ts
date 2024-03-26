@@ -146,6 +146,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           environments: orgEnvs,
           publish: true,
           changes: revisionChanges,
+          org: req.organization,
         });
         updates.version = revision.version;
       }
