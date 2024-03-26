@@ -42,9 +42,8 @@ export class Permissions {
   public canBypassApprovalChecks = (
     feature: Pick<FeatureInterface, "project">
   ): boolean => {
-    const projectsArray = feature.project ? [feature.project] : [];
     return this.checkProjectFilterPermission(
-      { projects: projectsArray },
+      { projects: feature.project ? [feature.project] : [] },
       "bypassApprovalChecks"
     );
   };
@@ -52,9 +51,8 @@ export class Permissions {
   public canReviewFeatureDrafts = (
     feature: Pick<FeatureInterface, "project">
   ): boolean => {
-    const projectsArray = feature.project ? [feature.project] : [];
     return this.checkProjectFilterPermission(
-      { projects: projectsArray },
+      { projects: feature.project ? [feature.project] : [] },
       "canReview"
     );
   };
