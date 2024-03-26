@@ -237,6 +237,7 @@ export default function FeaturesOverview({
 
   const revisionHasChanges =
     !!mergeResult && mergeResultHasChanges(mergeResult);
+  console.log({ mergeResult });
 
   const hasJsonValidator = hasCommercialFeature("json-validation");
 
