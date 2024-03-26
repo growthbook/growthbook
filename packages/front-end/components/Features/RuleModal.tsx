@@ -171,6 +171,7 @@ export default function RuleModal({
     if (newRevision) {
       // merge form values into revision
       const newRule = form.getValues() as FeatureRule;
+      newRevision.rules[environment] = newRevision.rules[environment] || [];
       newRevision.rules[environment][i] = newRule;
     }
     const featuresMap = new Map(features.map((f) => [f.id, f]));
