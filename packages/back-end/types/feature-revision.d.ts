@@ -31,4 +31,5 @@ export interface FeatureRevisionInterface {
   defaultValue: string;
   rules: Record<string, FeatureRule[]>;
   log?: RevisionLog[];
+  requiresReview?: boolean;
 }

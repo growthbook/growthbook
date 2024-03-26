@@ -14,6 +14,7 @@ import {
 import { ago, date, datetime } from "shared/dates";
 import {
   autoMerge,
+  checkIfRevisionNeedsReview,
   evaluatePrerequisiteState,
   getValidation,
   mergeResultHasChanges,
@@ -115,7 +116,6 @@ export default function FeaturesOverview({
   const { fid } = router.query;
 
   const settings = useOrgSettings();
-
   const [edit, setEdit] = useState(false);
   const [editValidator, setEditValidator] = useState(false);
   const [showSchema, setShowSchema] = useState(false);
@@ -215,7 +215,27 @@ export default function FeaturesOverview({
   const { jsonSchema, validationEnabled, schemaDateUpdated } = getValidation(
     feature
   );
-  const requireReviews = !!settings?.requireReviews;
+  console.log(
+    checkIfRevisionNeedsReview({
+      feature,
+      baseRevision: revisions.find(
+        (r) => r.version === revision?.baseVersion
+      ) as FeatureRevisionInterface,
+      revision,
+      settings,
+      environments: environments.map((e) => e.id),
+    }),
+    "test"
+  );
+  const requireReviews = checkIfRevisionNeedsReview({
+    feature,
+    baseRevision: revisions.find(
+      (r) => r.version === revision?.baseVersion
+    ) as FeatureRevisionInterface,
+    revision,
+    settings,
+    environments: environments.map((e) => e.id),
+  });
   const isLive = revision?.version === feature.version;
   const isPendingReview =
     revision?.status === "pending-review" ||

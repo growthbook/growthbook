@@ -6,7 +6,7 @@ import {
   RevisionLog,
 } from "../../types/feature-revision";
 import { EventAuditUser, EventAuditUserLoggedIn } from "../events/event-types";
-import { ReqContext } from "../../types/organization";
+import { OrganizationInterface, ReqContext } from "../../types/organization";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
@@ -24,6 +24,7 @@ const featureRevisionSchema = new mongoose.Schema({
   defaultValue: String,
   rules: {},
   status: String,
+  requiresReview: Boolean,
   log: [
     {
       _id: false,
@@ -186,6 +187,7 @@ export async function createRevision({
   changes,
   publish,
   comment,
+  org,
   requiresReview,
 }: {
   feature: FeatureInterface;
@@ -195,6 +197,7 @@ export async function createRevision({
   changes?: Partial<FeatureRevisionInterface>;
   publish?: boolean;
   comment?: string;
+  org: OrganizationInterface;
   requiresReview?: boolean;
 }) {
   // Get max version number
@@ -234,12 +237,28 @@ export async function createRevision({
       rules,
     }),
   };
+
+  const live = await getRevision(org.id, feature.id, feature.version);
+  if (!live) {
+    throw new Error("Could not lookup feature history");
+  }
+
+  const base =
+    baseVersion === live.version
+      ? live
+      : baseVersion
+      ? await getRevision(org.id, feature.id, baseVersion)
+      : live;
+  if (!base) {
+    throw new Error("Could not lookup feature history");
+  }
   let status = "draft";
   if (publish && !requiresReview) {
     status = "published";
   } else if (publish && requiresReview) {
     status = "pending-review";
   }
+
   const doc = await FeatureRevisionModel.create({
     organization: feature.organization,
     featureId: feature.id,
@@ -254,6 +273,7 @@ export async function createRevision({
     comment: comment || "",
     defaultValue,
     rules,
+    requiresReview,
     log: [log],
   });
 
@@ -265,7 +285,7 @@ export async function updateRevision(
   changes: Partial<
     Pick<
       FeatureRevisionInterface,
-      "comment" | "defaultValue" | "rules" | "baseVersion"
+      "comment" | "defaultValue" | "rules" | "baseVersion" | "requiresReview"
     >
   >,
   log: Omit<RevisionLog, "timestamp">
@@ -283,7 +303,6 @@ export async function updateRevision(
       throw new Error("Can only update draft revisions");
     }
   }
-
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,

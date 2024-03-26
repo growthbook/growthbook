@@ -13,6 +13,7 @@ import {
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { evalCondition } from "@growthbook/growthbook";
+import { OrganizationSettings } from "back-end/types/organization";
 import { getValidDate } from "../dates";
 import { getMatchingRules, includeExperimentInPayload } from ".";
 
@@ -323,6 +324,23 @@ export function mergeResultHasChanges(mergeResult: AutoMergeResult): boolean {
   if (mergeResult.result.defaultValue !== undefined) return true;
 
   return false;
+}
+export function listupdatedEnviroments(
+  base: RulesAndValues,
+  revision: RulesAndValues,
+  environments: string[]
+) {
+  const enviromentsList: string[] = [];
+  environments.forEach((env) => {
+    const rules = revision.rules?.[env];
+    if (!rules) return;
+    if (isEqual(rules, base.rules[env] || [])) {
+      return;
+    }
+    enviromentsList.push();
+  });
+
+  return enviromentsList;
 }
 
 export function autoMerge(
@@ -725,4 +743,75 @@ export function getParsedPrereqCondition(condition: string) {
     }
   }
   return undefined;
+}
+export function featureRequiresReview(
+  feature: FeatureInterface,
+  requestedEnvironments: string[],
+  settings?: OrganizationSettings
+) {
+  const requiresReviewSettings = settings?.requireReviews;
+  //legacy check
+  if (
+    requiresReviewSettings === undefined ||
+    requiresReviewSettings === true ||
+    requiresReviewSettings === false
+  ) {
+    return !!requiresReviewSettings;
+  }
+
+  for (const reviewSetting of requiresReviewSettings) {
+    // check env
+    if (reviewSetting.requireReview === true) {
+      for (const env of reviewSetting.enviroments) {
+        if (requestedEnvironments.includes(env)) {
+          return true;
+        }
+      }
+      // check projects
+      if (
+        feature?.project &&
+        reviewSetting.projects.includes(feature?.project)
+      ) {
+        return true;
+      }
+      for (const tag of reviewSetting.tags) {
+        if (feature?.tags?.includes(tag)) {
+          return true;
+        }
+      }
+      return (
+        reviewSetting.enviroments.length === 0 &&
+        reviewSetting.projects.length === 0 &&
+        reviewSetting.tags.length === 0
+      ); //if everything is empty is means it is on for all.
+    }
+  }
+
+  return false;
+}
+
+export function checkIfRevisionNeedsReview({
+  feature,
+  baseRevision,
+  revision,
+  environments,
+  settings,
+}: {
+  feature: FeatureInterface;
+  baseRevision: FeatureRevisionInterface;
+  revision: FeatureRevisionInterface;
+  environments: string[];
+  settings?: OrganizationSettings;
+}) {
+  const changedEnvironments: string[] = [];
+  environments.forEach((env) => {
+    const rules = revision.rules?.[env];
+    if (!rules) return;
+    if (isEqual(rules, baseRevision.rules[env] || [])) {
+      return;
+    }
+    changedEnvironments.push(env);
+  });
+
+  return featureRequiresReview(feature, changedEnvironments, settings);
 }

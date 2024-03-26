@@ -7,6 +7,8 @@ import Field from "@/components/Forms/Field";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Toggle from "@/components/Forms/Toggle";
 import SelectField from "@/components/Forms/SelectField";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { useEnvironments } from "@/services/features";
 
 export default function FeaturesSettings() {
   const [
@@ -15,7 +17,7 @@ export default function FeaturesSettings() {
   ] = useState<string>("");
 
   const { hasCommercialFeature } = useUser();
-
+  const enviroments = useEnvironments();
   const form = useFormContext();
 
   const hasSecureAttributesFeature = hasCommercialFeature(
@@ -44,6 +46,20 @@ export default function FeaturesSettings() {
     );
   }, [form, codeRefsBranchesToFilterStr]);
 
+  useEffect(() => {
+    const requireReview = form.watch("requireReviews");
+    if (requireReview === false || requireReview === true) {
+      form.setValue("requireReviews", [
+        {
+          requireReview,
+          resetReviewOnChange: false,
+          enviroments: [],
+          projects: [],
+          tags: [],
+        },
+      ]);
+    }
+  }, [form]);
   return (
     <div className="row">
       <div className="col-sm-3">
@@ -112,20 +128,69 @@ export default function FeaturesSettings() {
         </div>
         {hasRequireApprovals && (
           <>
-            <div className="mt-4">
-              <label className="mr-1" htmlFor="toggle-require-reviews">
-                Require approval to publish changes:
-              </label>
-            </div>
-            <div>
-              <Toggle
-                id={"toggle-require-reviews"}
-                value={!!form.watch("requireReviews")}
-                setValue={(value) => {
-                  form.setValue("requireReviews", value);
-                }}
-              />
-            </div>
+            <div className="d-inline-block h4 mt-5 mb-0">Approval Flow</div>
+            {form.watch("requireReviews")?.map?.((requireReviews, i) => (
+              <div key={`approval-flow-${i}`}>
+                <label
+                  className="mr-1 mt-3 d-block"
+                  htmlFor="toggle-require-reviews"
+                >
+                  Require approval to publish changes
+                </label>
+                <div>
+                  <Toggle
+                    id={"toggle-require-reviews"}
+                    value={!!form.watch(`requireReviews.${i}.requireReview`)}
+                    setValue={(value) => {
+                      form.setValue(`requireReviews.${i}.requireReview`, value);
+                    }}
+                  />
+                </div>
+
+                {!!form.watch(`requireReviews.${i}.requireReview`) && (
+                  <div className="mt-3">
+                    <label htmlFor="enviroments" className="h5">
+                      Enviroments
+                    </label>
+                    <MultiSelectField
+                      id="enviroments"
+                      value={form.watch(`requireReviews.${i}.enviroments`)}
+                      onChange={(enviroments) => {
+                        form.setValue(
+                          `requireReviews.${i}.enviroments`,
+                          enviroments
+                        );
+                      }}
+                      options={enviroments.map((e) => {
+                        return {
+                          value: e.id,
+                          label: e.id,
+                        };
+                      })}
+                      placeholder="Select Enviroments Requring Review."
+                    />
+                    <label
+                      className="d-block mt-3 h5"
+                      htmlFor="toggle-reset-review-on-change"
+                    >
+                      Reset review on changes
+                    </label>
+                    <Toggle
+                      id="toggle-reset-review-on-change"
+                      value={
+                        !!form.watch(`requireReviews.${i}.resetReviewOnChange`)
+                      }
+                      setValue={(value) => {
+                        form.setValue(
+                          `requireReviews.${i}.resetReviewOnChange`,
+                          value
+                        );
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
           </>
         )}
         <div className="my-3">

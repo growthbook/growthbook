@@ -16,6 +16,7 @@ import {
   UserPermissions,
 } from "../../types/organization";
 import { TeamInterface } from "../../types/team";
+import { FeatureInterface } from "../../types/feature";
 
 function hasEnvScopedPermissions(userPermission: PermissionsObject): boolean {
   const envLimitedPermissions: Permission[] = ENV_SCOPED_PERMISSIONS.map(
@@ -30,6 +31,45 @@ function hasEnvScopedPermissions(userPermission: PermissionsObject): boolean {
   return false;
 }
 
+export function resetReviewOnChange(
+  feature: FeatureInterface,
+  requestedEnvironments: string[],
+  org: OrganizationInterface
+) {
+  const requiresReviewSettings = org?.settings?.requireReviews;
+  //legacy check
+  if (
+    requiresReviewSettings === true ||
+    requiresReviewSettings === false ||
+    requiresReviewSettings === undefined
+  ) {
+    return !!requiresReviewSettings;
+  }
+  requiresReviewSettings.forEach((reviewSetting) => {
+    if (reviewSetting.resetReviewOnChanges === true) {
+      // check env
+      reviewSetting.enviroments.forEach((env) => {
+        if (requestedEnvironments.includes(env)) {
+          return true;
+        }
+      });
+      // check projects
+      if (
+        feature?.project &&
+        reviewSetting.projects.includes(feature?.project)
+      ) {
+        return true;
+      }
+      reviewSetting.tags.forEach((tag) => {
+        if (reviewSetting.tags.includes(tag)) {
+          return true;
+        }
+      });
+    }
+  });
+
+  return false;
+}
 export function roleToPermissionMap(
   role: MemberRole | undefined,
   org: OrganizationInterface

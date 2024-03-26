@@ -651,7 +651,6 @@ export async function addFeatureRule(
   };
   changes.rules[env] = changes.rules[env] || [];
   changes.rules[env].push(rule);
-
   await updateRevision(revision, changes, {
     user,
     action: "add rule",
@@ -678,7 +677,6 @@ export async function editFeatureRule(
     ...changes.rules[environment][i],
     ...updates,
   } as FeatureRule;
-
   await updateRevision(revision, changes, {
     user,
     action: "edit rule",

@@ -1,7 +1,12 @@
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
 import { isEqual } from "lodash";
-import { MergeResultChanges, MergeStrategy, autoMerge } from "shared/util";
+import {
+  MergeResultChanges,
+  MergeStrategy,
+  autoMerge,
+  checkIfRevisionNeedsReview,
+} from "shared/util";
 import {
   getConnectionSDKCapabilities,
   SDKCapability,
@@ -645,26 +650,10 @@ export async function postFeaturePublish(
     "draft",
     "approved",
   ];
-  if (adminOverride && org.settings?.requireReviews) {
-    req.checkPermissions("bypassApprovalChecks", feature.project);
-  }
+
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
-  if (
-    !adminOverride &&
-    org.settings?.requireReviews &&
-    revision.status !== "approved"
-  ) {
-    throw new Error("needs review before publishing");
-  }
-  if (
-    !org.settings?.requireReviews &&
-    !reviewStatuses.includes(revision.status)
-  ) {
-    throw new Error("Can only publish Draft revisions");
-  }
-
   const live = await getRevision(org.id, feature.id, feature.version);
   if (!live) {
     throw new Error("Could not lookup feature history");
@@ -677,7 +666,23 @@ export async function postFeaturePublish(
   if (!base) {
     throw new Error("Could not lookup feature history");
   }
+  const requiresReview = checkIfRevisionNeedsReview({
+    feature,
+    baseRevision: base,
+    revision,
+    settings: org.settings,
+    environments,
+  });
+  if (!adminOverride && requiresReview && revision.status !== "approved") {
+    throw new Error("needs review before publishing");
+  }
+  if (requiresReview && !reviewStatuses.includes(revision.status)) {
+    throw new Error("Can only publish Draft revisions");
+  }
 
+  if (adminOverride && requiresReview) {
+    req.checkPermissions("bypassApprovalChecks", feature.project);
+  }
   const mergeResult = autoMerge(live, base, revision, environments, {});
   if (JSON.stringify(mergeResult) !== mergeResultSerialized) {
     throw new Error(
@@ -839,14 +844,13 @@ export async function postFeatureFork(
 
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
-
   const newRevision = await createRevision({
     feature,
     user: res.locals.eventAudit,
     baseVersion: revision.version,
     changes: revision,
     environments,
-    requiresReview: !!org.settings?.requireReviews,
+    org,
   });
   await updateFeature(context, feature, {
     hasDrafts: true,
@@ -927,7 +931,6 @@ export async function postFeatureRule(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
-
   await addFeatureRule(revision, environment, rule, res.locals.eventAudit);
 
   // If referencing a new experiment, add it to linkedExperiments
@@ -1038,6 +1041,7 @@ export async function postFeatureSync(
       changes,
       environments,
       comment: `Sync Feature`,
+      org: context.org,
     });
 
     updates.version = revision.version;
@@ -1070,7 +1074,7 @@ export async function postFeatureExperimentRefRule(
   >
 ) {
   const context = getContextFromReq(req);
-  const { environments } = context;
+  const { environments, org } = context;
   const { id } = req.params;
   const { rule } = req.body;
 
@@ -1142,6 +1146,7 @@ export async function postFeatureExperimentRefRule(
     changes,
     environments,
     comment: `Add Experiment - ${experiment.name}`,
+    org,
   });
 
   updates.version = revision.version;
@@ -1188,6 +1193,7 @@ async function getDraftRevision(
       feature,
       user: context.auditUser,
       environments: getEnvironmentIdsFromOrg(context.org),
+      org: context.org,
     });
 
     await updateFeature(context, feature, {
@@ -1439,7 +1445,6 @@ export async function postFeatureMoveRule(
   }
   const rule = rules[from];
   changes.rules[environment] = arrayMove(rules, from, to);
-
   await updateRevision(revision, changes, {
     user: res.locals.eventAudit,
     action: "move rule",

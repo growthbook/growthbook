@@ -110,7 +110,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
       displayCurrency,
       secureAttributeSalt: "",
       killswitchConfirmation: false,
-      requireReviews: false,
+      requireReviews: [
+        {
+          requireReview: false,
+          resetReviewOnChange: false,
+          enviroments: [],
+          projects: [],
+          tags: [],
+        },
+      ],
       defaultDataSource: settings.defaultDataSource || "",
       useStickyBucketing: false,
       useFallbackAttributes: false,
