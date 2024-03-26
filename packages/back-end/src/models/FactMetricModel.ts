@@ -1,224 +1,204 @@
-import mongoose from "mongoose";
-import uniqid from "uniqid";
 import { omit } from "lodash";
-import { hasReadAccess } from "shared/permissions";
 import {
-  CreateFactMetricProps,
   FactMetricInterface,
-  UpdateFactMetricProps,
+  FactTableInterface,
+  LegacyFactMetricInterface,
 } from "../../types/fact-table";
-import { upgradeFactMetricDoc } from "../util/migrations";
 import { ApiFactMetric } from "../../types/openapi";
-import { ApiReqContext } from "../../types/api";
-import { ReqContext } from "../../types/organization";
+import { factMetricValidator } from "../routers/fact-table/fact-table.validators";
+import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
+import { UpdateProps } from "../../types/models";
+import { BaseModel, ModelConfig } from "./BaseModel";
+import { getFactTableMap } from "./FactTableModel";
 
-const factTableSchema = new mongoose.Schema({
-  id: String,
-  managedBy: String,
-  organization: String,
-  dateCreated: Date,
-  dateUpdated: Date,
-  name: String,
-  description: String,
-  owner: String,
-  datasource: String,
-  projects: [String],
-  tags: [String],
-  inverse: Boolean,
-  metricType: String,
-  numerator: {
-    factTableId: String,
-    column: String,
-    filters: [String],
-  },
-  denominator: {
-    factTableId: String,
-    column: String,
-    filters: [String],
-  },
+type FactMetricSchema = typeof factMetricValidator;
 
-  quantileSettings: {
-    type: { type: String },
-    quantile: Number,
-    ignoreZeros: Boolean,
-  },
-
-  cappingSettings: {
-    type: { type: String },
-    value: Number,
-    ignoreZeros: Boolean,
-  },
-  windowSettings: {
-    type: { type: String },
-    delayHours: Number,
-    windowValue: Number,
-    windowUnit: String,
-  },
-
-  maxPercentChange: Number,
-  minPercentChange: Number,
-  minSampleSize: Number,
-  winRisk: Number,
-  loseRisk: Number,
-
-  regressionAdjustmentOverride: Boolean,
-  regressionAdjustmentEnabled: Boolean,
-  regressionAdjustmentDays: Number,
-
-  // deprecated fields
-  capping: String,
-  capValue: Number,
-  conversionDelayHours: Number,
-  hasConversionWindow: Boolean,
-  conversionWindowValue: Number,
-  conversionWindowUnit: String,
-});
-
-factTableSchema.index({ id: 1, organization: 1 }, { unique: true });
-
-type FactMetricDocument = mongoose.Document & FactMetricInterface;
-
-const FactMetricModel = mongoose.model<FactMetricInterface>(
-  "FactMetric",
-  factTableSchema
-);
-
-function toInterface(doc: FactMetricDocument): FactMetricInterface {
-  const ret = doc.toJSON<FactMetricDocument>();
-  return upgradeFactMetricDoc(omit(ret, ["__v", "_id"]));
-}
-
-export async function getAllFactMetricsForOrganization(
-  context: ReqContext | ApiReqContext
-) {
-  const docs = await FactMetricModel.find({ organization: context.org.id });
-  return docs
-    .map((doc) => toInterface(doc))
-    .filter((f) => hasReadAccess(context.readAccessFilter, f.projects || []));
-}
-
-export async function getFactMetric(
-  context: ReqContext | ApiReqContext,
-  id: string
-) {
-  const doc = await FactMetricModel.findOne({
-    organization: context.org.id,
-    id,
-  });
-
-  if (!doc) return null;
-
-  const factMetric = toInterface(doc);
-  if (!hasReadAccess(context.readAccessFilter, factMetric.projects || [])) {
-    return null;
+export class FactMetricModel extends BaseModel<FactMetricSchema> {
+  protected getConfig() {
+    const config: ModelConfig<FactMetricSchema> = {
+      schema: factMetricValidator,
+      collectionName: "factmetrics",
+      idPrefix: "fact__",
+      auditLog: {
+        entity: "metric",
+        createEvent: "metric.create",
+        updateEvent: "metric.update",
+        deleteEvent: "metric.delete",
+      },
+      projectScoping: "multiple",
+      globallyUniqueIds: false,
+      readonlyFields: ["datasource"],
+    };
+    return config;
   }
 
-  return factMetric;
-}
+  protected canRead(doc: FactMetricInterface): boolean {
+    return this.context.hasPermission("readData", doc.projects || []);
+  }
+  protected canCreate(doc: FactMetricInterface): boolean {
+    return this.context.permissions.canCreateMetric(doc);
+  }
+  protected canUpdate(
+    existing: FactMetricInterface,
+    updates: UpdateProps<FactMetricInterface>
+  ): boolean {
+    return this.context.permissions.canUpdateMetric(existing, updates);
+  }
+  protected canDelete(doc: FactMetricInterface): boolean {
+    return this.context.permissions.canDeleteMetric(doc);
+  }
 
-export async function createFactMetric(
-  context: ReqContext | ApiReqContext,
-  data: CreateFactMetricProps
-) {
-  const id = data.id || uniqid("fact__");
-  if (!id.match(/^fact__[-a-zA-Z0-9_]+$/)) {
-    throw new Error(
-      "Fact metric ids MUST start with 'fact__' and contain only letters, numbers, underscores, and dashes"
+  public static upgradeFactMetricDoc(
+    doc: LegacyFactMetricInterface
+  ): FactMetricInterface {
+    const newDoc: FactMetricInterface = { ...doc };
+
+    if (doc.windowSettings === undefined) {
+      newDoc.windowSettings = {
+        type: doc.hasConversionWindow ? "conversion" : "",
+        windowValue:
+          doc.conversionWindowValue || DEFAULT_CONVERSION_WINDOW_HOURS,
+        windowUnit: doc.conversionWindowUnit || "hours",
+        delayHours: doc.conversionDelayHours || 0,
+      };
+    }
+
+    if (doc.cappingSettings === undefined) {
+      newDoc.cappingSettings = {
+        type: doc.capping || "",
+        value: doc.capValue || 0,
+      };
+    }
+
+    return newDoc;
+  }
+
+  protected migrate(legacyDoc: unknown): FactMetricInterface {
+    return FactMetricModel.upgradeFactMetricDoc(
+      legacyDoc as LegacyFactMetricInterface
     );
   }
 
-  const doc = await FactMetricModel.create({
-    organization: context.org.id,
-    id,
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    ...data,
-  });
-  return toInterface(doc);
-}
-
-export async function updateFactMetric(
-  context: ReqContext | ApiReqContext,
-  factMetric: FactMetricInterface,
-  changes: UpdateFactMetricProps
-) {
-  if (factMetric.managedBy === "api" && context.auditUser?.type !== "api_key") {
-    throw new Error("Cannot update fact metric managed by API");
-  }
-
-  await FactMetricModel.updateOne(
-    {
-      id: factMetric.id,
-      organization: factMetric.organization,
-    },
-    {
-      $set: {
-        ...changes,
-        dateUpdated: new Date(),
-      },
+  protected async beforeCreate(doc: FactMetricInterface) {
+    if (!doc.id.match(/^fact__[-a-zA-Z0-9_]+$/)) {
+      throw new Error(
+        "Fact metric ids MUST start with 'fact__' and contain only letters, numbers, underscores, and dashes"
+      );
     }
-  );
-}
-
-export async function deleteFactMetric(
-  context: ReqContext | ApiReqContext,
-  factMetric: FactMetricInterface
-) {
-  if (factMetric.managedBy === "api" && context.auditUser?.type !== "api_key") {
-    throw new Error("Cannot delete fact metric managed by API");
   }
 
-  await FactMetricModel.deleteOne({
-    id: factMetric.id,
-    organization: factMetric.organization,
-  });
-}
+  protected async beforeUpdate(existing: FactMetricInterface) {
+    if (existing.managedBy === "api" && !this.context.isApiRequest) {
+      throw new Error("Cannot update fact metric managed by API");
+    }
+  }
 
-export function toFactMetricApiInterface(
-  factMetric: FactMetricInterface
-): ApiFactMetric {
-  const {
-    cappingSettings,
-    windowSettings,
-    regressionAdjustmentDays,
-    regressionAdjustmentEnabled,
-    regressionAdjustmentOverride,
-    dateCreated,
-    dateUpdated,
-    denominator,
-    ...otherFields
-  } = omit(factMetric, ["organization"]);
+  protected async beforeDelete(existing: FactMetricInterface) {
+    if (existing.managedBy === "api" && !this.context.isApiRequest) {
+      throw new Error("Cannot delete fact metric managed by API");
+    }
+  }
 
-  const metricType = otherFields.metricType;
-  return {
-    ...otherFields,
-    metricType: metricType === "quantile" ? "mean" : metricType, // TODO-quantile
-    managedBy: factMetric.managedBy || "",
-    denominator: denominator || undefined,
-    cappingSettings: {
-      type: cappingSettings.type || "none",
-      value: cappingSettings.value,
-    },
-    windowSettings: {
-      type: windowSettings.type || "none",
-      delayHours: windowSettings.delayHours,
-      windowValue: windowSettings.windowValue,
-      windowUnit: windowSettings.windowUnit,
-    },
-    regressionAdjustmentSettings: {
-      override: regressionAdjustmentOverride || false,
-      ...(regressionAdjustmentOverride
-        ? {
-            enabled: regressionAdjustmentEnabled || false,
+  // TODO: Once we migrate fact tables to new data model, we can use that instead
+  private _factTableMap: Map<string, FactTableInterface> | null = null;
+  private async getFactTableMap() {
+    if (!this._factTableMap) {
+      this._factTableMap = await getFactTableMap(this.context);
+    }
+    return this._factTableMap;
+  }
+
+  protected async customValidation(data: FactMetricInterface): Promise<void> {
+    const factTableMap = await this.getFactTableMap();
+
+    const numeratorFactTable = factTableMap.get(data.numerator.factTableId);
+    if (!numeratorFactTable) {
+      throw new Error("Could not find numerator fact table");
+    }
+
+    if (data.numerator.filters?.length) {
+      for (const filter of data.numerator.filters) {
+        if (!numeratorFactTable.filters.some((f) => f.id === filter)) {
+          throw new Error(`Invalid numerator filter id: ${filter}`);
+        }
+      }
+    }
+
+    if (data.metricType === "ratio") {
+      if (!data.denominator) {
+        throw new Error("Denominator required for ratio metric");
+      }
+      if (data.denominator.factTableId !== data.numerator.factTableId) {
+        const denominatorFactTable = factTableMap.get(
+          data.denominator.factTableId
+        );
+        if (!denominatorFactTable) {
+          throw new Error("Could not find denominator fact table");
+        }
+        if (denominatorFactTable.datasource !== numeratorFactTable.datasource) {
+          throw new Error(
+            "Numerator and denominator must be in the same datasource"
+          );
+        }
+
+        if (data.denominator.filters?.length) {
+          for (const filter of data.denominator.filters) {
+            if (!denominatorFactTable.filters.some((f) => f.id === filter)) {
+              throw new Error(`Invalid denominator filter id: ${filter}`);
+            }
           }
-        : null),
-      ...(regressionAdjustmentOverride && regressionAdjustmentEnabled
-        ? {
-            days: regressionAdjustmentDays || 0,
-          }
-        : null),
-    },
-    dateCreated: dateCreated?.toISOString() || "",
-    dateUpdated: dateUpdated?.toISOString() || "",
-  };
+        }
+      }
+    } else if (data.denominator?.factTableId) {
+      throw new Error("Denominator not allowed for non-ratio metric");
+    }
+
+    // TODO-quantile add validation for quantile metrics
+  }
+
+  public toApiInterface(factMetric: FactMetricInterface): ApiFactMetric {
+    const {
+      cappingSettings,
+      windowSettings,
+      regressionAdjustmentDays,
+      regressionAdjustmentEnabled,
+      regressionAdjustmentOverride,
+      dateCreated,
+      dateUpdated,
+      denominator,
+      metricType,
+      ...otherFields
+    } = omit(factMetric, ["organization"]);
+
+    return {
+      ...otherFields,
+      // TODO-quantile
+      metricType: metricType === "quantile" ? "mean" : metricType,
+      cappingSettings: {
+        ...cappingSettings,
+        type: cappingSettings.type || "none",
+      },
+      windowSettings: {
+        ...windowSettings,
+        type: windowSettings.type || "none",
+      },
+      managedBy: factMetric.managedBy || "",
+      denominator: denominator || undefined,
+      regressionAdjustmentSettings: {
+        override: regressionAdjustmentOverride || false,
+        ...(regressionAdjustmentOverride
+          ? {
+              enabled: regressionAdjustmentEnabled || false,
+            }
+          : null),
+        ...(regressionAdjustmentOverride && regressionAdjustmentEnabled
+          ? {
+              days: regressionAdjustmentDays || 0,
+            }
+          : null),
+      },
+      dateCreated: dateCreated?.toISOString() || "",
+      dateUpdated: dateUpdated?.toISOString() || "",
+    };
+  }
 }

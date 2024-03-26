@@ -6,9 +6,8 @@ import { EventAuditUser } from "../src/events/event-types";
 import { PermissionFunctions } from "../src/types/AuthRequest";
 import { AuditInterface } from "./audit";
 import { ExperimentStatus } from "./experiment";
-import { OrganizationInterface } from "./organization";
+import { OrganizationInterface, ReqContext } from "./organization";
 import { UserInterface } from "./user";
-import type { ReqContextInterface } from "./context";
 
 export interface ExperimentOverride {
   weights?: number[];
@@ -68,4 +67,4 @@ export interface PrivateApiErrorResponse {
   message: string;
 }
 
-export type ApiReqContext = ReqContextInterface;
+export type ApiReqContext = ReqContext;

@@ -49,6 +49,7 @@ type OrgSettingsResponse = {
   accountPlan: AccountPlan;
   effectiveAccountPlan: AccountPlan;
   commercialFeatures: CommercialFeature[];
+  license: LicenseInterface;
   licenseKey?: string;
   currentUserPermissions: UserPermissions;
   teams: TeamInterface[];
@@ -126,7 +127,6 @@ interface UserResponse {
   verified: boolean;
   superAdmin: boolean;
   organizations?: UserOrganizations;
-  license?: LicenseInterface;
   currentUserPermissions: UserPermissions;
 }
 
@@ -277,21 +277,12 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     void updateUser();
   }, [isAuthenticated, updateUser]);
 
-  // Refresh user and org after loading license
+  // Refresh org after loading license
   useEffect(() => {
     if (orgId) {
       void refreshOrganization();
     }
-    if (isAuthenticated) {
-      void updateUser();
-    }
-  }, [
-    orgId,
-    isAuthenticated,
-    currentOrg?.organization?.licenseKey,
-    refreshOrganization,
-    updateUser,
-  ]);
+  }, [orgId, currentOrg?.organization?.licenseKey, refreshOrganization]);
 
   // Update growthbook tarageting attributes
   const growthbook = useGrowthBook<AppFeatures>();
@@ -307,7 +298,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       cloud: isCloud(),
       multiOrg: isMultiOrg(),
       accountPlan: currentOrg?.accountPlan || "unknown",
-      hasLicenseKey: !!data?.license,
+      hasLicenseKey: !!currentOrg?.organization?.licenseKey,
       freeSeats: currentOrg?.organization?.freeSeats || 3,
       discountCode: currentOrg?.organization?.discountCode || "",
     });
@@ -399,7 +390,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         permissions,
         permissionsUtil,
         settings: currentOrg?.organization?.settings || {},
-        license: data?.license,
+        license: currentOrg?.license,
         enterpriseSSO: currentOrg?.enterpriseSSO || undefined,
         accountPlan: currentOrg?.accountPlan,
         effectiveAccountPlan: currentOrg?.effectiveAccountPlan,
