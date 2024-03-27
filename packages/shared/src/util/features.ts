@@ -792,7 +792,9 @@ export function filterEnvironmentsByExperiment(
   environments: Environment[],
   experiment: ExperimentInterfaceStringDates
 ): Environment[] {
-  return environments.filter((env) => experimentHasEnvironment(experiment, env));
+  return environments.filter((env) =>
+    experimentHasEnvironment(experiment, env)
+  );
 }
 
 export function experimentHasEnvironment(
