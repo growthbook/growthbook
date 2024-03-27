@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "growthbook.fullname" . }}
+  labels:
+    {{- include "growthbook.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.port.frontendPort }}
+      targetPort: {{ .Values.port.frontendPort }}
+      protocol: TCP
+      name: frontend-port
+    - port: {{ .Values.port.backendPort }}
+      targetPort: {{ .Values.port.backendPort }}
+      protocol: TCP
+      name: backend-port
+  selector:
+    {{- include "growthbook.selectorLabels" . | nindent 4 }}

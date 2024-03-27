@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.ingress.name }}
+  annotations:
+    {{- toYaml .Values.ingress.annotations | nindent 4 }}
+spec:
+  rules:
+    - host: {{ .Values.ingress.appOriginName }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "growthbook.fullname" . }}
+                port: 
+                  number: {{ .Values.port.frontendPort }}
+    - host: {{ .Values.ingress.apiHostName }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "growthbook.fullname" . }}
+                port:
+                  number: {{ .Values.port.backendPort }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.appOriginName }}
+        - {{ .Values.ingress.apiHostName }}
+      secretName: {{ .Values.externalSecretName }}
