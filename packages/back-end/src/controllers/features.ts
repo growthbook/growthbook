@@ -585,7 +585,10 @@ export async function postFeatureReviewOrComment(
   if (!feature) {
     throw new Error("Could not find feature");
   }
-  req.checkPermissions("canReview", feature.project);
+
+  if (!context.permissions.canReviewFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
 
   const revision = await getRevision(
     context.org.id,
@@ -652,7 +655,9 @@ export async function postFeaturePublish(
     "approved",
   ];
   if (adminOverride && org.settings?.requireReviews) {
-    req.checkPermissions("bypassApprovalChecks", feature.project);
+    if (!context.permissions.canBypassApprovalChecks(feature)) {
+      context.permissions.throwPermissionError();
+    }
   }
   if (!revision) {
     throw new Error("Could not find feature revision");
