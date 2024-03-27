@@ -207,11 +207,6 @@ class QuantileStatistic(Statistic):
     quantile_hat: float  # sample estimate
     quantile_lower: float
     quantile_upper: float
-    main_sum: float  # numerator sum
-    main_sum_squares: float
-    denominator_sum: float  # denominator sum
-    denominator_sum_squares: float
-    main_denominator_sum_product: float
 
     @property
     def _has_zero_variance(self) -> bool:
@@ -245,7 +240,12 @@ class QuantileStatistic(Statistic):
 
 
 @dataclass
-class QuantileStatisticClustered(QuantileStatistic):
+class QuantileClusteredStatistic(QuantileStatistic):
+    main_sum: float  # numerator sum
+    main_sum_squares: float
+    denominator_sum: float  # denominator sum
+    denominator_sum_squares: float
+    main_denominator_sum_product: float
     n_clusters: int
 
     @property
@@ -287,5 +287,5 @@ TestStatistic = Union[
     RegressionAdjustedStatistic,
     RatioStatistic,
     QuantileStatistic,
-    QuantileStatisticClustered,
+    QuantileClusteredStatistic,
 ]

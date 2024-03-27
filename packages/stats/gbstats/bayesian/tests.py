@@ -22,7 +22,7 @@ from gbstats.models.statistics import (
     SampleMeanStatistic,
     TestStatistic,
     QuantileStatistic,
-    QuantileStatisticClustered,
+    QuantileClusteredStatistic,
 )
 from gbstats.frequentist.tests import frequentist_diff, frequentist_variance
 
@@ -332,13 +332,13 @@ class GaussianEffectABTest(BayesianABTest):
             SampleMeanStatistic,
             RatioStatistic,
             QuantileStatistic,
-            QuantileStatisticClustered,
+            QuantileClusteredStatistic,
         ],
         stat_b: Union[
             SampleMeanStatistic,
             RatioStatistic,
             QuantileStatistic,
-            QuantileStatisticClustered,
+            QuantileClusteredStatistic,
         ],
         config: EffectBayesianConfig,
     ):
