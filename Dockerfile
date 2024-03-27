@@ -1,5 +1,5 @@
 ARG PYTHON_MAJOR=3.11
-ARG NODE_MAJOR=18
+ARG NODE_MAJOR=20
 
 # Build the python gbstats package
 FROM python:${PYTHON_MAJOR}-slim AS pybuild
@@ -39,6 +39,7 @@ COPY patches ./patches
 RUN yarn install --frozen-lockfile --ignore-optional
 # Build the app and do a clean install with only production dependencies
 COPY packages ./packages
+# adding the `yarn postinstall` since it there seems to be an issue with yarn
 RUN \
   yarn build \
   && rm -rf node_modules \
@@ -49,7 +50,9 @@ RUN \
   && rm -rf packages/enterprise/node_modules \
   && rm -rf packages/sdk-js/node_modules \
   && rm -rf packages/sdk-react/node_modules \
-  && yarn install --frozen-lockfile --production=true --ignore-optional
+  && yarn install --frozen-lockfile --production=true --ignore-optional \
+  && yarn postinstall
+
 
 
 # Package the full app together

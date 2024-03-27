@@ -7,7 +7,7 @@ If you just want to contribute a client library in a new language and not make c
 ## Requirements
 
 - MacOS or Linux (Windows may work too, but we haven't tested it)
-- [NodeJS](https://nodejs.org/en/download/package-manager/) between 16.x and 18.x
+- [NodeJS](https://nodejs.org/en/download/package-manager/) 16.x or above
   - Check version by running `node -v` on terminal
 - [Yarn](https://classic.yarnpkg.com/en/docs/install)
 - [Python](https://www.python.org/downloads/) 3.8+ (for the stats engine)
