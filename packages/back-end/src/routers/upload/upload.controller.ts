@@ -20,7 +20,12 @@ const extensionsToMimetype: Record<string, string> = {
 
 export async function putUpload(req: AuthRequest<Buffer>, res: Response) {
   const contentType = req.headers["content-type"] as string;
-  req.checkPermissions("addComments", "");
+  const context = getContextFromReq(req);
+
+  // The user can upload images if they have permission to add comments globally, or in atleast 1 project
+  if (!context.permissions.canAddComment([])) {
+    context.permissions.throwPermissionError();
+  }
 
   if (!(contentType in mimetypes)) {
     throw new Error(

@@ -126,6 +126,7 @@ export async function getPayloadParamsFromApiKey(
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
+  includeRedirectExperiments?: boolean;
   hashSecureAttributes?: boolean;
   remoteEvalEnabled?: boolean;
 }> {
@@ -155,6 +156,7 @@ export async function getPayloadParamsFromApiKey(
       includeVisualExperiments: connection.includeVisualExperiments,
       includeDraftExperiments: connection.includeDraftExperiments,
       includeExperimentNames: connection.includeExperimentNames,
+      includeRedirectExperiments: connection.includeRedirectExperiments,
       hashSecureAttributes: connection.hashSecureAttributes,
       remoteEvalEnabled: connection.remoteEvalEnabled,
     };
@@ -216,6 +218,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       includeVisualExperiments,
       includeDraftExperiments,
       includeExperimentNames,
+      includeRedirectExperiments,
       hashSecureAttributes,
       remoteEvalEnabled,
     } = await getPayloadParamsFromApiKey(key, req);
@@ -237,6 +240,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       includeVisualExperiments,
       includeDraftExperiments,
       includeExperimentNames,
+      includeRedirectExperiments,
       hashSecureAttributes,
     });
 
@@ -298,6 +302,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
       includeVisualExperiments,
       includeDraftExperiments,
       includeExperimentNames,
+      includeRedirectExperiments,
       hashSecureAttributes,
       remoteEvalEnabled,
     } = await getPayloadParamsFromApiKey(key, req);
@@ -330,6 +335,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
       includeVisualExperiments,
       includeDraftExperiments,
       includeExperimentNames,
+      includeRedirectExperiments,
       hashSecureAttributes,
     });
 
@@ -585,7 +591,10 @@ export async function postFeatureReviewOrComment(
   if (!feature) {
     throw new Error("Could not find feature");
   }
-  req.checkPermissions("canReview", feature.project);
+
+  if (!context.permissions.canReviewFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
 
   const revision = await getRevision(
     context.org.id,
@@ -651,7 +660,6 @@ export async function postFeaturePublish(
     "draft",
     "approved",
   ];
-
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
@@ -681,7 +689,9 @@ export async function postFeaturePublish(
   }
 
   if (adminOverride && requiresReview) {
-    req.checkPermissions("bypassApprovalChecks", feature.project);
+    if (!context.permissions.canBypassApprovalChecks(feature)) {
+      context.permissions.throwPermissionError();
+    }
   }
   const mergeResult = autoMerge(live, base, revision, environments, {});
   if (JSON.stringify(mergeResult) !== mergeResultSerialized) {

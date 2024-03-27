@@ -1,6 +1,5 @@
 import { FC, useState } from "react";
 import { ExperimentReportVariation } from "back-end/types/report";
-import { FaExternalLinkAlt } from "react-icons/fa";
 import { MdInfoOutline } from "react-icons/md";
 import { useUser } from "@/services/UserContext";
 import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
@@ -127,40 +126,30 @@ const SRMWarning: FC<{
                   srm={srm}
                 />
                 <p>Most common causes:</p>
-                <ul style={{ columnCount: 2, columnGap: "20px" }}>
+                <ul>
                   <li>
                     <b>Bucketing</b>
                     <ul>
-                      <li>Bad randomization function</li>
-                      <li>Corrupted user IDs</li>
-                      <li>Carry over effects from previous tests</li>
-                      <li>Interaction effects</li>
-                    </ul>
-                  </li>
-                  <li>
-                    <b>Execution</b>
-                    <ul>
-                      <li>Different start times for variations</li>
-                      <li>Variation-specific errors or crashes</li>
-                      <li>Variation-specific performance issues</li>
-                      <li>Broken event firing</li>
+                      <li>
+                        Broken event firing or conditional statements in SDK
+                        trackingCallback
+                      </li>
+                      <li>Mismatch between SDK attribute and data ID</li>
                     </ul>
                   </li>
                   <li>
                     <b>Analysis</b>
                     <ul>
+                      <li>Activation Metric influenced by variations</li>
                       <li>Broken filtering (e.g. bot removal)</li>
-                      <li>Missing data</li>
-                      <li>Wrong start date</li>
-                      <li>Wrong triggering condition</li>
+                      <li>Missing data in data warehouse</li>
                     </ul>
                   </li>
                   <li>
-                    <b>Interference</b>
+                    <b>Experiment Changes</b>
                     <ul>
-                      <li>Inconsistent ramping of variations</li>
-                      <li>Pausing variations during execution</li>
-                      <li>Injection attacks and hacks</li>
+                      <li>New phase without re-randomizing (carryover bias)</li>
+                      <li>Certain targeting changes without re-randomizing </li>
                     </ul>
                   </li>
                 </ul>
@@ -168,9 +157,9 @@ const SRMWarning: FC<{
                   <a
                     target="_blank"
                     rel="noreferrer"
-                    href="https://exp-platform.com/Documents/2019_KDDFabijanGupchupFuptaOmhoverVermeerDmitriev.pdf"
+                    href="https://docs.growthbook.io/kb/experiments/troubleshooting-experiments"
                   >
-                    Read about SRM issues (PDF) <FaExternalLinkAlt />
+                    Read about troubleshooting experiments in our docs
                   </a>
                 </p>
               </>

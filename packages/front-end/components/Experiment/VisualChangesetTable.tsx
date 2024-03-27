@@ -1,7 +1,6 @@
 import { FC, Fragment, useCallback, useState } from "react";
 import {
   ExperimentInterfaceStringDates,
-  LegacyVariation,
   Variation,
 } from "back-end/types/experiment";
 import {
@@ -9,15 +8,13 @@ import {
   VisualChangesetInterface,
   VisualChangesetURLPattern,
 } from "back-end/types/visual-changeset";
-import { FaPencilAlt, FaPlusCircle, FaTimesCircle } from "react-icons/fa";
-import Link from "next/link";
+import { FaPencilAlt, FaTimesCircle } from "react-icons/fa";
 import clsx from "clsx";
 import track from "@/services/track";
 import { GBEdit } from "@/components/Icons";
 import OpenVisualEditorLink from "@/components/OpenVisualEditorLink";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { appendQueryParamsToURL } from "@/services/utils";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -30,11 +27,7 @@ type Props = {
   visualChangesets: VisualChangesetInterface[];
   mutate: () => void;
   canEditVisualChangesets: boolean;
-  setVisualEditorModal: (v: boolean) => void;
 };
-
-const isLegacyVariation = (v: Partial<LegacyVariation>): v is LegacyVariation =>
-  !!v.css || (v?.dom?.length ?? 0) > 0;
 
 const drawChange = ({
   i,
@@ -237,7 +230,6 @@ export const VisualChangesetTable: FC<Props> = ({
   visualChangesets = [],
   mutate,
   canEditVisualChangesets,
-  setVisualEditorModal,
 }: Props) => {
   const { variations } = experiment;
   const { apiCall } = useAuth();
@@ -255,8 +247,6 @@ export const VisualChangesetTable: FC<Props> = ({
     visualChange: VisualChange;
     visualChangeIndex: number;
   } | null>(null);
-
-  const hasLegacyVisualChanges = variations.some((v) => isLegacyVariation(v));
 
   const deleteVisualChangeset = useCallback(
     async (id: string) => {
@@ -358,44 +348,6 @@ export const VisualChangesetTable: FC<Props> = ({
           </LinkedChange>
         );
       })}
-
-      {canEditVisualChangesets && experiment.status === "draft" ? (
-        <div className="my-2">
-          {hasVisualEditorFeature ? (
-            <button
-              className="btn btn-link"
-              onClick={() => {
-                setVisualEditorModal(true);
-                track("Open visual editor modal", {
-                  source: "visual-editor-ui",
-                  action: "add",
-                });
-              }}
-            >
-              <FaPlusCircle className="mr-1" />
-              Visual Editor change
-            </button>
-          ) : (
-            <PremiumTooltip commercialFeature={"visual-editor"}>
-              <div className="btn btn-link disabled">
-                <FaPlusCircle className="mr-1" />
-                Visual Editor change
-              </div>
-            </PremiumTooltip>
-          )}
-        </div>
-      ) : null}
-
-      {hasLegacyVisualChanges && experiment.status === "draft" ? (
-        <div className="alert alert-warning mt-3">
-          <div className="mb-1">
-            Your experiment has changes created with the legacy visual editor
-          </div>
-          <Link href={`/experiments/designer/${experiment.id}`}>
-            Open Legacy Visual Editor
-          </Link>
-        </div>
-      ) : null}
 
       {editingVisualChangeset ? (
         <VisualChangesetModal

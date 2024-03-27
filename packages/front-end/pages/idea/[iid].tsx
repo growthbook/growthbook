@@ -131,84 +131,86 @@ const IdeaPage = (): ReactElement => {
             </a>
           </div>
         )}
-      <div className="mb-2 mt-2 row d-flex">
-        <div className="col-auto">
-          <Link href="/ideas">
-            <FaAngleLeft />
-            All Ideas
-          </Link>
-        </div>
-        {idea.archived && (
+      <div className="mb-2 mt-2 row d-flex justify-content-between align-items-center">
+        <div>
           <div className="col-auto">
-            <div
-              className="badge badge-secondary"
-              style={{ fontSize: "1.1em" }}
-            >
-              Archived
-            </div>
+            <Link href="/ideas">
+              <FaAngleLeft />
+              All Ideas
+            </Link>
           </div>
-        )}
-        <div className="col"></div>
-        {!idea.archived &&
-          permissions.check("createAnalyses", idea.project) &&
-          !data.experiment && (
-            <div className="col-md-auto">
-              <button
-                className="btn btn-outline-primary mr-3"
-                onClick={() => {
-                  setNewExperiment(true);
-                }}
+          {idea.archived && (
+            <div className="col-auto">
+              <div
+                className="badge badge-secondary"
+                style={{ fontSize: "1.1em" }}
               >
-                Convert Idea to Experiment
-              </button>
+                Archived
+              </div>
             </div>
           )}
-        {canEdit && (
-          <div className="col-auto">
-            <MoreMenu>
-              <a
-                href="#"
-                className="dropdown-item"
-                onClick={async (e) => {
-                  e.preventDefault();
-                  await apiCall(`/idea/${iid}`, {
-                    method: "POST",
-                    body: JSON.stringify({
-                      archived: !idea.archived,
-                    }),
-                  });
-                  mutate({
-                    ...data,
-                    idea: {
-                      ...data.idea,
-                      archived: !idea.archived,
-                    },
-                  });
-                }}
-              >
-                <FaArchive /> {idea.archived ? "Unarchive" : "Archive"}
-              </a>
-              <DeleteButton
-                displayName="Idea"
-                link={true}
-                className="dropdown-item text-dark"
-                text="Delete"
-                onClick={async () => {
-                  await apiCall<{ status: number; message?: string }>(
-                    `/idea/${iid}`,
-                    {
-                      method: "DELETE",
-                      body: JSON.stringify({ id: iid }),
-                    }
-                  );
+        </div>
+        <div className="d-flex align-items-center">
+          {!idea.archived &&
+            permissions.check("createAnalyses", idea.project) &&
+            !data.experiment && (
+              <div className="col-md-auto">
+                <button
+                  className="btn btn-outline-primary"
+                  onClick={() => {
+                    setNewExperiment(true);
+                  }}
+                >
+                  Convert Idea to Experiment
+                </button>
+              </div>
+            )}
+          {canEdit && (
+            <div className="col-auto d-flex">
+              <MoreMenu>
+                <a
+                  href="#"
+                  className="dropdown-item"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    await apiCall(`/idea/${iid}`, {
+                      method: "POST",
+                      body: JSON.stringify({
+                        archived: !idea.archived,
+                      }),
+                    });
+                    mutate({
+                      ...data,
+                      idea: {
+                        ...data.idea,
+                        archived: !idea.archived,
+                      },
+                    });
+                  }}
+                >
+                  <FaArchive /> {idea.archived ? "Unarchive" : "Archive"}
+                </a>
+                <DeleteButton
+                  displayName="Idea"
+                  link={true}
+                  className="dropdown-item text-dark"
+                  text="Delete"
+                  onClick={async () => {
+                    await apiCall<{ status: number; message?: string }>(
+                      `/idea/${iid}`,
+                      {
+                        method: "DELETE",
+                        body: JSON.stringify({ id: iid }),
+                      }
+                    );
 
-                  push("/ideas");
-                }}
-              />
-            </MoreMenu>
-          </div>
-        )}
-        {canEstimateImpact && <div className="col-md-3"></div>}
+                    push("/ideas");
+                  }}
+                />
+              </MoreMenu>
+            </div>
+          )}
+        </div>
       </div>
       {data.experiment && (
         <div className="bg-white border border-info p-3 mb-3">
@@ -373,7 +375,7 @@ const IdeaPage = (): ReactElement => {
               type="idea"
               id={idea.id}
               showTitle={true}
-              project={idea.project}
+              projects={idea.project ? [idea.project] : []}
             />
           </div>
         </div>
