@@ -338,9 +338,9 @@ export default function FeaturesPage() {
                       )}
                     </td>
                     <td>
-                      {permissions.check("manageFeatures", project) &&
-                      canManageFeatureDrafts ? (
-                        <MoreMenu>
+                      <MoreMenu>
+                        {permissions.check("manageFeatures", project) &&
+                        canManageFeatureDrafts ? (
                           <button
                             className="dropdown-item"
                             onClick={() => {
@@ -350,8 +350,8 @@ export default function FeaturesPage() {
                           >
                             Duplicate
                           </button>
-                        </MoreMenu>
-                      ) : null}
+                        ) : null}
+                      </MoreMenu>
                     </td>
                   </tr>
                 );
