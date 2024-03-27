@@ -25,6 +25,10 @@ RUN apt-get update && \
   apt-get install -yqq nodejs=$(apt-cache show nodejs|grep Version|grep nodesource|cut -c 10-) yarn && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
+
+#debugging  
+RUN echo "node version:" && node -v && echo "yarn version:" && yarn -v
+
 # Copy over minimum files to install dependencies
 COPY package.json ./package.json
 COPY yarn.lock ./yarn.lock
@@ -56,7 +60,6 @@ RUN \
 FROM python:${PYTHON_MAJOR}-slim
 ARG NODE_MAJOR
 WORKDIR /usr/local/src/app
-RUN echo "node version:" && node -v && echo "yarn version:" && yarn -v
 RUN apt-get update && \
   apt-get install -y wget gnupg2 && \
   echo "deb https://deb.nodesource.com/node_$NODE_MAJOR.x buster main" > /etc/apt/sources.list.d/nodesource.list && \
