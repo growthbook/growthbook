@@ -421,11 +421,7 @@ export async function postFeatures(
     owner: userName,
     description: "",
     project: "",
-    environmentSettings: Object.fromEntries(
-      Object.entries(environmentSettings).filter(([env]) =>
-        environmentIds.includes(env)
-      )
-    ),
+    environmentSettings: {},
     ...otherProps,
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -445,7 +441,7 @@ export async function postFeatures(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
-  // scrub environments if not allowed in project
+  // construct environmentSettings, scrub environments if not allowed in project
   feature.environmentSettings = Object.fromEntries(
     Object.entries(environmentSettings).filter(([env]) =>
       environmentIds.includes(env)

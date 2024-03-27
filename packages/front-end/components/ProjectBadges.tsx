@@ -17,6 +17,7 @@ export interface Props {
     | "sdk connection";
   projectIds?: string[];
   invalidProjectIds?: string[];
+  invalidProjectMessage?: string;
   sort?: boolean;
   className?: string;
 }
@@ -25,6 +26,7 @@ export default function ProjectBadges({
   resourceType,
   projectIds,
   invalidProjectIds = [],
+  invalidProjectMessage = "This project is invalid",
   sort = true,
   className = "badge-ellipsis short",
 }: Props) {
@@ -70,7 +72,7 @@ export default function ProjectBadges({
                 <Tooltip
                   popperClassName="text-left"
                   popperStyle={{ lineHeight: 1.5 }}
-                  body="This project is not allowed in the selected environment and will not be included in the SDK payload."
+                  body={invalidProjectMessage}
                 >
                   <del className="text-danger">
                     <FaExclamationTriangle className="mr-1" />

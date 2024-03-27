@@ -166,6 +166,7 @@ export default function SDKConnectionsList() {
                               : undefined
                           }
                           invalidProjectIds={disallowedProjectIds}
+                          invalidProjectMessage="This project is not allowed in the selected environment and will not be included in the SDK payload."
                           resourceType="sdk connection"
                         />
                       </div>

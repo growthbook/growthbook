@@ -107,6 +107,15 @@ export default function FeaturePage() {
     setVersion(draft ? draft.version : baseFeatureVersion);
   }, [revisions, version, router.query, baseFeatureVersion]);
 
+  const environments = useMemo(
+    () =>
+      baseFeature
+        ? filterEnvironmentsByFeature(allEnvironments, baseFeature)
+        : [],
+    [allEnvironments, baseFeature]
+  );
+  const envs = environments.map((e) => e.id);
+
   const revision = useMemo<FeatureRevisionInterface | null>(() => {
     if (!revisions || !version || !baseFeature) return null;
     const match = revisions.find((r) => r.version === version);
@@ -115,7 +124,7 @@ export default function FeaturePage() {
     // If we can't find the revision, create a dummy revision just so the page can render
     // This is for old features that don't have any revision history saved
     const rules: Record<string, FeatureRule[]> = {};
-    allEnvironments.forEach((env) => {
+    environments.forEach((env) => {
       rules[env.id] = baseFeature.environmentSettings?.[env.id]?.rules || [];
     });
 
@@ -135,7 +144,7 @@ export default function FeaturePage() {
       version: baseFeature.version,
       prerequisites: baseFeature.prerequisites || [],
     };
-  }, [revisions, version, allEnvironments, baseFeature]);
+  }, [revisions, version, environments, baseFeature]);
 
   const feature = useMemo(() => {
     if (!revision || !baseFeature) return null;
@@ -143,15 +152,10 @@ export default function FeaturePage() {
       ? mergeRevision(
           baseFeature,
           revision,
-          allEnvironments.map((e) => e.id)
+          environments.map((e) => e.id)
         )
       : baseFeature;
-  }, [baseFeature, revision, allEnvironments]);
-
-  const environments = feature
-    ? filterEnvironmentsByFeature(allEnvironments, feature)
-    : [];
-  const envs = environments.map((e) => e.id);
+  }, [baseFeature, revision, environments]);
 
   const dependentFeatures = useMemo(() => {
     if (!feature || !features) return [];
