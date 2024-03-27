@@ -1,12 +1,13 @@
 import mongoose from "mongoose";
 import omit from "lodash/omit";
+import { checkIfRevisionNeedsReview } from "shared/util";
 import { FeatureInterface, FeatureRule } from "../../types/feature";
 import {
   FeatureRevisionInterface,
   RevisionLog,
 } from "../../types/feature-revision";
 import { EventAuditUser, EventAuditUserLoggedIn } from "../events/event-types";
-import { ReqContext } from "../../types/organization";
+import { OrganizationInterface, ReqContext } from "../../types/organization";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
@@ -24,6 +25,7 @@ const featureRevisionSchema = new mongoose.Schema({
   defaultValue: String,
   rules: {},
   status: String,
+  requiresReview: Boolean,
   log: [
     {
       _id: false,
@@ -186,7 +188,7 @@ export async function createRevision({
   changes,
   publish,
   comment,
-  requiresReview,
+  org,
 }: {
   feature: FeatureInterface;
   user: EventAuditUser;
@@ -195,7 +197,7 @@ export async function createRevision({
   changes?: Partial<FeatureRevisionInterface>;
   publish?: boolean;
   comment?: string;
-  requiresReview?: boolean;
+  org: OrganizationInterface;
 }) {
   // Get max version number
   const lastRevision = (
@@ -234,28 +236,44 @@ export async function createRevision({
       rules,
     }),
   };
+  baseVersion = baseVersion || feature.version;
+  const baseRevision = (await getRevision(
+    feature.organization,
+    feature.id,
+    baseVersion
+  )) as FeatureRevisionInterface;
   let status = "draft";
-  if (publish && !requiresReview) {
-    status = "published";
-  } else if (publish && requiresReview) {
-    status = "pending-review";
-  }
-  const doc = await FeatureRevisionModel.create({
+  const revision = {
     organization: feature.organization,
     featureId: feature.id,
     version: newVersion,
     dateCreated: new Date(),
     dateUpdated: new Date(),
-    datePublished: status === "published" ? new Date() : null,
+    datePublished: null,
     createdBy: user,
     baseVersion: baseVersion || feature.version,
     status,
-    publishedBy: status === "published" ? user : null,
+    publishedBy: null,
     comment: comment || "",
     defaultValue,
     rules,
     log: [log],
+  } as FeatureRevisionInterface;
+  const requiresReview = checkIfRevisionNeedsReview({
+    feature,
+    baseRevision,
+    revision,
+    settings: org.settings,
   });
+  if (publish && !requiresReview) {
+    status = "published";
+    revision.publishedBy = user;
+    revision.datePublished = new Date();
+  } else if (publish && requiresReview) {
+    status = "pending-review";
+  }
+
+  const doc = await FeatureRevisionModel.create(revision);
 
   return toInterface(doc);
 }
@@ -283,7 +301,6 @@ export async function updateRevision(
       throw new Error("Can only update draft revisions");
     }
   }
-
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,

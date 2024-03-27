@@ -1,7 +1,13 @@
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
 import { isEqual } from "lodash";
-import { MergeResultChanges, MergeStrategy, autoMerge } from "shared/util";
+import {
+  MergeResultChanges,
+  MergeStrategy,
+  autoMerge,
+  checkIfRevisionNeedsReview,
+  resetReviewOnChange,
+} from "shared/util";
 import {
   getConnectionSDKCapabilities,
   SDKCapability,
@@ -654,28 +660,9 @@ export async function postFeaturePublish(
     "draft",
     "approved",
   ];
-  if (adminOverride && org.settings?.requireReviews) {
-    if (!context.permissions.canBypassApprovalChecks(feature)) {
-      context.permissions.throwPermissionError();
-    }
-  }
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
-  if (
-    !adminOverride &&
-    org.settings?.requireReviews &&
-    revision.status !== "approved"
-  ) {
-    throw new Error("needs review before publishing");
-  }
-  if (
-    !org.settings?.requireReviews &&
-    !reviewStatuses.includes(revision.status)
-  ) {
-    throw new Error("Can only publish Draft revisions");
-  }
-
   const live = await getRevision(org.id, feature.id, feature.version);
   if (!live) {
     throw new Error("Could not lookup feature history");
@@ -688,7 +675,24 @@ export async function postFeaturePublish(
   if (!base) {
     throw new Error("Could not lookup feature history");
   }
+  const requiresReview = checkIfRevisionNeedsReview({
+    feature,
+    baseRevision: base,
+    revision,
+    settings: org.settings,
+  });
+  if (!adminOverride && requiresReview && revision.status !== "approved") {
+    throw new Error("needs review before publishing");
+  }
+  if (requiresReview && !reviewStatuses.includes(revision.status)) {
+    throw new Error("Can only publish Draft revisions");
+  }
 
+  if (adminOverride && requiresReview) {
+    if (!context.permissions.canBypassApprovalChecks(feature)) {
+      context.permissions.throwPermissionError();
+    }
+  }
   const mergeResult = autoMerge(live, base, revision, environments, {});
   if (JSON.stringify(mergeResult) !== mergeResultSerialized) {
     throw new Error(
@@ -857,7 +861,7 @@ export async function postFeatureFork(
     baseVersion: revision.version,
     changes: revision,
     environments,
-    requiresReview: !!org.settings?.requireReviews,
+    org,
   });
   await updateFeature(context, feature, {
     hasDrafts: true,
@@ -921,7 +925,7 @@ export async function postFeatureRule(
   >
 ) {
   const context = getContextFromReq(req);
-  const { environments } = context;
+  const { environments, org } = context;
   const { id, version } = req.params;
   const { environment, rule } = req.body;
 
@@ -938,8 +942,18 @@ export async function postFeatureRule(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
-
-  await addFeatureRule(revision, environment, rule, res.locals.eventAudit);
+  const resetReview = resetReviewOnChange(
+    feature,
+    [environment],
+    org?.settings
+  );
+  await addFeatureRule(
+    revision,
+    environment,
+    rule,
+    res.locals.eventAudit,
+    resetReview
+  );
 
   // If referencing a new experiment, add it to linkedExperiments
   if (
@@ -970,7 +984,7 @@ export async function postFeatureSync(
   >
 ) {
   const context = getContextFromReq(req);
-  const { environments } = context;
+  const { environments, org } = context;
   const { id } = req.params;
 
   const feature = await getFeature(context, id);
@@ -1049,6 +1063,7 @@ export async function postFeatureSync(
       changes,
       environments,
       comment: `Sync Feature`,
+      org,
     });
 
     updates.version = revision.version;
@@ -1081,7 +1096,7 @@ export async function postFeatureExperimentRefRule(
   >
 ) {
   const context = getContextFromReq(req);
-  const { environments } = context;
+  const { environments, org } = context;
   const { id } = req.params;
   const { rule } = req.body;
 
@@ -1153,6 +1168,7 @@ export async function postFeatureExperimentRefRule(
     changes,
     environments,
     comment: `Add Experiment - ${experiment.name}`,
+    org,
   });
 
   updates.version = revision.version;
@@ -1194,11 +1210,13 @@ async function getDraftRevision(
   version: number
 ): Promise<FeatureRevisionInterface> {
   // This is the published version, create a new draft revision
+  const { org } = context;
   if (version === feature.version) {
     const newRevision = await createRevision({
       feature,
       user: context.auditUser,
       environments: getEnvironmentIdsFromOrg(context.org),
+      org,
     });
 
     await updateFeature(context, feature, {
@@ -1337,7 +1355,7 @@ export async function putFeatureRule(
   >
 ) {
   const context = getContextFromReq(req);
-  const { environments } = context;
+  const { environments, org } = context;
   const { id, version } = req.params;
   const { environment, rule, i } = req.body;
 
@@ -1354,8 +1372,19 @@ export async function putFeatureRule(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
-
-  await editFeatureRule(revision, environment, i, rule, res.locals.eventAudit);
+  const resetReview = resetReviewOnChange(
+    feature,
+    [environment],
+    org?.settings
+  );
+  await editFeatureRule(
+    revision,
+    environment,
+    i,
+    rule,
+    res.locals.eventAudit,
+    resetReview
+  );
 
   res.status(200).json({
     status: 200,
@@ -1450,7 +1479,6 @@ export async function postFeatureMoveRule(
   }
   const rule = rules[from];
   changes.rules[environment] = arrayMove(rules, from, to);
-
   await updateRevision(revision, changes, {
     user: res.locals.eventAudit,
     action: "move rule",
