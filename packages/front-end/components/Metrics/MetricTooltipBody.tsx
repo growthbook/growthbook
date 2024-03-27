@@ -77,9 +77,9 @@ const MetricTooltipBody = ({
           {isFactMetric(metric) && metric.quantileSettings
             ? `${
                 metric.quantileSettings.type === "unit"
-                  ? "After unit aggregation"
-                  : "Across events"
-              }${metric.quantileSettings.ignoreZeros ? "(ignoring zeros)" : ""}`
+                  ? "Per-user"
+                  : "Events"
+              }${metric.quantileSettings.ignoreZeros ? " (ignoring zeros)" : ""}`
             : null}
         </>
       ),

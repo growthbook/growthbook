@@ -80,7 +80,28 @@ import { applyMetricOverrides } from "../util/integration";
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
 
-const N_STAR_VALUES = [100, 1000, 10000, 100000, 1000000]; // TODO-quantile
+const N_STAR_VALUES = [
+  100,
+  200,
+  400,
+  800,
+  1600,
+  3200,
+  6400,
+  12800,
+  25600,
+  51200,
+  102400,
+  204800,
+  409600,
+  819200,
+  1638400,
+  3276800,
+  6553600,
+  13107200,
+  26214400,
+  52428800,
+];
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {

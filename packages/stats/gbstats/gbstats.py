@@ -67,6 +67,13 @@ SUM_COLS = [
     "main_covariate_sum_product",
 ]
 
+ROW_COLS = SUM_COLS + [
+    "quantile_n",
+    "quantile_nstar",
+    "quantile",
+    "quantile_lower",
+    "quantile_upper"
+]
 
 # Looks for any variation ids that are not in the provided map
 def detect_unknown_variations(
@@ -127,7 +134,7 @@ def get_metric_df(
                 prefix = f"v{i}" if i > 0 else "baseline"
                 dimensions[dim][f"{prefix}_id"] = key
                 dimensions[dim][f"{prefix}_name"] = var_names[i]
-                for col in SUM_COLS:
+                for col in ROW_COLS:
                     dimensions[dim][f"{prefix}_{col}"] = 0
 
         # Add this SQL result row into the dimension dict if we recognize the variation
@@ -137,7 +144,7 @@ def get_metric_df(
 
             dimensions[dim]["total_users"] += row.users
             prefix = f"v{i}" if i > 0 else "baseline"
-            for col in SUM_COLS:
+            for col in ROW_COLS:
                 dimensions[dim][f"{prefix}_{col}"] = getattr(row, col, 0)
             # Special handling for count, if missing returns a method, so override with user value
             if callable(getattr(row, "count")):
@@ -148,7 +155,7 @@ def get_metric_df(
 
 # Limit to the top X dimensions with the most users
 # Merge the rest into an "(other)" dimension
-def reduce_dimensionality(df, max=20):
+def reduce_dimensionality(df: pd.DataFrame, max: int = 20, keep_other: bool = True) -> pd.DataFrame:
     num_variations = df.at[0, "variations"]
 
     rows = df.to_dict("records")
@@ -161,7 +168,7 @@ def reduce_dimensionality(df, max=20):
         if i < max:
             newrows.append(row)
         # For the rest, merge them into the last dimension
-        else:
+        elif keep_other:
             current = newrows[max - 1]
             current["dimension"] = "(other)"
             current["total_users"] += row["total_users"]
@@ -325,6 +332,12 @@ def analyze_metric_df(
             s.at[f"v{i}_uplift"] = asdict(res.uplift)
             s[f"v{i}_error_message"] = res.error_message
 
+        # replace count with quantile_n for quantile metrics
+        if metric.statistic_type in ["quantile_event", "quantile_unit"]:
+            for i in range(num_variations):
+                prefix = f"v{i}" if i > 0 else "baseline"
+                s[f"{prefix}_count"] = s[f"{prefix}_quantile_n"]
+
         s["srm_p"] = check_srm(
             [s["baseline_users"]]
             + [s[f"v{i}_users"] for i in range(1, num_variations)],
@@ -361,6 +374,8 @@ def format_variation_result(
     row: Dict[Hashable, Any], v: int
 ) -> Union[BaselineResponse, BayesianVariationResponse, FrequentistVariationResponse]:
     prefix = f"v{v}" if v > 0 else "baseline"
+
+    # if quantile_n
     stats = MetricStats(
         users=row[f"{prefix}_users"],
         count=row[f"{prefix}_count"],
@@ -404,7 +419,35 @@ def format_variation_result(
 def variation_statistic_from_metric_row(
     row: pd.Series, prefix: str, metric: MetricSettingsForStatsEngine
 ) -> TestStatistic:
-    if metric.statistic_type == "ratio":
+    if metric.statistic_type == "quantile_event":
+        if metric.quantile_value is None:
+            raise ValueError("quantile_value must be set for quantile_event metric")
+        return QuantileClusteredStatistic(
+            n=row[f"{prefix}_quantile_n"],
+            n_star=row[f"{prefix}_quantile_nstar"],
+            nu=metric.quantile_value,
+            quantile_hat=row[f"{prefix}_quantile"],
+            quantile_lower=row[f"{prefix}_quantile_lower"],
+            quantile_upper=row[f"{prefix}_quantile_upper"],
+            main_sum=row[f"{prefix}_main_sum"],
+            main_sum_squares=row[f"{prefix}_main_sum_squares"],
+            denominator_sum=row[f"{prefix}_denominator_sum"], 
+            denominator_sum_squares=row[f"{prefix}_denominator_sum_squares"],
+            main_denominator_sum_product=row[f"{prefix}_main_denominator_sum_product"],
+            n_clusters=row[f"{prefix}_users"]
+        )
+    elif metric.statistic_type == "quantile_unit":
+        if metric.quantile_value is None:
+            raise ValueError("quantile_value must be set for quantile_event metric")
+        return QuantileStatistic(
+            n=row[f"{prefix}_quantile_n"],
+            n_star=row[f"{prefix}_quantile_nstar"],
+            nu=metric.quantile_value,
+            quantile_hat=row[f"{prefix}_quantile"],
+            quantile_lower=row[f"{prefix}_quantile_lower"],
+            quantile_upper=row[f"{prefix}_quantile_upper"],
+        )
+    elif metric.statistic_type == "ratio":
         return RatioStatistic(
             m_statistic=base_statistic_from_metric_row(
                 row, prefix, "main", metric.main_metric_type
@@ -429,7 +472,7 @@ def variation_statistic_from_metric_row(
             ),
             post_pre_sum_of_products=row[f"{prefix}_main_covariate_sum_product"],
             n=row[f"{prefix}_users"],
-            # Theta should be overriden with correct value later
+            # Theta will be overriden with correct value later
             theta=0,
         )
     else:
@@ -478,9 +521,12 @@ def process_analysis(
     )
 
     # Limit to the top X dimensions with the most users
+    # not possible to just re-sum for quantile metrics,
+    # so we throw away "other" dimension
     reduced = reduce_dimensionality(
         df=df,
         max=max_dimensions,
+        keep_other=metric.statistic_type not in ["quantile_event", "quantile_unit"],
     )
 
     # Run the analysis for each variation and dimension

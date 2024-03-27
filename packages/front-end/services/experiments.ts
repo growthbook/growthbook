@@ -20,6 +20,7 @@ import { FactTableInterface } from "back-end/types/fact-table";
 import {
   ExperimentMetricInterface,
   isBinomialMetric,
+  quantileMetricType,
 } from "shared/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import {
@@ -41,16 +42,17 @@ export type ExperimentTableRow = {
 export function hasEnoughData(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
-  metric: { minSampleSize?: number },
+  metric: ExperimentMetricInterface,
   metricDefaults: MetricDefaults
 ): boolean {
-  if (!baseline?.value || !stats?.value) return false;
+
+  const {baselineValue, variationValue} = quantileMetricType(metric) ? { baselineValue: baseline?.stats?.count, variationValue: stats?.stats?.count } : { baselineValue: baseline?.value, variationValue: stats?.value };
+  if (!baselineValue || !variationValue) return false;
 
   const minSampleSize =
-    metric.minSampleSize || metricDefaults.minimumSampleSize;
+    metric.minSampleSize || metricDefaults.minimumSampleSize || 0;
 
-  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-  return Math.max(baseline.value, stats.value) >= minSampleSize;
+  return Math.max(baselineValue, variationValue) >= minSampleSize;
 }
 
 export function isSuspiciousUplift(
@@ -107,11 +109,7 @@ export function shouldHighlight({
 export function getRisk(
   stats: SnapshotMetric,
   baseline: SnapshotMetric,
-  metric: {
-    minSampleSize?: number;
-    maxPercentChange?: number;
-    inverse?: boolean;
-  },
+  metric: ExperimentMetricInterface,
   metricDefaults: MetricDefaults
 ): { risk: number; relativeRisk: number; showRisk: boolean } {
   const risk = stats.risk?.[metric.inverse ? 0 : 1] ?? 0;
