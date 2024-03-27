@@ -35,7 +35,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
           <span className="badge badge-secondary ml-2">archived</span>
         )}
       </td>
-      <td className="text-gray">
+      <td
+        className="text-gray"
+        style={{ maxWidth: "20vw", wordWrap: "break-word" }}
+      >
         {v.datatype}
         {v.datatype === "enum" && <>: ({v.enum})</>}
         {v.format && (
