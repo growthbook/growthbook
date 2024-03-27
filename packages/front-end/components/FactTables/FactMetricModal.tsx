@@ -457,7 +457,11 @@ export default function FactMetricModal({
     ignoreZeros: false,
   };
 
-  const hasQuantileMetrics = growthbook && growthbook.isOn("quantile-metrics");
+  const hasQuantileMetrics =
+    growthbook &&
+    growthbook.isOn("quantile-metrics") &&
+    selectedDataSource?.properties?.hasEfficientPercentiles;
+  // TODO-quantile add pro check
 
   const numeratorFactTable = getFactTableById(
     form.watch("numerator.factTableId")

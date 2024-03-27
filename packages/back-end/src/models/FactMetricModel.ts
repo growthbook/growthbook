@@ -152,12 +152,16 @@ export class FactMetricModel extends BaseModel<FactMetricSchema> {
     } else if (data.denominator?.factTableId) {
       throw new Error("Denominator not allowed for non-ratio metric");
     }
-
-    // TODO-quantile add validation for quantile metrics
+    if (data.metricType === "quantile") {
+      if (!data.quantileSettings) {
+        throw new Error("Must specify `quantileSettings` for Quantile metrics");
+      }
+    }
   }
 
   public toApiInterface(factMetric: FactMetricInterface): ApiFactMetric {
     const {
+      quantileSettings,
       cappingSettings,
       windowSettings,
       regressionAdjustmentDays,
@@ -172,8 +176,8 @@ export class FactMetricModel extends BaseModel<FactMetricSchema> {
 
     return {
       ...otherFields,
-      // TODO-quantile
-      metricType: metricType === "quantile" ? "mean" : metricType,
+      metricType: metricType,
+      quantileSettings: quantileSettings || undefined,
       cappingSettings: {
         ...cappingSettings,
         type: cappingSettings.type || "none",
