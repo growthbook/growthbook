@@ -140,14 +140,17 @@ export default function FeaturesSettings() {
                 <div>
                   <Toggle
                     id={"toggle-require-reviews"}
-                    value={!!form.watch(`requireReviews.${i}.requireReview`)}
+                    value={!!form.watch(`requireReviews.${i}.requireReviewOn`)}
                     setValue={(value) => {
-                      form.setValue(`requireReviews.${i}.requireReview`, value);
+                      form.setValue(
+                        `requireReviews.${i}.requireReviewOn`,
+                        value
+                      );
                     }}
                   />
                 </div>
 
-                {!!form.watch(`requireReviews.${i}.requireReview`) && (
+                {!!form.watch(`requireReviews.${i}.requireReviewOn`) && (
                   <div className="mt-3">
                     <label htmlFor="environments" className="h5">
                       Environments

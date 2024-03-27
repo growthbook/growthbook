@@ -32,7 +32,7 @@ export type UserPermissions = {
   projects: { [key: string]: UserPermission };
 };
 export type RequireReview = {
-  requireReview: boolean;
+  requireReviewOn: boolean;
   resetReviewOnChange: boolean;
   environments: string[];
   projects: string[];

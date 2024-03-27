@@ -786,7 +786,7 @@ export function featureRequiresReview(
   }
 
   for (const reviewSetting of requiresReviewSettings) {
-    if (reviewSetting.requireReview === true) {
+    if (reviewSetting.requireReviewOn === true) {
       return checkEnvironmentsMatch(
         feature,
         requestedEnvironments,
