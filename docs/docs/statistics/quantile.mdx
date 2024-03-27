@@ -1,0 +1,115 @@
+---
+title: Quantile Testing
+description: Quantile Testing
+sidebar_label: Quantile Testing
+slug: quantile
+---
+
+# Quantile Testing
+
+### What is a quantile test?
+
+Quantile tests permit quantile comparison across variations.  
+In contrast, standard Growthbook A/B tests compare means across variations.  
+For example, suppose that treatment increases user spend.  
+Suppose that 90% of users in control spend at most $50 per visit, and 90% of users in treatment spend at most $55 per visit.  
+Then the quantile treatment effect at the 90th percentile (i.e., P90) is $55 - $50 = $5.  
+Quantiles are commonly used in many applications where very large or small values are of interest (webpage latency, birth weight, blood pressure).
+
+### When should I run quantile tests?
+
+Below are two scenarios where you should run quantile tests.
+
+Scenario 1: your website has low latency for most users, but for 1% of users it takes a long time for the page to load.  
+You have a potential solution that targets improvements for this small fraction, and run an A/B test to confirm.  
+Mean differences across variations may be noisy and provide uncertain conclusions, as your solution does not improve latency for most users.  
+Running a quantile test at the 99th percentile can be more informative, as it helps detect if users that would have experienced the largest latency had their latency reduced.
+
+Scenario 2: you have a new ad campaign that you hope will increase customer overall spend.  
+You run an A/B test, and while the lift is positive, it is not statistically significant.  
+Quantile tests can help you deep dive which subpopulations were positively affected by treatment.  
+For example, you may see no improvement at P50, but moderate improvement at P99.  
+This would indicate that the new campaign did not affect most users, but had a strong affect on your top spending users.  
+In summary, quantile tests can complement mean tests.
+
+### How do I interpret quantile test results?
+
+Suppose you are running an AB test designed to reduce website latency.  
+Your effect estimate and 95\% confidence interval for latency at P99 is -7 ms (-9 ms, -5 ms).  
+How do you interpret this?
+
+Consider one universe where **all** customers received control (not just the customers assigned to control).  
+In this universe, website latency for 99\% of customers is no more than 145 ms.  
+That is, P99 for control is 145 ms.  
+Consider another universe where all customers are assigned to treatment.  
+In the treatment universe, website latency for 99\% of customers is no more than 139 ms.  
+So the true effect at P99 is 139 ms - 145 ms = -6 ms.  
+A quantile treatment test tries to estimate this difference.  
+You interpret the interval above as “There is a 95\% chance that the difference in P99 latencies across the groups is in (-9ms, -5ms)”.
+
+Put another way, if you were to run 100 experiments with different randomizations, roughly 95 of the intervals generated from those experiments would have -6ms in them.
+
+### How do I run a quantile test in GrowthBook?
+
+Running a quantile test is just as easy as running a mean test. Currently, quantile testing is only available for Fact Metrics.
+
+1. Pre-requisite: set up a “Fact Table” with your data you will use in your quantile test, if you don’t already have one. If you want to compare, for example, median (p50) and mean effects, use a single Fact Table to create both metrics.
+2. On the Growthbook App select “Create Fact Table Metric”.
+3. Select “Quantile” from “Type of Metric”.
+4. Toggle “Group by Experiment User before taking quantile” if you want to compare quantiles across variations at the user granularity, after summing row values at the user level. The default is at the event granularity. Please see the [FAQ](https://www.notion.so/Quantile-Tests-173ec8d4b2264b858f87f2dbe779c285?pvs=21) below for guidance regarding user vs event granularity.
+5. Pick your quantile level from the defaults (p50, p90, p95, p99) or use a custom value. This [FAQ](https://www.notion.so/Quantile-Tests-173ec8d4b2264b858f87f2dbe779c285?pvs=21) describes the range of available values.
+6. Decide whether you want zeros to be included in the analysis (see [FAQ](https://www.notion.so/Quantile-Tests-173ec8d4b2264b858f87f2dbe779c285?pvs=21) below).
+7. Select your metric window as you would for a mean test.
+8. Submit!
+
+There are many approaches to sequential testing, several of which are well explained and compared in [this Spotify blogpost](https://engineering.atspotify.com/2023/03/choosing-sequential-testing-framework-comparisons-and-discussions/).
+
+For GrowthBook, we selected a method that would work for the wide variety of experimenters that we serve, while also providing experimenters with a way to tune the approach for their setting. To that end, we implement Asymptotic Confidence Sequences introduced by [Waudby-Smith et al. (2023)](https://arxiv.org/pdf/2103.06476v7.pdf); these are very similar to the Generalized Anytime Valid Inference confidence sequences described by Spotify in the above post and introduced by [Howard et al. (2022)](https://arxiv.org/pdf/1810.08240.pdf), although the Waudby-Smith et al. approach more transparently applies to our setting.
+
+Specifically, GrowthBook's confidence sequences, which take the place of confidence intervals, become:
+
+$$\left(\hat{\mu} \pm \hat{\sigma}*N * \sqrt{\frac{2(N\rho^2 + 1)}{N^2\rho^2}\log\left(\frac{\sqrt{N\rho^2 + 1}}{\alpha}\right)}\right)$$
+
+$$\rho = \sqrt{\frac{-2\text{log}(\alpha) + \text{log}(-2 \text{log}(\alpha) + 1)}{N^*}}$$
+
+In the above, $\hat{\mu}$ is our estimated uplift, $\hat{\sigma}$ is the estimated standard error of the uplift, $\alpha$ is our significance level (defaults to 0.05), and $N$ is the sum of the two variation's sample sizes.
+
+In the above $N^*$ is a tuning parameter that lets us control how tight these confidence sequences are relative to the standard, fixed-time confidence intervals. It can be thought of as an "estimated sample size." You want to set $N^*$ to be the number of observations at which you tend to make decisions, because it is at that sample size that the loss in experiment power from using sequential testing will be smallest relative to the traditional confidence intervals.
+
+The following figure shows how the increased CI width in sequential analysis is minimized when the sample size is approximately $N^*$. The y-axis is the ratio of the sequential CIs to the regular CIs; all lines are well above 1.0, showing that sequential analysis results in uniformly wider confidence intervals. On the x-axis is the sample size at which the analysis was executed. As you can see, the ratio is lowest when $N^*$ is as close to sample size used in the analysis.
+
+<img
+  src="/images/statistics/sequential-tuning.png"
+  alt="Effect of Tuning Sequential Statistics on CI Width"
+  style={{ width: 450, margin: "0 auto" }}
+/>
+
+We default to using 5,000, but the general advice is to set this parameter to the sample size you expect to get when you are most likely to make a decision on this experiment. This value should remain fixed for an experiment.
+
+## Configuring sequential testing
+
+You can enable or disable sequential testing, as well as select your tuning parameter, both in your organization settings (as a default for all future experiments) or on an individual experiment's page.
+
+You can also play with the settings in an ad-hoc report.
+
+Note that the tuning parameter should remain fixed for an experiment.
+
+### Organizational defaults
+
+To set the default usage of sequential testing and the tuning parameter for new experiments, navigate to the Organization Settings page and select your preferred defaults.
+
+<img
+  src="/images/statistics/sequential-settings.png"
+  alt="Sequential Statistics Organization Settings"
+  style={{ width: 600, margin: "0 auto" }}
+/>
+
+### Experiment settings
+
+You can also turn sequential testing on and off for an individual experiment, as well as set a specific tuning parameter for that experiment. Navigate to the Experiment page, click Edit Experiment Settings, and choose your preferred settings.
+
+<img
+  src="/images/statistics/sequential-exp-settings.png"
+  alt="Sequential Statistics Experiment Settings"
+  style={{ width: 600, margin: "0 auto" }}
+/>
