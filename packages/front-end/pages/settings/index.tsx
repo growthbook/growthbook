@@ -112,7 +112,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       killswitchConfirmation: false,
       requireReviews: [
         {
-          requireReview: false,
+          requireReviewOn: false,
           resetReviewOnChange: false,
           environments: [],
           projects: [],
