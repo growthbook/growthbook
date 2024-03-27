@@ -153,6 +153,10 @@ export class FactMetricModel extends BaseModel<FactMetricSchema> {
       throw new Error("Denominator not allowed for non-ratio metric");
     }
     if (data.metricType === "quantile") {
+      if (!this.context.hasPremiumFeature("quantile-metrics")) {
+        throw new Error("Quantile metrics are a premium feature");
+      }
+
       if (!data.quantileSettings) {
         throw new Error("Must specify `quantileSettings` for Quantile metrics");
       }
