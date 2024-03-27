@@ -28,12 +28,13 @@ export async function getLicenseData(req: AuthRequest, res: Response) {
 
   let licenseData;
 
-  // TODO: Get rid of updateSubscriptionInDb one we have moved the license off the organizations
-  if (req.organization?.subscription) {
-    await updateSubscriptionInDb(req.organization.subscription.id);
-  } else {
+  if (req.organization?.licenseKey) {
     // Force refresh the license data
     licenseData = await initializeLicenseForOrg(req.organization, true);
+  } else if (req.organization?.subscription) {
+    // TODO: Get rid of updateSubscriptionInDb one we have moved the license off the organizations
+    // This is to update the subscription data in the organization from stripe if they have it
+    await updateSubscriptionInDb(req.organization.subscription.id);
   }
 
   return res.status(200).json({
