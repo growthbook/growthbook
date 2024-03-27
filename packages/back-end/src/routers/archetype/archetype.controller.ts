@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import { orgHasPremiumFeature } from "enterprise";
+import { filterEnvironmentsByFeature } from "shared/util";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse, PrivateApiErrorResponse } from "../../../types/api";
 import {
@@ -110,7 +111,8 @@ export const getArchetypeAndEval = async (
   if (archetype.length) {
     const groupMap = await getSavedGroupMap(org);
     const experimentMap = await getAllPayloadExperiments(context);
-    const environments = getEnvironments(org);
+    const allEnvironments = getEnvironments(org);
+    const environments = filterEnvironmentsByFeature(allEnvironments, feature);
 
     archetype.forEach((arch) => {
       try {

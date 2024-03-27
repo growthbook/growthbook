@@ -2,7 +2,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import { useState, useMemo } from "react";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import isEqual from "lodash/isEqual";
-import { filterEnvironmentsByFeature } from "shared/dist/util";
+import { filterEnvironmentsByFeature } from "shared/util";
 import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";

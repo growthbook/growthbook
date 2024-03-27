@@ -1659,17 +1659,20 @@ export async function deleteFeatureById(
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
-  const { environments } = context;
 
   const feature = await getFeature(context, id);
 
   if (feature) {
+    const allEnvironments = getEnvironments(context.org);
+    const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+    const environmentsIds = environments.map((e) => e.id);
+
     req.checkPermissions("manageFeatures", feature.project);
     req.checkPermissions("createFeatureDrafts", feature.project);
     req.checkPermissions(
       "publishFeatures",
       feature.project,
-      getEnabledEnvironments(feature, environments)
+      getEnabledEnvironments(feature, environmentsIds)
     );
     await deleteFeature(context, feature);
     await req.audit({
@@ -1722,7 +1725,8 @@ export async function postFeatureEvaluate(
 
   const groupMap = await getSavedGroupMap(org);
   const experimentMap = await getAllPayloadExperiments(context);
-  const environments = getEnvironments(org);
+  const allEnvironments = getEnvironments(org);
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const results = evaluateFeature({
     feature,
     revision,
@@ -1746,17 +1750,21 @@ export async function postFeatureArchive(
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
-  const { environments } = context;
   const feature = await getFeature(context, id);
 
   if (!feature) {
     throw new Error("Could not find feature");
   }
+
+  const allEnvironments = getEnvironments(context.org);
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+  const environmentsIds = environments.map((e) => e.id);
+
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions(
     "publishFeatures",
     feature.project,
-    getEnabledEnvironments(feature, environments)
+    getEnabledEnvironments(feature, environmentsIds)
   );
   const updatedFeature = await archiveFeature(
     context,
