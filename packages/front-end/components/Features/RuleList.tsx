@@ -89,7 +89,7 @@ export default function RuleList({
   const canEdit =
     !locked &&
     permissions.check("manageFeatures", feature.project) &&
-    permissionsUtil.canCreateFeatureDrafts(feature);
+    permissionsUtil.canManageFeatureDrafts(feature);
 
   return (
     <DndContext

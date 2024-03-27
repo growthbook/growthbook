@@ -83,7 +83,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const canEdit =
       !locked &&
       permissions.check("manageFeatures", feature.project) &&
-      permissionsUtil.canCreateFeatureDrafts(feature);
+      permissionsUtil.canManageFeatureDrafts(feature);
 
     const upcomingScheduleRule = getUpcomingScheduleRule(rule);
 

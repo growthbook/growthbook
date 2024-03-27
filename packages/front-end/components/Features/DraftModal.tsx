@@ -171,7 +171,7 @@ export default function DraftModal({
       closeCta="Cancel"
       size="max"
       secondaryCTA={
-        permissionsUtil.canCreateFeatureDrafts(feature) ? (
+        permissionsUtil.canManageFeatureDrafts(feature) ? (
           <Button
             color="outline-danger"
             onClick={async () => {

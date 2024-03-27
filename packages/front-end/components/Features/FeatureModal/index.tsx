@@ -174,7 +174,7 @@ export default function FeatureModal({
   let disabledMessage: string | undefined;
 
   if (
-    !permissionsUtil.canCreateFeatureDrafts({
+    !permissionsUtil.canManageFeatureDrafts({
       project: featureToDuplicate?.project || project,
     })
   ) {

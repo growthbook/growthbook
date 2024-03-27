@@ -277,7 +277,7 @@ export default function FeaturesOverview({
     (!isLive || drafts.length > 0);
 
   const canEdit = permissions.check("manageFeatures", projectId);
-  const canEditDrafts = permissionsUtil.canCreateFeatureDrafts(feature);
+  const canEditDrafts = permissionsUtil.canManageFeatureDrafts(feature);
   const renderDraftBannerCopy = () => {
     if (isPendingReview) {
       return (

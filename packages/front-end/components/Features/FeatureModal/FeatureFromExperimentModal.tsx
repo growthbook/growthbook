@@ -175,7 +175,7 @@ export default function FeatureFromExperimentModal({
   let disabledMessage: string | undefined;
 
   if (
-    !permissionsUtil.canCreateFeatureDrafts({
+    !permissionsUtil.canManageFeatureDrafts({
       project: experiment.project || project,
     })
   ) {

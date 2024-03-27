@@ -370,7 +370,7 @@ export async function postFeatures(
 
   req.checkPermissions("manageFeatures", otherProps.project);
   if (
-    !context.permissions.canCreateFeatureDrafts({ project: otherProps.project })
+    !context.permissions.canManageFeatureDrafts({ project: otherProps.project })
   ) {
     context.permissions.throwPermissionError();
   }
@@ -473,7 +473,7 @@ export async function postFeatureRebase(
     throw new Error("Could not find feature");
   }
   req.checkPermissions("manageFeatures", feature.project);
-  if (!context.permissions.canCreateFeatureDrafts(feature)) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -555,7 +555,7 @@ export async function postFeatureRequestReview(
   if (!feature) {
     throw new Error("Could not find feature");
   }
-  if (!context.permissions.canCreateFeatureDrafts(feature)) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -857,7 +857,7 @@ export async function postFeatureFork(
   }
 
   req.checkPermissions("manageFeatures", feature.project);
-  if (!context.permissions.canCreateFeatureDrafts(feature)) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -903,7 +903,7 @@ export async function postFeatureDiscard(
   }
 
   req.checkPermissions("manageFeatures", feature.project);
-  if (!context.permissions.canCreateFeatureDrafts(feature)) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -947,7 +947,7 @@ export async function postFeatureRule(
   }
 
   req.checkPermissions("manageFeatures", feature.project);
-  if (!context.permissions.canCreateFeatureDrafts(feature)) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -1256,7 +1256,7 @@ export async function putRevisionComment(
   }
 
   req.checkPermissions("manageFeatures", feature.project);
-  if (!context.permissions.canCreateFeatureDrafts(feature)) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -1298,7 +1298,7 @@ export async function postFeatureDefaultValue(
   }
 
   req.checkPermissions("manageFeatures", feature.project);
-  if (!context.permissions.canCreateFeatureDrafts(feature)) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -1326,7 +1326,7 @@ export async function postFeatureSchema(
   }
 
   req.checkPermissions("manageFeatures", feature.project);
-  if (!context.permissions.canCreateFeatureDrafts(feature)) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -1371,7 +1371,7 @@ export async function putFeatureRule(
   }
 
   req.checkPermissions("manageFeatures", feature.project);
-  if (!context.permissions.canCreateFeatureDrafts(feature)) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -1461,7 +1461,7 @@ export async function postFeatureMoveRule(
   }
 
   req.checkPermissions("manageFeatures", feature.project);
-  if (!context.permissions.canCreateFeatureDrafts(feature)) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -1528,7 +1528,7 @@ export async function deleteFeatureRule(
   }
 
   req.checkPermissions("manageFeatures", feature.project);
-  if (!context.permissions.canCreateFeatureDrafts(feature)) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -1641,7 +1641,7 @@ export async function deleteFeatureById(
 
   if (feature) {
     req.checkPermissions("manageFeatures", feature.project);
-    if (!context.permissions.canCreateFeatureDrafts(feature)) {
+    if (!context.permissions.canManageFeatureDrafts(feature)) {
       context.permissions.throwPermissionError();
     }
     req.checkPermissions(
