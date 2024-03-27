@@ -22,10 +22,14 @@ export default function ExperimentSettings({
   updateCronString: (value: string) => void;
   hasCommercialFeature: (feature: string) => boolean;
 }) {
+  const { hasCommercialFeature } = useUser();
   const form = useFormContext();
 
-  const [editChecklistOpen, setEditChecklistOpen] = useState(false);
-  const { hasCommercialFeature } = useUser();
+  const queryParams = new URLSearchParams(window.location.search);
+
+  const [editChecklistOpen, setEditChecklistOpen] = useState(
+    () => queryParams.get("editCheckListModal") || false
+  );
 
   const srmThreshold = form.watch("srmThreshold");
   const srmHighlightColor =

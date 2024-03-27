@@ -45,6 +45,9 @@ const ExperimentPage = (): ReactElement => {
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
+  const [checklistItemsRemaining, setChecklistItemsRemaining] = useState<
+    number | null
+  >(null);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -239,6 +242,8 @@ const ExperimentPage = (): ReactElement => {
             editPhases={editPhases}
             editPhase={editPhase}
             editTargeting={editTargeting}
+            checklistItemsRemaining={checklistItemsRemaining}
+            setChecklistItemsRemaining={setChecklistItemsRemaining}
           />
         </SnapshotProvider>
       </div>

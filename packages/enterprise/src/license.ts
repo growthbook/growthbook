@@ -778,7 +778,7 @@ function shouldLimitAccess(org: MinimalOrganization): boolean {
     return true;
   }
 
-  if (!licenseData.emailVerified) {
+  if (org.licenseKey?.startsWith("license") && !licenseData.emailVerified) {
     return true;
   }
 
