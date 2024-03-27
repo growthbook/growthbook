@@ -136,6 +136,20 @@ export async function getStaleQueries(): Promise<
   return docs.map((doc) => ({ id: doc.id, organization: doc.organization }));
 }
 
+export async function getRunningQueriesCount({
+  organization,
+}: {
+  organization: string;
+}): Promise<{
+  count: number;
+}> {
+  const count = await QueryModel.countDocuments({
+    organization,
+    status: "running",
+  });
+  return { count };
+}
+
 export async function createNewQuery({
   organization,
   datasource,

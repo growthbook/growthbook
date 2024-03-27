@@ -42,6 +42,25 @@ export async function findUserById(id: string): Promise<UserInterface | null> {
   return user ? user.toJSON<UserDocument>() : null;
 }
 
+export async function findUsersByIds(ids: string[]): Promise<UserInterface[]> {
+  const users: UserDocument[] = await UserModel.find({
+    id: { $in: ids },
+  });
+  return users.map((u) => u.toJSON<UserDocument>());
+}
+
+export async function updateUserById(
+  id: string,
+  updates: Partial<UserInterface>
+): Promise<UserInterface | null> {
+  const user = await UserModel.findOne({ id });
+  if (!user) throw new Error("Could not find user");
+  await user.update({
+    ...updates,
+  });
+  return await UserModel.findOne({ id });
+}
+
 export async function deleteUser(id: string): Promise<void> {
   await UserModel.deleteOne({ id });
 }
