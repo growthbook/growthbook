@@ -212,6 +212,7 @@ export interface Context {
   navigateDelay?: number;
   antiFlicker?: boolean;
   antiFlickerTimeout?: number;
+  isBrowser?: boolean;
 }
 
 export type SubscriptionFunction = (
