@@ -2643,3 +2643,205 @@ describe("PermissionsUtilClass.canAddComment check", () => {
     expect(permissions.canAddComment([])).toEqual(true);
   });
 });
+
+describe("PermissionsUtilClass.canByPassApprovalChecks", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("User with experimenter role unable to bypassApprovalCheck", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canBypassApprovalChecks({ project: "" })).toEqual(false);
+  });
+
+  it("User with admin role able to bypassApprovalCheck", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("admin", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canBypassApprovalChecks({ project: "" })).toEqual(true);
+  });
+});
+
+describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("User with experimenter role able to reviewFeatureDrafts", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canReviewFeatureDrafts({ project: "" })).toEqual(true);
+  });
+
+  it("User with engineer role able to reviewFeatureDrafts", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canReviewFeatureDrafts({ project: "" })).toEqual(true);
+  });
+
+  it("User with anaylst role able to reviewFeatureDrafts", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canReviewFeatureDrafts({ project: "" })).toEqual(false);
+  });
+
+  it("User with global readonly role, but experimenter role on project 'abc123', should be able to reivew features in project 'abc123'", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("experimenter", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(permissions.canReviewFeatureDrafts({ project: "abc123" })).toEqual(
+      true
+    );
+  });
+
+  it("User with global experimenter role, but readonly role on project 'abc123', should be able to reivew features in project 'abc123'", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("readonly", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(permissions.canReviewFeatureDrafts({ project: "abc123" })).toEqual(
+      false
+    );
+  });
+
+  it("User with admin role able to bypassApprovalCheck", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("admin", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canReviewFeatureDrafts({ project: "" })).toEqual(true);
+  });
+});

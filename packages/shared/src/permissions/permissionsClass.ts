@@ -1,3 +1,4 @@
+import { FeatureInterface } from "back-end/types/feature";
 import { MetricInterface } from "back-end/types/metric";
 import { Permission, UserPermissions } from "back-end/types/organization";
 import { READ_ONLY_PERMISSIONS } from "./permissions.utils";
@@ -37,6 +38,24 @@ export class Permissions {
     metric: Pick<MetricInterface, "projects">
   ): boolean => {
     return this.checkProjectFilterPermission(metric, "createMetrics");
+  };
+
+  public canBypassApprovalChecks = (
+    feature: Pick<FeatureInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: feature.project ? [feature.project] : [] },
+      "bypassApprovalChecks"
+    );
+  };
+
+  public canReviewFeatureDrafts = (
+    feature: Pick<FeatureInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: feature.project ? [feature.project] : [] },
+      "canReview"
+    );
   };
 
   public canAddComment = (projects: string[]): boolean => {
