@@ -70,7 +70,8 @@ export default function EditPhaseModal({
               <>
                 Leave blank if still running.{" "}
                 <a
-                  href="#"
+                  role="button"
+                  className="a"
                   onClick={(e) => {
                     e.preventDefault();
                     form.setValue("dateEnded", "");
