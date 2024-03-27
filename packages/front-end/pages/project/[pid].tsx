@@ -16,6 +16,7 @@ import MemberList from "@/components/Settings/Team/MemberList";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 function hasChanges(value: ProjectSettings, existing: ProjectSettings) {
   if (!existing) return true;
@@ -44,7 +45,8 @@ const ProjectPage: FC = () => {
   const [originalValue, setOriginalValue] = useState<ProjectSettings>({});
 
   const permissions = usePermissions();
-  const canEditSettings = permissions.check("manageProjects", pid);
+  const permissionsUtil = usePermissionsUtil();
+  const canEditSettings = permissionsUtil.canUpdateProject(pid);
   // todo: should this also be project scoped?
   const canManageTeam = permissions.check("manageTeam");
 
