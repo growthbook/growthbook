@@ -56,19 +56,6 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
   }
 
   if (props.superAdmin && !superAdmin) return null;
-  if (props.permissions) {
-    let allowed = false;
-    for (let i = 0; i < props.permissions.length; i++) {
-      if (permissions.check(props.permissions[i] as GlobalPermission)) {
-        allowed = true;
-      }
-    }
-    if (!allowed) return null;
-  }
-
-  if (props.permissionCallbacks) {
-    // call each callback
-  }
 
   if (props.multiOrgOnly && !isMultiOrg()) {
     return null;
@@ -77,6 +64,49 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
     return null;
   }
   if (props.selfHostedOnly && isCloud()) {
+    return null;
+  }
+
+  const permittedSubLinks: SidebarLinkProps[] = [];
+
+  if (props.subLinks) {
+    props.subLinks.forEach((l) => {
+      if (l.superAdmin && !superAdmin) return null;
+
+      if (l.multiOrgOnly && !isMultiOrg()) {
+        return null;
+      }
+      if (l.cloudOnly && !isCloud()) {
+        return null;
+      }
+      if (l.selfHostedOnly && isCloud()) {
+        return null;
+      }
+      //TODO: Update this to instead call the permission callback
+      if (l.permissions) {
+        for (let i = 0; i < l.permissions.length; i++) {
+          if (!permissions.check(l.permissions[i] as GlobalPermission)) {
+            return null;
+          }
+        }
+      }
+      if (l.permissionCallbacks) {
+        for (let i = 0; i < l.permissionCallbacks.length; i++) {
+          console.log(
+            "result of permissionCallback",
+            l.permissionCallbacks[i]()
+          );
+          if (!permittedSubLinks.includes(l) && l.permissionCallbacks[i]()) {
+            permittedSubLinks.push(l);
+          }
+        }
+      } else {
+        permittedSubLinks.push(l);
+      }
+    });
+  }
+
+  if (props.subLinks && !permittedSubLinks.length) {
     return null;
   }
 
@@ -130,39 +160,18 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
           )}
         </a>
       </li>
-      {props.subLinks && (
+      {props.subLinks && permittedSubLinks && (
         <ul
           className={clsx(styles.sublinks, {
             [styles.open]: open || selected,
           })}
         >
-          {props.subLinks
+          {permittedSubLinks
             .filter(
               // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               (subLink) => !subLink.feature || growthbook.isOn(subLink.feature)
             )
             .map((l) => {
-              if (l.superAdmin && !superAdmin) return null;
-
-              if (l.permissions) {
-                for (let i = 0; i < l.permissions.length; i++) {
-                  if (
-                    !permissions.check(l.permissions[i] as GlobalPermission)
-                  ) {
-                    return null;
-                  }
-                }
-              }
-              if (l.multiOrgOnly && !isMultiOrg()) {
-                return null;
-              }
-              if (l.cloudOnly && !isCloud()) {
-                return null;
-              }
-              if (l.selfHostedOnly && isCloud()) {
-                return null;
-              }
-
               const sublinkSelected = l.path.test(path);
 
               return (

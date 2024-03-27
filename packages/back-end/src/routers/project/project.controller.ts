@@ -57,7 +57,7 @@ export const postProject = async (
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canCreateProject()) {
+  if (!context.permissions.canCreateProjects()) {
     context.permissions.throwPermissionError();
   }
   const { name, description } = req.body;

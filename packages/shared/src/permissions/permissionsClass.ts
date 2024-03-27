@@ -62,7 +62,7 @@ export class Permissions {
     return this.checkProjectFilterPermission({ projects }, "addComments");
   };
 
-  public canCreateProject = (): boolean => {
+  public canCreateProjects = (): boolean => {
     return this.checkProjectFilterPermission(
       { projects: [] },
       "manageProjects"

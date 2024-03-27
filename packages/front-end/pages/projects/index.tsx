@@ -30,7 +30,7 @@ const ProjectsPage: FC = () => {
   const { data: sdkConnectionsData } = useSDKConnections();
 
   const permissionsUtil = usePermissionsUtil();
-  const canCreateProjects = permissionsUtil.canCreateProject();
+  const canCreateProjects = permissionsUtil.canCreateProjects();
 
   return (
     <div className="container-fluid  pagecontents">
