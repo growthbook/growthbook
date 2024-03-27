@@ -35,6 +35,10 @@ export default class Redshift extends SqlIntegration {
   ensureFloat(col: string): string {
     return `${col}::float`;
   }
+  approxQuantile(value: string, quantile: string | number): string {
+    // approx behaves differently in redshift
+    return `PERCENTILE_CONT(${quantile}) WITHIN GROUP (ORDER BY ${value})`;
+  }
   getInformationSchemaTable(): string {
     return "SVV_COLUMNS";
   }

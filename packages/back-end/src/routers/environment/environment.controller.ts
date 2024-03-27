@@ -10,8 +10,6 @@ import { Environment } from "../../../types/organization";
 import { addEnvironmentToOrganizationEnvironments } from "../../util/environments";
 import { updateOrganization } from "../../models/OrganizationModel";
 
-// region POST /environment
-
 type CreateEnvironmentRequest = AuthRequest<{
   environment: Environment;
 }>;
@@ -19,6 +17,39 @@ type CreateEnvironmentRequest = AuthRequest<{
 type CreateEnvironmentResponse = {
   environment: Environment;
 };
+
+export const putEnvironments = async (
+  req: AuthRequest<{
+    environments: Environment[];
+  }>,
+  res: Response<{
+    environments: Environment[];
+  }>
+) => {
+  const { org } = getContextFromReq(req);
+  const environments = req.body.environments;
+
+  req.checkPermissions(
+    "manageEnvironments",
+    "",
+    environments.map((e) => e.id)
+  );
+
+  // Add each environment to the list if it doesn't exist yet
+  const updatedEnvironments = environments.reduce((acc, environment) => {
+    return addEnvironmentToOrganizationEnvironments(environment, acc, false);
+  }, getEnvironments(org));
+
+  await updateOrganization(org.id, {
+    settings: {
+      ...org.settings,
+      environments: updatedEnvironments,
+    },
+  });
+  res.json({ environments });
+};
+
+// region POST /environment
 
 /**
  * POST /environment
@@ -56,6 +87,7 @@ export const postEnvironment = async (
   try {
     await updateOrganization(org.id, {
       settings: {
+        ...org.settings,
         environments: updatedEnvironments,
       },
     });

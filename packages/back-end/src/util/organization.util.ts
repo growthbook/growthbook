@@ -31,6 +31,28 @@ function hasEnvScopedPermissions(userPermission: PermissionsObject): boolean {
   return false;
 }
 
+export function getEnvironmentIdsFromOrg(org: OrganizationInterface): string[] {
+  return getEnvironments(org).map((e) => e.id);
+}
+
+export function getEnvironments(org: OrganizationInterface) {
+  if (!org.settings?.environments || !org.settings?.environments?.length) {
+    return [
+      {
+        id: "dev",
+        description: "",
+        toggleOnList: true,
+      },
+      {
+        id: "production",
+        description: "",
+        toggleOnList: true,
+      },
+    ];
+  }
+  return org.settings.environments;
+}
+
 export function roleToPermissionMap(
   role: MemberRole | undefined,
   org: OrganizationInterface
@@ -330,6 +352,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageSavedGroups",
         "manageArchetype",
         "runExperiments",
+        "canReview",
         "manageVisualChanges",
       ],
     },
@@ -377,6 +400,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageFactTables",
         "runQueries",
         "editDatasourceSettings",
+        "canReview",
         "manageVisualChanges",
       ],
     },
@@ -400,3 +424,14 @@ export function getDefaultRole(
     }
   );
 }
+
+export const attributeDataTypes = [
+  "boolean",
+  "string",
+  "number",
+  "secureString",
+  "enum",
+  "string[]",
+  "number[]",
+  "secureString[]",
+] as const;

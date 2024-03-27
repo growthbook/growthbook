@@ -28,6 +28,10 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import HashVersionSelector, {
+  allConnectionsSupportBucketingV2,
+} from "@/components/Experiment/HashVersionSelector";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import TagsInput from "@/components/Tags/TagsInput";
@@ -149,6 +153,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const settings = useOrgSettings();
   const { refreshWatching } = useWatching();
 
+  const { data: sdkConnectionsData } = useSDKConnections();
+  const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
+    sdkConnectionsData?.connections,
+    project
+  );
+
   useEffect(() => {
     track("New Experiment Form", {
       source,
@@ -157,7 +167,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
-  const attributeSchema = useAttributeSchema();
+  const attributeSchema = useAttributeSchema(false, project);
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
@@ -174,7 +184,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       name: initialValue?.name || "",
       hypothesis: initialValue?.hypothesis || "",
       activationMetric: initialValue?.activationMetric || "",
-      hashVersion: initialValue?.hashVersion || 2,
+      hashVersion:
+        initialValue?.hashVersion || (hasSDKWithNoBucketingV2 ? 1 : 2),
       attributionModel:
         initialValue?.attributionModel ??
         settings?.attributionModel ??
@@ -458,8 +469,19 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     "Will be hashed together with the Experiment Id (tracking key) to determine which variation to assign"
                   }
                 />
-                <FallbackAttributeSelector form={form} />
+                <FallbackAttributeSelector
+                  form={form}
+                  attributeSchema={attributeSchema}
+                />
               </div>
+
+              {hasSDKWithNoBucketingV2 && (
+                <HashVersionSelector
+                  value={(form.watch("hashVersion") || 1) as 1 | 2}
+                  onChange={(v) => form.setValue("hashVersion", v)}
+                  project={project}
+                />
+              )}
 
               <hr />
               <SavedGroupTargetingField
@@ -473,6 +495,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 defaultValue={form.watch("phases.0.condition") || ""}
                 onChange={(value) => form.setValue("phases.0.condition", value)}
                 key={conditionKey}
+                project={project}
               />
               <hr />
               <PrerequisiteTargetingField
@@ -481,6 +504,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   form.setValue("phases.0.prerequisites", prerequisites)
                 }
                 environments={envs}
+                project={form.watch("project")}
                 setPrerequisiteTargetingSdkIssues={
                   setPrerequisiteTargetingSdkIssues
                 }

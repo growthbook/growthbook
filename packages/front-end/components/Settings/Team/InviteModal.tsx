@@ -1,15 +1,14 @@
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { MemberRoleWithProjects } from "back-end/types/organization";
-import Link from "next/link";
 import track from "@/services/track";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { useUser } from "@/services/UserContext";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import { useUser } from "@/services/UserContext";
 import RoleSelector from "./RoleSelector";
 import InviteModalSubscriptionInfo from "./InviteModalSubscriptionInfo";
 
@@ -23,7 +22,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   close,
 }) => {
   const { defaultRole } = useOrgSettings();
-  const { accountPlan } = useUser();
+  const { license, seatsInUse } = useUser();
 
   const form = useForm<{
     email: string[];
@@ -56,28 +55,34 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       : ""
   );
 
+  const [showContactSupport, setShowContactSupport] = useState(
+    license && license.hardCap && license.seats <= seatsInUse
+  );
+
   // Hit their free limit and needs to upgrade to invite more team members
   if (showUpgradeModal) {
-    // The <UpgradeModal> won't actually render for these plans, so show a generic modal instead
-    if (["pro", "pro_sso", "enterprise"].includes(accountPlan ?? "")) {
-      return (
-        <Modal open={true} close={close} size="md">
-          <div className="text-center my-3">
-            <div className="strong">{showUpgradeModal}</div>
-            <div className="mt-3">
-              To upgrade, please visit the{" "}
-              <Link href="/settings/billing">billing</Link> page.
-            </div>
-          </div>
-        </Modal>
-      );
-    }
     return (
       <UpgradeModal
         close={close}
         source="invite team"
         reason={showUpgradeModal}
       />
+    );
+  }
+
+  // Hit a hard cap and needs to contact sales to increase the number of seats on their license
+  if (showContactSupport) {
+    return (
+      <Modal open={true} close={close} size="md" header={"Reached seat limit"}>
+        <div className="my-3">
+          Whoops! You reached the seat limit on your license. To increase your
+          number of seats, please contact{" "}
+          <a href="mailto:sales@growthbook.io" target="_blank" rel="noreferrer">
+            sales@growthbook.io
+          </a>
+          .
+        </div>
+      </Modal>
     );
   }
 
@@ -89,6 +94,15 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       activeAndInvitedUsers + value.email.length > freeSeats
     ) {
       setShowUpgradeModal("Whoops! You reached your free seat limit.");
+      return;
+    }
+
+    if (
+      license &&
+      license.hardCap &&
+      license.seats < seatsInUse + value.email.length
+    ) {
+      setShowContactSupport(true);
       return;
     }
 

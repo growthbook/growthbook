@@ -20,7 +20,6 @@ import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import { GBAddCircle } from "@/components/Icons";
 import Results, { ResultsMetricFilters } from "@/components/Experiment/Results";
-import { StartExperimentBanner } from "@/components/Experiment/StartExperimentBanner";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -56,13 +55,8 @@ export default function ResultsTab({
   mutate,
   editMetrics,
   editResult,
-  newPhase,
   editPhases,
-  connections,
-  linkedFeatures,
   setTab,
-  visualChangesets,
-  editTargeting,
   isTabActive,
   safeToEdit,
   baselineRow,
@@ -196,17 +190,6 @@ export default function ResultsTab({
                 Your experiment is still in a <strong>draft</strong> state. You
                 must start the experiment first before seeing results.
               </div>
-
-              <StartExperimentBanner
-                experiment={experiment}
-                mutateExperiment={mutate}
-                linkedFeatures={linkedFeatures}
-                visualChangesets={visualChangesets}
-                editTargeting={editTargeting}
-                connections={connections}
-                openSetupTab={() => setTab("overview")}
-                newPhase={newPhase}
-              />
             </div>
           ) : (
             <>

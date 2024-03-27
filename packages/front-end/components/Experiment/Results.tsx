@@ -176,14 +176,12 @@ const Results: FC<{
           variations={variations}
           editPhases={editPhases}
           alwaysShowPhaseSelector={alwaysShowPhaseSelector}
-          statsEngine={statsEngine}
           regressionAdjustmentAvailable={regressionAdjustmentAvailable}
           regressionAdjustmentEnabled={regressionAdjustmentEnabled}
           regressionAdjustmentHasValidMetrics={
             regressionAdjustmentHasValidMetrics
           }
           onRegressionAdjustmentChange={onRegressionAdjustmentChange}
-          newUi={true}
           showMoreMenu={false}
           variationFilter={variationFilter}
           setVariationFilter={(v: number[]) => setVariationFilter?.(v)}

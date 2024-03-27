@@ -77,6 +77,11 @@ const sidebars = {
           id: "features/code-references",
           label: "Code References",
         },
+        {
+          type: "doc",
+          id: "features/approval-flows",
+          label: "Approval Flows",
+        },
       ],
     },
     {
@@ -97,6 +102,12 @@ const sidebars = {
           type: "doc",
           id: "visual-editor",
           label: "Visual Editor",
+        },
+        {
+          type: "doc",
+          id: "running-experiments/url-redirects",
+          label: "URL Redirects",
+          className: "pill-new",
         },
         {
           type: "doc",
@@ -329,11 +340,6 @@ const sidebars = {
               id: "statistics/aggregation",
               label: "Aggregate Data",
             },
-            {
-              type: "doc",
-              id: "statistics/carryover-bias",
-              label: "Carryover Bias",
-            },
           ],
         },
       ],
@@ -350,6 +356,7 @@ const sidebars = {
         { type: "doc", id: "lib/js", label: "Javascript" },
         { type: "doc", id: "lib/react", label: "React" },
         { type: "doc", id: "lib/vue", label: "Vue.js" },
+        { type: "doc", id: "lib/script-tag", label: "HTML Script Tag" },
         { type: "doc", id: "lib/php", label: "PHP)" },
         { type: "doc", id: "lib/ruby", label: "Ruby" },
         { type: "doc", id: "lib/python", label: "Python" },
@@ -440,7 +447,7 @@ const sidebars = {
         {
           type: "doc",
           id: "guide/importing",
-          label: "Importing data into GrowthBook",
+          label: "Migrate from LaunchDarkly",
         },
       ],
     },
@@ -514,6 +521,41 @@ const sidebars = {
           type: "doc",
           id: "account/audit-logs",
           label: "Audit Logs",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "Knowledge Base",
+      collapsed: true,
+      className: "top-divider",
+      items: [
+        {
+          type: "category",
+          label: "Experiments",
+          collapsed: false,
+          items: [
+            {
+              type: "doc",
+              id: "kb/experiments/troubleshooting-experiments",
+              label: "Troubleshooting Experiments",
+            },
+            {
+              type: "doc",
+              id: "kb/experiments/aa-tests",
+              label: "A/A Testing in GrowthBook",
+            },
+            {
+              type: "doc",
+              id: "kb/experiments/carryover-bias",
+              label: "Carryover Bias",
+            },
+            {
+              type: "doc",
+              id: "kb/experiments/holdouts",
+              label: "Holdouts in GrowthBook",
+            },
+          ],
         },
       ],
     },

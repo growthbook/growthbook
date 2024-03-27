@@ -42,8 +42,8 @@ export default function NewExperimentChecklistItem({
       propertyKey: "project",
     },
     {
-      value: "Add atleast 1 tag to this experiment",
-      label: "Add atleast 1 tag to this experiment",
+      value: "Add at least 1 tag to this experiment",
+      label: "Add at least 1 tag to this experiment",
       propertyKey: "tag",
     },
   ];

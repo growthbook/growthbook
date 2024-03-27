@@ -43,6 +43,7 @@ export interface Props {
   value: FeaturePrerequisite[];
   setValue: (prerequisites: FeaturePrerequisite[]) => void;
   feature?: FeatureInterface;
+  project?: string; // only used if feature is not provided
   revisions?: FeatureRevisionInterface[];
   version?: number;
   environments: string[];
@@ -53,6 +54,7 @@ export default function PrerequisiteTargetingField({
   value,
   setValue,
   feature,
+  project,
   revisions,
   version,
   environments,
@@ -67,7 +69,7 @@ export default function PrerequisiteTargetingField({
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithPrerequisites = getConnectionsSDKCapabilities({
     connections: sdkConnectionsData?.connections ?? [],
-    project: feature?.project ?? "",
+    project: (feature ? feature?.project : project) ?? "",
   }).includes("prerequisites");
 
   const { hasCommercialFeature } = useUser();
@@ -152,6 +154,8 @@ export default function PrerequisiteTargetingField({
           enabled: true,
         };
         if (newRevision) {
+          newRevision.rules[environments[0]] =
+            newRevision.rules[environments[0]] || [];
           newRevision.rules[environments[0]].push(fakeRule);
         } else {
           newFeature.environmentSettings[environments[0]].rules.push(fakeRule);
@@ -188,7 +192,10 @@ export default function PrerequisiteTargetingField({
 
   const featureOptions = features
     .filter((f) => f.id !== feature?.id)
-    .filter((f) => (f.project || "") === (feature?.project || ""))
+    .filter(
+      (f) =>
+        (f.project || "") === ((feature ? feature?.project : project) || "")
+    )
     .map((f) => {
       const conditional = Object.values(featuresStates[f.id]).some(
         (s) => s.state === "conditional"
@@ -222,7 +229,6 @@ export default function PrerequisiteTargetingField({
         <>
           {value.map((v, i) => {
             const parentFeature = features.find((f) => f.id === v.id);
-
             const prereqStates = prereqStatesArr[i];
             const hasConditionalState = Object.values(prereqStates || {}).some(
               (s) => s.state === "conditional"

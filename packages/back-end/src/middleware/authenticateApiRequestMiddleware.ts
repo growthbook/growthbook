@@ -1,15 +1,8 @@
 import { Request, Response, NextFunction } from "express";
-import {
-  getApiKeyReadAccessFilter,
-  getReadAccessFilter,
-  hasPermission,
-} from "shared/permissions";
+import { hasPermission } from "shared/permissions";
 import { ApiRequestLocals } from "../../types/api";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
-import {
-  getEnvironmentIdsFromOrg,
-  getOrganizationById,
-} from "../services/organizations";
+import { getOrganizationById } from "../services/organizations";
 import { getCustomLogProps } from "../util/logger";
 import { EventAuditUserApiKey } from "../events/event-types";
 import { isApiKeyForUserInOrganization } from "../util/api-key.util";
@@ -23,11 +16,11 @@ import {
   roleToPermissionMap,
 } from "../util/organization.util";
 import { ApiKeyInterface } from "../../types/apikey";
-import { insertAudit } from "../models/AuditModel";
 import { getTeamsForOrganization } from "../models/TeamModel";
 import { TeamInterface } from "../../types/team";
 import { getUserById } from "../services/users";
-import { initializeLicense } from "../services/licenseData";
+import { initializeLicenseForOrg } from "../services/licenseData";
+import { ReqContextClass } from "../services/context";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
@@ -128,19 +121,15 @@ export default function authenticateApiRequestMiddleware(
         apiKey: id || "unknown",
       };
 
-      req.context = {
+      req.context = new ReqContextClass({
         org,
-        userId: req.user?.id,
-        email: req.user?.email,
-        environments: getEnvironmentIdsFromOrg(org),
-        userName: req.user?.name,
-        readAccessFilter: req.user
-          ? getReadAccessFilter(
-              getUserPermissions(req.user, req.organization, teams)
-            )
-          : getApiKeyReadAccessFilter(role),
         auditUser: eventAudit,
-      };
+        teams,
+        user: req.user,
+        role: role as MemberRole | undefined,
+        apiKey: id,
+        req,
+      });
 
       // Check permissions for user API keys
       req.checkPermissions = (
@@ -175,18 +164,11 @@ export default function authenticateApiRequestMiddleware(
 
       // Add audit method to req
       req.audit = async (data) => {
-        await insertAudit({
-          ...data,
-          user: {
-            apiKey: req.apiKey,
-          },
-          organization: org.id,
-          dateCreated: new Date(),
-        });
+        await req.context.auditLog(data);
       };
 
       // init license for org if it exists
-      await initializeLicense(req.organization.licenseKey);
+      await initializeLicenseForOrg(req.organization);
 
       // Continue to the actual request handler
       next();

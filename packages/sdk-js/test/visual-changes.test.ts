@@ -2,7 +2,7 @@ import { GrowthBook } from "../src";
 import { UrlTarget, UrlTargetType } from "../src/types/growthbook";
 import { isURLTargeted } from "../src/util";
 
-function sleep(ms = 20) {
+export function sleep(ms = 20) {
   return new Promise((res) => setTimeout(res, ms));
 }
 

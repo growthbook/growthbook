@@ -97,7 +97,6 @@ import { findProjectById } from "../models/ProjectModel";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
-import { getFactMetric } from "../models/FactMetricModel";
 import { FactTableMap } from "../models/FactTableModel";
 import { StatsEngine } from "../../types/stats";
 import { getFeaturesByIds } from "../models/FeatureModel";
@@ -137,7 +136,7 @@ export async function getExperimentMetricById(
   metricId: string
 ): Promise<ExperimentMetricInterface | null> {
   if (isFactMetricId(metricId)) {
-    return getFactMetric(context, metricId);
+    return context.models.factMetrics.getById(metricId);
   }
   return getMetricById(context, metricId);
 }
@@ -1963,10 +1962,10 @@ export function visualChangesetsHaveChanges({
 }): boolean {
   // If there are visual change differences
   const oldVisualChanges = oldVisualChangeset.visualChanges.map(
-    ({ css, domMutations }) => ({ css, domMutations })
+    ({ css, js, domMutations }) => ({ css, js, domMutations })
   );
   const newVisualChanges = newVisualChangeset.visualChanges.map(
-    ({ css, domMutations }) => ({ css, domMutations })
+    ({ css, js, domMutations }) => ({ css, js, domMutations })
   );
   if (!isEqual(oldVisualChanges, newVisualChanges)) {
     return true;

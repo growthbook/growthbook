@@ -1,12 +1,36 @@
 import { NotificationEventName } from "back-end/src/events/base-types";
 import React, { ReactNode, useMemo } from "react";
 import { BsCheck, BsQuestion, BsX } from "react-icons/bs";
+import {
+  EventWebHookPayloadType,
+  EventWebHookMethod,
+} from "back-end/types/event-webhook";
+
+export type {
+  EventWebHookPayloadType,
+  EventWebHookMethod,
+} from "back-end/types/event-webhook";
+
+export const eventWebHookPayloadTypes = [
+  "raw",
+  "slack",
+  "discord",
+  "ms-teams",
+] as const;
+
+export const eventWebHookMethods = ["POST", "PUT", "PATCH"] as const;
 
 export type EventWebHookEditParams = {
   name: string;
   url: string;
   enabled: boolean;
   events: NotificationEventName[];
+  tags: string[];
+  environments: string[];
+  projects: string[];
+  payloadType: EventWebHookPayloadType;
+  method: EventWebHookMethod;
+  headers: string;
 };
 
 export const notificationEventNames = [
