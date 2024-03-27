@@ -169,7 +169,7 @@ export default function FeaturesSettings() {
                           label: e.id,
                         };
                       })}
-                      placeholder="Select Environments Requring Review."
+                      placeholder="All Environments"
                     />
                     <label
                       className="d-block mt-3 h5"
