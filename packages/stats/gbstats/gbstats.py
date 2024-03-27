@@ -45,7 +45,7 @@ from gbstats.models.settings import (
 from gbstats.models.statistics import (
     ProportionStatistic,
     QuantileStatistic,
-    QuantileStatisticClustered,
+    QuantileClusteredStatistic,
     RatioStatistic,
     RegressionAdjustedStatistic,
     SampleMeanStatistic,
@@ -224,10 +224,10 @@ def get_configured_test(
         stat_a_proportion = isinstance(stat_a, ProportionStatistic)
         stat_b_proportion = isinstance(stat_b, ProportionStatistic)
         stat_a_quantile = isinstance(
-            stat_a, (QuantileStatistic, QuantileStatisticClustered)
+            stat_a, (QuantileStatistic, QuantileClusteredStatistic)
         )
         stat_b_quantile = isinstance(
-            stat_b, (QuantileStatistic, QuantileStatisticClustered)
+            stat_b, (QuantileStatistic, QuantileClusteredStatistic)
         )
 
         if stat_a_proportion and stat_b_proportion:

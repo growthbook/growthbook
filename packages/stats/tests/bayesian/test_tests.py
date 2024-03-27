@@ -20,7 +20,6 @@ from gbstats.models.statistics import (
     ProportionStatistic,
     SampleMeanStatistic,
     QuantileStatistic,
-    QuantileStatisticClustered,
 )
 from gbstats.models.tests import Uplift
 
@@ -164,8 +163,6 @@ class TestNorm(TestCase):
 class TestGaussianEffectABTest(TestCase):
     def test_bayesian_effect_ab_test(self):
         nu = 0.9
-        n_clusters = 10000
-        alpha = 0.05
         n_c = 11054
         n_t = 10861
         quantile_hat_c = 7.157987489967789
@@ -174,17 +171,6 @@ class TestGaussianEffectABTest(TestCase):
         quantile_lower_t = 7.64180598628119
         quantile_upper_c = 7.217194843758751
         quantile_upper_t = 7.747193868770344
-
-        main_sum_c = 9948.0
-        main_sum_t = 9774.0
-        denominator_sum_c = 11054.0
-        denominator_sum_t = 10861.0
-        main_sum_squares_c = 13574.870870870867
-        main_sum_squares_t = 13190.114114114094
-        denominator_sum_squares_c = 10815.8998998999
-        denominator_sum_squares_t = 9893.572572572573
-        denominator_sum_product_c = 9394.202202202203
-        denominator_sum_product_t = 9206.792792792792
 
         gaussian_flat_prior = GaussianPrior(variance=float(1e6), pseudo_n=1)
         gaussian_inf_prior = GaussianPrior(variance=float(1), pseudo_n=1)
@@ -208,11 +194,6 @@ class TestGaussianEffectABTest(TestCase):
             quantile_hat=quantile_hat_c,
             quantile_lower=quantile_lower_c,
             quantile_upper=quantile_upper_c,
-            main_sum=main_sum_c,
-            denominator_sum=denominator_sum_c,
-            main_sum_squares=main_sum_squares_c,
-            denominator_sum_squares=denominator_sum_squares_c,
-            main_denominator_sum_product=denominator_sum_product_c,
         )
         q_stat_t = QuantileStatistic(
             n=n_t,
@@ -221,11 +202,6 @@ class TestGaussianEffectABTest(TestCase):
             quantile_hat=quantile_hat_t,
             quantile_lower=quantile_lower_t,
             quantile_upper=quantile_upper_t,
-            main_sum=main_sum_t,
-            denominator_sum=denominator_sum_t,
-            main_sum_squares=main_sum_squares_t,
-            denominator_sum_squares=denominator_sum_squares_t,
-            main_denominator_sum_product=denominator_sum_product_t,
         )
 
         b_flat = GaussianEffectABTest(
