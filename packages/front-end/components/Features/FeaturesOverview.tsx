@@ -154,6 +154,7 @@ export default function FeaturesOverview({
 
   // Make sure you can't access an invalid env tab, since active env tab is persisted via localStorage
   useEffect(() => {
+    if (!envs?.length) return;
     if (!envs.includes(env)) {
       setEnv(envs[0]);
     }
