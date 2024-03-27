@@ -1190,7 +1190,7 @@ export async function putOrganization(
           }
         });
 
-        // Check if any environments' projects have been changed (may require SDK Connection updates)
+        // Check if any environments' projects have been changed (may require webhook triggers)
         existingEnvironments.forEach((env) => {
           const oldProjects = env.projects || [];
           const newProjects =
