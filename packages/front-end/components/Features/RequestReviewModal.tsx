@@ -1,7 +1,11 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { useState, useMemo, useRef } from "react";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { autoMerge, mergeResultHasChanges } from "shared/util";
+import {
+  autoMerge,
+  filterEnvironmentsByFeature,
+  mergeResultHasChanges,
+} from "shared/util";
 import { useForm } from "react-hook-form";
 import { EventAuditUserLoggedIn } from "back-end/src/events/event-types";
 import { getCurrentUser } from "@/services/UserContext";
@@ -33,7 +37,8 @@ export default function RequestReviewModal({
   mutate,
   onDiscard,
 }: Props) {
-  const environments = useEnvironments();
+  const allEnvironments = useEnvironments();
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const [showSubmitReview, setShowSumbmitReview] = useState(false);
   const [adminPublish, setAdminPublish] = useState(false);
   const revisionLogRef = useRef<MutateLog>(null);

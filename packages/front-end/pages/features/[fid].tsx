@@ -1,10 +1,11 @@
 import { useRouter } from "next/router";
-import React, { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
+  filterEnvironmentsByFeature,
   getDependentExperiments,
   getDependentFeatures,
   mergeRevision,
@@ -32,8 +33,7 @@ export default function FeaturePage() {
   const [version, setVersion] = useState<number | null>(null);
 
   const { features } = useFeaturesList(false);
-  const environments = useEnvironments();
-  const envs = environments.map((e) => e.id);
+  const allEnvironments = useEnvironments();
 
   let extraQueryString = "";
   // Version being forced via querystring
@@ -106,6 +106,15 @@ export default function FeaturePage() {
     );
     setVersion(draft ? draft.version : baseFeatureVersion);
   }, [revisions, version, router.query, baseFeatureVersion]);
+
+  const environments = useMemo(
+    () =>
+      baseFeature
+        ? filterEnvironmentsByFeature(allEnvironments, baseFeature)
+        : [],
+    [allEnvironments, baseFeature]
+  );
+  const envs = environments.map((e) => e.id);
 
   const revision = useMemo<FeatureRevisionInterface | null>(() => {
     if (!revisions || !version || !baseFeature) return null;

@@ -175,7 +175,7 @@ export default function RuleModal({
       newRevision.rules[environment][i] = newRule;
     }
     const featuresMap = new Map(features.map((f) => [f.id, f]));
-    return isFeatureCyclic(newFeature, featuresMap, newRevision);
+    return isFeatureCyclic(newFeature, featuresMap, newRevision, [environment]);
   }, [
     // eslint-disable-next-line react-hooks/exhaustive-deps
     JSON.stringify(prerequisites),

@@ -551,7 +551,7 @@ export type FeatureDefinitionArgs = {
   context: ReqContext | ApiReqContext;
   capabilities: SDKCapability[];
   environment?: string;
-  projects?: string[];
+  projects?: string[] | null;
   encryptionKey?: string;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
@@ -587,6 +587,14 @@ export async function getFeatureDefinitions({
       environment,
     });
     if (cached) {
+      if (projects === null) {
+        // null projects have nothing in the payload. They result from environment project scrubbing.
+        return {
+          features: {},
+          experiments: [],
+          dateUpdated: cached.dateUpdated,
+        };
+      }
       let attributes: SDKAttributeSchema | undefined = undefined;
       let secureAttributeSalt: string | undefined = undefined;
       if (hashSecureAttributes) {
@@ -686,6 +694,15 @@ export async function getFeatureDefinitions({
     featureDefinitions,
     experimentsDefinitions,
   });
+
+  if (projects === null) {
+    // null projects have nothing in the payload. They result from environment project scrubbing.
+    return {
+      features: {},
+      experiments: [],
+      dateUpdated: new Date(),
+    };
+  }
 
   return await getFeatureDefinitionsResponse({
     features: featureDefinitions,

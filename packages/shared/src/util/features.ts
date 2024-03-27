@@ -13,6 +13,8 @@ import {
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { evalCondition } from "@growthbook/growthbook";
+import { Environment } from "back-end/types/organization";
+import { ProjectInterface } from "back-end/types/project";
 import { getValidDate } from "../dates";
 import { getMatchingRules, includeExperimentInPayload } from ".";
 
@@ -536,7 +538,8 @@ export function getDefaultPrerequisiteCondition(
 export function isFeatureCyclic(
   feature: FeatureInterface,
   featuresMap: Map<string, FeatureInterface>,
-  revision?: FeatureRevisionInterface
+  revision?: FeatureRevisionInterface,
+  envs?: string[]
 ): [boolean, string | null] {
   const visited = new Set<string>();
   const stack = new Set<string>();
@@ -547,6 +550,9 @@ export function isFeatureCyclic(
       newFeature.environmentSettings[env].rules = revision?.rules?.[env] || [];
     }
   }
+  if (!envs) {
+    envs = Object.keys(newFeature.environmentSettings || {});
+  }
 
   const visit = (feature: FeatureInterface): [boolean, string | null] => {
     if (stack.has(feature.id)) return [true, feature.id];
@@ -556,9 +562,12 @@ export function isFeatureCyclic(
     visited.add(feature.id);
 
     const prerequisiteIds = (feature.prerequisites || []).map((p) => p.id);
-    for (const env of Object.values(feature.environmentSettings || {})) {
+    for (const eid in feature.environmentSettings || {}) {
+      if (!envs?.includes(eid)) continue;
+      const env = feature.environmentSettings?.[eid];
+      if (!env?.rules) continue;
       for (const rule of env.rules || []) {
-        if (rule.prerequisites?.length) {
+        if (rule?.prerequisites?.length) {
           const rulePrerequisiteIds = rule.prerequisites.map((p) => p.id);
           prerequisiteIds.push(...rulePrerequisiteIds);
         }
@@ -594,7 +603,7 @@ export function evaluatePrerequisiteState(
 ): PrerequisiteStateResult {
   let isTopLevel = true;
   if (!skipCyclicCheck) {
-    if (isFeatureCyclic(feature, featuresMap)[0])
+    if (isFeatureCyclic(feature, featuresMap, undefined, [env])[0])
       return { state: "cyclic", value: null };
   }
 
@@ -725,4 +734,108 @@ export function getParsedPrereqCondition(condition: string) {
     }
   }
   return undefined;
+}
+
+export function filterProjectsByEnvironment(
+  projects: string[],
+  environment?: Environment,
+  applyEnvironmentProjectsToAll: boolean = false
+): string[] {
+  if (!environment) return projects;
+  const environmentHasProjects = (environment?.projects?.length ?? 0) > 0;
+  if (
+    applyEnvironmentProjectsToAll &&
+    environmentHasProjects &&
+    !projects.length
+  ) {
+    return environment.projects || projects;
+  }
+  return projects.filter((p) => {
+    if (!environmentHasProjects) return true;
+    return environment?.projects?.includes(p);
+  });
+}
+
+export function filterProjectsByEnvironmentWithNull(
+  projects: string[],
+  environment?: Environment,
+  applyEnvironmentProjectsToAll: boolean = false
+): string[] | null {
+  let filteredProjects: string[] | null = filterProjectsByEnvironment(
+    projects,
+    environment,
+    applyEnvironmentProjectsToAll
+  );
+  // If projects were scrubbed by environment and nothing is left, then we should
+  // return null (no projects) instead of [] (all projects)
+  if (projects.length && !filteredProjects.length) {
+    filteredProjects = null;
+  }
+  return filteredProjects;
+}
+
+export function featureHasEnvironment(
+  feature: FeatureInterface,
+  environment: Environment
+): boolean {
+  const featureProjects = feature.project ? [feature.project] : [];
+  if (featureProjects.length === 0) return true;
+  const filteredProjects = filterProjectsByEnvironment(
+    featureProjects,
+    environment,
+    true
+  );
+  return filteredProjects.length > 0;
+}
+
+export function filterEnvironmentsByExperiment(
+  environments: Environment[],
+  experiment: ExperimentInterfaceStringDates
+): Environment[] {
+  return environments.filter((env) =>
+    experimentHasEnvironment(experiment, env)
+  );
+}
+
+export function experimentHasEnvironment(
+  experiment: ExperimentInterfaceStringDates,
+  environment: Environment
+): boolean {
+  const experimentProjects = experiment.project ? [experiment.project] : [];
+  if (experimentProjects.length === 0) return true;
+  const filteredProjects = filterProjectsByEnvironment(
+    experimentProjects,
+    environment,
+    true
+  );
+  return filteredProjects.length > 0;
+}
+
+export function filterEnvironmentsByFeature(
+  environments: Environment[],
+  feature: FeatureInterface
+): Environment[] {
+  return environments.filter((env) => featureHasEnvironment(feature, env));
+}
+
+export function getDisallowedProjectIds(
+  projects: string[],
+  environment?: Environment
+) {
+  if (!environment) return [];
+  return projects.filter((p) => {
+    if ((environment?.projects?.length ?? 0) === 0) return false;
+    if (!environment?.projects?.includes(p)) return true;
+    return false;
+  });
+}
+
+export function getDisallowedProjects(
+  allProjects: ProjectInterface[],
+  projects: string[],
+  environment?: Environment
+) {
+  return allProjects.filter((p) =>
+    getDisallowedProjectIds(projects, environment).includes(p.id)
+  );
 }

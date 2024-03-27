@@ -132,11 +132,13 @@ export default function PrerequisiteStatusRow({
           </div>
         </div>
       </td>
-      <PrerequisiteStatesCols
-        prereqStates={prereqStatesAndDefaults?.states}
-        defaultValues={prereqStatesAndDefaults?.defaultValues}
-        envs={envs}
-      />
+      {envs.length > 0 && (
+        <PrerequisiteStatesCols
+          prereqStates={prereqStatesAndDefaults?.states}
+          defaultValues={prereqStatesAndDefaults?.defaultValues}
+          envs={envs}
+        />
+      )}
       <td />
     </tr>
   );

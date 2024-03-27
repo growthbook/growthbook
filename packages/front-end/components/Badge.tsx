@@ -1,4 +1,4 @@
-import React, { CSSProperties } from "react";
+import React, { CSSProperties, ReactElement } from "react";
 import clsx from "clsx";
 
 export default function Badge({
@@ -8,7 +8,7 @@ export default function Badge({
   title,
   skipMargin,
 }: {
-  content: string;
+  content: string | ReactElement;
   className?: string;
   style?: CSSProperties;
   title?: string;
