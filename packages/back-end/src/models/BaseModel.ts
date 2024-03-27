@@ -555,3 +555,15 @@ export abstract class BaseModel<T extends BaseSchema> {
     return omit(doc, ["__v", "_id"]) as unknown;
   }
 }
+
+export const MakeModelClass = <T extends BaseSchema>(
+  config: ModelConfig<T>
+) => {
+  abstract class Model extends BaseModel<T> {
+    getConfig() {
+      return config;
+    }
+  }
+
+  return Model;
+};
