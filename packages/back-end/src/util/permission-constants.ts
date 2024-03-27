@@ -8,7 +8,7 @@ export const ENV_SCOPED_PERMISSIONS = [
 export const PROJECT_SCOPED_PERMISSIONS = [
   "readData",
   "addComments",
-  "createFeatureDrafts",
+  "manageFeatureDrafts",
   "manageFeatures",
   "manageProjects",
   "createAnalyses",

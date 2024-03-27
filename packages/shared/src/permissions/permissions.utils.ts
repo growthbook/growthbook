@@ -15,7 +15,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "addComments",
   "bypassApprovalChecks",
   "canReview",
-  "createFeatureDrafts",
+  "manageFeatureDrafts",
   "manageFeatures",
   "manageProjects",
   "createAnalyses",

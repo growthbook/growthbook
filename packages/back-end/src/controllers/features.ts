@@ -369,7 +369,11 @@ export async function postFeatures(
   const { org, userId, userName, environments } = context;
 
   req.checkPermissions("manageFeatures", otherProps.project);
-  req.checkPermissions("createFeatureDrafts", otherProps.project);
+  if (
+    !context.permissions.canManageFeatureDrafts({ project: otherProps.project })
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   if (!id) {
     throw new Error("Must specify feature key");
@@ -469,7 +473,9 @@ export async function postFeatureRebase(
     throw new Error("Could not find feature");
   }
   req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
 
   const revision = await getRevision(org.id, feature.id, parseInt(version));
   if (!revision) {
@@ -549,7 +555,9 @@ export async function postFeatureRequestReview(
   if (!feature) {
     throw new Error("Could not find feature");
   }
-  req.checkPermissions("createFeatureDrafts", feature.project);
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
 
   const revision = await getRevision(
     context.org.id,
@@ -849,7 +857,9 @@ export async function postFeatureFork(
   }
 
   req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
 
   const newRevision = await createRevision({
     feature,
@@ -893,7 +903,9 @@ export async function postFeatureDiscard(
   }
 
   req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
 
   await discardRevision(revision, res.locals.eventAudit);
 
@@ -935,7 +947,9 @@ export async function postFeatureRule(
   }
 
   req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
@@ -1242,7 +1256,9 @@ export async function putRevisionComment(
   }
 
   req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
 
   const revision = await getRevision(org.id, feature.id, parseInt(version));
   if (!revision) {
@@ -1282,7 +1298,9 @@ export async function postFeatureDefaultValue(
   }
 
   req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
@@ -1308,7 +1326,9 @@ export async function postFeatureSchema(
   }
 
   req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
 
   const updatedFeature = await setJsonSchema(context, feature, schema, enabled);
 
@@ -1351,7 +1371,9 @@ export async function putFeatureRule(
   }
 
   req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
@@ -1439,7 +1461,9 @@ export async function postFeatureMoveRule(
   }
 
   req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
@@ -1504,7 +1528,9 @@ export async function deleteFeatureRule(
   }
 
   req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
@@ -1615,7 +1641,9 @@ export async function deleteFeatureById(
 
   if (feature) {
     req.checkPermissions("manageFeatures", feature.project);
-    req.checkPermissions("createFeatureDrafts", feature.project);
+    if (!context.permissions.canManageFeatureDrafts(feature)) {
+      context.permissions.throwPermissionError();
+    }
     req.checkPermissions(
       "publishFeatures",
       feature.project,

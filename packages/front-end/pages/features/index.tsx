@@ -47,6 +47,7 @@ import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 import Tab from "@/components/Tabs/Tab";
 import Tabs from "@/components/Tabs/Tabs";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
@@ -71,6 +72,7 @@ export default function FeaturesPage() {
   const { organization } = useUser();
 
   const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { project, getProjectById } = useDefinitions();
   const settings = useOrgSettings();
   const environments = useEnvironments();
@@ -337,15 +339,18 @@ export default function FeaturesPage() {
                     </td>
                     <td>
                       <MoreMenu>
-                        <button
-                          className="dropdown-item"
-                          onClick={() => {
-                            setFeatureToDuplicate(feature);
-                            setModalOpen(true);
-                          }}
-                        >
-                          Duplicate
-                        </button>
+                        {permissions.check("manageFeatures", project) &&
+                        canManageFeatureDrafts ? (
+                          <button
+                            className="dropdown-item"
+                            onClick={() => {
+                              setFeatureToDuplicate(feature);
+                              setModalOpen(true);
+                            }}
+                          >
+                            Duplicate
+                          </button>
+                        ) : null}
                       </MoreMenu>
                     </td>
                   </tr>
@@ -442,6 +447,10 @@ export default function FeaturesPage() {
   const showArchivedToggle = features.some((f) => f.archived);
   const stepsRequired = !hasActiveConnection || !hasFeatures;
 
+  const canManageFeatureDrafts = permissionsUtil.canManageFeatureDrafts({
+    project,
+  });
+
   return (
     <div className="contents container pagecontents">
       {modalOpen && (
@@ -472,7 +481,7 @@ export default function FeaturesPage() {
         </div>
         {features.length > 0 &&
           permissions.check("manageFeatures", project) &&
-          permissions.check("createFeatureDrafts", project) && (
+          canManageFeatureDrafts && (
             <div className="col-auto">
               <button
                 className="btn btn-primary float-right"
