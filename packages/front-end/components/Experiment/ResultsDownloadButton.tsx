@@ -79,16 +79,12 @@ export default function ResultsDownloadButton({
           };
           const stats = variation.metrics[m];
           if (!stats) return;
-          const { relativeRisk } = getRiskByVariation(
-            index,
-            row,
-            metricDefaults
-          );
+          const risk = getRiskByVariation(index, row, metricDefaults);
           csvRows.push({
             ...(dimensionName && { [dimensionName]: result.name }),
             metric: metric?.name,
             variation: variations[index].name,
-            riskOfChoosing: relativeRisk,
+            riskOfChoosing: risk.show ? risk.relativeRisk : undefined,
             users: stats.users,
             totalValue: stats.value,
             perUserValue: stats.cr,
