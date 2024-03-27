@@ -355,7 +355,6 @@ class GaussianEffectABTest(BayesianABTest):
         if self._has_zero_variance():
             return self._default_output(ZERO_NEGATIVE_VARIANCE_MESSAGE)
 
-        self.compute_frequentist_moments()
         self.construct_prior_by_variation()
 
         mu_a, sd_a = Norm.posterior(
@@ -411,20 +410,6 @@ class GaussianEffectABTest(BayesianABTest):
                 result, self.traffic_proportion_b, self.phase_length_days
             )
         return result
-
-    def compute_frequentist_moments(self):
-        self.frequentist_var = frequentist_variance(
-            self.stat_a.variance,
-            self.stat_a.unadjusted_mean,
-            self.stat_a.n,
-            self.stat_b.variance,
-            self.stat_b.unadjusted_mean,
-            self.stat_b.n,
-            self.relative,
-        )
-        self.frequentist_diff = frequentist_diff(
-            self.stat_a.mean, self.stat_b.mean, self.relative
-        )
 
     def construct_prior_by_variation(self):
         mu_0 = self.stat_a.mean

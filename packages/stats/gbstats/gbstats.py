@@ -216,9 +216,7 @@ def get_configured_test(
                 ),
             )
     else:
-        assert isinstance(
-            stat_a, type(stat_b)
-        ), "stat_a and stat_b must be of same type."
+        assert type(stat_a) is type(stat_b), "stat_a and stat_b must be of same type."
         if isinstance(stat_a, RegressionAdjustedStatistic) or isinstance(
             stat_b, RegressionAdjustedStatistic
         ):

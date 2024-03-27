@@ -202,8 +202,8 @@ def create_joint_statistic(
 @dataclass
 class QuantileStatistic(Statistic):
     n: int  # number of events here
-    nu: float
-    alpha: float
+    n_star: int  # sample size used when evaluating quantile_lower and quantile_upper
+    nu: float  # quantile level of interest
     quantile_hat: float  # sample estimate
     quantile_lower: float
     quantile_upper: float
@@ -215,6 +215,11 @@ class QuantileStatistic(Statistic):
 
     @property
     def _has_zero_variance(self) -> bool:
+        multiplier = scipy.stats.norm.ppf(1.0 - 0.5 * 0.05, loc=0, scale=1)
+        quantile_above_one = self.n <= multiplier**2 * self.nu / (1.0 - self.nu)
+        quantile_below_zero = self.n <= multiplier**2 * (1.0 - self.nu) / self.nu
+        if quantile_above_one or quantile_below_zero:
+            return True
         return self.variance_init <= 0.0 and self.n < 1000
 
     @property
@@ -227,14 +232,9 @@ class QuantileStatistic(Statistic):
 
     @property
     def variance_init(self) -> float:
-        multiplier = scipy.stats.norm.ppf(1.0 - 0.5 * self.alpha, loc=0, scale=1)
-        quantile_above_one = self.n <= multiplier**2 * self.nu / (1.0 - self.nu)
-        quantile_below_zero = self.n <= multiplier**2 * (1.0 - self.nu) / self.nu
-        if quantile_above_one or quantile_below_zero:
-            return 0
         num = self.quantile_upper - self.quantile_lower
-        den = 2 * multiplier
-        return float((self.n - 1) * (num / den) ** 2)
+        den = 2 * scipy.stats.norm.ppf(1.0 - 0.5 * 0.05, loc=0, scale=1)
+        return float((self.n_star / self.n) * (self.n - 1) * (num / den) ** 2)
 
     @property
     def variance(self) -> float:

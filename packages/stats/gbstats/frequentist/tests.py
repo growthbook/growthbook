@@ -174,6 +174,7 @@ class TTest(BaseABTest):
             return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
         if self._has_zero_variance():
             return self._default_output(ZERO_NEGATIVE_VARIANCE_MESSAGE)
+
         result = FrequentistTestResult(
             expected=self.point_estimate,
             ci=self.confidence_interval,
