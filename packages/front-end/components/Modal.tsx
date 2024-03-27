@@ -173,7 +173,7 @@ const Modal: FC<ModalProps> = ({
           children
         )}
       </div>
-      {submit || (close && includeCloseCta) ? (
+      {submit || secondaryCTA || (close && includeCloseCta) ? (
         <div className="modal-footer">
           {error && (
             <div className="alert alert-danger mr-auto">
