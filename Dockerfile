@@ -25,10 +25,6 @@ RUN apt-get update && \
   apt-get install -yqq nodejs=$(apt-cache show nodejs|grep Version|grep nodesource|cut -c 10-) yarn && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
-
-#debugging  
-RUN echo "node version:" && node -v && echo "yarn version:" && yarn -v
-
 # Copy over minimum files to install dependencies
 COPY package.json ./package.json
 COPY yarn.lock ./yarn.lock
@@ -43,6 +39,7 @@ COPY patches ./patches
 RUN yarn install --frozen-lockfile --ignore-optional
 # Build the app and do a clean install with only production dependencies
 COPY packages ./packages
+# adding the `yarn postinstall` since it there seems to be an issue with yarn
 RUN \
   yarn build \
   && rm -rf node_modules \
@@ -53,7 +50,9 @@ RUN \
   && rm -rf packages/enterprise/node_modules \
   && rm -rf packages/sdk-js/node_modules \
   && rm -rf packages/sdk-react/node_modules \
-  && yarn install --frozen-lockfile --production=true --ignore-optional
+  && yarn install --frozen-lockfile --production=true --ignore-optional \
+  && yarn postinstall
+
 
 
 # Package the full app together
