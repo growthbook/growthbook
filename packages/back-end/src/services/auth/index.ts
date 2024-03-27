@@ -85,8 +85,14 @@ export async function processJWT(
   req.name = name || "";
   req.verified = verified || false;
   req.teams = [];
+  req.currentUser = {
+    id: "",
+    email: email || "",
+    superAdmin: false,
+    verified: verified || false,
+    name: name || "",
+  };
 
-  // Throw error if permissions don't pass
   req.checkPermissions = (
     permission: Permission,
     project?: string | string[],
@@ -95,7 +101,7 @@ export async function processJWT(
     if (!req.userId || !req.organization) return false;
 
     const userPermissions = getUserPermissions(
-      req.userId,
+      req.currentUser,
       req.organization,
       req.teams
     );
@@ -116,6 +122,7 @@ export async function processJWT(
   const user = await getUserFromJWT(req.user);
 
   if (user) {
+    req.currentUser = user;
     req.email = user.email;
     req.userId = user.id;
     req.name = user.name;

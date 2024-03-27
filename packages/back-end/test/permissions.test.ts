@@ -11,6 +11,7 @@ import { OrganizationInterface } from "../types/organization";
 import { TeamInterface } from "../types/team";
 import { FeatureInterface } from "../types/feature";
 import { MetricInterface } from "../types/metric";
+import { SUPERADMIN_DEFAULT_ROLE } from "../src/util/secrets";
 
 describe("Build base user permissions", () => {
   const testOrg: OrganizationInterface = {
@@ -42,13 +43,49 @@ describe("Build base user permissions", () => {
   // Basic user permissions - no project-level permissions or teams
   it("should throw error if user isn't in the org", async () => {
     expect(async () =>
-      getUserPermissions("base_user_not_in_org", testOrg, [])
+      getUserPermissions({ id: "base_user_not_in_org" }, testOrg, [])
     ).rejects.toThrow("User is not a member of this organization");
+  });
+
+  it("should default to a role when superAdmin is not in the org", async () => {
+    expect(
+      getUserPermissions(
+        { id: "base_user_not_in_org", superAdmin: true },
+        testOrg,
+        []
+      )
+    ).toEqual({
+      global: {
+        environments: [],
+        limitAccessByEnvironment: false,
+        permissions: roleToPermissionMap(SUPERADMIN_DEFAULT_ROLE, testOrg),
+      },
+      projects: {},
+    });
+  });
+
+  it("should not overwrite a superAdmins permissions if they are in the org", async () => {
+    const userPermissions = getUserPermissions(
+      { id: "base_user_123", superAdmin: true },
+      {
+        ...testOrg,
+        members: [{ ...testOrg.members[0], role: "collaborator" }],
+      },
+      []
+    );
+    expect(userPermissions).toEqual({
+      global: {
+        environments: [],
+        limitAccessByEnvironment: false,
+        permissions: roleToPermissionMap("collaborator", testOrg),
+      },
+      projects: {},
+    });
   });
 
   it("should build permissions for a basic noaccess user with no project-level permissions or teams correctly", async () => {
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [{ ...testOrg.members[0], role: "noaccess" }],
@@ -66,7 +103,11 @@ describe("Build base user permissions", () => {
   });
 
   it("should build permissions for a basic readonly user with no project-level permissions or teams correctly", async () => {
-    const userPermissions = getUserPermissions("base_user_123", testOrg, []);
+    const userPermissions = getUserPermissions(
+      { id: "base_user_123" },
+      testOrg,
+      []
+    );
     expect(userPermissions).toEqual({
       global: {
         environments: [],
@@ -79,7 +120,7 @@ describe("Build base user permissions", () => {
 
   it("should build permissions for a basic collaborator user with no project-level permissions or teams correctly", async () => {
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [{ ...testOrg.members[0], role: "collaborator" }],
@@ -98,7 +139,7 @@ describe("Build base user permissions", () => {
 
   it("should build permissions for a basic engineer user with no project-level permissions or teams correctly", async () => {
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [{ ...testOrg.members[0], role: "engineer" }],
@@ -117,7 +158,7 @@ describe("Build base user permissions", () => {
 
   it("should build permissions for a basic analyst user with no project-level permissions or teams correctly", async () => {
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [{ ...testOrg.members[0], role: "analyst" }],
@@ -136,7 +177,7 @@ describe("Build base user permissions", () => {
 
   it("should build permissions for a basic experimenter user with no project-level permissions or teams correctly", async () => {
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [{ ...testOrg.members[0], role: "experimenter" }],
@@ -155,7 +196,7 @@ describe("Build base user permissions", () => {
 
   it("should build permissions for an admin user with no project-level permissions or teams correctly", async () => {
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [{ ...testOrg.members[0], role: "admin" }],
@@ -174,7 +215,7 @@ describe("Build base user permissions", () => {
 
   it("should ignore limitAccessByEnvironment for roles that don't apply", async () => {
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -214,7 +255,7 @@ describe("Build base user permissions", () => {
 
   it("detects when all environments are selected", async () => {
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -240,7 +281,7 @@ describe("Build base user permissions", () => {
 
   it("ignores unknown environments", async () => {
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -267,7 +308,7 @@ describe("Build base user permissions", () => {
   // Slightly advanced user permissions - project-level permissions, but no teams
   it("should build permissions for a readonly user with a single engineer project-level permission and no teams correctly", async () => {
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -305,7 +346,7 @@ describe("Build base user permissions", () => {
 
   it("should build permissions for a readonly user with  multiple project-level permissions and no teams correctly", async () => {
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -354,7 +395,7 @@ describe("Build base user permissions", () => {
 
   it("should build permissions for an engineer user with environment specific permissions correctly", async () => {
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -381,7 +422,7 @@ describe("Build base user permissions", () => {
 
   it("should build permissions for an engineer user with environment specific permissions and project-level roles that have environment specific permissions correctly", async () => {
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -450,7 +491,7 @@ describe("Build base user permissions", () => {
     ];
 
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -517,7 +558,7 @@ describe("Build base user permissions", () => {
     ];
 
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -560,7 +601,7 @@ describe("Build base user permissions", () => {
     ];
 
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -606,7 +647,7 @@ describe("Build base user permissions", () => {
     ];
 
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -659,7 +700,7 @@ describe("Build base user permissions", () => {
     ];
 
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -728,7 +769,7 @@ describe("Build base user permissions", () => {
     ];
 
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -789,7 +830,7 @@ describe("Build base user permissions", () => {
     ];
 
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -832,7 +873,7 @@ describe("Build base user permissions", () => {
     ];
 
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -875,7 +916,7 @@ describe("Build base user permissions", () => {
     ];
 
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -918,7 +959,7 @@ describe("Build base user permissions", () => {
     ];
 
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -970,7 +1011,7 @@ describe("Build base user permissions", () => {
     ];
 
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -1033,7 +1074,7 @@ describe("Build base user permissions", () => {
     ];
 
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -1089,7 +1130,7 @@ describe("Build base user permissions", () => {
     ];
 
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -1152,7 +1193,7 @@ describe("Build base user permissions", () => {
     ];
 
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -1215,7 +1256,7 @@ describe("Build base user permissions", () => {
     ];
 
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -1276,7 +1317,7 @@ describe("Build user's readAccessPermissions object", () => {
 
   it("user with global no access role should have no read access", async () => {
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [{ ...testOrg.members[0], role: "noaccess" }],
@@ -1294,7 +1335,7 @@ describe("Build user's readAccessPermissions object", () => {
 
   it("user with global readonly role should have global read access", async () => {
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [{ ...testOrg.members[0], role: "readonly" }],
@@ -1312,7 +1353,7 @@ describe("Build user's readAccessPermissions object", () => {
 
   it("user with global readonly role, and project noaccess should have global read access, but the project should have no read access", async () => {
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -1348,7 +1389,7 @@ describe("Build user's readAccessPermissions object", () => {
 
   it("user with global noaccess role, and project collaborator should not have global read access, but the project should have read access", async () => {
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -1384,7 +1425,7 @@ describe("Build user's readAccessPermissions object", () => {
 
   it("should build the readAccessFilter correctly for a user with multiple project roles", async () => {
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -1469,7 +1510,7 @@ describe("hasReadAccess filter", () => {
 
   it("hasReadAccess should filter out all features for user with global no access role", async () => {
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [{ ...testOrg.members[0], role: "noaccess" }],
@@ -1495,7 +1536,7 @@ describe("hasReadAccess filter", () => {
 
   it("hasReadAccess should not filter out all features for user with global readonly role", async () => {
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [{ ...testOrg.members[0], role: "readonly" }],
@@ -1526,7 +1567,7 @@ describe("hasReadAccess filter", () => {
 
   it("hasReadAccess should filter out all projects aside from the project the user has collaborator access to", async () => {
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -1578,7 +1619,7 @@ describe("hasReadAccess filter", () => {
 
   it("hasReadAccess should filter out all projects aside from the project the user has collaborator access to", async () => {
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -1635,7 +1676,7 @@ describe("hasReadAccess filter", () => {
   // e.g. user's global role is noaccess, but they have project-level permissions for a singular project - if their collaborator permissions include atleast 1 project on the metric, they should get access
   it("hasReadAccess should allow access if user has readAccess for atleast 1 project on an experiment", async () => {
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -1692,7 +1733,7 @@ describe("hasReadAccess filter", () => {
   // The user's global role is collaborator, but they have project-level permissions for two projects that take away readaccess. If a metric is in both of the projects the user has noaccess role, AND a project the user doesn't have a specific permission for, the user should be able to access it due to their global permission
   it("hasReadAccess should not allow access if user has ", async () => {
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
@@ -1755,7 +1796,7 @@ describe("hasReadAccess filter", () => {
   // The user's global role is collaborator, but they have project-level permissions for two projects. If a metric is in both of the projects the user has a noaccess role for, the user shouldn't be able to access it
   it("hasReadAccess should not allow access if user has ", async () => {
     const userPermissions = getUserPermissions(
-      "base_user_123",
+      { id: "base_user_123" },
       {
         ...testOrg,
         members: [
