@@ -33,7 +33,7 @@ export default function DimensionChooser({
   userIdType,
   labelClassName,
   showHelp,
-  newUi = false,
+  newUi = true,
   setVariationFilter,
   setBaselineRow,
   setDifferenceType,

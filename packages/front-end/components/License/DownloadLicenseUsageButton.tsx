@@ -18,7 +18,7 @@ const DownloadLicenseUsageButton: FC = () => {
         userLicenseCodes: string[];
         signature: string;
         timestamp: string;
-      }>(`/admin/license-report`, {
+      }>(`/license/report`, {
         method: "GET",
       });
 

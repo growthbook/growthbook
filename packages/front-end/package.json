@@ -9,17 +9,15 @@
     "start:with-tracing": "next start",
     "clean": "rimraf node_modules && rimraf tsconfig.tsbuildinfo",
     "type-check": "tsc --pretty --noEmit",
-    "unused-export-check": "npx ts-unused-exports tsconfig.json --findCompletelyUnusedFiles --allowUnusedTypes --showLineNumber --ignoreFiles=.*stories --excludePathsFromReport=pages;",
+    "unused-export-check": "npx ts-unused-exports tsconfig.json --findCompletelyUnusedFiles --allowUnusedTypes --showLineNumber --excludePathsFromReport=pages;",
     "test": "jest --forceExit --verbose --detectOpenHandles",
-    "type-gen": "growthbook features generate-types --output ./types --profile growthbook",
-    "storybook": "BROWSER=none start-storybook -p 6006",
-    "build-storybook": "build-storybook"
+    "type-gen": "growthbook features generate-types --output ./types --profile growthbook"
   },
   "dependencies": {
     "@dnd-kit/core": "^4.0.3",
     "@dnd-kit/sortable": "^5.1.0",
     "@floating-ui/react": "^0.25.4",
-    "@growthbook/growthbook-react": "^0.24.0",
+    "@growthbook/growthbook-react": "^0.26.0",
     "@jitsu/sdk-js": "^2.2.0",
     "@jukben/emoji-search": "^2.0.1",
     "@popperjs/core": "^2.11.5",
@@ -54,6 +52,7 @@
     "json2csv": "^5.0.7",
     "lodash": "^4.17.21",
     "md5": "^2.3.0",
+    "p-queue": "^8.0.1",
     "next": "^14.1.0",
     "query-string": "^7.1.3",
     "react": "^18.2.0",
@@ -78,11 +77,11 @@
     "remark-gfm": "4.0.0",
     "scim2-parse-filter": "^0.2.8",
     "shared": "0.0.1",
-    "spectacle": "^8.3.0",
+    "spectacle": "^9.7.2",
     "swr": "^0.5.4",
     "uniqid": "^5.3.0",
     "uuid": "^9.0.0",
-    "zod": "^3.20.6"
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@swc/cli": "^0.1.57",
@@ -107,17 +106,7 @@
     "typescript": "5.3.3"
   },
   "optionalDependencies": {
-    "@babel/core": "^7.19.6",
-    "@storybook/addon-actions": "^6.5.13",
-    "@storybook/addon-essentials": "^6.5.13",
-    "@storybook/addon-interactions": "^6.5.13",
-    "@storybook/addon-knobs": "^6.4.0",
-    "@storybook/addon-links": "^6.5.13",
-    "@storybook/builder-webpack5": "^6.5.13",
-    "@storybook/manager-webpack5": "^6.5.13",
-    "@storybook/react": "^6.5.13",
-    "@storybook/testing-library": "^0.0.13",
-    "storybook-addon-next": "^1.6.9"
+    "@babel/core": "^7.19.6"
   },
   "license": "MIT"
 }

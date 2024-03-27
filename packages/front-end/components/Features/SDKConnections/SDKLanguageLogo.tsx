@@ -59,7 +59,7 @@ export const languageMapping: Record<
     Icon: BsFiletypeHtml,
     color: "#777",
     label: "Generic",
-    docs: "visual_editor",
+    docs: "nocode",
     environment: "frontend",
     hideVersion: true,
   },

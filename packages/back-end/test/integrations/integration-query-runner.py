@@ -116,13 +116,15 @@ class snowflakeRunner(sqlRunner):
             password=CONFIG["SNOWFLAKE_TEST_PASSWORD"],
             account=CONFIG["SNOWFLAKE_TEST_ACCOUNT"],
             database=CONFIG["SNOWFLAKE_TEST_DATABASE"],
-            schema=CONFIG["SNOWFLAKE_TEST_SCHEMA"],
+            role=CONFIG["SNOWFLAKE_TEST_ROLE"],
+            warehouse=CONFIG["SNOWFLAKE_TEST_WAREHOUSE"],
         )
         self.cursor_kwargs = {"cursor_class": snowflake.connector.DictCursor}
 
     def run_query(self, sql: str) -> QueryResult:
+        print_sql(sql)
         with self.connection.cursor(**self.cursor_kwargs) as cursor:
-            res = cursor.execute(sql).fetchall()
+            res = cursor.execute(sql, num_statements=0).fetchall()
             # lower case col names
             return QueryResult(
                 rows=[{k.lower(): v for k, v in row.items()} for row in res]
@@ -155,6 +157,8 @@ class databricksRunner(sqlRunner):
             server_hostname=CONFIG["DATABRICKS_TEST_HOST"],
             http_path=CONFIG["DATABRICKS_TEST_PATH"],
             access_token=CONFIG["DATABRICKS_TEST_TOKEN"],
+            catalog=CONFIG["DATABRICKS_TEST_CATALOG"],
+            schema=CONFIG["DATABRICKS_TEST_SCHEMA"],
         )
 
     def run_query(self, sql: str) -> QueryResult:
@@ -204,22 +208,6 @@ class clickhouseRunner(sqlRunner):
         return QueryResult(rows=pd.concat(dfs).to_dict("records"))
 
 
-class mssqlRunner(sqlRunner):
-    def open_connection(self):
-        self.connection = pyodbc.connect(
-            "DRIVER={{ODBC Driver 18 for SQL Server}};SERVER={server};ENCRYPT=yes;UID={username};PWD={password}"
-        ).format(
-            server=CONFIG["MSSQL_TEST_SERVER"],
-            username=CONFIG["MSSQL_TEST_USER"],
-            password=CONFIG["MSSQL_TEST_PASSWORD"],
-        )
-
-    def run_query(self, sql: str) -> QueryResult:
-        cursor = self.connection.cursor()
-        cursor.execute(sql)
-        return QueryResult(rows=[row.asDict() for row in cursor.fetchall()])
-
-
 class redshiftRunner(sqlRunner):
     def open_connection(self):
         self.connection = redshift_connector.connect(
@@ -232,8 +220,7 @@ class redshiftRunner(sqlRunner):
     def run_query(self, sql: str) -> QueryResult:
         cursor = self.connection.cursor()
         cursor.execute(sql)
-        return QueryResult(rows=[])
-        # return QueryResult(rows=cursor.fetch_dataframe().to_dict('records'))
+        return QueryResult(rows=cursor.fetch_dataframe().to_dict('records'))
 
 
 class mssqlRunner(sqlRunner):
