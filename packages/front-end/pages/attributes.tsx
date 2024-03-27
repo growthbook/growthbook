@@ -16,8 +16,8 @@ import { useUser } from "@/services/UserContext";
 const FeatureAttributesPage = (): React.ReactElement => {
   const permissions = usePermissions();
   const { apiCall } = useAuth();
-  const attributeSchema = useAttributeSchema(true);
   const { project } = useDefinitions();
+  const attributeSchema = useAttributeSchema(true, project);
 
   const canCreateAttributes = permissions.check(
     "manageTargetingAttributes",
@@ -35,7 +35,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
           <span className="badge badge-secondary ml-2">archived</span>
         )}
       </td>
-      <td className="text-gray">
+      <td
+        className="text-gray"
+        style={{ maxWidth: "20vw", wordWrap: "break-word" }}
+      >
         {v.datatype}
         {v.datatype === "enum" && <>: ({v.enum})</>}
         {v.format && (

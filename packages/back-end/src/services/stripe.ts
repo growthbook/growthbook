@@ -9,6 +9,7 @@ import {
 import { OrganizationInterface } from "../../types/organization";
 import { logger } from "../util/logger";
 
+// TODO: Get rid of this file once all license data has moved off all organizations
 export const stripe = new Stripe(STRIPE_SECRET || "", {
   apiVersion: "2022-11-15",
 });

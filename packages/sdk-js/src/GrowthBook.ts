@@ -22,6 +22,8 @@ import type {
   StickyAttributeKey,
   StickyExperimentKey,
   SubscriptionFunction,
+  TrackingCallback,
+  TrackingData,
   VariationMeta,
   VariationRange,
   WidenPrimitives,
@@ -39,6 +41,7 @@ import {
   isIncluded,
   isURLTargeted,
   loadSDKVersion,
+  mergeQueryStrings,
   toString,
 } from "./util";
 import { evalCondition } from "./mongrule";
@@ -64,6 +67,7 @@ export class GrowthBook<
   // Properties and methods that start with "_" are mangled by Terser (saves ~150 bytes)
   private _ctx: Context;
   private _renderer: null | RenderFunction;
+  private _redirectedUrl: string;
   private _trackedExperiments: Set<unknown>;
   private _trackedFeatures: Record<string, string>;
   private _subscriptions: Set<SubscriptionFunction>;
@@ -87,6 +91,7 @@ export class GrowthBook<
   >;
   private _triggeredExpKeys: Set<string>;
   private _loadFeaturesCalled: boolean;
+  private _deferredTrackingCalls: TrackingData[];
 
   constructor(context?: Context) {
     context = context || {};
@@ -108,6 +113,8 @@ export class GrowthBook<
     this._activeAutoExperiments = new Map();
     this._triggeredExpKeys = new Set();
     this._loadFeaturesCalled = false;
+    this._redirectedUrl = "";
+    this._deferredTrackingCalls = [];
 
     if (context.renderer) {
       this._renderer = context.renderer;
@@ -149,6 +156,8 @@ export class GrowthBook<
     if (context.experiments) {
       this.ready = true;
       this._updateAllAutoExperiments();
+    } else if (context.antiFlicker) {
+      this._setAntiFlicker();
     }
 
     if (context.clientKey && !context.remoteEval) {
@@ -353,6 +362,7 @@ export class GrowthBook<
 
   public async setURL(url: string) {
     this._ctx.url = url;
+    this._redirectedUrl = "";
     if (this._ctx.remoteEval) {
       await this._refreshForRemoteEval();
       this._updateAllAutoExperiments(true);
@@ -504,13 +514,48 @@ export class GrowthBook<
     // Apply new changes
     if (result.inExperiment) {
       console.log("in exp", result);
-      const undo = this._applyDOMChanges(result.value);
-      console.log("undo", undo);
-      if (undo) {
-        this._activeAutoExperiments.set(experiment, {
-          undo,
-          valueHash,
-        });
+      if (result.value.urlRedirect && experiment.urlPatterns) {
+        const url = experiment.persistQueryString
+          ? mergeQueryStrings(this._getContextUrl(), result.value.urlRedirect)
+          : result.value.urlRedirect;
+
+        if (isURLTargeted(url, experiment.urlPatterns)) {
+          this.log(
+            "Skipping redirect because original URL matches redirect URL",
+            {
+              id: experiment.key,
+            }
+          );
+          return result;
+        }
+        this._redirectedUrl = url;
+        const navigate = this._getNavigateFunction();
+        if (navigate) {
+          if (isBrowser) {
+            this._setAntiFlicker();
+            window.setTimeout(() => {
+              try {
+                navigate(url);
+              } catch (e) {
+                console.error(e);
+              }
+            }, this._ctx.navigateDelay ?? 100);
+          } else {
+            try {
+              navigate(url);
+            } catch (e) {
+              console.error(e);
+            }
+          }
+        }
+      } else {
+        const undo = this._applyDOMChanges(result.value);
+        if (undo) {
+          this._activeAutoExperiments.set(experiment, {
+            undo,
+            valueHash,
+          });
+        }
       }
     }
 
@@ -523,6 +568,10 @@ export class GrowthBook<
       data.undo();
       this._activeAutoExperiments.delete(exp);
     }
+  }
+
+  private _isRedirectExperiment(exp: AutoExperiment) {
+    return exp.variations.some((v) => Object.keys(v).includes("urlRedirect"));
   }
 
   private _updateAllAutoExperiments(forceRerun?: boolean) {
@@ -538,9 +587,14 @@ export class GrowthBook<
     });
 
     // Re-run all new/updated experiments
-    experiments.forEach((exp) => {
-      this._runAutoExperiment(exp, forceRerun);
-    });
+    for (const exp of experiments) {
+      const result = this._runAutoExperiment(exp, forceRerun);
+
+      // Once you're in a redirect experiment, break out of the loop and don't run any further experiments
+      if (result?.inExperiment && this._isRedirectExperiment(exp)) {
+        break;
+      }
+    }
   }
 
   private _fireSubscriptions<T>(experiment: Experiment<T>, result: Result<T>) {
@@ -1235,8 +1289,47 @@ export class GrowthBook<
     else console.log(msg, ctx);
   }
 
+  public getDeferredTrackingCalls() {
+    return this._deferredTrackingCalls;
+  }
+
+  public setDeferredTrackingCalls(calls: TrackingData[]) {
+    this._deferredTrackingCalls = calls;
+  }
+
+  public fireDeferredTrackingCalls() {
+    let hasInvalidTrackingCall = false;
+    this._deferredTrackingCalls.forEach((call: TrackingData) => {
+      if (!call || !call.experiment || !call.result) {
+        console.error("Invalid deferred tracking call", { call: call });
+        hasInvalidTrackingCall = true;
+      } else {
+        this._track(call.experiment, call.result);
+      }
+    });
+
+    this._deferredTrackingCalls = [];
+
+    if (hasInvalidTrackingCall) {
+      throw new Error("Invalid tracking data");
+    }
+  }
+
+  public setTrackingCallback(callback: TrackingCallback) {
+    this._ctx.trackingCallback = callback;
+
+    try {
+      this.fireDeferredTrackingCalls();
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
   private _track<T>(experiment: Experiment<T>, result: Result<T>) {
-    if (!this._ctx.trackingCallback) return;
+    if (!this._ctx.trackingCallback) {
+      this._deferredTrackingCalls.push({ experiment, result });
+      return;
+    }
 
     const key = experiment.key;
 
@@ -1375,6 +1468,41 @@ export class GrowthBook<
       if (groups[expGroups[i]]) return true;
     }
     return false;
+  }
+
+  public getRedirectUrl(): string {
+    return this._redirectedUrl;
+  }
+
+  private _getNavigateFunction():
+    | null
+    | ((url: string) => void | Promise<void>) {
+    if (this._ctx.navigate) {
+      return this._ctx.navigate;
+    } else if (isBrowser) {
+      return (url: string) => {
+        window.location.replace(url);
+      };
+    }
+    return null;
+  }
+
+  private _setAntiFlicker() {
+    if (!this._ctx.antiFlicker || !isBrowser) return;
+    try {
+      const styleTag = document.createElement("style");
+      styleTag.innerHTML =
+        ".gb-anti-flicker { opacity: 0 !important; pointer-events: none; }";
+      document.head.appendChild(styleTag);
+      document.documentElement.classList.add("gb-anti-flicker");
+
+      // Fallback if GrowthBook fails to load in specified time or 3.5 seconds
+      setTimeout(() => {
+        document.documentElement.classList.remove("gb-anti-flicker");
+      }, this._ctx.antiFlickerTimeout ?? 3500);
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   private _applyDOMChanges(changes: AutoExperimentVariation) {

@@ -6,7 +6,7 @@ declare global {
     growthbook_queue?:
       | Array<(gb: GrowthBook) => void>
       | { push: (cb: (gb: GrowthBook) => void) => void };
-    growthbook_config?: Context;
+    growthbook_config?: Context & { uuid?: string };
     // eslint-disable-next-line
     dataLayer?: any[];
     analytics?: {
@@ -17,39 +17,56 @@ declare global {
   }
 }
 
-const getUUID = () => {
-  const COOKIE_NAME = "gbuuid";
+const currentScript = document.currentScript;
+const dataContext = currentScript ? currentScript.dataset : {};
+const windowContext = window.growthbook_config || {};
+
+function setCookie(name: string, value: string) {
+  const d = new Date();
   const COOKIE_DAYS = 400; // 400 days is the max cookie duration for chrome
+  d.setTime(d.getTime() + 24 * 60 * 60 * 1000 * COOKIE_DAYS);
+  document.cookie = name + "=" + value + ";path=/;expires=" + d.toUTCString();
+}
 
-  // use the browsers crypto.randomUUID if set
-  const genUUID = () => {
-    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
-    return ("" + 1e7 + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) =>
-      (
-        ((c as unknown) as number) ^
-        (crypto.getRandomValues(new Uint8Array(1))[0] &
-          (15 >> (((c as unknown) as number) / 4)))
-      ).toString(16)
-    );
-  };
-  const getCookie = (name: string): string => {
-    const value = "; " + document.cookie;
-    const parts = value.split(`; ${name}=`);
-    return parts.length === 2 ? parts[1].split(";")[0] : "";
-  };
-  const setCookie = (name: string, value: string) => {
-    const d = new Date();
-    d.setTime(d.getTime() + 24 * 60 * 60 * 1000 * COOKIE_DAYS);
-    document.cookie = name + "=" + value + ";path=/;expires=" + d.toUTCString();
-  };
+function getCookie(name: string): string {
+  const value = "; " + document.cookie;
+  const parts = value.split(`; ${name}=`);
+  return parts.length === 2 ? parts[1].split(";")[0] : "";
+}
 
-  // get the existing UUID from cookie if set, otherwise create one and store it in the cookie
-  if (getCookie(COOKIE_NAME)) return getCookie(COOKIE_NAME);
+// Use the browsers crypto.randomUUID if set to generate a UUID
+function genUUID() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return ("" + 1e7 + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) =>
+    (
+      ((c as unknown) as number) ^
+      (crypto.getRandomValues(new Uint8Array(1))[0] &
+        (15 >> (((c as unknown) as number) / 4)))
+    ).toString(16)
+  );
+}
 
-  const uuid = genUUID();
+const COOKIE_NAME = "gbuuid";
+let uuid = windowContext.uuid || dataContext.uuid || "";
+function persistUUID() {
   setCookie(COOKIE_NAME, uuid);
+}
+function getUUID(persist = true) {
+  // Already stored in memory, return
+  if (uuid) return uuid;
+
+  // If cookie is already set, return
+  uuid = getCookie(COOKIE_NAME);
+  if (uuid) return uuid;
+
+  // Generate a new UUID and optionally persist it in a cookie
+  uuid = genUUID();
+  if (persist) {
+    persistUUID();
+  }
+
   return uuid;
-};
+}
 
 function getUtmAttributes() {
   // Store utm- params in sessionStorage for future page loads
@@ -114,7 +131,7 @@ function getDataLayerVariables() {
   return obj;
 }
 
-function getAutoAttributes() {
+function getAutoAttributes(useCookies = true) {
   const ua = navigator.userAgent;
 
   const browser = ua.match(/Edg/)
@@ -129,7 +146,7 @@ function getAutoAttributes() {
 
   return {
     ...getDataLayerVariables(),
-    id: getUUID(),
+    id: getUUID(useCookies),
     url: location.href,
     path: location.pathname,
     host: location.host,
@@ -141,13 +158,11 @@ function getAutoAttributes() {
   };
 }
 
-const currentScript = document.currentScript;
-const dataContext = currentScript ? currentScript.dataset : {};
-const windowContext = window.growthbook_config || {};
-
 function getAttributes() {
   // Merge auto attributes and user-supplied attributes
-  const attributes = dataContext["noAutoAttributes"] ? {} : getAutoAttributes();
+  const attributes = dataContext["noAutoAttributes"]
+    ? {}
+    : getAutoAttributes(dataContext["noAutoCookies"] == null);
   if (windowContext.attributes) {
     Object.assign(attributes, windowContext.attributes);
   }
@@ -177,6 +192,12 @@ const gb = new GrowthBook({
   attributes: getAttributes(),
 });
 
+// Set the renderer to fire a custom DOM event
+// This will let us attach multiple listeners
+gb.setRenderer(() => {
+  document.dispatchEvent(new CustomEvent("growthbookdata"));
+});
+
 // Load features/experiments
 gb.loadFeatures();
 
@@ -197,6 +218,11 @@ document.addEventListener("growthbookrefresh", () => {
     gb.setURL(currentUrl);
   }
   gb.updateAttributes(getAttributes());
+});
+
+// Listen for a custom event to persist the UUID cookie
+document.addEventListener("growthbookpersist", () => {
+  persistUUID();
 });
 
 const fireCallback = (cb: (gb: GrowthBook) => void) => {

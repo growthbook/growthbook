@@ -11,7 +11,6 @@ import { queriesSchema } from "./QueryModel";
 import { ImpactEstimateModel } from "./ImpactEstimateModel";
 import { removeMetricFromExperiments } from "./ExperimentModel";
 import { addTagsDiff } from "./TagModel";
-import { getAllFactMetricsForOrganization } from "./FactMetricModel";
 
 export const ALLOWED_METRIC_TYPES = [
   "binomial",
@@ -215,7 +214,7 @@ export async function getMetricMap(context: ReqContext | ApiReqContext) {
     metricMap.set(m.id, m);
   });
 
-  const allFactMetrics = await getAllFactMetricsForOrganization(context);
+  const allFactMetrics = await context.models.factMetrics.getAll();
   allFactMetrics.forEach((m) => {
     metricMap.set(m.id, m);
   });

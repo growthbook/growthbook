@@ -1,11 +1,12 @@
-import { FC, useState } from "react";
+import { FC, useEffect, useState } from "react";
+import { LicenseInterface } from "enterprise";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import SubscriptionInfo from "@/components/Settings/SubscriptionInfo";
-import { isCloud } from "@/services/env";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
 import usePermissions from "@/hooks/usePermissions";
 import { useUser } from "@/services/UserContext";
+import { useAuth } from "@/services/auth";
 
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -16,13 +17,32 @@ const BillingPage: FC = () => {
 
   const { accountPlan } = useUser();
 
-  if (!isCloud()) {
-    return (
-      <div className="alert alert-info">
-        This page is not available for self-hosted installations.
-      </div>
-    );
-  }
+  const { apiCall } = useAuth();
+  const { refreshOrganization } = useUser();
+
+  useEffect(() => {
+    const refreshLicense = async () => {
+      const res = await apiCall<{
+        status: number;
+        license: LicenseInterface;
+      }>(`/license`, {
+        method: "GET",
+      });
+
+      if (res.status !== 200) {
+        throw new Error("There was an error fetching the license");
+      }
+      refreshOrganization();
+    };
+
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      // TODO: Get rid of the "org" route, once all license data has been moved off the orgs
+      if (urlParams.get("refreshLicense") || urlParams.get("org")) {
+        refreshLicense();
+      }
+    }
+  }, [apiCall, refreshOrganization]);
 
   if (accountPlan === "enterprise") {
     return (

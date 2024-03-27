@@ -4,10 +4,8 @@ import { wrapController } from "../wrapController";
 import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
 import {
   createFactFilterPropsValidator,
-  createFactMetricPropsValidator,
   createFactTablePropsValidator,
   updateFactFilterPropsValidator,
-  updateFactMetricPropsValidator,
   updateColumnPropsValidator,
   updateFactTablePropsValidator,
   testFactFilterPropsValidator,
@@ -94,19 +92,12 @@ router.delete(
   factTableController.deleteFactFilter
 );
 
-router.post(
-  "/fact-metrics",
-  validateRequestMiddleware({
-    body: createFactMetricPropsValidator,
-  }),
-  factTableController.postFactMetric
-);
+router.post("/fact-metrics", factTableController.postFactMetric);
 
 router.put(
   "/fact-metrics/:id",
   validateRequestMiddleware({
     params: factMetricParams,
-    body: updateFactMetricPropsValidator,
   }),
   factTableController.putFactMetric
 );
