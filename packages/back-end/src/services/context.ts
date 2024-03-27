@@ -102,7 +102,7 @@ export class ReqContextClass {
       this.email = user.email;
       this.userName = user.name || "";
       this.superAdmin = user.superAdmin || false;
-      this.userPermissions = getUserPermissions(user.id, org, teams || []);
+      this.userPermissions = getUserPermissions(user, org, teams || []);
     }
     // If an API key or background job is making this request
     else {
