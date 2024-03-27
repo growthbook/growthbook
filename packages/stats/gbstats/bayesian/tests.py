@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from dataclasses import field
+from dataclasses import asdict, field
 from typing import List, Optional, Tuple, Union
 
 import numpy as np
@@ -9,7 +9,6 @@ from scipy.stats import norm  # type: ignore
 
 from gbstats.messages import (
     BASELINE_VARIATION_ZERO_MESSAGE,
-    LOG_APPROXIMATION_INEXACT_MESSAGE,
     ZERO_NEGATIVE_VARIANCE_MESSAGE,
     ZERO_SCALED_VARIATION_MESSAGE,
     NO_UNITS_IN_VARIATION_MESSAGE,
@@ -91,6 +90,7 @@ class BayesianABTest(BaseABTest):
         config: BayesianConfig = BayesianConfig(),
     ):
         super().__init__(stat_a, stat_b)
+        self._config = config
         self.alpha = config.alpha
         self.inverse = config.inverse
         self.relative = config.difference_type == "relative"
@@ -229,6 +229,9 @@ class GaussianBayesianABTest(BayesianABTest):
         config: GaussianBayesianConfig = GaussianBayesianConfig(),
     ):
         super().__init__(stat_a, stat_b, config)
+        # override super settings to shrink type
+        self.stat_a = stat_a
+        self.stat_b = stat_b
         self.prior_a = config.prior_a
         self.prior_b = config.prior_b
         self.epsilon = config.epsilon
@@ -285,7 +288,9 @@ class GaussianBayesianABTest(BayesianABTest):
         if self.relative & self._is_log_approximation_inexact(
             ((mu_a, sd_a), (mu_b, sd_b))
         ):
-            return self._default_output(LOG_APPROXIMATION_INEXACT_MESSAGE)
+            return GaussianEffectABTest(
+                self.stat_a, self.stat_b, EffectBayesianConfig(**asdict(self._config))
+            ).compute_result()
 
         mean_a, var_a = Norm.moments(
             mu_a, sd_a, log=self.relative, epsilon=self.epsilon
