@@ -263,7 +263,7 @@ export default function SDKConnectionPage() {
                   Duplicate
                 </button>
                 <DeleteButton
-                  className="dropdown-item"
+                  className="dropdown-item text-danger"
                   displayName="SDK Connection"
                   text="Delete"
                   useIcon={false}

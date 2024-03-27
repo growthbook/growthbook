@@ -139,6 +139,20 @@ export default function FeaturesHeader({
                   >
                     Show implementation
                   </a>
+                  {canEdit && (
+                    <a
+                      className="dropdown-item"
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setStaleFFModal(true);
+                      }}
+                    >
+                      {feature.neverStale
+                        ? "Enable stale detection"
+                        : "Disable stale detection"}
+                    </a>
+                  )}
                   {canEdit &&
                     permissions.check(
                       "publishFeatures",
@@ -153,45 +167,8 @@ export default function FeaturesHeader({
                           setDuplicateModal(true);
                         }}
                       >
-                        Duplicate feature
+                        Duplicate
                       </a>
-                    )}
-                  {canEdit &&
-                    permissions.check(
-                      "publishFeatures",
-                      projectId,
-                      enabledEnvs
-                    ) && (
-                      <Tooltip
-                        shouldDisplay={dependents > 0}
-                        usePortal={true}
-                        body={
-                          <>
-                            <ImBlocked className="text-danger" /> This feature
-                            has{" "}
-                            <strong>
-                              {dependents} dependent{dependents !== 1 && "s"}
-                            </strong>
-                            . This feature cannot be deleted until{" "}
-                            {dependents === 1 ? "it has" : "they have"} been
-                            removed.
-                          </>
-                        }
-                      >
-                        <DeleteButton
-                          useIcon={false}
-                          displayName="Feature"
-                          onClick={async () => {
-                            await apiCall(`/feature/${feature.id}`, {
-                              method: "DELETE",
-                            });
-                            router.push("/features");
-                          }}
-                          className="dropdown-item"
-                          text="Delete feature"
-                          disabled={dependents > 0}
-                        />
-                      </Tooltip>
                     )}
                   {canEdit &&
                     permissions.check(
@@ -249,25 +226,48 @@ export default function FeaturesHeader({
                           disabled={dependents > 0}
                         >
                           <button className="dropdown-item">
-                            {isArchived ? "Unarchive" : "Archive"} feature
+                            {isArchived ? "Unarchive" : "Archive"}
                           </button>
                         </ConfirmButton>
                       </Tooltip>
                     )}
-                  {canEdit && (
-                    <a
-                      className="dropdown-item"
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setStaleFFModal(true);
-                      }}
-                    >
-                      {feature.neverStale
-                        ? "Enable stale detection"
-                        : "Disable stale detection"}
-                    </a>
-                  )}
+                  {canEdit &&
+                    permissions.check(
+                      "publishFeatures",
+                      projectId,
+                      enabledEnvs
+                    ) && (
+                      <Tooltip
+                        shouldDisplay={dependents > 0}
+                        usePortal={true}
+                        body={
+                          <>
+                            <ImBlocked className="text-danger" /> This feature
+                            has{" "}
+                            <strong>
+                              {dependents} dependent{dependents !== 1 && "s"}
+                            </strong>
+                            . This feature cannot be deleted until{" "}
+                            {dependents === 1 ? "it has" : "they have"} been
+                            removed.
+                          </>
+                        }
+                      >
+                        <DeleteButton
+                          useIcon={false}
+                          displayName="Feature"
+                          onClick={async () => {
+                            await apiCall(`/feature/${feature.id}`, {
+                              method: "DELETE",
+                            });
+                            router.push("/features");
+                          }}
+                          className="dropdown-item text-danger"
+                          text="Delete"
+                          disabled={dependents > 0}
+                        />
+                      </Tooltip>
+                    )}
                 </MoreMenu>
               </div>
             </div>

@@ -788,6 +788,27 @@ export function featureHasEnvironment(
   return filteredProjects.length > 0;
 }
 
+export function filterEnvironmentsByExperiment(
+  environments: Environment[],
+  experiment: ExperimentInterfaceStringDates
+): Environment[] {
+  return environments.filter((env) => experimentHasEnvironment(experiment, env));
+}
+
+export function experimentHasEnvironment(
+  experiment: ExperimentInterfaceStringDates,
+  environment: Environment
+): boolean {
+  const experimentProjects = experiment.project ? [experiment.project] : [];
+  if (experimentProjects.length === 0) return true;
+  const filteredProjects = filterProjectsByEnvironment(
+    experimentProjects,
+    environment,
+    true
+  );
+  return filteredProjects.length > 0;
+}
+
 export function filterEnvironmentsByFeature(
   environments: Environment[],
   feature: FeatureInterface
