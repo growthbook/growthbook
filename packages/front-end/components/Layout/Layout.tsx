@@ -178,7 +178,8 @@ const navlinks: SidebarLinkProps[] = [
         name: "Projects",
         href: "/projects",
         path: /^project/,
-        permissions: ["manageProjects"],
+        // permissions: ["manageProjects"],
+        permissionCallbacks: [() => canUpdateFeature],
       },
       {
         name: "API Keys",

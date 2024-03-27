@@ -8,13 +8,14 @@ import { ProjectInterface } from "back-end/types/project";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { date } from "shared/dates";
-import usePermissions from "@/hooks/usePermissions";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import ProjectModal from "@/components/Projects/ProjectModal";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();
@@ -28,15 +29,8 @@ const ProjectsPage: FC = () => {
 
   const { data: sdkConnectionsData } = useSDKConnections();
 
-  const permissions = usePermissions();
-  const manageProjectsPermissions: { [id: string]: boolean } = {};
-  projects.forEach(
-    (p) =>
-      (manageProjectsPermissions[p.id] = permissions.check(
-        "manageProjects",
-        p.id
-      ))
-  );
+  const permissionsUtil = usePermissionsUtil();
+  const canCreateProjects = permissionsUtil.canCreateProject();
 
   return (
     <div className="container-fluid  pagecontents">
@@ -54,15 +48,21 @@ const ProjectsPage: FC = () => {
         </div>
         <div style={{ flex: 1 }} />
         <div className="col-auto">
-          <button
-            className="btn btn-primary"
-            onClick={(e) => {
-              e.preventDefault();
-              setModalOpen({});
-            }}
+          <Tooltip
+            body="You don't have permission to create projects"
+            shouldDisplay={!canCreateProjects}
           >
-            <FaFolderPlus /> Create Project
-          </button>
+            <button
+              disabled={!canCreateProjects}
+              className="btn btn-primary"
+              onClick={(e) => {
+                e.preventDefault();
+                setModalOpen({});
+              }}
+            >
+              <FaFolderPlus /> Create Project
+            </button>
+          </Tooltip>
         </div>
       </div>
 
@@ -84,21 +84,22 @@ const ProjectsPage: FC = () => {
           </thead>
           <tbody>
             {projects.map((p) => {
-              const canManage = manageProjectsPermissions[p.id];
+              const canEdit = permissionsUtil.canUpdateProject(p.id);
+              const canDelete = permissionsUtil.canDeleteProject(p.id);
               return (
                 <tr
                   key={p.id}
                   onClick={
-                    canManage
+                    canEdit
                       ? () => {
                           router.push(`/project/${p.id}`);
                         }
                       : undefined
                   }
-                  style={canManage ? { cursor: "pointer" } : {}}
+                  style={canEdit ? { cursor: "pointer" } : {}}
                 >
                   <td>
-                    {canManage ? (
+                    {canEdit ? (
                       <Link
                         href={`/project/${p.id}`}
                         className="font-weight-bold"
@@ -121,8 +122,8 @@ const ProjectsPage: FC = () => {
                       e.stopPropagation();
                     }}
                   >
-                    {canManage && (
-                      <MoreMenu>
+                    <MoreMenu>
+                      {canEdit ? (
                         <button
                           className="btn dropdown-item py-2"
                           onClick={() => {
@@ -131,6 +132,8 @@ const ProjectsPage: FC = () => {
                         >
                           <FaPencilAlt /> Edit
                         </button>
+                      ) : null}
+                      {canDelete ? (
                         <DeleteButton
                           className="btn dropdown-item py-2"
                           displayName="project"
@@ -153,8 +156,8 @@ const ProjectsPage: FC = () => {
                             ) : null
                           }
                         />
-                      </MoreMenu>
-                    )}
+                      ) : null}
+                    </MoreMenu>
                   </td>
                 </tr>
               );

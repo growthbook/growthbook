@@ -26,6 +26,7 @@ export type SidebarLinkProps = {
   selfHostedOnly?: boolean;
   autoClose?: boolean;
   permissions?: Permission[];
+  permissionCallbacks?: (() => boolean)[];
   subLinks?: SidebarLinkProps[];
   beta?: boolean;
   feature?: keyof AppFeatures;
@@ -63,6 +64,10 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
       }
     }
     if (!allowed) return null;
+  }
+
+  if (props.permissionCallbacks) {
+    // call each callback
   }
 
   if (props.multiOrgOnly && !isMultiOrg()) {

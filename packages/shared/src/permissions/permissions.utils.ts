@@ -12,15 +12,15 @@ export const ENV_SCOPED_PERMISSIONS = [
 
 export const PROJECT_SCOPED_PERMISSIONS = [
   "readData",
-  "addComments",
-  "bypassApprovalChecks",
-  "canReview",
-  "createFeatureDrafts",
+  "addComments", //
+  "bypassApprovalChecks", //
+  "canReview", //
+  "createFeatureDrafts", // in progress - have questions
   "manageFeatures",
   "manageProjects",
   "createAnalyses",
   "createIdeas",
-  "createMetrics",
+  "createMetrics", //
   "manageFactTables",
   "createDatasources",
   "editDatasourceSettings",

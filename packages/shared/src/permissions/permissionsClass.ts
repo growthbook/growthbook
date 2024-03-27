@@ -43,6 +43,27 @@ export class Permissions {
     return this.checkProjectFilterPermission({ projects }, "addComments");
   };
 
+  public canCreateProject = (): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: [] },
+      "manageProjects"
+    );
+  };
+
+  public canUpdateProject = (project: string): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: [project] },
+      "manageProjects"
+    );
+  };
+
+  public canDeleteProject = (project: string): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: [project] },
+      "manageProjects"
+    );
+  };
+
   public throwPermissionError(): void {
     throw new PermissionError(
       "You do not have permission to perform this action"
