@@ -17,7 +17,7 @@ export default function FeaturesSettings() {
   ] = useState<string>("");
 
   const { hasCommercialFeature } = useUser();
-  const enviroments = useEnvironments();
+  const environments = useEnvironments();
   const form = useFormContext();
 
   const hasSecureAttributesFeature = hasCommercialFeature(
@@ -53,7 +53,7 @@ export default function FeaturesSettings() {
         {
           requireReview,
           resetReviewOnChange: false,
-          enviroments: [],
+          environments: [],
           projects: [],
           tags: [],
         },
@@ -128,9 +128,9 @@ export default function FeaturesSettings() {
         </div>
         {hasRequireApprovals && (
           <>
-            <div className="d-inline-block h4 mt-5 mb-0">Approval Flow</div>
+            <div className="d-inline-block h4 mt-5 mb-2">Approval Flow</div>
             {form.watch("requireReviews")?.map?.((requireReviews, i) => (
-              <div key={`approval-flow-${i}`}>
+              <div className="appbox py-2 px-3" key={`approval-flow-${i}`}>
                 <label
                   className="mr-1 mt-3 d-block"
                   htmlFor="toggle-require-reviews"
@@ -149,25 +149,27 @@ export default function FeaturesSettings() {
 
                 {!!form.watch(`requireReviews.${i}.requireReview`) && (
                   <div className="mt-3">
-                    <label htmlFor="enviroments" className="h5">
-                      Enviroments
+                    <label htmlFor="environments" className="h5">
+                      Environments
                     </label>
                     <MultiSelectField
-                      id="enviroments"
-                      value={form.watch(`requireReviews.${i}.enviroments`)}
-                      onChange={(enviroments) => {
+                      id="environments"
+                      value={
+                        form.watch(`requireReviews.${i}.environments`) || []
+                      }
+                      onChange={(environments) => {
                         form.setValue(
-                          `requireReviews.${i}.enviroments`,
-                          enviroments
+                          `requireReviews.${i}.environments`,
+                          environments
                         );
                       }}
-                      options={enviroments.map((e) => {
+                      options={environments.map((e) => {
                         return {
                           value: e.id,
                           label: e.id,
                         };
                       })}
-                      placeholder="Select Enviroments Requring Review."
+                      placeholder="Select Environments Requring Review."
                     />
                     <label
                       className="d-block mt-3 h5"

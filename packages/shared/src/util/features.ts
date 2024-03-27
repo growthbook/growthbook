@@ -328,20 +328,20 @@ export function mergeResultHasChanges(mergeResult: AutoMergeResult): boolean {
 
   return false;
 }
-export function listChangedEnviroments(
+export function listChangedEnvironments(
   base: RulesAndValues,
   revision: RulesAndValues
 ) {
-  const enviromentsList: string[] = [];
+  const environmentsList: string[] = [];
   Object.keys(revision.rules)?.forEach((env) => {
     const rules = revision.rules[env];
     if (!rules) return;
     if (isEqual(rules, base.rules[env] || [])) {
       return;
     }
-    enviromentsList.push(env);
+    environmentsList.push(env);
   });
-  return enviromentsList;
+  return environmentsList;
 }
 
 export function autoMerge(
@@ -747,11 +747,11 @@ export function getParsedPrereqCondition(condition: string) {
 }
 function checkEnvironmentsMatch(
   feature: FeatureInterface,
-  enviroments: string[],
+  environments: string[],
   reviewSetting: RequireReview
 ) {
-  for (const env of reviewSetting.enviroments) {
-    if (enviroments.includes(env)) {
+  for (const env of reviewSetting.environments) {
+    if (environments.includes(env)) {
       return true;
     }
   }
@@ -765,7 +765,7 @@ function checkEnvironmentsMatch(
     }
   }
   return (
-    reviewSetting.enviroments.length === 0 &&
+    reviewSetting.environments.length === 0 &&
     reviewSetting.projects.length === 0 &&
     reviewSetting.tags.length === 0
   ); //if everything is empty is means it is on for all.
@@ -835,7 +835,7 @@ export function checkIfRevisionNeedsReview({
   revision: FeatureRevisionInterface;
   settings?: OrganizationSettings;
 }) {
-  const changedEnvironments = listChangedEnviroments(baseRevision, revision);
+  const changedEnvironments = listChangedEnvironments(baseRevision, revision);
 
   return featureRequiresReview(feature, changedEnvironments, settings);
 }

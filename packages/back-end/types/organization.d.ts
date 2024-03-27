@@ -34,7 +34,7 @@ export type UserPermissions = {
 export type RequireReview = {
   requireReview: boolean;
   resetReviewOnChange: boolean;
-  enviroments: string[];
+  environments: string[];
   projects: string[];
   tags: string[];
 };
