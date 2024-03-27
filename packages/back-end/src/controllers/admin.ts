@@ -1,4 +1,3 @@
-import crypto from "crypto";
 import { Response } from "express";
 import { AuthRequest } from "../types/AuthRequest";
 import { UserInterface } from "../../types/user";
@@ -6,8 +5,7 @@ import {
   findAllOrganizations,
   findOrganizationById,
 } from "../models/OrganizationModel";
-import { getLicenseMetaData, initializeLicense } from "../services/licenseData";
-import { getUserById, getUserLicenseCodes } from "../services/users";
+import { getUserById } from "../services/users";
 import { findUsersByIds, updateUserById } from "../models/UserModel";
 import { getContextFromReq } from "../services/organizations";
 import { auditDetailsUpdate } from "../services/audit";
@@ -34,54 +32,6 @@ export async function getOrganizations(
     status: 200,
     organizations,
     total,
-  });
-}
-
-/**
- * An endpoint mostly used to refresh the license data manually, if they
- * have only recently paid for a subscription or for more seats and don't
- * want to restart their servers.
- */
-export async function getLicenseData(req: AuthRequest, res: Response) {
-  req.checkPermissions("manageBilling");
-
-  // Force refresh the license data
-  const licenseData = await initializeLicense(
-    req.organization?.licenseKey,
-    true
-  );
-
-  return res.status(200).json({
-    status: 200,
-    licenseData,
-  });
-}
-
-/**
- * An endpoint to download license usage data, for use in organizations
- * that have an old style airgap license, so that they can download the
- * data and send it to us.
- */
-export async function getLicenseReport(req: AuthRequest, res: Response) {
-  req.checkPermissions("manageBilling");
-
-  const timestamp = new Date().toISOString();
-  const licenseMetaData = await getLicenseMetaData();
-  const userLicenseCodes = await getUserLicenseCodes();
-
-  // Create a hmac signature of the license data
-  const hmac = crypto.createHmac("sha256", licenseMetaData.installationId);
-
-  const report = {
-    timestamp,
-    licenseMetaData,
-    userLicenseCodes,
-  };
-
-  return res.status(200).json({
-    status: 200,
-    ...report,
-    signature: hmac.update(JSON.stringify(report)).digest("hex"),
   });
 }
 

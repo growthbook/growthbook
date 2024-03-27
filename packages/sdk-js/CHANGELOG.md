@@ -1,5 +1,31 @@
 # Changelog
 
+## **0.36.0** - Mar 21, 2024
+
+- Support for URL Redirect tests. New context options `navigate` (default `(url) => window.location.replace(url)`) and `navigateDelay` (default 100ms) for browsers. Plus, new method `getRedirectUrl()` for back-end/edge implementations.
+- Built-in anti-flicker snippet. Set context option `antiFlicker` to true to enable (defualt false). Control timeout with option `antiFlickerTimeout` (default 3500ms)
+- New methods to deal with deferred tracking calls and server/client hydration
+  - `setTrackingCallback` - Set or update the trackingCallback after initialization. Until a trackingCallback is set, all calls will be queued up.
+  - `getDeferredTrackingCalls` - Get all queued tracking calls (in JSON format)
+  - `setDeferredTrackingCalls` - Hydrate the GrowthBook instance with queued tracking calls (in JSON format). Does not fire these calls immediately.
+  - `fireDeferredTrackingCalls` - Manually fire all queued tracking calls.
+- Various improvements to `auto.min.js` script
+  - New `uuid` context property to use your own user id instead of the auto-generated one.
+  - New `data-no-auto-cookies` script attribute and `growthbookpersist` event listener to more easily work with cookie consent banners
+  - New `growthbookdata` DOM event to attach multiple renderers to a single GrowthBook instance
+- Fix bug with prerequisite feature checks failing on initial page load when used with visual editor experiments
+
+## **0.35.0** - Mar 8, 2024
+
+- New `updateAttributes` method to make partial updates
+- Fix missing `await` in RedisStickyBucketService
+- New `context.renderer` option
+- Various improvements to `auto.min.js` script
+  - New `window.growthbook_queue` to make it easier to work with an async script tag
+  - New `pageTitle` auto attribute
+  - Fixed bugs with built-in GA4 and GTM tracking calls
+  - New `growthbookrefresh` DOM event you can trigger to for re-evaluation of auto attributes
+
 ## **0.34.0** - Feb 20, 2024
 
 - Prerequisite feature support for feature rules and experiments

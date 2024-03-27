@@ -44,6 +44,15 @@
   stroke-dasharray: 2, 2;
   stroke-linejoin: round;
 }
+.legendWrap {
+  position: relative;
+  bottom: -6px;
+  width: 100%;
+  flex-wrap: wrap;
+  display: flex;
+  justify-content: center;
+  font-size: 14px;
+}
 .legendRow {
   display: flex;
   align-items: center;

@@ -3,6 +3,7 @@ import {
   ExperimentMetricInterface,
   isFactMetric,
   isRatioMetric,
+  quantileMetricType,
 } from "shared/experiments";
 import chunk from "lodash/chunk";
 import {
@@ -74,6 +75,13 @@ export function getFactMetricGroup(metric: FactMetricInterface) {
     if (metric.numerator.factTableId !== metric.denominator?.factTableId) {
       return "";
     }
+  }
+
+  // Quantile metrics get their own group to prevent slowing down the main query
+  if (quantileMetricType(metric)) {
+    return metric.numerator.factTableId
+      ? `${metric.numerator.factTableId} (quantile metrics)`
+      : "";
   }
   return metric.numerator.factTableId || "";
 }

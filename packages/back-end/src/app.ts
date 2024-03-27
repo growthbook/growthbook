@@ -62,6 +62,9 @@ const discussionsController = wrapController(discussionsControllerRaw);
 import * as adminControllerRaw from "./controllers/admin";
 const adminController = wrapController(adminControllerRaw);
 
+import * as licenseControllerRaw from "./controllers/license";
+const licenseController = wrapController(licenseControllerRaw);
+
 import * as stripeControllerRaw from "./controllers/stripe";
 const stripeController = wrapController(stripeControllerRaw);
 
@@ -93,6 +96,7 @@ import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.rou
 import { tagRouter } from "./routers/tag/tag.router";
 import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
 import { ArchetypeRouter } from "./routers/archetype/archetype.router";
+import { AttributeRouter } from "./routers/attributes/attributes.router";
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
@@ -104,6 +108,7 @@ import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/d
 import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
 import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
+import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
 
 const app = express();
 
@@ -340,7 +345,11 @@ app.use(organizationsRouter);
 app.use("/environment", environmentRouter);
 
 app.post("/oauth/google", datasourcesController.postGoogleOauthRedirect);
-app.post("/subscription/checkout", stripeController.postNewSubscription);
+app.post(
+  "/subscription/new-pro-trial",
+  stripeController.postNewProTrialSubscription
+);
+app.post("/subscription/new", stripeController.postNewProSubscription);
 app.get("/subscription/quote", stripeController.getSubscriptionQuote);
 app.post("/subscription/manage", stripeController.postCreateBillingSession);
 app.post("/subscription/success", stripeController.postSubscriptionSuccess);
@@ -371,6 +380,8 @@ app.use("/tag", tagRouter);
 app.use("/saved-groups", savedGroupRouter);
 
 app.use("/archetype", ArchetypeRouter);
+
+app.use("/attribute", AttributeRouter);
 
 // Ideas
 app.get("/ideas", ideasController.getIdeas);
@@ -471,10 +482,6 @@ app.post(
   reportsController.postReportFromSnapshot
 );
 app.post(
-  "/experiments/:id/visual-changeset",
-  experimentsController.postVisualChangeset
-);
-app.post(
   "/experiments/launch-checklist",
   experimentLaunchChecklistController.postExperimentLaunchChecklist
 );
@@ -492,6 +499,10 @@ app.put(
 );
 
 // Visual Changesets
+app.post(
+  "/experiments/:id/visual-changeset",
+  experimentsController.postVisualChangeset
+);
 app.put("/visual-changesets/:id", experimentsController.putVisualChangeset);
 app.delete(
   "/visual-changesets/:id",
@@ -503,6 +514,9 @@ app.get(
   "/visual-editor/key",
   experimentsController.findOrCreateVisualEditorToken
 );
+
+// URL Redirects
+app.use("/url-redirects", urlRedirectRouter);
 
 // Reports
 app.get("/report/:id", reportsController.getReport);
@@ -535,6 +549,7 @@ app.post(
   "/feature/:id/:version/defaultvalue",
   featuresController.postFeatureDefaultValue
 );
+app.post("/feature/:id/sync", featuresController.postFeatureSync);
 app.post("/feature/:id/schema", featuresController.postFeatureSchema);
 app.post(
   "/feature/:id/:version/discard",
@@ -543,6 +558,14 @@ app.post(
 app.post(
   "/feature/:id/:version/publish",
   featuresController.postFeaturePublish
+);
+app.post(
+  "/feature/:id/:version/request",
+  featuresController.postFeatureRequestReview
+);
+app.post(
+  "/feature/:id/:version/submit-review",
+  featuresController.postFeatureReviewOrComment
 );
 app.get("/feature/:id/:version/log", featuresController.getRevisionLog);
 app.post("/feature/:id/archive", featuresController.postFeatureArchive);
@@ -571,6 +594,12 @@ app.post(
   "/feature/:id/toggleStaleDetection",
   featuresController.toggleStaleFFDetectionForFeature
 );
+app.post(
+  "/feature/:id/:version/comment",
+  featuresController.postFeatureReviewOrComment
+);
+
+app.get("/revision/feature", featuresController.getDraftandReviewRevisions);
 
 // Data Sources
 app.get("/datasources", datasourcesController.getDataSources);
@@ -654,10 +683,21 @@ app.use("/teams", teamRouter);
 
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);
-app.get("/admin/license", adminController.getLicenseData);
-app.get("/admin/license-report", adminController.getLicenseReport);
 app.get("/admin/organization/:orgId/users", adminController.getUsersForOrg);
 app.post("/admin/user/:userId", adminController.updateUser);
+
+// License
+app.get("/license", licenseController.getLicenseData);
+app.get("/license/report", licenseController.getLicenseReport);
+app.post(
+  "/license/enterprise-trial",
+  licenseController.postCreateTrialEnterpriseLicense
+);
+app.post(
+  "/license/resend-verification-email",
+  licenseController.postResendEmailVerificationEmail
+);
+app.post("/license/verify-email", licenseController.postVerifyEmail);
 
 // Meta info
 app.get("/meta/ai", (req, res) => {

@@ -3,9 +3,9 @@ import {
   ENV_SCOPED_PERMISSIONS,
   GLOBAL_PERMISSIONS,
   PROJECT_SCOPED_PERMISSIONS,
-  ReadAccessFilter,
 } from "shared/permissions";
-import { EventAuditUser } from "../src/events/event-types";
+import type { ReqContextClass } from "../src/services/context";
+import { attributeDataTypes } from "../src/util/organization.util";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
 import { MetricCappingSettings, MetricWindowSettings } from "./fact-table";
@@ -117,15 +117,7 @@ export interface Namespaces {
 
 export type SDKAttributeFormat = "" | "version";
 
-export type SDKAttributeType =
-  | "string"
-  | "number"
-  | "boolean"
-  | "string[]"
-  | "number[]"
-  | "enum"
-  | "secureString"
-  | "secureString[]";
+export type SDKAttributeType = typeof attributeDataTypes[number];
 
 export type SDKAttribute = {
   property: string;
@@ -134,6 +126,7 @@ export type SDKAttribute = {
   enum?: string;
   archived?: boolean;
   format?: SDKAttributeFormat;
+  projects?: string[];
 };
 
 export type SDKAttributeSchema = SDKAttribute[];
@@ -187,6 +180,7 @@ export interface OrganizationSettings {
   displayCurrency?: string;
   secureAttributeSalt?: string;
   killswitchConfirmation?: boolean;
+  requireReviews?: boolean;
   defaultDataSource?: string;
   disableMultiMetricQueries?: boolean;
   useStickyBucketing?: boolean;
@@ -284,12 +278,4 @@ export type NamespaceUsage = Record<
   }[]
 >;
 
-export type ReqContext = {
-  org: OrganizationInterface;
-  userId: string;
-  email: string;
-  environments: string[];
-  userName: string;
-  readAccessFilter: ReadAccessFilter;
-  auditUser: EventAuditUser;
-};
+export type ReqContext = ReqContextClass;

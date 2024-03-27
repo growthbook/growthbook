@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Union
 
 import numpy as np
+import scipy.stats
 from pydantic.dataclasses import dataclass
 
 
@@ -31,6 +32,10 @@ class Statistic(ABC):
         as it is for RegressionAdjustedStatistic
         """
         return self.mean
+
+    @property
+    def _has_zero_variance(self) -> bool:
+        return self.variance <= 0.0
 
 
 @dataclass
@@ -194,9 +199,93 @@ def create_joint_statistic(
     )
 
 
+@dataclass
+class QuantileStatistic(Statistic):
+    n: int  # number of events here
+    n_star: int  # sample size used when evaluating quantile_lower and quantile_upper
+    nu: float  # quantile level of interest
+    quantile_hat: float  # sample estimate
+    quantile_lower: float
+    quantile_upper: float
+
+    @property
+    def _has_zero_variance(self) -> bool:
+        multiplier = scipy.stats.norm.ppf(1.0 - 0.5 * 0.05, loc=0, scale=1)
+        quantile_above_one = self.n <= multiplier**2 * self.nu / (1.0 - self.nu)
+        quantile_below_zero = self.n <= multiplier**2 * (1.0 - self.nu) / self.nu
+        if quantile_above_one or quantile_below_zero:
+            return True
+        return self.variance_init <= 0.0 and self.n < 1000
+
+    @property
+    def mean(self) -> float:
+        return self.quantile_hat
+
+    @property
+    def unadjusted_mean(self) -> float:
+        return self.mean
+
+    @property
+    def variance_init(self) -> float:
+        num = self.quantile_upper - self.quantile_lower
+        den = 2 * scipy.stats.norm.ppf(1.0 - 0.5 * 0.05, loc=0, scale=1)
+        return float((self.n_star / self.n) * (self.n - 1) * (num / den) ** 2)
+
+    @property
+    def variance(self) -> float:
+        if self.n < 100:
+            return self.variance_init
+        else:
+            return max(self.variance_init, float(1e-5))
+
+
+@dataclass
+class QuantileClusteredStatistic(QuantileStatistic):
+    main_sum: float  # numerator sum
+    main_sum_squares: float
+    denominator_sum: float  # denominator sum
+    denominator_sum_squares: float
+    main_denominator_sum_product: float
+    n_clusters: int
+
+    @property
+    def variance_init(self):
+        v_iid = super().variance_init
+        v_nu_iid = self.nu * (1.0 - self.nu) / self.n
+        v_nu_cluster = self.get_cluster_variance
+        return v_iid * v_nu_cluster / v_nu_iid
+
+    @property
+    def get_cluster_variance(self):
+        mu_s = self.main_sum / self.n_clusters
+        mu_n = self.denominator_sum / self.n_clusters
+        sigma_2_s = (
+            (self.main_sum_squares / self.n_clusters - mu_s * mu_s)
+            * (self.n_clusters)
+            / (self.n_clusters - 1)
+        )
+        sigma_2_n = (
+            (self.denominator_sum_squares / self.n_clusters - mu_n * mu_n)
+            * (self.n_clusters)
+            / (self.n_clusters - 1)
+        )
+        sigma_s_n = (
+            (self.main_denominator_sum_product / self.n_clusters - mu_s * mu_n)
+            * self.n_clusters
+            / (self.n_clusters - 1)
+        )
+        num = (
+            sigma_2_s - 2 * mu_s * sigma_s_n / mu_n + mu_s**2 * sigma_2_n / mu_n**2
+        )
+        den = self.n_clusters * mu_n**2
+        return num / den
+
+
 TestStatistic = Union[
     ProportionStatistic,
     SampleMeanStatistic,
     RegressionAdjustedStatistic,
     RatioStatistic,
+    QuantileStatistic,
+    QuantileClusteredStatistic,
 ]

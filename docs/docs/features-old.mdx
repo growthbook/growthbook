@@ -89,7 +89,7 @@ eliminates huge potential security holes and keeps your user's PII safe and secu
 
 :::
 
-Each attribute has 3 parts:
+Each attribute has 4 parts:
 
 - The **attribute name** itself. This is how the attribute will be referenced in the SDK.
 - The **data type** of the attribute
@@ -102,6 +102,7 @@ Each attribute has 3 parts:
   - Array of Numbers - useful anytime you have multiple numeric values
   - Array of Secure Strings - an array of secure strings useful for passing multiple values that you want to keep secure
 - Whether or not it's an **identifier**. Identifiers are attributes which uniquely identify something - typically either a person, account, company, or device.
+- The **projects** that the attribute is associated with. This is useful if some attributes are only relevant to certain projects. If no projects are selected, the attribute will be available for all projects.
 
 ### Saved Groups
 
