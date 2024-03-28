@@ -716,7 +716,7 @@ export async function postFeaturePublish(
     feature,
     baseRevision: base,
     revision,
-    allEnvironments: environments,
+    allEnvironments: environmentIds,
     settings: org.settings,
   });
   if (!adminOverride && requiresReview && revision.status !== "approved") {
