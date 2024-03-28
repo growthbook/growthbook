@@ -25,7 +25,8 @@ const ssoConnectionSchema = new mongoose.Schema({
 
 type SSOConnectionDocument = mongoose.Document & SSOConnectionInterface;
 
-const SSOConnectionModel = mongoose.model<SSOConnectionInterface>(
+// TODO do not merge this change
+export const SSOConnectionModel = mongoose.model<SSOConnectionInterface>(
   "SSOConnection",
   ssoConnectionSchema
 );

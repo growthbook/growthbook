@@ -109,6 +109,7 @@ import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
 import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
 import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
+import createDummyOrg from "./createDummyOrg";
 
 const app = express();
 
@@ -161,6 +162,11 @@ app.get("/", (req, res) => {
     email_enabled: isEmailEnabled(),
     build: getBuild(),
   });
+});
+
+app.post("/create-dummy-org", async (_req, res) => {
+  await createDummyOrg();
+  res.send("Done");
 });
 
 app.use(httpLogger);
