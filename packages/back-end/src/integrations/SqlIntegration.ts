@@ -3678,7 +3678,7 @@ AND event_name = '${eventName}'`,
         metric.quantileSettings?.type === "event"
       ) {
         return `SUM(${this.ifElse(
-          `${valueColumn} < ${quantileColumn}`,
+          `${valueColumn} <= ${quantileColumn}`,
           "1",
           "0"
         )})`;

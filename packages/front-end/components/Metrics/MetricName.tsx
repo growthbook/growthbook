@@ -19,7 +19,7 @@ export function PercentileLabel({
     metric.quantileSettings
   ) {
     return (
-      <span className="ml-2 text-muted">
+      <span className="ml-2 small text-muted">
         {getPercentileLabel(metric.quantileSettings.quantile)}
       </span>
     );

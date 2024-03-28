@@ -186,8 +186,9 @@ export default function ResultsTableTooltip({
   }
   let denomFormatter = formatNumber;
   const hasCustomDenominator =
-    (isFactMetric(data.metric) && data.metric.metricType === "ratio") ||
-    !!data.metric.denominator;
+    ((isFactMetric(data.metric) && data.metric.metricType === "ratio") ||
+      !!data.metric.denominator) &&
+    !quantileMetricType(data.metric);
   if (
     hasCustomDenominator &&
     isFactMetric(data.metric) &&
@@ -305,7 +306,7 @@ export default function ResultsTableTooltip({
             </span>
             <PercentileLabel metric={data.metric} />
             {metricInverseIconDisplay}
-            <span className="text-muted ml-2">
+            <span className="small text-muted ml-2">
               (
               {isFactMetric(data.metric)
                 ? data.metric.metricType
