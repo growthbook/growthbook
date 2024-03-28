@@ -82,7 +82,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
       if (l.selfHostedOnly && isCloud()) {
         return null;
       }
-      //TODO: Update this to instead call the permission callback
+
       if (l.permissions) {
         for (let i = 0; i < l.permissions.length; i++) {
           if (!permissions.check(l.permissions[i] as GlobalPermission)) {
@@ -91,14 +91,9 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
         }
       }
       if (l.permissionCallbacks) {
-        for (let i = 0; i < l.permissionCallbacks.length; i++) {
-          console.log(
-            "result of permissionCallback",
-            l.permissionCallbacks[i]()
-          );
-          if (!permittedSubLinks.includes(l) && l.permissionCallbacks[i]()) {
-            permittedSubLinks.push(l);
-          }
+        //MKTODO: Test this
+        if (l.permissionCallbacks.every((cb) => cb())) {
+          permittedSubLinks.push(l);
         }
       } else {
         permittedSubLinks.push(l);
