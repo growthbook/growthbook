@@ -679,7 +679,7 @@ export async function licenseInit(
         !keyToLicenseData[key] ||
         (keyToCacheDate[key] !== null && keyToCacheDate[key] <= oneDayAgo)
       ) {
-        if (key.startsWith("license_")) {
+        if (!isAirGappedLicenseKey(key)) {
           if (!userLicenseCodes || !metaData) {
             throw new Error(
               "Missing userLicenseCodes or metaData for license key"
@@ -791,7 +791,7 @@ function shouldLimitAccess(org: MinimalOrganization): boolean {
     return true;
   }
 
-  if (org.licenseKey?.startsWith("license") && !licenseData.emailVerified) {
+  if (!isAirGappedLicenseKey(org.licenseKey) && !licenseData.emailVerified) {
     return true;
   }
 
@@ -808,6 +808,11 @@ function shouldLimitAccess(org: MinimalOrganization): boolean {
   }
 
   return false;
+}
+
+export function isAirGappedLicenseKey(licenseKey: string | undefined): boolean {
+  if (!licenseKey) return false;
+  return !licenseKey.startsWith("license");
 }
 
 export function getEffectiveAccountPlan(org: MinimalOrganization): AccountPlan {
