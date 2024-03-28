@@ -8,7 +8,7 @@ slug: quantile
 # Quantile Testing
 
 :::note
-Quantile Testing is a GrowthBook Pro and Enterprise feature. It is not compatible with Mixpanel, Redshift, or MySQL integrations.
+Quantile Testing is a GrowthBook Pro and Enterprise feature. It is incompatible with Mixpanel, Redshift, or MySQL integrations.
 :::
 
 ## What is a quantile test?
@@ -31,7 +31,7 @@ Consider one universe where **all** customers received control (not just the cus
 
 Consider another universe where **all** customers are assigned to treatment. In the treatment universe, website latency for 99% of customers is no more than 139 ms. So the true effect at P99 is 139 ms - 145 ms = -6 ms.
 
-A quantile treatment test tries to estimate this difference. You interpret the interval above as “There is a 95% chance that the difference in P99 latencies across the groups is in (-9ms, -5ms)”.
+A quantile test tries to estimate this difference. You interpret the interval above as “There is a 95% chance that the difference in P99 latencies across the groups is in (-9ms, -5ms)”.
 
 ## Should I aggregate by experiment user before taking quantile?
 
@@ -43,7 +43,7 @@ Running a quantile test is just as easy as running a mean test. Currently, quant
 
 1. Navigate to your [Fact Table](/app/fact-tables) and select "Add Metric".
 2. Select “Quantile” from “Type of Metric”.
-3. Toggle “Group by Experiment User before taking quantile” if you want to compare quantiles across variations at the user granularity, after summing row values at the user level. The default is at the event granularity.
+3. Toggle “Aggregate by Experiment User before taking quantile” if you want to compare quantiles across variations at the user granularity, after summing row values at the user level. The default is at the event granularity.
 4. Pick your quantile level from the defaults (p50, p90, p95, p99) or use a custom value. Guidance describing the range of available values is in our [FAQ](#faq).
 5. Decide whether you want zeros to be included in the analysis (see [FAQ](#faq) below).
 6. Select your metric window as you would for a mean test.
@@ -76,14 +76,12 @@ $\text{Var}\left(\bar{X}\right) = \frac{1}{K\bar{N}^{2}}\left[\text{Var}(S)-2\fr
 Let $\hat{Y0}_{n\nu}$ be the $\nu^{\text{th}}$ sample quantile for control, and let its associated variance be $\hat{v}_{0}$.
 Analogously define $\hat{Y1}_{n\nu}$ and $\hat{v}_{1}$ for treatment.
 Given these terms, our relative effect estimate is $\hat{\tau} = (\hat{Y1}_{n\nu} - \hat{Y0}_{n\nu}) / \hat{Y0}_{n\nu}$ if $\hat{Y0}_{n\nu}\ne 0$ and is 0 otherwise.
-We calculate $v_{\tau}$, the variance of $\hat{\tau}$, by using the delta method formula above.
+We calculate $s^{2}$, the variance of $\hat{\tau}$, by using the delta method formula above.
+The statistics ($\hat{\tau}$, $s^{2}$) are used for frequentist inference (e.g., confidence intervals).
+If instead the absolute difference is of interest, then our estimator is $\hat{\tau}_{a} = (\hat{Y1}_{n\nu} - \hat{Y0}_{n\nu})$ and its variance $s^{2}_{a} = \hat{v}_{0} + \hat{v}_{1}$
 
-In summary, our quantile treatment effect estimate for control is
-
-For our Bayesian engine, we simply use a normal/normal conjugate prior to construct a Bayesian credible interval, which in turn can be used for risk estimates, probability that $\tau$ is positive, etc. We put a normal prior on the true quantile treatment effect, i.e., $\tau \stackrel{}{\sim}\mathcal{N}\left(\mu_{0}, \sigma_{0}^{2}\right)$. Then $\hat{\tau}|\tau \stackrel{}{\sim}\mathcal{N}\left(\tau, s^{2}\right)$ , so the posterior distribution for the treatment effect is $\tau|\hat{\tau} \stackrel{}{\sim}\mathcal{N}\left(\Omega^{-1}\omega, \Omega^{-1}\right),$ where the precision $\Omega = 1/\sigma_{0}^{2} + 1/s^{2}$ and $\omega = \mu_{0}\sigma_{0}^{2} + \hat{\tau}/s^{2}$.
-We place a flat prior over the effect size. We combine the
-
-For our Bayesian engine, we simply use a normal/normal conjugate prior to construct a Bayesian credible interval, which in turn can be used for risk estimates, probability that $\tau$ is positive, etc. We put a normal prior on the true quantile treatment effect, i.e., $\tau \stackrel{}{\sim}\mathcal{N}\left(\mu_{0}, \sigma_{0}^{2}\right)$. Then $\hat{\tau}|\tau \stackrel{}{\sim}\mathcal{N}\left(\tau, s^{2}\right) $ , so the posterior distribution for the treatment effect is $\tau|\hat{\tau} \stackrel{}{\sim}\mathcal{N}\left(\Omega^{-1}\omega, \Omega^{-1}\right), $ where the precision $\Omega = 1/\sigma_{0}^{2} + 1/s^{2}$ and $\omega = \mu_{0}\sigma_{0}^{2} + \hat{\tau}/s^{2}$.
+For our Bayesian engine, we simply use a normal/normal conjugate prior to construct a Bayesian credible interval, which in turn can be used for risk estimates, probability that $\tau$ is positive, etc. We describe inference in terms of relative change, but our formula is the same for absolute change. We put a normal prior on the true quantile treatment effect, i.e., $\tau \stackrel{}{\sim}\mathcal{N}\left(\mu_{0}, \sigma_{0}^{2}\right)$. Then $\hat{\tau}|\tau \stackrel{}{\sim}\mathcal{N}\left(\tau, s^{2}\right)$ , so the posterior distribution for the treatment effect is $\tau|\hat{\tau} \stackrel{}{\sim}\mathcal{N}\left(\Omega^{-1}\omega, \Omega^{-1}\right),$ where the precision $\Omega = 1/\sigma_{0}^{2} + 1/s^{2}$ and $\omega = \mu_{0}/\sigma_{0}^{2} + \hat{\tau}/s^{2}$.
+In practice we place a flat prior over the effect size (i.e., $\sigma_{0}^{2}=\infty$), so the posterior mean $\Omega^{-1}\omega$ is equivalent to the frequentist estimate.
 
 ## FAQ
 
