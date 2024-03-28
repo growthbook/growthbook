@@ -9,7 +9,6 @@ import {
 import { useForm } from "react-hook-form";
 import { EventAuditUserLoggedIn } from "back-end/src/events/event-types";
 import { getCurrentUser } from "@/services/UserContext";
-import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
@@ -18,6 +17,7 @@ import Button from "@/components/Button";
 import RadioSelector from "@/components/Forms/RadioSelector";
 import { ExpandableDiff } from "@/components/Features/DraftModal";
 import Revisionlog, { MutateLog } from "@/components/Features/RevisionLog";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 export interface Props {
   feature: FeatureInterface;
   version: number;
@@ -46,11 +46,8 @@ export default function RequestReviewModal({
 
   const { apiCall } = useAuth();
   const user = getCurrentUser();
-  const permissions = usePermissions();
-  const canAdminPublish = permissions.check(
-    "bypassApprovalChecks",
-    feature.project
-  );
+  const permissionsUtil = usePermissionsUtil();
+  const canAdminPublish = permissionsUtil.canBypassApprovalChecks(feature);
   const revision = revisions.find((r) => r.version === version);
   const isPendingReview =
     revision?.status === "pending-review" ||
@@ -59,7 +56,7 @@ export default function RequestReviewModal({
   const canReview =
     isPendingReview &&
     createdBy?.id !== user?.id &&
-    permissions.check("canReview", feature.project);
+    permissionsUtil.canReviewFeatureDrafts(feature);
   const approved = revision?.status === "approved" || adminPublish;
   const baseRevision = revisions.find(
     (r) => r.version === revision?.baseVersion

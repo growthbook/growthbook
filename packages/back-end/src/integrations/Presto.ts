@@ -104,31 +104,6 @@ export default class Presto extends SqlIntegration {
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
   }
-
-  percentileCapSelectClause(
-    values: {
-      valueCol: string;
-      outputCol: string;
-      percentile: number;
-      ignoreZeros: boolean;
-    }[],
-    metricTable: string,
-    where: string = ""
-  ): string {
-    return `
-    SELECT
-      ${values
-        .map((v) => {
-          const value = v.ignoreZeros
-            ? this.ifElse(`${v.valueCol} = 0`, "NULL", v.valueCol)
-            : v.valueCol;
-          return `APPROX_PERCENTILE(${value}, ${v.percentile}) AS ${v.outputCol}`;
-        })
-        .join(",\n")}
-      FROM ${metricTable}
-      ${where}
-    `;
-  }
   getDefaultDatabase() {
     return this.params.catalog || "";
   }
