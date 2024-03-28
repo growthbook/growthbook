@@ -120,9 +120,9 @@ const buildSlackMessageForFeatureCreatedEvent = (
   featureEvent: FeatureCreatedNotificationEvent,
   eventId: string
 ): SlackMessage => {
-  const featureId = featureEvent.data.current.id;
+  const { id: featureId, owner: createdBy } = featureEvent.data.current;
 
-  const text = `The feature ${featureId} has been created`;
+  const text = `The feature ${featureId} has been created by ${createdBy}`;
 
   return {
     text,
@@ -132,7 +132,7 @@ const buildSlackMessageForFeatureCreatedEvent = (
         text: {
           type: "mrkdwn",
           text:
-            `The feature *${featureId}* has been created.` +
+            `The feature *${featureId}* has been created by ${createdBy}.` +
             getFeatureUrlFormatted(featureId) +
             getEventUrlFormatted(eventId),
         },
@@ -145,9 +145,12 @@ const buildSlackMessageForFeatureUpdatedEvent = (
   featureEvent: FeatureUpdatedNotificationEvent,
   eventId: string
 ): SlackMessage => {
-  const featureId = featureEvent.data.current.id;
+  const {
+    current: { id: featureId },
+    updatedBy,
+  } = featureEvent.data;
 
-  const text = `The feature ${featureId} has been updated`;
+  const text = `The feature ${featureId} has been updated by ${updatedBy}`;
 
   return {
     text,
@@ -157,7 +160,7 @@ const buildSlackMessageForFeatureUpdatedEvent = (
         text: {
           type: "mrkdwn",
           text:
-            `The feature *${featureId}* has been updated.` +
+            `The feature *${featureId}* has been updated ${updatedBy}.` +
             getFeatureUrlFormatted(featureId) +
             getEventUrlFormatted(eventId),
         },
@@ -170,8 +173,11 @@ const buildSlackMessageForFeatureDeletedEvent = (
   featureEvent: FeatureDeletedNotificationEvent,
   eventId: string
 ): SlackMessage => {
-  const featureId = featureEvent.data.previous.id;
-  const text = `The feature ${featureId} has been deleted.`;
+  const {
+    previous: { id: featureId },
+    deletedBy,
+  } = featureEvent.data;
+  const text = `The feature ${featureId} has been deleted by ${deletedBy}.`;
 
   return {
     text,
@@ -181,7 +187,7 @@ const buildSlackMessageForFeatureDeletedEvent = (
         text: {
           type: "mrkdwn",
           text:
-            `The feature *${featureId}* has been deleted.` +
+            `The feature *${featureId}* has been deleted by ${deletedBy}.` +
             getEventUrlFormatted(eventId),
         },
       },
