@@ -81,6 +81,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
         return null;
       }
       if (l.permissionCallbacks) {
+        // User must pass all permission checks for sublink to be shown
         if (l.permissionCallbacks.every((cb) => cb())) {
           permittedSubLinks.push(l);
         }
