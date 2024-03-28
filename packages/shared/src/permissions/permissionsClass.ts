@@ -83,14 +83,6 @@ export class Permissions {
     );
   };
 
-  //MKTODO: Need to test this, and replace throughout the app
-  public canManageEnvironments = (project: string): boolean => {
-    return this.checkProjectFilterPermission(
-      { projects: [project] },
-      "manageEnvironments"
-    );
-  };
-
   public throwPermissionError(): void {
     throw new PermissionError(
       "You do not have permission to perform this action"

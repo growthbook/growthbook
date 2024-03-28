@@ -225,7 +225,7 @@ function buildNavlinks(
           feature: "import-from-x",
           permissionCallbacks: [
             () => permissions.check("manageFeatures", project),
-            () => permissionsUtils.canManageEnvironments(project),
+            () => permissions.check("manageEnvironments" as GlobalPermission),
             () => permissionsUtils.canCreateProjects(),
           ],
         },
