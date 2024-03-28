@@ -18,15 +18,14 @@ import {
   auditDetailsUpdate,
 } from "../services/audit";
 
-export type BaseSchema = z.ZodObject<
-  {
-    id: z.ZodString;
-    organization: z.ZodString;
-    dateCreated: z.ZodDate;
-    dateUpdated: z.ZodDate;
-  },
-  "strict"
->;
+export const baseSchema = z.object({
+  id: z.string(),
+  organization: z.string(),
+  dateCreated: z.date(),
+  dateUpdated: z.date()
+}).strict();
+
+export type BaseSchema = typeof baseSchema;
 
 export interface ModelConfig<T extends BaseSchema> {
   schema: T;

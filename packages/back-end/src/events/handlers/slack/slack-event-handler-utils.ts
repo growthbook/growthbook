@@ -49,6 +49,9 @@ export const getSlackMessageForNotificationEvent = (
     case "experiment.updated":
       return buildSlackMessageForExperimentUpdatedEvent(event, eventId);
 
+    case "experiment.info":
+      return null;
+
     case "experiment.deleted":
       return buildSlackMessageForExperimentDeletedEvent(event, eventId);
 
