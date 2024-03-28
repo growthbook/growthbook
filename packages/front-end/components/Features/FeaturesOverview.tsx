@@ -215,14 +215,19 @@ export default function FeaturesOverview({
   const { jsonSchema, validationEnabled, schemaDateUpdated } = getValidation(
     feature
   );
-  const requireReviews = checkIfRevisionNeedsReview({
-    feature,
-    baseRevision: revisions.find(
-      (r) => r.version === revision?.baseVersion
-    ) as FeatureRevisionInterface,
-    revision,
-    settings,
-  });
+  const baseVersion = revision?.baseVersion || feature.version;
+  const baseRevision = revisions.find((r) => r.version === baseVersion);
+  let requireReviews = false;
+  //dont require review when we cant find a base version to compare
+  if (baseRevision) {
+    requireReviews = checkIfRevisionNeedsReview({
+      feature,
+      baseRevision,
+      revision,
+      allEnvironments: environments.map((e) => e.id),
+      settings,
+    });
+  }
   const isLive = revision?.version === feature.version;
   const isPendingReview =
     revision?.status === "pending-review" ||

@@ -641,7 +641,7 @@ export async function addFeatureRule(
   env: string,
   rule: FeatureRule,
   user: EventAuditUser,
-  resetReview?: boolean
+  resetReview: boolean
 ) {
   if (!rule.id) {
     rule.id = generateRuleId();
@@ -660,12 +660,17 @@ export async function addFeatureRule(
   ) {
     changes.status = "pending-review";
   }
-  await updateRevision(revision, changes, {
-    user,
-    action: "add rule",
-    subject: `to ${env}`,
-    value: JSON.stringify(rule),
-  });
+  await updateRevision(
+    revision,
+    changes,
+    {
+      user,
+      action: "add rule",
+      subject: `to ${env}`,
+      value: JSON.stringify(rule),
+    },
+    resetReview
+  );
 }
 
 export async function editFeatureRule(
@@ -674,7 +679,7 @@ export async function editFeatureRule(
   i: number,
   updates: Partial<FeatureRule>,
   user: EventAuditUser,
-  resetReview?: boolean
+  resetReview: boolean
 ) {
   const changes = { rules: revision.rules || {}, status: revision.status };
 
@@ -687,19 +692,17 @@ export async function editFeatureRule(
     ...changes.rules[environment][i],
     ...updates,
   } as FeatureRule;
-  if (
-    (revision.status === "approved" ||
-      revision.status === "changes-requested") &&
+  await updateRevision(
+    revision,
+    changes,
+    {
+      user,
+      action: "edit rule",
+      subject: `in ${environment} (position ${i + 1})`,
+      value: JSON.stringify(updates),
+    },
     resetReview
-  ) {
-    changes.status = "pending-review";
-  }
-  await updateRevision(revision, changes, {
-    user,
-    action: "edit rule",
-    subject: `in ${environment} (position ${i + 1})`,
-    value: JSON.stringify(updates),
-  });
+  );
 }
 
 export async function removeTagInFeature(
@@ -749,7 +752,8 @@ export async function removeProjectFromFeatures(
 export async function setDefaultValue(
   revision: FeatureRevisionInterface,
   defaultValue: string,
-  user: EventAuditUser
+  user: EventAuditUser,
+  requireReview: boolean
 ) {
   await updateRevision(
     revision,
@@ -759,7 +763,8 @@ export async function setDefaultValue(
       action: "edit default value",
       subject: ``,
       value: JSON.stringify({ defaultValue }),
-    }
+    },
+    requireReview
   );
 }
 

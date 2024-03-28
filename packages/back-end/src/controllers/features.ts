@@ -519,7 +519,6 @@ export async function postFeatureRebase(
   environments.forEach((env) => {
     newRules[env] = mergeResult.result.rules?.[env] || live.rules[env] || [];
   });
-
   await updateRevision(
     revision,
     {
@@ -532,7 +531,8 @@ export async function postFeatureRebase(
       action: "rebase",
       subject: `on top of revision #${live.version}`,
       value: JSON.stringify(mergeResult.result),
-    }
+    },
+    false
   );
 
   res.status(200).json({
@@ -679,6 +679,7 @@ export async function postFeaturePublish(
     feature,
     baseRevision: base,
     revision,
+    allEnvironments: environments,
     settings: org.settings,
   });
   if (!adminOverride && requiresReview && revision.status !== "approved") {
@@ -1275,7 +1276,8 @@ export async function putRevisionComment(
       action: "edit comment",
       subject: "",
       value: JSON.stringify({ comment }),
-    }
+    },
+    false
   );
 
   res.status(200).json({
@@ -1291,6 +1293,7 @@ export async function postFeatureDefaultValue(
   >
 ) {
   const context = getContextFromReq(req);
+  const { environments, org } = context;
   const { id, version } = req.params;
   const { defaultValue } = req.body;
 
@@ -1303,8 +1306,13 @@ export async function postFeatureDefaultValue(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
-
-  await setDefaultValue(revision, defaultValue, res.locals.eventAudit);
+  const resetReview = resetReviewOnChange(feature, environments, org?.settings);
+  await setDefaultValue(
+    revision,
+    defaultValue,
+    res.locals.eventAudit,
+    resetReview
+  );
 
   res.status(200).json({
     status: 200,
@@ -1455,7 +1463,7 @@ export async function postFeatureMoveRule(
   >
 ) {
   const context = getContextFromReq(req);
-  const { environments } = context;
+  const { environments, org } = context;
   const { id, version } = req.params;
   const { environment, from, to } = req.body;
   const feature = await getFeature(context, id);
@@ -1479,12 +1487,22 @@ export async function postFeatureMoveRule(
   }
   const rule = rules[from];
   changes.rules[environment] = arrayMove(rules, from, to);
-  await updateRevision(revision, changes, {
-    user: res.locals.eventAudit,
-    action: "move rule",
-    subject: `in ${environment} from position ${from + 1} to ${to + 1}`,
-    value: JSON.stringify(rule),
-  });
+  const resetReview = resetReviewOnChange(
+    feature,
+    [environment],
+    org?.settings
+  );
+  await updateRevision(
+    revision,
+    changes,
+    {
+      user: res.locals.eventAudit,
+      action: "move rule",
+      subject: `in ${environment} from position ${from + 1} to ${to + 1}`,
+      value: JSON.stringify(rule),
+    },
+    resetReview
+  );
 
   res.status(200).json({
     status: 200,
@@ -1519,7 +1537,7 @@ export async function deleteFeatureRule(
   >
 ) {
   const context = getContextFromReq(req);
-  const { environments } = context;
+  const { environments, org } = context;
   const { id, version } = req.params;
   const { environment, i } = req.body;
 
@@ -1546,13 +1564,22 @@ export async function deleteFeatureRule(
 
   changes.rules[environment] = rules.slice();
   changes.rules[environment].splice(i, 1);
-
-  await updateRevision(revision, changes, {
-    user: res.locals.eventAudit,
-    action: "delete rule",
-    subject: `in ${environment} (position ${i + 1})`,
-    value: JSON.stringify(rule),
-  });
+  const resetReview = resetReviewOnChange(
+    feature,
+    [environment],
+    org?.settings
+  );
+  await updateRevision(
+    revision,
+    changes,
+    {
+      user: res.locals.eventAudit,
+      action: "delete rule",
+      subject: `in ${environment} (position ${i + 1})`,
+      value: JSON.stringify(rule),
+    },
+    resetReview
+  );
 
   res.status(200).json({
     status: 200,

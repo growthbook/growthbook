@@ -46,20 +46,6 @@ export default function FeaturesSettings() {
     );
   }, [form, codeRefsBranchesToFilterStr]);
 
-  useEffect(() => {
-    const requireReview = form.watch("requireReviews");
-    if (requireReview === false || requireReview === true) {
-      form.setValue("requireReviews", [
-        {
-          requireReview,
-          resetReviewOnChange: false,
-          environments: [],
-          projects: [],
-          tags: [],
-        },
-      ]);
-    }
-  }, [form]);
   return (
     <div className="row">
       <div className="col-sm-3">
@@ -133,13 +119,13 @@ export default function FeaturesSettings() {
               <div className="appbox py-2 px-3" key={`approval-flow-${i}`}>
                 <label
                   className="mr-1 mt-3 d-block"
-                  htmlFor="toggle-require-reviews"
+                  htmlFor={`toggle-require-reviews-${i}`}
                 >
                   Require approval to publish changes
                 </label>
                 <div>
                   <Toggle
-                    id={"toggle-require-reviews"}
+                    id={`toggle-require-reviews-${i}`}
                     value={!!form.watch(`requireReviews.${i}.requireReviewOn`)}
                     setValue={(value) => {
                       form.setValue(
@@ -152,11 +138,11 @@ export default function FeaturesSettings() {
 
                 {!!form.watch(`requireReviews.${i}.requireReviewOn`) && (
                   <div className="mt-3">
-                    <label htmlFor="environments" className="h5">
+                    <label htmlFor={`environments-${i}`} className="h5">
                       Environments
                     </label>
                     <MultiSelectField
-                      id="environments"
+                      id={`environments-${i}`}
                       value={
                         form.watch(`requireReviews.${i}.environments`) || []
                       }
@@ -176,12 +162,12 @@ export default function FeaturesSettings() {
                     />
                     <label
                       className="d-block mt-3 h5"
-                      htmlFor="toggle-reset-review-on-change"
+                      htmlFor={`toggle-reset-review-on-change-${i}`}
                     >
                       Reset review on changes
                     </label>
                     <Toggle
-                      id="toggle-reset-review-on-change"
+                      id={`toggle-reset-review-on-change-${i}`}
                       value={
                         !!form.watch(`requireReviews.${i}.resetReviewOnChange`)
                       }

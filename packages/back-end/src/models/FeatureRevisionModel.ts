@@ -242,7 +242,7 @@ export async function createRevision({
     feature.id,
     baseVersion
   )) as FeatureRevisionInterface;
-  let status = "draft";
+  const status = "draft";
   const revision = {
     organization: feature.organization,
     featureId: feature.id,
@@ -263,14 +263,15 @@ export async function createRevision({
     feature,
     baseRevision,
     revision,
+    allEnvironments: environments,
     settings: org.settings,
   });
   if (publish && !requiresReview) {
-    status = "published";
+    revision.status = "published";
     revision.publishedBy = user;
     revision.datePublished = new Date();
   } else if (publish && requiresReview) {
-    status = "pending-review";
+    revision.status = "pending-review";
   }
 
   const doc = await FeatureRevisionModel.create(revision);
@@ -283,10 +284,11 @@ export async function updateRevision(
   changes: Partial<
     Pick<
       FeatureRevisionInterface,
-      "comment" | "defaultValue" | "rules" | "baseVersion"
+      "comment" | "defaultValue" | "rules" | "baseVersion" | "status"
     >
   >,
-  log: Omit<RevisionLog, "timestamp">
+  log: Omit<RevisionLog, "timestamp">,
+  resetReview: boolean
 ) {
   // If editing defaultValue or rules, require the revision to be a draft
   if ("defaultValue" in changes || changes.rules) {
@@ -301,6 +303,13 @@ export async function updateRevision(
       throw new Error("Can only update draft revisions");
     }
   }
+  let status = revision.status;
+  if (
+    resetReview &&
+    (revision.status === "approved" || revision.status === "changes-requested")
+  ) {
+    status = "pending-review";
+  }
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -308,7 +317,7 @@ export async function updateRevision(
       version: revision.version,
     },
     {
-      $set: { ...changes, dateUpdated: new Date() },
+      $set: { ...changes, status, dateUpdated: new Date() },
       $push: {
         log: {
           ...log,

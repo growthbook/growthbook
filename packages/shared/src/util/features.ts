@@ -330,10 +330,11 @@ export function mergeResultHasChanges(mergeResult: AutoMergeResult): boolean {
 }
 export function listChangedEnvironments(
   base: RulesAndValues,
-  revision: RulesAndValues
+  revision: RulesAndValues,
+  allEnviroments: string[]
 ) {
   const environmentsList: string[] = [];
-  Object.keys(revision.rules)?.forEach((env) => {
+  allEnviroments?.forEach((env) => {
     const rules = revision.rules[env];
     if (!rules) return;
     if (isEqual(rules, base.rules[env] || [])) {
@@ -787,14 +788,17 @@ export function featureRequiresReview(
 
   for (const reviewSetting of requiresReviewSettings) {
     if (reviewSetting.requireReviewOn === true) {
-      return checkEnvironmentsMatch(
-        feature,
-        requestedEnvironments,
-        reviewSetting
-      );
+      if (
+        checkEnvironmentsMatch(
+          feature,
+          requestedEnvironments,
+          reviewSetting
+        ) === true
+      ) {
+        return true;
+      }
     }
   }
-
   return false;
 }
 
@@ -814,11 +818,15 @@ export function resetReviewOnChange(
   }
   for (const reviewSetting of requiresReviewSettings) {
     if (reviewSetting.resetReviewOnChange === true) {
-      return checkEnvironmentsMatch(
-        feature,
-        requestedEnvironments,
-        reviewSetting
-      );
+      if (
+        checkEnvironmentsMatch(
+          feature,
+          requestedEnvironments,
+          reviewSetting
+        ) === true
+      ) {
+        return true;
+      }
     }
   }
   return false;
@@ -828,14 +836,20 @@ export function checkIfRevisionNeedsReview({
   feature,
   baseRevision,
   revision,
+  allEnvironments,
   settings,
 }: {
   feature: FeatureInterface;
   baseRevision: FeatureRevisionInterface;
   revision: FeatureRevisionInterface;
+  allEnvironments: string[];
   settings?: OrganizationSettings;
 }) {
-  const changedEnvironments = listChangedEnvironments(baseRevision, revision);
+  const changedEnvironments = listChangedEnvironments(
+    baseRevision,
+    revision,
+    allEnvironments
+  );
 
   return featureRequiresReview(feature, changedEnvironments, settings);
 }

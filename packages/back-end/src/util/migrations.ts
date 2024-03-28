@@ -417,6 +417,21 @@ export function upgradeOrganizationDoc(
     org.settings.statsEngine = DEFAULT_STATS_ENGINE;
   }
 
+  // Migrate Arroval Flow Settings
+  if (
+    org.settings?.requireReviews === true ||
+    org.settings?.requireReviews === false
+  ) {
+    org.settings.requireReviews = [
+      {
+        requireReviewOn: org.settings.requireReviews,
+        resetReviewOnChange: false,
+        environments: [],
+        projects: [],
+        tags: [],
+      },
+    ];
+  }
   // Rename legacy roles
   const legacyRoleMap: Record<string, MemberRole> = {
     designer: "collaborator",
