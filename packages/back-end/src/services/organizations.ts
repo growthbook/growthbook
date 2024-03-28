@@ -2,7 +2,11 @@ import { randomBytes } from "crypto";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import { Request } from "express";
-import { getLicense, postSubscriptionUpdateToLicenseServer } from "enterprise";
+import {
+  getLicense,
+  isAirGappedLicenseKey,
+  postSubscriptionUpdateToLicenseServer,
+} from "enterprise";
 import {
   createOrganization,
   findAllOrganizations,
@@ -249,7 +253,10 @@ export function getInviteUrl(key: string) {
 async function updateSubscriptionIfProLicense(
   organization: OrganizationInterface
 ) {
-  if (organization.licenseKey) {
+  if (
+    organization.licenseKey &&
+    !isAirGappedLicenseKey(organization.licenseKey)
+  ) {
     const license = await getLicense(organization.licenseKey);
     if (license?.plan === "pro") {
       // Only pro plans have a Stripe subscription that needs to get updated
