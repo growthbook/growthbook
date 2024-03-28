@@ -72,7 +72,7 @@ If a metric uses this Filter, GrowthBook will add it to the WHERE clause automat
 
 ## Metrics
 
-There are 3 types of supported Fact Table metrics today - **Proportion**, **Mean**, and **Ratio**.
+There are 4 types of supported Fact Table metrics today - **Proportion**, **Mean**, **Ratio**, and **Quantile**.
 
 ### Proportion Metrics
 
@@ -110,6 +110,12 @@ For example, to create a **Session Duration** metric, you would do the following
 
 - Numerator: `SUM(duration)` from a `Sessions` fact table
 - Denominator: `COUNT(*)` from a `Sessions` fact table
+
+### Quantile Metrics
+
+Quantile Metrics are useful when you care about comparing variations at a quantile (e.g. latency at P99) rather than the mean. Learn more about when to use Quantile Metrics [here](/statistics/quantile).
+
+Constructing Quantile Metrics is identical to constructing [Mean Metrics](#mean-metrics).
 
 ### Metric Windows
 
