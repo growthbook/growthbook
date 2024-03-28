@@ -4,7 +4,6 @@ import { IconType } from "react-icons/lib";
 import { useRouter } from "next/router";
 import clsx from "clsx";
 import { FiChevronRight } from "react-icons/fi";
-import { GlobalPermission, Permission } from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "@/types/app-features";
 import { isCloud, isMultiOrg } from "@/services/env";
@@ -25,7 +24,6 @@ export type SidebarLinkProps = {
   multiOrgOnly?: boolean;
   selfHostedOnly?: boolean;
   autoClose?: boolean;
-  permissions?: Permission[];
   permissionCallbacks?: (() => boolean)[];
   subLinks?: SidebarLinkProps[];
   beta?: boolean;
@@ -33,7 +31,7 @@ export type SidebarLinkProps = {
 };
 
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
-  const { permissions, superAdmin } = useUser();
+  const { superAdmin } = useUser();
   const router = useRouter();
 
   const path = router.route.substr(1);
@@ -82,16 +80,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
       if (l.selfHostedOnly && isCloud()) {
         return null;
       }
-
-      if (l.permissions) {
-        for (let i = 0; i < l.permissions.length; i++) {
-          if (!permissions.check(l.permissions[i] as GlobalPermission)) {
-            return null;
-          }
-        }
-      }
       if (l.permissionCallbacks) {
-        //MKTODO: Test this
         if (l.permissionCallbacks.every((cb) => cb())) {
           permittedSubLinks.push(l);
         }
@@ -155,56 +144,53 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
           )}
         </a>
       </li>
-      {props.subLinks && permittedSubLinks && (
-        <ul
-          className={clsx(styles.sublinks, {
-            [styles.open]: open || selected,
-          })}
-        >
-          {permittedSubLinks
-            .filter(
-              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-              (subLink) => !subLink.feature || growthbook.isOn(subLink.feature)
-            )
-            .map((l) => {
-              const sublinkSelected = l.path.test(path);
+      <ul
+        className={clsx(styles.sublinks, {
+          [styles.open]: open || selected,
+        })}
+      >
+        {permittedSubLinks
+          .filter(
+            (subLink) => !subLink.feature || growthbook?.isOn(subLink.feature)
+          )
+          .map((l) => {
+            const sublinkSelected = l.path.test(path);
 
-              return (
-                <li
-                  key={l.href}
-                  className={clsx(
-                    "sidebarlink sublink",
-                    styles.link,
-                    styles.sublink,
-                    {
-                      [styles.subdivider]: l.divider,
-                      [styles.selected]: sublinkSelected,
-                      selected: sublinkSelected,
-                      [styles.collapsed]: !open && !sublinkSelected,
-                    }
+            return (
+              <li
+                key={l.href}
+                className={clsx(
+                  "sidebarlink sublink",
+                  styles.link,
+                  styles.sublink,
+                  {
+                    [styles.subdivider]: l.divider,
+                    [styles.selected]: sublinkSelected,
+                    selected: sublinkSelected,
+                    [styles.collapsed]: !open && !sublinkSelected,
+                  }
+                )}
+              >
+                <Link href={l.href} className="align-middle">
+                  {showSubMenuIcons && (
+                    <>
+                      {l.Icon && <l.Icon className={styles.icon} />}
+                      {l.icon && (
+                        <span>
+                          <img src={`/icons/${l.icon}`} />
+                        </span>
+                      )}
+                    </>
                   )}
-                >
-                  <Link href={l.href} className="align-middle">
-                    {showSubMenuIcons && (
-                      <>
-                        {l.Icon && <l.Icon className={styles.icon} />}
-                        {l.icon && (
-                          <span>
-                            <img src={`/icons/${l.icon}`} />
-                          </span>
-                        )}
-                      </>
-                    )}
-                    {l.name}
-                    {l.beta && (
-                      <div className="badge badge-purple ml-2">beta</div>
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
-        </ul>
-      )}
+                  {l.name}
+                  {l.beta && (
+                    <div className="badge badge-purple ml-2">beta</div>
+                  )}
+                </Link>
+              </li>
+            );
+          })}
+      </ul>
     </>
   );
 };
