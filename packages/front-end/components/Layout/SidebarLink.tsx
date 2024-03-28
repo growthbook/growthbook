@@ -144,53 +144,55 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
           )}
         </a>
       </li>
-      <ul
-        className={clsx(styles.sublinks, {
-          [styles.open]: open || selected,
-        })}
-      >
-        {permittedSubLinks
-          .filter(
-            (subLink) => !subLink.feature || growthbook?.isOn(subLink.feature)
-          )
-          .map((l) => {
-            const sublinkSelected = l.path.test(path);
-
-            return (
-              <li
-                key={l.href}
-                className={clsx(
-                  "sidebarlink sublink",
-                  styles.link,
-                  styles.sublink,
-                  {
-                    [styles.subdivider]: l.divider,
-                    [styles.selected]: sublinkSelected,
-                    selected: sublinkSelected,
-                    [styles.collapsed]: !open && !sublinkSelected,
-                  }
-                )}
-              >
-                <Link href={l.href} className="align-middle">
-                  {showSubMenuIcons && (
-                    <>
-                      {l.Icon && <l.Icon className={styles.icon} />}
-                      {l.icon && (
-                        <span>
-                          <img src={`/icons/${l.icon}`} />
-                        </span>
-                      )}
-                    </>
-                  )}
-                  {l.name}
-                  {l.beta && (
-                    <div className="badge badge-purple ml-2">beta</div>
-                  )}
-                </Link>
-              </li>
-            );
+      {permittedSubLinks.length > 0 ? (
+        <ul
+          className={clsx(styles.sublinks, {
+            [styles.open]: open || selected,
           })}
-      </ul>
+        >
+          {permittedSubLinks
+            .filter(
+              (subLink) => !subLink.feature || growthbook?.isOn(subLink.feature)
+            )
+            .map((l) => {
+              const sublinkSelected = l.path.test(path);
+
+              return (
+                <li
+                  key={l.href}
+                  className={clsx(
+                    "sidebarlink sublink",
+                    styles.link,
+                    styles.sublink,
+                    {
+                      [styles.subdivider]: l.divider,
+                      [styles.selected]: sublinkSelected,
+                      selected: sublinkSelected,
+                      [styles.collapsed]: !open && !sublinkSelected,
+                    }
+                  )}
+                >
+                  <Link href={l.href} className="align-middle">
+                    {showSubMenuIcons && (
+                      <>
+                        {l.Icon && <l.Icon className={styles.icon} />}
+                        {l.icon && (
+                          <span>
+                            <img src={`/icons/${l.icon}`} />
+                          </span>
+                        )}
+                      </>
+                    )}
+                    {l.name}
+                    {l.beta && (
+                      <div className="badge badge-purple ml-2">beta</div>
+                    )}
+                  </Link>
+                </li>
+              );
+            })}
+        </ul>
+      ) : null}
     </>
   );
 };
