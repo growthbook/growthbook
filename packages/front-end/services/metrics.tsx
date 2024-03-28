@@ -23,6 +23,13 @@ export function getMetricConversionTitle(type: MetricType): string {
   return "Conversion Rate";
 }
 
+export function getPercentileLabel(quantile: number): string {
+  if (quantile === 0.5) {
+    return "Median";
+  }
+  return `P${quantile * 100}`;
+}
+
 export function formatCurrency(
   value: number,
   options: Intl.NumberFormatOptions
@@ -115,7 +122,7 @@ export function formatPercent(
     maximumSignificantDigits: 3,
     ...options,
   });
-  return percentFormatter.format(value);
+  return percentFormatter.format(Math.round(value * 100000) / 100000);
 }
 
 export function getColumnFormatter(

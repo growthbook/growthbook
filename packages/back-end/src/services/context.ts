@@ -7,6 +7,7 @@ import {
 import { uniq } from "lodash";
 import type pino from "pino";
 import type { Request } from "express";
+import { CommercialFeature, orgHasPremiumFeature } from "enterprise";
 import {
   MemberRole,
   OrganizationInterface,
@@ -150,6 +151,10 @@ export class ReqContextClass {
     if (!this.hasPermission(permission, project, envs)) {
       throw new Error("You do not have permission to complete that action.");
     }
+  }
+
+  public hasPremiumFeature(feature: CommercialFeature) {
+    return orgHasPremiumFeature(this.org, feature);
   }
 
   // Record an audit log entry

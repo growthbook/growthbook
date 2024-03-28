@@ -59,6 +59,26 @@ properties:
   inverse:
     type: boolean
     description: Set to true for things like Bounce Rate, where you want the metric to decrease
+  quantileSettings:
+    description: Controls the settings for quantile metrics (mandatory if metricType is "quantile")
+    type: object
+    required:
+      - type
+      - quantile
+      - ignoreZeros
+    properties:
+      type:
+        type: string
+        enum:
+          - "event"
+          - "unit"
+        description: Whether the quantile is over unit aggregations or raw event values
+      ignoreZeros:
+        type: boolean
+        description: If true, zero values will be ignored when calculating the quantile
+      quantile:
+        type: number
+        description: The quantile value (from 0.001 to 0.999)
   cappingSettings:
     description: Controls how outliers are handled
     type: object

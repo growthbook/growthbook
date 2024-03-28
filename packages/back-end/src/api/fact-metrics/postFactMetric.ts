@@ -30,6 +30,7 @@ export async function getCreateMetricPropsFromBody(
   }
 
   const {
+    quantileSettings,
     cappingSettings,
     windowSettings,
     regressionAdjustmentSettings,
@@ -61,7 +62,7 @@ export async function getCreateMetricPropsFromBody(
     projects: [],
     tags: [],
     inverse: false,
-    quantileSettings: null, // TODO-quantile
+    quantileSettings: quantileSettings ?? null,
     windowSettings: {
       type: scopedSettings.windowType.value ?? DEFAULT_FACT_METRIC_WINDOW,
       delayHours:

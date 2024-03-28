@@ -14,6 +14,7 @@ import {
   isFactMetric,
   isRatioMetric,
   isRegressionAdjusted,
+  quantileMetricType,
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
 import { ExperimentMetricAnalysis } from "../../types/stats";
@@ -62,10 +63,16 @@ export interface MetricSettingsForStatsEngine {
   id: string;
   name: string;
   inverse: boolean;
-  statistic_type: "mean" | "ratio" | "mean_ra";
-  main_metric_type: "count" | "binomial";
-  denominator_metric_type?: "count" | "binomial";
-  covariate_metric_type?: "count" | "binomial";
+  statistic_type:
+    | "mean"
+    | "ratio"
+    | "mean_ra"
+    | "quantile_event"
+    | "quantile_unit";
+  main_metric_type: "count" | "binomial" | "quantile";
+  denominator_metric_type?: "count" | "binomial" | "quantile";
+  covariate_metric_type?: "count" | "binomial" | "quantile";
+  quantile_value?: number;
 }
 
 export interface QueryResultsForStatsEngine {
@@ -230,10 +237,15 @@ export function getMetricSettingsForStatsEngine(
   }
 
   const ratioMetric = isRatioMetric(metric, denominator);
+  const quantileMetric = quantileMetricType(metric);
   const regressionAdjusted =
     settings.regressionAdjustmentEnabled &&
     isRegressionAdjusted(metric, denominator);
-  const mainMetricType = isBinomialMetric(metric) ? "binomial" : "count";
+  const mainMetricType = quantileMetric
+    ? "quantile"
+    : isBinomialMetric(metric)
+    ? "binomial"
+    : "count";
   // Fact ratio metrics contain denominator
   if (isFactMetric(metric) && ratioMetric) {
     denominator = metric;
@@ -242,11 +254,16 @@ export function getMetricSettingsForStatsEngine(
     id: metric.id,
     name: metric.name,
     inverse: !!metric.inverse,
-    statistic_type: ratioMetric
-      ? "ratio"
-      : regressionAdjusted
-      ? "mean_ra"
-      : "mean",
+    statistic_type:
+      quantileMetric === "unit"
+        ? "quantile_unit"
+        : quantileMetric === "event"
+        ? "quantile_event"
+        : ratioMetric
+        ? "ratio"
+        : regressionAdjusted
+        ? "mean_ra"
+        : "mean",
     main_metric_type: mainMetricType,
     ...(denominator && {
       denominator_metric_type: isBinomialMetric(denominator)
@@ -254,6 +271,9 @@ export function getMetricSettingsForStatsEngine(
         : "count",
     }),
     ...(regressionAdjusted && { covariate_metric_type: mainMetricType }),
+    ...(!!quantileMetric && isFactMetric(metric)
+      ? { quantile_value: metric.quantileSettings?.quantile ?? 0 }
+      : {}),
   };
 }
 
