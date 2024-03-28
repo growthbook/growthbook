@@ -45,8 +45,12 @@ export function hasEnoughData(
   metric: ExperimentMetricInterface,
   metricDefaults: MetricDefaults
 ): boolean {
-
-  const {baselineValue, variationValue} = quantileMetricType(metric) ? { baselineValue: baseline?.stats?.count, variationValue: stats?.stats?.count } : { baselineValue: baseline?.value, variationValue: stats?.value };
+  const { baselineValue, variationValue } = quantileMetricType(metric)
+    ? {
+        baselineValue: baseline?.stats?.count,
+        variationValue: stats?.stats?.count,
+      }
+    : { baselineValue: baseline?.value, variationValue: stats?.value };
   if (!baselineValue || !variationValue) return false;
 
   const minSampleSize =

@@ -76,10 +76,10 @@ const MetricTooltipBody = ({
         <>
           {isFactMetric(metric) && metric.quantileSettings
             ? `${
-                metric.quantileSettings.type === "unit"
-                  ? "Per-user"
-                  : "Events"
-              }${metric.quantileSettings.ignoreZeros ? " (ignoring zeros)" : ""}`
+                metric.quantileSettings.type === "unit" ? "Per-user" : "Events"
+              }${
+                metric.quantileSettings.ignoreZeros ? " (ignoring zeros)" : ""
+              }`
             : null}
         </>
       ),

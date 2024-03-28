@@ -457,12 +457,12 @@ export default function FactMetricModal({
     ignoreZeros: false,
   };
 
-  const hasQuantileMetrics =
-    growthbook &&
-    growthbook.isOn("quantile-metrics") &&
+  const quantileMetricFlag = growthbook && growthbook.isOn("quantile-metrics");
+  const quantileMetricsAvailableForDatasource =
+    quantileMetricFlag &&
     selectedDataSource?.properties?.hasEfficientPercentiles;
-  const hasQuantileMetricCommercialFeature = hasCommercialFeature("quantile-metrics");
-  //TODO-quantile
+  const hasQuantileMetricCommercialFeature =
+    quantileMetricFlag && hasCommercialFeature("quantile-metrics");
 
   const numeratorFactTable = getFactTableById(
     form.watch("numerator.factTableId")
@@ -485,6 +485,11 @@ export default function FactMetricModal({
 
         if (values.metricType === "ratio" && !values.denominator)
           throw new Error("Must select a denominator for ratio metrics");
+
+        // reset denominator for non-ratio metrics
+        if (values.metricType !== "ratio" && values.denominator) {
+          values.denominator = null;
+        }
 
         if (!selectedDataSource) throw new Error("Must select a data source");
 
@@ -622,11 +627,14 @@ export default function FactMetricModal({
                         <strong>Mean</strong> metrics calculate the average
                         value of a numeric column in a fact table.
                       </div>
-                      {hasQuantileMetrics ? (
+                      {quantileMetricFlag ? (
                         <div className="mb-2">
                           <strong>Quantile</strong> metrics calculate the value
                           at a specific percentile of a numeric column in a fact
-                          table. 
+                          table.
+                          {!quantileMetricsAvailableForDatasource
+                            ? " Quantile metrics are not available for MySQL data sources."
+                            : ""}
                         </div>
                       ) : null}
                       <div>
@@ -641,6 +649,13 @@ export default function FactMetricModal({
             }
             value={type}
             setValue={(type) => {
+              if (
+                type === "quantile" &&
+                (!quantileMetricsAvailableForDatasource ||
+                  !hasQuantileMetricCommercialFeature)
+              ) {
+                return;
+              }
               form.setValue("metricType", type as FactMetricType);
 
               if (type === "quantile") {
@@ -678,11 +693,24 @@ export default function FactMetricModal({
                 value: "mean",
                 label: "Mean",
               },
-              ...(hasQuantileMetrics
+              ...(quantileMetricFlag
                 ? [
                     {
                       value: "quantile",
-                      label: <><PremiumTooltip commercialFeature="quantile-metrics">Quantile</PremiumTooltip></>,
+                      label: (
+                        <>
+                          <PremiumTooltip
+                            commercialFeature="quantile-metrics"
+                            body={
+                              !quantileMetricsAvailableForDatasource
+                                ? "Quantile metrics are not available for MySQL data sources"
+                                : ""
+                            }
+                          >
+                            Quantile
+                          </PremiumTooltip>
+                        </>
+                      ),
                     },
                   ]
                 : []),
@@ -807,14 +835,13 @@ export default function FactMetricModal({
                 setValue={(quantileSettings) =>
                   form.setValue("quantileSettings", quantileSettings)
                 }
-                
               />
-                <div className="alert alert-info">
+              <div className="alert alert-info">
                 The final metric value will be the selected quantile
-               {quantileSettings.type === "unit"
+                {quantileSettings.type === "unit"
                   ? " of all aggregated experiment user values"
                   : " of all rows that are matched to experiment users"}
-                {quantileSettings.ignoreZeros ? ", ignoring zeros": ""}.
+                {quantileSettings.ignoreZeros ? ", ignoring zeros" : ""}.
               </div>
             </div>
           ) : type === "ratio" ? (
@@ -896,12 +923,13 @@ export default function FactMetricModal({
             >
               <Tab id="query" display="Query Settings">
                 <MetricDelayHours form={form} />
-                {type !== "quantile" ? 
-                <MetricCappingSettingsForm
-                  form={form}
-                  datasourceType={selectedDataSource.type}
-                  metricType={type}
-                />: null}
+                {type !== "quantile" ? (
+                  <MetricCappingSettingsForm
+                    form={form}
+                    datasourceType={selectedDataSource.type}
+                    metricType={type}
+                  />
+                ) : null}
                 <PremiumTooltip commercialFeature="regression-adjustment">
                   <label className="mb-1">
                     <GBCuped /> Regression Adjustment (CUPED)
@@ -1057,7 +1085,9 @@ export default function FactMetricModal({
                     {type === "proportion"
                       ? "number of conversions"
                       : type === "quantile"
-                      ? `number of ${quantileSettings.type === "unit" ? "users" : "events"}`
+                      ? `number of ${
+                          quantileSettings.type === "unit" ? "users" : "events"
+                        }`
                       : `total value`}{" "}
                     required in an experiment variation before showing results
                     (default{" "}

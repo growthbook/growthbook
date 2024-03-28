@@ -63,7 +63,12 @@ export interface MetricSettingsForStatsEngine {
   id: string;
   name: string;
   inverse: boolean;
-  statistic_type: "mean" | "ratio" | "mean_ra" | "quantile_event" | "quantile_unit";
+  statistic_type:
+    | "mean"
+    | "ratio"
+    | "mean_ra"
+    | "quantile_event"
+    | "quantile_unit";
   main_metric_type: "count" | "binomial" | "quantile";
   denominator_metric_type?: "count" | "binomial" | "quantile";
   covariate_metric_type?: "count" | "binomial" | "quantile";
@@ -236,7 +241,11 @@ export function getMetricSettingsForStatsEngine(
   const regressionAdjusted =
     settings.regressionAdjustmentEnabled &&
     isRegressionAdjusted(metric, denominator);
-  const mainMetricType = quantileMetric ? "quantile" : isBinomialMetric(metric) ? "binomial" : "count";
+  const mainMetricType = quantileMetric
+    ? "quantile"
+    : isBinomialMetric(metric)
+    ? "binomial"
+    : "count";
   // Fact ratio metrics contain denominator
   if (isFactMetric(metric) && ratioMetric) {
     denominator = metric;
@@ -245,15 +254,16 @@ export function getMetricSettingsForStatsEngine(
     id: metric.id,
     name: metric.name,
     inverse: !!metric.inverse,
-    statistic_type: quantileMetric === "unit"
-      ? "quantile_unit"
-      : quantileMetric === "event"
-      ? "quantile_event" 
-      : ratioMetric
-      ? "ratio"
-      : regressionAdjusted
-      ? "mean_ra"
-      : "mean",
+    statistic_type:
+      quantileMetric === "unit"
+        ? "quantile_unit"
+        : quantileMetric === "event"
+        ? "quantile_event"
+        : ratioMetric
+        ? "ratio"
+        : regressionAdjusted
+        ? "mean_ra"
+        : "mean",
     main_metric_type: mainMetricType,
     ...(denominator && {
       denominator_metric_type: isBinomialMetric(denominator)
@@ -261,7 +271,9 @@ export function getMetricSettingsForStatsEngine(
         : "count",
     }),
     ...(regressionAdjusted && { covariate_metric_type: mainMetricType }),
-    ...(!!quantileMetric && isFactMetric(metric) ? { quantile_value: metric.quantileSettings?.quantile ?? 0 } : {})
+    ...(!!quantileMetric && isFactMetric(metric)
+      ? { quantile_value: metric.quantileSettings?.quantile ?? 0 }
+      : {}),
   };
 }
 
