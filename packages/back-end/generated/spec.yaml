@@ -2829,6 +2829,7 @@ paths:
                   enum:
                     - proportion
                     - mean
+                    - quantile
                     - ratio
                 numerator:
                   type: object
@@ -3024,6 +3025,7 @@ paths:
                   enum:
                     - proportion
                     - mean
+                    - quantile
                     - ratio
                 numerator:
                   type: object

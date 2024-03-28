@@ -19,6 +19,7 @@ properties:
     enum:
       - proportion
       - mean
+      - quantile
       - ratio
   numerator:
     type: object
