@@ -1254,12 +1254,10 @@ export default function FeaturesOverview({
             method="PUT"
             current={feature.project}
             additionalMessage={
-              feature.linkedExperiments?.length ? (
-                <div className="alert alert-danger">
-                  Changing the project may prevent your linked Experiments from
-                  being sent to users.
-                </div>
-              ) : null
+              <div className="alert alert-danger">
+                Changing the project may prevent this Feature Flag and any
+                linked Experiments from being sent to users.
+              </div>
             }
           />
         )}
