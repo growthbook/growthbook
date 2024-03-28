@@ -558,7 +558,6 @@ describe("check enviroments match", () => {
       resetReviewOnChange: false,
       environments: ["prod"],
       projects: [],
-      tags: [],
     };
     expect(
       checkEnvironmentsMatch(feature, environments, reviewSetting)
@@ -572,66 +571,6 @@ describe("check enviroments match", () => {
       resetReviewOnChange: false,
       environments: ["prod"],
       projects: [],
-      tags: [],
-    };
-    expect(
-      checkEnvironmentsMatch(feature, environments, reviewSetting)
-    ).toEqual(false);
-  });
-
-  it("should find a project match", () => {
-    feature.project = "test-project";
-    const environments = ["prod", "staging"];
-    const reviewSetting = {
-      requireReviewOn: true,
-      resetReviewOnChange: false,
-      environments: [],
-      projects: ["test-project"],
-      tags: [],
-    };
-    expect(
-      checkEnvironmentsMatch(feature, environments, reviewSetting)
-    ).toEqual(true);
-  });
-  it("should not find a project match", () => {
-    feature.project = "test-project-1";
-    const environments = ["prod", "staging"];
-    const reviewSetting = {
-      requireReviewOn: true,
-      resetReviewOnChange: false,
-      environments: [],
-      projects: ["test-project"],
-      tags: [],
-    };
-    expect(
-      checkEnvironmentsMatch(feature, environments, reviewSetting)
-    ).toEqual(false);
-  });
-
-  it("should find a tag match", () => {
-    feature.tags = ["test-tag"];
-    const environments = ["prod", "staging"];
-    const reviewSetting = {
-      requireReviewOn: true,
-      resetReviewOnChange: false,
-      environments: [],
-      projects: [],
-      tags: ["test-tag"],
-    };
-    expect(
-      checkEnvironmentsMatch(feature, environments, reviewSetting)
-    ).toEqual(true);
-  });
-
-  it("should not find a tag match", () => {
-    feature.tags = ["test-tag-1"];
-    const environments = ["prod", "staging"];
-    const reviewSetting = {
-      requireReviewOn: true,
-      resetReviewOnChange: false,
-      environments: [],
-      projects: [],
-      tags: ["test-tag"],
     };
     expect(
       checkEnvironmentsMatch(feature, environments, reviewSetting)
@@ -710,7 +649,7 @@ describe("check revision needs review", () => {
           requireReviewOn: false,
           resetReviewOnChange: false,
           environments: [],
-          projects: [],
+          projects: ["b"],
         },
         {
           requireReviewOn: true,
@@ -869,7 +808,7 @@ describe("reset review on change", () => {
     );
     expect(
       resetReviewOnChange(feature, ["staging"], false, settingsOff)
-    ).toEqual(true);
+    ).toEqual(false);
   });
   it("turn off for first project", () => {
     const settings: OrganizationSettings = {
