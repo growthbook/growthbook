@@ -290,6 +290,8 @@ export async function updateRevision(
   log: Omit<RevisionLog, "timestamp">,
   resetReview: boolean
 ) {
+  let status = revision.status;
+
   // If editing defaultValue or rules, require the revision to be a draft
   if ("defaultValue" in changes || changes.rules) {
     if (
@@ -302,12 +304,12 @@ export async function updateRevision(
     ) {
       throw new Error("Can only update draft revisions");
     }
+    // reset the changes requested since there is no way to reset at the moment.
+    if (revision.status === "changes-requested") {
+      status = "pending-review";
+    }
   }
-  let status = revision.status;
-  if (
-    resetReview &&
-    (revision.status === "approved" || revision.status === "changes-requested")
-  ) {
+  if (resetReview && revision.status === "approved") {
     status = "pending-review";
   }
   await FeatureRevisionModel.updateOne(
