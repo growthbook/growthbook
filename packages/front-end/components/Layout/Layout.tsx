@@ -9,8 +9,10 @@ import {
   BsCodeSlash,
 } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
+import { Permissions } from "shared/permissions";
+import { GlobalPermission } from "@back-end/types/organization";
 import { getGrowthBookBuild } from "@/services/env";
-import { useUser } from "@/services/UserContext";
+import { PermissionFunctions, useUser } from "@/services/UserContext";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
@@ -32,8 +34,8 @@ import { usePageHead } from "./PageHead";
 
 function buildNavlinks(
   project: string,
-  permissionsUtils: any, //MKTODO: Figure out this type - it's not just Permissions
-  permissions: any //MKTODO: Figure out this type
+  permissionsUtils: Permissions,
+  permissions: Record<GlobalPermission, boolean> & PermissionFunctions
 ): SidebarLinkProps[] {
   return [
     {
@@ -222,8 +224,8 @@ function buildNavlinks(
           path: /^importing/,
           feature: "import-from-x",
           permissionCallbacks: [
-            () => permissions.check("manageFeatures"),
-            () => permissions.check("manageEnvironments"),
+            () => permissions.check("manageFeatures", project),
+            () => permissionsUtils.canManageEnvironments(project),
             () => permissionsUtils.canCreateProjects(),
           ],
         },
