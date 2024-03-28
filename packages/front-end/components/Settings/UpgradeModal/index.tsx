@@ -23,6 +23,7 @@ export default function UpgradeModal({ close, source }: Props) {
   const [error, setError] = useState("");
   const { apiCall } = useAuth();
 
+  const [loading, setLoading] = useState(false);
   const [showSHProTrial, setShowSHProTrial] = useState(false);
   const [showSHProTrialSuccess, setShowSHProTrialSuccess] = useState(false);
   const [showSHEnterpriseTrial, setShowSHEnterpriseTrial] = useState(false);
@@ -100,6 +101,7 @@ export default function UpgradeModal({ close, source }: Props) {
 
   const startPro = async () => {
     setError("");
+    setLoading(true);
     try {
       if (
         license?.stripeSubscription &&
@@ -128,6 +130,7 @@ export default function UpgradeModal({ close, source }: Props) {
           }),
         });
 
+        setLoading(false);
         if (resp.session?.url) {
           track(
             "Start Stripe Checkout For Pro Without Existing Subscription",
@@ -139,6 +142,7 @@ export default function UpgradeModal({ close, source }: Props) {
         }
       }
     } catch (e) {
+      setLoading(false);
       setError(e.message);
     }
   };
@@ -213,8 +217,8 @@ export default function UpgradeModal({ close, source }: Props) {
           },
         }),
       });
-
       track("Generate enterprise trial license", trackContext);
+
       await refreshOrganization();
       if (isCloud()) {
         setShowCloudEnterpriseTrialSuccess(true);
@@ -319,6 +323,7 @@ export default function UpgradeModal({ close, source }: Props) {
           close={close}
           size="lg"
           header={<>Get more out of GrowthBook</>}
+          loading={loading}
         >
           {!permissions.check("manageBilling") ? (
             <div className="text-center mt-4 mb-5">
