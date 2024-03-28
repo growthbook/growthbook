@@ -1,4 +1,6 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { OrganizationSettings } from "back-end/types/organization";
 import {
   validateFeatureValue,
   getValidation,
@@ -7,6 +9,8 @@ import {
   RulesAndValues,
   MergeConflict,
   validateCondition,
+  checkEnvironmentsMatch,
+  checkIfRevisionNeedsReview,
 } from "../../src/util";
 
 const feature: FeatureInterface = {
@@ -28,6 +32,74 @@ const exampleJsonSchema = {
       type: "string",
     },
   },
+};
+const rules: Record<string, FeatureRule[]> = {
+  dev: [
+    {
+      description: "test",
+      id: "test",
+      type: "rollout",
+      value: "test",
+      coverage: 1,
+      hashAttribute: "test",
+    },
+  ],
+  prod: [
+    {
+      description: "test",
+      id: "test",
+      type: "rollout",
+      value: "test",
+      coverage: 1,
+      hashAttribute: "test",
+    },
+  ],
+};
+const changedRules: Record<string, FeatureRule[]> = {
+  ...rules,
+  prod: [
+    ...rules.prod,
+
+    {
+      description: "test1",
+      id: "test1",
+      type: "rollout",
+      value: "test",
+      coverage: 1,
+      hashAttribute: "test",
+    },
+  ],
+};
+const baseRevision: FeatureRevisionInterface = {
+  featureId: feature.id,
+  organization: feature.organization,
+  baseVersion: 0,
+  version: 0,
+  dateCreated: new Date(),
+  dateUpdated: new Date(),
+  datePublished: null,
+  publishedBy: null,
+  createdBy: null,
+  comment: "",
+  status: "draft",
+  defaultValue: "",
+  rules: rules,
+};
+
+const revision: FeatureRevisionInterface = {
+  featureId: feature.id,
+  organization: feature.organization,
+  baseVersion: 0,
+  version: 1,
+  dateCreated: new Date(),
+  dateUpdated: new Date(),
+  datePublished: null,
+  publishedBy: null,
+  createdBy: null,
+  comment: "",
+  status: "draft",
+  defaultValue: "",
+  rules: changedRules,
 };
 
 describe("autoMerge", () => {
@@ -475,5 +547,223 @@ describe("validateCondition", () => {
 });
 
 describe("check enviroments match", () => {
-  it("should find a environment match", () => {});
+  it("should find a environment match", () => {
+    const environments = ["prod", "staging"];
+    const reviewSetting = {
+      requireReviewOn: true,
+      resetReviewOnChange: false,
+      environments: ["prod"],
+      projects: [],
+      tags: [],
+    };
+    expect(
+      checkEnvironmentsMatch(feature, environments, reviewSetting)
+    ).toEqual(true);
+  });
+
+  it("should not find a environment match", () => {
+    const environments = ["prod-1"];
+    const reviewSetting = {
+      requireReviewOn: true,
+      resetReviewOnChange: false,
+      environments: ["prod"],
+      projects: [],
+      tags: [],
+    };
+    expect(
+      checkEnvironmentsMatch(feature, environments, reviewSetting)
+    ).toEqual(false);
+  });
+
+  it("should find a project match", () => {
+    feature.project = "test-project";
+    const environments = ["prod", "staging"];
+    const reviewSetting = {
+      requireReviewOn: true,
+      resetReviewOnChange: false,
+      environments: [],
+      projects: ["test-project"],
+      tags: [],
+    };
+    expect(
+      checkEnvironmentsMatch(feature, environments, reviewSetting)
+    ).toEqual(true);
+  });
+  it("should not find a project match", () => {
+    feature.project = "test-project-1";
+    const environments = ["prod", "staging"];
+    const reviewSetting = {
+      requireReviewOn: true,
+      resetReviewOnChange: false,
+      environments: [],
+      projects: ["test-project"],
+      tags: [],
+    };
+    expect(
+      checkEnvironmentsMatch(feature, environments, reviewSetting)
+    ).toEqual(false);
+  });
+
+  it("should find a tag match", () => {
+    feature.tags = ["test-tag"];
+    const environments = ["prod", "staging"];
+    const reviewSetting = {
+      requireReviewOn: true,
+      resetReviewOnChange: false,
+      environments: [],
+      projects: [],
+      tags: ["test-tag"],
+    };
+    expect(
+      checkEnvironmentsMatch(feature, environments, reviewSetting)
+    ).toEqual(true);
+  });
+
+  it("should not find a tag match", () => {
+    feature.tags = ["test-tag-1"];
+    const environments = ["prod", "staging"];
+    const reviewSetting = {
+      requireReviewOn: true,
+      resetReviewOnChange: false,
+      environments: [],
+      projects: [],
+      tags: ["test-tag"],
+    };
+    expect(
+      checkEnvironmentsMatch(feature, environments, reviewSetting)
+    ).toEqual(false);
+  });
+
+  it("should turn on when everything is empty", () => {
+    const environments = ["prod", "staging"];
+    const reviewSetting = {
+      requireReviewOn: true,
+      resetReviewOnChange: false,
+      environments: [],
+      projects: [],
+      tags: [],
+    };
+    expect(
+      checkEnvironmentsMatch(feature, environments, reviewSetting)
+    ).toEqual(true);
+  });
+});
+describe("check revision needs review", () => {
+  it("should require review when env matches", () => {
+    const settings: OrganizationSettings = {
+      requireReviews: [
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: false,
+          environments: ["prod"],
+          tags: [],
+          projects: [],
+        },
+      ],
+    };
+    expect(
+      checkIfRevisionNeedsReview({
+        feature,
+        baseRevision,
+        revision,
+        allEnvironments: ["prod", "dev", "staging"],
+        settings,
+      })
+    ).toEqual(true);
+  });
+  it("should not require review", () => {
+    const settings: OrganizationSettings = {
+      requireReviews: [
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: false,
+          environments: ["dev"],
+          tags: [],
+          projects: [],
+        },
+      ],
+    };
+    expect(
+      checkIfRevisionNeedsReview({
+        feature,
+        baseRevision,
+        revision,
+        allEnvironments: ["prod", "dev", "staging"],
+        settings,
+      })
+    ).toEqual(false);
+  });
+
+  it("should require review with multi rules", () => {
+    const settings: OrganizationSettings = {
+      requireReviews: [
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: false,
+          environments: ["dev"],
+          tags: [],
+          projects: [],
+        },
+        {
+          requireReviewOn: false,
+          resetReviewOnChange: false,
+          environments: [],
+          tags: [],
+          projects: [],
+        },
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: false,
+          environments: ["prod"],
+          tags: [],
+          projects: [],
+        },
+      ],
+    };
+    expect(
+      checkIfRevisionNeedsReview({
+        feature,
+        baseRevision,
+        revision,
+        allEnvironments: ["prod", "dev", "staging"],
+        settings,
+      })
+    ).toEqual(true);
+  });
+  it("should not require review with multi rules", () => {
+    const settings: OrganizationSettings = {
+      requireReviews: [
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: false,
+          environments: ["dev"],
+          tags: [],
+          projects: [],
+        },
+        {
+          requireReviewOn: false,
+          resetReviewOnChange: false,
+          environments: [],
+          tags: [],
+          projects: [],
+        },
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: false,
+          environments: ["staging"],
+          tags: [],
+          projects: [],
+        },
+      ],
+    };
+    expect(
+      checkIfRevisionNeedsReview({
+        feature,
+        baseRevision,
+        revision,
+        allEnvironments: ["prod", "dev", "staging"],
+        settings,
+      })
+    ).toEqual(false);
+  });
 });

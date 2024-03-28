@@ -946,6 +946,7 @@ export async function postFeatureRule(
   const resetReview = resetReviewOnChange(
     feature,
     [environment],
+    false,
     org?.settings
   );
   await addFeatureRule(
@@ -1306,7 +1307,12 @@ export async function postFeatureDefaultValue(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
-  const resetReview = resetReviewOnChange(feature, environments, org?.settings);
+  const resetReview = resetReviewOnChange(
+    feature,
+    environments,
+    true,
+    org?.settings
+  );
   await setDefaultValue(
     revision,
     defaultValue,
@@ -1383,6 +1389,7 @@ export async function putFeatureRule(
   const resetReview = resetReviewOnChange(
     feature,
     [environment],
+    false,
     org?.settings
   );
   await editFeatureRule(
@@ -1490,6 +1497,7 @@ export async function postFeatureMoveRule(
   const resetReview = resetReviewOnChange(
     feature,
     [environment],
+    false,
     org?.settings
   );
   await updateRevision(
@@ -1567,6 +1575,7 @@ export async function deleteFeatureRule(
   const resetReview = resetReviewOnChange(
     feature,
     [environment],
+    false,
     org?.settings
   );
   await updateRevision(

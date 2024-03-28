@@ -746,7 +746,7 @@ export function getParsedPrereqCondition(condition: string) {
   }
   return undefined;
 }
-function checkEnvironmentsMatch(
+export function checkEnvironmentsMatch(
   feature: FeatureInterface,
   environments: string[],
   reviewSetting: RequireReview
@@ -774,6 +774,8 @@ function checkEnvironmentsMatch(
 export function featureRequiresReview(
   feature: FeatureInterface,
   requestedEnvironments: string[],
+  baseRevision: FeatureRevisionInterface,
+  revision: FeatureRevisionInterface,
   settings?: OrganizationSettings
 ) {
   const requiresReviewSettings = settings?.requireReviews;
@@ -788,12 +790,11 @@ export function featureRequiresReview(
 
   for (const reviewSetting of requiresReviewSettings) {
     if (reviewSetting.requireReviewOn === true) {
+      const defaultValueChanged =
+        baseRevision.defaultValue !== revision.defaultValue;
       if (
-        checkEnvironmentsMatch(
-          feature,
-          requestedEnvironments,
-          reviewSetting
-        ) === true
+        checkEnvironmentsMatch(feature, requestedEnvironments, reviewSetting) ||
+        defaultValueChanged
       ) {
         return true;
       }
@@ -805,6 +806,7 @@ export function featureRequiresReview(
 export function resetReviewOnChange(
   feature: FeatureInterface,
   requestedEnvironments: string[],
+  defaultValueChanged: boolean,
   settings?: OrganizationSettings
 ) {
   const requiresReviewSettings = settings?.requireReviews;
@@ -851,5 +853,11 @@ export function checkIfRevisionNeedsReview({
     allEnvironments
   );
 
-  return featureRequiresReview(feature, changedEnvironments, settings);
+  return featureRequiresReview(
+    feature,
+    changedEnvironments,
+    baseRevision,
+    revision,
+    settings
+  );
 }
