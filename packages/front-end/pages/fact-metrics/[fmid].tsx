@@ -400,7 +400,7 @@ export default function FactMetricPage() {
                       {factMetric.metricType === "quantile"
                         ? `${getPercentileLabel(
                             factMetric.quantileSettings?.quantile ?? 0.5
-                  )} ${
+                          )} ${
                             factMetric.quantileSettings?.ignoreZeros
                               ? ", ignoring zeros, "
                               : ""

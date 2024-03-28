@@ -16,7 +16,11 @@ import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { RxInfoCircled } from "react-icons/rx";
 import { MdSwapCalls } from "react-icons/md";
-import { ExperimentMetricInterface, isFactMetric, quantileMetricType } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  isFactMetric,
+  quantileMetricType,
+} from "shared/experiments";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
 import {
   getEffectLabel,
@@ -194,10 +198,12 @@ export default function ResultsTableTooltip({
     );
   }
   const quantileMetric = quantileMetricType(data.metric);
-  const quantileIgnoreZeros = isFactMetric(data.metric) && data.metric.quantileSettings?.ignoreZeros;
-  const quantileValue = isFactMetric(data.metric) ? data.metric.quantileSettings?.quantile : undefined;
+  const quantileIgnoreZeros =
+    isFactMetric(data.metric) && data.metric.quantileSettings?.ignoreZeros;
+  const quantileValue = isFactMetric(data.metric)
+    ? data.metric.quantileSettings?.quantile
+    : undefined;
   // Lift units
-  const expected = data.stats?.expected ?? 0;
   const ci1 = data.stats?.ciAdjusted?.[1] ?? data.stats?.ci?.[1] ?? 0;
   const ci0 = data.stats?.ciAdjusted?.[0] ?? data.stats?.ci?.[0] ?? 0;
   const ciRangeText =
@@ -576,10 +582,17 @@ export default function ResultsTableTooltip({
               <thead>
                 <tr>
                   <th style={{ width: 130 }}>Variation</th>
-                  <th>{quantileMetric && quantileIgnoreZeros ? "Non-zero ": ""}{quantileMetric === "event" ? "Events" : "Users"}</th>
+                  <th>
+                    {quantileMetric && quantileIgnoreZeros ? "Non-zero " : ""}
+                    {quantileMetric === "event" ? "Events" : "Users"}
+                  </th>
                   {!quantileMetric ? <th>Numerator</th> : null}
                   {hasCustomDenominator ? <th>Denom.</th> : null}
-                  {quantileMetric && quantileValue ? <th>{getPercentileLabel(quantileValue)}</th> : <th>Value</th>}
+                  {quantileMetric && quantileValue ? (
+                    <th>{getPercentileLabel(quantileValue)}</th>
+                  ) : (
+                    <th>Value</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -622,15 +635,21 @@ export default function ResultsTableTooltip({
                           </div>
                         ) : null}
                       </td>
-                      <td>{quantileMetric && row.stats ? numberFormatter.format(row.stats.count) : numberFormatter.format(row.users)}</td>
+                      <td>
+                        {quantileMetric && row.stats
+                          ? numberFormatter.format(row.stats.count)
+                          : numberFormatter.format(row.users)}
+                      </td>
 
-                      {!quantileMetric ? <td>
-                        {getExperimentMetricFormatter(
-                          data.metric,
-                          getFactTableById,
-                          true
-                        )(row.value, { currency: displayCurrency })}
-                      </td> : null}
+                      {!quantileMetric ? (
+                        <td>
+                          {getExperimentMetricFormatter(
+                            data.metric,
+                            getFactTableById,
+                            true
+                          )(row.value, { currency: displayCurrency })}
+                        </td>
+                      ) : null}
                       {hasCustomDenominator ? (
                         <td>
                           {denomFormatter(row.denominator || row.users, {
