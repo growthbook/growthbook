@@ -2,6 +2,7 @@ import React, { FC, Fragment, useState } from "react";
 import { ArchetypeInterface } from "back-end/types/archetype";
 import { FeatureInterface, FeatureTestResult } from "back-end/types/feature";
 import { FaPlusCircle } from "react-icons/fa";
+import { filterEnvironmentsByFeature } from "shared/util";
 import { useAuth } from "@/services/auth";
 import styles from "@/components/Archetype/ArchetypeResults.module.scss";
 import ValueDisplay from "@/components/Features/ValueDisplay";
@@ -34,7 +35,8 @@ const ArchetypeResults: FC<{
     setEditArchetype,
   ] = useState<Partial<ArchetypeInterface> | null>(null);
 
-  const environments = useEnvironments();
+  const allEnvironments = useEnvironments();
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
 
   if (archetype.length === 0) {
     return null;
