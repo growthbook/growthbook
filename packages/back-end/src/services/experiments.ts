@@ -31,6 +31,7 @@ import {
 import { orgHasPremiumFeature } from "enterprise";
 import { hoursBetween } from "shared/dates";
 import { updateExperiment } from "../models/ExperimentModel";
+import { Context } from "../models/BaseModel";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
@@ -132,7 +133,7 @@ export async function createMetric(data: Partial<MetricInterface>) {
 }
 
 export async function getExperimentMetricById(
-  context: ReqContext | ApiReqContext,
+  context: Context,
   metricId: string
 ): Promise<ExperimentMetricInterface | null> {
   if (isFactMetricId(metricId)) {
@@ -142,7 +143,7 @@ export async function getExperimentMetricById(
 }
 
 export async function refreshMetric(
-  context: ReqContext | ApiReqContext,
+  context: Context,
   metric: MetricInterface,
   metricAnalysisDays: number = DEFAULT_METRIC_ANALYSIS_DAYS
 ) {
@@ -422,16 +423,25 @@ export function getSnapshotSettings({
   };
 }
 
-export async function createManualSnapshot(
-  experiment: ExperimentInterface,
-  phaseIndex: number,
-  users: number[],
+export async function createManualSnapshot({
+  experiment,
+  phaseIndex,
+  users,
+  metrics,
+  analysisSettings,
+  metricMap,
+  context,
+}: {
+  experiment: ExperimentInterface;
+  phaseIndex: number;
+  users: number[];
   metrics: {
     [key: string]: MetricStats[];
-  },
-  analysisSettings: ExperimentSnapshotAnalysisSettings,
-  metricMap: Map<string, ExperimentMetricInterface>
-) {
+  };
+  analysisSettings: ExperimentSnapshotAnalysisSettings;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  context: Context;
+}) {
   const snapshotSettings = getSnapshotSettings({
     experiment,
     phaseIndex,
@@ -479,7 +489,7 @@ export async function createManualSnapshot(
     ],
   };
 
-  const snapshot = await createExperimentSnapshotModel(data);
+  const snapshot = await createExperimentSnapshotModel({ data, context });
 
   return snapshot;
 }
@@ -621,7 +631,7 @@ export async function createSnapshot({
     },
   });
 
-  const snapshot = await createExperimentSnapshotModel(data);
+  const snapshot = await createExperimentSnapshotModel({ data, context });
 
   const integration = await getIntegrationFromDatasourceId(
     context,

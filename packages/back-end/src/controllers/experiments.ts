@@ -1789,14 +1789,15 @@ export async function postSnapshot(
     }
 
     try {
-      const snapshot = await createManualSnapshot(
+      const snapshot = await createManualSnapshot({
         experiment,
-        phase,
+        phaseIndex: phase,
         users,
         metrics,
         analysisSettings,
-        metricMap
-      );
+        metricMap,
+        context,
+      });
       res.status(200).json({
         status: 200,
         snapshot,

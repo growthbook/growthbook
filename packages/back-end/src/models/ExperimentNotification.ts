@@ -69,7 +69,11 @@ export const experimentNotificationValidator = baseSchema
   })
   .strict();
 
-export const ExperimentNotificationModel = MakeModelClass({
+type ExperimentNotificationPayload = z.infer<
+  typeof experimentNotificationValidator
+>;
+
+const ExperimentNotificationBase = MakeModelClass({
   schema: experimentNotificationValidator,
   collectionName: "experiment_notifications",
   idPrefix: "experiment_notifications__",
@@ -82,3 +86,20 @@ export const ExperimentNotificationModel = MakeModelClass({
   projectScoping: "none",
   globallyUniqueIds: false,
 });
+
+export class ExperimentNotificationModel extends ExperimentNotificationBase {
+  canRead() {
+    return true;
+  }
+  canUpdate() {
+    return true;
+  }
+  canCreate() {
+    return true;
+  }
+  canDelete() {
+    return true;
+  }
+
+  onTrigger(_: ExperimentNotificationPayload) {}
+}

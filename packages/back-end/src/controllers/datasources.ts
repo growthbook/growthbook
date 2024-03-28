@@ -223,11 +223,11 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
 
     const metricMap = await getMetricMap(context);
 
-    await createManualSnapshot(
+    await createManualSnapshot({
       experiment,
-      0,
-      [15500, 15400],
-      {
+      phaseIndex: 0,
+      users: [15500, 15400],
+      metrics: {
         [metric1.id]: [
           {
             users: 15500,
@@ -257,7 +257,7 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
           },
         ],
       },
-      {
+      analysisSettings: {
         statsEngine,
         dimensions: [],
         pValueCorrection: null,
@@ -266,8 +266,9 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
         differenceType: "relative",
         regressionAdjusted: false,
       },
-      metricMap
-    );
+      metricMap,
+      context,
+    });
   }
 
   res.status(200).json({
