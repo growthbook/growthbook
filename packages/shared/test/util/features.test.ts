@@ -11,6 +11,7 @@ import {
   validateCondition,
   checkEnvironmentsMatch,
   checkIfRevisionNeedsReview,
+  resetReviewOnChange,
 } from "../../src/util";
 
 const feature: FeatureInterface = {
@@ -765,5 +766,119 @@ describe("check revision needs review", () => {
         settings,
       })
     ).toEqual(false);
+  });
+  it("legacy rules", () => {
+    const settings: OrganizationSettings = {
+      requireReviews: true,
+    };
+    expect(
+      checkIfRevisionNeedsReview({
+        feature,
+        baseRevision,
+        revision,
+        allEnvironments: ["prod", "dev", "staging"],
+        settings,
+      })
+    ).toEqual(true);
+    settings.requireReviews = false;
+    expect(
+      checkIfRevisionNeedsReview({
+        feature,
+        baseRevision,
+        revision,
+        allEnvironments: ["prod", "dev", "staging"],
+        settings,
+      })
+    ).toEqual(false);
+  });
+});
+
+describe("reset review on change", () => {
+  it("require reset with single rule", () => {
+    const settings: OrganizationSettings = {
+      requireReviews: [
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: true,
+          environments: ["prod"],
+          tags: [],
+          projects: [],
+        },
+      ],
+    };
+    const settingsOff: OrganizationSettings = {
+      requireReviews: [
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: false,
+          environments: ["prod"],
+          tags: [],
+          projects: [],
+        },
+      ],
+    };
+    expect(resetReviewOnChange(feature, ["staging"], false, settings)).toEqual(
+      false
+    );
+    expect(resetReviewOnChange(feature, ["prod"], false, settings)).toEqual(
+      true
+    );
+    expect(
+      resetReviewOnChange(feature, ["staging"], false, settingsOff)
+    ).toEqual(false);
+    expect(resetReviewOnChange(feature, ["prod"], false, settingsOff)).toEqual(
+      false
+    );
+  });
+
+  it("require reset with multiple rules", () => {
+    const settings: OrganizationSettings = {
+      requireReviews: [
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: true,
+          environments: ["prod"],
+          tags: [],
+          projects: [],
+        },
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: true,
+          environments: [],
+          tags: [],
+          projects: [],
+        },
+      ],
+    };
+    const settingsOff: OrganizationSettings = {
+      requireReviews: [
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: false,
+          environments: ["prod"],
+          tags: [],
+          projects: [],
+        },
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: true,
+          environments: [],
+          tags: [],
+          projects: [],
+        },
+      ],
+    };
+    expect(resetReviewOnChange(feature, ["staging"], false, settings)).toEqual(
+      true
+    );
+    expect(resetReviewOnChange(feature, ["prod"], false, settings)).toEqual(
+      true
+    );
+    expect(resetReviewOnChange(feature, ["prod"], false, settingsOff)).toEqual(
+      false
+    );
+    expect(resetReviewOnChange(feature, ["prod"], false, settingsOff)).toEqual(
+      false
+    );
   });
 });

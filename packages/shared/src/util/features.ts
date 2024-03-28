@@ -828,15 +828,11 @@ export function resetReviewOnChange(
     return !!requiresReviewSettings;
   }
   for (const reviewSetting of requiresReviewSettings) {
-    if (reviewSetting.resetReviewOnChange === true) {
+    if (reviewSetting.requireReviewOn) {
       if (
-        checkEnvironmentsMatch(
-          feature,
-          requestedEnvironments,
-          reviewSetting
-        ) === true
+        checkEnvironmentsMatch(feature, requestedEnvironments, reviewSetting)
       ) {
-        return true;
+        return reviewSetting.resetReviewOnChange;
       }
     }
   }
