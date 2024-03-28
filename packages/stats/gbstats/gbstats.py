@@ -72,8 +72,9 @@ ROW_COLS = SUM_COLS + [
     "quantile_nstar",
     "quantile",
     "quantile_lower",
-    "quantile_upper"
+    "quantile_upper",
 ]
+
 
 # Looks for any variation ids that are not in the provided map
 def detect_unknown_variations(
@@ -155,7 +156,9 @@ def get_metric_df(
 
 # Limit to the top X dimensions with the most users
 # Merge the rest into an "(other)" dimension
-def reduce_dimensionality(df: pd.DataFrame, max: int = 20, keep_other: bool = True) -> pd.DataFrame:
+def reduce_dimensionality(
+    df: pd.DataFrame, max: int = 20, keep_other: bool = True
+) -> pd.DataFrame:
     num_variations = df.at[0, "variations"]
 
     rows = df.to_dict("records")
@@ -431,10 +434,10 @@ def variation_statistic_from_metric_row(
             quantile_upper=row[f"{prefix}_quantile_upper"],
             main_sum=row[f"{prefix}_main_sum"],
             main_sum_squares=row[f"{prefix}_main_sum_squares"],
-            denominator_sum=row[f"{prefix}_denominator_sum"], 
+            denominator_sum=row[f"{prefix}_denominator_sum"],
             denominator_sum_squares=row[f"{prefix}_denominator_sum_squares"],
             main_denominator_sum_product=row[f"{prefix}_main_denominator_sum_product"],
-            n_clusters=row[f"{prefix}_users"]
+            n_clusters=row[f"{prefix}_users"],
         )
     elif metric.statistic_type == "quantile_unit":
         if metric.quantile_value is None:

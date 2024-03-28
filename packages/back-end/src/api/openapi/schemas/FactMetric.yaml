@@ -97,6 +97,9 @@ properties:
       quantile:
         type: number
         description: The quantile value (from 0.001 to 0.999)
+        multipleOf: 0.001
+        minimum: 0.001
+        maximum: 0.999
   cappingSettings:
     description: Controls how outliers are handled
     type: object

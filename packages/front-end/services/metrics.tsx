@@ -5,6 +5,7 @@ import {
   FactTableInterface,
 } from "back-end/types/fact-table";
 import { ExperimentMetricInterface } from "shared/experiments";
+import { decimalToPercent } from "@/services/utils";
 
 export const defaultWinRiskThreshold = 0.0025;
 export const defaultLoseRiskThreshold = 0.0125;
@@ -27,7 +28,7 @@ export function getPercentileLabel(quantile: number): string {
   if (quantile === 0.5) {
     return "Median";
   }
-  return `P${quantile * 100}`;
+  return `P${decimalToPercent(quantile)}`;
 }
 
 export function formatCurrency(

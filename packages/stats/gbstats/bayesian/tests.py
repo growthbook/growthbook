@@ -432,26 +432,35 @@ class GaussianEffectABTest(BayesianABTest):
 
     @property
     def risk(self) -> List[float]:
-        truncated_means = [self.truncated_normal_mean(
+        truncated_means = [
+            self.truncated_normal_mean(
                 mu=self.mean_diff, sigma=self.std_diff, threshold=0.0, right=r
-            ) for r in [False, True]]
+            )
+            for r in [False, True]
+        ]
         return [
-            -1 * truncated_mean * np.max(
+            -1
+            * truncated_mean
+            * np.max(
                 [
                     float(1e-5),
                     norm.cdf(0, loc=self.mean_diff, scale=self.std_diff),
                 ]  # type: ignore
-            ) for truncated_mean in truncated_means]
+            )
+            for truncated_mean in truncated_means
+        ]
 
     @staticmethod
     def truncated_normal_mean(mu, sigma, threshold, right=True):
         b_centered = (threshold - mu) / sigma
         if right:
             missing_mass = np.max(
-            [float(1e-10), norm.cdf(b_centered, loc=0, scale=1)])  # type: ignore
+                [float(1e-10), norm.cdf(b_centered, loc=0, scale=1)]  # type: ignore
+            )  # type: ignore
             b_centered_ratio = norm.pdf(b_centered) / missing_mass
             return mu - sigma * b_centered_ratio
         else:
             missing_mass = np.max(
-            [float(1e-10), 1.0 - norm.cdf(b_centered, loc=0, scale=1)])  # type: ignore
+                [float(1e-10), 1.0 - norm.cdf(b_centered, loc=0, scale=1)]  # type: ignore
+            )
             return mu + sigma * norm.pdf(b_centered) / missing_mass
