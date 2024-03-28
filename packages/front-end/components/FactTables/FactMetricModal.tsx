@@ -803,7 +803,7 @@ export default function FactMetricModal({
                     .watch("numerator")
                     ?.column?.startsWith("$$") ? undefined : (
                     <div className="form-group">
-                      <label className="ml-2" htmlFor="quantileIgnoreZeros">
+                      <label htmlFor="quantileIgnoreZeros">
                         Ignore Zeros{" "}
                         <Tooltip
                           body={`If the ${

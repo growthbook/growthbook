@@ -361,7 +361,7 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled) {
             href={getMetricLink(metric.id)}
             className="metriclabel text-dark"
           >
-            <MetricName id={metric.id} disableTooltip />
+            <MetricName id={metric.id} disableTooltip showPercentile={true} />
           </Link>
         </span>
       </Tooltip>

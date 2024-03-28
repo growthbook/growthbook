@@ -12,6 +12,7 @@ import {
 import { ExperimentTableRow } from "@/services/experiments";
 import Markdown from "@/components/Markdown/Markdown";
 import SortedTags from "@/components/Tags/SortedTags";
+import { getPercentileLabel } from "@/services/metrics";
 import styles from "./MetricToolTipBody.module.scss";
 import MetricName from "./MetricName";
 
@@ -64,7 +65,7 @@ const MetricTooltipBody = ({
       body: (
         <>
           {isFactMetric(metric) && metric.quantileSettings
-            ? metric.quantileSettings.quantile
+            ? getPercentileLabel(metric.quantileSettings.quantile)
             : null}
         </>
       ),

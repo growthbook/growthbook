@@ -41,6 +41,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
+import { PercentileLabel } from "@/components/Metrics/MetricName";
 
 export const TOOLTIP_WIDTH = 400;
 export const TOOLTIP_HEIGHT = 400; // Used for over/under layout calculation. Actual height may vary.
@@ -302,6 +303,7 @@ export default function ResultsTableTooltip({
             >
               {data.metric.name}
             </span>
+            <PercentileLabel metric={data.metric} />
             {metricInverseIconDisplay}
             <span className="text-muted ml-2">
               (

@@ -1,6 +1,31 @@
 import { HiBadgeCheck } from "react-icons/hi";
+import {
+  ExperimentMetricInterface,
+  isFactMetric,
+  quantileMetricType,
+} from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { getPercentileLabel } from "@/services/metrics";
+
+export function PercentileLabel({
+  metric,
+}: {
+  metric: ExperimentMetricInterface;
+}) {
+  if (
+    isFactMetric(metric) &&
+    quantileMetricType(metric) &&
+    metric.quantileSettings
+  ) {
+    return (
+      <span className="ml-2 text-muted">
+        {getPercentileLabel(metric.quantileSettings.quantile)}
+      </span>
+    );
+  }
+  return null;
+}
 
 export function OfficialBadge({
   type,
@@ -69,10 +94,12 @@ export default function MetricName({
   id,
   disableTooltip,
   showOfficialLabel,
+  showPercentile,
 }: {
   id: string;
   disableTooltip?: boolean;
   showOfficialLabel?: boolean;
+  showPercentile?: boolean;
 }) {
   const { getExperimentMetricById } = useDefinitions();
   const metric = getExperimentMetricById(id);
@@ -82,6 +109,7 @@ export default function MetricName({
   return (
     <>
       {metric.name}
+      {showPercentile ? <PercentileLabel metric={metric} /> : null}
       <OfficialBadge
         type="metric"
         managedBy={metric.managedBy}

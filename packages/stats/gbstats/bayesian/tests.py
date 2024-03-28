@@ -348,7 +348,9 @@ class GaussianEffectABTest(BayesianABTest):
         self.stat_b = stat_b
 
     def compute_result(self):
-        if self.stat_a.mean == 0 and self.relative:
+        if (
+            self.stat_a.mean == 0 or self.stat_a.unadjusted_mean == 0
+        ) and self.relative:
             return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
         if self.has_empty_input():
             return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)

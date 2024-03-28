@@ -229,6 +229,8 @@ class QuantileStatistic(Statistic):
     def variance_init(self) -> float:
         num = self.quantile_upper - self.quantile_lower
         den = 2 * scipy.stats.norm.ppf(1.0 - 0.5 * 0.05, loc=0, scale=1)
+        if self.n <= 0:
+            return 0
         return float((self.n_star / self.n) * (self.n - 1) * (num / den) ** 2)
 
     @property
