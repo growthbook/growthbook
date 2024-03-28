@@ -755,6 +755,23 @@ export function getParsedPrereqCondition(condition: string) {
   }
   return undefined;
 }
+
+export function getReviewSetting(
+  requireReviewSettings: RequireReview[],
+  feature: FeatureInterface
+): RequireReview | undefined {
+  // check projects
+  for (const reviewSetting of requireReviewSettings) {
+    // match first value found empty means all projects
+    if (
+      (feature?.project && reviewSetting.projects.includes(feature?.project)) ||
+      reviewSetting.projects.length === 0
+    ) {
+      return reviewSetting;
+    }
+  }
+}
+
 export function checkEnvironmentsMatch(
   feature: FeatureInterface,
   environments: string[],
@@ -765,20 +782,7 @@ export function checkEnvironmentsMatch(
       return true;
     }
   }
-  // check projects
-  if (feature?.project && reviewSetting.projects.includes(feature?.project)) {
-    return true;
-  }
-  for (const tag of reviewSetting.tags) {
-    if (feature?.tags?.includes(tag)) {
-      return true;
-    }
-  }
-  return (
-    reviewSetting.environments.length === 0 &&
-    reviewSetting.projects.length === 0 &&
-    reviewSetting.tags.length === 0
-  ); //if everything is empty is means it is on for all.
+  return reviewSetting.environments.length === 0;
 }
 export function featureRequiresReview(
   feature: FeatureInterface,
@@ -796,20 +800,16 @@ export function featureRequiresReview(
   ) {
     return !!requiresReviewSettings;
   }
-
-  for (const reviewSetting of requiresReviewSettings) {
-    if (reviewSetting.requireReviewOn === true) {
-      const defaultValueChanged =
-        baseRevision.defaultValue !== revision.defaultValue;
-      if (
-        checkEnvironmentsMatch(feature, requestedEnvironments, reviewSetting) ||
-        defaultValueChanged
-      ) {
-        return true;
-      }
-    }
+  const reviewSetting = getReviewSetting(requiresReviewSettings, feature);
+  const defaultValueChanged =
+    baseRevision.defaultValue !== revision.defaultValue;
+  if (!reviewSetting || !reviewSetting.requireReviewOn) {
+    return false;
   }
-  return false;
+  if (defaultValueChanged) {
+    return true;
+  }
+  return checkEnvironmentsMatch(feature, requestedEnvironments, reviewSetting);
 }
 
 export function resetReviewOnChange(
@@ -827,16 +827,18 @@ export function resetReviewOnChange(
   ) {
     return !!requiresReviewSettings;
   }
-  for (const reviewSetting of requiresReviewSettings) {
-    if (reviewSetting.requireReviewOn) {
-      if (
-        checkEnvironmentsMatch(feature, requestedEnvironments, reviewSetting)
-      ) {
-        return reviewSetting.resetReviewOnChange;
-      }
-    }
+  const reviewSetting = getReviewSetting(requiresReviewSettings, feature);
+  if (
+    !reviewSetting ||
+    !reviewSetting.requireReviewOn ||
+    !reviewSetting.resetReviewOnChange
+  ) {
+    return false;
   }
-  return false;
+  if (defaultValueChanged) {
+    return true;
+  }
+  return checkEnvironmentsMatch(feature, requestedEnvironments, reviewSetting);
 }
 
 export function checkIfRevisionNeedsReview({

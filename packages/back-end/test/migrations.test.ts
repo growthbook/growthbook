@@ -1195,7 +1195,6 @@ describe("Organization Migration", () => {
             projects: [],
             requireReviewOn: true,
             resetReviewOnChange: false,
-            tags: [],
           },
         ],
       },

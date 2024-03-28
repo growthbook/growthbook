@@ -1,6 +1,9 @@
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { OrganizationSettings } from "back-end/types/organization";
+import {
+  OrganizationSettings,
+  RequireReview,
+} from "back-end/types/organization";
 import {
   validateFeatureValue,
   getValidation,
@@ -637,12 +640,11 @@ describe("check enviroments match", () => {
 
   it("should turn on when everything is empty", () => {
     const environments = ["prod", "staging"];
-    const reviewSetting = {
+    const reviewSetting: RequireReview = {
       requireReviewOn: true,
       resetReviewOnChange: false,
       environments: [],
       projects: [],
-      tags: [],
     };
     expect(
       checkEnvironmentsMatch(feature, environments, reviewSetting)
@@ -702,21 +704,18 @@ describe("check revision needs review", () => {
           requireReviewOn: true,
           resetReviewOnChange: false,
           environments: ["dev"],
-          tags: [],
-          projects: [],
+          projects: ["a"],
         },
         {
           requireReviewOn: false,
           resetReviewOnChange: false,
           environments: [],
-          tags: [],
           projects: [],
         },
         {
           requireReviewOn: true,
           resetReviewOnChange: false,
           environments: ["prod"],
-          tags: [],
           projects: [],
         },
       ],
@@ -738,21 +737,18 @@ describe("check revision needs review", () => {
           requireReviewOn: true,
           resetReviewOnChange: false,
           environments: ["dev"],
-          tags: [],
           projects: [],
         },
         {
           requireReviewOn: false,
           resetReviewOnChange: false,
           environments: [],
-          tags: [],
           projects: [],
         },
         {
           requireReviewOn: true,
           resetReviewOnChange: false,
           environments: ["staging"],
-          tags: [],
           projects: [],
         },
       ],
@@ -801,7 +797,6 @@ describe("reset review on change", () => {
           requireReviewOn: true,
           resetReviewOnChange: true,
           environments: ["prod"],
-          tags: [],
           projects: [],
         },
       ],
@@ -812,7 +807,6 @@ describe("reset review on change", () => {
           requireReviewOn: true,
           resetReviewOnChange: false,
           environments: ["prod"],
-          tags: [],
           projects: [],
         },
       ],
@@ -838,14 +832,12 @@ describe("reset review on change", () => {
           requireReviewOn: true,
           resetReviewOnChange: true,
           environments: ["prod"],
-          tags: [],
           projects: [],
         },
         {
           requireReviewOn: true,
           resetReviewOnChange: true,
           environments: [],
-          tags: [],
           projects: [],
         },
       ],
@@ -856,20 +848,18 @@ describe("reset review on change", () => {
           requireReviewOn: true,
           resetReviewOnChange: false,
           environments: ["prod"],
-          tags: [],
           projects: [],
         },
         {
           requireReviewOn: true,
           resetReviewOnChange: true,
           environments: [],
-          tags: [],
           projects: [],
         },
       ],
     };
     expect(resetReviewOnChange(feature, ["staging"], false, settings)).toEqual(
-      true
+      false
     );
     expect(resetReviewOnChange(feature, ["prod"], false, settings)).toEqual(
       true
@@ -877,8 +867,34 @@ describe("reset review on change", () => {
     expect(resetReviewOnChange(feature, ["prod"], false, settingsOff)).toEqual(
       false
     );
-    expect(resetReviewOnChange(feature, ["prod"], false, settingsOff)).toEqual(
+    expect(
+      resetReviewOnChange(feature, ["staging"], false, settingsOff)
+    ).toEqual(true);
+  });
+  it("turn off for first project", () => {
+    const settings: OrganizationSettings = {
+      requireReviews: [
+        {
+          requireReviewOn: false,
+          resetReviewOnChange: false,
+          environments: [],
+          projects: ["a"],
+        },
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: true,
+          environments: [],
+          projects: [],
+        },
+      ],
+    };
+    feature.project = "a";
+    expect(resetReviewOnChange(feature, ["env"], false, settings)).toEqual(
       false
+    );
+    feature.project = "b";
+    expect(resetReviewOnChange(feature, ["staging"], false, settings)).toEqual(
+      true
     );
   });
 });

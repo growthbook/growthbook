@@ -428,7 +428,6 @@ export function upgradeOrganizationDoc(
         resetReviewOnChange: false,
         environments: [],
         projects: [],
-        tags: [],
       },
     ];
   }

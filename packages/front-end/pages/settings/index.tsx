@@ -116,7 +116,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
           resetReviewOnChange: false,
           environments: [],
           projects: [],
-          tags: [],
         },
       ],
       defaultDataSource: settings.defaultDataSource || "",

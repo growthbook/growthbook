@@ -36,7 +36,6 @@ export type RequireReview = {
   resetReviewOnChange: boolean;
   environments: string[];
   projects: string[];
-  tags: string[];
 };
 
 export type MemberRole =
