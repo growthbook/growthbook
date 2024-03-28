@@ -1,16 +1,15 @@
 import { FC } from "react";
 import { Environment } from "back-end/types/organization";
 import { FeatureEnvironment } from "back-end/types/feature";
-import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Toggle from "@/components/Forms/Toggle";
 import usePermissions from "@/hooks/usePermissions";
 
 const EnvironmentSelect: FC<{
   environmentSettings: Record<string, FeatureEnvironment>;
+  environments: Environment[];
   setValue: (env: Environment, enabled: boolean) => void;
-}> = ({ environmentSettings, setValue }) => {
-  const environments = useEnvironments();
+}> = ({ environmentSettings, environments, setValue }) => {
   const permissions = usePermissions();
   const { project } = useDefinitions();
   return (

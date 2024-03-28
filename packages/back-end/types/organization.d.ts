@@ -149,6 +149,7 @@ export type Environment = {
   description?: string;
   toggleOnList?: boolean;
   defaultState?: boolean;
+  projects?: string[];
 };
 
 export interface OrganizationSettings {

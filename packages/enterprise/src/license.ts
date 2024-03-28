@@ -400,26 +400,6 @@ function verifyLicenseInterface(license: LicenseInterface) {
   }
 }
 
-async function getLicenseDataFromMongoCache(
-  licenseId: string,
-  errorMessage: string
-): Promise<LicenseInterface> {
-  const cache = await LicenseModel.findOne({ id: licenseId });
-  if (!cache) {
-    throw new Error(errorMessage);
-  }
-  if (
-    new Date(cache.dateUpdated) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // 7 days
-  ) {
-    const license: LicenseInterface = cache.toJSON();
-    await setAndVerifyServerLicenseData(license);
-    return license;
-  }
-  throw new Error(
-    "License server is not working and cached license data is too old"
-  );
-}
-
 function getAgentOptions() {
   const use_proxy =
     !!process.env.http_proxy ||
@@ -629,11 +609,11 @@ async function createOrUpdateLicenseMongoCache(license: LicenseInterface) {
 
 // Updates the local daily cache, the one week backup Mongo cache, and verifies the license.
 export async function setAndVerifyServerLicenseData(license: LicenseInterface) {
+  verifyLicenseInterface(license);
+  checkIfEnvVarSettingsAreAllowedByLicense(license);
   keyToLicenseData[license.id] = license;
   keyToCacheDate[license.id] = new Date();
   await createOrUpdateLicenseMongoCache(license);
-  verifyLicenseInterface(license);
-  checkIfEnvVarSettingsAreAllowedByLicense(license);
 }
 
 async function getLicenseDataFromServer(
@@ -653,7 +633,6 @@ async function getLicenseDataFromServer(
     "PUT"
   );
 
-  await setAndVerifyServerLicenseData(license);
   return license;
 }
 
@@ -707,14 +686,48 @@ export async function licenseInit(
             );
           }
 
-          try {
-            await getLicenseDataFromServer(key, userLicenseCodes, metaData);
-          } catch (e) {
-            logger.warn(
-              "Could not connect to license server. Falling back to cache."
-            );
-            await getLicenseDataFromMongoCache(key, e.message);
+          let license: LicenseInterface;
+          const mongoCache = await LicenseModel.findOne({ id: key });
+          const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // 7 days
+          if (mongoCache && new Date(mongoCache?.dateUpdated) > oneDayAgo) {
+            license = mongoCache.toJSON();
+          } else {
+            try {
+              license = await getLicenseDataFromServer(
+                key,
+                userLicenseCodes,
+                metaData
+              );
+              if (!mongoCache) {
+                await LicenseModel.create(license);
+              } else {
+                mongoCache.set(license);
+                await mongoCache.save();
+              }
+            } catch (e) {
+              if (
+                mongoCache &&
+                new Date(mongoCache?.dateUpdated) > oneWeekAgo
+              ) {
+                logger.warn(
+                  "Could not connect to license server. Falling back to cache."
+                );
+                license = mongoCache.toJSON();
+              } else if (mongoCache) {
+                throw new Error(
+                  "License server is not working and cached license data is too old"
+                );
+              } else {
+                throw e;
+              }
+            }
           }
+
+          verifyLicenseInterface(license);
+          checkIfEnvVarSettingsAreAllowedByLicense(license);
+
+          keyToLicenseData[key] = license;
+          keyToCacheDate[key] = new Date();
         } else {
           // Old style: the key itself has the encrypted license data in it.
           keyToLicenseData[key] = getVerifiedLicenseData(key);
