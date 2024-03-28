@@ -12,6 +12,7 @@ import { date, daysBetween } from "shared/dates";
 import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import Link from "next/link";
 import { useAuth } from "@/services/auth";
 import WatchButton from "@/components/WatchButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -29,6 +30,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCelebration } from "@/hooks/useCelebration";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import { ExperimentTab } from ".";
@@ -105,6 +108,9 @@ export default function ExperimentHeader({
   const { dimension } = useSnapshot();
   const headerPinned = scrollY > 45;
   const startCelebration = useCelebration();
+  const { data: sdkConnections } = useSDKConnections();
+  const connections = sdkConnections?.connections || [];
+  const [showSdkForm, setShowSdkForm] = useState(false);
 
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;
@@ -173,12 +179,22 @@ export default function ExperimentHeader({
   return (
     <>
       <div className="experiment-header bg-white px-3 pt-3">
+        {showSdkForm && (
+          <InitialSDKConnectionForm
+            close={() => setShowSdkForm(false)}
+            includeCheck={true}
+            cta="Continue"
+            goToNextStep={() => {
+              setShowSdkForm(false);
+            }}
+          />
+        )}
         {showStartExperiment && experiment.status === "draft" && (
           <Modal
             open={true}
             size="md"
             closeCta={
-              checklistIncomplete ? (
+              checklistIncomplete || !verifiedConnections.length ? (
                 <button
                   className="btn btn-primary"
                   onClick={() => setShowStartExperiment(false)}
@@ -196,7 +212,7 @@ export default function ExperimentHeader({
               )
             }
             secondaryCTA={
-              checklistIncomplete ? (
+              checklistIncomplete || !verifiedConnections.length ? (
                 <button
                   className="btn btn-link text-decoration-none"
                   onClick={async () => startExperiment()}
@@ -236,7 +252,26 @@ export default function ExperimentHeader({
                     {checklistItemsRemaining > 1 ? "s " : " "}
                   </strong>
                   left to complete. Review the Pre-Launch Checklist before
-                  startng this experiment.
+                  starting this experiment.
+                </div>
+              ) : null}
+              {!verifiedConnections.length ? (
+                <div className="alert alert-warning">
+                  You haven&apos;t integrated GrowthBook into your app.{" "}
+                  {connections.length > 0 ? (
+                    <Link href="/sdks">Manage SDK Connections</Link>
+                  ) : (
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setShowStartExperiment(false);
+                        setShowSdkForm(true);
+                      }}
+                    >
+                      Add SDK Connection
+                    </a>
+                  )}
                 </div>
               ) : null}
               <div>
@@ -289,21 +324,15 @@ export default function ExperimentHeader({
                     </div>
                   </div>
                 ) : experiment.status === "draft" ? (
-                  <Tooltip
-                    shouldDisplay={!verifiedConnections.length}
-                    body="To start an experiment, integrate GrowthBook into your app."
+                  <button
+                    className="btn btn-teal"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setShowStartExperiment(true);
+                    }}
                   >
-                    <button
-                      className="btn btn-teal"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setShowStartExperiment(true);
-                      }}
-                      disabled={!verifiedConnections.length}
-                    >
-                      Start Experiment <MdRocketLaunch />
-                    </button>
-                  </Tooltip>
+                    Start Experiment <MdRocketLaunch />
+                  </button>
                 ) : null}
               </div>
             ) : null}
