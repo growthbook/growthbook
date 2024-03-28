@@ -94,12 +94,10 @@ export default function MetricName({
   id,
   disableTooltip,
   showOfficialLabel,
-  showPercentile,
 }: {
   id: string;
   disableTooltip?: boolean;
   showOfficialLabel?: boolean;
-  showPercentile?: boolean;
 }) {
   const { getExperimentMetricById } = useDefinitions();
   const metric = getExperimentMetricById(id);
@@ -109,7 +107,6 @@ export default function MetricName({
   return (
     <>
       {metric.name}
-      {showPercentile ? <PercentileLabel metric={metric} /> : null}
       <OfficialBadge
         type="metric"
         managedBy={metric.managedBy}

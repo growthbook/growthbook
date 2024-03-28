@@ -32,7 +32,7 @@ import {
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
-import MetricName from "@/components/Metrics/MetricName";
+import MetricName, { PercentileLabel } from "@/components/Metrics/MetricName";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -361,7 +361,8 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled) {
             href={getMetricLink(metric.id)}
             className="metriclabel text-dark"
           >
-            <MetricName id={metric.id} disableTooltip showPercentile={true} />
+            <MetricName id={metric.id} disableTooltip />
+            <PercentileLabel metric={metric} />
           </Link>
         </span>
       </Tooltip>
