@@ -231,15 +231,16 @@ export default function EditTargetingModal({
       secondaryCTA={
         step === lastStepNumber ? (
           <div className="col ml-1 pl-0" style={{ minWidth: 500 }}>
-            <div className="d-flex m-0 pl-3 pr-2 py-1 alert alert-warning">
+            <div className="d-flex m-0 pl-2 pr-2 py-1 alert alert-warning align-items-center">
               <div>
-                <strong>Warning:</strong> Changes made will apply to all linked
-                Feature Flags and Visual Editor changes immediately upon
+                <strong>Warning:</strong> Changes made will apply to linked
+                Feature Flags, Visual Changes, and URL Redirects immediately upon
                 publishing.
               </div>
               <label
                 htmlFor="confirm-changes"
                 className="btn btn-sm btn-warning d-flex my-1 ml-1 px-2 d-flex align-items-center justify-content-md-center"
+                style={{ height: 35 }}
               >
                 <strong className="mr-2 user-select-none">Confirm</strong>
                 <input

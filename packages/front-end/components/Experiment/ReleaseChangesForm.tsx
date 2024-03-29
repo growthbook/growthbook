@@ -349,95 +349,119 @@ function TargetingChangeTooltips({
     !usingStickyBucketing ||
     !["same-phase-sticky", "new-phase-block-sticky"].includes(releasePlan);
   const riskLevel = recommendedRolloutData.riskLevels[releasePlan];
+  const variationHopping = recommendedRolloutData.variationHopping[releasePlan];
   return (
-    <div
-      className={clsx("alert", {
-        "alert-success": riskLevel === "safe",
-        "alert-warning": ["warning", "danger"].includes(riskLevel),
-      })}
-    >
-      {riskLevel === "safe" && (
-        <>
-          <FaCheck className="mr-1" /> You are using a safe release plan for
-          these changes.
-        </>
-      )}
-      {riskLevel === "warning" && (
-        <>
-          <FaExclamationCircle className="mr-1" /> The changes you have made may
-          impact your experiment.
-        </>
-      )}
-      {riskLevel === "danger" && (
-        <>
-          <FaExclamationCircle className="mr-1" /> The changes you have made
-          have a <span className="text-danger">high risk</span> of impacting
-          your experiment.
-        </>
-      )}
-      {riskLevel !== "safe" && (
-        <ul className="mt-1 mb-0 pl-4">
-          {releasePlan != "new-phase" ? (
-            <>
-              {recommendedRolloutData.reasons.moreRestrictiveTargeting && (
-                <li>
-                  <strong>More restrictive targeting conditions</strong> without
-                  starting a new phase may bias results. Some users already in
-                  the experiment analysis may begin receiving the default
-                  feature value. Re-randomize traffic{" "}
-                  {switchToSB ? " or use Sticky Bucketing" : ""} to help
-                  mitigate.
-                </li>
-              )}
-              {recommendedRolloutData.reasons.otherTargetingChanges && (
-                <li>
-                  <strong>Ambiguous changes to targeting conditions</strong>{" "}
-                  without starting a new phase may bias results. Some users
-                  already in the experiment analysis may begin receiving the
-                  default feature value. Re-randomize traffic{" "}
-                  {switchToSB ? " or use Sticky Bucketing" : ""} to help
-                  mitigate.
-                </li>
-              )}
-              {recommendedRolloutData.reasons.decreaseCoverage && (
-                <li>
-                  <strong>Decreased traffic coverage</strong> without starting a
-                  new phase may bias results. Some users already in the
-                  experiment analysis will begin receiving the default feature
-                  value. Re-randomize traffic{" "}
-                  {switchToSB ? " or use Sticky Bucketing" : ""} to help
-                  mitigate.
-                </li>
-              )}
-              {recommendedRolloutData.reasons.changeVariationWeights && (
-                <li>
-                  <strong>Changing variation weights</strong> could lead to
-                  statistical bias and/or multiple exposures. Re-randomize
-                  traffic to help mitigate.
-                </li>
-              )}
-              {recommendedRolloutData.reasons.disableVariation && (
-                <li>
-                  <strong>Disabling or re-enableing a variation</strong> could
-                  lead to statistical bias and/or multiple exposures.
-                  Re-randomize traffic to help mitigate.
-                </li>
-              )}
-              {(recommendedRolloutData.reasons.addToNamespace ||
-                recommendedRolloutData.reasons.decreaseNamespaceRange ||
-                recommendedRolloutData.reasons.otherNamespaceChanges) && (
-                <li>
-                  <strong>More restrictive namespace targeting</strong> without
-                  starting a new phase may bias results as users in your
-                  experiment analysis may fall back to the default feature
-                  value. Re-randomize traffic to help mitigate.
-                </li>
-              )}
-            </>
-          ) : null}
-        </ul>
-      )}
-    </div>
+    <>
+      <div
+        className={clsx("alert py-2 mb-2", {
+          "alert-success": riskLevel === "safe",
+          "alert-warning": ["warning", "danger"].includes(riskLevel),
+        })}
+      >
+        <span className="mr-2 uppercase-title">Statistical impact:</span>
+        {riskLevel === "safe" && (
+          <>
+            <FaCheck className="mr-1" /> You are using a safe release plan for
+            these changes.
+          </>
+        )}
+        {riskLevel === "warning" && (
+          <>
+            <FaExclamationCircle className="mr-1" /> The changes you have made
+            may impact your experiment.
+          </>
+        )}
+        {riskLevel === "danger" && (
+          <>
+            <FaExclamationCircle className="mr-1" /> The changes you have made
+            have a <span className="text-danger">high risk</span> of impacting
+            your experiment.
+          </>
+        )}
+        {riskLevel !== "safe" && (
+          <ul className="mt-1 mb-0 pl-4">
+            {releasePlan != "new-phase" ? (
+              <>
+                {recommendedRolloutData.reasons.moreRestrictiveTargeting && (
+                  <li>
+                    <strong>More restrictive targeting conditions</strong>{" "}
+                    without starting a new phase may bias results. Some users
+                    already in the experiment analysis may begin receiving the
+                    default feature value. Re-randomize traffic{" "}
+                    {switchToSB ? " or use Sticky Bucketing" : ""} to help
+                    mitigate.
+                  </li>
+                )}
+                {recommendedRolloutData.reasons.otherTargetingChanges && (
+                  <li>
+                    <strong>Ambiguous changes to targeting conditions</strong>{" "}
+                    without starting a new phase may bias results. Some users
+                    already in the experiment analysis may begin receiving the
+                    default feature value. Re-randomize traffic{" "}
+                    {switchToSB ? " or use Sticky Bucketing" : ""} to help
+                    mitigate.
+                  </li>
+                )}
+                {recommendedRolloutData.reasons.decreaseCoverage && (
+                  <li>
+                    <strong>Decreased traffic coverage</strong> without starting
+                    a new phase may bias results. Some users already in the
+                    experiment analysis will begin receiving the default feature
+                    value. Re-randomize traffic{" "}
+                    {switchToSB ? " or use Sticky Bucketing" : ""} to help
+                    mitigate.
+                  </li>
+                )}
+                {recommendedRolloutData.reasons.changeVariationWeights && (
+                  <li>
+                    <strong>Changing variation weights</strong> could lead to
+                    statistical bias and/or multiple exposures. Re-randomize
+                    traffic to help mitigate.
+                  </li>
+                )}
+                {recommendedRolloutData.reasons.disableVariation && (
+                  <li>
+                    <strong>Disabling or re-enableing a variation</strong> could
+                    lead to statistical bias and/or multiple exposures.
+                    Re-randomize traffic to help mitigate.
+                  </li>
+                )}
+                {(recommendedRolloutData.reasons.addToNamespace ||
+                  recommendedRolloutData.reasons.decreaseNamespaceRange ||
+                  recommendedRolloutData.reasons.otherNamespaceChanges) && (
+                  <li>
+                    <strong>More restrictive namespace targeting</strong>{" "}
+                    without starting a new phase may bias results as users in
+                    your experiment analysis may fall back to the default
+                    feature value. Re-randomize traffic to help mitigate.
+                  </li>
+                )}
+              </>
+            ) : null}
+          </ul>
+        )}
+      </div>
+      <div
+        className={clsx("alert py-2", {
+          "alert-success": !variationHopping,
+          "alert-warning": variationHopping,
+        })}
+      >
+        <span className="mr-2 uppercase-title">User experience impact:</span>
+        {variationHopping ? (
+          <>
+            <FaExclamationCircle className="mr-1" /> Some users may change their
+            assigned variation.
+          </>
+        ) : (
+          <>
+            <FaCheck className="mr-1" /> Users will keep their assigned
+            variation.
+          </>
+        )}
+      </div>
+      <div></div>
+    </>
   );
 }
 
@@ -450,6 +474,12 @@ interface RecommendedRolloutData {
     "same-phase-sticky": RiskLevel;
     "same-phase-everyone": RiskLevel;
     "new-phase-block-sticky": RiskLevel;
+  };
+  variationHopping: {
+    "new-phase": boolean;
+    "same-phase-sticky": boolean;
+    "same-phase-everyone": boolean;
+    "new-phase-block-sticky": boolean;
   };
   disableSamePhase: boolean;
   reasons: {
@@ -482,6 +512,12 @@ function getRecommendedRolloutData({
     "same-phase-sticky": "safe",
     "same-phase-everyone": "safe",
     "new-phase-block-sticky": "safe",
+  };
+  let variationHopping: RecommendedRolloutData["variationHopping"] = {
+    "new-phase": false,
+    "same-phase-sticky": false,
+    "same-phase-everyone": false,
+    "new-phase-block-sticky": false,
   };
   let disableSamePhase = false;
 
@@ -614,6 +650,12 @@ function getRecommendedRolloutData({
         "same-phase-everyone": disableVariation ? "danger" : "warning",
         "new-phase-block-sticky": "safe",
       };
+      variationHopping = {
+        "new-phase": true,
+        "same-phase-sticky": false,
+        "same-phase-everyone": true,
+        "new-phase-block-sticky": true,
+      };
       reasons = {
         ...reasons,
         moreRestrictiveTargeting,
@@ -630,6 +672,12 @@ function getRecommendedRolloutData({
         "same-phase-sticky": "warning",
         "same-phase-everyone": "danger",
         "new-phase-block-sticky": "safe",
+      };
+      variationHopping = {
+        "new-phase": true,
+        "same-phase-sticky": false,
+        "same-phase-everyone": true,
+        "new-phase-block-sticky": true,
       };
       reasons = { ...reasons, otherTargetingChanges };
     }
@@ -648,6 +696,12 @@ function getRecommendedRolloutData({
         "same-phase-sticky": "danger",
         "same-phase-everyone": "danger",
         "new-phase-block-sticky": "safe",
+      };
+      variationHopping = {
+        "new-phase": true,
+        "same-phase-sticky": false,
+        "same-phase-everyone": true,
+        "new-phase-block-sticky": true,
       };
       reasons = {
         ...reasons,
@@ -718,6 +772,7 @@ function getRecommendedRolloutData({
     recommendedReleasePlan,
     actualReleasePlan,
     riskLevels,
+    variationHopping,
     disableSamePhase,
     reasons,
   };
