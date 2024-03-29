@@ -4,15 +4,11 @@ import { MakeModelClass, baseSchema } from "./BaseModel";
 const notificationTriggers = ["snapshot"] as const;
 const notificationLevels = ["alert", "info"] as const;
 
-const notificationConfigSchema = z.object({
-  trigger: z.enum(notificationTriggers),
-  level: z.enum(notificationLevels),
-});
-
 export const experimentNotificationValidator = baseSchema
-  .merge(notificationConfigSchema)
   .extend({
     experimentId: z.string(),
+    trigger: z.enum(notificationTriggers),
+    level: z.enum(notificationLevels),
   })
   .strict();
 
