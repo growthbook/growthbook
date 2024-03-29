@@ -15,7 +15,8 @@ const DownloadLicenseUsageButton: FC = () => {
       const res = await apiCall<{
         status: number;
         licenseMetaData: LicenseMetaData;
-        userLicenseCodes: string[];
+        userEmailCodes: string[];
+        inviteEmailCodes: string[];
         signature: string;
         timestamp: string;
       }>(`/license/report`, {
@@ -32,8 +33,12 @@ const DownloadLicenseUsageButton: FC = () => {
             {
               license: license,
               licenseMetaData: res.licenseMetaData,
-              userLicenseCodes: res.userLicenseCodes,
-              seatsUsed: res.userLicenseCodes.length,
+              userEmailCodes: res.userEmailCodes,
+              inviteEmailCodes: res.inviteEmailCodes,
+              activeSeatsUsed: res.userEmailCodes.length,
+              seatsUsed: Array.from(
+                new Set(res.userEmailCodes.concat(res.inviteEmailCodes))
+              ).length,
               signature: res.signature,
               timestamp: res.timestamp,
             },
