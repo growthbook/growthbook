@@ -1,6 +1,7 @@
 import { Context } from "../models/BaseModel";
 import { ExperimentNotificationModel } from "../models/ExperimentNotification";
 import { createEvent } from "../models/EventModel";
+import { getExperimentById } from "../models/ExperimentModel";
 import { EventNotifier } from "../events/notifiers/EventNotifier";
 import { ExperimentInfoNotificationEvent } from "../events/notification-events";
 
@@ -11,10 +12,18 @@ export const notifyFailedAutoUpdate = async ({
   context: Context;
   experimentId: string;
 }) => {
+  const experiment = await getExperimentById(context, experimentId);
+
+  if (!experiment) throw new Error("Error while fetching experiment!");
+
   const payload: ExperimentInfoNotificationEvent = {
     event: "experiment.info",
     object: "experiment",
-    data: { type: "auto-update-failed", experimentId },
+    data: {
+      type: "auto-update-failed",
+      experimentId,
+      experimentName: experiment.name,
+    },
     user: {
       type: "dashboard",
       id: context.userId,

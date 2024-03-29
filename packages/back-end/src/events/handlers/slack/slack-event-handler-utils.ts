@@ -51,7 +51,7 @@ export const getSlackMessageForNotificationEvent = (
       return buildSlackMessageForExperimentUpdatedEvent(event, eventId);
 
     case "experiment.info":
-      return buildSlackMessageForExperimentInfoEvent(event, eventId);
+      return buildSlackMessageForExperimentInfoEvent(event);
 
     case "experiment.deleted":
       return buildSlackMessageForExperimentDeletedEvent(event, eventId);
@@ -288,15 +288,14 @@ const buildSlackMessageForExperimentDeletedEvent = (
   };
 };
 
-const buildSlackMessageForExperimentInfoEvent = (
-  { data }: ExperimentInfoNotificationEvent,
-  eventId: string
-): SlackMessage => {
+const buildSlackMessageForExperimentInfoEvent = ({
+  data,
+}: ExperimentInfoNotificationEvent): SlackMessage => {
   let invalidType: never;
 
   switch (data.type) {
     case "auto-update-failed": {
-      const text = `Automatic snapshot creation for ${data.experimentId} failed!`;
+      const text = `Automatic snapshot creation for ${data.experimentName} failed!`;
 
       return {
         text,
@@ -306,8 +305,8 @@ const buildSlackMessageForExperimentInfoEvent = (
             text: {
               type: "mrkdwn",
               text:
-                `Automatic snapshot creation for *${data.experimentId}* failed!` +
-                getEventUrlFormatted(eventId),
+                `Automatic snapshot creation for *${data.experimentName}* failed!` +
+                getExperimentUrlFormatted(data.experimentId),
             },
           },
         ],
