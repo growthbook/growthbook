@@ -693,7 +693,11 @@ export async function licenseInit(
           let license: LicenseInterface;
           const mongoCache = await LicenseModel.findOne({ id: key });
           const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // 7 days
-          if (mongoCache && new Date(mongoCache?.dateUpdated) > oneDayAgo) {
+          if (
+            !forceRefresh &&
+            mongoCache &&
+            new Date(mongoCache?.dateUpdated) > oneDayAgo
+          ) {
             license = mongoCache.toJSON();
           } else {
             try {
