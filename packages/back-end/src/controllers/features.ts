@@ -1218,14 +1218,32 @@ export async function postFeatureExperimentRefRule(
     org,
   });
 
-  updates.version = revision.version;
-
+  const linkedExperiments = feature.linkedExperiments || [];
   if (!feature.linkedExperiments?.includes(experiment.id)) {
-    updates.linkedExperiments = feature.linkedExperiments || [];
-    updates.linkedExperiments.push(experiment.id);
+    linkedExperiments.push(experiment.id);
+    updates.linkedExperiments = linkedExperiments;
   }
 
-  const updatedFeature = await updateFeature(context, feature, updates);
+  if (revision.status === "published") {
+    updates.version = revision.version;
+    const updatedFeature = await updateFeature(context, feature, updates);
+
+    await req.audit({
+      event: "feature.update",
+      entity: {
+        object: "feature",
+        id: feature.id,
+      },
+      details: auditDetailsUpdate(feature, updatedFeature, {
+        revision: revision.version,
+      }),
+    });
+  } else {
+    await updateFeature(context, feature, {
+      linkedExperiments,
+      hasDrafts: true,
+    });
+  }
 
   await addLinkedFeatureToExperiment(
     context,
@@ -1233,17 +1251,6 @@ export async function postFeatureExperimentRefRule(
     feature.id,
     experiment
   );
-
-  await req.audit({
-    event: "feature.update",
-    entity: {
-      object: "feature",
-      id: feature.id,
-    },
-    details: auditDetailsUpdate(feature, updatedFeature, {
-      revision: revision.version,
-    }),
-  });
 
   res.status(200).json({
     status: 200,

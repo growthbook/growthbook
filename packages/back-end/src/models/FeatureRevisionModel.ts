@@ -189,6 +189,7 @@ export async function createRevision({
   publish,
   comment,
   org,
+  canBypassApprovalChecks,
 }: {
   feature: FeatureInterface;
   user: EventAuditUser;
@@ -198,6 +199,7 @@ export async function createRevision({
   publish?: boolean;
   comment?: string;
   org: OrganizationInterface;
+  canBypassApprovalChecks?: boolean;
 }) {
   // Get max version number
   const lastRevision = (
@@ -269,7 +271,7 @@ export async function createRevision({
     allEnvironments: environments,
     settings: org.settings,
   });
-  if (publish && !requiresReview) {
+  if (publish && (!requiresReview || canBypassApprovalChecks)) {
     revision.status = "published";
     revision.publishedBy = user;
     revision.datePublished = new Date();
