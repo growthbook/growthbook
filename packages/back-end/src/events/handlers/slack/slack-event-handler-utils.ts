@@ -5,6 +5,7 @@ import {
   ExperimentCreatedNotificationEvent,
   ExperimentDeletedNotificationEvent,
   ExperimentUpdatedNotificationEvent,
+  ExperimentInfoNotificationEvent,
   FeatureCreatedNotificationEvent,
   FeatureDeletedNotificationEvent,
   FeatureUpdatedNotificationEvent,
@@ -50,7 +51,7 @@ export const getSlackMessageForNotificationEvent = (
       return buildSlackMessageForExperimentUpdatedEvent(event, eventId);
 
     case "experiment.info":
-      return null;
+      return buildSlackMessageForExperimentInfoEvent(event, eventId);
 
     case "experiment.deleted":
       return buildSlackMessageForExperimentDeletedEvent(event, eventId);
@@ -285,6 +286,38 @@ const buildSlackMessageForExperimentDeletedEvent = (
       },
     ],
   };
+};
+
+const buildSlackMessageForExperimentInfoEvent = (
+  { data }: ExperimentInfoNotificationEvent,
+  eventId: string
+): SlackMessage => {
+  let invalidType: never;
+
+  switch (data.type) {
+    case "auto-update-failed": {
+      const text = `Automatic snapshot creation for ${data.experimentId} failed!`;
+
+      return {
+        text,
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text:
+                `Automatic snapshot creation for *${data.experimentId}* failed!` +
+                getEventUrlFormatted(eventId),
+            },
+          },
+        ],
+      };
+    }
+
+    default:
+      invalidType = data.type;
+      throw `Invalid type: ${invalidType}`;
+  }
 };
 
 // endregion Event-specific messages -> Experiment

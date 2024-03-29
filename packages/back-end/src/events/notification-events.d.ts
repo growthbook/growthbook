@@ -2,6 +2,7 @@ import { ApiExperiment, ApiFeature } from "../../types/openapi";
 import { IfEqual } from "../util/types";
 import { NotificationEventName, NotificationEventPayload } from "./base-types";
 import { UserLoginAuditableProperties } from "./event-types";
+import { ExperimentNotificationPayload } from "../types/ExperimentNotification";
 
 // region User
 
@@ -74,7 +75,7 @@ export type ExperimentDeletedNotificationEvent = NotificationEventPayload<
 export type ExperimentInfoNotificationEvent = NotificationEventPayload<
   "experiment.info",
   "experiment",
-  unknown
+  ExperimentNotificationPayload
 >;
 
 export type WebhookTestEvent = NotificationEventPayload<
