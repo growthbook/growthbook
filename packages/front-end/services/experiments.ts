@@ -39,18 +39,26 @@ export type ExperimentTableRow = {
   isGuardrail?: boolean;
 };
 
+function getMetricSampleSize(
+  baseline: SnapshotMetric,
+  stats: SnapshotMetric,
+  metric: ExperimentMetricInterface
+): {baselineValue?: number, variationValue?: number} {
+  return quantileMetricType(metric)
+    ? {
+        baselineValue: baseline?.stats?.count,
+        variationValue: stats?.stats?.count,
+      }
+    : { baselineValue: baseline.value, variationValue: stats.value };
+}
+
 export function hasEnoughData(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
   metric: ExperimentMetricInterface,
   metricDefaults: MetricDefaults
 ): boolean {
-  const { baselineValue, variationValue } = quantileMetricType(metric)
-    ? {
-        baselineValue: baseline?.stats?.count,
-        variationValue: stats?.stats?.count,
-      }
-    : { baselineValue: baseline?.value, variationValue: stats?.value };
+  const { baselineValue, variationValue } = getMetricSampleSize(baseline, stats, metric);
   if (!baselineValue || !variationValue) return false;
 
   const minSampleSize =
@@ -605,17 +613,20 @@ export function getRowResults({
   }
 
   const hasData = !!stats?.value && !!baseline?.value;
+  const metricSampleSize = getMetricSampleSize(baseline, stats, metric);
+  const baselineSampleSize = metricSampleSize.baselineValue ?? baseline.value;
+  const variationSampleSize = metricSampleSize.variationValue ?? stats.value;
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
   const enoughDataReason =
-    `This metric has a minimum total of ${minSampleSize}; this value must be reached in one variation before results are displayed. ` +
-    `The total metric value of the variation is ${compactNumberFormatter.format(
-      stats.value
+    `This metric has a minimum ${quantileMetricType(metric) ? "sample size" : "total"} of ${minSampleSize}; this value must be reached in one variation before results are displayed. ` +
+    `The total ${quantileMetricType(metric) ? "sample size" : "metric value"} of the variation is ${compactNumberFormatter.format(
+      variationSampleSize
     )} and the baseline total is ${compactNumberFormatter.format(
-      baseline.value
+      baselineSampleSize
     )}.`;
   const percentComplete =
     minSampleSize > 0
-      ? Math.max(stats.value, baseline.value) / minSampleSize
+      ? Math.max(baselineSampleSize, variationSampleSize) / minSampleSize
       : 1;
   const timeRemainingMs =
     percentComplete > 0.1
@@ -628,7 +639,7 @@ export function getRowResults({
     timeRemainingMs !== null && isLatestPhase && experimentStatus === "running";
   const enoughDataMeta: EnoughDataMeta = {
     percentComplete,
-    percentCompleteNumerator: Math.max(stats.value, baseline.value),
+    percentCompleteNumerator: Math.max(baselineSampleSize, variationSampleSize),
     percentCompleteDenominator: minSampleSize,
     timeRemainingMs,
     showTimeRemaining,

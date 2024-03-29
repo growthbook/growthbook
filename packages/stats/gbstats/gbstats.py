@@ -441,7 +441,7 @@ def variation_statistic_from_metric_row(
         )
     elif metric.statistic_type == "quantile_unit":
         if metric.quantile_value is None:
-            raise ValueError("quantile_value must be set for quantile_event metric")
+            raise ValueError("quantile_value must be set for quantile_unit metric")
         return QuantileStatistic(
             n=row[f"{prefix}_quantile_n"],
             n_star=row[f"{prefix}_quantile_nstar"],

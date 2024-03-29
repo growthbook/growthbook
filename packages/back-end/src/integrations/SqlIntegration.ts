@@ -562,6 +562,8 @@ export default abstract class SqlIntegration
       quantileData[`${prefix}quantile_n`] =
         parseFloat(row[`${prefix}quantile_n`]) || 0;
 
+      const smallestNStar = Math.min(...N_STAR_VALUES);
+
       // process grid for quantile data
       N_STAR_VALUES.forEach((n) => {
         const lowerColumn = `${prefix}quantile_lower_${n}`;
@@ -570,7 +572,8 @@ export default abstract class SqlIntegration
           return;
 
         if (
-          n < quantileData[`${prefix}quantile_n`] &&
+          // if nstar is smaller, or if it's the smallest nstar, proceed
+          (n < quantileData[`${prefix}quantile_n`] || n == smallestNStar) &&
           // if N_STAR_VALUES isn't ascending need to make sure
           // this n is the largest n we've seen so far
           n > (Number(quantileData[`${prefix}quantile_nstar`]) || 0)
