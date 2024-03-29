@@ -74,6 +74,14 @@ If a metric uses this Filter, GrowthBook will add it to the WHERE clause automat
 
 There are 4 types of supported Fact Table metrics today - **Proportion**, **Mean**, **Ratio**, and **Quantile**.
 
+| Metric Type         | Description             | Example                | User Aggregation                                | Variation Aggregation                             |
+| ------------------- | ----------------------- | ---------------------- | ----------------------------------------------- | ------------------------------------------------- |
+| Proportion          | Percentage of users     | Created Account        | 1 or 0                                          | Proportion of users in variation                  |
+| Mean                | Average of user totals  | Revenue per User       | `SUM(value)`                                    | Average across users in variation                 |
+| Ratio               | Ratio of two totals     | Average Order Value    | `SUM(value)` for both numerator and denominator | Sum of user numerators / sum of user denominators |
+| Quantile (event)    | Quantile of row values  | P95 Latency            | None                                            | Quantile across all values                        |
+| Quantile (per user) | Quantile of user totals | P90 Total User Revenue | `SUM(value)`                                    | Quantile across user totals                       |
+
 ### Proportion Metrics
 
 Proportion Metrics measure the percent of users in an experiment who exist in a Fact Table. The number of rows the user has doesn't matter - we just care whether or not they have at least 1 row.
@@ -115,7 +123,14 @@ For example, to create a **Session Duration** metric, you would do the following
 
 Quantile Metrics are useful when you care about comparing variations at a quantile (e.g. latency at P99) rather than the mean. Learn more about when to use Quantile Metrics [here](/statistics/quantile).
 
-Constructing Quantile Metrics is identical to constructing [Mean Metrics](#mean-metrics).
+One key consideration is `Group by Experiment User before taking quantile?`. We provide a more complete description [here](/app/fact-tables#quantile-metrics). In short, if you often think about your metric at the user level, you should aggregate. If you think about your metric at the event level, do not aggregate.
+
+For the metric value, the only aggregation available is `SUM(column)`. For `SUM`, you will be able to choose any numeric column in your Fact Table.
+
+You have the option to `Ignore Zeros`.
+For event-level analysis, ignoring zeros entails removing all events from the analysis with value equal to 0. Similarly, for a user-level analysis, removing zeros entails removing all rows corresponding to user-level aggregations that have value 0.
+
+When picking `Quantile` you have several default options or can select `Custom`. If you select `Custom` you must input a number between 0 and 1. For example, inputting 0.75 will compare the $75^{\text{th}}$ percentiles across variations.
 
 ### Metric Windows
 
