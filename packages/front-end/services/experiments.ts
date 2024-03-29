@@ -43,7 +43,7 @@ function getMetricSampleSize(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
   metric: ExperimentMetricInterface
-): {baselineValue?: number, variationValue?: number} {
+): { baselineValue?: number; variationValue?: number } {
   return quantileMetricType(metric)
     ? {
         baselineValue: baseline?.stats?.count,
@@ -58,7 +58,11 @@ export function hasEnoughData(
   metric: ExperimentMetricInterface,
   metricDefaults: MetricDefaults
 ): boolean {
-  const { baselineValue, variationValue } = getMetricSampleSize(baseline, stats, metric);
+  const { baselineValue, variationValue } = getMetricSampleSize(
+    baseline,
+    stats,
+    metric
+  );
   if (!baselineValue || !variationValue) return false;
 
   const minSampleSize =
@@ -618,8 +622,12 @@ export function getRowResults({
   const variationSampleSize = metricSampleSize.variationValue ?? stats.value;
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
   const enoughDataReason =
-    `This metric has a minimum ${quantileMetricType(metric) ? "sample size" : "total"} of ${minSampleSize}; this value must be reached in one variation before results are displayed. ` +
-    `The total ${quantileMetricType(metric) ? "sample size" : "metric value"} of the variation is ${compactNumberFormatter.format(
+    `This metric has a minimum ${
+      quantileMetricType(metric) ? "sample size" : "total"
+    } of ${minSampleSize}; this value must be reached in one variation before results are displayed. ` +
+    `The total ${
+      quantileMetricType(metric) ? "sample size" : "metric value"
+    } of the variation is ${compactNumberFormatter.format(
       variationSampleSize
     )} and the baseline total is ${compactNumberFormatter.format(
       baselineSampleSize
