@@ -54,7 +54,8 @@ export type CommercialFeature =
   | "prerequisites"
   | "prerequisite-targeting"
   | "redirects"
-  | "multiple-sdk-webhooks";
+  | "multiple-sdk-webhooks"
+  | "quantile-metrics";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface LicenseInterface {
@@ -152,6 +153,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "prerequisites",
     "redirects",
     "multiple-sdk-webhooks",
+    "quantile-metrics",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -172,6 +174,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "prerequisites",
     "redirects",
     "multiple-sdk-webhooks",
+    "quantile-metrics",
   ]),
   enterprise: new Set<CommercialFeature>([
     "scim",
@@ -203,6 +206,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "prerequisite-targeting",
     "redirects",
     "multiple-sdk-webhooks",
+    "quantile-metrics",
   ]),
 };
 
@@ -679,7 +683,7 @@ export async function licenseInit(
         !keyToLicenseData[key] ||
         (keyToCacheDate[key] !== null && keyToCacheDate[key] <= oneDayAgo)
       ) {
-        if (key.startsWith("license_")) {
+        if (!isAirGappedLicenseKey(key)) {
           if (!userLicenseCodes || !metaData) {
             throw new Error(
               "Missing userLicenseCodes or metaData for license key"
@@ -689,7 +693,11 @@ export async function licenseInit(
           let license: LicenseInterface;
           const mongoCache = await LicenseModel.findOne({ id: key });
           const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // 7 days
-          if (mongoCache && new Date(mongoCache?.dateUpdated) > oneDayAgo) {
+          if (
+            !forceRefresh &&
+            mongoCache &&
+            new Date(mongoCache?.dateUpdated) > oneDayAgo
+          ) {
             license = mongoCache.toJSON();
           } else {
             try {
@@ -791,7 +799,7 @@ function shouldLimitAccess(org: MinimalOrganization): boolean {
     return true;
   }
 
-  if (org.licenseKey?.startsWith("license") && !licenseData.emailVerified) {
+  if (!isAirGappedLicenseKey(org.licenseKey) && !licenseData.emailVerified) {
     return true;
   }
 
@@ -808,6 +816,11 @@ function shouldLimitAccess(org: MinimalOrganization): boolean {
   }
 
   return false;
+}
+
+export function isAirGappedLicenseKey(licenseKey: string | undefined): boolean {
+  if (!licenseKey) return false;
+  return !licenseKey.startsWith("license");
 }
 
 export function getEffectiveAccountPlan(org: MinimalOrganization): AccountPlan {
