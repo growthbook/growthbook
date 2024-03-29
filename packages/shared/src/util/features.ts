@@ -756,6 +756,13 @@ export function getParsedPrereqCondition(condition: string) {
   return undefined;
 }
 
+// approval flows
+export type ResetReviewOnChange = {
+  feature: FeatureInterface;
+  changedEnvironments: string[];
+  defaultValueChanged: boolean;
+  settings?: OrganizationSettings;
+};
 export function getReviewSetting(
   requireReviewSettings: RequireReview[],
   feature: FeatureInterface
@@ -773,7 +780,6 @@ export function getReviewSetting(
 }
 
 export function checkEnvironmentsMatch(
-  feature: FeatureInterface,
   environments: string[],
   reviewSetting: RequireReview
 ) {
@@ -786,9 +792,8 @@ export function checkEnvironmentsMatch(
 }
 export function featureRequiresReview(
   feature: FeatureInterface,
-  requestedEnvironments: string[],
-  baseRevision: FeatureRevisionInterface,
-  revision: FeatureRevisionInterface,
+  changedEnvironments: string[],
+  defaultValueChanged: boolean,
   settings?: OrganizationSettings
 ) {
   const requiresReviewSettings = settings?.requireReviews;
@@ -801,23 +806,22 @@ export function featureRequiresReview(
     return !!requiresReviewSettings;
   }
   const reviewSetting = getReviewSetting(requiresReviewSettings, feature);
-  const defaultValueChanged =
-    baseRevision.defaultValue !== revision.defaultValue;
+
   if (!reviewSetting || !reviewSetting.requireReviewOn) {
     return false;
   }
   if (defaultValueChanged) {
     return true;
   }
-  return checkEnvironmentsMatch(feature, requestedEnvironments, reviewSetting);
+  return checkEnvironmentsMatch(changedEnvironments, reviewSetting);
 }
 
-export function resetReviewOnChange(
-  feature: FeatureInterface,
-  requestedEnvironments: string[],
-  defaultValueChanged: boolean,
-  settings?: OrganizationSettings
-) {
+export function resetReviewOnChange({
+  feature,
+  changedEnvironments,
+  defaultValueChanged,
+  settings,
+}: ResetReviewOnChange) {
   const requiresReviewSettings = settings?.requireReviews;
   //legacy check
   if (
@@ -825,7 +829,7 @@ export function resetReviewOnChange(
     requiresReviewSettings === false ||
     requiresReviewSettings === undefined
   ) {
-    return !!requiresReviewSettings;
+    return false;
   }
   const reviewSetting = getReviewSetting(requiresReviewSettings, feature);
   if (
@@ -838,7 +842,7 @@ export function resetReviewOnChange(
   if (defaultValueChanged) {
     return true;
   }
-  return checkEnvironmentsMatch(feature, requestedEnvironments, reviewSetting);
+  return checkEnvironmentsMatch(changedEnvironments, reviewSetting);
 }
 
 export function checkIfRevisionNeedsReview({
@@ -859,12 +863,13 @@ export function checkIfRevisionNeedsReview({
     revision,
     allEnvironments
   );
+  const defaultValueChanged =
+    baseRevision.defaultValue !== revision.defaultValue;
 
   return featureRequiresReview(
     feature,
     changedEnvironments,
-    baseRevision,
-    revision,
+    defaultValueChanged,
     settings
   );
 }

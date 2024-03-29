@@ -559,9 +559,7 @@ describe("check enviroments match", () => {
       environments: ["prod"],
       projects: [],
     };
-    expect(
-      checkEnvironmentsMatch(feature, environments, reviewSetting)
-    ).toEqual(true);
+    expect(checkEnvironmentsMatch(environments, reviewSetting)).toEqual(true);
   });
 
   it("should not find a environment match", () => {
@@ -572,9 +570,7 @@ describe("check enviroments match", () => {
       environments: ["prod"],
       projects: [],
     };
-    expect(
-      checkEnvironmentsMatch(feature, environments, reviewSetting)
-    ).toEqual(false);
+    expect(checkEnvironmentsMatch(environments, reviewSetting)).toEqual(false);
   });
 
   it("should turn on when everything is empty", () => {
@@ -585,9 +581,7 @@ describe("check enviroments match", () => {
       environments: [],
       projects: [],
     };
-    expect(
-      checkEnvironmentsMatch(feature, environments, reviewSetting)
-    ).toEqual(true);
+    expect(checkEnvironmentsMatch(environments, reviewSetting)).toEqual(true);
   });
 });
 describe("check revision needs review", () => {
@@ -598,7 +592,6 @@ describe("check revision needs review", () => {
           requireReviewOn: true,
           resetReviewOnChange: false,
           environments: ["prod"],
-          tags: [],
           projects: [],
         },
       ],
@@ -620,7 +613,6 @@ describe("check revision needs review", () => {
           requireReviewOn: true,
           resetReviewOnChange: false,
           environments: ["dev"],
-          tags: [],
           projects: [],
         },
       ],
@@ -750,18 +742,38 @@ describe("reset review on change", () => {
         },
       ],
     };
-    expect(resetReviewOnChange(feature, ["staging"], false, settings)).toEqual(
-      false
-    );
-    expect(resetReviewOnChange(feature, ["prod"], false, settings)).toEqual(
-      true
-    );
     expect(
-      resetReviewOnChange(feature, ["staging"], false, settingsOff)
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: ["staging"],
+        defaultValueChanged: false,
+        settings,
+      })
     ).toEqual(false);
-    expect(resetReviewOnChange(feature, ["prod"], false, settingsOff)).toEqual(
-      false
-    );
+    expect(
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: ["prod"],
+        defaultValueChanged: false,
+        settings,
+      })
+    ).toEqual(true);
+    expect(
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: ["staging"],
+        defaultValueChanged: false,
+        settings: settingsOff,
+      })
+    ).toEqual(false);
+    expect(
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: ["prod"],
+        defaultValueChanged: false,
+        settings: settingsOff,
+      })
+    ).toEqual(false);
   });
 
   it("require reset with multiple rules", () => {
@@ -797,17 +809,37 @@ describe("reset review on change", () => {
         },
       ],
     };
-    expect(resetReviewOnChange(feature, ["staging"], false, settings)).toEqual(
-      false
-    );
-    expect(resetReviewOnChange(feature, ["prod"], false, settings)).toEqual(
-      true
-    );
-    expect(resetReviewOnChange(feature, ["prod"], false, settingsOff)).toEqual(
-      false
-    );
     expect(
-      resetReviewOnChange(feature, ["staging"], false, settingsOff)
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: ["staging"],
+        defaultValueChanged: false,
+        settings,
+      })
+    ).toEqual(false);
+    expect(
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: ["prod"],
+        defaultValueChanged: false,
+        settings,
+      })
+    ).toEqual(true);
+    expect(
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: ["prod"],
+        defaultValueChanged: false,
+        settings: settingsOff,
+      })
+    ).toEqual(false);
+    expect(
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: ["staging"],
+        defaultValueChanged: false,
+        settings: settingsOff,
+      })
     ).toEqual(false);
   });
   it("turn off for first project", () => {
@@ -828,12 +860,22 @@ describe("reset review on change", () => {
       ],
     };
     feature.project = "a";
-    expect(resetReviewOnChange(feature, ["env"], false, settings)).toEqual(
-      false
-    );
+    expect(
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: ["env"],
+        defaultValueChanged: false,
+        settings,
+      })
+    ).toEqual(false);
     feature.project = "b";
-    expect(resetReviewOnChange(feature, ["staging"], false, settings)).toEqual(
-      true
-    );
+    expect(
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: ["staging"],
+        defaultValueChanged: false,
+        settings,
+      })
+    ).toEqual(true);
   });
 });

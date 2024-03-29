@@ -653,13 +653,6 @@ export async function addFeatureRule(
   };
   changes.rules[env] = changes.rules[env] || [];
   changes.rules[env].push(rule);
-  if (
-    (revision.status === "approved" ||
-      revision.status === "changes-requested") &&
-    resetReview
-  ) {
-    changes.status = "pending-review";
-  }
   await updateRevision(
     revision,
     changes,

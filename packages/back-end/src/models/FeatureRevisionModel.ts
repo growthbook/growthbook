@@ -236,12 +236,15 @@ export async function createRevision({
       rules,
     }),
   };
-  baseVersion = baseVersion || feature.version;
-  const baseRevision = (await getRevision(
-    feature.organization,
-    feature.id,
-    baseVersion
-  )) as FeatureRevisionInterface;
+  if (!baseVersion) baseVersion = lastRevision?.version;
+  const baseRevision =
+    lastRevision?.version === baseVersion
+      ? lastRevision
+      : await getRevision(feature.organization, feature.id, baseVersion);
+
+  if (!baseRevision) {
+    throw new Error("can not find a base revision");
+  }
   const status = "draft";
   const revision = {
     organization: feature.organization,
@@ -284,7 +287,7 @@ export async function updateRevision(
   changes: Partial<
     Pick<
       FeatureRevisionInterface,
-      "comment" | "defaultValue" | "rules" | "baseVersion" | "status"
+      "comment" | "defaultValue" | "rules" | "baseVersion"
     >
   >,
   log: Omit<RevisionLog, "timestamp">,

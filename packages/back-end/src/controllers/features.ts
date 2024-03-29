@@ -988,12 +988,12 @@ export async function postFeatureRule(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
-  const resetReview = resetReviewOnChange(
+  const resetReview = resetReviewOnChange({
     feature,
-    [environment],
-    false,
-    org?.settings
-  );
+    changedEnvironments: [environment],
+    defaultValueChanged: false,
+    settings: org?.settings,
+  });
   await addFeatureRule(
     revision,
     environment,
@@ -1352,12 +1352,12 @@ export async function postFeatureDefaultValue(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
-  const resetReview = resetReviewOnChange(
+  const resetReview = resetReviewOnChange({
     feature,
-    environments,
-    true,
-    org?.settings
-  );
+    changedEnvironments: environments,
+    defaultValueChanged: true,
+    settings: org?.settings,
+  });
   await setDefaultValue(
     revision,
     defaultValue,
@@ -1435,12 +1435,12 @@ export async function putFeatureRule(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
-  const resetReview = resetReviewOnChange(
+  const resetReview = resetReviewOnChange({
     feature,
-    [environment],
-    false,
-    org?.settings
-  );
+    changedEnvironments: [environment],
+    defaultValueChanged: false,
+    settings: org?.settings,
+  });
   await editFeatureRule(
     revision,
     environment,
@@ -1543,12 +1543,12 @@ export async function postFeatureMoveRule(
   }
   const rule = rules[from];
   changes.rules[environment] = arrayMove(rules, from, to);
-  const resetReview = resetReviewOnChange(
+  const resetReview = resetReviewOnChange({
     feature,
-    [environment],
-    false,
-    org?.settings
-  );
+    changedEnvironments: [environment],
+    defaultValueChanged: false,
+    settings: org?.settings,
+  });
   await updateRevision(
     revision,
     changes,
@@ -1621,12 +1621,12 @@ export async function deleteFeatureRule(
 
   changes.rules[environment] = rules.slice();
   changes.rules[environment].splice(i, 1);
-  const resetReview = resetReviewOnChange(
+  const resetReview = resetReviewOnChange({
     feature,
-    [environment],
-    false,
-    org?.settings
-  );
+    changedEnvironments: [environment],
+    defaultValueChanged: false,
+    settings: org?.settings,
+  });
   await updateRevision(
     revision,
     changes,
