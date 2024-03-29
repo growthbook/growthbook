@@ -13,7 +13,11 @@ import {
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { evalCondition } from "@growthbook/growthbook";
-import { Environment } from "back-end/types/organization";
+import {
+  OrganizationSettings,
+  RequireReview,
+  Environment,
+} from "back-end/types/organization";
 import { ProjectInterface } from "back-end/types/project";
 import { getValidDate } from "../dates";
 import { getMatchingRules, includeExperimentInPayload } from ".";
@@ -325,6 +329,22 @@ export function mergeResultHasChanges(mergeResult: AutoMergeResult): boolean {
   if (mergeResult.result.defaultValue !== undefined) return true;
 
   return false;
+}
+export function listChangedEnvironments(
+  base: RulesAndValues,
+  revision: RulesAndValues,
+  allEnviroments: string[]
+) {
+  const environmentsList: string[] = [];
+  allEnviroments?.forEach((env) => {
+    const rules = revision.rules[env];
+    if (!rules) return;
+    if (isEqual(rules, base.rules[env] || [])) {
+      return;
+    }
+    environmentsList.push(env);
+  });
+  return environmentsList;
 }
 
 export function autoMerge(
@@ -734,6 +754,124 @@ export function getParsedPrereqCondition(condition: string) {
     }
   }
   return undefined;
+}
+
+// approval flows
+export type ResetReviewOnChange = {
+  feature: FeatureInterface;
+  changedEnvironments: string[];
+  defaultValueChanged: boolean;
+  settings?: OrganizationSettings;
+};
+export function getReviewSetting(
+  requireReviewSettings: RequireReview[],
+  feature: FeatureInterface
+): RequireReview | undefined {
+  // check projects
+  for (const reviewSetting of requireReviewSettings) {
+    // match first value found empty means all projects
+    if (
+      (feature?.project && reviewSetting.projects.includes(feature?.project)) ||
+      reviewSetting.projects.length === 0
+    ) {
+      return reviewSetting;
+    }
+  }
+}
+
+export function checkEnvironmentsMatch(
+  environments: string[],
+  reviewSetting: RequireReview
+) {
+  for (const env of reviewSetting.environments) {
+    if (environments.includes(env)) {
+      return true;
+    }
+  }
+  return reviewSetting.environments.length === 0;
+}
+export function featureRequiresReview(
+  feature: FeatureInterface,
+  changedEnvironments: string[],
+  defaultValueChanged: boolean,
+  settings?: OrganizationSettings
+) {
+  const requiresReviewSettings = settings?.requireReviews;
+  //legacy check
+  if (
+    requiresReviewSettings === undefined ||
+    requiresReviewSettings === true ||
+    requiresReviewSettings === false
+  ) {
+    return !!requiresReviewSettings;
+  }
+  const reviewSetting = getReviewSetting(requiresReviewSettings, feature);
+
+  if (!reviewSetting || !reviewSetting.requireReviewOn) {
+    return false;
+  }
+  if (defaultValueChanged) {
+    return true;
+  }
+  return checkEnvironmentsMatch(changedEnvironments, reviewSetting);
+}
+
+export function resetReviewOnChange({
+  feature,
+  changedEnvironments,
+  defaultValueChanged,
+  settings,
+}: ResetReviewOnChange) {
+  const requiresReviewSettings = settings?.requireReviews;
+  //legacy check
+  if (
+    requiresReviewSettings === true ||
+    requiresReviewSettings === false ||
+    requiresReviewSettings === undefined
+  ) {
+    return false;
+  }
+  const reviewSetting = getReviewSetting(requiresReviewSettings, feature);
+  if (
+    !reviewSetting ||
+    !reviewSetting.requireReviewOn ||
+    !reviewSetting.resetReviewOnChange
+  ) {
+    return false;
+  }
+  if (defaultValueChanged) {
+    return true;
+  }
+  return checkEnvironmentsMatch(changedEnvironments, reviewSetting);
+}
+
+export function checkIfRevisionNeedsReview({
+  feature,
+  baseRevision,
+  revision,
+  allEnvironments,
+  settings,
+}: {
+  feature: FeatureInterface;
+  baseRevision: FeatureRevisionInterface;
+  revision: FeatureRevisionInterface;
+  allEnvironments: string[];
+  settings?: OrganizationSettings;
+}) {
+  const changedEnvironments = listChangedEnvironments(
+    baseRevision,
+    revision,
+    allEnvironments
+  );
+  const defaultValueChanged =
+    baseRevision.defaultValue !== revision.defaultValue;
+
+  return featureRequiresReview(
+    feature,
+    changedEnvironments,
+    defaultValueChanged,
+    settings
+  );
 }
 
 export function filterProjectsByEnvironment(

@@ -1,12 +1,13 @@
 import mongoose from "mongoose";
 import omit from "lodash/omit";
+import { checkIfRevisionNeedsReview } from "shared/util";
 import { FeatureInterface, FeatureRule } from "../../types/feature";
 import {
   FeatureRevisionInterface,
   RevisionLog,
 } from "../../types/feature-revision";
 import { EventAuditUser, EventAuditUserLoggedIn } from "../events/event-types";
-import { ReqContext } from "../../types/organization";
+import { OrganizationInterface, ReqContext } from "../../types/organization";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
@@ -24,6 +25,7 @@ const featureRevisionSchema = new mongoose.Schema({
   defaultValue: String,
   rules: {},
   status: String,
+  requiresReview: Boolean,
   log: [
     {
       _id: false,
@@ -186,7 +188,8 @@ export async function createRevision({
   changes,
   publish,
   comment,
-  requiresReview,
+  org,
+  canBypassApprovalChecks,
 }: {
   feature: FeatureInterface;
   user: EventAuditUser;
@@ -195,7 +198,8 @@ export async function createRevision({
   changes?: Partial<FeatureRevisionInterface>;
   publish?: boolean;
   comment?: string;
-  requiresReview?: boolean;
+  org: OrganizationInterface;
+  canBypassApprovalChecks?: boolean;
 }) {
   // Get max version number
   const lastRevision = (
@@ -234,28 +238,48 @@ export async function createRevision({
       rules,
     }),
   };
-  let status = "draft";
-  if (publish && !requiresReview) {
-    status = "published";
-  } else if (publish && requiresReview) {
-    status = "pending-review";
+  if (!baseVersion) baseVersion = lastRevision?.version;
+  const baseRevision =
+    lastRevision?.version === baseVersion
+      ? lastRevision
+      : await getRevision(feature.organization, feature.id, baseVersion);
+
+  if (!baseRevision) {
+    throw new Error("can not find a base revision");
   }
-  const doc = await FeatureRevisionModel.create({
+  const status = "draft";
+  const revision = {
     organization: feature.organization,
     featureId: feature.id,
     version: newVersion,
     dateCreated: new Date(),
     dateUpdated: new Date(),
-    datePublished: status === "published" ? new Date() : null,
+    datePublished: null,
     createdBy: user,
     baseVersion: baseVersion || feature.version,
     status,
-    publishedBy: status === "published" ? user : null,
+    publishedBy: null,
     comment: comment || "",
     defaultValue,
     rules,
     log: [log],
+  } as FeatureRevisionInterface;
+  const requiresReview = checkIfRevisionNeedsReview({
+    feature,
+    baseRevision,
+    revision,
+    allEnvironments: environments,
+    settings: org.settings,
   });
+  if (publish && (!requiresReview || canBypassApprovalChecks)) {
+    revision.status = "published";
+    revision.publishedBy = user;
+    revision.datePublished = new Date();
+  } else if (publish && requiresReview) {
+    revision.status = "pending-review";
+  }
+
+  const doc = await FeatureRevisionModel.create(revision);
 
   return toInterface(doc);
 }
@@ -268,8 +292,11 @@ export async function updateRevision(
       "comment" | "defaultValue" | "rules" | "baseVersion"
     >
   >,
-  log: Omit<RevisionLog, "timestamp">
+  log: Omit<RevisionLog, "timestamp">,
+  resetReview: boolean
 ) {
+  let status = revision.status;
+
   // If editing defaultValue or rules, require the revision to be a draft
   if ("defaultValue" in changes || changes.rules) {
     if (
@@ -282,8 +309,14 @@ export async function updateRevision(
     ) {
       throw new Error("Can only update draft revisions");
     }
+    // reset the changes requested since there is no way to reset at the moment.
+    if (revision.status === "changes-requested") {
+      status = "pending-review";
+    }
   }
-
+  if (resetReview && revision.status === "approved") {
+    status = "pending-review";
+  }
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -291,7 +324,7 @@ export async function updateRevision(
       version: revision.version,
     },
     {
-      $set: { ...changes, dateUpdated: new Date() },
+      $set: { ...changes, status, dateUpdated: new Date() },
       $push: {
         log: {
           ...log,

@@ -31,6 +31,12 @@ export type UserPermissions = {
   global: UserPermission;
   projects: { [key: string]: UserPermission };
 };
+export type RequireReview = {
+  requireReviewOn: boolean;
+  resetReviewOnChange: boolean;
+  environments: string[];
+  projects: string[];
+};
 
 export type MemberRole =
   | "noaccess"
@@ -181,7 +187,7 @@ export interface OrganizationSettings {
   displayCurrency?: string;
   secureAttributeSalt?: string;
   killswitchConfirmation?: boolean;
-  requireReviews?: boolean;
+  requireReviews?: boolean | RequireReview[];
   defaultDataSource?: string;
   disableMultiMetricQueries?: boolean;
   useStickyBucketing?: boolean;
