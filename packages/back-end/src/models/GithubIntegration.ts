@@ -59,15 +59,15 @@ export const createGithubIntegration = async (
   )
     throw new Error("Github integration already exists");
 
-  const repositories = await fetchRepositories(input.tokenId);
+  // const repositories = await fetchRepositories(input.tokenId);
 
   const doc = await GithubIntegrationModel.create({
     ...input,
-    repositories: repositories.map((repo) => ({
-      id: repo.id,
-      name: repo.full_name,
-      watching: false,
-    })),
+    // repositories: repositories.map((repo) => ({
+    //   id: repo.id,
+    //   name: repo.full_name,
+    //   watching: false,
+    // })),
     id: uniqid("ghi_"),
     createdAt: new Date(),
   });

@@ -1,5 +1,5 @@
 import { Request } from "express";
-import { LicenseModel } from "enterprise/src/models/licenseModel";
+import { LicenseModel } from "enterprise";
 import { createOrganization } from "./models/OrganizationModel";
 import { createUser } from "./services/users";
 import { addMemberToOrg } from "./services/organizations";
@@ -22,7 +22,10 @@ import { createExperimentSnapshotModel } from "./models/ExperimentSnapshotModel"
 import { createFactTable } from "./models/FactTableModel";
 import { createFeature, getFeature } from "./models/FeatureModel";
 import { upsertFeatureCodeRefs } from "./models/FeatureCodeRefs";
-import { createInitialRevision } from "./models/FeatureRevisionModel";
+import {
+  createInitialRevision,
+  getFeatureRevisionsByFeatureIds,
+} from "./models/FeatureRevisionModel";
 import { createForgotPasswordToken } from "./models/ForgotPasswordModel";
 import { createGithubIntegration } from "./models/GithubIntegration";
 import { createGithubUserToken } from "./models/GithubUserTokenModel";
@@ -50,8 +53,10 @@ import { createURLRedirect } from "./models/UrlRedirectModel";
 import { createVisualChangeset } from "./models/VisualChangesetModel";
 import { upsertWatch } from "./models/WatchModel";
 import { WebhookModel } from "./models/WebhookModel";
+
 export default async function createDummyOrg() {
   // create user
+  console.log("creating user - alice");
   const user = await createUser(
     "alice",
     "alice@growthbook.io",
@@ -60,9 +65,11 @@ export default async function createDummyOrg() {
   );
 
   // create user2
+  console.log("creating user - bob");
   const user2 = await createUser("bob", "bob@growthbook.io", "test1234", false);
 
   // create org
+  console.log("creating org 1");
   const org = await createOrganization({
     email: user.email,
     userId: user.id,
@@ -70,12 +77,14 @@ export default async function createDummyOrg() {
   });
 
   // create org2
+  console.log("creating org 2");
   await createOrganization({
     email: user.email,
     userId: user.id,
     name: "Test - Org2",
   });
 
+  console.log("creating context");
   const context = new ReqContextClass({
     org,
     auditUser: {
@@ -90,6 +99,7 @@ export default async function createDummyOrg() {
   });
 
   // add user2 to org
+  console.log("adding user2 to org");
   await addMemberToOrg({
     organization: org,
     userId: user2.id,
@@ -99,12 +109,14 @@ export default async function createDummyOrg() {
   });
 
   // - aitokenusages
+  console.log("updating token usage");
   await updateTokenUsage({
     organization: org,
     numTokensUsed: 0,
   });
 
   // - apikeys
+  console.log("creating api key");
   await createOrganizationApiKey({
     organizationId: org.id,
     description: "",
@@ -112,6 +124,7 @@ export default async function createDummyOrg() {
   });
 
   // - archetypes
+  console.log("creating archetype");
   await createArchetype({
     organization: org.id,
     name: "test",
@@ -122,6 +135,7 @@ export default async function createDummyOrg() {
   });
 
   // - audits
+  console.log("inserting audit");
   await insertAudit({
     organization: org.id,
     user: {
@@ -140,6 +154,7 @@ export default async function createDummyOrg() {
 
   // - authrefreshes
   //     - related to users
+  console.log("creating refresh token");
   await createRefreshToken(
     // @ts-expect-error we do not care
     {
@@ -152,6 +167,7 @@ export default async function createDummyOrg() {
   );
 
   // - datasources
+  console.log("creating data source");
   const datasource = await createDataSource(
     org.id,
     "test",
@@ -169,6 +185,7 @@ export default async function createDummyOrg() {
   );
 
   // - dimensions
+  console.log("creating dimension");
   await createDimension({
     organization: org.id,
     owner: "test",
@@ -179,6 +196,7 @@ export default async function createDummyOrg() {
   });
 
   // - dimensionslices
+  console.log("creating dimension slices");
   await createDimensionSlices({
     organization: org.id,
     dataSourceId: datasource.id,
@@ -186,6 +204,7 @@ export default async function createDummyOrg() {
   });
 
   // - discussions
+  console.log("creating discussion");
   await DiscussionModel.create({
     id: "com_123",
     organization: org.id,
@@ -204,6 +223,7 @@ export default async function createDummyOrg() {
   });
 
   // - events
+  console.log("creating event");
   await createEvent(org.id, {
     event: "user.login",
     object: "user",
@@ -227,12 +247,13 @@ export default async function createDummyOrg() {
   });
 
   // - eventwebhooks
+  console.log("creating event webhook");
   const eventWebHook = await createEventWebHook({
     name: "test",
-    url: "",
+    url: "https://blah.com",
     organizationId: org.id,
     enabled: false,
-    events: [],
+    events: ["experiment.updated", "experiment.deleted"],
     projects: [],
     tags: [],
     environments: [],
@@ -242,6 +263,7 @@ export default async function createDummyOrg() {
   });
 
   // - eventwebhooklogs
+  console.log("creating event webhook log");
   await createEventWebHookLog({
     eventWebHookId: eventWebHook.id,
     organizationId: org.id,
@@ -254,9 +276,11 @@ export default async function createDummyOrg() {
   });
 
   // - experimentlaunchchecklists
+  console.log("creating experiment launch checklist");
   await createExperimentLaunchChecklist(org.id, user.id, [], "");
 
   // - experiments
+  console.log("creating experiment");
   const experiment = await createExperiment({
     data: {
       id: "exp_123",
@@ -266,6 +290,7 @@ export default async function createDummyOrg() {
   });
 
   // - experimentsnapshots
+  console.log("creating experiment snapshot");
   await createExperimentSnapshotModel({
     id: "expsnap_123",
     organization: org.id,
@@ -283,22 +308,9 @@ export default async function createDummyOrg() {
     analyses: [],
   });
 
-  // - factmetrics
-  context.models.factMetrics.create({
-    name: "",
-    description: "",
-    owner: "",
-    projects: [],
-    tags: [],
-    datasource: datasource.id,
-    userIdTypes: [],
-    sql: "",
-    eventName: "",
-    columns: [],
-  });
-
   // - facttables
-  await createFactTable(context, {
+  console.log("creating fact table");
+  const factTable = await createFactTable(context, {
     name: "",
     description: "",
     owner: "",
@@ -311,7 +323,51 @@ export default async function createDummyOrg() {
     columns: [],
   });
 
+  // - factmetrics
+  console.log("creating fact metric");
+  await context.models.factMetrics.create({
+    id: "fact__1234",
+    owner: user.id,
+    datasource: datasource.id,
+    name: "test",
+    description: "",
+    tags: [],
+    projects: [],
+    inverse: false,
+    metricType: "mean",
+    numerator: {
+      factTableId: factTable.id,
+      column: "",
+      filters: [],
+    },
+    denominator: null,
+
+    cappingSettings: {
+      type: "absolute",
+      value: 0,
+    },
+    windowSettings: {
+      type: "conversion",
+      delayHours: 0,
+      windowValue: 0,
+      windowUnit: "weeks",
+    },
+
+    maxPercentChange: 1,
+    minPercentChange: 0,
+    minSampleSize: 2,
+    winRisk: 0,
+    loseRisk: 0,
+
+    regressionAdjustmentOverride: false,
+    regressionAdjustmentEnabled: false,
+    regressionAdjustmentDays: 0,
+
+    quantileSettings: null,
+  });
+
   // - features
+  console.log("creating feature");
   await createFeature(context, {
     id: "feature_123",
     organization: org.id,
@@ -327,9 +383,10 @@ export default async function createDummyOrg() {
   const feature = await getFeature(context, "feature_123");
 
   // - featurecoderefs
+  console.log("upserting feature code refs");
   await upsertFeatureCodeRefs({
     // @ts-expect-error we do not care
-    feature,
+    feature: feature.id,
     repo: "",
     branch: "",
     codeRefs: [],
@@ -337,22 +394,19 @@ export default async function createDummyOrg() {
   });
 
   // - featurerevisions
-  // @ts-expect-error we do not care
-  await createInitialRevision(feature, user, []);
+  // assert that it was automatically created
+  const revision = await getFeatureRevisionsByFeatureIds(org.id, [feature.id]);
+  if (!revision) {
+    throw new Error("Feature revision not found");
+  }
 
   // - forgotpasswords
   //     - related to users
+  console.log("creating forgot password token");
   await createForgotPasswordToken(user.email);
-
-  // - githubintegrations
-  await createGithubIntegration({
-    organization: org.id,
-    tokenId: "",
-    createdBy: user.id,
-  });
-
   // - githubusertokens
-  await createGithubUserToken({
+  console.log("creating github user token");
+  const ghtoken = await createGithubUserToken({
     organization: org.id,
     token: "",
     expiresAt: new Date(),
@@ -360,7 +414,16 @@ export default async function createDummyOrg() {
     refreshTokenExpiresAt: new Date(),
   });
 
+  // - githubintegrations
+  console.log("creating github integration");
+  await createGithubIntegration({
+    organization: org.id,
+    tokenId: ghtoken.id,
+    createdBy: user.id,
+  });
+
   // - ideas
+  console.log("creating idea");
   await IdeaModel.create({
     id: "idea_123",
     dateCreated: new Date(),
@@ -381,6 +444,7 @@ export default async function createDummyOrg() {
   });
 
   // - impactestimates
+  console.log("creating impact estimate");
   await createImpactEstimate({
     organization: org.id,
     metric: "",
@@ -391,13 +455,32 @@ export default async function createDummyOrg() {
   });
 
   // - informationschemas
+  console.log("creating information schema");
   await createInformationSchema(
     [
       {
         databaseName: "test",
-        schemas: [],
+        path: "test",
         dateCreated: new Date(),
         dateUpdated: new Date(),
+        schemas: [
+          {
+            schemaName: "test",
+            path: "test",
+            dateCreated: new Date(),
+            dateUpdated: new Date(),
+            tables: [
+              {
+                tableName: "test",
+                path: "test",
+                id: "test",
+                numOfColumns: 0,
+                dateCreated: new Date(),
+                dateUpdated: new Date(),
+              },
+            ],
+          },
+        ],
       },
     ],
     org.id,
@@ -405,6 +488,7 @@ export default async function createDummyOrg() {
   );
 
   // - informationschematables
+  console.log("creating information schema table");
   await createInformationSchemaTable({
     id: "infoschema_123",
     datasourceId: datasource.id,
@@ -418,6 +502,7 @@ export default async function createDummyOrg() {
   });
 
   // - licenses
+  console.log("creating license");
   await LicenseModel.create({
     id: "license_123",
     companyName: "test",
@@ -443,6 +528,7 @@ export default async function createDummyOrg() {
   });
 
   // - metrics
+  console.log("creating metric");
   await insertMetric({
     id: "metric_123",
     organization: org.id,
@@ -471,6 +557,7 @@ export default async function createDummyOrg() {
   });
 
   // - pastExperiments
+  console.log("creating past experiments");
   await createPastExperiments({
     organization: org.id,
     datasource: datasource.id,
@@ -480,6 +567,7 @@ export default async function createDummyOrg() {
   });
 
   // - presentations
+  console.log("creating presentation");
   await PresentationModel.create({
     id: "presentation_123",
     userId: user.id,
@@ -496,7 +584,7 @@ export default async function createDummyOrg() {
     slides: [
       {
         _id: false,
-        type: { type: "" },
+        type: "",
         id: "",
         options: {
           showScreenShots: false,
@@ -521,11 +609,13 @@ export default async function createDummyOrg() {
   });
 
   // - projects
+  console.log("creating project");
   await createProject(org.id, {
     name: "t",
   });
 
   // - queries
+  console.log("creating query");
   await createNewQuery({
     organization: org.id,
     datasource: datasource.id,
@@ -537,6 +627,7 @@ export default async function createDummyOrg() {
   });
 
   // - realtimeusages
+  console.log("creating realtime usage");
   await RealtimeUsageModel.create({
     organization: org.id,
     hour: 0,
@@ -544,11 +635,13 @@ export default async function createDummyOrg() {
   });
 
   // - reports
+  console.log("creating report");
   await createReport(org.id, {
     type: "experiment",
   });
 
   // - savedgroups
+  console.log("creating saved group");
   await createSavedGroup(org.id, {
     groupName: "test",
     owner: user.id,
@@ -556,7 +649,10 @@ export default async function createDummyOrg() {
   });
 
   // - sdkconnections
+  console.log("creating sdk connection");
   await createSDKConnection({
+    name: "test",
+    languages: [],
     organization: org.id,
     environment: "",
     projects: [],
@@ -569,110 +665,17 @@ export default async function createDummyOrg() {
   });
 
   // - sdkpayloadcaches
+  console.log("updating sdk payload");
   await updateSDKPayload({
     organization: org.id,
     environment: "",
     featureDefinitions: {},
     experimentsDefinitions: [],
   });
-
-  // - sdkwebhooklogs
-  await createSdkWebhookLog({
-    webhookId: "",
-    organizationId: org.id,
-    payload: {},
-    result: {
-      state: "success",
-      responseCode: 0,
-      responseBody: "",
-    },
-    webhookReduestId: "",
-  });
-
-  // - segments
-  await createSegment({
-    id: "segment_123",
-    organization: org.id,
-    owner: user.id,
-    datasource: "",
-    userIdType: "",
-    name: "",
-    sql: "",
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-  });
-
-  // - slackintegrations
-  await createSlackIntegration({
-    organizationId: org.id,
-    name: "",
-    description: "",
-    projects: [],
-    environments: [],
-    events: [],
-    tags: [],
-    slackAppId: "",
-    slackIncomingWebHook: "",
-    slackSigningKey: "",
-    linkedByUserId: "",
-  });
-
-  // - ssoconnections
-  await SSOConnectionModel.create({
-    id: "ssoid_123",
-    emailDomains: [],
-    organization: org.id,
-    dateCreated: new Date(),
-    idpType: "",
-    clientId: "",
-    clientSecret: "",
-    extraQueryParameters: {},
-    additionalScope: "",
-    metadata: {},
-  });
-
-  // - tags
-  await addTag(org.id, "test", "blue", "");
-
-  // - teams
-  await createTeam({
-    name: "",
-    organization: org.id,
-    createdBy: "",
-    description: "",
-    role: "admin",
-    limitAccessByEnvironment: false,
-    environments: [],
-    managedByIdp: false,
-  });
-
-  // - urlredirects
-  await createURLRedirect({
-    experiment: experiment,
-    context,
-    urlPattern: "",
-    destinationURLs: [],
-    persistQueryString: false,
-  });
-
-  // - visualchangesets
-  await createVisualChangeset({
-    experiment,
-    context,
-    urlPatterns: [],
-    editorUrl: "",
-  });
-
-  // - watches
-  await upsertWatch({
-    userId: user.id,
-    organization: org.id,
-    item: "",
-    type: "experiments",
-  });
-
+  //
   // - webhooks
-  await WebhookModel.create({
+  console.log("creating webhook");
+  const webhook = await WebhookModel.create({
     id: "webhook_123",
     organization: org.id,
     name: "",
@@ -689,5 +692,112 @@ export default async function createDummyOrg() {
     sendPayload: false,
     headers: "",
     httpMethod: "",
+  });
+
+  // - sdkwebhooklogs
+  console.log("creating sdk webhook log");
+  await createSdkWebhookLog({
+    webhookId: webhook.id,
+    organizationId: org.id,
+    payload: {},
+    result: {
+      state: "success",
+      responseCode: 0,
+      responseBody: "",
+    },
+    webhookReduestId: "test-123",
+  });
+
+  // - segments
+  console.log("creating segment");
+  await createSegment({
+    id: "segment_123",
+    organization: org.id,
+    owner: user.id,
+    datasource: "",
+    userIdType: "",
+    name: "",
+    sql: "",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+  });
+
+  // - slackintegrations
+  console.log("creating slack integration");
+  await createSlackIntegration({
+    organizationId: org.id,
+    id: "slack_123",
+    name: "test",
+    description: "",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    projects: [],
+    environments: [],
+    events: [],
+    tags: [],
+    slackAppId: "slackid",
+    slackIncomingWebHook: "id",
+    slackSigningKey: "key",
+    linkedByUserId: user.id,
+  });
+
+  // - ssoconnections
+  console.log("creating sso connection");
+  await SSOConnectionModel.create({
+    id: "ssoid_123",
+    emailDomains: [],
+    organization: org.id,
+    dateCreated: new Date(),
+    idpType: "",
+    clientId: "",
+    clientSecret: "",
+    extraQueryParameters: {},
+    additionalScope: "",
+    metadata: {},
+  });
+
+  // - tags
+  console.log("adding tag");
+  await addTag(org.id, "test", "blue", "");
+
+  // - teams
+  console.log("creating team");
+  await createTeam({
+    name: "",
+    organization: org.id,
+    createdBy: "",
+    description: "",
+    role: "admin",
+    limitAccessByEnvironment: false,
+    environments: [],
+    managedByIdp: false,
+  });
+
+  // - urlredirects
+  console.log("creating url redirect");
+  await createURLRedirect({
+    experiment: experiment,
+    context,
+    urlPattern: "pattern",
+    destinationURLs: [],
+    persistQueryString: false,
+  });
+
+  // - visualchangesets
+  console.log("creating visual changeset");
+  await createVisualChangeset({
+    experiment,
+    context,
+    urlPatterns: [],
+    editorUrl: "someurl",
+  });
+
+  // - watches
+  console.log("upserting watch");
+  await upsertWatch({
+    userId: user.id,
+    organization: org.id,
+    item: "test",
+    type: "experiments",
   });
 }

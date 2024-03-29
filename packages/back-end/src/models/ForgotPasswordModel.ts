@@ -49,20 +49,20 @@ export async function createForgotPasswordToken(email: string): Promise<void> {
   };
   await ForgotPasswordModel.create(doc);
 
-  const resetUrl = `${APP_ORIGIN}/reset-password?token=${token}`;
+  // const resetUrl = `${APP_ORIGIN}/reset-password?token=${token}`;
 
-  try {
-    if (!isEmailEnabled()) {
-      throw new Error(
-        "Email server not configured. Check server logs for reset link."
-      );
-    }
+  // try {
+  //   if (!isEmailEnabled()) {
+  //     throw new Error(
+  //       "Email server not configured. Check server logs for reset link."
+  //     );
+  //   }
 
-    await sendResetPasswordEmail(email, resetUrl);
-  } catch (e) {
-    logger.info("The reset password link for " + email + " is: " + resetUrl);
-    throw e;
-  }
+  //   await sendResetPasswordEmail(email, resetUrl);
+  // } catch (e) {
+  //   logger.info("The reset password link for " + email + " is: " + resetUrl);
+  //   throw e;
+  // }
 }
 
 export async function getUserIdFromForgotPasswordToken(

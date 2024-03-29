@@ -110,6 +110,7 @@ import { teamRouter } from "./routers/teams/teams.router";
 import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
 import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
 import createDummyOrg from "./createDummyOrg";
+import deleteOrg from "./deleteOrg";
 
 const app = express();
 
@@ -165,8 +166,24 @@ app.get("/", (req, res) => {
 });
 
 app.post("/create-dummy-org", async (_req, res) => {
-  await createDummyOrg();
-  res.send("Done");
+  try {
+    await createDummyOrg();
+  } catch (e) {
+    console.error(e);
+  } finally {
+    res.send("Done");
+  }
+});
+
+app.post("/delete-org", async (_req, res) => {
+  const orgId = _req.query.orgId as string;
+  try {
+    await deleteOrg(orgId);
+  } catch (e) {
+    console.log("err", e);
+  } finally {
+    res.send("Done");
+  }
 });
 
 app.use(httpLogger);
