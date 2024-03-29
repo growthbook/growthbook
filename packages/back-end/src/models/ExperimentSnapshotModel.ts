@@ -6,9 +6,9 @@ import {
   LegacyExperimentSnapshotInterface,
 } from "../../types/experiment-snapshot";
 import { migrateSnapshot } from "../util/migrations";
+import { notifyMetricsChange } from "../services/experimentNotifications";
 import { queriesSchema } from "./QueryModel";
 import { Context } from "./BaseModel";
-import { ExperimentNotificationModel } from "./ExperimentNotification";
 
 const experimentSnapshotTrafficObject = {
   _id: false,
@@ -300,13 +300,7 @@ export async function createExperimentSnapshotModel({
 }): Promise<ExperimentSnapshotInterface> {
   const created = await ExperimentSnapshotModel.create(data);
 
-  const experimentNotification = new ExperimentNotificationModel(context);
-  const notifications = await experimentNotification.getAllByAttributes({
-    trigger: "snapshot",
-    experiment: data.experiment,
-  });
-
-  notifications.forEach((n) => experimentNotification.onTrigger(n));
+  await notifyMetricsChange({ context, experimentId: data.experiment });
 
   return toInterface(created);
 }
