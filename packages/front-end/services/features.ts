@@ -79,11 +79,13 @@ export function useEnvironments() {
         id: "dev",
         description: "",
         toggleOnList: true,
+        projects: [],
       },
       {
         id: "production",
         description: "",
         toggleOnList: true,
+        projects: [],
       },
     ];
   }

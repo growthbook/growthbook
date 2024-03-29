@@ -36,6 +36,7 @@ import {
 import { updatePassword } from "../../services/users";
 import { getAllTags } from "../../models/TagModel";
 import {
+  Environment,
   Invite,
   MemberRole,
   MemberRoleWithProjects,
@@ -118,6 +119,9 @@ import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { TeamInterface } from "../../../types/team";
 import { queueSingleWebhookById } from "../../jobs/sdkWebhooks";
 import { initializeLicenseForOrg } from "../../services/licenseData";
+import { findSDKConnectionsByOrganization } from "../../models/SdkConnectionModel";
+import { triggerSingleSDKWebhookJobs } from "../../jobs/updateAllJobs";
+import { SDKConnectionInterface } from "../../../types/sdk-connection";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -1149,10 +1153,13 @@ export async function putOrganization(
   req: AuthRequest<Partial<OrganizationInterface>>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { name, settings, connections, externalId } = req.body;
 
   const deletedEnvIds: string[] = [];
+  const envsWithModifiedProjects: Environment[] = [];
+  const existingEnvironments = getEnvironments(org);
 
   if (connections || name) {
     req.checkPermissions("organizationSettings");
@@ -1160,11 +1167,9 @@ export async function putOrganization(
   if (settings) {
     Object.keys(settings).forEach((k: keyof OrganizationSettings) => {
       if (k === "environments") {
-        const existing = getEnvironments(org);
-
         // Require permissions for any old environments that changed
         const affectedEnvs: Set<string> = new Set();
-        existing.forEach((env) => {
+        existingEnvironments.forEach((env) => {
           const oldHash = JSON.stringify(env);
           const newHash = JSON.stringify(
             settings[k]?.find((e) => e.id === env.id)
@@ -1178,10 +1183,23 @@ export async function putOrganization(
         });
 
         // Require permissions for any new environments that have been added
-        const oldIds = new Set(existing.map((env) => env.id) || []);
+        const oldIds = new Set(existingEnvironments.map((env) => env.id) || []);
         settings[k]?.forEach((env) => {
           if (!oldIds.has(env.id)) {
             affectedEnvs.add(env.id);
+          }
+        });
+
+        // Check if any environments' projects have been changed (may require webhook triggers)
+        existingEnvironments.forEach((env) => {
+          const oldProjects = env.projects || [];
+          const newProjects =
+            settings[k]?.find((e) => e.id === env.id)?.projects || [];
+          if (JSON.stringify(oldProjects) !== JSON.stringify(newProjects)) {
+            envsWithModifiedProjects.push({
+              ...env,
+              projects: newProjects,
+            });
           }
         });
 
@@ -1251,6 +1269,28 @@ export async function putOrganization(
     deletedEnvIds.forEach((envId) => {
       removeEnvironmentFromSlackIntegration({ organizationId: org.id, envId });
     });
+
+    // Trigger SDK webhooks to reflect project changes in environments
+    const affectedConnections = new Set<SDKConnectionInterface>();
+    if (envsWithModifiedProjects.length) {
+      const connections = await findSDKConnectionsByOrganization(context);
+      for (const env of envsWithModifiedProjects) {
+        const affected = connections.filter((c) => c.environment === env.id);
+        affected.forEach((c) => affectedConnections.add(c));
+      }
+    }
+    for (const connection of affectedConnections) {
+      const isUsingProxy = !!(
+        connection.proxy.enabled && connection.proxy.host
+      );
+      await triggerSingleSDKWebhookJobs(
+        org.id,
+        connection,
+        {},
+        connection.proxy,
+        isUsingProxy
+      );
+    }
 
     res.status(200).json({
       status: 200,
