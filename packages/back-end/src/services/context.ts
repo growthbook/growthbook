@@ -28,15 +28,18 @@ import { addTags, getAllTags } from "../models/TagModel";
 import { AuditInterface } from "../../types/audit";
 import { insertAudit } from "../models/AuditModel";
 import { logger } from "../util/logger";
+import { UrlRedirectModel } from "../models/UrlRedirectModel";
 
 export class ReqContextClass {
   // Models
   public models!: {
     factMetrics: FactMetricModel;
+    urlRedirects: UrlRedirectModel;
   };
   private initModels() {
     this.models = {
       factMetrics: new FactMetricModel(this),
+      urlRedirects: new UrlRedirectModel(this),
     };
   }
 

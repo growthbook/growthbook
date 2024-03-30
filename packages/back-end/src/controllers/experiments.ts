@@ -97,11 +97,7 @@ import {
 import { getExperimentWatchers, upsertWatch } from "../models/WatchModel";
 import { getFactTableMap } from "../models/FactTableModel";
 import { OrganizationSettings, ReqContext } from "../../types/organization";
-import {
-  createURLRedirect,
-  findURLRedirectsByExperiment,
-  syncURLRedirectsWithVariations,
-} from "../models/UrlRedirectModel";
+import { CreateURLRedirectProps } from "../../types/url-redirect";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -285,9 +281,8 @@ export async function getExperiment(
     org.id
   );
 
-  const urlRedirects = await findURLRedirectsByExperiment(
-    experiment.id,
-    org.id
+  const urlRedirects = await context.models.urlRedirects.findByExperiment(
+    experiment.id
   );
 
   const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
@@ -587,18 +582,17 @@ export async function postExperiments(
         });
       }
 
-      const urlRedirects = await findURLRedirectsByExperiment(
-        req.query.originalId,
-        org.id
+      const urlRedirects = await context.models.urlRedirects.findByExperiment(
+        req.query.originalId
       );
       for (const urlRedirect of urlRedirects) {
-        await createURLRedirect({
-          experiment,
+        const props: CreateURLRedirectProps = {
+          experiment: experiment.id,
           destinationURLs: urlRedirect.destinationURLs,
-          context,
           persistQueryString: urlRedirect.persistQueryString,
           urlPattern: urlRedirect.urlPattern,
-        });
+        };
+        await context.models.urlRedirects.create(props);
       }
     }
 
@@ -853,18 +847,16 @@ export async function postExperiment(
       );
     }
 
-    const urlRedirects = await findURLRedirectsByExperiment(
-      experiment.id,
-      org.id
+    const urlRedirects = await context.models.urlRedirects.findByExperiment(
+      experiment.id
     );
     if (urlRedirects.length) {
       await Promise.all(
         urlRedirects.map((urlRedirect) =>
-          syncURLRedirectsWithVariations({
+          context.models.urlRedirects.syncURLRedirectsWithVariations(
             urlRedirect,
-            experiment: updated,
-            context,
-          })
+            updated
+          )
         )
       );
     }

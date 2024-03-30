@@ -54,7 +54,10 @@ export type EventType =
   | "archetype.updated"
   | "team.create"
   | "team.delete"
-  | "team.update";
+  | "team.update"
+  | "urlRedirect.create"
+  | "urlRedirect.update"
+  | "urlRedirect.delete";
 
 export interface AuditUserLoggedIn {
   id: string;

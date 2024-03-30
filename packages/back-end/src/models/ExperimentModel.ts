@@ -43,7 +43,6 @@ import {
   VisualChangesetModel,
 } from "./VisualChangesetModel";
 import { getFeaturesByIds } from "./FeatureModel";
-import { findURLRedirects } from "./UrlRedirectModel";
 
 type FindOrganizationOptions = {
   experimentId: string;
@@ -1162,7 +1161,7 @@ export const getAllURLRedirectExperiments = async (
   context: ReqContext | ApiReqContext,
   experimentMap: Map<string, ExperimentInterface>
 ): Promise<Array<URLRedirectExperiment>> => {
-  const redirects = await findURLRedirects(context.org.id);
+  const redirects = await context.models.urlRedirects.getAll();
 
   if (!redirects.length) return [];
 
@@ -1213,11 +1212,11 @@ export function getPayloadKeysForAllEnvs(
   return keys;
 }
 
-export const getPayloadKeys = (
+export function getPayloadKeys(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
   linkedFeatures?: FeatureInterface[]
-): SDKPayloadKey[] => {
+): SDKPayloadKey[] {
   // If experiment is not included in the SDK payload
   if (!includeExperimentInPayload(experiment, linkedFeatures)) {
     return [];
@@ -1254,7 +1253,7 @@ export const getPayloadKeys = (
 
   // Otherwise, if no linked changes, there are no affected payload keys
   return [];
-};
+}
 
 const getExperimentChanges = (
   experiment: ExperimentInterface

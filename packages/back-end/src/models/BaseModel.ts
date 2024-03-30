@@ -56,7 +56,7 @@ export interface ModelConfig<T extends BaseSchema> {
 // We only need to add indexes once at server start-up
 const indexesAdded: Set<string> = new Set();
 
-export abstract class BaseModel<T extends BaseSchema> {
+export abstract class BaseModel<T extends BaseSchema, WriteOptions = never> {
   protected context: ReqContext | ApiReqContext;
   public constructor(context: ReqContext | ApiReqContext) {
     this.context = context;
@@ -69,48 +69,70 @@ export abstract class BaseModel<T extends BaseSchema> {
    ***************/
   protected config: ModelConfig<T>;
   protected abstract getConfig(): ModelConfig<T>;
-  protected abstract canRead(doc: z.infer<T>): boolean;
-  protected abstract canCreate(doc: z.infer<T>): boolean;
+  protected abstract canRead(doc: z.infer<T>): Promise<boolean>;
+  protected abstract canCreate(doc: z.infer<T>): Promise<boolean>;
   protected abstract canUpdate(
     existing: z.infer<T>,
     updates: UpdateProps<z.infer<T>>,
     newDoc: z.infer<T>
-  ): boolean;
-  protected abstract canDelete(existing: z.infer<T>): boolean;
+  ): Promise<boolean>;
+  protected abstract canDelete(existing: z.infer<T>): Promise<boolean>;
 
   /***************
    * Optional methods that can be overridden by subclasses as needed
    ***************/
+  protected async filterByReadPermissions(
+    docs: z.infer<T>[]
+  ): Promise<z.infer<T>[]> {
+    const filtered: z.infer<T>[] = [];
+    for (const doc of docs) {
+      if (await this.canRead(doc)) {
+        filtered.push(doc);
+      }
+    }
+    return filtered;
+  }
   protected migrate(legacyDoc: unknown): z.infer<T> {
     return legacyDoc as z.infer<T>;
   }
-  protected async customValidation(doc: z.infer<T>) {
+  protected async customValidation(
+    doc: z.infer<T>,
+    writeOptions?: WriteOptions
+  ) {
     // Do nothing by default
   }
-  protected async beforeCreate(doc: z.infer<T>) {
+  protected async beforeCreate(doc: z.infer<T>, writeOptions?: WriteOptions) {
     // Do nothing by default
   }
-  protected async afterCreate(doc: z.infer<T>) {
+  protected async afterCreate(doc: z.infer<T>, writeOptions?: WriteOptions) {
     // Do nothing by default
   }
   protected async beforeUpdate(
     existing: z.infer<T>,
     updates: UpdateProps<z.infer<T>>,
-    newDoc: z.infer<T>
+    newDoc: z.infer<T>,
+    writeOptions?: WriteOptions
   ) {
     // Do nothing by default
   }
   protected async afterUpdate(
     existing: z.infer<T>,
     updates: UpdateProps<z.infer<T>>,
-    newDoc: z.infer<T>
+    newDoc: z.infer<T>,
+    writeOptions?: WriteOptions
   ) {
     // Do nothing by default
   }
-  protected async beforeDelete(doc: z.infer<T>) {
+  protected async beforeDelete(doc: z.infer<T>, writeOptions?: WriteOptions) {
     // Do nothing by default
   }
-  protected async afterDelete(doc: z.infer<T>) {
+  protected async afterDelete(doc: z.infer<T>, writeOptions?: WriteOptions) {
+    // Do nothing by default
+  }
+  protected async afterCreateOrUpdate(
+    doc: z.infer<T>,
+    writeOptions?: WriteOptions
+  ) {
     // Do nothing by default
   }
 
@@ -118,9 +140,18 @@ export abstract class BaseModel<T extends BaseSchema> {
    * Built-in public methods
    ***************/
   public getById(id: string) {
+    if (typeof id !== "string") {
+      throw new Error("Invalid id");
+    }
+
     return this._findOne({ id });
   }
   public getByIds(ids: string[]) {
+    // Make sure ids is an array of strings
+    if (!Array.isArray(ids) || !ids.every((id) => typeof id === "string")) {
+      throw new Error("Invalid ids");
+    }
+
     return this._find({ id: { $in: ids } });
   }
   public getAll() {
@@ -134,41 +165,56 @@ export abstract class BaseModel<T extends BaseSchema> {
     // If the project is empty, return all
     if (!project) return this._find();
 
+    if (typeof project !== "string") {
+      throw new Error("Invalid project");
+    }
+
     return this._find(
       this.config.projectScoping === "single"
         ? { project }
         : { projects: project }
     );
   }
-  public create(props: unknown | CreateProps<z.infer<T>>): Promise<z.infer<T>> {
-    return this._createOne(props);
+  public create(
+    props: unknown | CreateProps<z.infer<T>>,
+    writeOptions?: WriteOptions
+  ): Promise<z.infer<T>> {
+    return this._createOne(props, writeOptions);
   }
   public update(
     existing: z.infer<T>,
-    updates: unknown | UpdateProps<z.infer<T>>
+    updates: unknown | UpdateProps<z.infer<T>>,
+    writeOptions?: WriteOptions
   ): Promise<z.infer<T>> {
-    return this._updateOne(existing, updates);
+    return this._updateOne(existing, updates, { writeOptions });
   }
   public async updateById(
     id: string,
-    updates: unknown | UpdateProps<z.infer<T>>
+    updates: unknown | UpdateProps<z.infer<T>>,
+    writeOptions?: WriteOptions
   ): Promise<z.infer<T>> {
     const existing = await this.getById(id);
     if (!existing) {
-      throw new Error("Could not find fact metric");
+      throw new Error("Could not find resource to update");
     }
-    return this._updateOne(existing, updates);
+    return this._updateOne(existing, updates, { writeOptions });
   }
-  public delete(existing: z.infer<T>): Promise<void> {
-    return this._deleteOne(existing);
+  public delete(
+    existing: z.infer<T>,
+    writeOptions?: WriteOptions
+  ): Promise<void> {
+    return this._deleteOne(existing, writeOptions);
   }
-  public async deleteById(id: string): Promise<void> {
+  public async deleteById(
+    id: string,
+    writeOptions?: WriteOptions
+  ): Promise<void> {
     const existing = await this.getById(id);
     if (!existing) {
       // If it doesn't exist, maybe it was deleted already. No need to throw an error.
       return;
     }
-    return this._deleteOne(existing);
+    return this._deleteOne(existing, writeOptions);
   }
 
   /***************
@@ -183,6 +229,7 @@ export abstract class BaseModel<T extends BaseSchema> {
       sort,
       limit,
       skip,
+      bypassReadPermissionChecks,
     }: {
       sort?: Partial<
         {
@@ -191,11 +238,12 @@ export abstract class BaseModel<T extends BaseSchema> {
       >;
       limit?: number;
       skip?: number;
+      bypassReadPermissionChecks?: boolean;
     } = {}
   ) {
     const queryWithOrg = {
-      organization: this.context.org.id,
       ...query,
+      organization: this.context.org.id,
     };
     const cursor = this._dangerousGetCollection().find(queryWithOrg);
 
@@ -206,35 +254,19 @@ export abstract class BaseModel<T extends BaseSchema> {
         }
       );
 
-    // If there's no project field, we can apply the range filter in the query
-    // Otherwise, we need to apply it in code after we check read access
-    if (this.config.projectScoping === "none") {
-      if (skip) cursor.skip(skip);
-      if (limit) cursor.limit(limit);
-    }
+    const rawDocs = await cursor.toArray();
+    if (!rawDocs.length) return [];
 
-    const docs: z.infer<T>[] = [];
-    let i = -1;
-    for await (const doc of cursor) {
-      const migrated = this.migrate(this._removeMongooseFields(doc));
+    const migrated = rawDocs.map((d) =>
+      this.migrate(this._removeMongooseFields(d))
+    );
+    const filtered = bypassReadPermissionChecks
+      ? migrated
+      : await this.filterByReadPermissions(migrated);
 
-      // Filter out any docs the user doesn't have access to read
-      if (this.config.projectScoping !== "none") {
-        if (!this.canRead(migrated)) {
-          continue;
-        }
+    if (!skip && !limit) return filtered;
 
-        i++;
-
-        // Apply range filter (skip/limit)
-        if (skip && i < skip) continue;
-        if (limit && i >= (skip || 0) + limit) break;
-      }
-
-      docs.push(migrated);
-    }
-
-    return docs;
+    return filtered.slice(skip || 0, limit ? (skip || 0) + limit : undefined);
   }
 
   protected async _findOne(
@@ -247,16 +279,18 @@ export abstract class BaseModel<T extends BaseSchema> {
     if (!doc) return null;
 
     const migrated = this.migrate(this._removeMongooseFields(doc));
-    if (this.config.projectScoping !== "none") {
-      if (!this.canRead(migrated)) {
-        return null;
-      }
+
+    if (!(await this.canRead(migrated))) {
+      return null;
     }
 
     return migrated;
   }
 
-  protected async _createOne(rawData: unknown | CreateProps<z.infer<T>>) {
+  protected async _createOne(
+    rawData: unknown | CreateProps<z.infer<T>>,
+    writeOptions?: WriteOptions
+  ) {
     const props = this.config.schema
       .omit({ organization: true, dateCreated: true, dateUpdated: true })
       .partial({ id: true })
@@ -288,14 +322,14 @@ export abstract class BaseModel<T extends BaseSchema> {
       dateUpdated: new Date(),
     } as z.infer<T>;
 
-    if (!this.canCreate(doc)) {
+    if (!(await this.canCreate(doc))) {
       throw new Error("You do not have access to create this resource");
     }
 
     await this._standardFieldValidation(doc);
-    await this.customValidation(doc);
+    await this.customValidation(doc, writeOptions);
 
-    await this.beforeCreate(doc);
+    await this.beforeCreate(doc, writeOptions);
 
     await this._dangerousGetCollection().insertOne(doc);
 
@@ -317,7 +351,8 @@ export abstract class BaseModel<T extends BaseSchema> {
       );
     }
 
-    await this.afterCreate(doc);
+    await this.afterCreate(doc, writeOptions);
+    await this.afterCreateOrUpdate(doc, writeOptions);
 
     // Add tags if needed
     if ("tags" in doc && Array.isArray(doc.tags)) {
@@ -332,6 +367,7 @@ export abstract class BaseModel<T extends BaseSchema> {
     rawUpdates: unknown | UpdateProps<z.infer<T>>,
     options?: {
       auditEvent?: EventType;
+      writeOptions?: WriteOptions;
     }
   ) {
     let updates = this.config.schema
@@ -387,15 +423,15 @@ export abstract class BaseModel<T extends BaseSchema> {
 
     const newDoc = { ...doc, ...allUpdates } as z.infer<T>;
 
-    if (!this.canUpdate(doc, updates, newDoc)) {
+    if (!(await this.canUpdate(doc, updates, newDoc))) {
       throw new Error("You do not have access to update this resource");
     }
 
     await this._standardFieldValidation(updates as Partial<z.infer<T>>);
 
-    await this.beforeUpdate(doc, updates, newDoc);
+    await this.beforeUpdate(doc, updates, newDoc, options?.writeOptions);
 
-    await this.customValidation(newDoc);
+    await this.customValidation(newDoc, options?.writeOptions);
 
     await this._dangerousGetCollection().updateOne(
       {
@@ -429,7 +465,8 @@ export abstract class BaseModel<T extends BaseSchema> {
       );
     }
 
-    await this.afterUpdate(doc, updates, newDoc);
+    await this.afterUpdate(doc, updates, newDoc, options?.writeOptions);
+    await this.afterCreateOrUpdate(newDoc, options?.writeOptions);
 
     // Update tags if needed
     if ("tags" in newDoc && Array.isArray(newDoc.tags)) {
@@ -439,11 +476,11 @@ export abstract class BaseModel<T extends BaseSchema> {
     return newDoc;
   }
 
-  protected async _deleteOne(doc: z.infer<T>) {
-    if (!this.canDelete(doc)) {
+  protected async _deleteOne(doc: z.infer<T>, writeOptions?: WriteOptions) {
+    if (!(await this.canDelete(doc))) {
       throw new Error("You do not have access to delete this resource");
     }
-    await this.beforeDelete(doc);
+    await this.beforeDelete(doc, writeOptions);
     await this._dangerousGetCollection().deleteOne({
       organization: this.context.org.id,
       id: doc.id,
@@ -467,7 +504,7 @@ export abstract class BaseModel<T extends BaseSchema> {
       );
     }
 
-    await this.afterDelete(doc);
+    await this.afterDelete(doc, writeOptions);
   }
 
   private _collection: Collection | null = null;
@@ -559,7 +596,10 @@ export abstract class BaseModel<T extends BaseSchema> {
 export const MakeModelClass = <T extends BaseSchema>(
   config: ModelConfig<T>
 ) => {
-  abstract class Model extends BaseModel<T> {
+  abstract class Model<WriteOptions = never> extends BaseModel<
+    T,
+    WriteOptions
+  > {
     getConfig() {
       return config;
     }

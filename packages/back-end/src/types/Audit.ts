@@ -9,6 +9,7 @@ export const EntityType = [
   "savedGroup",
   "archetype",
   "team",
+  "urlRedirect",
 ] as const;
 
 export type EntityType = typeof EntityType[number];
