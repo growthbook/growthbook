@@ -898,7 +898,11 @@ const MetricPage: FC = () => {
             </Tab>
             <Tab display="Discussion" anchor="discussion" lazy={true}>
               <h3>Comments</h3>
-              <DiscussionThread type="metric" id={data.metric.id} />
+              <DiscussionThread
+                type="metric"
+                id={data.metric.id}
+                projects={metric.projects || []}
+              />
             </Tab>
             <Tab display="History" anchor="history" lazy={true}>
               <HistoryTable type="metric" id={metric.id} />

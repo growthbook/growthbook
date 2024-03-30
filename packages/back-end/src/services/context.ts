@@ -5,8 +5,9 @@ import {
   userHasPermission,
 } from "shared/permissions";
 import { uniq } from "lodash";
-import pino from "pino";
-import { Request } from "express";
+import type pino from "pino";
+import type { Request } from "express";
+import { CommercialFeature, orgHasPremiumFeature } from "enterprise";
 import {
   MemberRole,
   OrganizationInterface,
@@ -17,18 +18,28 @@ import { EventAuditUser } from "../events/event-types";
 import {
   getUserPermissions,
   roleToPermissionMap,
+  getEnvironmentIdsFromOrg,
 } from "../util/organization.util";
 import { TeamInterface } from "../../types/team";
+import { FactMetricModel } from "../models/FactMetricModel";
 import { ProjectInterface } from "../../types/project";
 import { findAllProjectsByOrganization } from "../models/ProjectModel";
 import { addTags, getAllTags } from "../models/TagModel";
 import { AuditInterface } from "../../types/audit";
 import { insertAudit } from "../models/AuditModel";
 import { logger } from "../util/logger";
-import { ReqContextInterface } from "../../types/context";
-import { getEnvironmentIdsFromOrg } from "./organizations";
 
-export class ReqContextClass implements ReqContextInterface {
+export class ReqContextClass {
+  // Models
+  public models!: {
+    factMetrics: FactMetricModel;
+  };
+  private initModels() {
+    this.models = {
+      factMetrics: new FactMetricModel(this),
+    };
+  }
+
   public org: OrganizationInterface;
   public userId = "";
   public email = "";
@@ -109,9 +120,11 @@ export class ReqContextClass implements ReqContextInterface {
         projects: {},
       };
     }
-    this.readAccessFilter = getReadAccessFilter(this.userPermissions);
 
+    this.readAccessFilter = getReadAccessFilter(this.userPermissions);
     this.permissions = new Permissions(this.userPermissions, this.superAdmin);
+
+    this.initModels();
   }
 
   // Check permissions
@@ -138,6 +151,10 @@ export class ReqContextClass implements ReqContextInterface {
     if (!this.hasPermission(permission, project, envs)) {
       throw new Error("You do not have permission to complete that action.");
     }
+  }
+
+  public hasPremiumFeature(feature: CommercialFeature) {
+    return orgHasPremiumFeature(this.org, feature);
   }
 
   // Record an audit log entry

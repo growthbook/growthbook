@@ -1273,7 +1273,7 @@ export interface components {
       tags: (string)[];
       datasource: string;
       /** @enum {string} */
-      metricType: "proportion" | "mean" | "ratio";
+      metricType: "proportion" | "mean" | "quantile" | "ratio";
       numerator: {
         factTableId: string;
         column: string;
@@ -1288,6 +1288,18 @@ export interface components {
       };
       /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
       inverse: boolean;
+      /** @description Controls the settings for quantile metrics (mandatory if metricType is "quantile") */
+      quantileSettings?: {
+        /**
+         * @description Whether the quantile is over unit aggregations or raw event values 
+         * @enum {string}
+         */
+        type: "event" | "unit";
+        /** @description If true, zero values will be ignored when calculating the quantile */
+        ignoreZeros: boolean;
+        /** @description The quantile value (from 0.001 to 0.999) */
+        quantile: number;
+      };
       /** @description Controls how outliers are handled */
       cappingSettings: {
         /** @enum {string} */
@@ -5360,7 +5372,7 @@ export interface operations {
                 tags: (string)[];
                 datasource: string;
                 /** @enum {string} */
-                metricType: "proportion" | "mean" | "ratio";
+                metricType: "proportion" | "mean" | "quantile" | "ratio";
                 numerator: {
                   factTableId: string;
                   column: string;
@@ -5375,6 +5387,18 @@ export interface operations {
                 };
                 /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
                 inverse: boolean;
+                /** @description Controls the settings for quantile metrics (mandatory if metricType is "quantile") */
+                quantileSettings?: {
+                  /**
+                   * @description Whether the quantile is over unit aggregations or raw event values 
+                   * @enum {string}
+                   */
+                  type: "event" | "unit";
+                  /** @description If true, zero values will be ignored when calculating the quantile */
+                  ignoreZeros: boolean;
+                  /** @description The quantile value (from 0.001 to 0.999) */
+                  quantile: number;
+                };
                 /** @description Controls how outliers are handled */
                 cappingSettings: {
                   /** @enum {string} */
@@ -5436,7 +5460,7 @@ export interface operations {
           projects?: (string)[];
           tags?: (string)[];
           /** @enum {string} */
-          metricType: "proportion" | "mean" | "ratio";
+          metricType: "proportion" | "mean" | "quantile" | "ratio";
           numerator: {
             factTableId: string;
             /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
@@ -5454,6 +5478,18 @@ export interface operations {
           };
           /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
           inverse?: boolean;
+          /** @description Controls the settings for quantile metrics (mandatory if metricType is "quantile") */
+          quantileSettings?: {
+            /**
+             * @description Whether the quantile is over unit aggregations or raw event values 
+             * @enum {string}
+             */
+            type: "event" | "unit";
+            /** @description If true, zero values will be ignored when calculating the quantile */
+            ignoreZeros: boolean;
+            /** @description The quantile value (from 0.001 to 0.999) */
+            quantile: number;
+          };
           /** @description Controls how outliers are handled */
           cappingSettings?: {
             /** @enum {string} */
@@ -5503,7 +5539,7 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "mean" | "ratio";
+              metricType: "proportion" | "mean" | "quantile" | "ratio";
               numerator: {
                 factTableId: string;
                 column: string;
@@ -5518,6 +5554,18 @@ export interface operations {
               };
               /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
               inverse: boolean;
+              /** @description Controls the settings for quantile metrics (mandatory if metricType is "quantile") */
+              quantileSettings?: {
+                /**
+                 * @description Whether the quantile is over unit aggregations or raw event values 
+                 * @enum {string}
+                 */
+                type: "event" | "unit";
+                /** @description If true, zero values will be ignored when calculating the quantile */
+                ignoreZeros: boolean;
+                /** @description The quantile value (from 0.001 to 0.999) */
+                quantile: number;
+              };
               /** @description Controls how outliers are handled */
               cappingSettings: {
                 /** @enum {string} */
@@ -5582,7 +5630,7 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "mean" | "ratio";
+              metricType: "proportion" | "mean" | "quantile" | "ratio";
               numerator: {
                 factTableId: string;
                 column: string;
@@ -5597,6 +5645,18 @@ export interface operations {
               };
               /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
               inverse: boolean;
+              /** @description Controls the settings for quantile metrics (mandatory if metricType is "quantile") */
+              quantileSettings?: {
+                /**
+                 * @description Whether the quantile is over unit aggregations or raw event values 
+                 * @enum {string}
+                 */
+                type: "event" | "unit";
+                /** @description If true, zero values will be ignored when calculating the quantile */
+                ignoreZeros: boolean;
+                /** @description The quantile value (from 0.001 to 0.999) */
+                quantile: number;
+              };
               /** @description Controls how outliers are handled */
               cappingSettings: {
                 /** @enum {string} */
@@ -5657,7 +5717,7 @@ export interface operations {
           projects?: (string)[];
           tags?: (string)[];
           /** @enum {string} */
-          metricType?: "proportion" | "mean" | "ratio";
+          metricType?: "proportion" | "mean" | "quantile" | "ratio";
           numerator?: {
             factTableId: string;
             /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
@@ -5675,6 +5735,18 @@ export interface operations {
           };
           /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
           inverse?: boolean;
+          /** @description Controls the settings for quantile metrics (mandatory if metricType is "quantile") */
+          quantileSettings?: {
+            /**
+             * @description Whether the quantile is over unit aggregations or raw event values 
+             * @enum {string}
+             */
+            type: "event" | "unit";
+            /** @description If true, zero values will be ignored when calculating the quantile */
+            ignoreZeros: boolean;
+            /** @description The quantile value (from 0.001 to 0.999) */
+            quantile: number;
+          };
           /** @description Controls how outliers are handled */
           cappingSettings?: {
             /** @enum {string} */
@@ -5724,7 +5796,7 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "mean" | "ratio";
+              metricType: "proportion" | "mean" | "quantile" | "ratio";
               numerator: {
                 factTableId: string;
                 column: string;
@@ -5739,6 +5811,18 @@ export interface operations {
               };
               /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
               inverse: boolean;
+              /** @description Controls the settings for quantile metrics (mandatory if metricType is "quantile") */
+              quantileSettings?: {
+                /**
+                 * @description Whether the quantile is over unit aggregations or raw event values 
+                 * @enum {string}
+                 */
+                type: "event" | "unit";
+                /** @description If true, zero values will be ignored when calculating the quantile */
+                ignoreZeros: boolean;
+                /** @description The quantile value (from 0.001 to 0.999) */
+                quantile: number;
+              };
               /** @description Controls how outliers are handled */
               cappingSettings: {
                 /** @enum {string} */
@@ -5862,7 +5946,7 @@ export interface operations {
                 projects?: (string)[];
                 tags?: (string)[];
                 /** @enum {string} */
-                metricType: "proportion" | "mean" | "ratio";
+                metricType: "proportion" | "mean" | "quantile" | "ratio";
                 numerator: {
                   factTableId: string;
                   /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
@@ -5880,6 +5964,18 @@ export interface operations {
                 };
                 /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
                 inverse?: boolean;
+                /** @description Controls the settings for quantile metrics (mandatory if metricType is "quantile") */
+                quantileSettings?: {
+                  /**
+                   * @description Whether the quantile is over unit aggregations or raw event values 
+                   * @enum {string}
+                   */
+                  type: "event" | "unit";
+                  /** @description If true, zero values will be ignored when calculating the quantile */
+                  ignoreZeros: boolean;
+                  /** @description The quantile value (from 0.001 to 0.999) */
+                  quantile: number;
+                };
                 /** @description Controls how outliers are handled */
                 cappingSettings?: {
                   /** @enum {string} */
