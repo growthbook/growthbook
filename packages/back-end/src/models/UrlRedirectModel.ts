@@ -40,19 +40,19 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
   }
 
   protected canRead(doc: URLRedirectInterface): boolean {
-    const experiment = this.getForeignRefs(doc).experiment;
+    const { experiment } = this.getForeignRefs(doc);
     return this.context.hasPermission("readData", experiment?.project || "");
   }
   protected canCreate(doc: URLRedirectInterface): boolean {
-    const experiment = this.getForeignRefs(doc).experiment;
+    const { experiment } = this.getForeignRefs(doc);
     const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
     return this.context.hasPermission(
       "runExperiments",
       experiment?.project || envs
     );
   }
-  protected canUpdate(existing: URLRedirectInterface): boolean {
-    const experiment = this.getForeignRefs(existing).experiment;
+  protected canUpdate(doc: URLRedirectInterface): boolean {
+    const { experiment } = this.getForeignRefs(doc);
     const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
     return this.context.hasPermission(
       "runExperiments",
@@ -60,7 +60,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     );
   }
   protected canDelete(doc: URLRedirectInterface): boolean {
-    const experiment = this.getForeignRefs(doc).experiment;
+    const { experiment } = this.getForeignRefs(doc);
     const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
     return this.context.hasPermission(
       "runExperiments",
@@ -69,7 +69,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
   }
 
   protected async beforeCreate(doc: URLRedirectInterface) {
-    const experiment = this.getForeignRefs(doc).experiment;
+    const { experiment } = this.getForeignRefs(doc);
     if (!experiment) {
       throw new Error("Could not find experiment");
     }
@@ -92,7 +92,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
       throw new Error("url pattern cannot be empty");
     }
 
-    const experiment = this.getForeignRefs(doc).experiment;
+    const { experiment } = this.getForeignRefs(doc);
     if (!experiment) {
       throw new Error("Could not find experiment");
     }
@@ -110,7 +110,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     doc: URLRedirectInterface,
     writeOptions?: WriteOptions
   ) {
-    let experiment = this.getForeignRefs(doc).experiment;
+    let { experiment } = this.getForeignRefs(doc);
     if (experiment && !experiment.hasURLRedirects) {
       experiment = await updateExperiment({
         context: this.context,
@@ -127,7 +127,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
   }
 
   protected async afterDelete(doc: URLRedirectInterface) {
-    const experiment = this.getForeignRefs(doc).experiment;
+    const { experiment } = this.getForeignRefs(doc);
     if (!experiment) return;
 
     const remaining = await this.findByExperiment(doc.experiment);
