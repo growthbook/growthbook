@@ -79,6 +79,9 @@ pre {
 .bg-warning-orange {
   background-color: colors.$warning-orange !important;
 }
+.text-warning-muted {
+  color: var(--alert-warn-color);
+}
 .text-gray {
   color: var(--text-color-th);
 }
