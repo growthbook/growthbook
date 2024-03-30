@@ -36,8 +36,9 @@ const DownloadLicenseUsageButton: FC = () => {
               userEmailCodes: res.userEmailCodes,
               inviteEmailCodes: res.inviteEmailCodes,
               activeSeatsUsed: res.userEmailCodes.length,
-              seatsUsed: 
-                new Set(res.userEmailCodes.concat(res.inviteEmailCodes).size,
+              seatsUsed: new Set(
+                res.userEmailCodes.concat(res.inviteEmailCodes)
+              ).size,
               signature: res.signature,
               timestamp: res.timestamp,
             },
