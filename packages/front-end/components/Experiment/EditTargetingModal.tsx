@@ -234,8 +234,8 @@ export default function EditTargetingModal({
             <div className="d-flex m-0 pl-2 pr-2 py-1 alert alert-warning align-items-center">
               <div>
                 <strong>Warning:</strong> Changes made will apply to linked
-                Feature Flags, Visual Changes, and URL Redirects immediately upon
-                publishing.
+                Feature Flags, Visual Changes, and URL Redirects immediately
+                upon publishing.
               </div>
               <label
                 htmlFor="confirm-changes"
