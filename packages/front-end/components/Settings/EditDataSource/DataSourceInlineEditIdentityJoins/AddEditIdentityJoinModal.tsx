@@ -128,6 +128,7 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
         autoFocusSelector="#id-modal-identify-joins-heading"
       >
         <h4 id="id-modal-identify-joins-heading">Identifier Join</h4>
+        <p>Queries that return a mapping between different identifier types</p>
 
         <div className="row">
           <div className="col-xs-12 col-md-6">
