@@ -623,7 +623,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   let license;
   if (licenseKey || process.env.LICENSE_KEY) {
     // automatically set the license data based on org license key
-    license = getLicense(org.licenseKey || process.env.LICENSE_KEY);
+    license = getLicense(licenseKey || process.env.LICENSE_KEY);
     if (!license || (license.organizationId && license.organizationId !== id)) {
       try {
         license = await initializeLicenseForOrg(org);
