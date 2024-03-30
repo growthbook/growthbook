@@ -197,7 +197,7 @@ export async function testQueryValidity(
     }
     const columns = new Set(Object.keys(results.results[0]));
 
-    const missingColumns = [];
+    const missingColumns: string[] = [];
     for (const col of requiredColumns) {
       if (!columns.has(col)) {
         missingColumns.push(col);

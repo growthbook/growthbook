@@ -333,7 +333,7 @@ export async function createExperiment({
   if (!data.trackingKey) {
     // Try to generate a unique tracking key based on the experiment name
     let n = 1;
-    let found = null;
+    let found: null | string = null;
     while (n < 10 && !found) {
       const key = generateTrackingKey(data.name || data.id || "", n);
       if (!(await getExperimentByTrackingKey(context, key))) {

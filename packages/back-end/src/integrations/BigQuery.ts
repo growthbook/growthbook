@@ -16,9 +16,7 @@ import { logger } from "../util/logger";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  params: BigQueryConnectionParams;
+  params!: BigQueryConnectionParams;
   requiresEscapingPath = true;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<BigQueryConnectionParams>(
@@ -192,7 +190,8 @@ export default class BigQuery extends SqlIntegration {
       throw new Error(`No datasets found.`);
     }
 
-    const results = [];
+    // eslint-disable-next-line
+    const results: Record<string, any>[] = [];
 
     for (const datasetName of datasetNames) {
       const query = `SELECT
