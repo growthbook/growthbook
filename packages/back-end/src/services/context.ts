@@ -29,6 +29,15 @@ import { AuditInterface } from "../../types/audit";
 import { insertAudit } from "../models/AuditModel";
 import { logger } from "../util/logger";
 import { UrlRedirectModel } from "../models/UrlRedirectModel";
+import { ExperimentInterface } from "../../types/experiment";
+import { DataSourceInterface } from "../../types/datasource";
+import { getExperimentsByIds } from "../models/ExperimentModel";
+import { getDataSourcesByOrganization } from "../models/DataSourceModel";
+
+export type ForeignRefTypes = {
+  experiment: ExperimentInterface;
+  datasource: DataSourceInterface;
+};
 
 export class ReqContextClass {
   // Models
@@ -186,6 +195,38 @@ export class ReqContextClass {
     });
   }
 
+  // Cache common foreign references
+  public foreignRefs: ForeignRefsCache = {
+    experiment: new Map(),
+    datasource: new Map(),
+  };
+  public async populateForeignRefs({
+    experiment,
+    datasource,
+  }: ForeignRefsCacheKeys) {
+    await this.addMissingForeignRefs("experiment", experiment, (ids) =>
+      getExperimentsByIds(this, ids)
+    );
+    await this.addMissingForeignRefs("datasource", datasource, () =>
+      getDataSourcesByOrganization(this)
+    );
+  }
+  private async addMissingForeignRefs<K extends keyof ForeignRefsCache>(
+    type: K,
+    ids: string[] | undefined,
+    getter: (ids: string[]) => Promise<ForeignRefTypes[K][]>
+  ) {
+    if (!ids) return;
+    const missing = ids.filter((id) => !this.foreignRefs[type].has(id));
+    if (missing.length) {
+      const refs = await getter(missing);
+      refs.forEach((ref) => {
+        // eslint-disable-next-line
+        this.foreignRefs[type].set(ref.id, ref as any);
+      });
+    }
+  }
+
   // Cache projects since they are needed many places in the code
   private _projects: ProjectInterface[] | null = null;
   public async getProjects() {
@@ -211,3 +252,15 @@ export class ReqContextClass {
     newTags.forEach((t) => this._tags?.add(t));
   }
 }
+
+// eslint-disable-next-line
+export type ForeignRefsCache = {
+  [key in keyof ForeignRefTypes]: Map<string, ForeignRefTypes[key]>;
+};
+export type ForeignRefsCacheKeys = {
+  [key in keyof ForeignRefsCache]?: string[];
+};
+export type ForeignKeys = {
+  [key in keyof ForeignRefsCache]?: string;
+};
+export type ForeignRefs = Partial<ForeignRefTypes>;

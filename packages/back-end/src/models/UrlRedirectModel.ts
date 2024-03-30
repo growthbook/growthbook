@@ -8,8 +8,6 @@ import { urlRedirectValidator } from "../routers/url-redirects/url-redirects.val
 import {
   getAllPayloadExperiments,
   getAllURLRedirectExperiments,
-  getExperimentById,
-  getExperimentsByIds,
   getPayloadKeys,
   updateExperiment,
 } from "./ExperimentModel";
@@ -41,52 +39,37 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     return this._find({ experiment }, { bypassReadPermissionChecks: true });
   }
 
-  protected async canRead(doc: URLRedirectInterface): Promise<boolean> {
-    const experiment = await this.getExperimentById(doc.experiment);
+  protected canRead(doc: URLRedirectInterface): boolean {
+    const experiment = this.getForeignRefs(doc).experiment;
     return this.context.hasPermission("readData", experiment?.project || "");
   }
-  protected async canCreate(doc: URLRedirectInterface): Promise<boolean> {
-    const experiment = await this.getExperimentById(doc.experiment);
+  protected canCreate(doc: URLRedirectInterface): boolean {
+    const experiment = this.getForeignRefs(doc).experiment;
     const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
     return this.context.hasPermission(
       "runExperiments",
       experiment?.project || envs
     );
   }
-  protected async canUpdate(existing: URLRedirectInterface): Promise<boolean> {
-    const experiment = await this.getExperimentById(existing.experiment);
+  protected canUpdate(existing: URLRedirectInterface): boolean {
+    const experiment = this.getForeignRefs(existing).experiment;
     const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
     return this.context.hasPermission(
       "runExperiments",
       experiment?.project || envs
     );
   }
-  protected async canDelete(doc: URLRedirectInterface): Promise<boolean> {
-    const experiment = await this.getExperimentById(doc.experiment);
+  protected canDelete(doc: URLRedirectInterface): boolean {
+    const experiment = this.getForeignRefs(doc).experiment;
     const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
     return this.context.hasPermission(
       "runExperiments",
       experiment?.project || envs
     );
-  }
-
-  // The base model version will call canRead for each redirect, which hits Mongo each time
-  // This is an optimized version that fetches all experiments in a single query
-  protected async filterByReadPermissions(docs: URLRedirectInterface[]) {
-    const experiments = await this.getExperimentsByIds(
-      Array.from(new Set(docs.map((doc) => doc.experiment)))
-    );
-
-    return docs.filter((doc) => {
-      const experiment = experiments.get(doc.experiment);
-      return experiment
-        ? this.context.hasPermission("readData", experiment.project)
-        : false;
-    });
   }
 
   protected async beforeCreate(doc: URLRedirectInterface) {
-    const experiment = await this.getExperimentById(doc.experiment);
+    const experiment = this.getForeignRefs(doc).experiment;
     if (!experiment) {
       throw new Error("Could not find experiment");
     }
@@ -109,7 +92,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
       throw new Error("url pattern cannot be empty");
     }
 
-    const experiment = await this.getExperimentById(doc.experiment);
+    const experiment = this.getForeignRefs(doc).experiment;
     if (!experiment) {
       throw new Error("Could not find experiment");
     }
@@ -127,7 +110,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     doc: URLRedirectInterface,
     writeOptions?: WriteOptions
   ) {
-    let experiment = await this.getExperimentById(doc.experiment);
+    let experiment = this.getForeignRefs(doc).experiment;
     if (experiment && !experiment.hasURLRedirects) {
       experiment = await updateExperiment({
         context: this.context,
@@ -144,7 +127,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
   }
 
   protected async afterDelete(doc: URLRedirectInterface) {
-    const experiment = await this.getExperimentById(doc.experiment);
+    const experiment = this.getForeignRefs(doc).experiment;
     if (!experiment) return;
 
     const remaining = await this.findByExperiment(doc.experiment);
@@ -247,39 +230,5 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
         }
       });
     });
-  }
-
-  private _experiments: Map<string, ExperimentInterface> = new Map();
-  private async getExperimentById(id: string) {
-    const existing = this._experiments.get(id);
-    if (existing) return existing;
-
-    const experiment = await getExperimentById(this.context, id);
-    if (!experiment) throw new Error("Experiment not found");
-
-    this._experiments.set(id, experiment);
-    return experiment;
-  }
-  private async getExperimentsByIds(ids: string[]) {
-    const ret: Map<string, ExperimentInterface> = new Map();
-    const missing: string[] = [];
-
-    ids.forEach((id) => {
-      const existing = this._experiments.get(id);
-      if (existing) {
-        ret.set(id, existing);
-      } else {
-        missing.push(id);
-      }
-    });
-
-    if (missing.length) {
-      const experiments = await getExperimentsByIds(this.context, missing);
-      experiments.forEach((experiment) => {
-        ret.set(experiment.id, experiment);
-      });
-    }
-
-    return ret;
   }
 }

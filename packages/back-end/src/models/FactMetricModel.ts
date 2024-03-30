@@ -27,19 +27,19 @@ const BaseClass = MakeModelClass({
 });
 
 export class FactMetricModel extends BaseClass {
-  protected async canRead(doc: FactMetricInterface): Promise<boolean> {
+  protected canRead(doc: FactMetricInterface): boolean {
     return this.context.hasPermission("readData", doc.projects || []);
   }
-  protected async canCreate(doc: FactMetricInterface): Promise<boolean> {
+  protected canCreate(doc: FactMetricInterface): boolean {
     return this.context.permissions.canCreateMetric(doc);
   }
-  protected async canUpdate(
+  protected canUpdate(
     existing: FactMetricInterface,
     updates: UpdateProps<FactMetricInterface>
-  ): Promise<boolean> {
+  ): boolean {
     return this.context.permissions.canUpdateMetric(existing, updates);
   }
-  protected async canDelete(doc: FactMetricInterface): Promise<boolean> {
+  protected canDelete(doc: FactMetricInterface): boolean {
     return this.context.permissions.canDeleteMetric(doc);
   }
 

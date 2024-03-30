@@ -17,6 +17,11 @@ import {
   auditDetailsDelete,
   auditDetailsUpdate,
 } from "../services/audit";
+import {
+  ForeignKeys,
+  ForeignRefs,
+  ForeignRefsCacheKeys,
+} from "../services/context";
 
 export type BaseSchema = z.ZodObject<
   {
@@ -69,14 +74,14 @@ export abstract class BaseModel<T extends BaseSchema, WriteOptions = never> {
    ***************/
   protected config: ModelConfig<T>;
   protected abstract getConfig(): ModelConfig<T>;
-  protected abstract canRead(doc: z.infer<T>): Promise<boolean>;
-  protected abstract canCreate(doc: z.infer<T>): Promise<boolean>;
+  protected abstract canRead(doc: z.infer<T>): boolean;
+  protected abstract canCreate(doc: z.infer<T>): boolean;
   protected abstract canUpdate(
     existing: z.infer<T>,
     updates: UpdateProps<z.infer<T>>,
     newDoc: z.infer<T>
-  ): Promise<boolean>;
-  protected abstract canDelete(existing: z.infer<T>): Promise<boolean>;
+  ): boolean;
+  protected abstract canDelete(existing: z.infer<T>): boolean;
 
   /***************
    * Optional methods that can be overridden by subclasses as needed
@@ -84,9 +89,11 @@ export abstract class BaseModel<T extends BaseSchema, WriteOptions = never> {
   protected async filterByReadPermissions(
     docs: z.infer<T>[]
   ): Promise<z.infer<T>[]> {
+    await this.populateForeignRefs(docs);
+
     const filtered: z.infer<T>[] = [];
     for (const doc of docs) {
-      if (await this.canRead(doc)) {
+      if (this.canRead(doc)) {
         filtered.push(doc);
       }
     }
@@ -134,6 +141,26 @@ export abstract class BaseModel<T extends BaseSchema, WriteOptions = never> {
     writeOptions?: WriteOptions
   ) {
     // Do nothing by default
+  }
+
+  protected getForeignKeys(doc: z.infer<T>): ForeignKeys {
+    const keys: ForeignKeys = {};
+
+    // Experiment
+    if ("experiment" in doc && typeof doc.experiment === "string") {
+      keys.experiment = doc.experiment;
+    } else if ("experimentId" in doc && typeof doc.experimentId === "string") {
+      keys.experiment = doc.experimentId;
+    }
+
+    // Datasource
+    if ("datasource" in doc && typeof doc.datasource === "string") {
+      keys.datasource = doc.datasource;
+    } else if ("datasourceId" in doc && typeof doc.datasourceId === "string") {
+      keys.datasource = doc.datasourceId;
+    }
+
+    return keys;
   }
 
   /***************
@@ -280,7 +307,8 @@ export abstract class BaseModel<T extends BaseSchema, WriteOptions = never> {
 
     const migrated = this.migrate(this._removeMongooseFields(doc));
 
-    if (!(await this.canRead(migrated))) {
+    await this.populateForeignRefs([migrated]);
+    if (!this.canRead(migrated)) {
       return null;
     }
 
@@ -322,7 +350,8 @@ export abstract class BaseModel<T extends BaseSchema, WriteOptions = never> {
       dateUpdated: new Date(),
     } as z.infer<T>;
 
-    if (!(await this.canCreate(doc))) {
+    await this.populateForeignRefs([doc]);
+    if (!this.canCreate(doc)) {
       throw new Error("You do not have access to create this resource");
     }
 
@@ -423,7 +452,9 @@ export abstract class BaseModel<T extends BaseSchema, WriteOptions = never> {
 
     const newDoc = { ...doc, ...allUpdates } as z.infer<T>;
 
-    if (!(await this.canUpdate(doc, updates, newDoc))) {
+    await this.populateForeignRefs([newDoc]);
+
+    if (!this.canUpdate(doc, updates, newDoc)) {
       throw new Error("You do not have access to update this resource");
     }
 
@@ -477,7 +508,7 @@ export abstract class BaseModel<T extends BaseSchema, WriteOptions = never> {
   }
 
   protected async _deleteOne(doc: z.infer<T>, writeOptions?: WriteOptions) {
-    if (!(await this.canDelete(doc))) {
+    if (!this.canDelete(doc)) {
       throw new Error("You do not have access to delete this resource");
     }
     await this.beforeDelete(doc, writeOptions);
@@ -518,9 +549,40 @@ export abstract class BaseModel<T extends BaseSchema, WriteOptions = never> {
     return this._collection;
   }
 
+  protected getForeignRefs(doc: z.infer<T>): ForeignRefs {
+    const refs = this.context.foreignRefs;
+    const keys = this.getForeignKeys(doc);
+
+    const result: ForeignRefs = {};
+    for (const refType in keys) {
+      const type = refType as keyof ForeignKeys;
+      const value = this.context.foreignRefs[type]?.get(keys[type] || "");
+      // eslint-disable-next-line
+      result[type] = value as any;
+    }
+
+    return result;
+  }
+
   /***************
    * Private methods
    ***************/
+  private async populateForeignRefs(docs: z.infer<T>[]) {
+    // Merge all docs foreign keys into a single object
+    const mergedKeys: ForeignRefsCacheKeys = {};
+
+    docs.forEach((doc) => {
+      const foreignKeys = this.getForeignKeys(doc);
+      Object.entries(foreignKeys).forEach(
+        ([type, id]: [keyof ForeignKeys, string]) => {
+          mergedKeys[type] = mergedKeys[type] || [];
+          mergedKeys[type]?.push(id);
+        }
+      );
+    });
+
+    await this.context.populateForeignRefs(mergedKeys);
+  }
   private addIndexes() {
     if (indexesAdded.has(this.config.collectionName)) return;
     indexesAdded.add(this.config.collectionName);
