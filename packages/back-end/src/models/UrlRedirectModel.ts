@@ -15,7 +15,7 @@ import { MakeModelClass } from "./BaseModel";
 
 type WriteOptions = {
   checkCircularDependencies?: boolean;
-  bypassWebhooks?: boolean;
+  skipSDKRefresh?: boolean;
 };
 
 const BaseClass = MakeModelClass({
@@ -109,7 +109,9 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     writeOptions?: WriteOptions
   ) {
     let { experiment } = this.getForeignRefs(doc);
-    if (experiment && !experiment.hasURLRedirects) {
+    if (!experiment) return;
+
+    if (!experiment.hasURLRedirects) {
       experiment = await updateExperiment({
         context: this.context,
         experiment,
@@ -118,7 +120,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
       });
     }
 
-    if (experiment && !writeOptions?.bypassWebhooks) {
+    if (!writeOptions?.skipSDKRefresh) {
       const payloadKeys = getPayloadKeys(this.context, experiment);
       await refreshSDKPayloadCache(this.context, payloadKeys);
     }
@@ -130,7 +132,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
 
     const remaining = await this.findByExperiment(doc.experiment);
     if (remaining.length === 0) {
-      if (experiment && experiment.hasURLRedirects) {
+      if (experiment.hasURLRedirects) {
         await updateExperiment({
           context: this.context,
           experiment,
@@ -163,7 +165,8 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
       {
         destinationURLs: newDestinationURLs,
       },
-      { bypassWebhooks: true }
+      // The SDK was already refreshed by the experiment change
+      { skipSDKRefresh: true }
     );
   }
 
