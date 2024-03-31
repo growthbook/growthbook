@@ -556,7 +556,15 @@ export abstract class BaseModel<T extends BaseSchema, WriteOptions = never> {
     const result: ForeignRefs = {};
     for (const refType in keys) {
       const type = refType as keyof ForeignKeys;
-      const value = this.context.foreignRefs[type]?.get(keys[type] || "");
+      if (!keys[type]) continue;
+      const value = refs[type]?.get(keys[type] || "");
+
+      if (!value) {
+        throw new Error(
+          `Could not find foreign ref for ${type}: ${keys[type]}`
+        );
+      }
+
       // eslint-disable-next-line
       result[type] = value as any;
     }
