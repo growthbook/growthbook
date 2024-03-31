@@ -111,6 +111,8 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     if (!experiment) return;
 
     if (!experiment.hasURLRedirects) {
+      // Important: update the experiment variable to the updated version
+      // This way, `hasURLRedirects` will be true, which will force the SDK to update
       experiment = await updateExperiment({
         context: this.context,
         experiment,
@@ -141,11 +143,13 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
       }
     }
 
+    // Important: pass the old `experiment` object before doing the update
+    // The updated experiment has `hasURLRedirects: false`, which may stop the SDK from updating
     const payloadKeys = getPayloadKeys(this.context, experiment);
     await refreshSDKPayloadCache(this.context, payloadKeys);
   }
 
-  // when an experiment adds/removes variations, we need to update
+  // When an experiment adds/removes variations, we need to update
   // url redirect changes to be in sync
   public async syncURLRedirectsWithVariations(
     urlRedirect: URLRedirectInterface,

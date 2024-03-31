@@ -552,7 +552,10 @@ export abstract class BaseModel<T extends BaseSchema, WriteOptions = never> {
     return null;
   }
 
-  protected getForeignRefs(doc: z.infer<T>): ForeignRefs {
+  protected getForeignRefs(
+    doc: z.infer<T>,
+    throwIfMissing: boolean = true
+  ): ForeignRefs {
     const refs = this.context.foreignRefs;
     const keys = this.getForeignKeys(doc);
 
@@ -563,9 +566,13 @@ export abstract class BaseModel<T extends BaseSchema, WriteOptions = never> {
       const value = refs[type]?.get(keys[type] || "");
 
       if (!value) {
-        throw new Error(
-          `Could not find foreign ref for ${type}: ${keys[type]}`
-        );
+        if (throwIfMissing) {
+          throw new Error(
+            `Could not find foreign ref for ${type}: ${keys[type]}`
+          );
+        } else {
+          continue;
+        }
       }
 
       // eslint-disable-next-line

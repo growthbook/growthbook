@@ -284,6 +284,8 @@ Foreign keys to experiments and data sources are detected automatically. This wo
 
 Other types of foreign keys can be easily added to the base model if needed.
 
+The `getForeignRefs` method has an optional second parameter. If `true` (the default), it will throw an Error if a foreign ref is not found. You can pass `false` instead to have it just skip that foreign ref instead.
+
 ### Conditional validation/hooks
 
 Sometimes you need more control over your validation or hooks. For example, if you want to run really strict validation by default, but allow users to opt-out.
