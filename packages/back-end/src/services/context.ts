@@ -207,6 +207,7 @@ export class ReqContextClass {
     await this.addMissingForeignRefs("experiment", experiment, (ids) =>
       getExperimentsByIds(this, ids)
     );
+    // An org doesn't have that many data sources, so we just fetch them all
     await this.addMissingForeignRefs("datasource", datasource, () =>
       getDataSourcesByOrganization(this)
     );

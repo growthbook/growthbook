@@ -48,7 +48,8 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
     return this.context.hasPermission(
       "runExperiments",
-      experiment?.project || envs
+      experiment?.project || "",
+      envs
     );
   }
   protected canUpdate(doc: URLRedirectInterface): boolean {
@@ -56,7 +57,8 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
     return this.context.hasPermission(
       "runExperiments",
-      experiment?.project || envs
+      experiment?.project || "",
+      envs
     );
   }
   protected canDelete(doc: URLRedirectInterface): boolean {
@@ -64,7 +66,8 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
     return this.context.hasPermission(
       "runExperiments",
-      experiment?.project || envs
+      experiment?.project || "",
+      envs
     );
   }
 
@@ -90,11 +93,6 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
   ) {
     if (!doc.urlPattern) {
       throw new Error("url pattern cannot be empty");
-    }
-
-    const { experiment } = this.getForeignRefs(doc);
-    if (!experiment) {
-      throw new Error("Could not find experiment");
     }
 
     if (writeOptions?.checkCircularDependencies) {
