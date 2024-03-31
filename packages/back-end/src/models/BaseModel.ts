@@ -147,17 +147,21 @@ export abstract class BaseModel<T extends BaseSchema, WriteOptions = never> {
     const keys: ForeignKeys = {};
 
     // Experiment
-    if ("experiment" in doc && typeof doc.experiment === "string") {
-      keys.experiment = doc.experiment;
-    } else if ("experimentId" in doc && typeof doc.experimentId === "string") {
-      keys.experiment = doc.experimentId;
+    const experiment = this.detectForeignKey(doc, [
+      "experiment",
+      "experimentId",
+    ]);
+    if (experiment) {
+      keys.experiment = experiment;
     }
 
     // Datasource
-    if ("datasource" in doc && typeof doc.datasource === "string") {
-      keys.datasource = doc.datasource;
-    } else if ("datasourceId" in doc && typeof doc.datasourceId === "string") {
-      keys.datasource = doc.datasourceId;
+    const datasource = this.detectForeignKey(doc, [
+      "datasource",
+      "datasourceId",
+    ]);
+    if (datasource) {
+      keys.datasource = datasource;
     }
 
     return keys;
@@ -170,6 +174,7 @@ export abstract class BaseModel<T extends BaseSchema, WriteOptions = never> {
     if (typeof id !== "string") {
       throw new Error("Invalid id");
     }
+    if (!id) return Promise.resolve(null);
 
     return this._findOne({ id });
   }
@@ -178,6 +183,7 @@ export abstract class BaseModel<T extends BaseSchema, WriteOptions = never> {
     if (!Array.isArray(ids) || !ids.every((id) => typeof id === "string")) {
       throw new Error("Invalid ids");
     }
+    if (!ids.length) return Promise.resolve([]);
 
     return this._find({ id: { $in: ids } });
   }
@@ -547,6 +553,22 @@ export abstract class BaseModel<T extends BaseSchema, WriteOptions = never> {
       );
     }
     return this._collection;
+  }
+
+  protected detectForeignKey(
+    doc: z.infer<T>,
+    potentialFields: string[]
+  ): string | null {
+    for (const field of potentialFields) {
+      if (
+        field in doc &&
+        doc[field as keyof z.infer<T>] &&
+        typeof doc[field as keyof z.infer<T>] === "string"
+      ) {
+        return doc[field as keyof z.infer<T>] as string;
+      }
+    }
+    return null;
   }
 
   protected getForeignRefs(doc: z.infer<T>): ForeignRefs {

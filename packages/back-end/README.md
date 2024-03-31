@@ -236,6 +236,7 @@ The following hooks are available, letting you add additional validation or perf
 - `afterCreate(newObj)`
 - `beforeUpdate(existing, updates, newObj)`
 - `afterUpdate(existing, updates, newObj)`
+- `afterCreateOrUpdate(newObj)`
 - `beforeDelete(existing)`
 - `afterDelete(existing)`
 
@@ -253,6 +254,13 @@ export class FooDataModel extends BaseClass {
   }
 }
 ```
+
+The order of hooks for create/update operations is as follows:
+
+1. customValidation
+2. beforeCreate
+3. afterCreate
+4. afterCreateOrUpdate
 
 ### Foreign Keys
 
