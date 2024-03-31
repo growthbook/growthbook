@@ -43,7 +43,6 @@ export interface ModelConfig<T extends BaseSchema> {
     updateEvent: EventType;
     deleteEvent: EventType;
   };
-  projectScoping: "none" | "single" | "multiple";
   globallyUniqueIds?: boolean;
   skipDateUpdatedFields?: (keyof z.infer<T>)[];
   readonlyFields?: (keyof z.infer<T>)[];
@@ -189,24 +188,6 @@ export abstract class BaseModel<T extends BaseSchema, WriteOptions = never> {
   }
   public getAll() {
     return this._find();
-  }
-  public getAllByProject(project: string | undefined) {
-    if (this.config.projectScoping === "none") {
-      throw new Error("This model does not support projects");
-    }
-
-    // If the project is empty, return all
-    if (!project) return this._find();
-
-    if (typeof project !== "string") {
-      throw new Error("Invalid project");
-    }
-
-    return this._find(
-      this.config.projectScoping === "single"
-        ? { project }
-        : { projects: project }
-    );
   }
   public create(
     props: unknown | CreateProps<z.infer<T>>,
@@ -361,7 +342,7 @@ export abstract class BaseModel<T extends BaseSchema, WriteOptions = never> {
       throw new Error("You do not have access to create this resource");
     }
 
-    await this._standardFieldValidation(doc);
+    await this.validateProjectFields(doc);
     await this.customValidation(doc, writeOptions);
 
     await this.beforeCreate(doc, writeOptions);
@@ -464,7 +445,7 @@ export abstract class BaseModel<T extends BaseSchema, WriteOptions = never> {
       throw new Error("You do not have access to update this resource");
     }
 
-    await this._standardFieldValidation(updates as Partial<z.infer<T>>);
+    await this.validateProjectFields(updates as Partial<z.infer<T>>);
 
     await this.beforeUpdate(doc, updates, newDoc, options?.writeOptions);
 
@@ -656,25 +637,25 @@ export abstract class BaseModel<T extends BaseSchema, WriteOptions = never> {
     });
   }
 
-  private async _standardFieldValidation(obj: Partial<z.infer<T>>) {
-    // Validate common foreign key references
-    if (this.config.projectScoping === "single") {
-      if ("project" in obj && obj.project) {
-        const projects = await this.context.getProjects();
-        if (!projects.some((p) => p.id === obj.project)) {
-          throw new Error("Invalid project");
-        }
+  // Make sure any project ids in this model point to actual projects
+  // This is only called when creating/updating to avoid breaking on read
+  private async validateProjectFields(obj: Partial<z.infer<T>>) {
+    // Resources with a single project
+    if ("project" in obj && obj.project && typeof obj.project === "string") {
+      const projects = await this.context.getProjects();
+      if (!projects.some((p) => p.id === obj.project)) {
+        throw new Error("Invalid project");
       }
-    } else if (this.config.projectScoping === "multiple") {
-      if ("projects" in obj && obj.projects && Array.isArray(obj.projects)) {
-        const projects = await this.context.getProjects();
-        if (
-          !obj.projects.every((p: string) =>
-            projects.some((proj) => proj.id === p)
-          )
-        ) {
-          throw new Error("Invalid project");
-        }
+    }
+    // Resources with multiple projects
+    else if ("projects" in obj && obj.projects && Array.isArray(obj.projects)) {
+      const projects = await this.context.getProjects();
+      if (
+        !obj.projects.every((p: string) =>
+          projects.some((proj) => proj.id === p)
+        )
+      ) {
+        throw new Error("Invalid project");
       }
     }
   }

@@ -28,7 +28,6 @@ const BaseClass = MakeModelClass({
     updateEvent: "urlRedirect.update",
     deleteEvent: "urlRedirect.delete",
   },
-  projectScoping: "none",
   globallyUniqueIds: false,
   readonlyFields: ["experiment"],
 });

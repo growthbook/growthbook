@@ -133,8 +133,6 @@ const BaseClass = MakeModelClass({
     updateEvent: "foo.update",
     deleteEvent: "foo.delete",
   },
-  // Either "single", "multiple", or "none"
-  projectScoping: "multiple",
   // If true, `id` is globally unique across all orgs
   // If false (default), the `organization`/`id` combo is unique.
   globallyUniqueIds: false,
@@ -197,7 +195,6 @@ console.log("New Name: ", newFoo.name);
 The following public methods are created automatically:
 
 - `getAll()`
-- `getAllByProject(project)`
 - `getById(id)`
 - `getByIds(ids)`
 - `create(data)`

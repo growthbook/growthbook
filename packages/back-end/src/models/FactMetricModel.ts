@@ -21,7 +21,6 @@ const BaseClass = MakeModelClass({
     updateEvent: "metric.update",
     deleteEvent: "metric.delete",
   },
-  projectScoping: "multiple",
   globallyUniqueIds: false,
   readonlyFields: ["datasource"],
 });
