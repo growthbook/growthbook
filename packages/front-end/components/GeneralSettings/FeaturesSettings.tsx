@@ -7,6 +7,8 @@ import Field from "@/components/Forms/Field";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Toggle from "@/components/Forms/Toggle";
 import SelectField from "@/components/Forms/SelectField";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { useEnvironments } from "@/services/features";
 
 export default function FeaturesSettings() {
   const [
@@ -15,7 +17,7 @@ export default function FeaturesSettings() {
   ] = useState<string>("");
 
   const { hasCommercialFeature } = useUser();
-
+  const environments = useEnvironments();
   const form = useFormContext();
 
   const hasSecureAttributesFeature = hasCommercialFeature(
@@ -112,20 +114,74 @@ export default function FeaturesSettings() {
         </div>
         {hasRequireApprovals && (
           <>
-            <div className="mt-4">
-              <label className="mr-1" htmlFor="toggle-require-reviews">
-                Require approval to publish changes:
-              </label>
-            </div>
-            <div>
-              <Toggle
-                id={"toggle-require-reviews"}
-                value={!!form.watch("requireReviews")}
-                setValue={(value) => {
-                  form.setValue("requireReviews", value);
-                }}
-              />
-            </div>
+            <div className="d-inline-block h4 mt-5 mb-2">Approval Flow</div>
+            {form.watch("requireReviews")?.map?.((requireReviews, i) => (
+              <div className="appbox py-2 px-3" key={`approval-flow-${i}`}>
+                <label
+                  className="mr-1 mt-3 d-block"
+                  htmlFor={`toggle-require-reviews-${i}`}
+                >
+                  Require approval to publish changes
+                </label>
+                <div>
+                  <Toggle
+                    id={`toggle-require-reviews-${i}`}
+                    value={!!form.watch(`requireReviews.${i}.requireReviewOn`)}
+                    setValue={(value) => {
+                      form.setValue(
+                        `requireReviews.${i}.requireReviewOn`,
+                        value
+                      );
+                    }}
+                  />
+                </div>
+
+                {!!form.watch(`requireReviews.${i}.requireReviewOn`) && (
+                  <div className="mt-3">
+                    <label htmlFor={`environments-${i}`} className="h5">
+                      Environments
+                    </label>
+                    <MultiSelectField
+                      id={`environments-${i}`}
+                      value={
+                        form.watch(`requireReviews.${i}.environments`) || []
+                      }
+                      onChange={(environments) => {
+                        form.setValue(
+                          `requireReviews.${i}.environments`,
+                          environments
+                        );
+                      }}
+                      options={environments.map((e) => {
+                        return {
+                          value: e.id,
+                          label: e.id,
+                        };
+                      })}
+                      placeholder="All Environments"
+                    />
+                    <label
+                      className="d-block mt-3 h5"
+                      htmlFor={`toggle-reset-review-on-change-${i}`}
+                    >
+                      Reset review on changes
+                    </label>
+                    <Toggle
+                      id={`toggle-reset-review-on-change-${i}`}
+                      value={
+                        !!form.watch(`requireReviews.${i}.resetReviewOnChange`)
+                      }
+                      setValue={(value) => {
+                        form.setValue(
+                          `requireReviews.${i}.resetReviewOnChange`,
+                          value
+                        );
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
           </>
         )}
         <div className="my-3">

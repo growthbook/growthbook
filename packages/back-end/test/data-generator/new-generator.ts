@@ -2,6 +2,7 @@ import fs from "fs";
 import { GrowthBook } from "@growthbook/growthbook";
 import normalSample from "@stdlib/random/base/normal";
 import { addDays } from "date-fns";
+import parseArgs from "minimist";
 
 type TableData = {
   userId: string;
@@ -141,6 +142,9 @@ function getBrowser(): string {
 }
 
 function normalInt(min: number, max: number): number {
+  if (max < min) throw "Invalid value!";
+  if (min === max) return min;
+
   const mean = (max - min) / 2 + min;
   const stddev = (max - min) / 3;
 
@@ -375,7 +379,10 @@ function purchase(
     ),
   });
   trackExperiment(data, res, "confirmation-email", sim);
-  sim[parseInt(data.userId)] += normalInt(res.value - 10, res.value + 10);
+  sim.dataTables.userRetention[parseInt(data.userId)] += normalInt(
+    res.value - 10,
+    res.value + 10
+  );
 }
 
 function getTimestamp(currentDate: Date) {
@@ -512,14 +519,21 @@ function writeCSV(
   fs.writeFileSync(path, contents);
 }
 
-function generateAndWriteData(
-  startDate: Date,
-  runLengthDays: number,
-  outputDir: string,
-  numUsers: number,
-  messyData: boolean,
-  expKeyPrefix: string = ""
-) {
+function generateAndWriteData({
+  startDate,
+  runLengthDays,
+  outputDir,
+  numUsers,
+  messyData,
+  expKeyPrefix,
+}: {
+  startDate: Date;
+  runLengthDays: number;
+  outputDir: string;
+  numUsers: number;
+  messyData: boolean;
+  expKeyPrefix: string;
+}) {
   const sim: SimulatorData = {
     dataTables: {
       pageViews: [],
@@ -567,5 +581,50 @@ function generateAndWriteData(
   });
 }
 
-console.log("Generating dummy data...");
-generateAndWriteData(new Date(), 90, "/tmp/csv", 10000, true, "");
+const {
+  days: daysArg,
+  "start-date": startDateArg,
+  "user-count": userCountArg,
+  "csv-dir": csvDirArg,
+  "messy-data": messyDataArg,
+  "key-prefix": keyPrefixArg,
+} = parseArgs(process.argv.slice(2), {
+  string: [
+    "days",
+    "start-date",
+    "user-count",
+    "csv-dir",
+    "messy-data",
+    "key-prefix",
+  ],
+  default: {
+    days: "60",
+    "user-count": "10000",
+    "csv-dir": "/tmp/csv",
+    "messy-data": "true",
+    "key-prefix": "",
+  },
+});
+
+const runLengthDays = Number(daysArg);
+const numUsers = Number(userCountArg);
+
+const startDate = (() => {
+  if (startDateArg) return new Date(startDateArg);
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - runLengthDays);
+  return startDate;
+})();
+
+const params = {
+  startDate,
+  runLengthDays,
+  outputDir: csvDirArg,
+  numUsers,
+  messyData: !!messyDataArg,
+  expKeyPrefix: keyPrefixArg,
+};
+
+console.log(`Generation params: ${JSON.stringify(params, null, 2)}`);
+console.log("Generating dummy data: ...");
+generateAndWriteData(params);

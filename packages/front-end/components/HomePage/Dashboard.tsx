@@ -33,7 +33,7 @@ export default function Dashboard({ experiments }: Props) {
         </div>
         <div className="row">
           <div className="col-lg-12 col-md-12 col-xl-8 mb-3">
-            <div className="list-group activity-box fixed-height">
+            <div className="list-group activity-box">
               <ExperimentGraph
                 resolution={"month"}
                 num={12}

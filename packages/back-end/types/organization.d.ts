@@ -4,11 +4,11 @@ import {
   GLOBAL_PERMISSIONS,
   PROJECT_SCOPED_PERMISSIONS,
 } from "shared/permissions";
+import type { ReqContextClass } from "../src/services/context";
 import { attributeDataTypes } from "../src/util/organization.util";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
 import { MetricCappingSettings, MetricWindowSettings } from "./fact-table";
-import type { ReqContextInterface } from "./context";
 
 export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
 export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
@@ -30,6 +30,12 @@ export type UserPermission = {
 export type UserPermissions = {
   global: UserPermission;
   projects: { [key: string]: UserPermission };
+};
+export type RequireReview = {
+  requireReviewOn: boolean;
+  resetReviewOnChange: boolean;
+  environments: string[];
+  projects: string[];
 };
 
 export type MemberRole =
@@ -142,6 +148,7 @@ export type Environment = {
   description?: string;
   toggleOnList?: boolean;
   defaultState?: boolean;
+  projects?: string[];
 };
 
 export interface OrganizationSettings {
@@ -180,7 +187,7 @@ export interface OrganizationSettings {
   displayCurrency?: string;
   secureAttributeSalt?: string;
   killswitchConfirmation?: boolean;
-  requireReviews?: boolean;
+  requireReviews?: boolean | RequireReview[];
   defaultDataSource?: string;
   disableMultiMetricQueries?: boolean;
   useStickyBucketing?: boolean;
@@ -278,4 +285,4 @@ export type NamespaceUsage = Record<
   }[]
 >;
 
-export type ReqContext = ReqContextInterface;
+export type ReqContext = ReqContextClass;

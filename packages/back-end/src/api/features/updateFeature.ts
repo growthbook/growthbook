@@ -1,4 +1,4 @@
-import { validateFeatureValue } from "shared/util";
+import { featureRequiresReview, validateFeatureValue } from "shared/util";
 import { isEqual } from "lodash";
 import { UpdateFeatureResponse } from "../../../types/openapi";
 import { createApiRequestHandler } from "../../util/handler";
@@ -109,6 +109,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     // Create a revision for the changes and publish them immediately
+    let defaultValueChanged = false;
+    const changedEnvironments: string[] = [];
     if ("defaultValue" in updates || "environmentSettings" in updates) {
       const revisionChanges: Partial<FeatureRevisionInterface> = {};
 
@@ -119,6 +121,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       ) {
         revisionChanges.defaultValue = updates.defaultValue;
         hasChanges = true;
+        defaultValueChanged = true;
       }
       if (updates.environmentSettings) {
         Object.entries(updates.environmentSettings).forEach(
@@ -130,6 +133,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
               )
             ) {
               hasChanges = true;
+              changedEnvironments.push(env);
               revisionChanges.rules = revisionChanges.rules || {};
               revisionChanges.rules[env] = settings.rules;
             }
@@ -138,6 +142,20 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       }
 
       if (hasChanges) {
+        const reviewRequired = featureRequiresReview(
+          feature,
+          changedEnvironments,
+          defaultValueChanged,
+          req.organization.settings
+        );
+        if (reviewRequired) {
+          if (!req.context.permissions.canBypassApprovalChecks(feature)) {
+            throw new Error(
+              "This feature requires a review and the API key being used does not have permission to bypass reviews."
+            );
+          }
+        }
+
         const revision = await createRevision({
           feature,
           user: req.eventAudit,
@@ -146,6 +164,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           environments: orgEnvs,
           publish: true,
           changes: revisionChanges,
+          org: req.organization,
+          canBypassApprovalChecks: true,
         });
         updates.version = revision.version;
       }

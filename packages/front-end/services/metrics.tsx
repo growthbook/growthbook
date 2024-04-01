@@ -1,15 +1,11 @@
 import { MetricType } from "back-end/types/metric";
 import {
-  GlobalPermission,
-  ProjectScopedPermission,
-} from "back-end/types/organization";
-import {
   ColumnInterface,
   ColumnRef,
   FactTableInterface,
 } from "back-end/types/fact-table";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { PermissionFunctions } from "@/services/UserContext";
+import { decimalToPercent } from "@/services/utils";
 
 export const defaultWinRiskThreshold = 0.0025;
 export const defaultLoseRiskThreshold = 0.0125;
@@ -26,6 +22,13 @@ export function getMetricConversionTitle(type: MetricType): string {
     return "Revenue";
   }
   return "Conversion Rate";
+}
+
+export function getPercentileLabel(quantile: number): string {
+  if (quantile === 0.5) {
+    return "Median";
+  }
+  return `P${decimalToPercent(quantile)}`;
 }
 
 export function formatCurrency(
@@ -120,7 +123,7 @@ export function formatPercent(
     maximumSignificantDigits: 3,
     ...options,
   });
-  return percentFormatter.format(value);
+  return percentFormatter.format(Math.round(value * 100000) / 100000);
 }
 
 export function getColumnFormatter(
@@ -200,6 +203,7 @@ export function getExperimentMetricFormatter(
         return getColumnRefFormatter(metric.numerator, getFactTableById);
       })();
 
+    case "quantile":
     case "mean":
     default:
       return getColumnRefFormatter(metric.numerator, getFactTableById);
@@ -220,21 +224,4 @@ export function getMetricFormatter(
   }
 
   return formatPercent;
-}
-
-export function checkMetricProjectPermissions(
-  metric: { projects?: string[] },
-  permissions: Record<GlobalPermission, boolean> & PermissionFunctions,
-  permission: ProjectScopedPermission = "createMetrics"
-): boolean {
-  let hasPermission = true;
-  if (metric?.projects?.length) {
-    for (const project of metric.projects) {
-      hasPermission = permissions.check(permission, project);
-      if (!hasPermission) break;
-    }
-  } else {
-    hasPermission = permissions.check(permission, "");
-  }
-  return hasPermission;
 }

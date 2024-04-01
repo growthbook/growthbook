@@ -7,67 +7,13 @@ import {
 } from "shared/constants";
 import {
   CreateFactMetricProps,
-  FactMetricInterface,
   FactTableInterface,
 } from "../../../types/fact-table";
 import { PostFactMetricResponse } from "../../../types/openapi";
-import {
-  createFactMetric,
-  toFactMetricApiInterface,
-} from "../../models/FactMetricModel";
 import { getFactTable } from "../../models/FactTableModel";
-import { addTags } from "../../models/TagModel";
 import { createApiRequestHandler } from "../../util/handler";
 import { postFactMetricValidator } from "../../validators/openapi";
 import { OrganizationInterface } from "../../../types/organization";
-import { findAllProjectsByOrganization } from "../../models/ProjectModel";
-
-export async function validateFactMetric(
-  data: Pick<FactMetricInterface, "numerator" | "denominator" | "metricType">,
-  getFactTable: (id: string) => Promise<FactTableInterface | null>
-) {
-  const numeratorFactTable = await getFactTable(data.numerator.factTableId);
-  if (!numeratorFactTable) {
-    throw new Error("Could not find numerator fact table");
-  }
-
-  if (data.numerator.filters?.length) {
-    for (const filter of data.numerator.filters) {
-      if (!numeratorFactTable.filters.some((f) => f.id === filter)) {
-        throw new Error(`Invalid numerator filter id: ${filter}`);
-      }
-    }
-  }
-
-  if (data.metricType === "ratio") {
-    if (!data.denominator) {
-      throw new Error("Denominator required for ratio metric");
-    }
-    if (data.denominator.factTableId !== data.numerator.factTableId) {
-      const denominatorFactTable = await getFactTable(
-        data.denominator.factTableId
-      );
-      if (!denominatorFactTable) {
-        throw new Error("Could not find denominator fact table");
-      }
-      if (denominatorFactTable.datasource !== numeratorFactTable.datasource) {
-        throw new Error(
-          "Numerator and denominator must be in the same datasource"
-        );
-      }
-
-      if (data.denominator.filters?.length) {
-        for (const filter of data.denominator.filters) {
-          if (!denominatorFactTable.filters.some((f) => f.id === filter)) {
-            throw new Error(`Invalid denominator filter id: ${filter}`);
-          }
-        }
-      }
-    }
-  } else if (data.denominator?.factTableId) {
-    throw new Error("Denominator not allowed for non-ratio metric");
-  }
-}
 
 export async function getCreateMetricPropsFromBody(
   body: z.infer<typeof postFactMetricValidator.bodySchema>,
@@ -84,6 +30,7 @@ export async function getCreateMetricPropsFromBody(
   }
 
   const {
+    quantileSettings,
     cappingSettings,
     windowSettings,
     regressionAdjustmentSettings,
@@ -115,6 +62,7 @@ export async function getCreateMetricPropsFromBody(
     projects: [],
     tags: [],
     inverse: false,
+    quantileSettings: quantileSettings ?? null,
     windowSettings: {
       type: scopedSettings.windowType.value ?? DEFAULT_FACT_METRIC_WINDOW,
       delayHours:
@@ -176,35 +124,18 @@ export async function getCreateMetricPropsFromBody(
 
 export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
   async (req): Promise<PostFactMetricResponse> => {
-    req.checkPermissions("createMetrics", req.body.projects || "");
-
     const lookupFactTable = async (id: string) => getFactTable(req.context, id);
-
-    if (req.body.projects?.length) {
-      const projects = await findAllProjectsByOrganization(req.context);
-      const projectIds = new Set(projects.map((p) => p.id));
-      for (const projectId of req.body.projects) {
-        if (!projectIds.has(projectId)) {
-          throw new Error(`Project ${projectId} not found`);
-        }
-      }
-    }
 
     const data = await getCreateMetricPropsFromBody(
       req.body,
       req.organization,
       lookupFactTable
     );
-    await validateFactMetric(data, lookupFactTable);
 
-    const factMetric = await createFactMetric(req.context, data);
-
-    if (factMetric.tags.length > 0) {
-      await addTags(req.organization.id, factMetric.tags);
-    }
+    const factMetric = await req.context.models.factMetrics.create(data);
 
     return {
-      factMetric: toFactMetricApiInterface(factMetric),
+      factMetric: req.context.models.factMetrics.toApiInterface(factMetric),
     };
   }
 );

@@ -10,6 +10,7 @@ export type QueryStatus =
 export type QueryStatistics = {
   executionDurationMs?: number;
   totalSlotMs?: number;
+  rowsProcessed?: number;
   bytesProcessed?: number;
   bytesBilled?: number;
   warehouseCachedResult?: boolean;

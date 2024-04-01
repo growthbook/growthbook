@@ -64,13 +64,16 @@ export async function postSampleData(
     EventAuditUserForResponseLocals
   >
 ) {
-  req.checkPermissions("createMetrics", "");
-  req.checkPermissions("createAnalyses", "");
-
   const context = getContextFromReq(req);
   const { org, userId } = context;
   const orgId = org.id;
   const statsEngine = org.settings?.statsEngine || DEFAULT_STATS_ENGINE;
+
+  req.checkPermissions("createAnalyses", "");
+
+  if (!context.permissions.canCreateMetric({})) {
+    context.permissions.throwPermissionError();
+  }
 
   const existingMetrics = await getSampleMetrics(context);
 

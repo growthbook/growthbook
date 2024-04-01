@@ -1170,6 +1170,36 @@ describe("Organization Migration", () => {
       },
     });
   });
+
+  it("migrate approval flow settings", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_sktwi1id9l7z9xkjb",
+      name: "Test Org",
+      ownerEmail: "test@test.com",
+      url: "https://test.com",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: {
+        requireReviews: true,
+      },
+    };
+    const org = upgradeOrganizationDoc(testOrg);
+    expect(org).toEqual({
+      ...org,
+      settings: {
+        ...org.settings,
+        requireReviews: [
+          {
+            environments: [],
+            projects: [],
+            requireReviewOn: true,
+            resetReviewOnChange: false,
+          },
+        ],
+      },
+    });
+  });
 });
 
 describe("Snapshot Migration", () => {

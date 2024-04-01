@@ -6,7 +6,12 @@ import { useForm } from "react-hook-form";
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { FaCheck, FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
+import {
+  FaCheck,
+  FaExclamationCircle,
+  FaExclamationTriangle,
+  FaInfoCircle,
+} from "react-icons/fa";
 import clsx from "clsx";
 import {
   getConnectionSDKCapabilities,
@@ -16,6 +21,10 @@ import {
   getSDKVersions,
   isSDKOutdated,
 } from "shared/sdk-versioning";
+import {
+  filterProjectsByEnvironment,
+  getDisallowedProjects,
+} from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
@@ -64,6 +73,8 @@ export default function SDKConnectionForm({
 }) {
   const environments = useEnvironments();
   const { project, projects, getProjectById } = useDefinitions();
+  const projectIds = projects.map((p) => p.id);
+
   const { apiCall } = useAuth();
   const router = useRouter();
 
@@ -113,6 +124,8 @@ export default function SDKConnectionForm({
       includeVisualExperiments: initialValue.includeVisualExperiments ?? false,
       includeDraftExperiments: initialValue.includeDraftExperiments ?? false,
       includeExperimentNames: initialValue.includeExperimentNames ?? true,
+      includeRedirectExperiments:
+        initialValue.includeRedirectExperiments ?? false,
       proxyEnabled: initialValue.proxy?.enabled ?? false,
       proxyHost: initialValue.proxy?.host ?? "",
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
@@ -163,10 +176,37 @@ export default function SDKConnectionForm({
     "visualEditor"
   );
 
-  const projectsOptions = projects.map((p) => ({
-    label: p.name,
-    value: p.id,
-  }));
+  const showRedirectSettings = latestSdkCapabilities.includes("redirects");
+
+  const selectedProjects = form.watch("projects");
+  const selectedEnvironment = environments.find(
+    (e) => e.id === form.watch("environment")
+  );
+  const environmentHasProjects =
+    (selectedEnvironment?.projects?.length ?? 0) > 0;
+  const filteredProjectIds = filterProjectsByEnvironment(
+    projectIds,
+    selectedEnvironment
+  );
+  const filteredProjects = projects.filter((p) =>
+    filteredProjectIds.includes(p.id)
+  );
+
+  const disallowedProjects = getDisallowedProjects(
+    projects,
+    selectedProjects ?? [],
+    selectedEnvironment
+  );
+
+  const projectsOptions = [...filteredProjects, ...disallowedProjects].map(
+    (p) => ({
+      label: p.name,
+      value: p.id,
+    })
+  );
+  const selectedValidProjects = selectedProjects?.filter((p) => {
+    return disallowedProjects?.find((dp) => dp.id === p) === undefined;
+  });
 
   if (initialValue.projects) {
     initialValue.projects.forEach((p) => {
@@ -190,11 +230,13 @@ export default function SDKConnectionForm({
     if (!edit) {
       form.setValue("includeVisualExperiments", showVisualEditorSettings);
       form.setValue("includeDraftExperiments", showVisualEditorSettings);
+      form.setValue("includeRedirectExperiments", showRedirectSettings);
     } else if (!showVisualEditorSettings) {
       form.setValue("includeVisualExperiments", false);
       form.setValue("includeDraftExperiments", false);
+      form.setValue("includeRedirectExperiments", false);
     }
-  }, [showVisualEditorSettings, form, edit]);
+  }, [showVisualEditorSettings, form, edit, showRedirectSettings]);
 
   // complex setter for clicking a "SDK Payload Security" button
   useEffect(() => {
@@ -253,7 +295,13 @@ export default function SDKConnectionForm({
         if (!latestSdkCapabilities.includes("visualEditor")) {
           value.includeVisualExperiments = false;
         }
-        if (!value.includeVisualExperiments) {
+        if (!latestSdkCapabilities.includes("redirects")) {
+          value.includeRedirectExperiments = false;
+        }
+        if (
+          !value.includeVisualExperiments &&
+          !value.includeRedirectExperiments
+        ) {
           value.includeDraftExperiments = false;
         }
 
@@ -377,31 +425,88 @@ export default function SDKConnectionForm({
           />
         </div>
 
-        <div className="row">
-          {projectsOptions.length > 0 && (
-            <div className="col">
-              <MultiSelectField
-                label="Filter by Project"
-                placeholder="All Projects"
-                value={form.watch("projects") || []}
-                onChange={(projects) => form.setValue("projects", projects)}
-                options={projectsOptions}
-                sort={false}
-                closeMenuOnSelect={true}
-              />
+        <div className="mb-4">
+          <SelectField
+            label="Environment"
+            required
+            placeholder="Choose one..."
+            value={form.watch("environment")}
+            onChange={(env) => {
+              form.setValue("environment", env);
+              form.setValue("projects", []); // Reset projects when environment changes
+            }}
+            options={environments.map((e) => ({ label: e.id, value: e.id }))}
+            sort={false}
+            formatOptionLabel={({ value, label }) => {
+              const selectedEnvironment = environments.find(
+                (e) => e.id === value
+              );
+              const numProjects = selectedEnvironment?.projects?.length ?? 0;
+              return (
+                <div className="d-flex align-items-center">
+                  <div>{label}</div>
+                  <div className="flex-1" />
+                  {numProjects > 0 ? (
+                    <div className="text-muted small">
+                      Includes {numProjects} project
+                      {numProjects === 1 ? "" : "s"}
+                    </div>
+                  ) : (
+                    <div className="text-muted small font-italic">
+                      Includes all projects
+                    </div>
+                  )}
+                </div>
+              );
+            }}
+          />
+        </div>
+
+        <div className="mb-4">
+          <label>
+            Filter by Projects
+            {!!selectedProjects?.length && (
+              <> ({selectedValidProjects?.length ?? 0})</>
+            )}
+          </label>
+          <MultiSelectField
+            placeholder={
+              environmentHasProjects
+                ? "All Environment Projects"
+                : "All Projects"
+            }
+            containerClassName="w-100"
+            value={form.watch("projects") || []}
+            onChange={(projects) => form.setValue("projects", projects)}
+            options={projectsOptions}
+            sort={false}
+            closeMenuOnSelect={true}
+            formatOptionLabel={({ value, label }) => {
+              const disallowed = disallowedProjects?.find(
+                (p) => p.id === value
+              );
+              return disallowed ? (
+                <Tooltip body="This project is not allowed in the selected environment and will not be included in the SDK payload.">
+                  <del className="text-danger">
+                    <FaExclamationTriangle className="mr-1" />
+                    {label}
+                  </del>
+                </Tooltip>
+              ) : (
+                label
+              );
+            }}
+          />
+          {disallowedProjects.length > 0 && (
+            <div className="text-danger mt-2 small px-1">
+              <FaExclamationTriangle className="mr-1" />
+              This SDK Connection references {disallowedProjects.length} project
+              {disallowedProjects.length !== 1 && "s"} that{" "}
+              {disallowedProjects.length === 1 ? "is" : "are"} not allowed in
+              the selected environment. This may have occurred as a result of a
+              project being removed from the selected environment.
             </div>
           )}
-
-          <div className="col">
-            <SelectField
-              label="Environment"
-              required
-              placeholder="Choose one..."
-              value={form.watch("environment")}
-              onChange={(env) => form.setValue("environment", env)}
-              options={environments.map((e) => ({ label: e.id, value: e.id }))}
-            />
-          </div>
         </div>
 
         {languageEnvironment !== "backend" && (
@@ -854,33 +959,54 @@ export default function SDKConnectionForm({
           </>
         )}
 
-        {showVisualEditorSettings && (
+        {(showVisualEditorSettings || showRedirectSettings) && (
           <>
-            <label>Visual experiments</label>
+            <label>Auto experiments</label>
             <div className="border rounded pt-2 pb-3 px-3 bg-light">
-              <div>
-                <label htmlFor="sdk-connection-visual-experiments-toggle">
-                  Include visual experiments in endpoint&apos;s response?
-                </label>
-                <div className="form-inline">
-                  <Toggle
-                    id="sdk-connection-visual-experiments-toggle"
-                    value={form.watch("includeVisualExperiments")}
-                    setValue={(val) =>
-                      form.setValue("includeVisualExperiments", val)
-                    }
-                  />
+              {showVisualEditorSettings && (
+                <div>
+                  <label htmlFor="sdk-connection-visual-experiments-toggle">
+                    Include visual experiments in endpoint&apos;s response?
+                  </label>
+                  <div className="form-inline">
+                    <Toggle
+                      id="sdk-connection-visual-experiments-toggle"
+                      value={form.watch("includeVisualExperiments")}
+                      setValue={(val) =>
+                        form.setValue("includeVisualExperiments", val)
+                      }
+                    />
+                  </div>
                 </div>
-              </div>
-              {form.watch("includeVisualExperiments") && (
+              )}
+
+              {showRedirectSettings && (
+                <div className="mt-3">
+                  <label htmlFor="sdk-connection-redirects-toggle">
+                    Include redirect experiments in endpoint&apos;s response?
+                  </label>
+                  <div className="form-inline">
+                    <Toggle
+                      id="sdk-connection-redirects-toggle"
+                      value={form.watch("includeRedirectExperiments")}
+                      setValue={(val) =>
+                        form.setValue("includeRedirectExperiments", val)
+                      }
+                    />
+                  </div>
+                </div>
+              )}
+
+              {(form.watch("includeVisualExperiments") ||
+                form.watch("includeRedirectExperiments")) && (
                 <>
                   <div className="mt-3">
                     <Tooltip
                       body={
                         <>
                           <p>
-                            In-development visual experiments will be sent to
-                            the SDK. We recommend only enabling this for
+                            In-development auto experiments will be sent to the
+                            SDK. We recommend only enabling this for
                             non-production environments.
                           </p>
                           <p className="mb-0">

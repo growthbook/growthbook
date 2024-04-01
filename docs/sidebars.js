@@ -77,6 +77,11 @@ const sidebars = {
           id: "features/code-references",
           label: "Code References",
         },
+        {
+          type: "doc",
+          id: "features/approval-flows",
+          label: "Approval Flows",
+        },
       ],
     },
     {
@@ -97,6 +102,12 @@ const sidebars = {
           type: "doc",
           id: "visual-editor",
           label: "Visual Editor",
+        },
+        {
+          type: "doc",
+          id: "running-experiments/url-redirects",
+          label: "URL Redirects",
+          className: "pill-new",
         },
         {
           type: "doc",
@@ -328,6 +339,11 @@ const sidebars = {
               type: "doc",
               id: "statistics/aggregation",
               label: "Aggregate Data",
+            },
+            {
+              type: "doc",
+              id: "statistics/quantile",
+              label: "Quantile Testing",
             },
           ],
         },

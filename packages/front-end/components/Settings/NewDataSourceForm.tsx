@@ -13,7 +13,7 @@ import { useForm } from "react-hook-form";
 import { MetricType } from "@back-end/types/metric";
 import clsx from "clsx";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
-import Link from "next/link";
+import { useRouter } from "next/router";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getInitialSettings } from "@/services/datasources";
@@ -134,6 +134,8 @@ const NewDataSourceForm: FC<{
   }, [source]);
 
   const { apiCall, orgId } = useAuth();
+
+  const router = useRouter();
 
   // Filter out demo datasource from available projects
   const projects = allProjects.filter(
@@ -406,18 +408,20 @@ const NewDataSourceForm: FC<{
               </div>
             </div>
             {showImportSampleData && (
-              <Link href="/demo-datasource-project">
-                <div className={styles.ctaContainer}>
-                  <div className={styles.ctaButton}>
-                    <a>
-                      <h3 className={styles.ctaText}>Use Sample Dataset</h3>
-                      <p className="mb-0 text-dark">
-                        Explore GrowthBook with a pre-loaded sample dataset.
-                      </p>
-                    </a>
-                  </div>
+              <div
+                className={styles.ctaContainer}
+                onClick={(e) => {
+                  e.preventDefault();
+                  router.push("/demo-datasource-project");
+                }}
+              >
+                <div className={styles.ctaButton}>
+                  <h3 className={styles.ctaText}>Use Sample Dataset</h3>
+                  <p className="mb-0 text-dark">
+                    Explore GrowthBook with a pre-loaded sample dataset.
+                  </p>
                 </div>
-              </Link>
+              </div>
             )}
           </div>
         </div>
@@ -556,7 +560,6 @@ const NewDataSourceForm: FC<{
             />
           </div>
         )}
-        {/* @ts-expect-error TS(2786) If you come across this, please fix it!: 'ConnectionSettings' cannot be used as a JSX compo... Remove this comment to see the full error message */}
         <ConnectionSettings
           datasource={datasource}
           existing={existing}

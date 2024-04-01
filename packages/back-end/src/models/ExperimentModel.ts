@@ -25,7 +25,11 @@ import {
 import { EventNotifier } from "../events/notifiers/EventNotifier";
 import { logger } from "../util/logger";
 import { upgradeExperimentDoc } from "../util/migrations";
-import { refreshSDKPayloadCache, VisualExperiment } from "../services/features";
+import {
+  refreshSDKPayloadCache,
+  URLRedirectExperiment,
+  VisualExperiment,
+} from "../services/features";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import { FeatureInterface } from "../../types/feature";
 import { getAffectedSDKPayloadKeys } from "../util/features";
@@ -39,6 +43,7 @@ import {
   VisualChangesetModel,
 } from "./VisualChangesetModel";
 import { getFeaturesByIds } from "./FeatureModel";
+import { findURLRedirects } from "./UrlRedirectModel";
 
 type FindOrganizationOptions = {
   experimentId: string;
@@ -180,6 +185,7 @@ const experimentSchema = new mongoose.Schema({
   ideaSource: String,
   regressionAdjustmentEnabled: Boolean,
   hasVisualChangesets: Boolean,
+  hasURLRedirects: Boolean,
   linkedFeatures: [String],
   sequentialTestingEnabled: Boolean,
   sequentialTestingTuningParameter: Number,
@@ -197,7 +203,7 @@ const experimentSchema = new mongoose.Schema({
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
 
-const ExperimentModel = mongoose.model<ExperimentInterface>(
+export const ExperimentModel = mongoose.model<ExperimentInterface>(
   "Experiment",
   experimentSchema
 );
@@ -378,7 +384,7 @@ export async function updateExperiment({
   experiment: ExperimentInterface;
   changes: Changeset;
   bypassWebhooks?: boolean;
-}): Promise<ExperimentInterface | null> {
+}): Promise<ExperimentInterface> {
   await ExperimentModel.updateOne(
     {
       id: experiment.id,
@@ -1088,6 +1094,9 @@ export async function getAllPayloadExperiments(
       {
         hasVisualChangesets: true,
       },
+      {
+        hasURLRedirects: true,
+      },
     ],
   });
 
@@ -1149,6 +1158,41 @@ export const getAllVisualExperiments = async (
     });
 };
 
+export const getAllURLRedirectExperiments = async (
+  context: ReqContext | ApiReqContext,
+  experimentMap: Map<string, ExperimentInterface>
+): Promise<Array<URLRedirectExperiment>> => {
+  const redirects = await findURLRedirects(context.org.id);
+
+  if (!redirects.length) return [];
+
+  const exps: URLRedirectExperiment[] = [];
+
+  redirects.forEach((r) => {
+    const experiment = experimentMap.get(r.experiment);
+    if (!experiment) return;
+
+    // Exclude experiments from SDK payload
+    if (!includeExperimentInPayload(experiment)) return;
+
+    // Exclude experiments that are stopped and the released variation doesn’t have a destination URL
+    if (experiment.status === "stopped") {
+      const destination = r.destinationURLs.find(
+        (d) => d.variation === experiment.releasedVariationId
+      );
+      if (!destination || !destination.url) return;
+    }
+
+    exps.push({
+      type: "redirect",
+      experiment,
+      urlRedirect: r,
+    });
+  });
+
+  return exps;
+};
+
 export function getPayloadKeysForAllEnvs(
   context: ReqContext | ApiReqContext,
   projects: string[]
@@ -1182,8 +1226,8 @@ export const getPayloadKeys = (
   const environments: string[] = getEnvironmentIdsFromOrg(context.org);
   const project = experiment.project ?? "";
 
-  // Visual editor experiments always affect all environments
-  if (experiment.hasVisualChangesets) {
+  // Visual editor and URL redirect experiments always affect all environments
+  if (experiment.hasVisualChangesets || experiment.hasURLRedirects) {
     const keys: SDKPayloadKey[] = [];
 
     environments.forEach((e) => {
@@ -1208,7 +1252,7 @@ export const getPayloadKeys = (
     );
   }
 
-  // Otherwise, if no linked visual editor or feature flag changes, there are no affected payload keys
+  // Otherwise, if no linked changes, there are no affected payload keys
   return [];
 };
 
@@ -1244,7 +1288,7 @@ const hasChangesForSDKPayloadRefresh = (
   oldExperiment: ExperimentInterface,
   newExperiment: ExperimentInterface
 ): boolean => {
-  // Skip experiments that don't have linked features or visual changesets
+  // Skip experiments that don't have linked changes
   if (
     !includeExperimentInPayload(oldExperiment) &&
     !includeExperimentInPayload(newExperiment)

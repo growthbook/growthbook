@@ -24,6 +24,7 @@ type ModalProps = {
   disabledMessage?: string;
   docSection?: DocSection;
   error?: string;
+  loading?: boolean;
   size?: "md" | "lg" | "max" | "fill";
   sizeY?: "max" | "fill";
   inline?: boolean;
@@ -33,7 +34,9 @@ type ModalProps = {
   solidOverlay?: boolean;
   close?: () => void;
   submit?: () => void | Promise<void>;
+  fullWidthSubmit?: boolean;
   secondaryCTA?: ReactElement;
+  tertiaryCTA?: ReactElement;
   successMessage?: string;
   children: ReactNode;
   bodyClassName?: string;
@@ -45,6 +48,7 @@ const Modal: FC<ModalProps> = ({
   children,
   close,
   submit,
+  fullWidthSubmit = false,
   submitColor = "primary",
   open = true,
   cta = "Submit",
@@ -62,7 +66,9 @@ const Modal: FC<ModalProps> = ({
   autoFocusSelector = "input:not(:disabled),textarea:not(:disabled),select:not(:disabled)",
   solidOverlay = false,
   error: externalError,
+  loading: externalLoading,
   secondaryCTA,
+  tertiaryCTA,
   successMessage,
   bodyClassName = "",
   formRef,
@@ -79,6 +85,10 @@ const Modal: FC<ModalProps> = ({
   useEffect(() => {
     setError(externalError || null);
   }, [externalError]);
+
+  useEffect(() => {
+    setLoading(externalLoading || false);
+  }, [externalLoading]);
 
   const bodyRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -169,7 +179,7 @@ const Modal: FC<ModalProps> = ({
           children
         )}
       </div>
-      {submit || close ? (
+      {submit || secondaryCTA || (close && includeCloseCta) ? (
         <div className="modal-footer">
           {error && (
             <div className="alert alert-danger mr-auto">
@@ -187,9 +197,12 @@ const Modal: FC<ModalProps> = ({
               body={disabledMessage || ""}
               shouldDisplay={!ctaEnabled && !!disabledMessage}
               tipPosition="top"
+              className={fullWidthSubmit ? "w-100" : ""}
             >
               <button
-                className={`btn btn-${submitColor}`}
+                className={`btn btn-${submitColor} ${
+                  fullWidthSubmit ? "w-100" : ""
+                }`}
                 type="submit"
                 disabled={!ctaEnabled}
               >
@@ -210,6 +223,7 @@ const Modal: FC<ModalProps> = ({
               {isSuccess && successMessage ? "Close" : closeCta}
             </button>
           ) : null}
+          {tertiaryCTA}
         </div>
       ) : null}
     </div>

@@ -62,6 +62,9 @@ const discussionsController = wrapController(discussionsControllerRaw);
 import * as adminControllerRaw from "./controllers/admin";
 const adminController = wrapController(adminControllerRaw);
 
+import * as licenseControllerRaw from "./controllers/license";
+const licenseController = wrapController(licenseControllerRaw);
+
 import * as stripeControllerRaw from "./controllers/stripe";
 const stripeController = wrapController(stripeControllerRaw);
 
@@ -105,6 +108,7 @@ import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/d
 import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
 import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
+import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
 
 const app = express();
 
@@ -341,7 +345,11 @@ app.use(organizationsRouter);
 app.use("/environment", environmentRouter);
 
 app.post("/oauth/google", datasourcesController.postGoogleOauthRedirect);
-app.post("/subscription/checkout", stripeController.postNewSubscription);
+app.post(
+  "/subscription/new-pro-trial",
+  stripeController.postNewProTrialSubscription
+);
+app.post("/subscription/new", stripeController.postNewProSubscription);
 app.get("/subscription/quote", stripeController.getSubscriptionQuote);
 app.post("/subscription/manage", stripeController.postCreateBillingSession);
 app.post("/subscription/success", stripeController.postSubscriptionSuccess);
@@ -478,10 +486,6 @@ app.post(
   reportsController.postReportFromSnapshot
 );
 app.post(
-  "/experiments/:id/visual-changeset",
-  experimentsController.postVisualChangeset
-);
-app.post(
   "/experiments/launch-checklist",
   experimentLaunchChecklistController.postExperimentLaunchChecklist
 );
@@ -499,6 +503,10 @@ app.put(
 );
 
 // Visual Changesets
+app.post(
+  "/experiments/:id/visual-changeset",
+  experimentsController.postVisualChangeset
+);
 app.put("/visual-changesets/:id", experimentsController.putVisualChangeset);
 app.delete(
   "/visual-changesets/:id",
@@ -510,6 +518,9 @@ app.get(
   "/visual-editor/key",
   experimentsController.findOrCreateVisualEditorToken
 );
+
+// URL Redirects
+app.use("/url-redirects", urlRedirectRouter);
 
 // Reports
 app.get("/report/:id", reportsController.getReport);
@@ -676,8 +687,19 @@ app.use("/teams", teamRouter);
 
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);
-app.get("/admin/license", adminController.getLicenseData);
-app.get("/admin/license-report", adminController.getLicenseReport);
+
+// License
+app.get("/license", licenseController.getLicenseData);
+app.get("/license/report", licenseController.getLicenseReport);
+app.post(
+  "/license/enterprise-trial",
+  licenseController.postCreateTrialEnterpriseLicense
+);
+app.post(
+  "/license/resend-verification-email",
+  licenseController.postResendEmailVerificationEmail
+);
+app.post("/license/verify-email", licenseController.postVerifyEmail);
 
 // Meta info
 app.get("/meta/ai", (req, res) => {

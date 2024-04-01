@@ -38,6 +38,24 @@ class FrequentistTestResult(TestResult):
     error_message: Optional[str] = None
 
 
+def frequentist_diff(mean_a, mean_b, relative, mean_a_unadjusted=None) -> float:
+    if not mean_a_unadjusted:
+        mean_a_unadjusted = mean_a
+    if relative:
+        return (mean_b - mean_a) / mean_a_unadjusted
+    else:
+        return mean_b - mean_a
+
+
+def frequentist_variance(var_a, mean_a, n_a, var_b, mean_b, n_b, relative) -> float:
+    if relative:
+        return var_b / (pow(mean_a, 2) * n_b) + var_a * pow(mean_b, 2) / (
+            pow(mean_a, 4) * n_a
+        )
+    else:
+        return var_b / n_b + var_a / n_a
+
+
 class TTest(BaseABTest):
     def __init__(
         self,
@@ -78,23 +96,24 @@ class TTest(BaseABTest):
 
     @property
     def variance(self) -> float:
-        if self.relative:
-            return self.stat_b.variance / (
-                pow(self.stat_a.unadjusted_mean, 2) * self.stat_b.n
-            ) + self.stat_a.variance * pow(self.stat_b.unadjusted_mean, 2) / (
-                pow(self.stat_a.unadjusted_mean, 4) * self.stat_a.n
-            )
-        return (
-            self.stat_b.variance / self.stat_b.n + self.stat_a.variance / self.stat_a.n
+        return frequentist_variance(
+            self.stat_a.variance,
+            self.stat_a.unadjusted_mean,
+            self.stat_a.n,
+            self.stat_b.variance,
+            self.stat_b.unadjusted_mean,
+            self.stat_b.n,
+            self.relative,
         )
 
     @property
     def point_estimate(self) -> float:
-        absolute_diff = self.stat_b.mean - self.stat_a.mean
-        if self.relative:
-            return absolute_diff / self.stat_a.unadjusted_mean
-        else:
-            return absolute_diff
+        return frequentist_diff(
+            self.stat_a.mean,
+            self.stat_b.mean,
+            self.relative,
+            self.stat_a.unadjusted_mean,
+        )
 
     @property
     def critical_value(self) -> float:
@@ -155,6 +174,7 @@ class TTest(BaseABTest):
             return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
         if self._has_zero_variance():
             return self._default_output(ZERO_NEGATIVE_VARIANCE_MESSAGE)
+
         result = FrequentistTestResult(
             expected=self.point_estimate,
             ci=self.confidence_interval,
