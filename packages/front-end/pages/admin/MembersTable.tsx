@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { FaCheck, FaTimes } from "react-icons/fa";
 import { Member, OrganizationInterface } from "@back-end/types/organization";
 import { UserInterface } from "@back-end/types/user";
 import { useAuth } from "@/services/auth";
@@ -59,7 +60,7 @@ export default function MembersTable({
             <tr key={i}>
               <td>{u.id}</td>
               <td>{u.email}</td>
-              <td>{u.verified ? "✅" : "❌"}</td>
+              <td>{u.verified ? <FaCheck /> : <FaTimes />}</td>
               <td>
                 {membersById[u.id].projectRoles?.map((r, i) => (
                   <ul key={i}>
@@ -71,7 +72,7 @@ export default function MembersTable({
                 ))}
               </td>
               <td>
-                <span>{u.superAdmin ? "✅" : "❌"}</span>
+                <span>{u.superAdmin ? <FaCheck /> : <FaTimes />}</span>
                 {isMemberOf && u.id !== userId ? (
                   <span className="ml-2" style={{ fontSize: "0.8rem" }}>
                     <a
