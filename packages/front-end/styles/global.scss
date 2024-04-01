@@ -124,6 +124,12 @@ pre {
 .w-200px {
   width: 200px !important;
 }
+.mw-50 {
+  max-width: 50% !important;
+}
+.mh-50 {
+  max-height: 50% !important;
+}
 
 // default bootstrap overrides:
 .btn:focus {

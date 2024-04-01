@@ -229,22 +229,21 @@ export default function ReleaseChangesForm({
         </div>
       </div>
 
-      <div className="appbox bg-light px-3 pt-3 pb-0 mb-0">
-        {recommendedRolloutData && changeType !== "phase" && (
-          <ImpactTooltips
-            recommendedRolloutData={recommendedRolloutData}
-            releasePlan={releasePlan}
-            usingStickyBucketing={usingStickyBucketing}
-          />
-        )}
-        {changeType === "phase" && releasePlan === "new-phase-same-seed" && (
-          <div className="alert alert-warning">
-            <FaExclamationCircle className="mr-1" /> Starting a new phase
-            without re-randomizing can lead to carryover bias. Consider
-            re-randomizing to mitigate.
-          </div>
-        )}
-      </div>
+      {recommendedRolloutData && changeType !== "phase" && (
+        <ImpactTooltips
+          recommendedRolloutData={recommendedRolloutData}
+          releasePlan={releasePlan}
+          usingStickyBucketing={usingStickyBucketing}
+          newPhase={form.watch("newPhase")}
+        />
+      )}
+      {changeType === "phase" && releasePlan === "new-phase-same-seed" && (
+        <div className="alert alert-warning">
+          <FaExclamationCircle className="mr-1" /> Starting a new phase without
+          re-randomizing can lead to carryover bias. Consider re-randomizing to
+          mitigate.
+        </div>
+      )}
 
       {changeType !== "phase" && (
         <div className="mt-4 mb-1">
@@ -294,10 +293,12 @@ function ImpactTooltips({
   recommendedRolloutData,
   releasePlan = "",
   usingStickyBucketing = false,
+  newPhase,
 }: {
   recommendedRolloutData: RecommendedRolloutData;
   releasePlan?: ReleasePlan;
   usingStickyBucketing?: boolean;
+  newPhase: boolean;
 }) {
   const switchToSB =
     !usingStickyBucketing ||
@@ -326,7 +327,7 @@ function ImpactTooltips({
   }
 
   return (
-    <>
+    <div className="appbox bg-light px-3 pt-3 pb-0 mb-0">
       <div className="mb-1 font-weight-bold">Statistical impact</div>
       <div
         className={clsx("mb-3", {
@@ -336,21 +337,26 @@ function ImpactTooltips({
       >
         {riskLevel === "safe" && (
           <span className="font-weight-semibold">
-            <BsCheckCircle className="mr-1" /> You are using a safe release plan
-            for these changes.
+            <BsCheckCircle className="mr-1" /> Your changes will not bias
+            experiment results.
           </span>
         )}
         {riskLevel === "warning" && (
           <span className="font-weight-semibold">
             <BsExclamationCircle className="mr-1" /> The changes you have made
-            may impact your experiment.
+            may bias experiment results.
           </span>
         )}
         {riskLevel === "danger" && (
           <span className="font-weight-semibold">
             <BsExclamationCircle className="mr-1" /> The changes you have made
-            have a <strong>high risk</strong> of impacting your experiment.
+            have a <strong>high risk</strong> of biasing experiment results.
           </span>
+        )}
+        {newPhase && (
+          <div className="ml-4 mt-2 text-warning-muted">
+            Note: starting a new phase restarts the analysis collection window.
+          </div>
         )}
         {riskLevel !== "safe" && (
           <div className="mt-2 mb-0">
@@ -453,9 +459,7 @@ function ImpactTooltips({
           </DocLink>
         </div>
       )}
-
-      <div></div>
-    </>
+    </div>
   );
 }
 

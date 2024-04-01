@@ -157,6 +157,12 @@ export default function EditTargetingModal({
       forceConditionRender();
     });
 
+    if (value.prerequisites) {
+      if (value.prerequisites.some((p) => !p.id)) {
+        throw new Error("Cannot have empty prerequisites");
+      }
+    }
+
     if (prerequisiteTargetingSdkIssues) {
       throw new Error("Prerequisite targeting issues must be resolved");
     }
@@ -230,7 +236,7 @@ export default function EditTargetingModal({
       }}
       secondaryCTA={
         step === lastStepNumber ? (
-          <div className="col ml-1 pl-0" style={{ minWidth: 500 }}>
+          <div className="col ml-1 pl-0" style={{ minWidth: 520 }}>
             <div className="d-flex m-0 pl-2 pr-2 py-1 alert alert-warning align-items-center">
               <div>
                 <strong>Warning:</strong> Changes made will apply to linked
