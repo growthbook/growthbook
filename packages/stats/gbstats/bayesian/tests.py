@@ -4,8 +4,7 @@ from typing import List, Optional, Tuple, Union
 
 import numpy as np
 from pydantic.dataclasses import dataclass
-from scipy.stats import norm  # type: ignore
-
+from scipy.stats import norm, truncnorm  # type: ignore
 
 from gbstats.messages import (
     BASELINE_VARIATION_ZERO_MESSAGE,
@@ -434,35 +433,21 @@ class GaussianEffectABTest(BayesianABTest):
 
     @property
     def risk(self) -> List[float]:
-        truncated_means = [
-            self.truncated_normal_mean(
-                mu=self.mean_diff, sigma=self.std_diff, threshold=0.0, right=r
-            )
-            for r in [False, True]
-        ]
-        return [
-            -1
-            * truncated_mean
-            * np.max(
-                [
-                    float(1e-5),
-                    norm.cdf(0, loc=self.mean_diff, scale=self.std_diff),
-                ]  # type: ignore
-            )
-            for truncated_mean in truncated_means
-        ]
+        prob_ctrl_is_better = norm.cdf(0.0, loc=self.mean_diff, scale=self.std_diff)
+        mn_neg = self.truncated_normal_mean(
+            mu=self.mean_diff, sigma=self.std_diff, a=-np.inf, b=0.0
+        )
+        mn_pos = self.truncated_normal_mean(
+            mu=self.mean_diff, sigma=self.std_diff, a=0, b=np.inf
+        )
+        risk_ctrl = float((1.0 - prob_ctrl_is_better) * mn_pos)
+        risk_trt = -float(prob_ctrl_is_better * mn_neg)
+        return [risk_trt, risk_ctrl]
 
     @staticmethod
-    def truncated_normal_mean(mu, sigma, threshold, right=True):
-        b_centered = (threshold - mu) / sigma
-        if right:
-            missing_mass = np.max(
-                [float(1e-10), norm.cdf(b_centered, loc=0, scale=1)]  # type: ignore
-            )  # type: ignore
-            b_centered_ratio = norm.pdf(b_centered) / missing_mass
-            return mu - sigma * b_centered_ratio
-        else:
-            missing_mass = np.max(
-                [float(1e-10), 1.0 - norm.cdf(b_centered, loc=0, scale=1)]  # type: ignore
-            )
-            return mu + sigma * norm.pdf(b_centered) / missing_mass
+    def truncated_normal_mean(mu, sigma, a, b):
+        # parameterized in scipy.stats as number of sds from mu
+        # rescaling for readability
+        a, b = (a - mu) / sigma, (b - mu) / sigma
+        mn, _, _, _ = truncnorm.stats(a, b, loc=mu, scale=sigma, moments="mvsk")
+        return mn
