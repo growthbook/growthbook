@@ -9,6 +9,7 @@ import { getUserById } from "../services/users";
 import { findUsersByIds, updateUserById } from "../models/UserModel";
 import { getContextFromReq } from "../services/organizations";
 import { auditDetailsUpdate } from "../services/audit";
+import { deleteOrganizationData } from "../models/OrganizationModel";
 
 export async function getOrganizations(
   req: AuthRequest<never, never, { page?: string; search?: string }>,
@@ -114,5 +115,23 @@ export async function updateUser(
 
   return res.status(200).json({
     updated,
+  });
+}
+
+export async function deleteOrganization(
+  req: AuthRequest<null, { orgId: string }>,
+  res: Response
+) {
+  if (!req.superAdmin)
+    return res.status(403).json({
+      status: 403,
+      message: "Only super admins can access this endpoint",
+    });
+
+  await deleteOrganizationData(req.params.orgId);
+
+  return res.status(200).json({
+    status: 200,
+    message: "Organization and all related data deleted",
   });
 }

@@ -21,7 +21,7 @@
     "generate-dummy-data": "ts-node ./test/data-generator/new-generator.ts",
     "test-integration-queries": "./test/integrations/integration-query-test.sh",
     "watch-compile": "swc src -w --out-dir dist",
-    "watch-dev": "delay 1 && nodemon --watch dist --watch '../shared/dist' --watch '../enterprise/dist' -e js ./dist/server.js",
+    "watch-dev": "delay 1 && nodemon --inspect --watch dist --watch '../shared/dist' --watch '../enterprise/dist' -e js ./dist/server.js",
     "migrate-encryption-key": "node dist/scripts/migrate-encryption-key.js",
     "generate-api-models": "node src/scripts/generate-doc-models-for-openapi-schemas.mjs",
     "generate-api-types": "yarn generate-api-models && swagger-cli bundle -t yaml src/api/openapi/openapi.tmp.yaml -o generated/spec.yaml && node src/scripts/generate-openapi.mjs"

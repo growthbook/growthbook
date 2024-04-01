@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { webcrypto } from "node:crypto";
-import mongoose, { ClientSession } from "mongoose";
+import mongoose from "mongoose";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
 import { hasReadAccess } from "shared/permissions";
@@ -268,22 +268,6 @@ export async function deleteApiKeyById(organization: string, id: string) {
     organization,
     id,
   });
-}
-
-export async function deleteApiKeysByOrgId(
-  orgId: string,
-  options: {
-    session?: ClientSession;
-  } = {}
-) {
-  await ApiKeyModel.deleteMany(
-    {
-      organization: orgId,
-    },
-    {
-      session: options.session,
-    }
-  );
 }
 
 export async function deleteApiKeyByKey(organization: string, key: string) {

@@ -109,8 +109,6 @@ import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
 import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
 import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
-import createDummyOrg from "./createDummyOrg";
-import deleteOrg from "./deleteOrg";
 
 const app = express();
 
@@ -163,27 +161,6 @@ app.get("/", (req, res) => {
     email_enabled: isEmailEnabled(),
     build: getBuild(),
   });
-});
-
-app.post("/create-dummy-org", async (_req, res) => {
-  try {
-    await createDummyOrg();
-  } catch (e) {
-    console.error(e);
-  } finally {
-    res.send("Done");
-  }
-});
-
-app.post("/delete-org", async (_req, res) => {
-  const orgId = _req.query.orgId as string;
-  try {
-    await deleteOrg(orgId);
-  } catch (e) {
-    console.log("err", e);
-  } finally {
-    res.send("Done");
-  }
 });
 
 app.use(httpLogger);
@@ -708,6 +685,7 @@ app.use("/teams", teamRouter);
 app.get("/admin/organizations", adminController.getOrganizations);
 app.get("/admin/organization/:orgId/users", adminController.getUsersForOrg);
 app.post("/admin/user/:userId", adminController.updateUser);
+app.delete("/admin/organization/:orgId", adminController.deleteOrganization);
 
 // License
 app.get("/license", licenseController.getLicenseData);

@@ -194,7 +194,7 @@ export async function createDataSource(
     projects,
   };
 
-  // await testDataSourceConnection(datasource);
+  await testDataSourceConnection(datasource);
 
   // Add any missing exposure query ids and check query validity
   settings = await validateExposureQueriesAndAddMissingIds(

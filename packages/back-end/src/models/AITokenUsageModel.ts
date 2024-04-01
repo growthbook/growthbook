@@ -1,6 +1,6 @@
 import { omit } from "lodash";
 
-import mongoose, { ClientSession } from "mongoose";
+import mongoose from "mongoose";
 import { AITokenUsageInterface } from "../../types/ai";
 import { OrganizationInterface } from "../../types/organization";
 
@@ -68,18 +68,4 @@ export const getTokensUsedByOrganization = async (
     numTokensUsed: 0,
   });
   return { numTokensUsed, dailyLimit };
-};
-
-export const deleteTokenUsageByOrgId = async (
-  orgId: string,
-  options: {
-    session?: ClientSession;
-  } = {}
-) => {
-  await AITokenUsageModel.deleteOne(
-    { organization: orgId },
-    {
-      session: options.session,
-    }
-  );
 };
