@@ -354,7 +354,7 @@ function ImpactTooltips({
           </span>
         )}
         {newPhase && (
-          <div className="ml-4 mt-2 text-warning-muted">
+          <div className="ml-4 mt-2 text-dark">
             Note: starting a new phase restarts the analysis collection window.
           </div>
         )}
