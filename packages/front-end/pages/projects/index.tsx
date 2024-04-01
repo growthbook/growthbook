@@ -1,9 +1,5 @@
 import React, { useState, FC } from "react";
-import {
-  FaExclamationTriangle,
-  FaFolderPlus,
-  FaPencilAlt,
-} from "react-icons/fa";
+import { FaExclamationTriangle, FaFolderPlus } from "react-icons/fa";
 import { ProjectInterface } from "back-end/types/project";
 import { useRouter } from "next/router";
 import Link from "next/link";
@@ -42,9 +38,9 @@ const ProjectsPage: FC = () => {
         />
       )}
 
-      <div className="filters md-form row mb-3 align-items-center">
+      <div className="filters md-form row mb-1 align-items-center">
         <div className="col-auto d-flex">
-          <h1>Projects</h1>
+          <h1 className="mb-0">Projects</h1>
         </div>
         <div style={{ flex: 1 }} />
         <div className="col-auto">
@@ -66,7 +62,7 @@ const ProjectsPage: FC = () => {
         </div>
       </div>
 
-      <p>
+      <p className="text-gray mb-3">
         Group your ideas and experiments into <strong>Projects</strong> to keep
         things organized and easy to manage.
       </p>
@@ -125,19 +121,20 @@ const ProjectsPage: FC = () => {
                     <MoreMenu>
                       {canEdit ? (
                         <button
-                          className="btn dropdown-item py-2"
+                          className="btn dropdown-item"
                           onClick={() => {
                             setModalOpen(p);
                           }}
                         >
-                          <FaPencilAlt /> Edit
+                          Edit
                         </button>
                       ) : null}
                       {canDelete ? (
                         <DeleteButton
-                          className="btn dropdown-item py-2"
+                          className="dropdown-item text-danger"
                           displayName="project"
                           text="Delete"
+                          useIcon={false}
                           onClick={async () => {
                             await apiCall(`/projects/${p.id}`, {
                               method: "DELETE",

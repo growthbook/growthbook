@@ -3,6 +3,7 @@ from functools import partial
 from unittest import TestCase, main as unittest_main
 
 import numpy as np
+from scipy.stats import norm
 
 from gbstats.bayesian.tests import (
     BayesianTestResult,
@@ -227,6 +228,40 @@ class TestGaussianEffectABTest(TestCase):
         self.assertEqual(
             b_relative_informative.ci, [0.06340910198272585, 0.08649472793647417]
         )
+
+        # adding another test for risk
+        s = 1
+        quantile_lower_c = quantile_hat_c - s
+        quantile_lower_t = quantile_hat_t - s
+        quantile_upper_c = quantile_hat_c + s
+        quantile_upper_t = quantile_hat_t + s
+        q_stat_c = QuantileStatistic(
+            n=n_c,
+            n_star=n_c,
+            nu=nu,
+            quantile_hat=quantile_hat_c,
+            quantile_lower=quantile_lower_c,
+            quantile_upper=quantile_upper_c,
+        )
+        q_stat_t = QuantileStatistic(
+            n=n_t,
+            n_star=n_t,
+            nu=nu,
+            quantile_hat=quantile_hat_t,
+            quantile_lower=quantile_lower_t,
+            quantile_upper=quantile_upper_t,
+        )
+        b_flat = GaussianEffectABTest(
+            q_stat_c, q_stat_t, config=effect_config_flat
+        ).compute_result()
+        m, s = b_flat.expected, (b_flat.ci[1] - b_flat.ci[0]) / (2 * norm.ppf(0.975))
+
+        np.random.seed(20240329)
+        y = s * np.random.normal(size=int(1e7)) + m
+        risk_empirical_trt = -np.mean(y[y < 0]) * np.mean(y < 0)
+        risk_empirical_ctrl = np.mean(y[y > 0]) * np.mean(y > 0)
+        np.testing.assert_almost_equal(b_flat.risk[0], risk_empirical_trt, decimal=3)
+        np.testing.assert_almost_equal(b_flat.risk[1], risk_empirical_ctrl, decimal=3)
 
 
 if __name__ == "__main__":

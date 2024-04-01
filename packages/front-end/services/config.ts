@@ -81,6 +81,7 @@ export function useConfigJson({
           "description",
           "ignoreNulls",
           "inverse",
+          "aggregation",
           "cappingSettings",
           "windowSettings",
           "regressionAdjustmentOverride",

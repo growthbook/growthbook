@@ -3,7 +3,11 @@ import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { useState, useMemo } from "react";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { autoMerge, mergeResultHasChanges } from "shared/util";
+import {
+  autoMerge,
+  filterEnvironmentsByFeature,
+  mergeResultHasChanges,
+} from "shared/util";
 import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
@@ -71,7 +75,8 @@ export default function DraftModal({
   onPublish,
   onDiscard,
 }: Props) {
-  const environments = useEnvironments();
+  const allEnvironments = useEnvironments();
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const permissions = usePermissions();
 
   const { apiCall } = useAuth();

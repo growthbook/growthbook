@@ -9,6 +9,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
+import { isCloud } from "@/services/env";
 import RoleSelector from "./RoleSelector";
 import InviteModalSubscriptionInfo from "./InviteModalSubscriptionInfo";
 
@@ -50,7 +51,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
     activeAndInvitedUsers,
   } = useStripeSubscription();
   const [showUpgradeModal, setShowUpgradeModal] = useState(
-    canSubscribe && activeAndInvitedUsers >= freeSeats
+    isCloud() && canSubscribe && activeAndInvitedUsers >= freeSeats
       ? "Whoops! You reached your free seat limit."
       : ""
   );
@@ -90,6 +91,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
     const { email: emails } = value;
 
     if (
+      isCloud() &&
       canSubscribe &&
       activeAndInvitedUsers + value.email.length > freeSeats
     ) {
