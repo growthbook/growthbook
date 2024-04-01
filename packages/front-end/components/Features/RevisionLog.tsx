@@ -55,13 +55,18 @@ function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
       return valueContainsData ? <Code language="json" code={value} /> : null;
     }
   };
-  const openClickClassNames = clsx("d-flex p-3 revision-log-header", {
+  const statusBackGround = clsx("d-flex p-3", {
+    "approval-flow-accepted": log.action === "Approved",
+    "approval-flow-changes-requested": log.action === "Requested Changes",
+    "revision-log-header":
+      log.action !== "Approved" && log.action !== "Requested Changes",
     "cursor-pointer ": !(!!comment || !valueContainsData),
   });
+
   return (
     <div className={`appbox mb-0 ${first ? "" : "mt-3"} revision-log`}>
       <div
-        className={openClickClassNames}
+        className={statusBackGround}
         onClick={(e) => {
           e.preventDefault();
           if (!(!valueContainsData || !!comment)) {

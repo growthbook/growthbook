@@ -8,6 +8,7 @@ import {
 } from "shared/util";
 import { useForm } from "react-hook-form";
 import { EventAuditUserLoggedIn } from "back-end/src/events/event-types";
+import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
 import { getCurrentUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
@@ -163,6 +164,36 @@ export default function RequestReviewModal({
   } else if (canReview) {
     ctaCopy = "Next";
   }
+  const showRevisionStatus = () => {
+    switch (revision.status) {
+      case "approved":
+        return (
+          <div className="alert alert-success">
+            <PiCheckCircleFill className="mr-1" /> Approved
+          </div>
+        );
+      case "pending-review":
+        return (
+          <div className="alert alert-warning">
+            <PiCircleDuotone className="mr-1" /> Pending Review
+          </div>
+        );
+      case "changes-requested":
+        return (
+          <div className="alert alert-danger">
+            <PiFileX className="mr-1" /> Changes Requested
+          </div>
+        );
+      case "draft":
+        return (
+          <div className="alert alert-warning">
+            Publishing requires approval.
+          </div>
+        );
+      default:
+        return;
+    }
+  };
   const renderRequestAndViewModal = () => {
     return (
       <Modal
@@ -197,7 +228,7 @@ export default function RequestReviewModal({
                 close();
               }}
             >
-              Discard
+              Discard Draft
             </Button>
           ) : undefined
         }
@@ -218,15 +249,9 @@ export default function RequestReviewModal({
 
         {mergeResult.success && hasChanges && (
           <div>
-            <div
-              className={`callout callout-color-${
-                isPendingReview ? "amber" : "gray"
-              }`}
-            >
-              <div>Publishing requires approval.</div>
-            </div>
+            <div className="mb-2">{showRevisionStatus()}</div>
             {canAdminPublish && (
-              <div className="mt-3 ml-1">
+              <div className="mt-3 mb-4 ml-1">
                 <div className="d-flex">
                   <input
                     type="checkbox"
@@ -241,14 +266,14 @@ export default function RequestReviewModal({
                 </div>
               </div>
             )}
-            <div className="list-group mb-4 mt-4">
+
+            <div className="list-group mb-4">
               <h4 className="mb-3">Diffs by Enviroment</h4>
               {resultDiffs.map((diff) => (
                 <ExpandableDiff {...diff} key={diff.title} />
               ))}
             </div>
             <h4 className="mb-3"> Change Request Log</h4>
-
             <Revisionlog
               feature={feature}
               revision={revision}

@@ -3163,3 +3163,29 @@ input:disabled {
     margin: -4px -8px 0;
   }
 }
+.approval-flow-accepted {
+  background-color: var(--alert-success-background);
+  border-color: var(--alert-success-border-color);
+  color: var(--alert-success-text-color);
+}
+.approval-flow-changes-requested {
+  background-color: var(--alert-danger-background);
+  border-color: var(--alert-danger-border-color);
+  color: var(--alert-danger-text-color);
+}
+
+.approval-flow-accepted-status {
+  // background-color: var( --alert-success-background);
+  // border-color: var(--alert-success-border-color);
+  color: var(--alert-success-text-color);
+}
+.approval-flow-changes-requested-status {
+  // background-color: var(--alert-danger-background);
+  // border-color: var(--alert-danger-border-color);
+  color: var(--alert-danger-text-color);
+}
+.approval-flow-pending-review-status {
+  // background-color: var(--alert-danger-background);
+  // border-color: var(--alert-danger-border-color);
+  color: var(--alert-warning-text-color);
+}
