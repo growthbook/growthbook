@@ -42,7 +42,7 @@ const IdeasPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const canCreateIdeas = permissionsUtil.canShowCreateIdeasButton(project);
+  const canCreateIdeas = permissionsUtil.canViewIdeaModal(project);
 
   if (!data.ideas.length) {
     return (

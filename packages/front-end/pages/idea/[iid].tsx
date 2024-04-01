@@ -104,7 +104,7 @@ const IdeaPage = (): ReactElement => {
   const estimate = data.estimate;
 
   const canEdit = permissionsUtil.canUpdateIdea(idea, {});
-  const canCreateIdeasInCurrentProject = permissionsUtil.canShowCreateIdeasButton(
+  const canCreateIdeasInCurrentProject = permissionsUtil.canViewIdeaModal(
     project
   );
 

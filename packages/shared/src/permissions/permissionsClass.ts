@@ -18,7 +18,8 @@ export class Permissions {
     this.superAdmin = superAdmin;
   }
 
-  public canShowCreateIdeasButton = (project?: string): boolean => {
+  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
+  public canViewIdeaModal = (project?: string): boolean => {
     return this.checkProjectFilterPermission(
       {
         projects: project ? [project] : [],
