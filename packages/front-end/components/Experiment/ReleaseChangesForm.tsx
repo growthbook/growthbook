@@ -515,7 +515,7 @@ function getRecommendedRolloutData({
   const variationHopping: RecommendedRolloutData["variationHopping"] = {
     "new-phase": true,
     "same-phase-sticky": false,
-    "same-phase-everyone": true,
+    "same-phase-everyone": false,
     "new-phase-block-sticky": true,
   };
   let disableSamePhase = false;
@@ -635,6 +635,7 @@ function getRecommendedRolloutData({
     actualReleasePlan = stickyBucketing
       ? recommendedReleasePlan
       : "same-phase-everyone";
+    variationHopping["same-phase-everyone"] = false;
   } else {
     // B. Calculate recommendations as if sticky bucketing is enabled
     // (We will override these later if it is not. Calculating this allows us to
@@ -649,6 +650,7 @@ function getRecommendedRolloutData({
         "same-phase-everyone": disableVariation ? "danger" : "warning",
         "new-phase-block-sticky": "safe",
       };
+      variationHopping["same-phase-everyone"] = true;
       reasons = {
         ...reasons,
         moreRestrictiveTargeting,
@@ -666,6 +668,7 @@ function getRecommendedRolloutData({
         "same-phase-everyone": "danger",
         "new-phase-block-sticky": "safe",
       };
+      variationHopping["same-phase-everyone"] = true;
       reasons = { ...reasons, otherTargetingChanges };
     }
     if (
@@ -684,6 +687,7 @@ function getRecommendedRolloutData({
         "same-phase-everyone": "danger",
         "new-phase-block-sticky": "safe",
       };
+      variationHopping["same-phase-everyone"] = true;
       reasons = {
         ...reasons,
         addToNamespace,
@@ -703,6 +707,7 @@ function getRecommendedRolloutData({
         "same-phase-everyone": "safe",
         "new-phase-block-sticky": "safe",
       };
+      variationHopping["same-phase-everyone"] = false;
       disableSamePhase = false;
       reasons = {};
 
@@ -715,6 +720,7 @@ function getRecommendedRolloutData({
           "same-phase-everyone": "warning",
           "new-phase-block-sticky": "safe",
         };
+        variationHopping["same-phase-everyone"] = true;
         reasons = {
           ...reasons,
           moreRestrictiveTargeting,
@@ -738,6 +744,7 @@ function getRecommendedRolloutData({
           "same-phase-everyone": "danger",
           "new-phase-block-sticky": "safe",
         };
+        variationHopping["same-phase-everyone"] = true;
         reasons = {
           ...reasons,
           otherTargetingChanges,
