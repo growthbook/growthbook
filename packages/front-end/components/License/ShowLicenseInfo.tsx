@@ -7,6 +7,7 @@ import EditLicenseModal from "@/components/Settings/EditLicenseModal";
 import { GBPremiumBadge } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
+import { isCloud } from "@/services/env";
 import RefreshLicenseButton from "./RefreshLicenseButton";
 import DownloadLicenseUsageButton from "./DownloadLicenseUsageButton";
 
@@ -35,7 +36,7 @@ const ShowLicenseInfo: FC<{
 
   // TODO: Remove this once we have migrated all organizations to use the license key
   const usesLicenseInfoOnModel =
-    !showUpgradeButton && !organization?.licenseKey;
+    isCloud() && !showUpgradeButton && !organization?.licenseKey;
 
   return (
     <div>

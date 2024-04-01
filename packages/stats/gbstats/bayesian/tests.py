@@ -348,7 +348,9 @@ class GaussianEffectABTest(BayesianABTest):
         self.stat_b = stat_b
 
     def compute_result(self):
-        if self.stat_a.mean == 0 and self.relative:
+        if (
+            self.stat_a.mean == 0 or self.stat_a.unadjusted_mean == 0
+        ) and self.relative:
             return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
         if self.has_empty_input():
             return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)
@@ -383,7 +385,7 @@ class GaussianEffectABTest(BayesianABTest):
         )
         self.mean_diff = mu_b - mu_a
         self.std_diff = np.sqrt(sd_a**2 + sd_b**2)
-        risk = [self.risk]
+        risk = self.risk
         self.var_diff = frequentist_variance(
             sd_a**2, mu_a, 1, sd_b**2, mu_b, 1, self.relative
         )
@@ -431,24 +433,36 @@ class GaussianEffectABTest(BayesianABTest):
         )
 
     @property
-    def risk(self):
-        return (
-            -1
-            * self.right_truncated_normal_mean(
-                mu=self.mean_diff, sigma=self.std_diff, threshold=0.0
+    def risk(self) -> List[float]:
+        truncated_means = [
+            self.truncated_normal_mean(
+                mu=self.mean_diff, sigma=self.std_diff, threshold=0.0, right=r
             )
+            for r in [False, True]
+        ]
+        return [
+            -1
+            * truncated_mean
             * np.max(
                 [
                     float(1e-5),
                     norm.cdf(0, loc=self.mean_diff, scale=self.std_diff),
                 ]  # type: ignore
             )
-        )
+            for truncated_mean in truncated_means
+        ]
 
     @staticmethod
-    def right_truncated_normal_mean(mu, sigma, threshold):
+    def truncated_normal_mean(mu, sigma, threshold, right=True):
         b_centered = (threshold - mu) / sigma
-        b_centered_ratio = norm.pdf(b_centered) / np.max(
-            [float(1e-5), norm.cdf(b_centered, loc=0, scale=1)]  # type: ignore
-        )
-        return mu - sigma * b_centered_ratio
+        if right:
+            missing_mass = np.max(
+                [float(1e-10), norm.cdf(b_centered, loc=0, scale=1)]  # type: ignore
+            )  # type: ignore
+            b_centered_ratio = norm.pdf(b_centered) / missing_mass
+            return mu - sigma * b_centered_ratio
+        else:
+            missing_mass = np.max(
+                [float(1e-10), 1.0 - norm.cdf(b_centered, loc=0, scale=1)]  # type: ignore
+            )
+            return mu + sigma * norm.pdf(b_centered) / missing_mass
