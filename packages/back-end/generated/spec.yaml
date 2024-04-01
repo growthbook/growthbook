@@ -3862,6 +3862,13 @@ components:
         - $ref: '#/components/schemas/FeatureRolloutRule'
         - $ref: '#/components/schemas/FeatureExperimentRule'
         - $ref: '#/components/schemas/FeatureExperimentRefRule'
+      discriminator:
+        propertyName: type
+        mapping:
+          force: '#/components/schemas/FeatureForceRule'
+          rollout: '#/components/schemas/FeatureRolloutRule'
+          experiment: '#/components/schemas/FeatureExperimentRule'
+          experiment-ref: '#/components/schemas/FeatureExperimentRefRule'
     FeatureDefinition:
       type: object
       required:
@@ -3953,6 +3960,8 @@ components:
           type: boolean
         type:
           type: string
+          enum:
+            - force
         value:
           type: string
     FeatureRolloutRule:
@@ -3995,6 +4004,8 @@ components:
           type: boolean
         type:
           type: string
+          enum:
+            - rollout
         value:
           type: string
         coverage:
@@ -4020,6 +4031,8 @@ components:
           type: boolean
         type:
           type: string
+          enum:
+            - experiment
         trackingKey:
           type: string
         hashAttribute:
@@ -4083,6 +4096,8 @@ components:
           type: boolean
         type:
           type: string
+          enum:
+            - experiment-ref
         condition:
           type: string
         variations:

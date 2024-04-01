@@ -621,9 +621,9 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   } = org;
 
   let license;
-  if (licenseKey) {
+  if (licenseKey || process.env.LICENSE_KEY) {
     // automatically set the license data based on org license key
-    license = getLicense(org.licenseKey);
+    license = getLicense(licenseKey || process.env.LICENSE_KEY);
     if (!license || (license.organizationId && license.organizationId !== id)) {
       try {
         license = await initializeLicenseForOrg(org);
