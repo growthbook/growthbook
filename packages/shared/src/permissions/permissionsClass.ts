@@ -43,7 +43,7 @@ export class Permissions {
   ): boolean => {
     return this.checkProjectFilterUpdatePermission(
       { projects: existing.project ? [existing.project] : [] },
-      updated.project ? { projects: [updated.project] } : {},
+      "project" in updated ? { projects: [updated.project || ""] } : {},
       "createIdeas"
     );
   };
