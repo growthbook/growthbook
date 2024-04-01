@@ -94,7 +94,7 @@ export default function FeaturesDraftTable({ features }: Props) {
     defaultSortField: "dateUpdated",
     searchFields: ["id^3", "comment", "tags^2", "status", "creator"],
     transformQuery: removeEnvFromSearchTerm,
-    localStorageKey: "features",
+    localStorageKey: "features-drafts-table",
   });
 
   useEffect(() => {
