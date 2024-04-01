@@ -431,7 +431,11 @@ export default function UpgradeModal({ close, source }: Props) {
                     <div className="border-top p-0 flex-grow-1">
                       <ul className="pt-4">
                         <li>
-                          <b>Up to 100 team members</b>
+                          <b>
+                            {isCloud()
+                              ? "Up to 100 team members"
+                              : "Unlimited users"}
+                          </b>
                         </li>
                         <li>
                           <b>Advanced permissioning</b>
