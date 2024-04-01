@@ -79,6 +79,9 @@ pre {
 .bg-warning-orange {
   background-color: colors.$warning-orange !important;
 }
+.text-warning-muted {
+  color: var(--alert-warn-color);
+}
 .text-gray {
   color: var(--text-color-th);
 }
@@ -120,6 +123,12 @@ pre {
 }
 .w-200px {
   width: 200px !important;
+}
+.mw-50 {
+  max-width: 50% !important;
+}
+.mh-50 {
+  max-height: 50% !important;
 }
 
 // default bootstrap overrides:
