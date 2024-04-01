@@ -124,7 +124,7 @@ export function PreLaunchChecklist({
               Linked Feature or Visual Editor change
             </a>
           ) : (
-            "Linked Feature, Visual Editor change, or URL redirect"
+            "Linked Feature, Visual Editor change, or URL Redirect"
           )}
           .
         </>

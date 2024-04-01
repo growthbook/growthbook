@@ -4,7 +4,12 @@ import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { ago, datetime } from "shared/dates";
-import { isFeatureStale, StaleFeatureReason } from "shared/util";
+import {
+  featureHasEnvironment,
+  filterEnvironmentsByFeature,
+  isFeatureStale,
+  StaleFeatureReason,
+} from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -76,7 +81,6 @@ export default function FeaturesPage() {
   const { project, getProjectById } = useDefinitions();
   const settings = useOrgSettings();
   const environments = useEnvironments();
-  const envs = environments.map((e) => e.id);
   const { features, experiments, loading, error, mutate } = useFeaturesList();
 
   const { usage, usageDomain } = useRealtimeData(
@@ -253,11 +257,13 @@ export default function FeaturesPage() {
                     </td>
                     {toggleEnvs.map((en) => (
                       <td key={en.id} className="position-relative text-center">
-                        <EnvironmentToggle
-                          feature={feature}
-                          environment={en.id}
-                          mutate={mutate}
-                        />
+                        {featureHasEnvironment(feature, en) && (
+                          <EnvironmentToggle
+                            feature={feature}
+                            environment={en.id}
+                            mutate={mutate}
+                          />
+                        )}
                       </td>
                     ))}
                     <td>
@@ -396,6 +402,11 @@ export default function FeaturesPage() {
       { stale: boolean; reason?: StaleFeatureReason }
     > = {};
     featureItems.forEach((feature) => {
+      const featureEnvironments = filterEnvironmentsByFeature(
+        environments,
+        feature
+      );
+      const envs = featureEnvironments.map((e) => e.id);
       staleFeatures[feature.id] = isFeatureStale({
         feature,
         features,
@@ -404,7 +415,7 @@ export default function FeaturesPage() {
       });
     });
     return staleFeatures;
-  }, [featureItems, features, experiments, envs]);
+  }, [featureItems, features, experiments, environments]);
 
   // Reset to page 1 when a filter is applied
   useEffect(() => {

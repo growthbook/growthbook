@@ -54,7 +54,8 @@ export type CommercialFeature =
   | "prerequisites"
   | "prerequisite-targeting"
   | "redirects"
-  | "multiple-sdk-webhooks";
+  | "multiple-sdk-webhooks"
+  | "quantile-metrics";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface LicenseInterface {
@@ -152,6 +153,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "prerequisites",
     "redirects",
     "multiple-sdk-webhooks",
+    "quantile-metrics",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -172,6 +174,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "prerequisites",
     "redirects",
     "multiple-sdk-webhooks",
+    "quantile-metrics",
   ]),
   enterprise: new Set<CommercialFeature>([
     "scim",
@@ -203,6 +206,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "prerequisite-targeting",
     "redirects",
     "multiple-sdk-webhooks",
+    "quantile-metrics",
   ]),
 };
 
@@ -398,26 +402,6 @@ function verifyLicenseInterface(license: LicenseInterface) {
   if (!isVerified) {
     throw new Error("Invalid license key signature");
   }
-}
-
-async function getLicenseDataFromMongoCache(
-  licenseId: string,
-  errorMessage: string
-): Promise<LicenseInterface> {
-  const cache = await LicenseModel.findOne({ id: licenseId });
-  if (!cache) {
-    throw new Error(errorMessage);
-  }
-  if (
-    new Date(cache.dateUpdated) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // 7 days
-  ) {
-    const license: LicenseInterface = cache.toJSON();
-    await setAndVerifyServerLicenseData(license);
-    return license;
-  }
-  throw new Error(
-    "License server is not working and cached license data is too old"
-  );
 }
 
 function getAgentOptions() {
@@ -629,11 +613,11 @@ async function createOrUpdateLicenseMongoCache(license: LicenseInterface) {
 
 // Updates the local daily cache, the one week backup Mongo cache, and verifies the license.
 export async function setAndVerifyServerLicenseData(license: LicenseInterface) {
+  verifyLicenseInterface(license);
+  checkIfEnvVarSettingsAreAllowedByLicense(license);
   keyToLicenseData[license.id] = license;
   keyToCacheDate[license.id] = new Date();
   await createOrUpdateLicenseMongoCache(license);
-  verifyLicenseInterface(license);
-  checkIfEnvVarSettingsAreAllowedByLicense(license);
 }
 
 async function getLicenseDataFromServer(
@@ -653,7 +637,6 @@ async function getLicenseDataFromServer(
     "PUT"
   );
 
-  await setAndVerifyServerLicenseData(license);
   return license;
 }
 
@@ -700,21 +683,59 @@ export async function licenseInit(
         !keyToLicenseData[key] ||
         (keyToCacheDate[key] !== null && keyToCacheDate[key] <= oneDayAgo)
       ) {
-        if (key.startsWith("license_")) {
+        if (!isAirGappedLicenseKey(key)) {
           if (!userLicenseCodes || !metaData) {
             throw new Error(
               "Missing userLicenseCodes or metaData for license key"
             );
           }
 
-          try {
-            await getLicenseDataFromServer(key, userLicenseCodes, metaData);
-          } catch (e) {
-            logger.warn(
-              "Could not connect to license server. Falling back to cache."
-            );
-            await getLicenseDataFromMongoCache(key, e.message);
+          let license: LicenseInterface;
+          const mongoCache = await LicenseModel.findOne({ id: key });
+          const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // 7 days
+          if (
+            !forceRefresh &&
+            mongoCache &&
+            new Date(mongoCache?.dateUpdated) > oneDayAgo
+          ) {
+            license = mongoCache.toJSON();
+          } else {
+            try {
+              license = await getLicenseDataFromServer(
+                key,
+                userLicenseCodes,
+                metaData
+              );
+              if (!mongoCache) {
+                await LicenseModel.create(license);
+              } else {
+                mongoCache.set(license);
+                await mongoCache.save();
+              }
+            } catch (e) {
+              if (
+                mongoCache &&
+                new Date(mongoCache?.dateUpdated) > oneWeekAgo
+              ) {
+                logger.warn(
+                  "Could not connect to license server. Falling back to cache."
+                );
+                license = mongoCache.toJSON();
+              } else if (mongoCache) {
+                throw new Error(
+                  "License server is not working and cached license data is too old"
+                );
+              } else {
+                throw e;
+              }
+            }
           }
+
+          verifyLicenseInterface(license);
+          checkIfEnvVarSettingsAreAllowedByLicense(license);
+
+          keyToLicenseData[key] = license;
+          keyToCacheDate[key] = new Date();
         } else {
           // Old style: the key itself has the encrypted license data in it.
           keyToLicenseData[key] = getVerifiedLicenseData(key);
@@ -778,7 +799,7 @@ function shouldLimitAccess(org: MinimalOrganization): boolean {
     return true;
   }
 
-  if (org.licenseKey?.startsWith("license") && !licenseData.emailVerified) {
+  if (!isAirGappedLicenseKey(org.licenseKey) && !licenseData.emailVerified) {
     return true;
   }
 
@@ -795,6 +816,11 @@ function shouldLimitAccess(org: MinimalOrganization): boolean {
   }
 
   return false;
+}
+
+export function isAirGappedLicenseKey(licenseKey: string | undefined): boolean {
+  if (!licenseKey) return false;
+  return !licenseKey.startsWith("license");
 }
 
 export function getEffectiveAccountPlan(org: MinimalOrganization): AccountPlan {
