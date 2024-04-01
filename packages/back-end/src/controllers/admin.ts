@@ -84,7 +84,8 @@ export async function updateUser(
     });
   }
 
-  // TODO Is there an easier way to do this?
+  // If the superAdmin field is being updated, check that the user making the
+  // request is a super admin and a member of the org
   if (Object.keys(updates).includes("superAdmin")) {
     const context = getContextFromReq(req);
     const memberIds = context.org.members.map((m) => m.id);
