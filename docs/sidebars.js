@@ -340,6 +340,11 @@ const sidebars = {
               id: "statistics/aggregation",
               label: "Aggregate Data",
             },
+            {
+              type: "doc",
+              id: "statistics/quantile",
+              label: "Quantile Testing",
+            },
           ],
         },
       ],

@@ -337,6 +337,13 @@ describe("licenseInit and getLicense", () => {
           json: jest.fn().mockResolvedValueOnce(licenseData2),
         } as unknown) as Response; // Create a mock Response object
 
+        jest.spyOn(LicenseModel, "findOne").mockResolvedValue({
+          ...licenseData,
+          toJSON: () => licenseData,
+          save: jest.fn(),
+          set: jest.fn(),
+        });
+
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse2));
 
         await licenseInit(licenseKey, userLicenseCodes, metaData, true);

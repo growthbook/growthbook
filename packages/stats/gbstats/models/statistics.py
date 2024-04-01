@@ -227,6 +227,8 @@ class QuantileStatistic(Statistic):
 
     @property
     def variance_init(self) -> float:
+        if self.n <= 1:
+            return 0
         num = self.quantile_upper - self.quantile_lower
         den = 2 * scipy.stats.norm.ppf(1.0 - 0.5 * 0.05, loc=0, scale=1)
         return float((self.n_star / self.n) * (self.n - 1) * (num / den) ** 2)
@@ -250,6 +252,13 @@ class QuantileClusteredStatistic(QuantileStatistic):
 
     @property
     def variance_init(self):
+        if (
+            self.n <= 1
+            or self.nu == 0
+            or self.n_clusters <= 1
+            or self.denominator_sum <= 0
+        ):
+            return 0
         v_iid = super().variance_init
         v_nu_iid = self.nu * (1.0 - self.nu) / self.n
         v_nu_cluster = self.get_cluster_variance

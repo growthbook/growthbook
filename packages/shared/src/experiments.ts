@@ -201,6 +201,12 @@ export function getRegressionAdjustmentsForMetric<
       regressionAdjustmentAvailable = false;
       reason = "ratio metrics not supported";
     }
+    if (metric && isFactMetric(metric) && quantileMetricType(metric)) {
+      // is this a fact quantile metric?
+      regressionAdjustmentEnabled = false;
+      regressionAdjustmentAvailable = false;
+      reason = "quantile metrics not supported";
+    }
     if (metric?.denominator) {
       // is this a classic "ratio" metric (denominator unsupported type)?
       const denominator = denominatorMetrics.find(

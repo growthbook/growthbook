@@ -12,6 +12,7 @@ import {
 import { ExperimentTableRow } from "@/services/experiments";
 import Markdown from "@/components/Markdown/Markdown";
 import SortedTags from "@/components/Tags/SortedTags";
+import { getPercentileLabel } from "@/services/metrics";
 import styles from "./MetricToolTipBody.module.scss";
 import MetricName from "./MetricName";
 
@@ -64,7 +65,7 @@ const MetricTooltipBody = ({
       body: (
         <>
           {isFactMetric(metric) && metric.quantileSettings
-            ? metric.quantileSettings.quantile
+            ? getPercentileLabel(metric.quantileSettings.quantile)
             : null}
         </>
       ),
@@ -76,10 +77,10 @@ const MetricTooltipBody = ({
         <>
           {isFactMetric(metric) && metric.quantileSettings
             ? `${
-                metric.quantileSettings.type === "unit"
-                  ? "After unit aggregation"
-                  : "Across events"
-              }${metric.quantileSettings.ignoreZeros ? "(ignoring zeros)" : ""}`
+                metric.quantileSettings.type === "unit" ? "Per-user" : "Events"
+              }${
+                metric.quantileSettings.ignoreZeros ? " (ignoring zeros)" : ""
+              }`
             : null}
         </>
       ),

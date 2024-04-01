@@ -7,6 +7,8 @@ import {
   filterProjectsByEnvironmentWithNull,
   MergeResultChanges,
   MergeStrategy,
+  checkIfRevisionNeedsReview,
+  resetReviewOnChange,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -549,7 +551,6 @@ export async function postFeatureRebase(
   environmentIds.forEach((env) => {
     newRules[env] = mergeResult.result.rules?.[env] || live.rules[env] || [];
   });
-
   await updateRevision(
     revision,
     {
@@ -562,7 +563,8 @@ export async function postFeatureRebase(
       action: "rebase",
       subject: `on top of revision #${live.version}`,
       value: JSON.stringify(mergeResult.result),
-    }
+    },
+    false
   );
 
   res.status(200).json({
@@ -695,28 +697,9 @@ export async function postFeaturePublish(
     "draft",
     "approved",
   ];
-  if (adminOverride && org.settings?.requireReviews) {
-    if (!context.permissions.canBypassApprovalChecks(feature)) {
-      context.permissions.throwPermissionError();
-    }
-  }
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
-  if (
-    !adminOverride &&
-    org.settings?.requireReviews &&
-    revision.status !== "approved"
-  ) {
-    throw new Error("needs review before publishing");
-  }
-  if (
-    !org.settings?.requireReviews &&
-    !reviewStatuses.includes(revision.status)
-  ) {
-    throw new Error("Can only publish Draft revisions");
-  }
-
   const live = await getRevision(org.id, feature.id, feature.version);
   if (!live) {
     throw new Error("Could not lookup feature history");
@@ -729,7 +712,25 @@ export async function postFeaturePublish(
   if (!base) {
     throw new Error("Could not lookup feature history");
   }
+  const requiresReview = checkIfRevisionNeedsReview({
+    feature,
+    baseRevision: base,
+    revision,
+    allEnvironments: environmentIds,
+    settings: org.settings,
+  });
+  if (!adminOverride && requiresReview && revision.status !== "approved") {
+    throw new Error("needs review before publishing");
+  }
+  if (requiresReview && !reviewStatuses.includes(revision.status)) {
+    throw new Error("Can only publish Draft revisions");
+  }
 
+  if (adminOverride && requiresReview) {
+    if (!context.permissions.canBypassApprovalChecks(feature)) {
+      context.permissions.throwPermissionError();
+    }
+  }
   const mergeResult = autoMerge(live, base, revision, environmentIds, {});
   if (JSON.stringify(mergeResult) !== mergeResultSerialized) {
     throw new Error(
@@ -902,7 +903,7 @@ export async function postFeatureFork(
     baseVersion: revision.version,
     changes: revision,
     environments,
-    requiresReview: !!org.settings?.requireReviews,
+    org,
   });
   await updateFeature(context, feature, {
     hasDrafts: true,
@@ -966,6 +967,7 @@ export async function postFeatureRule(
   >
 ) {
   const context = getContextFromReq(req);
+  const { org } = context;
   const { id, version } = req.params;
   const { environment, rule } = req.body;
 
@@ -986,8 +988,19 @@ export async function postFeatureRule(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
-
-  await addFeatureRule(revision, environment, rule, res.locals.eventAudit);
+  const resetReview = resetReviewOnChange({
+    feature,
+    changedEnvironments: [environment],
+    defaultValueChanged: false,
+    settings: org?.settings,
+  });
+  await addFeatureRule(
+    revision,
+    environment,
+    rule,
+    res.locals.eventAudit,
+    resetReview
+  );
 
   // If referencing a new experiment, add it to linkedExperiments
   if (
@@ -1018,7 +1031,7 @@ export async function postFeatureSync(
   >
 ) {
   const context = getContextFromReq(req);
-  const { environments } = context;
+  const { environments, org } = context;
   const { id } = req.params;
 
   const feature = await getFeature(context, id);
@@ -1097,6 +1110,7 @@ export async function postFeatureSync(
       changes,
       environments,
       comment: `Sync Feature`,
+      org,
     });
 
     updates.version = revision.version;
@@ -1129,7 +1143,7 @@ export async function postFeatureExperimentRefRule(
   >
 ) {
   const context = getContextFromReq(req);
-  const { environments } = context;
+  const { environments, org } = context;
   const { id } = req.params;
   const { rule } = req.body;
 
@@ -1201,16 +1215,35 @@ export async function postFeatureExperimentRefRule(
     changes,
     environments,
     comment: `Add Experiment - ${experiment.name}`,
+    org,
   });
 
-  updates.version = revision.version;
-
+  const linkedExperiments = feature.linkedExperiments || [];
   if (!feature.linkedExperiments?.includes(experiment.id)) {
-    updates.linkedExperiments = feature.linkedExperiments || [];
-    updates.linkedExperiments.push(experiment.id);
+    linkedExperiments.push(experiment.id);
+    updates.linkedExperiments = linkedExperiments;
   }
 
-  const updatedFeature = await updateFeature(context, feature, updates);
+  if (revision.status === "published") {
+    updates.version = revision.version;
+    const updatedFeature = await updateFeature(context, feature, updates);
+
+    await req.audit({
+      event: "feature.update",
+      entity: {
+        object: "feature",
+        id: feature.id,
+      },
+      details: auditDetailsUpdate(feature, updatedFeature, {
+        revision: revision.version,
+      }),
+    });
+  } else {
+    await updateFeature(context, feature, {
+      linkedExperiments,
+      hasDrafts: true,
+    });
+  }
 
   await addLinkedFeatureToExperiment(
     context,
@@ -1218,17 +1251,6 @@ export async function postFeatureExperimentRefRule(
     feature.id,
     experiment
   );
-
-  await req.audit({
-    event: "feature.update",
-    entity: {
-      object: "feature",
-      id: feature.id,
-    },
-    details: auditDetailsUpdate(feature, updatedFeature, {
-      revision: revision.version,
-    }),
-  });
 
   res.status(200).json({
     status: 200,
@@ -1242,11 +1264,13 @@ async function getDraftRevision(
   version: number
 ): Promise<FeatureRevisionInterface> {
   // This is the published version, create a new draft revision
+  const { org } = context;
   if (version === feature.version) {
     const newRevision = await createRevision({
       feature,
       user: context.auditUser,
       environments: getEnvironmentIdsFromOrg(context.org),
+      org,
     });
 
     await updateFeature(context, feature, {
@@ -1305,7 +1329,8 @@ export async function putRevisionComment(
       action: "edit comment",
       subject: "",
       value: JSON.stringify({ comment }),
-    }
+    },
+    false
   );
 
   res.status(200).json({
@@ -1321,6 +1346,7 @@ export async function postFeatureDefaultValue(
   >
 ) {
   const context = getContextFromReq(req);
+  const { environments, org } = context;
   const { id, version } = req.params;
   const { defaultValue } = req.body;
 
@@ -1333,8 +1359,18 @@ export async function postFeatureDefaultValue(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
-
-  await setDefaultValue(revision, defaultValue, res.locals.eventAudit);
+  const resetReview = resetReviewOnChange({
+    feature,
+    changedEnvironments: environments,
+    defaultValueChanged: true,
+    settings: org?.settings,
+  });
+  await setDefaultValue(
+    revision,
+    defaultValue,
+    res.locals.eventAudit,
+    resetReview
+  );
 
   res.status(200).json({
     status: 200,
@@ -1385,6 +1421,7 @@ export async function putFeatureRule(
   >
 ) {
   const context = getContextFromReq(req);
+  const { org } = context;
   const { id, version } = req.params;
   const { environment, rule, i } = req.body;
 
@@ -1405,8 +1442,20 @@ export async function putFeatureRule(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
-
-  await editFeatureRule(revision, environment, i, rule, res.locals.eventAudit);
+  const resetReview = resetReviewOnChange({
+    feature,
+    changedEnvironments: [environment],
+    defaultValueChanged: false,
+    settings: org?.settings,
+  });
+  await editFeatureRule(
+    revision,
+    environment,
+    i,
+    rule,
+    res.locals.eventAudit,
+    resetReview
+  );
 
   res.status(200).json({
     status: 200,
@@ -1477,7 +1526,7 @@ export async function postFeatureMoveRule(
   >
 ) {
   const context = getContextFromReq(req);
-  const { environments } = context;
+  const { environments, org } = context;
   const { id, version } = req.params;
   const { environment, from, to } = req.body;
   const feature = await getFeature(context, id);
@@ -1501,13 +1550,23 @@ export async function postFeatureMoveRule(
   }
   const rule = rules[from];
   changes.rules[environment] = arrayMove(rules, from, to);
-
-  await updateRevision(revision, changes, {
-    user: res.locals.eventAudit,
-    action: "move rule",
-    subject: `in ${environment} from position ${from + 1} to ${to + 1}`,
-    value: JSON.stringify(rule),
+  const resetReview = resetReviewOnChange({
+    feature,
+    changedEnvironments: [environment],
+    defaultValueChanged: false,
+    settings: org?.settings,
   });
+  await updateRevision(
+    revision,
+    changes,
+    {
+      user: res.locals.eventAudit,
+      action: "move rule",
+      subject: `in ${environment} from position ${from + 1} to ${to + 1}`,
+      value: JSON.stringify(rule),
+    },
+    resetReview
+  );
 
   res.status(200).json({
     status: 200,
@@ -1542,7 +1601,7 @@ export async function deleteFeatureRule(
   >
 ) {
   const context = getContextFromReq(req);
-  const { environments } = context;
+  const { environments, org } = context;
   const { id, version } = req.params;
   const { environment, i } = req.body;
 
@@ -1569,13 +1628,23 @@ export async function deleteFeatureRule(
 
   changes.rules[environment] = rules.slice();
   changes.rules[environment].splice(i, 1);
-
-  await updateRevision(revision, changes, {
-    user: res.locals.eventAudit,
-    action: "delete rule",
-    subject: `in ${environment} (position ${i + 1})`,
-    value: JSON.stringify(rule),
+  const resetReview = resetReviewOnChange({
+    feature,
+    changedEnvironments: [environment],
+    defaultValueChanged: false,
+    settings: org?.settings,
   });
+  await updateRevision(
+    revision,
+    changes,
+    {
+      user: res.locals.eventAudit,
+      action: "delete rule",
+      subject: `in ${environment} (position ${i + 1})`,
+      value: JSON.stringify(rule),
+    },
+    resetReview
+  );
 
   res.status(200).json({
     status: 200,
