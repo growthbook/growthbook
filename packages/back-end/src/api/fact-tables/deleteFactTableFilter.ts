@@ -14,9 +14,7 @@ export const deleteFactTableFilter = createApiRequestHandler(
       );
     }
 
-    // Passing in the factTable twice since deleteFactFilter only supports removing a filter and
-    // not changing a FactTable's project(s)
-    if (!req.context.permissions.canUpdateFactTable(factTable, factTable)) {
+    if (!req.context.permissions.canUpdateFactTable(factTable, {})) {
       req.context.permissions.throwPermissionError();
     }
     await deleteFactFilter(req.context, factTable, req.params.id);

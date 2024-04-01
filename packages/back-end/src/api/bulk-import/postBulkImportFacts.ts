@@ -85,11 +85,7 @@ export const postBulkImportFacts = createApiRequestHandler(
         const existing = factTableMap.get(id);
         // Update existing fact table
         if (existing) {
-          if (
-            !req.context.permissions.canUpdateFactTable(existing, {
-              projects: data.projects || existing.projects,
-            })
-          ) {
+          if (!req.context.permissions.canUpdateFactTable(existing, data)) {
             req.context.permissions.throwPermissionError();
           }
           if (data.userIdTypes) {
@@ -154,7 +150,7 @@ export const postBulkImportFacts = createApiRequestHandler(
             `Could not find fact table ${factTableId} for filter ${id}`
           );
         }
-        if (!req.context.permissions.canUpdateFactTable(factTable, factTable)) {
+        if (!req.context.permissions.canUpdateFactTable(factTable, data)) {
           req.context.permissions.throwPermissionError();
         }
 

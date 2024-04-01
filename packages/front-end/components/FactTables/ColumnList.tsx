@@ -48,7 +48,7 @@ export default function ColumnList({ factTable }: Props) {
     searchFields: ["name^3", "description", "column^2"],
   });
 
-  const canEdit = permissionsUtil.canUpdateFactTable(factTable, factTable);
+  const canEdit = permissionsUtil.canUpdateFactTable(factTable, {});
 
   return (
     <>

@@ -74,7 +74,9 @@ export class Permissions {
 
   public canUpdateFactTable = (
     existing: Pick<FactTableInterface, "projects">,
-    updates: Pick<FactTableInterface, "projects">
+    // updates is a Partial here because projects is not optional on factTable
+    // checkProjectFilterUpdatePermission skips checking update permission if projects isn't included
+    updates: Partial<FactTableInterface>
   ): boolean => {
     return this.checkProjectFilterUpdatePermission(
       existing,

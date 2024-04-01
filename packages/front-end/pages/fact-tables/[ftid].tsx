@@ -58,8 +58,7 @@ export default function FactTablePage() {
   }
 
   const canEdit =
-    !factTable.managedBy &&
-    permissionsUtil.canUpdateFactTable(factTable, factTable);
+    !factTable.managedBy && permissionsUtil.canUpdateFactTable(factTable, {});
 
   const hasColumns = factTable.columns?.some((col) => !col.deleted);
 

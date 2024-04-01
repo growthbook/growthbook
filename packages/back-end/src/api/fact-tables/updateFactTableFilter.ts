@@ -15,7 +15,7 @@ export const updateFactTableFilter = createApiRequestHandler(
     if (!factTable) {
       throw new Error("Could not find factTable with that id");
     }
-    if (!req.context.permissions.canUpdateFactTable(factTable, factTable)) {
+    if (!req.context.permissions.canUpdateFactTable(factTable, {})) {
       req.context.permissions.throwPermissionError();
     }
 
