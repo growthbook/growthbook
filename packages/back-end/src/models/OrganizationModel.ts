@@ -449,27 +449,39 @@ export async function deleteOrganizationData(orgId: string) {
 
   for (const collection of collections) {
     let result;
-    // special case for authrefreshes and forgotpasswords which only have FK to users
-    if (collection === "authrefreshes" || collection === "forgotpasswords") {
-      result = await mongoose.connection.db
-        .collection(collection)
-        .deleteMany({ userId: { $in: usersToDelete } });
-    } else {
-      result = await mongoose.connection.db
-        .collection(collection)
-        .deleteMany(query);
-    }
-    logger.info(
-      "Deleted %s documents from %s",
-      result.deletedCount,
-      collection
-    );
-    if (result.deletedCount > 0) {
-      collectionsHit.push(collection);
-    } else {
+    try {
+      // special case for authrefreshes and forgotpasswords which only have FK to users
+      if (collection === "authrefreshes" || collection === "forgotpasswords") {
+        result = await mongoose.connection.db
+          .collection(collection)
+          .deleteMany({ userId: { $in: usersToDelete } });
+      } else {
+        result = await mongoose.connection.db
+          .collection(collection)
+          .deleteMany(query);
+      }
+      logger.info(
+        "Deleted %s documents from %s",
+        result.deletedCount,
+        collection
+      );
+      if (result.deletedCount > 0) {
+        collectionsHit.push(collection);
+      } else {
+        collectionsMissed.push(collection);
+      }
+    } catch (e) {
+      logger.error("Error deleting from collection %s", collection, e);
       collectionsMissed.push(collection);
     }
   }
+
+  logger.info("Collections hit", collectionsHit.length);
+  logger.info(
+    "Collections missed",
+    collectionsMissed.length,
+    collectionsMissed.join(", ")
+  );
 
   const usersDeleted = await mongoose.connection.db
     .collection("users")
@@ -488,6 +500,6 @@ export async function deleteOrganizationData(orgId: string) {
   if (orgDeleted.deletedCount > 0) {
     logger.info("Deleted org", orgId, orgDeleted.deletedCount);
   } else {
-    logger.info("No org deleted?");
+    logger.info("Org was not deleted", orgId);
   }
 }

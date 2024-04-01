@@ -4,12 +4,12 @@ import { UserInterface } from "../../types/user";
 import {
   findAllOrganizations,
   findOrganizationById,
+  deleteOrganizationData,
 } from "../models/OrganizationModel";
 import { getUserById } from "../services/users";
 import { findUsersByIds, updateUserById } from "../models/UserModel";
 import { getContextFromReq } from "../services/organizations";
 import { auditDetailsUpdate } from "../services/audit";
-import { deleteOrganizationData } from "../models/OrganizationModel";
 
 export async function getOrganizations(
   req: AuthRequest<never, never, { page?: string; search?: string }>,
