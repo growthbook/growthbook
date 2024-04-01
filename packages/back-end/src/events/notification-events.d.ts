@@ -30,7 +30,6 @@ export type FeatureUpdatedNotificationEvent = NotificationEventPayload<
   {
     current: ApiFeature;
     previous: ApiFeature;
-    updatedBy: string;
   }
 >;
 
@@ -39,7 +38,6 @@ export type FeatureDeletedNotificationEvent = NotificationEventPayload<
   "feature",
   {
     previous: ApiFeature;
-    deletedBy: string;
   }
 >;
 

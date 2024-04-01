@@ -102,7 +102,7 @@ export class EventWebHookNotifier implements Notifier {
 
     const eventPayload = event.data;
 
-    const payload = (() => {
+    const payload = await (async () => {
       let invalidPayloadType: never;
       const { payloadType } = eventWebHook;
 
@@ -117,7 +117,7 @@ export class EventWebHookNotifier implements Notifier {
         }
 
         case "discord": {
-          const data = getSlackMessageForNotificationEvent(
+          const data = await getSlackMessageForNotificationEvent(
             eventPayload,
             eventId
           );

@@ -362,7 +362,6 @@ async function logFeatureUpdatedEvent(
         groupMap,
         experimentMap,
       }),
-      updatedBy: context.userName,
     },
     user: context.auditUser,
   };
@@ -432,7 +431,6 @@ async function logFeatureDeletedEvent(
         groupMap,
         experimentMap,
       }),
-      deletedBy: context.userName,
     },
   };
 
