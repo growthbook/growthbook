@@ -4,4 +4,17 @@ export type AutoUpdateFailed = {
   experimentId: string;
 };
 
-export type ExperimentNotificationPayload = AutoUpdateFailed;
+export type MultipleExposures = {
+  type: "multiple-exposures";
+  experimentName: string;
+  experimentId: string;
+  usersCount: number;
+};
+
+export type ExperimentWarningNotificationPayload =
+  | AutoUpdateFailed
+  | MultipleExposures;
+
+import { ExperimentInfoNotificationPayload as ModelExperimentInfoNotificationPayload } from "../models/ExperimentNotification";
+
+export type ExperimentInfoNotificationPayload = ModelExperimentInfoNotificationPayload;

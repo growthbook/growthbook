@@ -96,6 +96,8 @@ const Results: FC<{
     loading: snapshotLoading,
   } = useSnapshot();
 
+  console.log("snap", snapshot);
+
   const queryStatusData = getQueryStatus(latest?.queries || [], latest?.error);
 
   useEffect(() => {

@@ -467,7 +467,12 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
           ? "error"
           : "success",
     };
-    await updateSnapshot(this.model.organization, this.model.id, updates);
+    await updateSnapshot({
+      organization: this.model.organization,
+      id: this.model.id,
+      updates,
+      context: this.context,
+    });
     return {
       ...this.model,
       ...updates,

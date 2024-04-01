@@ -12,6 +12,7 @@ export const notificationEventNames = [
   "experiment.created",
   "experiment.updated",
   "experiment.deleted",
+  "experiment.warning",
   "experiment.info",
   // User
   "user.login",

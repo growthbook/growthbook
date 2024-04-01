@@ -2,17 +2,15 @@ import { z } from "zod";
 import { MakeModelClass, baseSchema } from "./BaseModel";
 
 const notificationTriggers = ["snapshot"] as const;
-const notificationLevels = ["alert", "info"] as const;
 
 export const experimentNotificationValidator = baseSchema
   .extend({
     experimentId: z.string(),
     trigger: z.enum(notificationTriggers),
-    level: z.enum(notificationLevels),
   })
   .strict();
 
-type ExperimentNotificationPayload = z.infer<
+export type ExperimentInfoNotificationPayload = z.infer<
   typeof experimentNotificationValidator
 >;
 
@@ -44,5 +42,5 @@ export class ExperimentNotificationModel extends ExperimentNotificationBase {
     return true;
   }
 
-  onTrigger(_: ExperimentNotificationPayload) {}
+  onTrigger(_: ExperimentInfoNotificationPayload) {}
 }
