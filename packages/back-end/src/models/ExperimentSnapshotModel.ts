@@ -125,23 +125,22 @@ experimentSnapshotSchema.index({
 export type ExperimentSnapshotDocument = mongoose.Document &
   LegacyExperimentSnapshotInterface;
 
-const ExperimentSnapshotModel =
-  mongoose.model<LegacyExperimentSnapshotInterface>(
-    "ExperimentSnapshot",
-    experimentSnapshotSchema,
-  );
+const ExperimentSnapshotModel = mongoose.model<LegacyExperimentSnapshotInterface>(
+  "ExperimentSnapshot",
+  experimentSnapshotSchema
+);
 
 const toInterface = (
-  doc: ExperimentSnapshotDocument,
+  doc: ExperimentSnapshotDocument
 ): ExperimentSnapshotInterface =>
   migrateSnapshot(
-    omit(doc.toJSON<ExperimentSnapshotDocument>(), ["__v", "_id"]),
+    omit(doc.toJSON<ExperimentSnapshotDocument>(), ["__v", "_id"])
   );
 
 export async function updateSnapshotsOnPhaseDelete(
   organization: string,
   experiment: string,
-  phase: number,
+  phase: number
 ) {
   // Delete all snapshots for the phase
   await ExperimentSnapshotModel.deleteMany({
@@ -163,7 +162,7 @@ export async function updateSnapshotsOnPhaseDelete(
       $inc: {
         phase: -1,
       },
-    },
+    }
   );
 }
 
@@ -185,7 +184,7 @@ export async function updateSnapshot({
     },
     {
       $set: updates,
-    },
+    }
   );
 
   const experimentSnapshotModel = await ExperimentSnapshotModel.findOne({ id });
@@ -217,7 +216,7 @@ export async function addOrUpdateSnapshotAnalysis({
     },
     {
       $push: { analyses: analysis },
-    },
+    }
   );
   // if analysis already exist, no documents will be returned by above query
   // so instead find and update existing analysis in DB
@@ -245,7 +244,7 @@ export async function updateSnapshotAnalysis({
     },
     {
       $set: { "analyses.$": analysis },
-    },
+    }
   );
 
   const experimentSnapshotModel = await ExperimentSnapshotModel.findOne({ id });
@@ -263,7 +262,7 @@ export async function deleteSnapshotById(organization: string, id: string) {
 
 export async function findSnapshotById(
   organization: string,
-  id: string,
+  id: string
 ): Promise<ExperimentSnapshotInterface | null> {
   const doc = await ExperimentSnapshotModel.findOne({ organization, id });
   return doc ? toInterface(doc) : null;
@@ -288,7 +287,7 @@ export async function getLatestSnapshot(
   experiment: string,
   phase: number,
   dimension?: string,
-  withResults: boolean = true,
+  withResults: boolean = true
 ): Promise<ExperimentSnapshotInterface | null> {
   const query: FilterQuery<ExperimentSnapshotDocument> = {
     experiment,
@@ -308,7 +307,7 @@ export async function getLatestSnapshot(
     {
       sort: { dateCreated: -1 },
       limit: 1,
-    },
+    }
   ).exec();
   if (all[0]) {
     return toInterface(all[0]);

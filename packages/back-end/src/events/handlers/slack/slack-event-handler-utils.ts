@@ -27,7 +27,7 @@ type DataForNotificationEvent = {
 
 export const getSlackMessageForNotificationEvent = (
   event: NotificationEvent,
-  eventId: string,
+  eventId: string
 ): SlackMessage | null => {
   let invalidEvent: never;
 
@@ -70,7 +70,7 @@ export const getSlackMessageForNotificationEvent = (
 
 export const getSlackDataForNotificationEvent = (
   event: NotificationEvent,
-  eventId: string,
+  eventId: string
 ): DataForNotificationEvent | null => {
   if (event.event === "webhook.test") return null;
 
@@ -94,7 +94,7 @@ export const getSlackDataForNotificationEvent = (
  * @param slackIntegration
  */
 export const getSlackIntegrationContextBlock = (
-  slackIntegration: SlackIntegrationInterface,
+  slackIntegration: SlackIntegrationInterface
 ): KnownBlock => {
   return {
     type: "context",
@@ -125,7 +125,7 @@ const getEventUrlFormatted = (eventId: string): string =>
 
 const buildSlackMessageForFeatureCreatedEvent = (
   featureEvent: FeatureCreatedNotificationEvent,
-  eventId: string,
+  eventId: string
 ): SlackMessage => {
   const featureId = featureEvent.data.current.id;
 
@@ -150,7 +150,7 @@ const buildSlackMessageForFeatureCreatedEvent = (
 
 const buildSlackMessageForFeatureUpdatedEvent = (
   featureEvent: FeatureUpdatedNotificationEvent,
-  eventId: string,
+  eventId: string
 ): SlackMessage => {
   const featureId = featureEvent.data.current.id;
 
@@ -175,7 +175,7 @@ const buildSlackMessageForFeatureUpdatedEvent = (
 
 const buildSlackMessageForFeatureDeletedEvent = (
   featureEvent: FeatureDeletedNotificationEvent,
-  eventId: string,
+  eventId: string
 ): SlackMessage => {
   const featureId = featureEvent.data.previous.id;
   const text = `The feature ${featureId} has been deleted.`;
@@ -205,7 +205,7 @@ const getExperimentUrlFormatted = (experimentId: string): string =>
 
 const buildSlackMessageForExperimentCreatedEvent = (
   experimentEvent: ExperimentCreatedNotificationEvent,
-  eventId: string,
+  eventId: string
 ): SlackMessage => {
   const experimentId = experimentEvent.data.current.id;
   const experimentName = experimentEvent.data.current.name;
@@ -230,7 +230,7 @@ const buildSlackMessageForExperimentCreatedEvent = (
 
 const buildSlackMessageForExperimentUpdatedEvent = (
   experimentEvent: ExperimentUpdatedNotificationEvent,
-  eventId: string,
+  eventId: string
 ): SlackMessage => {
   const experimentId = experimentEvent.data.previous.id;
   const experimentName = experimentEvent.data.previous.name;
@@ -254,7 +254,7 @@ const buildSlackMessageForExperimentUpdatedEvent = (
 };
 
 const buildSlackMessageForWebhookTestEvent = (
-  webhookId: string,
+  webhookId: string
 ): SlackMessage => ({
   text: `This is a test event for webhook ${webhookId}`,
   blocks: [
@@ -270,7 +270,7 @@ const buildSlackMessageForWebhookTestEvent = (
 
 const buildSlackMessageForExperimentDeletedEvent = (
   experimentEvent: ExperimentDeletedNotificationEvent,
-  eventId: string,
+  eventId: string
 ): SlackMessage => {
   const experimentName = experimentEvent.data.previous.name;
   const text = `The experiment ${experimentName} has been deleted`;
@@ -358,7 +358,7 @@ export type SlackMessage = {
  */
 export const sendSlackMessage = async (
   slackMessage: SlackMessage,
-  webHookEndpoint: string,
+  webHookEndpoint: string
 ): Promise<boolean> => {
   try {
     const { stringBody, responseWithoutBody } = await cancellableFetch(
@@ -370,7 +370,7 @@ export const sendSlackMessage = async (
       {
         maxTimeMs: 15000,
         maxContentSize: 500,
-      },
+      }
     );
 
     if (!responseWithoutBody.ok) {

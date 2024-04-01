@@ -84,7 +84,7 @@ const expireOldQueries = trackJob(JOB_NAME, async () => {
   // Look for matching pastExperiments and update the status
   const pastExperiments = await findRunningPastExperimentsByQueryId(
     [...orgIds],
-    [...queryIds],
+    [...queryIds]
   );
   for (let i = 0; i < pastExperiments.length; i++) {
     const pastExperiment = pastExperiments[i];

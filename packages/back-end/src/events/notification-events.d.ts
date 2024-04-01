@@ -1,6 +1,9 @@
 import { ApiExperiment, ApiFeature } from "../../types/openapi";
 import { IfEqual } from "../util/types";
-import { ExperimentInfoNotificationPayload, ExperimentWarningNotificationPayload } from "../types/ExperimentNotification";
+import {
+  ExperimentInfoNotificationPayload,
+  ExperimentWarningNotificationPayload,
+} from "../types/ExperimentNotification";
 import { NotificationEventName, NotificationEventPayload } from "./base-types";
 import { UserLoginAuditableProperties } from "./event-types";
 

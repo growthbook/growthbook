@@ -134,7 +134,7 @@ export async function createMetric(data: Partial<MetricInterface>) {
 
 export async function getExperimentMetricById(
   context: Context,
-  metricId: string,
+  metricId: string
 ): Promise<ExperimentMetricInterface | null> {
   if (isFactMetricId(metricId)) {
     return context.models.factMetrics.getById(metricId);
@@ -145,13 +145,13 @@ export async function getExperimentMetricById(
 export async function refreshMetric(
   context: Context,
   metric: MetricInterface,
-  metricAnalysisDays: number = DEFAULT_METRIC_ANALYSIS_DAYS,
+  metricAnalysisDays: number = DEFAULT_METRIC_ANALYSIS_DAYS
 ) {
   if (metric.datasource) {
     const integration = await getIntegrationFromDatasourceId(
       context,
       metric.datasource,
-      true,
+      true
     );
 
     let segment: SegmentInterface | undefined = undefined;
@@ -176,7 +176,7 @@ export async function refreshMetric(
     const queryRunner = new MetricAnalysisQueryRunner(
       context,
       metric,
-      integration,
+      integration
     );
     await queryRunner.startAnalysis({
       from,
@@ -201,7 +201,7 @@ export function generateTrackingKey(name: string, n: number): string {
     // Remove stopwords
     .replace(
       /-((a|about|above|after|again|all|am|an|and|any|are|arent|as|at|be|because|been|before|below|between|both|but|by|cant|could|did|do|does|dont|down|during|each|few|for|from|had|has|have|having|here|how|if|in|into|is|isnt|it|its|itself|more|most|no|nor|not|of|on|once|only|or|other|our|out|over|own|same|should|shouldnt|so|some|such|that|than|then|the|there|theres|these|this|those|through|to|too|under|until|up|very|was|wasnt|we|weve|were|what|whats|when|where|which|while|who|whos|whom|why|with|wont|would)-)+/g,
-      "-",
+      "-"
     )
     // Collapse duplicate hyphens
     .replace(/-{2,}/g, "-")
@@ -225,7 +225,7 @@ export async function getManualSnapshotData(
   metrics: {
     [key: string]: MetricStats[];
   },
-  metricMap: Map<string, ExperimentMetricInterface>,
+  metricMap: Map<string, ExperimentMetricInterface>
 ) {
   const phase = experiment.phases[phaseIndex];
 
@@ -257,7 +257,7 @@ export async function getManualSnapshotData(
           main_sum_squares: sumSquaresFromStats(
             s.mean * s.count,
             Math.pow(s.stddev, 2),
-            s.count,
+            s.count
           ),
         };
       }),
@@ -269,7 +269,7 @@ export async function getManualSnapshotData(
     variations: getReportVariations(experiment, phase),
     phaseLengthHours: Math.max(
       hoursBetween(phase.dateStarted, phase.dateEnded ?? new Date()),
-      1,
+      1
     ),
     coverage: experiment.phases?.[phaseIndex]?.coverage ?? 1,
     analyses: [{ ...analysisSettings, regressionAdjusted: false }], // no RA for manual snapshots
@@ -299,7 +299,7 @@ export function getDefaultExperimentAnalysisSettings(
   experiment: ExperimentInterface,
   organization: OrganizationInterface,
   regressionAdjustmentEnabled?: boolean,
-  dimension?: string,
+  dimension?: string
 ): ExperimentSnapshotAnalysisSettings {
   const hasRegressionAdjustmentFeature = organization
     ? orgHasPremiumFeature(organization, "regression-adjustment")
@@ -334,7 +334,7 @@ export function getDefaultExperimentAnalysisSettings(
 
 export function getAdditionalExperimentAnalysisSettings(
   defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings,
-  experiment: ExperimentInterface,
+  experiment: ExperimentInterface
 ): ExperimentSnapshotAnalysisSettings[] {
   // one analysis per possible baseline
   const additionalAnalyses: ExperimentSnapshotAnalysisSettings[] = [];
@@ -392,8 +392,8 @@ export function getSnapshotSettings({
         m,
         metricMap,
         metricRegressionAdjustmentStatuses,
-        experiment.metricOverrides,
-      ),
+        experiment.metricOverrides
+      )
     )
     .filter(Boolean) as MetricForSnapshot[];
 
@@ -457,7 +457,7 @@ export async function createManualSnapshot({
     phaseIndex,
     users,
     metrics,
-    metricMap,
+    metricMap
   );
 
   const data: ExperimentSnapshotInterface = {
@@ -496,7 +496,7 @@ export async function createManualSnapshot({
 
 export async function parseDimensionId(
   dimension: string | null | undefined,
-  organization: string,
+  organization: string
 ): Promise<Dimension | null> {
   if (dimension) {
     if (dimension.match(/^exp:/)) {
@@ -636,14 +636,14 @@ export async function createSnapshot({
   const integration = await getIntegrationFromDatasourceId(
     context,
     experiment.datasource,
-    true,
+    true
   );
 
   const queryRunner = new ExperimentResultsQueryRunner(
     context,
     snapshot,
     integration,
-    useCache,
+    useCache
   );
   await queryRunner.startAnalysis({
     snapshotSettings: data.settings,
@@ -662,14 +662,14 @@ export async function createSnapshotAnalysis({
   analysisSettings,
   metricMap,
   snapshot,
-  context
+  context,
 }: {
   experiment: ExperimentInterface;
   organization: OrganizationInterface;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
   snapshot: ExperimentSnapshotInterface;
-  context: Context
+  context: Context;
 }): Promise<void> {
   // check if analysis is possible
   if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
@@ -700,7 +700,7 @@ export async function createSnapshotAnalysis({
   // Format data correctly
   const queryMap: QueryMap = await getQueryMap(
     organization.id,
-    snapshot.queries,
+    snapshot.queries
   );
 
   // Run the analysis
@@ -725,7 +725,7 @@ export async function createSnapshotAnalysis({
 
 function getExperimentMetric(
   experiment: ExperimentInterface,
-  id: string,
+  id: string
 ): ApiExperimentMetric {
   const overrides = experiment.metricOverrides?.find((o) => o.id === id);
   const ret: ApiExperimentMetric = {
@@ -751,7 +751,7 @@ function getExperimentMetric(
 
 export async function toExperimentApiInterface(
   context: ReqContext | ApiReqContext,
-  experiment: ExperimentInterface,
+  experiment: ExperimentInterface
 ): Promise<ApiExperiment> {
   let project = null;
   const organization = context.org;
@@ -825,7 +825,7 @@ export async function toExperimentApiInterface(
       statsEngine: scopedSettings.statsEngine.value || DEFAULT_STATS_ENGINE,
       goals: experiment.metrics.map((m) => getExperimentMetric(experiment, m)),
       guardrails: (experiment.guardrails || []).map((m) =>
-        getExperimentMetric(experiment, m),
+        getExperimentMetric(experiment, m)
       ),
       ...(activationMetric
         ? {
@@ -849,25 +849,25 @@ export async function toExperimentApiInterface(
 
 export function toSnapshotApiInterface(
   experiment: ExperimentInterface,
-  snapshot: ExperimentSnapshotInterface,
+  snapshot: ExperimentSnapshotInterface
 ): ApiExperimentResults {
   const dimension = !snapshot.dimension
     ? {
         type: "none",
       }
     : snapshot.dimension.match(/^exp:/)
-      ? {
-          type: "experiment",
-          id: snapshot.dimension.substring(4),
-        }
-      : snapshot.dimension.match(/^pre:/)
-        ? {
-            type: snapshot.dimension.substring(4),
-          }
-        : {
-            type: "user",
-            id: snapshot.dimension,
-          };
+    ? {
+        type: "experiment",
+        id: snapshot.dimension.substring(4),
+      }
+    : snapshot.dimension.match(/^pre:/)
+    ? {
+        type: snapshot.dimension.substring(4),
+      }
+    : {
+        type: "user",
+        id: snapshot.dimension,
+      };
 
   const phase = experiment.phases[snapshot.phase];
 
@@ -911,7 +911,7 @@ export function toSnapshotApiInterface(
       statsEngine: analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
       goals: experiment.metrics.map((m) => getExperimentMetric(experiment, m)),
       guardrails: (experiment.guardrails || []).map((m) =>
-        getExperimentMetric(experiment, m),
+        getExperimentMetric(experiment, m)
       ),
       ...(activationMetric
         ? {
@@ -964,7 +964,7 @@ export function toSnapshotApiInterface(
  */
 export function postMetricApiPayloadIsValid(
   payload: z.infer<typeof postMetricValidator.bodySchema>,
-  datasource: Pick<DataSourceInterface, "type">,
+  datasource: Pick<DataSourceInterface, "type">
 ): { valid: true } | { valid: false; error: string } {
   const { type, sql, sqlBuilder, mixpanel, behavior } = payload;
 
@@ -1126,7 +1126,7 @@ export function postMetricApiPayloadIsValid(
 }
 
 export function putMetricApiPayloadIsValid(
-  payload: z.infer<typeof putMetricValidator.bodySchema>,
+  payload: z.infer<typeof putMetricValidator.bodySchema>
 ): { valid: true } | { valid: false; error: string } {
   const { type, sql, sqlBuilder, mixpanel, behavior } = payload;
 
@@ -1286,7 +1286,7 @@ export function putMetricApiPayloadIsValid(
 export function postMetricApiPayloadToMetricInterface(
   payload: z.infer<typeof postMetricValidator.bodySchema>,
   organization: OrganizationInterface,
-  datasource: Pick<DataSourceInterface, "type">,
+  datasource: Pick<DataSourceInterface, "type">
 ): Omit<MetricInterface, "dateCreated" | "dateUpdated" | "id"> {
   const {
     datasourceId,
@@ -1453,7 +1453,7 @@ export function postMetricApiPayloadToMetricInterface(
  * @param datasource
  */
 export function putMetricApiPayloadToMetricInterface(
-  payload: z.infer<typeof putMetricValidator.bodySchema>,
+  payload: z.infer<typeof putMetricValidator.bodySchema>
 ): Partial<MetricInterface> {
   const {
     behavior,
@@ -1554,7 +1554,7 @@ export function putMetricApiPayloadToMetricInterface(
         column: property,
         operator: operator as Operator,
         value: value,
-      }),
+      })
     );
   } else if (sqlBuilder?.conditions) {
     metric.conditions = sqlBuilder.conditions as Condition[];
@@ -1617,7 +1617,7 @@ export function putMetricApiPayloadToMetricInterface(
 export function toMetricApiInterface(
   organization: OrganizationInterface,
   metric: MetricInterface,
-  datasource: DataSourceInterface | null,
+  datasource: DataSourceInterface | null
 ): ApiMetric {
   const metricDefaults = organization.settings?.metricDefaults;
 
@@ -1659,18 +1659,18 @@ export function toMetricApiInterface(
             type: metric.windowSettings.type || "none",
           }
         : metricDefaults?.windowSettings
-          ? {
-              ...metricDefaults.windowSettings,
-              type: metricDefaults.windowSettings.type || "none",
-            }
-          : {
-              type: DEFAULT_METRIC_WINDOW || "none",
-              delayHours: metric.earlyStart
-                ? -0.5
-                : DEFAULT_METRIC_WINDOW_DELAY_HOURS,
-              windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
-              windowUnit: "hours",
-            },
+        ? {
+            ...metricDefaults.windowSettings,
+            type: metricDefaults.windowSettings.type || "none",
+          }
+        : {
+            type: DEFAULT_METRIC_WINDOW || "none",
+            delayHours: metric.earlyStart
+              ? -0.5
+              : DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+            windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
+            windowUnit: "hours",
+          },
     },
   };
 
@@ -1715,7 +1715,7 @@ export function toMetricApiInterface(
 }
 
 export const toNamespaceRange = (
-  raw: number[] | undefined,
+  raw: number[] | undefined
 ): [number, number] => [raw?.[0] ?? 0, raw?.[1] ?? 1];
 /**
  * Converts the OpenAPI POST /experiment payload to a {@link ExperimentInterface}
@@ -1727,7 +1727,7 @@ export const toNamespaceRange = (
 export function postExperimentApiPayloadToInterface(
   payload: z.infer<typeof postExperimentValidator.bodySchema>,
   organization: OrganizationInterface,
-  datasource: DataSourceInterface,
+  datasource: DataSourceInterface
 ): Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> {
   const phases: ExperimentPhase[] = payload.phases?.map((p) => {
     const conditionRes = validateCondition(p.condition);
@@ -1762,7 +1762,7 @@ export function postExperimentApiPayloadToInterface(
       name: "Main",
       reason: "",
       variationWeights: payload.variations.map(
-        () => 1 / payload.variations.length,
+        () => 1 / payload.variations.length
       ),
       condition: "",
       savedGroups: [],
@@ -1817,10 +1817,9 @@ export function postExperimentApiPayloadToInterface(
     previewURL: "",
     targetURLRegex: "",
     ideaSource: "",
-    sequentialTestingEnabled:
-      !!organization?.settings?.sequentialTestingEnabled,
-    sequentialTestingTuningParameter:
-      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    sequentialTestingEnabled: !!organization?.settings
+      ?.sequentialTestingEnabled,
+    sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   };
 }
 
@@ -1833,7 +1832,7 @@ export function postExperimentApiPayloadToInterface(
  */
 export function updateExperimentApiPayloadToInterface(
   payload: z.infer<typeof updateExperimentValidator.bodySchema>,
-  experiment: ExperimentInterface,
+  experiment: ExperimentInterface
 ): Partial<ExperimentInterface> {
   const {
     trackingKey,
@@ -1887,7 +1886,7 @@ export function updateExperimentApiPayloadToInterface(
             const conditionRes = validateCondition(p.condition);
             if (!conditionRes.success) {
               throw new Error(
-                `Invalid targeting condition: ${conditionRes.error}`,
+                `Invalid targeting condition: ${conditionRes.error}`
               );
             }
 
@@ -1911,7 +1910,7 @@ export function updateExperimentApiPayloadToInterface(
               variationWeights:
                 p.variationWeights ||
                 (payload.variations || experiment.variations)?.map(
-                  (_v, _i, arr) => 1 / arr.length,
+                  (_v, _i, arr) => 1 / arr.length
                 ),
             };
           }),
@@ -1923,14 +1922,13 @@ export function updateExperimentApiPayloadToInterface(
 
 export async function getRegressionAdjustmentInfo(
   context: ReqContext | ApiReqContext,
-  experiment: ExperimentInterface,
+  experiment: ExperimentInterface
 ): Promise<{
   regressionAdjustmentEnabled: boolean;
   metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
 }> {
   let regressionAdjustmentEnabled = false;
-  const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] =
-    [];
+  const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
 
   if (!experiment.regressionAdjustmentEnabled) {
     return { regressionAdjustmentEnabled, metricRegressionAdjustmentStatuses };
@@ -1949,22 +1947,23 @@ export async function getRegressionAdjustmentInfo(
   const denominatorMetrics = allExperimentMetrics
     .filter((m) => m && !isFactMetric(m) && m.denominator)
     .map((m: ExperimentMetricInterface) =>
-      metricMap.get(m.denominator as string),
+      metricMap.get(m.denominator as string)
     )
     .filter(Boolean) as MetricInterface[];
 
   for (const metric of allExperimentMetrics) {
     if (!metric) continue;
-    const { metricRegressionAdjustmentStatus } =
-      getRegressionAdjustmentsForMetric({
-        metric: metric,
-        denominatorMetrics: denominatorMetrics,
-        experimentRegressionAdjustmentEnabled:
-          experiment.regressionAdjustmentEnabled ??
-          DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-        organizationSettings: context.org.settings,
-        metricOverrides: experiment.metricOverrides,
-      });
+    const {
+      metricRegressionAdjustmentStatus,
+    } = getRegressionAdjustmentsForMetric({
+      metric: metric,
+      denominatorMetrics: denominatorMetrics,
+      experimentRegressionAdjustmentEnabled:
+        experiment.regressionAdjustmentEnabled ??
+        DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+      organizationSettings: context.org.settings,
+      metricOverrides: experiment.metricOverrides,
+    });
     if (metricRegressionAdjustmentStatus.regressionAdjustmentEnabled) {
       regressionAdjustmentEnabled = true;
     }
@@ -1985,10 +1984,10 @@ export function visualChangesetsHaveChanges({
 }): boolean {
   // If there are visual change differences
   const oldVisualChanges = oldVisualChangeset.visualChanges.map(
-    ({ css, js, domMutations }) => ({ css, js, domMutations }),
+    ({ css, js, domMutations }) => ({ css, js, domMutations })
   );
   const newVisualChanges = newVisualChangeset.visualChanges.map(
-    ({ css, js, domMutations }) => ({ css, js, domMutations }),
+    ({ css, js, domMutations }) => ({ css, js, domMutations })
   );
   if (!isEqual(oldVisualChanges, newVisualChanges)) {
     return true;
@@ -2007,7 +2006,7 @@ export function visualChangesetsHaveChanges({
 
 export async function getLinkedFeatureInfo(
   context: ReqContext,
-  experiment: ExperimentInterface,
+  experiment: ExperimentInterface
 ) {
   const linkedFeatures = experiment.linkedFeatures || [];
   if (!linkedFeatures.length) return [];
@@ -2016,7 +2015,7 @@ export async function getLinkedFeatureInfo(
 
   const revisionsByFeatureId = await getFeatureRevisionsByFeatureIds(
     context.org.id,
-    linkedFeatures,
+    linkedFeatures
   );
 
   const environments = getEnvironmentIdsFromOrg(context.org);
@@ -2039,7 +2038,7 @@ export async function getLinkedFeatureInfo(
     const lockedMatches =
       revisions
         .filter(
-          (r) => r.status === "published" && r.version !== feature.version,
+          (r) => r.status === "published" && r.version !== feature.version
         )
         .sort((a, b) => b.version - a.version)
         .map((r) => getMatchingRules(feature, filter, environments, r))
@@ -2062,10 +2061,10 @@ export async function getLinkedFeatureInfo(
       matches.map((m) =>
         JSON.stringify(
           (m.rule as ExperimentRefRule).variations.sort((a, b) =>
-            b.variationId.localeCompare(a.variationId),
-          ),
-        ),
-      ),
+            b.variationId.localeCompare(a.variationId)
+          )
+        )
+      )
     );
 
     const environmentStates: Record<string, LinkedFeatureEnvState> = {};
