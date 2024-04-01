@@ -132,5 +132,6 @@ export async function deleteOrganization(
   return res.status(200).json({
     status: 200,
     message: "Organization and all related data deleted",
+    orgId: req.params.orgId,
   });
 }

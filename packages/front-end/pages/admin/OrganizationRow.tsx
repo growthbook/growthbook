@@ -15,7 +15,7 @@ import useApi from "@/hooks/useApi";
 import { isCloud } from "@/services/env";
 import EditOrganization from "@/components/Admin/EditOrganization";
 import Code from "@/components/SyntaxHighlighting/Code";
-import DeleteOrganization from "@/components/Admin/DeleteOrganization";
+import DeleteOrganizationModal from "@/components/Admin/DeleteOrganizationModal";
 import MembersTable from "./MembersTable";
 
 export default function OrganizationRow({
@@ -55,10 +55,10 @@ export default function OrganizationRow({
         />
       )}
       {deleteOrgModalOpen && (
-        <DeleteOrganization
+        <DeleteOrganizationModal
           id={organization.id}
           currentName={organization.name}
-          onDelete={onUpdate}
+          onDelete={() => window.location.reload()}
           close={() => setDeleteOrgModalOpen(false)}
         />
       )}

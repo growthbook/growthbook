@@ -505,9 +505,9 @@ export async function deleteOrganizationData(orgId: string) {
     }
   }
 
-  logger.info("Collections hit", collectionsHit.length);
+  logger.info("Collections hit %s", collectionsHit.length);
   logger.info(
-    "Collections missed",
+    "Collections missed %s: %s",
     collectionsMissed.length,
     collectionsMissed.join(", ")
   );
@@ -527,8 +527,8 @@ export async function deleteOrganizationData(orgId: string) {
     .deleteOne({ id: orgId });
 
   if (orgDeleted.deletedCount > 0) {
-    logger.info("Deleted org", orgId, orgDeleted.deletedCount);
+    logger.info("Deleted org %s", orgId);
   } else {
-    logger.info("Org was not deleted", orgId);
+    logger.info("Org was not deleted %s", orgId);
   }
 }

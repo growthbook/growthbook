@@ -8,24 +8,29 @@ const DeleteOrganization: FC<{
   id: string;
   currentName: string;
 }> = ({ onDelete, close, id, currentName }) => {
+  const [error, setError] = useState("");
   const [name, setName] = useState("");
 
   const { apiCall } = useAuth();
 
   const handleSubmit = async () => {
-    await apiCall<{
-      status: number;
-      message?: string;
-      orgId?: string;
-    }>("/admin/organization", {
-      method: "DELETE",
-      headers: { "X-Organization": id },
-    });
-    onDelete();
+    try {
+      await apiCall<{
+        status: number;
+        message?: string;
+        orgId?: string;
+      }>(`/admin/organization/${id}`, {
+        method: "DELETE",
+      });
+      onDelete();
+    } catch (e) {
+      setError(`There was an error deleting the org: ${e.message}`);
+    }
   };
 
   return (
     <Modal
+      error={error}
       submit={handleSubmit}
       open={true}
       header={"Delete Organization"}
@@ -38,10 +43,9 @@ const DeleteOrganization: FC<{
         Are you <strong>absolutely sure</strong> that you want to delete this
         organization? This data will be lost and will not be recoverable.
       </p>
-      <p>To confirm, please type the name of the organization below.</p>
       <div className="form-group alert alert-danger">
         <p>
-          I fully intend to delete the organization:{" "}
+          Please type the organization name to confirm:{" "}
           <strong>{currentName}</strong>
         </p>
         <input
