@@ -1,5 +1,4 @@
 import { omit } from "lodash";
-
 import mongoose from "mongoose";
 import { AITokenUsageInterface } from "../../types/ai";
 import { OrganizationInterface } from "../../types/organization";
