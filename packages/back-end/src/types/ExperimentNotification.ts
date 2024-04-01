@@ -9,11 +9,20 @@ export type MultipleExposures = {
   experimentName: string;
   experimentId: string;
   usersCount: number;
+  percent: number;
+};
+
+export type SRM = {
+  type: "srm";
+  experimentName: string;
+  experimentId: string;
+  threshold: number;
 };
 
 export type ExperimentWarningNotificationPayload =
   | AutoUpdateFailed
-  | MultipleExposures;
+  | MultipleExposures
+  | SRM;
 
 import { ExperimentInfoNotificationPayload as ModelExperimentInfoNotificationPayload } from "../models/ExperimentNotification";
 

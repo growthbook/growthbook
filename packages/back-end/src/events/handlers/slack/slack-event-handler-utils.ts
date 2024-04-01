@@ -317,7 +317,7 @@ const buildSlackMessageForExperimentWarningEvent = ({
     }
 
     case "multiple-exposures": {
-      const baseText = `${data.usersCount} users saw multiple variations and were automatically removed from results. Check for bugs in your implementation, event tracking, or data pipeline.`;
+      const baseText = `${data.usersCount} users (${data.percent}%) saw multiple variations and were automatically removed from results. Check for bugs in your implementation, event tracking, or data pipeline.`;
 
       return {
         text: `Multiple Exposures Warning for experiment ${data.experimentName}: ${baseText}`,
@@ -328,6 +328,25 @@ const buildSlackMessageForExperimentWarningEvent = ({
               type: "mrkdwn",
               text:
                 `Multiple Exposures Warning for experiment *${data.experimentName}*: : ${baseText}` +
+                getExperimentUrlFormatted(data.experimentId),
+            },
+          },
+        ],
+      };
+    }
+
+    case "srm": {
+      const baseText = `P-value below ${data.threshold}.`;
+
+      return {
+        text: `Sample Ratio Mismatch (SRM) detected for experiment ${data.experimentName}: ${baseText}`,
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text:
+                `Sample Ratio Mismatch (SRM) detected for experiment for experiment *${data.experimentName}*: : ${baseText}` +
                 getExperimentUrlFormatted(data.experimentId),
             },
           },
