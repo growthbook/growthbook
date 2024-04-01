@@ -18,10 +18,19 @@ export class Permissions {
     this.superAdmin = superAdmin;
   }
 
-  public canCreateIdeas = (project?: string): boolean => {
+  public canShowCreateIdeasButton = (project?: string): boolean => {
     return this.checkProjectFilterPermission(
       {
         projects: project ? [project] : [],
+      },
+      "createIdeas"
+    );
+  };
+
+  public canCreateIdea = (idea: Pick<IdeaInterface, "project">): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: idea.project ? [idea.project] : [],
       },
       "createIdeas"
     );

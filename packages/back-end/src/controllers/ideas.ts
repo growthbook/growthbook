@@ -75,8 +75,10 @@ export async function postIdeas(
   const { org, userId } = context;
   const data = req.body;
 
-  if (context.permissions.canCreateIdeas(data.project))
-    data.organization = org.id;
+  if (!context.permissions.canCreateIdea(data)) {
+    context.permissions.throwPermissionError();
+  }
+  data.organization = org.id;
   data.source = "web";
   data.userId = userId;
   const idea = await createIdea(data);

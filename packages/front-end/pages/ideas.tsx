@@ -42,7 +42,8 @@ const IdeasPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const canCreateIdeas = permissionsUtil.canCreateIdeas(project);
+  const canCreateIdeas = permissionsUtil.canShowCreateIdeasButton(project);
+
   if (!data.ideas.length) {
     return (
       <div className="container p-4">
