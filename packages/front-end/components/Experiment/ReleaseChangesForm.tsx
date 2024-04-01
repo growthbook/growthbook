@@ -512,11 +512,11 @@ function getRecommendedRolloutData({
     "same-phase-everyone": "safe",
     "new-phase-block-sticky": "safe",
   };
-  let variationHopping: RecommendedRolloutData["variationHopping"] = {
-    "new-phase": false,
+  const variationHopping: RecommendedRolloutData["variationHopping"] = {
+    "new-phase": true,
     "same-phase-sticky": false,
-    "same-phase-everyone": false,
-    "new-phase-block-sticky": false,
+    "same-phase-everyone": true,
+    "new-phase-block-sticky": true,
   };
   let disableSamePhase = false;
 
@@ -649,12 +649,6 @@ function getRecommendedRolloutData({
         "same-phase-everyone": disableVariation ? "danger" : "warning",
         "new-phase-block-sticky": "safe",
       };
-      variationHopping = {
-        "new-phase": true,
-        "same-phase-sticky": false,
-        "same-phase-everyone": true,
-        "new-phase-block-sticky": true,
-      };
       reasons = {
         ...reasons,
         moreRestrictiveTargeting,
@@ -671,12 +665,6 @@ function getRecommendedRolloutData({
         "same-phase-sticky": "warning",
         "same-phase-everyone": "danger",
         "new-phase-block-sticky": "safe",
-      };
-      variationHopping = {
-        "new-phase": true,
-        "same-phase-sticky": false,
-        "same-phase-everyone": true,
-        "new-phase-block-sticky": true,
       };
       reasons = { ...reasons, otherTargetingChanges };
     }
@@ -695,12 +683,6 @@ function getRecommendedRolloutData({
         "same-phase-sticky": "danger",
         "same-phase-everyone": "danger",
         "new-phase-block-sticky": "safe",
-      };
-      variationHopping = {
-        "new-phase": true,
-        "same-phase-sticky": false,
-        "same-phase-everyone": true,
-        "new-phase-block-sticky": true,
       };
       reasons = {
         ...reasons,
