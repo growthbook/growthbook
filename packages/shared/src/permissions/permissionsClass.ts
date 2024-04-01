@@ -2,6 +2,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import { MetricInterface } from "back-end/types/metric";
 import { Permission, UserPermissions } from "back-end/types/organization";
 import { IdeaInterface } from "back-end/types/idea";
+import { FactTableInterface } from "back-end/types/fact-table";
 import { READ_ONLY_PERMISSIONS } from "./permissions.utils";
 class PermissionError extends Error {
   constructor(message: string) {
@@ -53,6 +54,39 @@ export class Permissions {
       { projects: idea.project ? [idea.project] : [] },
       "createIdeas"
     );
+  };
+
+  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
+  public canViewFactTableModal = (project?: string): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: project ? [project] : [],
+      },
+      "manageFactTables"
+    );
+  };
+
+  public canCreateFactTable = (
+    metric: Pick<FactTableInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(metric, "manageFactTables");
+  };
+
+  public canUpdateFactTable = (
+    existing: Pick<FactTableInterface, "projects">,
+    updates: Pick<FactTableInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "manageFactTables"
+    );
+  };
+
+  public canDeleteFactTable = (
+    metric: Pick<FactTableInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(metric, "manageFactTables");
   };
 
   public canCreateMetric = (

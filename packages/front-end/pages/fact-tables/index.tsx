@@ -7,7 +7,6 @@ import { useRouter } from "next/router";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactTableModal from "@/components/FactTables/FactTableModal";
 import { GBAddCircle } from "@/components/Icons";
-import usePermissions from "@/hooks/usePermissions";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
@@ -21,6 +20,7 @@ import SortedTags from "@/components/Tags/SortedTags";
 import ProjectBadges from "@/components/ProjectBadges";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function FactTablesPage() {
   const {
@@ -32,7 +32,7 @@ export default function FactTablesPage() {
 
   const router = useRouter();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const [aboutOpen, setAboutOpen] = useLocalStorage("aboutFactTables", true);
 
@@ -57,7 +57,7 @@ export default function FactTablesPage() {
       )
     : factTables;
 
-  const canCreate = permissions.check("manageFactTables", project);
+  const canCreate = permissionsUtil.canViewFactTableModal(project);
 
   const factTablesWithLabels = useAddComputedFields(
     filteredFactTables,

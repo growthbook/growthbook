@@ -46,7 +46,13 @@ export const postBulkImportFacts = createApiRequestHandler(
     const tagsToAdd = new Set<string>();
 
     function checkFactTablePermission(factTable: { projects?: string[] }) {
-      req.checkPermissions("manageFactTables", factTable.projects || []);
+      if (
+        !req.context.permissions.canCreateFactTable({
+          projects: factTable.projects || [],
+        })
+      ) {
+        req.context.permissions.throwPermissionError();
+      }
     }
 
     const projects = await findAllProjectsByOrganization(req.context);

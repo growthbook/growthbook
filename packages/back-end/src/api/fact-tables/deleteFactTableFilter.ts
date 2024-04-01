@@ -13,8 +13,12 @@ export const deleteFactTableFilter = createApiRequestHandler(
         "Unable to delete - Could not find factTable with that id"
       );
     }
-    req.checkPermissions("manageFactTables", factTable.projects);
 
+    // Passing in the factTable twice since deleteFactFilter only supports removing a filter and
+    // not changing a FactTable's project(s)
+    if (!req.context.permissions.canUpdateFactTable(factTable, factTable)) {
+      req.context.permissions.throwPermissionError();
+    }
     await deleteFactFilter(req.context, factTable, req.params.id);
 
     return {

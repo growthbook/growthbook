@@ -85,7 +85,9 @@ export const postFactTable = async (
   const data = req.body;
   const context = getContextFromReq(req);
 
-  req.checkPermissions("manageFactTables", data.projects || "");
+  if (!context.permissions.canCreateFactTable(data)) {
+    context.permissions.throwPermissionError();
+  }
 
   if (!data.datasource) {
     throw new Error("Must specify a data source for this fact table");
@@ -127,10 +129,12 @@ export const putFactTable = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  // Check permissions for both the existing projects and new ones (if they are being changed)
-  req.checkPermissions("manageFactTables", factTable.projects);
-  if (data.projects) {
-    req.checkPermissions("manageFactTables", data.projects || "");
+  if (
+    !context.permissions.canUpdateFactTable(factTable, {
+      projects: data.projects || factTable.projects,
+    })
+  ) {
+    context.permissions.throwPermissionError();
   }
 
   const datasource = await getDataSourceById(context, factTable.datasource);
@@ -169,7 +173,9 @@ export const deleteFactTable = async (
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
   }
-  req.checkPermissions("manageFactTables", factTable.projects);
+  if (!context.permissions.canDeleteFactTable(factTable)) {
+    context.permissions.throwPermissionError();
+  }
 
   await deleteFactTableInDb(context, factTable);
 
@@ -190,7 +196,9 @@ export const putColumn = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  req.checkPermissions("manageFactTables", factTable.projects);
+  if (!context.permissions.canUpdateFactTable(factTable, factTable)) {
+    context.permissions.throwPermissionError();
+  }
 
   await updateColumn(factTable, req.params.column, data);
 
@@ -214,7 +222,9 @@ export const postFactFilterTest = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  req.checkPermissions("manageFactTables", factTable.projects);
+  if (!context.permissions.canUpdateFactTable(factTable, factTable)) {
+    context.permissions.throwPermissionError();
+  }
 
   const datasource = await getDataSourceById(context, factTable.datasource);
   if (!datasource) {
@@ -242,7 +252,9 @@ export const postFactFilter = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  req.checkPermissions("manageFactTables", factTable.projects);
+  if (!context.permissions.canUpdateFactTable(factTable, factTable)) {
+    context.permissions.throwPermissionError();
+  }
 
   const datasource = await getDataSourceById(context, factTable.datasource);
   if (!datasource) {
@@ -270,7 +282,9 @@ export const putFactFilter = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  req.checkPermissions("manageFactTables", factTable.projects);
+  if (!context.permissions.canUpdateFactTable(factTable, factTable)) {
+    context.permissions.throwPermissionError();
+  }
 
   // If the filter SQL is changing, re-test the query
   const existingFilter = factTable.filters.find(
@@ -301,7 +315,9 @@ export const deleteFactFilter = async (
   if (!factTable) {
     throw new Error("Could not find filter table with that id");
   }
-  req.checkPermissions("manageFactTables", factTable.projects);
+  if (!context.permissions.canUpdateFactTable(factTable, factTable)) {
+    context.permissions.throwPermissionError();
+  }
 
   await deleteFactFilterInDb(context, factTable, req.params.filterId);
 

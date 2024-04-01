@@ -13,8 +13,10 @@ import { postFactTableValidator } from "../../validators/openapi";
 
 export const postFactTable = createApiRequestHandler(postFactTableValidator)(
   async (req): Promise<PostFactTableResponse> => {
-    req.checkPermissions("manageFactTables", req.body.projects || []);
-
+    const projects = req.body.projects || [];
+    if (!req.context.permissions.canCreateFactTable({ projects })) {
+      req.context.permissions.throwPermissionError();
+    }
     const datasource = await getDataSourceById(
       req.context,
       req.body.datasource
