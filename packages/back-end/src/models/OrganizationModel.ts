@@ -10,6 +10,7 @@ import {
 import { upgradeOrganizationDoc } from "../util/migrations";
 import { ApiOrganization } from "../../types/openapi";
 import { IS_CLOUD } from "../util/secrets";
+import { logger } from "../util/logger";
 
 const baseMemberFields = {
   _id: false,
@@ -434,7 +435,100 @@ export async function updateMember(
     }),
   });
 }
-export function deleteOrganization() {
-  // TODO delete all related models
-  // probably should wait for jeremy's data model PR to merge before moving forward
+
+/**
+ * Delete an organization and all associated data
+ */
+export async function deleteOrganizationData(orgId: string) {
+  logger.info("Deleting org %s", orgId);
+
+  const org = await mongoose.connection.db
+    .collection("organizations")
+    .findOne({ id: orgId });
+
+  if (!org) throw new Error("Organization not found");
+
+  const userIds = org.members.map((m: Member) => m.id);
+
+  // TODO better way to do this?
+  const usersToDelete = [];
+  for (const userId of userIds) {
+    const allOrgsWithUser = await findOrganizationsByMemberId(userId);
+    if (allOrgsWithUser.length === 1) usersToDelete.push(userId);
+  }
+
+  // these collecttions are not tied to orgs
+  const collectionsIgnored = ["agendaJobs", "installations"];
+
+  const allCollections = await mongoose.connection.db
+    .listCollections()
+    .toArray();
+
+  const collections = allCollections
+    .map((c) => c.name)
+    .filter((c) => !collectionsIgnored.includes(c));
+
+  const orgFieldAliases = ["organization", "org", "orgId", "organizationId"];
+  const query = {
+    $or: [...orgFieldAliases.map((field) => ({ [field]: orgId }))],
+  };
+
+  const collectionsHit: string[] = [];
+  const collectionsMissed: string[] = [];
+
+  for (const collection of collections) {
+    let result;
+    try {
+      // special case for authrefreshes and forgotpasswords which only have FK to users
+      if (collection === "authrefreshes" || collection === "forgotpasswords") {
+        result = await mongoose.connection.db
+          .collection(collection)
+          .deleteMany({ userId: { $in: usersToDelete } });
+      } else {
+        result = await mongoose.connection.db
+          .collection(collection)
+          .deleteMany(query);
+      }
+      logger.info(
+        "Deleted %s documents from %s",
+        result.deletedCount,
+        collection
+      );
+      if (result.deletedCount > 0) {
+        collectionsHit.push(collection);
+      } else {
+        collectionsMissed.push(collection);
+      }
+    } catch (e) {
+      logger.error("Error deleting from collection %s", collection, e);
+      collectionsMissed.push(collection);
+    }
+  }
+
+  logger.info("Collections hit", collectionsHit.length);
+  logger.info(
+    "Collections missed",
+    collectionsMissed.length,
+    collectionsMissed.join(", ")
+  );
+
+  const usersDeleted = await mongoose.connection.db
+    .collection("users")
+    .deleteMany({ id: { $in: usersToDelete } });
+
+  if (usersDeleted.deletedCount > 0) {
+    logger.info("Deleted %s users", usersDeleted.deletedCount);
+  } else {
+    logger.info("No users deleted");
+  }
+
+  const orgDeleted = await mongoose.connection.db
+    .collection("organizations")
+    .deleteOne({ id: orgId });
+
+  if (orgDeleted.deletedCount > 0) {
+    logger.info("Deleted org", orgId, orgDeleted.deletedCount);
+  } else {
+    logger.info("Org was not deleted", orgId);
+  }
 }
