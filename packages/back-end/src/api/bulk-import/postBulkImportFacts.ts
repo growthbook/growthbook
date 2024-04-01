@@ -45,16 +45,6 @@ export const postBulkImportFacts = createApiRequestHandler(
 
     const tagsToAdd = new Set<string>();
 
-    function checkFactTablePermission(factTable: { projects?: string[] }) {
-      if (
-        !req.context.permissions.canCreateFactTable({
-          projects: factTable.projects || [],
-        })
-      ) {
-        req.context.permissions.throwPermissionError();
-      }
-    }
-
     const projects = await findAllProjectsByOrganization(req.context);
     const projectIds = new Set(projects.map((p) => p.id));
     function validateProjectIds(ids: string[]) {
@@ -95,8 +85,13 @@ export const postBulkImportFacts = createApiRequestHandler(
         const existing = factTableMap.get(id);
         // Update existing fact table
         if (existing) {
-          checkFactTablePermission(existing);
-          if (data.projects) checkFactTablePermission(data);
+          if (
+            !req.context.permissions.canUpdateFactTable(existing, {
+              projects: data.projects || existing.projects,
+            })
+          ) {
+            req.context.permissions.throwPermissionError();
+          }
           if (data.userIdTypes) {
             validateUserIdTypes(existing.datasource, data.userIdTypes);
           }
@@ -118,7 +113,13 @@ export const postBulkImportFacts = createApiRequestHandler(
         }
         // Create new fact table
         else {
-          checkFactTablePermission(data);
+          if (
+            !req.context.permissions.canCreateFactTable({
+              projects: data.projects || [],
+            })
+          ) {
+            req.context.permissions.throwPermissionError();
+          }
 
           if (!dataSourceMap.has(data.datasource)) {
             throw new Error("Could not find datasource");
@@ -153,7 +154,9 @@ export const postBulkImportFacts = createApiRequestHandler(
             `Could not find fact table ${factTableId} for filter ${id}`
           );
         }
-        checkFactTablePermission(factTable);
+        if (!req.context.permissions.canUpdateFactTable(factTable, factTable)) {
+          req.context.permissions.throwPermissionError();
+        }
 
         // This bulk endpoint is mostly used to sync from version control
         // So default these resources to only be managed by API and not the UI
