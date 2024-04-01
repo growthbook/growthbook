@@ -11,6 +11,7 @@ import { upgradeOrganizationDoc } from "../util/migrations";
 import { ApiOrganization } from "../../types/openapi";
 import { IS_CLOUD } from "../util/secrets";
 import { logger } from "../util/logger";
+import { getOrganizationById } from "../services/organizations";
 
 const baseMemberFields = {
   _id: false,
@@ -442,9 +443,7 @@ export async function updateMember(
 export async function deleteOrganizationData(orgId: string) {
   logger.info("Deleting org %s", orgId);
 
-  const org = await mongoose.connection.db
-    .collection("organizations")
-    .findOne({ id: orgId });
+  const org = await getOrganizationById(orgId);
 
   if (!org) throw new Error("Organization not found");
 
