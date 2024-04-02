@@ -390,7 +390,7 @@ class GaussianEffectABTest(BayesianABTest):
         self.mean_diff = frequentist_diff(mu_a, mu_b, self.relative)
 
         # risk is always absolute in gbstats
-        risk = self.getRisk(
+        risk = self.get_risk(
             frequentist_diff(mu_a, mu_b, False),
             np.sqrt(
                 frequentist_variance(sd_a**2, mu_a, 1, sd_b**2, mu_b, 1, False)
@@ -438,7 +438,7 @@ class GaussianEffectABTest(BayesianABTest):
         )
 
     @staticmethod
-    def getRisk(mu, sigma) -> List[float]:
+    def get_risk(mu, sigma) -> List[float]:
         prob_ctrl_is_better = norm.cdf(0.0, loc=mu, scale=sigma)
         mn_neg = truncated_normal_mean(mu=mu, sigma=sigma, a=-np.inf, b=0.0)
         mn_pos = truncated_normal_mean(mu=mu, sigma=sigma, a=0, b=np.inf)
