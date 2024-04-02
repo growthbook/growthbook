@@ -2878,6 +2878,633 @@ describe("PermissionsUtilClass.canDeleteMetric check", () => {
   });
 });
 
+describe("PermissionsUtilClass.canViewCreateFactTableModal check", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("canViewCreateFactTableModal should return false if user's global role is engineer and user is in All Projects", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canViewCreateFactTableModal()).toEqual(false);
+  });
+
+  it("canViewCreateFactTableModal should return true if user's global role is analyst and user is in All Projects", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canViewCreateFactTableModal()).toEqual(true);
+  });
+
+  it("canViewCreateFactTableModal should return true if user's global role is analyst and user is in a specific project and doesn't have a project-specific role for that project", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canViewCreateFactTableModal("abc123")).toEqual(true);
+  });
+
+  it("canViewCreateFactTableModal should return false if user's global role is analyst and user is in a specific project and does have a project-specific role for that project that doesn't provide the permission", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("readonly", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(permissions.canViewCreateFactTableModal("abc123")).toEqual(false);
+  });
+
+  it("canViewCreateFactTableModal should return true if user's global role is readonly and user is in a specific project and does have a project-specific role for that project that provides the permission", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(permissions.canViewCreateFactTableModal("abc123")).toEqual(true);
+  });
+});
+
+describe("PermissionsUtilClass.canViewEditFactTableModal check", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("canViewEditFactTableModal should return false if user's global role is engineer and user is in All Projects", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canViewEditFactTableModal({ projects: [] })).toEqual(
+      false
+    );
+  });
+
+  it("canViewEditFactTableModal should return true if user's global role is analyst and user is in All Projects", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canViewEditFactTableModal({ projects: [] })).toEqual(
+      true
+    );
+  });
+
+  it("canViewEditFactTableModal should return true if user's global role is analyst and user is in a specific project and doesn't have a project-specific role for that project", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(
+      permissions.canViewEditFactTableModal({ projects: ["abc123"] })
+    ).toEqual(true);
+  });
+
+  it("canViewEditFactTableModal should return false if user's global role is analyst and user is in a specific project and does have a project-specific role for that project that doesn't provide the permission", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("readonly", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(
+      permissions.canViewEditFactTableModal({ projects: ["abc123"] })
+    ).toEqual(false);
+  });
+
+  it("canViewEditFactTableModal should return true if user's global role is readonly and user is in a specific project and does have a project-specific role for that project that provides the permission", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(
+      permissions.canViewEditFactTableModal({ projects: ["abc123"] })
+    ).toEqual(true);
+  });
+});
+
+describe("PermissionsUtilClass.canCreateFactTable check", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("canCreateFactTable should return false if user's global role is engineer and user is in All Projects", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canCreateFactTable({ projects: [] })).toEqual(false);
+  });
+
+  it("canCreateFactTable should return true if user's global role is analyst and user is in All Projects", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canCreateFactTable({ projects: [] })).toEqual(true);
+  });
+
+  it("canCreateFactTable should return true if user's global role is analyst and user is in a specific project and doesn't have a project-specific role for that project", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canCreateFactTable({ projects: ["abc123"] })).toEqual(
+      true
+    );
+  });
+
+  it("canCreateFactTable should return false if user's global role is analyst and user is in a specific project and does have a project-specific role for that project that doesn't provide the permission", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("readonly", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(permissions.canCreateFactTable({ projects: ["abc123"] })).toEqual(
+      false
+    );
+  });
+
+  it("canCreateFactTable should return true if user's global role is readonly and user is in a specific project and does have a project-specific role for that project that provides the permission", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(permissions.canCreateFactTable({ projects: ["abc123"] })).toEqual(
+      true
+    );
+  });
+});
+
+describe("PermissionsUtilClass.canUpdateFactTable check", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("canUpdateFactTable should return true if user has global analyst role and no project specific roles", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(
+      permissions.canUpdateFactTable({ projects: [] }, { projects: ["abc123"] })
+    ).toEqual(true);
+  });
+
+  it("canUpdateFactTable should return false if user has global engineer role and no project specific roles", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(
+      permissions.canUpdateFactTable({ projects: [] }, { projects: ["abc123"] })
+    ).toEqual(false);
+  });
+
+  it("canUpdateFactTable should return false if user has global engineer role and attempts to convert a Fact Table from being in one project, to being in All Projects", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(
+      permissions.canUpdateFactTable({ projects: ["abc123"] }, { projects: [] })
+    ).toEqual(false);
+  });
+
+  it("canUpdateFactTable should return true if user has global engineer role and attempts to convert a Fact Table from being in one project, to being in two projects, if the user has permission in both projects", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+          def456: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(
+      permissions.canUpdateFactTable(
+        { projects: ["abc123"] },
+        { projects: ["abc123", "def456"] }
+      )
+    ).toEqual(true);
+  });
+});
+
+describe("PermissionsUtilClass.canDeleteFactTable check", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("canDeleteFactTable should return false if user's global role is engineer and user is in All Projects", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canDeleteFactTable({ projects: [] })).toEqual(false);
+  });
+
+  it("canDeleteFactTable should return true if user's global role is analyst and user is in All Projects", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canDeleteFactTable({ projects: [] })).toEqual(true);
+  });
+
+  it("canDeleteFactTable should return true if user's global role is analyst and user is in a specific project and doesn't have a project-specific role for that project", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canDeleteFactTable({ projects: ["abc123"] })).toEqual(
+      true
+    );
+  });
+
+  it("canDeleteFactTable should return false if user's global role is analyst and user is in a specific project and does have a project-specific role for that project that doesn't provide the permission", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("readonly", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(permissions.canDeleteFactTable({ projects: ["abc123"] })).toEqual(
+      false
+    );
+  });
+
+  it("canDeleteFactTable should return true if user's global role is readonly and user is in a specific project and does have a project-specific role for that project that provides the permission", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(permissions.canDeleteFactTable({ projects: ["abc123"] })).toEqual(
+      true
+    );
+  });
+});
+
 describe("PermissionsUtilClass.canAddComment check", () => {
   const testOrg: OrganizationInterface = {
     id: "org_sktwi1id9l7z9xkjb",
