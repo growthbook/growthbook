@@ -153,11 +153,6 @@ export const filterFeatureUpdatedNotificationEventForEnvironments = ({
     return false;
   }
 
-  // if the environments are not specified, notify for all environments
-  if (environments.length === 0) {
-    return true;
-  }
-
   if (
     RELEVANT_KEYS_FOR_ALL_ENVS.some((k) => !isEqual(previous[k], current[k]))
   ) {
@@ -194,6 +189,11 @@ export const filterFeatureUpdatedNotificationEventForEnvironments = ({
 
   if (!environmentChangesAreRelevant) {
     return false;
+  }
+
+  // if the environments are not specified, notify for all environments
+  if (environments.length === 0) {
+    return true;
   }
 
   return intersection(Array.from(changedEnvironments), environments).length > 0;

@@ -18,20 +18,6 @@ describe("filterFeatureUpdatedNotificationEventForEnvironments", () => {
     ).toBe(false);
   });
 
-  it("returns true when environments is empty", () => {
-    expect(
-      filterFeatureUpdatedNotificationEventForEnvironments({
-        featureEvent: {
-          data: {
-            previous: {},
-            current: {},
-          },
-        },
-        environments: [],
-      })
-    ).toBe(true);
-  });
-
   it("returns true for keys relevant for all enviroments", () => {
     const values = RELEVANT_KEYS_FOR_ALL_ENVS.map((key) =>
       filterFeatureUpdatedNotificationEventForEnvironments({
@@ -41,7 +27,7 @@ describe("filterFeatureUpdatedNotificationEventForEnvironments", () => {
             current: { [key]: key === "archived" ? false : "new-value" },
           },
         },
-        environments: [],
+        environments: ["foo"],
       })
     );
 
@@ -88,6 +74,76 @@ describe("filterFeatureUpdatedNotificationEventForEnvironments", () => {
         environments: ["foo"],
       })
     ).toBe(true);
+  });
+
+  it("returns false when a filtered environment has not changed", () => {
+    expect(
+      filterFeatureUpdatedNotificationEventForEnvironments({
+        featureEvent: {
+          data: {
+            previous: {
+              environments: {
+                foo: { enabled: true, some_setting: "old-value" },
+              },
+            },
+            current: {
+              environments: {
+                foo: { enabled: true, some_setting: "old-value" },
+              },
+            },
+          },
+        },
+        environments: ["foo"],
+      })
+    ).toBe(false);
+  });
+
+  it("returns true when an environment has changed and no filter is set", () => {
+    expect(
+      filterFeatureUpdatedNotificationEventForEnvironments({
+        featureEvent: {
+          data: {
+            previous: {
+              environments: {
+                foo: { enabled: true, some_setting: "old-value" },
+                bla: { enabled: true, some_setting: "old-value" },
+              },
+            },
+            current: {
+              environments: {
+                foo: { enabled: true, some_setting: "old-value" },
+                bla: { enabled: true, some_setting: "new-value" },
+              },
+            },
+          },
+        },
+        environments: [],
+      })
+    ).toBe(true);
+  });
+
+  it("returns false when no environment has changed and no filter is set", () => {
+    expect(
+      filterFeatureUpdatedNotificationEventForEnvironments({
+        featureEvent: {
+          data: {
+            previous: {
+              environments: {
+                foo: { enabled: true, some_setting: "old-value" },
+                bla: { enabled: true, some_setting: "old-value" },
+              },
+            },
+            current: {
+              environments: {
+                foo: { enabled: true, some_setting: "old-value" },
+                bla: { enabled: true, some_setting: "new-value" },
+              },
+            },
+          },
+        },
+        environments: ["foo"],
+      })
+    ).toBe(false);
   });
 
   it("returns false when a filtered environment is disabled before and after the event", () => {
