@@ -10,7 +10,6 @@ import { SnowflakeConnectionParams } from "./integrations/snowflake";
 import { DatabricksConnectionParams } from "./integrations/databricks";
 import { MetricType } from "./metric";
 import { MssqlConnectionParams } from "./integrations/mssql";
-import { QueryInterface } from "./query";
 
 export type DataSourceType =
   | "redshift"
@@ -223,7 +222,6 @@ interface DataSourceBase {
   params: string;
   projects?: string[];
   settings: DataSourceSettings;
-  queries?: QueryInterface[];
 }
 
 interface RedshiftDataSource extends DataSourceBase {
