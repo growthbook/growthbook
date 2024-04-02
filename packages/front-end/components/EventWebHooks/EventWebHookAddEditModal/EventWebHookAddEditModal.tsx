@@ -231,7 +231,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
 
       <MultiSelectField
         label="Environment filters"
-        helpText="Only receive notifications for matching environments."
+        helpText="Only receive notifications for matching environments. Leave blank to receive all."
         sort={false}
         value={form.watch("environments")}
         options={environments.map((env) => ({
@@ -246,7 +246,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
 
       <MultiSelectField
         label="Project filters"
-        helpText="Only receive notifications for matching projects."
+        helpText="Only receive notifications for matching projects. Leave blank to receive all."
         sort={false}
         value={form.watch("projects")}
         options={projects.map(({ name, id }) => ({

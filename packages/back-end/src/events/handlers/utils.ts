@@ -131,20 +131,23 @@ export const filterEventForEnvironments = ({
   }
 };
 
-const filterFeatureUpdatedNotificationEventForEnvironments = ({
+export const filterFeatureUpdatedNotificationEventForEnvironments = ({
   featureEvent,
   environments,
 }: {
   featureEvent: FeatureUpdatedNotificationEvent;
   environments: string[];
 }): boolean => {
-  const { previous, current } = featureEvent.data;
+  // if the environments are not specified, notify for all environments
+  if (environments.length === 0) {
+    return true;
+  }
 
+  const { previous, current } = featureEvent.data;
   if (previous.archived && current.archived) {
     // Do not notify for archived features
     return false;
   }
-
   // Manual environment filtering
   const changedEnvironments = new Set<string>();
 
@@ -186,8 +189,6 @@ const filterFeatureUpdatedNotificationEventForEnvironments = ({
   if (!environmentChangesAreRelevant) {
     return false;
   }
-
-  if (!environments?.length) return true;
 
   return intersection(Array.from(changedEnvironments), environments).length > 0;
 };
