@@ -96,7 +96,6 @@ const Results: FC<{
     loading: snapshotLoading,
   } = useSnapshot();
 
-  console.dir(analysis?.results?.[0], { depth: null });
   const queryStatusData = getQueryStatus(latest?.queries || [], latest?.error);
 
   useEffect(() => {
