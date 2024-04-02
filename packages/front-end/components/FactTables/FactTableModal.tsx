@@ -22,7 +22,7 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { usesEventName } from "@/components/Metrics/MetricForm";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import usePermissions from "@/hooks/usePermissions";
 
 export interface Props {
   existing?: FactTableInterface;
@@ -39,7 +39,7 @@ export default function FactTableModal({ existing, close }: Props) {
   } = useDefinitions();
   const settings = useOrgSettings();
   const router = useRouter();
-  const permissionsUtil = usePermissionsUtil();
+  const permissions = usePermissions();
 
   const [sqlOpen, setSqlOpen] = useState(false);
   const [datasourceProjects, setDatasourceProjects] = useState<
@@ -80,7 +80,8 @@ export default function FactTableModal({ existing, close }: Props) {
 
     if (!selectedDataSource.projects || !selectedDataSource.projects.length) {
       const filteredProjects = projects.filter((project) => {
-        return permissionsUtil.canViewCreateFactTableModal(project.id);
+        // return permissionsUtil.canViewCreateFactTableModal(project.id);
+        return permissions.check("manageFactTables", project.id);
       });
       setDatasourceProjects(filteredProjects);
       form.setValue("projects", [project]);
@@ -103,7 +104,7 @@ export default function FactTableModal({ existing, close }: Props) {
     form.setValue("userIdTypes", userIdTypes);
     form.setValue("sql", sql);
     setShowAdditionalColumnMessage(true);
-  }, [selectedDataSource, existing, projects, project, permissionsUtil, form]);
+  }, [selectedDataSource, existing, projects, project, permissions, form]);
 
   const isNew = !existing;
   useEffect(() => {
