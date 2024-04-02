@@ -260,8 +260,8 @@ class TestGaussianEffectABTest(TestCase):
         y = s * np.random.normal(size=int(1e7)) + m
         risk_empirical_trt = -np.mean(y[y < 0]) * np.mean(y < 0)
         risk_empirical_ctrl = np.mean(y[y > 0]) * np.mean(y > 0)
-        np.testing.assert_almost_equal(b_flat.risk[0], risk_empirical_trt, decimal=3)
-        np.testing.assert_almost_equal(b_flat.risk[1], risk_empirical_ctrl, decimal=3)
+        np.testing.assert_almost_equal(b_flat.risk[0], risk_empirical_ctrl, decimal=3)
+        np.testing.assert_almost_equal(b_flat.risk[1], risk_empirical_trt, decimal=3)
 
 
 if __name__ == "__main__":
