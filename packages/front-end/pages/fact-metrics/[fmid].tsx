@@ -240,7 +240,7 @@ export default function FactMetricPage() {
       )}
       {editProjectsOpen && (
         <EditProjectsForm
-          projects={factMetric.projects}
+          currentProjects={factMetric.projects}
           cancel={() => setEditProjectsOpen(false)}
           save={async (projects) => {
             await apiCall(`/fact-metrics/${factMetric.id}`, {

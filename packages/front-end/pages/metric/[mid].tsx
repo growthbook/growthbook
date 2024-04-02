@@ -320,7 +320,7 @@ const MetricPage: FC = () => {
         <EditProjectsForm
           cancel={() => setEditProjects(false)}
           mutate={mutate}
-          projects={metric.projects || []}
+          currentProjects={metric.projects || []}
           save={async (projects) => {
             await apiCall(`/metric/${metric.id}`, {
               method: "PUT",

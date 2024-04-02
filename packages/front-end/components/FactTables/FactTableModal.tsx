@@ -8,6 +8,7 @@ import { useRouter } from "next/router";
 import { isProjectListValidForProject } from "shared/util";
 import { useEffect, useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
+import { ProjectInterface } from "@back-end/types/project";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -21,6 +22,7 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { usesEventName } from "@/components/Metrics/MetricForm";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export interface Props {
   existing?: FactTableInterface;
@@ -31,13 +33,18 @@ export default function FactTableModal({ existing, close }: Props) {
   const {
     datasources,
     project,
+    projects,
     getDatasourceById,
     mutateDefinitions,
   } = useDefinitions();
   const settings = useOrgSettings();
   const router = useRouter();
+  const permissionsUtil = usePermissionsUtil();
 
   const [sqlOpen, setSqlOpen] = useState(false);
+  const [datasourceProjects, setDatasourceProjects] = useState<
+    ProjectInterface[]
+  >([]);
 
   const [
     showAdditionalColumnMessage,
@@ -62,6 +69,7 @@ export default function FactTableModal({ existing, close }: Props) {
       userIdTypes: existing?.userIdTypes || [],
       tags: existing?.tags || [],
       eventName: existing?.eventName || "",
+      projects: existing?.projects || [project],
     },
   });
 
@@ -69,6 +77,23 @@ export default function FactTableModal({ existing, close }: Props) {
 
   useEffect(() => {
     if (!selectedDataSource || existing) return;
+
+    if (!selectedDataSource.projects || !selectedDataSource.projects.length) {
+      const filteredProjects = projects.filter((project) => {
+        return permissionsUtil.canViewCreateFactTableModal(project.id);
+      });
+      setDatasourceProjects(filteredProjects);
+      form.setValue("projects", [project]);
+    } else {
+      const filteredProjects = projects.filter((project) =>
+        selectedDataSource.projects?.includes(project.id)
+      );
+      setDatasourceProjects(filteredProjects);
+      form.setValue(
+        "projects",
+        filteredProjects.map((project) => project.id)
+      );
+    }
 
     const [userIdTypes, sql] = getInitialMetricQuery(
       selectedDataSource,
@@ -78,7 +103,7 @@ export default function FactTableModal({ existing, close }: Props) {
     form.setValue("userIdTypes", userIdTypes);
     form.setValue("sql", sql);
     setShowAdditionalColumnMessage(true);
-  }, [selectedDataSource, form, existing]);
+  }, [selectedDataSource, existing, projects, project, permissionsUtil, form]);
 
   const isNew = !existing;
   useEffect(() => {
@@ -143,10 +168,6 @@ export default function FactTableModal({ existing, close }: Props) {
             track("Edit Fact Table");
             await mutateDefinitions();
           } else {
-            const ds = getDatasourceById(value.datasource);
-            if (!ds) throw new Error("Must select a valid data source");
-
-            value.projects = ds.projects || [];
             value.columns = [];
 
             const { factTable, error } = await apiCall<{
@@ -170,25 +191,39 @@ export default function FactTableModal({ existing, close }: Props) {
         <Field label="Name" {...form.register("name")} required />
 
         {!existing && (
-          <SelectField
-            label="Data Source"
-            value={form.watch("datasource")}
-            onChange={(v) => {
-              form.setValue("datasource", v);
-            }}
-            options={validDatasources.map((d) => {
-              const defaultDatasource = d.id === settings.defaultDataSource;
-              return {
-                value: d.id,
-                label: `${d.name}${
-                  d.description ? ` — ${d.description}` : ""
-                } ${defaultDatasource ? " (default)" : ""}`,
-              };
-            })}
-            className="portal-overflow-ellipsis"
-            name="datasource"
-            placeholder="Select..."
-          />
+          <>
+            <SelectField
+              label="Data Source"
+              value={form.watch("datasource")}
+              onChange={(v) => {
+                form.setValue("datasource", v);
+              }}
+              options={validDatasources.map((d) => {
+                const defaultDatasource = d.id === settings.defaultDataSource;
+                return {
+                  value: d.id,
+                  label: `${d.name}${
+                    d.description ? ` — ${d.description}` : ""
+                  } ${defaultDatasource ? " (default)" : ""}`,
+                };
+              })}
+              className="portal-overflow-ellipsis"
+              name="datasource"
+              placeholder="Select..."
+            />
+            <MultiSelectField
+              label="Projects"
+              placeholder="All projects"
+              value={form.watch("projects")}
+              options={datasourceProjects.map((p) => ({
+                value: p.id,
+                label: p.name,
+              }))}
+              onChange={(v) => form.setValue("projects", v)}
+              customClassName="label-overflow-ellipsis"
+              helpText="Assign this Fact Table to specific projects"
+            />
+          </>
         )}
 
         {selectedDataSource && (
