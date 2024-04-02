@@ -126,12 +126,14 @@ export function getRisk(
   stats: SnapshotMetric,
   baseline: SnapshotMetric,
   metric: ExperimentMetricInterface,
-  metricDefaults: MetricDefaults
+  metricDefaults: MetricDefaults,
+  // separate CR because sometimes "baseline" above is the variation
+  baselineCR: number
 ): { risk: number; relativeRisk: number; showRisk: boolean } {
   const risk = stats.risk?.[metric.inverse ? 0 : 1] ?? 0;
-  const relativeRisk = stats.cr ? risk / stats.cr : 0;
+  const relativeRisk = baselineCR ? risk / baselineCR : 0;
   const showRisk =
-    stats.cr > 0 &&
+    baseline.cr > 0 &&
     hasEnoughData(baseline, stats, metric, metricDefaults) &&
     !isSuspiciousUplift(baseline, stats, metric, metricDefaults);
   return { risk, relativeRisk, showRisk };
@@ -142,55 +144,39 @@ export function getRiskByVariation(
   row: ExperimentTableRow,
   metricDefaults: MetricDefaults
 ) {
-  let risk: number;
-  let riskCR: number;
-  let relativeRisk: number;
-  let showRisk = false;
   const baseline = row.variations[0];
 
   if (riskVariation > 0) {
     const stats = row.variations[riskVariation];
-    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | undefined' is not assignable to typ... Remove this comment to see the full error message
-    risk = stats?.risk?.[row.metric.inverse ? 0 : 1];
-    riskCR = stats?.cr;
-    showRisk =
-      risk !== null &&
-      riskCR > 0 &&
-      hasEnoughData(baseline, stats, row.metric, metricDefaults) &&
-      !isSuspiciousUplift(baseline, stats, row.metric, metricDefaults);
+    return getRisk(stats, baseline, row.metric, metricDefaults, baseline.cr);
   } else {
-    risk = -1;
+    let risk = -1;
+    let relativeRisk = 0;
+    let showRisk = false;
+    // get largest risk for all variations as the control "risk"
     row.variations.forEach((stats, i) => {
       if (!i) return;
-      if (!hasEnoughData(baseline, stats, row.metric, metricDefaults)) {
-        return;
-      }
-      if (isSuspiciousUplift(baseline, stats, row.metric, metricDefaults)) {
-        return;
-      }
 
-      const vRisk = stats.risk?.[row.metric.inverse ? 1 : 0];
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      // baseline and stats are inverted here, because we want to get the risk for the control
+      // so we also use the `stats` cr for the relative risk, which in this case is actually
+      // the baseline
+      const {
+        risk: vRisk,
+        relativeRisk: vRelativeRisk,
+        showRisk: vShowRisk,
+      } = getRisk(baseline, stats, row.metric, metricDefaults, baseline.cr);
       if (vRisk > risk) {
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | undefined' is not assignable to typ... Remove this comment to see the full error message
         risk = vRisk;
-        riskCR = stats.cr;
+        relativeRisk = vRelativeRisk;
+        showRisk = vShowRisk;
       }
     });
-    // @ts-expect-error TS(2454) If you come across this, please fix it!: Variable 'riskCR' is used before being assigned.
-    showRisk = risk >= 0 && riskCR > 0;
+    return {
+      risk,
+      relativeRisk,
+      showRisk,
+    };
   }
-  if (showRisk) {
-    // @ts-expect-error TS(2454) If you come across this, please fix it!: Variable 'riskCR' is used before being assigned.
-    relativeRisk = risk / riskCR;
-  }
-
-  return {
-    risk,
-    // @ts-expect-error TS(2454) If you come across this, please fix it!: Variable 'relativeRisk' is used before being assig... Remove this comment to see the full error message
-    relativeRisk,
-    showRisk,
-  };
 }
 
 export function useRiskVariation(
@@ -677,7 +663,8 @@ export function getRowResults({
     stats,
     baseline,
     metric,
-    metricDefaults
+    metricDefaults,
+    baseline.cr
   );
   const winRiskThreshold = metric.winRisk ?? defaultWinRiskThreshold;
   const loseRiskThreshold = metric.loseRisk ?? defaultLoseRiskThreshold;
