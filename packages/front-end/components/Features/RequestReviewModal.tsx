@@ -169,25 +169,32 @@ export default function RequestReviewModal({
       case "approved":
         return (
           <div className="alert alert-success">
-            <PiCheckCircleFill className="mr-1" /> Approved
+            <span className="h4">
+              <PiCheckCircleFill className="mr-1" /> Approved
+            </span>
           </div>
         );
       case "pending-review":
         return (
           <div className="alert alert-warning">
-            <PiCircleDuotone className="mr-1" /> Pending Review
+            <span className="h4">
+              <PiCircleDuotone className="mr-1" /> Pending Review
+            </span>
+            <div></div>
           </div>
         );
       case "changes-requested":
         return (
           <div className="alert alert-danger">
-            <PiFileX className="mr-1" /> Changes Requested
+            <span className="h4">
+              <PiFileX className="mr-1" /> Changes Requested
+            </span>
           </div>
         );
       case "draft":
         return (
           <div className="alert alert-warning">
-            Publishing requires approval.
+            <span className="h5">Publishing requires approval.</span>
           </div>
         );
       default:

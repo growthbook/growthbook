@@ -55,7 +55,7 @@ function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
       return valueContainsData ? <Code language="json" code={value} /> : null;
     }
   };
-  const statusBackGround = clsx("d-flex p-3", {
+  const statusBackGround = clsx("d-flex p-2 pl-3", {
     "approval-flow-accepted": log.action === "Approved",
     "approval-flow-changes-requested": log.action === "Requested Changes",
     "revision-log-header":
@@ -74,9 +74,9 @@ function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
           }
         }}
       >
-        <h4 className="mb-0">
+        <h6 className="mb-0">
           {log.action} {log.subject}
-        </h4>
+        </h6>
         {!(!valueContainsData || !!comment) && (
           <div className="ml-auto">
             {open ? <FaAngleDown /> : <FaAngleRight />}

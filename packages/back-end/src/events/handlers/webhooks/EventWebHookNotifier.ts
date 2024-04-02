@@ -136,7 +136,6 @@ export class EventWebHookNotifier implements Notifier {
           throw `Invalid payload type: ${invalidPayloadType}`;
       }
     })();
-
     if (!payload) {
       // Unsupported events return a null payload
       return;

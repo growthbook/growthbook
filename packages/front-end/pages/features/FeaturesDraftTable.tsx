@@ -77,6 +77,21 @@ export default function FeaturesDraftTable({ features }: Props) {
 
   const revisions = useAddComputedFields(featuresAndRevisions, (revision) => {
     const createdBy = revision?.createdBy as EventAuditUserLoggedIn | null;
+    let dateAndStatus = new Date(revision?.dateUpdated).getTime();
+    switch (revision?.status) {
+      case "draft":
+        dateAndStatus = parseInt(`0${dateAndStatus}`);
+        break;
+      case "approved":
+        dateAndStatus = parseInt(`0${dateAndStatus}`);
+        break;
+      case "pending-review":
+        dateAndStatus = parseInt(`1${dateAndStatus}`);
+        break;
+      case "changes-requested":
+        dateAndStatus = parseInt(`1${dateAndStatus}`);
+        break;
+    }
     return {
       id: revision.feature?.id,
       tags: revision.feature?.tags,
@@ -86,15 +101,17 @@ export default function FeaturesDraftTable({ features }: Props) {
       project: revision.feature?.project,
       creator: createdBy?.name,
       comment: revision?.comment,
+      dateAndStatus,
     };
   });
 
   const { searchInputProps, items, SortableTH } = useSearch({
     items: revisions,
-    defaultSortField: "dateUpdated",
+    defaultSortField: "dateAndStatus",
+    defaultSortDir: -1,
     searchFields: ["id^3", "comment", "tags^2", "status", "creator"],
     transformQuery: removeEnvFromSearchTerm,
-    localStorageKey: "features-drafts-table",
+    localStorageKey: "features-drafts-table-test-1-3",
   });
 
   useEffect(() => {
