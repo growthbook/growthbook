@@ -402,7 +402,15 @@ const sidebars = {
      */
     { type: "doc", id: "self-host/proxy", label: "Proxy" },
     { type: "doc", id: "api-overview", label: "API" },
-    { type: "doc", id: "webhooks", label: "Webhooks" },
+    {
+      type: "category",
+      collapsed: true,
+      label: "Webhooks",
+      items: [
+        { type: "doc", id: "webhooks/event-webhooks", label: "Event Webhooks" },
+        { type: "doc", id: "webhooks/sdk-webhooks", label: "SDK Webhooks" },
+      ],
+    },
     {
       type: "category",
       label: "Installation Tutorials",
