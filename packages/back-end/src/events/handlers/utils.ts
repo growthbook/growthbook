@@ -139,12 +139,10 @@ const filterFeatureUpdatedNotificationEventForEnvironments = ({
   environments: string[];
 }): boolean => {
   const { previous, current } = featureEvent.data;
-
   if (previous.archived && current.archived) {
     // Do not notify for archived features
     return false;
   }
-
   // Manual environment filtering
   const changedEnvironments = new Set<string>();
 
@@ -185,6 +183,10 @@ const filterFeatureUpdatedNotificationEventForEnvironments = ({
   const environmentChangesAreRelevant = changedEnvironments.size > 0;
   if (!environmentChangesAreRelevant) {
     return false;
+  }
+  // if the environments are not specified, notify for all environments
+  if (environments === undefined || environments.length === 0) {
+    return true;
   }
 
   return intersection(Array.from(changedEnvironments), environments).length > 0;
