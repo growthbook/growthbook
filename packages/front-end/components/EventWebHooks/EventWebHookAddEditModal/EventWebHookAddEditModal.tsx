@@ -274,7 +274,8 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
             }}
           />
           <small className="text-muted">
-            Only receive notifications for matching tags.
+            Only receive notifications for matching tags. Leave blank to receive
+            all.
           </small>
         </div>
       </div>
