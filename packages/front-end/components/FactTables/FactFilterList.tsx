@@ -34,7 +34,7 @@ export default function FactFilterList({ factTable }: Props) {
     searchFields: ["name^3", "description", "value^2"],
   });
 
-  const canEdit = permissionsUtil.canUpdateFactTable(factTable, {});
+  const canEdit = permissionsUtil.canViewEditFactTableModal(factTable);
 
   return (
     <>

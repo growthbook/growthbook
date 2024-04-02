@@ -13,8 +13,18 @@ import { postFactTableValidator } from "../../validators/openapi";
 
 export const postFactTable = createApiRequestHandler(postFactTableValidator)(
   async (req): Promise<PostFactTableResponse> => {
-    const projects = req.body.projects || [];
-    if (!req.context.permissions.canCreateFactTable({ projects })) {
+    const data: CreateFactTableProps = {
+      columns: [],
+      eventName: "",
+      id: "",
+      description: "",
+      owner: "",
+      projects: [],
+      tags: [],
+      ...req.body,
+    };
+
+    if (!req.context.permissions.canCreateFactTable(data)) {
       req.context.permissions.throwPermissionError();
     }
     const datasource = await getDataSourceById(
@@ -48,17 +58,6 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
         }
       }
     }
-
-    const data: CreateFactTableProps = {
-      columns: [],
-      eventName: "",
-      id: "",
-      description: "",
-      owner: "",
-      projects: [],
-      tags: [],
-      ...req.body,
-    };
 
     const factTable = await createFactTable(req.context, data);
     await queueFactTableColumnsRefresh(factTable);

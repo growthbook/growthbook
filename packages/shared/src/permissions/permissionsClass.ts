@@ -2,7 +2,10 @@ import { FeatureInterface } from "back-end/types/feature";
 import { MetricInterface } from "back-end/types/metric";
 import { Permission, UserPermissions } from "back-end/types/organization";
 import { IdeaInterface } from "back-end/types/idea";
-import { FactTableInterface } from "back-end/types/fact-table";
+import {
+  FactTableInterface,
+  UpdateFactTableProps,
+} from "back-end/types/fact-table";
 import { READ_ONLY_PERMISSIONS } from "./permissions.utils";
 class PermissionError extends Error {
   constructor(message: string) {
@@ -56,8 +59,8 @@ export class Permissions {
     );
   };
 
-  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
-  public canViewFactTableModal = (project?: string): boolean => {
+  // This is a helper method to use on the frontend to determine whether or not a user can create Fact Tables in current project
+  public canViewCreateFactTableModal = (project?: string): boolean => {
     return this.checkProjectFilterPermission(
       {
         projects: project ? [project] : [],
@@ -66,17 +69,22 @@ export class Permissions {
     );
   };
 
-  public canCreateFactTable = (
-    metric: Pick<FactTableInterface, "projects">
+  // This is a helper method to use on the frontend to determine whether or not a user can edit a Fact Table
+  public canViewEditFactTableModal = (
+    factTable: Pick<FactTableInterface, "projects">
   ): boolean => {
-    return this.checkProjectFilterPermission(metric, "manageFactTables");
+    return this.checkProjectFilterPermission(factTable, "manageFactTables");
+  };
+
+  public canCreateFactTable = (
+    factTable: Pick<FactTableInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(factTable, "manageFactTables");
   };
 
   public canUpdateFactTable = (
     existing: Pick<FactTableInterface, "projects">,
-    // updates is a Partial here because projects is not optional on factTable
-    // checkProjectFilterUpdatePermission skips checking update permission if projects isn't included
-    updates: Partial<FactTableInterface>
+    updates: UpdateFactTableProps
   ): boolean => {
     return this.checkProjectFilterUpdatePermission(
       existing,
@@ -86,9 +94,9 @@ export class Permissions {
   };
 
   public canDeleteFactTable = (
-    metric: Pick<FactTableInterface, "projects">
+    factTable: Pick<FactTableInterface, "projects">
   ): boolean => {
-    return this.checkProjectFilterPermission(metric, "manageFactTables");
+    return this.checkProjectFilterPermission(factTable, "manageFactTables");
   };
 
   public canCreateMetric = (

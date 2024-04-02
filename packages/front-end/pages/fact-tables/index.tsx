@@ -57,7 +57,7 @@ export default function FactTablesPage() {
       )
     : factTables;
 
-  const canCreate = permissionsUtil.canViewFactTableModal(project);
+  const canCreate = permissionsUtil.canViewCreateFactTableModal(project);
 
   const factTablesWithLabels = useAddComputedFields(
     filteredFactTables,

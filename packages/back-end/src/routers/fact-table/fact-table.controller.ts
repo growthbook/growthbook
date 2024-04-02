@@ -129,12 +129,7 @@ export const putFactTable = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  if (
-    !context.permissions.canUpdateFactTable(
-      factTable,
-      data.projects ? { projects: data.projects } : {}
-    )
-  ) {
+  if (!context.permissions.canUpdateFactTable(factTable, data)) {
     context.permissions.throwPermissionError();
   }
 
