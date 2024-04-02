@@ -442,7 +442,6 @@ export async function submitReviewAndComments(
         status,
         datePublished: null,
         dateUpdated: new Date(),
-        comment: comment ?? revision.comment,
       },
       $push: {
         log,

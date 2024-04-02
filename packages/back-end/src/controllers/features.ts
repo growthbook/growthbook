@@ -1323,7 +1323,7 @@ export async function putRevisionComment(
 
   await updateRevision(
     revision,
-    { comment },
+    {},
     {
       user: res.locals.eventAudit,
       action: "edit comment",
