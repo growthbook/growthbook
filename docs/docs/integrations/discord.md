@@ -1,0 +1,64 @@
+---
+toc_max_heading_level: 5
+---
+
+import ExternalLink from '@site/src/components/ExternalLink'
+
+# Discord integration
+
+The GrowthBook Discord integration allows you to receive alerts for the events that you care about in a Discord channel of your choosing.
+
+:::success New
+
+The GrowthBook Discord integration is a brand new feature. If you experience any issues, let us know either on [Slack](https://slack.growthbook.io/) or [create an issue](https://github.com/growthbook/growthbook-sdk-java/issues).
+
+:::
+
+## Making A Discord Webhook
+
+The first step is to create an event webhook on your discord server:
+
+1. Open your **Server Settings** and head into the **Integrations** tab:
+2. Click the **Create Webhook** button to create a new webhook!
+
+![](../../static/images/webhooks/discord/discord-new-webhook.png)
+
+Once your discord webhook is configured, you can copy its url:
+
+![](../../static/images/webhooks/discord/discord-copy-webhook-url.png)
+
+## Add the Discord integration to GrowthBook
+
+Next step is to login to the GrowthBook app and visit the **Webhooks** tab under **Settiongs**, also available [here](https://app.growthbook.io/settings/webhooks). You will need privileges to manage webhooks in order for this menu item to be available.
+
+Click the **Create an Event Webhook** button. You should see a modal pop up with some fields for configuring the Discord notification webhook.
+
+![](../../static/images/webhooks/discord/new-webhook.png)
+
+Then, configure the following:
+
+- **Name**: The name of the integration. In case you have multiple integrations, this can help you tell them apart. This will also show in the contextual text alongside the alerts.
+- **Endpoint URL**: Copy and paste the webhook URL provided by your discord app.
+- **Payload**: Select the `Discord` payload.
+- **Event filters**: You can optionally filter by events you care about. For example, if you only care about when features are deleted, you can choose `feature.deleted` from the list. If you care about all events, leave this blank.
+- **Environment filters**: You can optionally choose to filter by environment. For example, if you only want to hear about events that are for the production environment, you can choose `production` from the list. For all environments, leave this blank.
+- **Project filters**: You can optionally choose to filter by project. For example, if you have a project named "Onboarding V2" and you only want to alert for that project, you can choose that project from the projects list. For all projects, leave this blank.
+- **Tag filters**: You can optionally choose to filter by tag. For all events regardless of tag, leave this blank.
+
+After configuring all the fields, press **Create** to save your new Discord notification webhook.
+
+You can also edit these fields at any point if you make a mistake.
+
+![](../../static/images/webhooks/discord/edit-webhook.png)
+
+### Adding more alerts
+
+If you'd like to be alerted in another Discord channel, you can add another Incoming Webhook in Discord.
+
+Then, you can create new integrations in the GrowthBook dashboard, specifying all of the same information except adding your new webhook URL.
+
+## Testing your alerts
+
+You are now ready to test your alerts. First, you can hit the `Test` button on the webhook settings page. This should trigger a test notification.
+
+Next, perform one of the actions you're watching if you've added Event filters. If you haven't added any event filters, the quickest way to test it's working is to either create a new test feature (then delete it if it's not needed), or toggle an environment on or off for an existing feature.
