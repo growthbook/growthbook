@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { validateFactTableProjects } from "../../services/fact-tables";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getContextFromReq } from "../../services/organizations";
 import {
@@ -96,11 +97,7 @@ export const postFactTable = async (
   }
   req.checkPermissions("runQueries", datasource.projects || []);
 
-  if (datasource.projects?.length && !data.projects.length) {
-    throw new Error(
-      "A Fact Table's project list must be a subset of the connected data source's project list."
-    );
-  }
+  validateFactTableProjects(datasource.projects || [], data.projects);
 
   data.columns = await runRefreshColumnsQuery(
     datasource,
@@ -135,25 +132,17 @@ export const putFactTable = async (
 
   // Check permissions for both the existing projects and new ones (if they are being changed)
   req.checkPermissions("manageFactTables", factTable.projects);
-  if (data.projects) {
-    req.checkPermissions("manageFactTables", data.projects || "");
-  }
 
   const datasource = await getDataSourceById(context, factTable.datasource);
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
-  req.checkPermissions("runQueries", datasource.projects || []);
-
-  if (
-    datasource.projects?.length &&
-    data.projects &&
-    data.projects.length === 0
-  ) {
-    throw new Error(
-      "A Fact Table's project list must be a subset of the connected data source's project list."
-    );
+  if (data.projects) {
+    req.checkPermissions("manageFactTables", data.projects || "");
+    validateFactTableProjects(datasource.projects || [], data.projects);
   }
+
+  req.checkPermissions("runQueries", datasource.projects || []);
 
   // Update the columns
   data.columns = await runRefreshColumnsQuery(datasource, {

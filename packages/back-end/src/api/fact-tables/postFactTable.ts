@@ -1,3 +1,4 @@
+import { validateFactTableProjects } from "../../services/fact-tables";
 import { CreateFactTableProps } from "../../../types/fact-table";
 import { PostFactTableResponse } from "../../../types/openapi";
 import { queueFactTableColumnsRefresh } from "../../jobs/refreshFactTableColumns";
@@ -34,6 +35,8 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
       throw new Error("Could not find datasource");
     }
 
+    validateFactTableProjects(datasource.projects || [], data.projects);
+
     // Validate projects
     if (req.body.projects?.length) {
       const projects = await findAllProjectsByOrganization(req.context);
@@ -43,17 +46,6 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
           throw new Error(`Project ${projectId} not found`);
         }
       }
-    }
-
-    // Validate fact table projects are a subset of the connected datasource's projects
-    if (
-      datasource.projects?.length &&
-      data.projects &&
-      data.projects.length === 0
-    ) {
-      throw new Error(
-        "A Fact Table's project list must be a subset of the connected data source's project list."
-      );
     }
 
     // Validate userIdTypes

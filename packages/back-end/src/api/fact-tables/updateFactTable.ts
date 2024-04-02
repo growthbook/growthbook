@@ -1,3 +1,4 @@
+import { validateFactTableProjects } from "../../services/fact-tables";
 import { UpdateFactTableProps } from "../../../types/fact-table";
 import { UpdateFactTableResponse } from "../../../types/openapi";
 import { queueFactTableColumnsRefresh } from "../../jobs/refreshFactTableColumns";
@@ -44,14 +45,8 @@ export const updateFactTable = createApiRequestHandler(
       }
     }
 
-    if (
-      datasource.projects?.length &&
-      req.body.projects &&
-      !req.body.projects.length
-    ) {
-      throw new Error(
-        "A Fact Table's project list must be a subset of the connected data source's project list."
-      );
+    if (req.body.projects) {
+      validateFactTableProjects(datasource.projects || [], req.body.projects);
     }
 
     // Validate userIdTypes
