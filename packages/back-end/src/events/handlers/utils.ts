@@ -148,7 +148,7 @@ export const filterFeatureUpdatedNotificationEventForEnvironments = ({
   environments: string[];
 }): boolean => {
   const { previous, current } = featureEvent.data;
-  if (previous.archived === true && current.archived === true) {
+  if (previous.archived && current.archived) {
     // Do not notify for archived features
     return false;
   }

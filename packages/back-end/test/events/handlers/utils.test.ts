@@ -18,20 +18,6 @@ describe("filterFeatureUpdatedNotificationEventForEnvironments", () => {
     ).toBe(false);
   });
 
-  it("does not mistake truthy with true for the achived value", () => {
-    expect(
-      filterFeatureUpdatedNotificationEventForEnvironments({
-        featureEvent: {
-          data: {
-            previous: { archived: true },
-            current: { archived: "bogus" },
-          },
-        },
-        environments: [],
-      })
-    ).toBe(true);
-  });
-
   it("returns true when environments is empty", () => {
     expect(
       filterFeatureUpdatedNotificationEventForEnvironments({
@@ -51,8 +37,8 @@ describe("filterFeatureUpdatedNotificationEventForEnvironments", () => {
       filterFeatureUpdatedNotificationEventForEnvironments({
         featureEvent: {
           data: {
-            previous: { [key]: "old-value" },
-            current: { [key]: "new-value" },
+            previous: { [key]: key === "achived" ? true : "old-value" },
+            current: { [key]: key === "archived" ? false : "new-value" },
           },
         },
         environments: [],
@@ -75,6 +61,26 @@ describe("filterFeatureUpdatedNotificationEventForEnvironments", () => {
             current: {
               environments: {
                 foo: { enabled: true, some_setting: "new-value" },
+              },
+            },
+          },
+        },
+        environments: ["foo"],
+      })
+    ).toBe(true);
+
+    expect(
+      filterFeatureUpdatedNotificationEventForEnvironments({
+        featureEvent: {
+          data: {
+            previous: {
+              environments: {
+                foo: { enabled: true },
+              },
+            },
+            current: {
+              environments: {
+                foo: { enabled: false },
               },
             },
           },
