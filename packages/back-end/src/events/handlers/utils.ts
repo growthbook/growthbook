@@ -190,7 +190,5 @@ export const filterFeatureUpdatedNotificationEventForEnvironments = ({
     return false;
   }
 
-  if (!environments?.length) return true;
-
   return intersection(Array.from(changedEnvironments), environments).length > 0;
 };
