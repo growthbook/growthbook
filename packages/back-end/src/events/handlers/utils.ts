@@ -131,13 +131,18 @@ export const filterEventForEnvironments = ({
   }
 };
 
-const filterFeatureUpdatedNotificationEventForEnvironments = ({
+export const filterFeatureUpdatedNotificationEventForEnvironments = ({
   featureEvent,
   environments,
 }: {
   featureEvent: FeatureUpdatedNotificationEvent;
   environments: string[];
 }): boolean => {
+  // if the environments are not specified, notify for all environments
+  if (environments.length === 0) {
+    return true;
+  }
+
   const { previous, current } = featureEvent.data;
   if (previous.archived && current.archived) {
     // Do not notify for archived features
@@ -183,10 +188,6 @@ const filterFeatureUpdatedNotificationEventForEnvironments = ({
   const environmentChangesAreRelevant = changedEnvironments.size > 0;
   if (!environmentChangesAreRelevant) {
     return false;
-  }
-  // if the environments are not specified, notify for all environments
-  if (environments === undefined || environments.length === 0) {
-    return true;
   }
 
   return intersection(Array.from(changedEnvironments), environments).length > 0;
