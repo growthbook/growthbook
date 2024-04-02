@@ -111,6 +111,7 @@ export const postBulkImportFacts = createApiRequestHandler(
         else {
           if (
             !req.context.permissions.canCreateFactTable({
+              ...data,
               projects: data.projects || [],
             })
           ) {
