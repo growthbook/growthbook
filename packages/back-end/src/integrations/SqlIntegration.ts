@@ -1576,21 +1576,18 @@ export default abstract class SqlIntegration
     const capCoalesceMetric = this.capCoalesceValue(
       `m.${alias}_value`,
       metric,
-      isPercentileCapped,
       "cap",
       `${alias}_value_cap`
     );
     const capCoalesceDenominator = this.capCoalesceValue(
       `m.${alias}_denominator`,
       metric,
-      isPercentileCapped,
       "cap",
       `${alias}_denominator_cap`
     );
     const capCoalesceCovariate = this.capCoalesceValue(
       `c.${alias}_value`,
       metric,
-      isPercentileCapped,
       "cap",
       `${alias}_value_cap`
     );
@@ -2264,22 +2261,15 @@ export default abstract class SqlIntegration
       !!denominator.cappingSettings.value &&
       denominator.cappingSettings.value < 1 &&
       !quantileMetric;
-    const capCoalesceMetric = this.capCoalesceValue(
-      "m.value",
-      metric,
-      isPercentileCapped,
-      "cap"
-    );
+    const capCoalesceMetric = this.capCoalesceValue("m.value", metric, "cap");
     const capCoalesceDenominator = this.capCoalesceValue(
       "d.value",
       denominator,
-      denominatorIsPercentileCapped,
       "capd"
     );
     const capCoalesceCovariate = this.capCoalesceValue(
       "c.value",
       metric,
-      isPercentileCapped,
       "cap"
     );
 
@@ -2799,14 +2789,13 @@ export default abstract class SqlIntegration
   private capCoalesceValue(
     valueCol: string,
     metric: ExperimentMetricInterface,
-    isCapped: boolean,
     capTablePrefix: string = "c",
     capValueCol: string = "cap_value"
   ): string {
     if (
       metric?.cappingSettings.type === "absolute" &&
       metric.cappingSettings.value &&
-      isCapped
+      !quantileMetricType(metric)
     ) {
       return `LEAST(
         ${this.ensureFloat(`COALESCE(${valueCol}, 0)`)},
@@ -2817,7 +2806,7 @@ export default abstract class SqlIntegration
       metric?.cappingSettings.type === "percentile" &&
       metric.cappingSettings.value &&
       metric.cappingSettings.value < 1 &&
-      isCapped
+      !quantileMetricType(metric)
     ) {
       return `LEAST(
         ${this.ensureFloat(`COALESCE(${valueCol}, 0)`)},
