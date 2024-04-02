@@ -33,10 +33,10 @@ function jamesSteinAdjustment(
 ) {
   const Ne = effects.length;
   const priorMean = useMean ? effects.reduce((a, b) => a + b, 0) / Ne : 0;
-  const adj =
-    ((Ne - 2) * Math.pow(se, 2)) /
-    effects.reduce((a, b) => a + Math.pow(b - priorMean, 2), 0);
-  return { mean: priorMean, adjustment: adj };
+  const Z = effects.reduce((a, b) => a + Math.pow(b - priorMean, 2), 0);
+  const adj = ((Ne - 2) * Math.pow(se, 2)) / Z;
+  const variance = 1 + 1 / Z;
+  return { mean: priorMean, adjustment: adj, variance: variance };
 }
 
 type ExperimentImpactFilters = {
@@ -52,7 +52,7 @@ type ExperimentImpact = {
   variations: {
     scaledImpact: number;
     scaledImpactAdjusted?: number;
-    ci0?: number;
+    se?: number;
     selected: boolean;
   }[];
 };
@@ -70,6 +70,7 @@ type ExperimentImpactTab = ExperimentImpactType | "summary";
 type ExperimentImpactData = {
   totalImpact: number;
   totalAdjustedImpact: number;
+  totalAdjustedImpactVariance: number;
   experiments: ExperimentWithImpact[];
 };
 
@@ -125,6 +126,7 @@ export default function ExperimentImpact({
     currency: displayCurrency,
     notation: "compact",
     signDisplay: "never",
+    maximumSignificantDigits: 3,
   };
 
   // 1 get all snapshots
@@ -293,7 +295,11 @@ export default function ExperimentImpact({
                 scaledImpact: impact,
                 selected: e.winner === i,
                 ci0: v?.metrics[metric]?.ci?.[0],
+                se: se,
               });
+              console.log(s.experiment);
+              console.log(v?.metrics[metric]?.expected ?? 0);
+              console.log(v?.metrics[metric]?.uplift);
               allScaledImpacts.push(impact);
 
               const totalUnits = v.users + res.variations[0].users;
@@ -313,16 +319,19 @@ export default function ExperimentImpact({
     summaryObj = {
       winners: {
         totalAdjustedImpact: 0,
+        totalAdjustedImpactVariance: 0,
         totalImpact: 0,
         experiments: [],
       },
       losers: {
         totalAdjustedImpact: 0,
+        totalAdjustedImpactVariance: 0,
         totalImpact: 0,
         experiments: [],
       },
       others: {
         totalAdjustedImpact: 0,
+        totalAdjustedImpactVariance: 0,
         totalImpact: 0,
         experiments: [],
       },
@@ -331,6 +340,7 @@ export default function ExperimentImpact({
       if (e?.impact?.inSample) {
         let experimentImpact: number | null = null;
         let experimentAdjustedImpact: number | null = null;
+        let experimentAdjustedImpactStdDev: number | null = null;
 
         e.impact.variations.forEach((v, vi) => {
           const adjustedImpact =
@@ -342,12 +352,14 @@ export default function ExperimentImpact({
             e.keyVariationId = vi + 1;
             experimentImpact = v.scaledImpact;
             experimentAdjustedImpact = v.scaledImpactAdjusted;
+            experimentAdjustedImpactStdDev = v.se ?? 0;
           } else if (e.experiment.results === "lost") {
             // only include biggest loser for "savings"
             if (v.scaledImpact < (experimentImpact ?? Infinity)) {
               e.keyVariationId = vi + 1;
               experimentImpact = v.scaledImpact;
               experimentAdjustedImpact = v.scaledImpactAdjusted;
+              experimentAdjustedImpactStdDev = v.se ?? 0;
             }
           }
         });
@@ -356,12 +368,20 @@ export default function ExperimentImpact({
           summaryObj.winners.totalImpact += experimentImpact ?? 0;
           summaryObj.winners.totalAdjustedImpact +=
             experimentAdjustedImpact ?? 0;
+          summaryObj.winners.totalAdjustedImpactVariance += Math.pow(
+            experimentAdjustedImpactStdDev ?? 0,
+            2
+          );
           summaryObj.winners.experiments.push(e);
         } else if (e.experiment.results === "lost") {
           // invert sign of lost impact
           summaryObj.losers.totalImpact -= experimentImpact ?? 0;
           summaryObj.losers.totalAdjustedImpact -=
             experimentAdjustedImpact ?? 0;
+          summaryObj.losers.totalAdjustedImpactVariance += Math.pow(
+            experimentAdjustedImpactStdDev ?? 0,
+            2
+          );
           summaryObj.losers.experiments.push(e);
         } else {
           summaryObj.others.experiments.push(e);
@@ -494,7 +514,20 @@ export default function ExperimentImpact({
                             summaryObj.winners.totalAdjustedImpact * 365,
                             formatter,
                             formatterOptions
-                          )}
+                          )}{" "}
+                          {summaryObj.winners.totalAdjustedImpactVariance ? (
+                            <span className="plusminus ml-1">
+                              ±{" "}
+                              {formatter(
+                                Math.sqrt(
+                                  summaryObj.winners.totalAdjustedImpactVariance
+                                ) *
+                                  1.96 *
+                                  365,
+                                formatterOptions
+                              )}
+                            </span>
+                          ) : null}
                         </span>
                         <div>
                           <Tooltip
@@ -516,7 +549,20 @@ export default function ExperimentImpact({
                             summaryObj.losers.totalAdjustedImpact * 365,
                             formatter,
                             formatterOptions
-                          )}
+                          )}{" "}
+                          {summaryObj.losers.totalAdjustedImpactVariance ? (
+                            <span className="plusminus ml-1">
+                              ±{" "}
+                              {formatter(
+                                Math.sqrt(
+                                  summaryObj.losers.totalAdjustedImpactVariance
+                                ) *
+                                  1.96 *
+                                  365,
+                                formatterOptions
+                              )}
+                            </span>
+                          ) : null}
                         </span>
                         <div>
                           <Tooltip
@@ -782,6 +828,19 @@ function ImpactTab({
                   formatter,
                   formatterOptions
                 )}
+                {experimentImpactData.totalAdjustedImpactVariance ? (
+                  <span className="plusminus ml-1">
+                    ±{" "}
+                    {formatter(
+                      Math.sqrt(
+                        experimentImpactData.totalAdjustedImpactVariance
+                      ) *
+                        1.96 *
+                        365,
+                      formatterOptions
+                    )}
+                  </span>
+                ) : null}
               </td>
             </tr>
           </tbody>
