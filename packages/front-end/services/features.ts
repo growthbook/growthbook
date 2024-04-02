@@ -79,11 +79,13 @@ export function useEnvironments() {
         id: "dev",
         description: "",
         toggleOnList: true,
+        projects: [],
       },
       {
         id: "production",
         description: "",
         toggleOnList: true,
+        projects: [],
       },
     ];
   }
@@ -195,14 +197,25 @@ export function getVariationColor(i: number) {
   return colors[i % colors.length];
 }
 
-export function useAttributeSchema(showArchived = false) {
+export function useAttributeSchema(
+  showArchived = false,
+  projectFilter?: string
+) {
   const attributeSchema = useOrgSettings().attributeSchema || [];
+
+  const filteredAttributeSchema = attributeSchema.filter((attribute) => {
+    return (
+      !projectFilter ||
+      !attribute.projects?.length ||
+      attribute.projects.includes(projectFilter)
+    );
+  });
   return useMemo(() => {
     if (!showArchived) {
-      return attributeSchema.filter((s) => !s.archived);
+      return filteredAttributeSchema.filter((s) => !s.archived);
     }
-    return attributeSchema;
-  }, [attributeSchema, showArchived]);
+    return filteredAttributeSchema;
+  }, [attributeSchema, showArchived, projectFilter]);
 }
 
 export function validateFeatureRule(
@@ -823,8 +836,10 @@ function getAttributeDataType(type: SDKAttributeType) {
   return "number";
 }
 
-export function useAttributeMap(): Map<string, AttributeData> {
-  const attributeSchema = useAttributeSchema(true);
+export function useAttributeMap(
+  projectFilter?: string
+): Map<string, AttributeData> {
+  const attributeSchema = useAttributeSchema(true, projectFilter);
 
   return useMemo(() => {
     if (!attributeSchema.length) {

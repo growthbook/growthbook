@@ -92,29 +92,9 @@ export default class ClickHouse extends SqlIntegration {
   ensureFloat(col: string): string {
     return `toFloat64(${col})`;
   }
-  percentileCapSelectClause(
-    values: {
-      valueCol: string;
-      outputCol: string;
-      percentile: number;
-      ignoreZeros: boolean;
-    }[],
-    metricTable: string,
-    where: string = ""
-  ): string {
-    return `
-    SELECT
-      ${values
-        .map((v) => {
-          const value = v.ignoreZeros
-            ? this.ifElse(`${v.valueCol} = 0`, "NULL", v.valueCol)
-            : v.valueCol;
-          return `quantile(${v.percentile})(${value}) AS ${v.outputCol}`;
-        })
-        .join(",\n")}
-      FROM ${metricTable}
-      ${where}
-    `;
+  approxQuantile(value: string, quantile: string | number): string {
+    return `quantile(${quantile})(${value})`;
+    // TODO explore gains to using `quantiles`
   }
   getInformationSchemaWhereClause(): string {
     if (!this.params.database)

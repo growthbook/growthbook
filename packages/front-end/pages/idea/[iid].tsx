@@ -34,6 +34,7 @@ import SelectField from "@/components/Forms/SelectField";
 import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const IdeaPage = (): ReactElement => {
   const router = useRouter();
@@ -53,6 +54,7 @@ const IdeaPage = (): ReactElement => {
   } = useDefinitions();
 
   const { permissions, getUserDisplay } = useUser();
+  const permissionsUtil = usePermissionsUtil();
 
   const { apiCall } = useAuth();
 
@@ -101,14 +103,17 @@ const IdeaPage = (): ReactElement => {
   const idea = data.idea;
   const estimate = data.estimate;
 
-  const canEdit = permissions.check("createIdeas", idea.project);
+  const canEdit = permissionsUtil.canUpdateIdea(idea, {});
+  const canCreateIdeasInCurrentProject = permissionsUtil.canViewIdeaModal(
+    project
+  );
 
   return (
     <div className="container-fluid pagecontents pt-3">
       {project &&
         project !== idea.project &&
         canEdit &&
-        permissions.check("createIdeas", project) && (
+        canCreateIdeasInCurrentProject && (
           <div className="bg-info p-2 mb-3 text-center text-white">
             This idea is in a different project. Move it to{" "}
             <a
@@ -375,7 +380,7 @@ const IdeaPage = (): ReactElement => {
               type="idea"
               id={idea.id}
               showTitle={true}
-              project={idea.project}
+              projects={idea.project ? [idea.project] : []}
             />
           </div>
         </div>

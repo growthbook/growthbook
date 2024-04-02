@@ -105,6 +105,12 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "running-experiments/url-redirects",
+          label: "URL Redirects",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
           id: "sticky-bucketing",
           label: "Sticky Bucketing",
         },
@@ -333,6 +339,11 @@ const sidebars = {
               type: "doc",
               id: "statistics/aggregation",
               label: "Aggregate Data",
+            },
+            {
+              type: "doc",
+              id: "statistics/quantile",
+              label: "Quantile Testing",
             },
           ],
         },

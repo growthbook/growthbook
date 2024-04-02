@@ -1,5 +1,9 @@
 import clsx from "clsx";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  isFactMetric,
+  quantileMetricType,
+} from "shared/experiments";
 import React from "react";
 import {
   capitalizeFirstLetter,
@@ -8,6 +12,7 @@ import {
 import { ExperimentTableRow } from "@/services/experiments";
 import Markdown from "@/components/Markdown/Markdown";
 import SortedTags from "@/components/Tags/SortedTags";
+import { getPercentileLabel } from "@/services/metrics";
 import styles from "./MetricToolTipBody.module.scss";
 import MetricName from "./MetricName";
 
@@ -52,6 +57,32 @@ const MetricTooltipBody = ({
           shouldShowEllipsis={false}
           useFlex={true}
         />
+      ),
+    },
+    {
+      show: !!quantileMetricType(metric),
+      label: "Quantile",
+      body: (
+        <>
+          {isFactMetric(metric) && metric.quantileSettings
+            ? getPercentileLabel(metric.quantileSettings.quantile)
+            : null}
+        </>
+      ),
+    },
+    {
+      show: !!quantileMetricType(metric),
+      label: "Quantile Type",
+      body: (
+        <>
+          {isFactMetric(metric) && metric.quantileSettings
+            ? `${
+                metric.quantileSettings.type === "unit" ? "Per-user" : "Events"
+              }${
+                metric.quantileSettings.ignoreZeros ? " (ignoring zeros)" : ""
+              }`
+            : null}
+        </>
       ),
     },
     {

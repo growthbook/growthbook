@@ -3,6 +3,7 @@ import {
   ExperimentMetricInterface,
   isFactMetric,
   isRatioMetric,
+  quantileMetricType,
 } from "shared/experiments";
 import chunk from "lodash/chunk";
 import {
@@ -75,6 +76,13 @@ export function getFactMetricGroup(metric: FactMetricInterface) {
       return "";
     }
   }
+
+  // Quantile metrics get their own group to prevent slowing down the main query
+  if (quantileMetricType(metric)) {
+    return metric.numerator.factTableId
+      ? `${metric.numerator.factTableId} (quantile metrics)`
+      : "";
+  }
   return metric.numerator.factTableId || "";
 }
 
@@ -114,9 +122,9 @@ export function getFactMetricGroups(
     // Only fact metrics
     if (!isFactMetric(m)) return;
 
-    // Skip grouping metrics with percentile caps if there's not an efficient implementation
+    // Skip grouping metrics with percentile caps or quantile metrics if there's not an efficient implementation
     if (
-      m.cappingSettings.type === "percentile" &&
+      (m.cappingSettings.type === "percentile" || quantileMetricType(m)) &&
       !integration.getSourceProperties().hasEfficientPercentiles
     ) {
       return;

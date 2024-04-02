@@ -154,6 +154,8 @@ export default function PrerequisiteTargetingField({
           enabled: true,
         };
         if (newRevision) {
+          newRevision.rules[environments[0]] =
+            newRevision.rules[environments[0]] || [];
           newRevision.rules[environments[0]].push(fakeRule);
         } else {
           newFeature.environmentSettings[environments[0]].rules.push(fakeRule);
@@ -162,7 +164,8 @@ export default function PrerequisiteTargetingField({
         wouldBeCyclic = isFeatureCyclic(
           newFeature,
           featuresMap,
-          newRevision
+          newRevision,
+          environments
         )[0];
       }
       wouldBeCyclicStates[f.id] = wouldBeCyclic;

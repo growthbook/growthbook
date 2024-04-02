@@ -203,7 +203,7 @@ const experimentSchema = new mongoose.Schema({
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
 
-const ExperimentModel = mongoose.model<ExperimentInterface>(
+export const ExperimentModel = mongoose.model<ExperimentInterface>(
   "Experiment",
   experimentSchema
 );

@@ -1,5 +1,8 @@
+import { FeatureInterface } from "back-end/types/feature";
 import { MetricInterface } from "back-end/types/metric";
 import { Permission, UserPermissions } from "back-end/types/organization";
+import { IdeaInterface } from "back-end/types/idea";
+import { READ_ONLY_PERMISSIONS } from "./permissions.utils";
 class PermissionError extends Error {
   constructor(message: string) {
     super(message);
@@ -14,6 +17,43 @@ export class Permissions {
     this.userPermissions = permissions;
     this.superAdmin = superAdmin;
   }
+
+  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
+  public canViewIdeaModal = (project?: string): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: project ? [project] : [],
+      },
+      "createIdeas"
+    );
+  };
+
+  public canCreateIdea = (idea: Pick<IdeaInterface, "project">): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: idea.project ? [idea.project] : [],
+      },
+      "createIdeas"
+    );
+  };
+
+  public canUpdateIdea = (
+    existing: Pick<IdeaInterface, "project">,
+    updated: Pick<IdeaInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
+      "createIdeas"
+    );
+  };
+
+  public canDeleteIdea = (idea: Pick<IdeaInterface, "project">): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: idea.project ? [idea.project] : [] },
+      "createIdeas"
+    );
+  };
 
   public canCreateMetric = (
     metric: Pick<MetricInterface, "projects">
@@ -38,6 +78,28 @@ export class Permissions {
     return this.checkProjectFilterPermission(metric, "createMetrics");
   };
 
+  public canBypassApprovalChecks = (
+    feature: Pick<FeatureInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: feature.project ? [feature.project] : [] },
+      "bypassApprovalChecks"
+    );
+  };
+
+  public canReviewFeatureDrafts = (
+    feature: Pick<FeatureInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: feature.project ? [feature.project] : [] },
+      "canReview"
+    );
+  };
+
+  public canAddComment = (projects: string[]): boolean => {
+    return this.checkProjectFilterPermission({ projects }, "addComments");
+  };
+
   public throwPermissionError(): void {
     throw new PermissionError(
       "You do not have permission to perform this action"
@@ -50,6 +112,18 @@ export class Permissions {
   ): boolean {
     const projects = obj.projects?.length ? obj.projects : [""];
 
+    if (READ_ONLY_PERMISSIONS.includes(permission)) {
+      if (
+        projects.length === 1 &&
+        !projects[0] &&
+        Object.keys(this.userPermissions.projects).length
+      ) {
+        projects.push(...Object.keys(this.userPermissions.projects));
+      }
+      return projects.some((project) =>
+        this.hasPermission(permission, project)
+      );
+    }
     return projects.every((project) => this.hasPermission(permission, project));
   }
 
