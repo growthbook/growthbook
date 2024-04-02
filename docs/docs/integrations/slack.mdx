@@ -48,36 +48,27 @@ Once you've completed this flow, you will see a URL available for you to copy. S
 
 ## Add the Slack integration to GrowthBook
 
-Next step is to login to the GrowthBook app and visit the **Slack** tab under **Integrations**, also available [here](https://app.growthbook.io/integrations/slack). You will need privileges to manage integrations in order for this menu item to be available.
+Next step is to login to the GrowthBook app and visit the **Webhooks** tab under **Settionss**, also available [here](https://app.growthbook.io/settings/webhooks). You will need privileges to manage webhooks in order for this menu item to be available.
 
-Click the **Create a Slack integration** button. You should see a modal pop up with some fields for configuring the Slack integration.
+Click the **Create an Event Webhook* button. You should see a modal pop up with some fields for configuring the Slack notification webhook.
 
-![](../../static/images/integrations/slack/slack-gb-new-integration.png)
-
-### Copy the Slack app credentials
-
-Go to the **App Credentials** section on the **Basic Information** page.
-
-From here, you will need to copy the following details from Slack:
-
-- **Slack App ID**: Copy the Slack app ID from the Basic Information page
-- **Slack Signing Secret**: Copy the signing secret from the Basic Information page
-- **Webhook URL**: Copy the webhook URL from the Incoming Webhooks page
+![](../../static/images/webhooks/slack/new-webhook.png)
 
 Then, configure the following:
 
 - **Name**: The name of the integration. In case you have multiple integrations, this can help you tell them apart. This will also show in the contextual text alongside the alerts.
-- **Description**: Optionally add a description for you and your team
+- **Endpoint URL**: Copy and paste the webhook URL provided by your slack app.
+- **Payload**: Select the `Slack` payload.
 - **Event filters**: You can optionally filter by events you care about. For example, if you only care about when features are deleted, you can choose `feature.deleted` from the list. If you care about all events, leave this blank.
 - **Environment filters**: You can optionally choose to filter by environment. For example, if you only want to hear about events that are for the production environment, you can choose `production` from the list. For all environments, leave this blank.
 - **Project filters**: You can optionally choose to filter by project. For example, if you have a project named "Onboarding V2" and you only want to alert for that project, you can choose that project from the projects list. For all projects, leave this blank.
 - **Tag filters**: You can optionally choose to filter by tag. For all events regardless of tag, leave this blank.
 
-After configuring all the fields, press **Create** to save your new Slack integration configuration.
+After configuring all the fields, press **Create** to save your new Slack notification webhook.
 
 You can also edit these fields at any point if you make a mistake.
 
-![](../../static/images/integrations/slack/slack-gb-config.png)
+![](../../static/images/webhooks/slack/edit-webhook.png)
 
 ### Adding more alerts
 
@@ -87,4 +78,6 @@ Then, you can create new integrations in the GrowthBook dashboard, specifying al
 
 ## Testing your alerts
 
-You are now ready to test your alerts. Perform one of the actions you're watching if you've added Event filters. If you haven't added any event filters, the quickest way to test it's working is to either create a new test feature (then delete it if it's not needed), or toggle an environment on or off for an existing feature.
+You are now ready to test your alerts. First, you can hit the `Test` button on the webhook settings page. This should trigger a test notification.
+
+Next, perform one of the actions you're watching if you've added Event filters. If you haven't added any event filters, the quickest way to test it's working is to either create a new test feature (then delete it if it's not needed), or toggle an environment on or off for an existing feature.
