@@ -127,16 +127,11 @@ export function getRisk(
   baseline: SnapshotMetric,
   metric: ExperimentMetricInterface,
   metricDefaults: MetricDefaults,
-  useBaselineCR: boolean = true
+  // separate CR because sometimes "baseline" above is the variation
+  baselineCR: number
 ): { risk: number; relativeRisk: number; showRisk: boolean } {
   const risk = stats.risk?.[metric.inverse ? 0 : 1] ?? 0;
-  const relativeRisk = useBaselineCR
-    ? baseline.cr
-      ? risk / baseline.cr
-      : 0
-    : stats.cr
-    ? risk / stats.cr
-    : 0;
+  const relativeRisk = baselineCR ? risk / baselineCR : 0;
   const showRisk =
     baseline.cr > 0 &&
     hasEnoughData(baseline, stats, metric, metricDefaults) &&
@@ -153,7 +148,7 @@ export function getRiskByVariation(
 
   if (riskVariation > 0) {
     const stats = row.variations[riskVariation];
-    return getRisk(stats, baseline, row.metric, metricDefaults);
+    return getRisk(stats, baseline, row.metric, metricDefaults, baseline.cr);
   } else {
     let risk = -1;
     let relativeRisk = 0;
@@ -169,7 +164,7 @@ export function getRiskByVariation(
         risk: vRisk,
         relativeRisk: vRelativeRisk,
         showRisk: vShowRisk,
-      } = getRisk(baseline, stats, row.metric, metricDefaults, false);
+      } = getRisk(baseline, stats, row.metric, metricDefaults, baseline.cr);
       if (vRisk > risk) {
         risk = vRisk;
         relativeRisk = vRelativeRisk;
