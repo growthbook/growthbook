@@ -407,6 +407,7 @@ const sidebars = {
       collapsed: true,
       label: "Webhooks",
       items: [
+        { type: "doc", id: "webhooks/overview", label: "Webhooks overview" },
         { type: "doc", id: "webhooks/event-webhooks", label: "Event Webhooks" },
         { type: "doc", id: "webhooks/sdk-webhooks", label: "SDK Webhooks" },
       ],
