@@ -144,7 +144,7 @@ export async function fireWebhook({
   const maxContentSize = 1000;
   const date = new Date();
   const signature = createHmac("sha256", signingKey)
-    .update(payload)
+    .update(sendPayload ? payload : "")
     .digest("hex");
   const secret = `whsec_${signature}`;
   const webhookID = `msg_${md5(key + date.getTime()).substr(0, 16)}`;
