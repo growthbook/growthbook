@@ -384,12 +384,18 @@ class GaussianEffectABTest(BayesianABTest):
         )
         self.mean_diff = mu_b - mu_a
         self.std_diff = np.sqrt(sd_a**2 + sd_b**2)
-        risk = self.risk
+        if not self.relative:
+            risk = self.risk
+        else:
+            risk = [0.5, 0.5]
         self.var_diff = frequentist_variance(
             sd_a**2, mu_a, 1, sd_b**2, mu_b, 1, self.relative
         )
         self.std_diff = np.sqrt(self.var_diff)
         self.mean_diff = frequentist_diff(mu_a, mu_b, self.relative)
+        if self.relative:
+            risk = self.risk
+
         ctw = self.chance_to_win(self.mean_diff, self.std_diff)
         ci = self.credible_interval(
             self.mean_diff, self.std_diff, self.alpha, log=False
