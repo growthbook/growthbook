@@ -23,7 +23,9 @@ import { queueCreateInformationSchema } from "../jobs/createInformationSchema";
 import { IS_CLOUD } from "../util/secrets";
 import { ReqContext } from "../../types/organization";
 import { ApiReqContext } from "../../types/api";
+import { QueryInterface } from "../../types/query";
 import { findAllOrganizations } from "./OrganizationModel";
+import { getQueriesByDatasource } from "./QueryModel";
 
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   id: String,
@@ -51,8 +53,11 @@ const DataSourceModel = mongoose.model<DataSourceInterface>(
   dataSourceSchema
 );
 
-function toInterface(doc: DataSourceDocument): DataSourceInterface {
-  return upgradeDatasourceObject(doc.toJSON());
+function toInterface(
+  doc: DataSourceDocument,
+  queries?: QueryInterface[]
+): DataSourceInterface {
+  return upgradeDatasourceObject({ ...doc.toJSON(), queries });
 }
 
 export async function getInstallationDatasources(): Promise<
@@ -67,7 +72,7 @@ export async function getInstallationDatasources(): Promise<
     return getConfigDatasources(organizationId);
   }
   const docs: DataSourceDocument[] = await DataSourceModel.find();
-  return docs.map(toInterface);
+  return docs.map((d) => toInterface(d));
 }
 
 export async function getDataSourcesByOrganization(
@@ -82,7 +87,7 @@ export async function getDataSourcesByOrganization(
     organization: context.org.id,
   });
 
-  const datasources = docs.map(toInterface);
+  const datasources = docs.map((d) => toInterface(d));
 
   return datasources.filter((ds) =>
     hasReadAccess(context.readAccessFilter, ds.projects || [])
@@ -93,11 +98,13 @@ export async function getDataSourceById(
   context: ReqContext | ApiReqContext,
   id: string
 ) {
+  const queries = await getQueriesByDatasource(context.org.id, id);
   // If using config.yml, immediately return the from there
   if (usingFileConfig()) {
-    return (
-      getConfigDatasources(context.org.id).filter((d) => d.id === id)[0] || null
-    );
+    const configDataSource = getConfigDatasources(context.org.id).filter(
+      (d) => d.id === id
+    )[0];
+    return configDataSource ? { ...configDataSource, queries } : null;
   }
 
   const doc: DataSourceDocument | null = await DataSourceModel.findOne({
@@ -107,7 +114,7 @@ export async function getDataSourceById(
 
   if (!doc) return null;
 
-  const datasource = toInterface(doc);
+  const datasource = toInterface(doc, queries);
 
   return hasReadAccess(context.readAccessFilter, datasource.projects)
     ? datasource
@@ -302,7 +309,7 @@ export async function _dangerousGetAllDatasources(): Promise<
   DataSourceInterface[]
 > {
   const all: DataSourceDocument[] = await DataSourceModel.find();
-  return all.map(toInterface);
+  return all.map((d) => toInterface(d));
 }
 
 export function toDataSourceApiInterface(

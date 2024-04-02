@@ -9,6 +9,7 @@ import {
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import Link from "next/link";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
@@ -227,6 +228,12 @@ const DataSourcePage: FC = () => {
                       <FaDatabase /> View Schema Browser
                     </button>
                   )}
+                  <Link
+                    className="btn btn-outline-info mr-2 mt-1 font-weight-bold"
+                    href={`/datasources/queries/${did}`}
+                  >
+                    <FaDatabase /> View Queries
+                  </Link>
                 </div>
 
                 <div>
@@ -318,6 +325,14 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     structure.
                   </div>
                 )}
+              <div className="my-3 p-3 rounded border bg-white">
+                <DataSourceInlineEditIdentifierTypes
+                  onSave={updateDataSourceSettings}
+                  onCancel={() => undefined}
+                  dataSource={d}
+                  canEdit={canEdit}
+                />
+              </div>
               <div className="my-3 p-3 rounded border bg-white">
                 <DataSourceInlineEditIdentifierTypes
                   onSave={updateDataSourceSettings}

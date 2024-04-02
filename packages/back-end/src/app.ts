@@ -601,6 +601,7 @@ app.post("/datasources", datasourcesController.postDataSources);
 app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
 app.get("/datasource/:id/metrics", datasourcesController.getDataSourceMetrics);
+app.get("/datasource/:id/queries", datasourcesController.getDataSourceQueries);
 app.put(
   "/datasource/:datasourceId/exposureQuery/:exposureQueryId",
   datasourcesController.updateExposureQuery

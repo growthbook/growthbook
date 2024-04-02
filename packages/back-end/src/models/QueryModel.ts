@@ -59,6 +59,16 @@ export async function getQueriesByIds(organization: string, ids: string[]) {
   return docs.map((doc) => toInterface(doc));
 }
 
+export async function getQueriesByDatasource(
+  organization: string,
+  datasource: string
+) {
+  const docs = await QueryModel.find({ organization, datasource }).sort({
+    createdAt: -1,
+  });
+  return docs.map((doc) => toInterface(doc));
+}
+
 export async function updateQuery(
   query: QueryInterface,
   changes: Partial<QueryInterface>
