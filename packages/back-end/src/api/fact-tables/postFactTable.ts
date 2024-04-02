@@ -13,6 +13,17 @@ import { postFactTableValidator } from "../../validators/openapi";
 
 export const postFactTable = createApiRequestHandler(postFactTableValidator)(
   async (req): Promise<PostFactTableResponse> => {
+    const data: CreateFactTableProps = {
+      columns: [],
+      eventName: "",
+      id: "",
+      description: "",
+      owner: "",
+      projects: [],
+      tags: [],
+      ...req.body,
+    };
+
     req.checkPermissions("manageFactTables", req.body.projects || []);
 
     const datasource = await getDataSourceById(
@@ -34,6 +45,17 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
       }
     }
 
+    // Validate fact table projects are a subset of the connected datasource's projects
+    if (
+      datasource.projects?.length &&
+      data.projects &&
+      data.projects.length === 0
+    ) {
+      throw new Error(
+        "A Fact Table's project list must be a subset of the connected data source's project list."
+      );
+    }
+
     // Validate userIdTypes
     if (req.body.userIdTypes) {
       for (const userIdType of req.body.userIdTypes) {
@@ -46,17 +68,6 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
         }
       }
     }
-
-    const data: CreateFactTableProps = {
-      columns: [],
-      eventName: "",
-      id: "",
-      description: "",
-      owner: "",
-      projects: [],
-      tags: [],
-      ...req.body,
-    };
 
     const factTable = await createFactTable(req.context, data);
     await queueFactTableColumnsRefresh(factTable);

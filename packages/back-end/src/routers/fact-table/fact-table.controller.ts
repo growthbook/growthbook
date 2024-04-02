@@ -96,6 +96,12 @@ export const postFactTable = async (
   }
   req.checkPermissions("runQueries", datasource.projects || []);
 
+  if (datasource.projects?.length && !data.projects.length) {
+    throw new Error(
+      "A Fact Table's project list must be a subset of the connected data source's project list."
+    );
+  }
+
   data.columns = await runRefreshColumnsQuery(
     datasource,
     data as FactTableInterface
@@ -138,6 +144,16 @@ export const putFactTable = async (
     throw new Error("Could not find datasource");
   }
   req.checkPermissions("runQueries", datasource.projects || []);
+
+  if (
+    datasource.projects?.length &&
+    data.projects &&
+    data.projects.length === 0
+  ) {
+    throw new Error(
+      "A Fact Table's project list must be a subset of the connected data source's project list."
+    );
+  }
 
   // Update the columns
   data.columns = await runRefreshColumnsQuery(datasource, {

@@ -25,6 +25,14 @@ export const updateFactTable = createApiRequestHandler(
       req.checkPermissions("manageFactTables", req.body.projects);
     }
 
+    const datasource = await getDataSourceById(
+      req.context,
+      factTable.datasource
+    );
+    if (!datasource) {
+      throw new Error("Could not find datasource for this fact table");
+    }
+
     // Validate projects
     if (req.body.projects?.length) {
       const projects = await findAllProjectsByOrganization(req.context);
@@ -36,15 +44,18 @@ export const updateFactTable = createApiRequestHandler(
       }
     }
 
+    if (
+      datasource.projects?.length &&
+      req.body.projects &&
+      !req.body.projects.length
+    ) {
+      throw new Error(
+        "A Fact Table's project list must be a subset of the connected data source's project list."
+      );
+    }
+
     // Validate userIdTypes
     if (req.body.userIdTypes) {
-      const datasource = await getDataSourceById(
-        req.context,
-        factTable.datasource
-      );
-      if (!datasource) {
-        throw new Error("Could not find datasource for this fact table");
-      }
       for (const userIdType of req.body.userIdTypes) {
         if (
           !datasource.settings?.userIdTypes?.some(
