@@ -41,7 +41,6 @@ export default class ClickHouse extends SqlIntegration {
           this.params.maxExecutionTime ?? 1800,
           3600
         ),
-        receive_timeout: 1,
       },
     });
     const results = await client.query({ query: sql, format: "JSON" });
