@@ -333,14 +333,6 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   canEdit={canEdit}
                 />
               </div>
-              <div className="my-3 p-3 rounded border bg-white">
-                <DataSourceInlineEditIdentifierTypes
-                  onSave={updateDataSourceSettings}
-                  onCancel={() => undefined}
-                  dataSource={d}
-                  canEdit={canEdit}
-                />
-              </div>
 
               {d.settings?.userIdTypes && d.settings.userIdTypes.length > 1 ? (
                 <div className="my-3 p-3 rounded border bg-white">
