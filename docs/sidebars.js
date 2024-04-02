@@ -490,6 +490,12 @@ const sidebars = {
           label: "Slack alerts",
           className: "pill-new",
         },
+        {
+          type: "doc",
+          id: "integrations/discord",
+          label: "Discord alerts",
+          className: "pill-new",
+        },
         { type: "doc", id: "sso", label: "SSO" },
         {
           type: "doc",
