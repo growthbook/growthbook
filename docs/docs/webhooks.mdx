@@ -18,7 +18,70 @@ When logged into GrowthBook as an admin, navigate to **Settings -> Webhooks**.
 
 There you can add a webhook endpoint and select which events you want to be notified about.
 
-This page is also where you can view the shared secret used to verify requests (see below) and see the status of your webhook and any errors.
+## Supported Event Types
+
+We currently support the following event types:
+
+- **feature.created**
+- **feature.updated**
+- **feature.deleted**
+- **experiment.created**
+- **experiment.updated**
+- **experiment.deleted**
+
+The new webhooks are still in beta and we are always updating the list of supported events.
+
+## HTTP parameters
+
+When creating or updating a webhook, you can select which HTTP method should be used. Available methods are: `POST`, `PUT` or `PATCH`.
+
+You can also add your own custom headers. The format of custom headers is a JSON object of the form:
+
+```
+{
+  [Header-Name]: "Header Value",
+  ... 
+}
+```
+
+## Slack notifications
+
+Webhooks can be used to send notifications to slack channels and users with much less overhead than setting up a whole slack integration!
+
+First, you need to follow the instruction from the [slack documentation <ExternalLink />](https://api.slack.com/messaging/webhooks) to setup your own slack application and webhooks.
+
+Once you have setup your application on slack, you should be able to copy the application's webhook endpoint. You can then paste it 
+as the endpoint URL of your webhook configuration on GrowthBook.
+
+Next, select the `Slack` payload. That's it, your endpoint is ready to send Slack notifications!
+
+## Discord notifications
+
+Discord notifications work the same way as Slack notifications. The only difference is that you need to follow the [discord documentation <ExternalLink />](https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks) on how to setup webhook for your discord server.
+
+## Projects, tags and environments filtering
+
+You can select which notifications should be sent to your webhook according to projects, tags or environments. When set, your webhook will only fire when events associated with the selected items are triggered. If unset, you webhook will fire on all events regardless of the given item.
+
+For instance, if you select `Project Apollo` as a project filter, only events related to `Project Apollo` (and any other selected project) will trigger your webhook. If the projects filter is empty, your webhook will fire for all events on any project.
+
+## Testing your webhook
+
+Once your webhook is configured, you should be able to test it! Look for the `Test` button on the webhook's settings page. When clicked, a test event should be delivered to the configured endpoint.
+
+This can be quite helpful to debug and confirm that all the webhook's parameters have been set correctly.
+
+## Examples
+
+- [Web hooks implementation example <ExternalLink />](https://github.com/growthbook/examples/tree/main/webhooks-impl)
+
+## Errors and Retries
+
+If your endpoint returns any HTTP status besides `200`, the webhook will be considered failed.
+
+Failed webhooks are tried a total of 3 times using an exponential back-off between attempts.
+
+You can view the status of your webhooks in the GrowthBook app under **Settings &rarr; Webhooks**.
 
 ### VPCs and Firewalls
 
@@ -27,6 +90,8 @@ If your webhook endpoint is behind a firewall and you are using GrowthBook Cloud
 ## Verify Signatures
 
 Webhook payloads are signed with a shared secret so you can verify they actually came from GrowthBook. The signature is passed in a `X-GrowthBook-Signature` header.
+
+You can find the signature of a given webhook on its settings page. Look for a random string starting with `ewhk_...`.
 
 Here is example code in NodeJS for verifying the signature. Other languages should be similar:
 
@@ -69,31 +134,6 @@ app.listen(port, () => {
   console.log(`Webhook endpoint listening on port ${port}`);
 });
 ```
-
-## Errors and Retries
-
-If your endpoint returns any HTTP status besides `200`, the webhook will be considered failed.
-
-Failed webhooks are tried a total of 3 times using an exponential back-off between attempts.
-
-You can view the status of your webhooks in the GrowthBook app under **Settings &rarr; Webhooks**.
-
-## Supported Event Types
-
-We currently support the following event types:
-
-- **feature.created**
-- **feature.updated**
-- **feature.deleted**
-- **experiment.created**
-- **experiment.updated**
-- **experiment.deleted**
-
-The new webhooks are still in beta and we are always updating the list of supported events.
-
-## Examples
-
-- [Web hooks implementation example <ExternalLink />](https://github.com/growthbook/examples/tree/main/webhooks-impl)
 
 ## SDK Webhooks (deprecated)
 
