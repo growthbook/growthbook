@@ -355,8 +355,11 @@ const ExperimentsPage = (): React.ReactElement => {
                         type="icon"
                       />
                     </td>
-                    <td data-title="Experiment name:">
-                      <Link href={`/experiment/${e.id}`}>
+                    <td data-title="Experiment name:" className="p-0">
+                      <Link
+                        href={`/experiment/${e.id}`}
+                        className="d-block p-2"
+                      >
                         <div className="d-flex flex-column">
                           <div className="d-flex">
                             <span className="testname">{e.name}</span>
