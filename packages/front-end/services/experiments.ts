@@ -663,7 +663,8 @@ export function getRowResults({
     stats,
     baseline,
     metric,
-    metricDefaults
+    metricDefaults,
+    baseline.cr
   );
   const winRiskThreshold = metric.winRisk ?? defaultWinRiskThreshold;
   const loseRiskThreshold = metric.loseRisk ?? defaultLoseRiskThreshold;
