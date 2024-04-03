@@ -398,7 +398,11 @@ const sidebars = {
         { type: "doc", id: "webhooks/overview", label: "Webhooks overview" },
         { type: "doc", id: "webhooks/event-webhooks", label: "Event Webhooks" },
         { type: "doc", id: "webhooks/sdk-webhooks", label: "SDK Webhooks" },
-        { type: "doc", id: "webhooks/global-sdk-webhooks", label: "Global SDK Webhooks" },
+        {
+          type: "doc",
+          id: "webhooks/global-sdk-webhooks",
+          label: "Global SDK Webhooks",
+        },
       ],
     },
     {
