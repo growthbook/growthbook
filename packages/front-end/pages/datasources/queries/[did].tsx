@@ -76,7 +76,7 @@ const DataSourceQueries = (): React.ReactElement => {
     <div className="container pagecontents">
       {modalData && (
         <Modal
-          open={true}
+          open
           close={() => setModalData(null)}
           size="lg"
           header={"Inspect query"}
