@@ -7,11 +7,6 @@ import {
   SchemaInterface,
 } from "back-end/types/datasource";
 import { MetricType } from "back-end/types/metric";
-import {
-  GlobalPermission,
-  ProjectScopedPermission,
-} from "back-end/types/organization";
-import { PermissionFunctions } from "@/services/UserContext";
 
 function camelToUnderscore(orig) {
   return orig
