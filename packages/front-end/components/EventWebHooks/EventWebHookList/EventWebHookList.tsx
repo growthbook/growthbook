@@ -6,6 +6,7 @@ import { useAuth } from "@/services/auth";
 import { EventWebHookEditParams } from "@/components/EventWebHooks/utils";
 import { EventWebHookAddEditModal } from "@/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
 import { EventWebHookListItem } from "./EventWebHookListItem/EventWebHookListItem";
+import {DocLink} from "@/components/DocLink";
 
 type EventWebHookListProps = {
   onCreateModalOpen: () => void;
@@ -40,12 +41,15 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
 
       <div className="mb-4">
         <div className="d-flex justify-space-between align-items-center">
-          <span className="badge badge-purple text-uppercase mr-2">Beta</span>
           <h1>Event Webhooks</h1>
+          <span className="badge badge-purple text-uppercase ml-2">Beta</span>
         </div>
         <p>
           Event Webhooks are event-based, and allow you to monitor specific
           events.
+          <div className="mt-2">
+            <DocLink docSection={"eventWebhooks"}>View Documentation</DocLink>
+          </div>
         </p>
         <div className="alert alert-premium">
           <h4>Free while in Beta</h4>

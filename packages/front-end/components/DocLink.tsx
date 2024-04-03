@@ -13,6 +13,7 @@ const docSections = {
   dashboard: "/app/experiment-configuration",
   api: "/app/api",
   eventWebhooks: "/app/webhooks/event-webhooks",
+  sdkWebhooks: "/app/webhooks/sdk-webhooks",
   //DataSourceType
   athena: "/app/datasources#aws-athena",
   mixpanel: "/guide/mixpanel",
