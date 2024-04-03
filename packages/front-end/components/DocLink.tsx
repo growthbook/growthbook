@@ -13,6 +13,7 @@ const docSections = {
   dashboard: "/app/experiment-configuration",
   api: "/app/api",
   eventWebhooks: "/app/webhooks/event-webhooks",
+  sdkWebhooks: "/app/webhooks/sdk-webhooks",
   //DataSourceType
   athena: "/app/datasources#aws-athena",
   mixpanel: "/guide/mixpanel",
@@ -69,6 +70,7 @@ const urlPathMapping: Record<string, DocSection> = {
   "/settings/keys": "api",
   "/environments": "api",
   "/settings/webhooks": "eventWebhooks",
+  "[sdkid]": "sdksWebhooks",
 };
 
 //for testing use "http://localhost:3200"

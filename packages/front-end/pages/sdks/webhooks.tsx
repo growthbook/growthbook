@@ -3,6 +3,7 @@ import { WebhookInterface } from "back-end/types/webhook";
 import { FaCheck, FaInfoCircle } from "react-icons/fa";
 import { ago } from "shared/dates";
 import { BsArrowRepeat } from "react-icons/bs";
+import Link from "next/link";
 import useApi from "@/hooks/useApi";
 import WebhooksModal from "@/components/Settings/WebhooksModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -104,6 +105,13 @@ export default function SDKWebhooks({ sdkid }) {
   };
   const renderAddWebhookButton = () => (
     <>
+      <div className="text-muted mb-3">
+        Refer to the{" "}
+        <Link href="docs.growthbook.io/webhooks/sdk-webhooks">
+          documentation
+        </Link>{" "}
+        for setup instructions
+      </div>
       {hasWebhookPermissions && (
         <Tooltip
           body={
@@ -147,7 +155,7 @@ export default function SDKWebhooks({ sdkid }) {
 
   const renderTable = () => {
     return (
-      <div className="gb-webhook-table-container mb-3">
+      <div className="gb-webhook-table-container mb-2">
         <table className="table appbox gbtable mb-0">
           <thead>
             <tr>
