@@ -4,7 +4,7 @@ GrowthBook has SDK-based webhooks that trigger a script on your server whenever 
 
 ## Adding a Webhook
 
-When logged into GrowthBook as an admin, navigate to **SDK Connections** .
+When logged into GrowthBook as an admin, navigate to **SDK Connections** .
 
 Under the SDK Webhooks section you can add a webhook endpoint and select with method you would like to be notified with `POST,PUT,GET,DELETE,PURGE`.
 
@@ -12,11 +12,11 @@ Once a SDK webhook is created you will be able to view the secret and when the l
 
 ### VPCs and Firewalls
 
-If your webhook endpoint is behind a firewall and you are using GrowthBook Cloud, make sure to whitelist the ip address `52.70.79.40`.
+If your webhook endpoint is behind a firewall and you are using GrowthBook Cloud, make sure to whitelist the ip address `52.70.79.40`.
 
 ## Verify Signatures
 
-Webhook payloads are signed with a shared secret so you can verify they actually came from GrowthBook. The signature is passed in a `webhook-secret` header.
+Webhook payloads are signed with a shared secret so you can verify they actually came from GrowthBook. The signature is passed in a `webhook-secret` header.
 we are using the `whsec_` Prefix to help identify your crypto method. example `webhook-secret:"whsec_iM0hCLU0fZc885zfkFPX3UJwSHbYyam9ji0WglnT3fc="`
 the signature is a HMAC SHA-256 hash of the payload using the secret as the key. the secret is the secret key that is generated when you create a webhook. you can find the secret key in the GrowthBook app under SDK Connections.
 
@@ -71,13 +71,13 @@ app.listen(port, () => {
 });
 ```
 
-## **Errors and Retries[](http://localhost:3200/app/webhooks/event-webhooks#errors-and-retries)**
+## **Errors and Retries**
 
-If your endpoint returns any HTTP status besides `200`, the webhook will be considered failed.
+If your endpoint returns any HTTP status besides `200`, the webhook will be considered failed.
 
 Failed webhooks are tried a total of 3 times using an exponential back-off between attempts.
 
-You can view the status of your webhooks in the GrowthBook app under **SDK Connections** .
+You can view the status of your webhooks in the GrowthBook app under **SDK Connections** .
 
 ## Supported HTTP Types
 
@@ -110,13 +110,13 @@ Here's an example payload:
 }
 ```
 
-The`features` field has one entry per feature definition. Features can have the following properties:
+The`features`field has one entry per feature definition. Features can have the following properties:
 
 - **defaultValue**
-- **rules[]** - Array of feature rules
-  - **condition** - A JSON condition using MongoDB query syntax
-  - **force** - Force a specific value, takes precedence over all other rules besides `condition`
-  - **variations[]** - Run an experiment and randomly assign one of the specified variations
-  - **key** - When running an experiment, this is the experiment key that will be passed to the tracking callback function
-  - **weights[]** - Determines how traffic is split between variations in an experiment
-  - **coverage** - Specifies what sampling rate (0 to 1) to use for including users in an experiment. A rate of `1` means everyone is included. A rate of `0` means no one is.
+- **rules[]** - Array of feature rules
+  - **condition** - A JSON condition using MongoDB query syntax
+  - **force** - Force a specific value, takes precedence over all other rules besides `condition`
+  - **variations[]** - Run an experiment and randomly assign one of the specified variations
+  - **key** - When running an experiment, this is the experiment key that will be passed to the tracking callback function
+  - **weights[]** - Determines how traffic is split between variations in an experiment
+  - **coverage** - Specifies what sampling rate (0 to 1) to use for including users in an experiment. A rate of `1` means everyone is included. A rate of `0` means no one is.
