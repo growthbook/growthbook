@@ -1,7 +1,9 @@
 export interface SdkWebHookLogInterface {
   id: string;
   webhookId: string;
-  webhookRequestId: string;
+  /** @deprecated */
+  webhookReduestId?: string;
+  webhookRequestId?: string;
   organizationId: string;
   dateCreated: Date;
   responseCode: number | null;
