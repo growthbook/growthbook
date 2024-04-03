@@ -59,7 +59,7 @@ const DataSources: FC = () => {
               <th className="col-2">Display Name</th>
               <th className="col-auto">Description</th>
               <th className="col-2">Type</th>
-              <td className="col-2">Projects</td>
+              <th className="col-2">Projects</th>
               {!hasFileConfig() && <th className="col-2">Last Updated</th>}
             </tr>
           </thead>
@@ -94,8 +94,7 @@ const DataSources: FC = () => {
                 </td>
                 <td>{d.type}</td>
                 <td>
-                  {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                  {d?.projects?.length > 0 ? (
+                  {(d?.projects?.length || 0) > 0 ? (
                     <ProjectBadges
                       resourceType="data source"
                       projectIds={d.projects}
@@ -138,8 +137,8 @@ const DataSources: FC = () => {
             <>
               <p>
                 You can also create a{" "}
-                <Link href="/demo-datasource-project">
-                  <a className="info">demo datasource project</a>
+                <Link href="/demo-datasource-project" className="info">
+                  demo datasource project
                 </Link>
                 .
               </p>

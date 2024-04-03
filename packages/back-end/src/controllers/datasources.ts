@@ -64,13 +64,16 @@ export async function postSampleData(
     EventAuditUserForResponseLocals
   >
 ) {
-  req.checkPermissions("createMetrics", "");
-  req.checkPermissions("createAnalyses", "");
-
   const context = getContextFromReq(req);
   const { org, userId } = context;
   const orgId = org.id;
   const statsEngine = org.settings?.statsEngine || DEFAULT_STATS_ENGINE;
+
+  req.checkPermissions("createAnalyses", "");
+
+  if (!context.permissions.canCreateMetric({})) {
+    context.permissions.throwPermissionError();
+  }
 
   const existingMetrics = await getSampleMetrics(context);
 
@@ -725,8 +728,8 @@ export async function testLimitedQuery(
     });
   }
   req.checkPermissions(
-    "editDatasourceSettings",
-    datasource?.projects?.length ? datasource.projects : ""
+    "runQueries",
+    datasource?.projects?.length ? datasource.projects : []
   );
 
   const { results, sql, duration, error } = await testQuery(
@@ -811,7 +814,7 @@ export async function postDimensionSlices(
   }
   req.checkPermissions(
     "runQueries",
-    datasourceObj?.projects?.length ? datasourceObj.projects : ""
+    datasourceObj?.projects?.length ? datasourceObj.projects : []
   );
 
   const integration = getSourceIntegrationObject(datasourceObj, true);
@@ -858,7 +861,7 @@ export async function cancelDimensionSlices(
 
   req.checkPermissions(
     "runQueries",
-    datasource.projects ? datasource.projects : ""
+    datasource.projects ? datasource.projects : []
   );
 
   const integration = getSourceIntegrationObject(datasource, true);

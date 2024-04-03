@@ -81,6 +81,9 @@ pre {
 .bg-warning-orange {
   background-color: colors.$warning-orange !important;
 }
+.text-warning-muted {
+  color: var(--alert-warn-color);
+}
 .text-gray {
   color: var(--text-color-th);
 }
@@ -122,6 +125,12 @@ pre {
 }
 .w-200px {
   width: 200px !important;
+}
+.mw-50 {
+  max-width: 50% !important;
+}
+.mh-50 {
+  max-height: 50% !important;
 }
 
 // default bootstrap overrides:
@@ -573,14 +582,17 @@ pre {
   th {
     vertical-align: bottom;
     &.axis-col {
-      position: sticky;
-      top: 95px;
+      &:not(.noStickyHeader) {
+        position: sticky;
+        top: 95px;
+        @media (max-width: 900px) {
+          position: static;
+        }
+      }
       background-color: var(--surface-background-color);
       z-index: 800;
       box-shadow: 0 -1px 0 var(--text-link-hover-color) inset;
-      @media (max-width: 900px) {
-        position: static;
-      }
+
       &.graph-cell {
         z-index: 801;
       }
@@ -3108,7 +3120,7 @@ input:disabled {
       line-height: 1rem;
       color: var(--text-dark);
       font-weight: normal;
-      margin: 12px 10px 0;
+      margin: 12px 5px 0;
     }
   }
 }
@@ -3127,6 +3139,33 @@ input:disabled {
   align-items: flex-start;
   gap: 7px;
 }
+.feature-draft-copy {
+  font-size: 14px;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.callout {
+  padding: 16px;
+  border-radius: 4px;
+  &.callout-color-gray {
+    background-color: var(--callout-grey);
+  }
+  &.callout-color-amber {
+    background: rgba(235, 166, 0, 0.17);
+  }
+}
+.revision-log {
+  .revision-log-header {
+    background-color: var(--header-revision-log);
+  }
+}
+.relativePositionOverlay {
+  position: relative !important;
+}
+.relativePositionOverlayText {
+  margin-top: 0 !important;
+}
 @import "./components/react-select.scss";
 @import "./components/demo-datasource-banner";
 
@@ -3134,4 +3173,30 @@ input:disabled {
   .features-header {
     margin: -4px -8px 0;
   }
+}
+.approval-flow-accepted {
+  background-color: var(--alert-success-background);
+  border-color: var(--alert-success-border-color);
+  color: var(--alert-success-text-color);
+}
+.approval-flow-changes-requested {
+  background-color: var(--alert-danger-background);
+  border-color: var(--alert-danger-border-color);
+  color: var(--alert-danger-text-color);
+}
+
+.approval-flow-accepted-status {
+  // background-color: var( --alert-success-background);
+  // border-color: var(--alert-success-border-color);
+  color: var(--alert-success-text-color);
+}
+.approval-flow-changes-requested-status {
+  // background-color: var(--alert-danger-background);
+  // border-color: var(--alert-danger-border-color);
+  color: var(--alert-danger-text-color);
+}
+.approval-flow-pending-review-status {
+  // background-color: var(--alert-danger-background);
+  // border-color: var(--alert-danger-border-color);
+  color: var(--alert-warning-text-color);
 }

@@ -9,14 +9,14 @@ import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
 import { getEqualWeights } from "@/services/utils";
 import { useIncrementer } from "@/hooks/useIncrementer";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
-import FeatureVariationsInput from "../Features/FeatureVariationsInput";
-import ConditionInput from "../Features/ConditionInput";
-import NamespaceSelector from "../Features/NamespaceSelector";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
+import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
+import ConditionInput from "@/components/Features/ConditionInput";
+import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
-} from "../Features/SavedGroupTargetingField";
+} from "@/components/Features/SavedGroupTargetingField";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -139,6 +139,7 @@ const NewPhaseForm: FC<{
           defaultValue={form.watch("condition")}
           onChange={(condition) => form.setValue("condition", condition)}
           key={conditionKey}
+          project={experiment.project || ""}
         />
       )}
 

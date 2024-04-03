@@ -22,11 +22,11 @@ import { hasFileConfig } from "@/services/env";
 import usePermissions from "@/hooks/usePermissions";
 import { GBSequential } from "@/components/Icons";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
-import UpgradeMessage from "../Marketing/UpgradeMessage";
-import UpgradeModal from "../Settings/UpgradeModal";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import MetricsSelector, { MetricsSelectorTooltip } from "./MetricsSelector";
@@ -180,8 +180,6 @@ const AnalysisForm: FC<{
   );
 
   // Error: Type instantiation is excessively deep and possibly infinite.
-  // eslint-disable-next-line
-  // @ts-ignore
   const variations = useFieldArray({
     control: form.control,
     name: "variations",

@@ -1,21 +1,15 @@
 import { date } from "shared/dates";
-import clsx from "clsx";
 import { phaseSummary } from "@/services/utils";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import SelectField from "../Forms/SelectField";
+import SelectField from "@/components/Forms/SelectField";
 import { useSnapshot } from "./SnapshotProvider";
 
 export interface Props {
   mutateExperiment?: () => void;
   editPhases?: () => void;
-  newUi?: boolean;
 }
 
-export default function PhaseSelector({
-  mutateExperiment,
-  editPhases,
-  newUi,
-}: Props) {
+export default function PhaseSelector({ mutateExperiment, editPhases }: Props) {
   const { phase, setPhase, experiment } = useSnapshot();
 
   const phaseOptions =
@@ -27,13 +21,7 @@ export default function PhaseSelector({
   function formatPhase({ value, label }: { value: string; label: string }) {
     if (value === "edit") {
       return (
-        <div
-          className={clsx("cursor-pointer", {
-            "btn btn-outline-primary": newUi,
-          })}
-        >
-          {label}
-        </div>
+        <div className="cursor-pointer btn btn-outline-primary">{label}</div>
       );
     }
 
@@ -41,56 +29,41 @@ export default function PhaseSelector({
     const phase = experiment?.phases?.[phaseIndex];
     if (!phase) return value;
 
-    if (newUi) {
-      return (
-        <>
-          <Tooltip
-            body={
-              <>
-                <div className="tooltip-phase-label font-weight-bold">
-                  {phaseIndex + 1}: {phase.name}
-                </div>
-                <div className="mt-1">{phaseSummary(phase)}</div>
-              </>
-            }
-            tipPosition="right"
-            className="phase-selector-with-tooltip"
-          >
+    return (
+      <>
+        <Tooltip
+          body={
             <>
-              <span className="font-weight-bold">{phaseIndex + 1}: </span>
-              <span className="date-label">
-                {date(phase.dateStarted ?? "")} —{" "}
-                {phase.dateEnded ? date(phase.dateEnded) : "now"}
-              </span>
+              <div className="tooltip-phase-label font-weight-bold">
+                {phaseIndex + 1}: {phase.name}
+              </div>
+              <div className="mt-1">{phaseSummary(phase)}</div>
             </>
-          </Tooltip>
-          <div className="phase-selector-select-option cursor-pointer">
+          }
+          tipPosition="right"
+          className="phase-selector-with-tooltip"
+        >
+          <>
             <span className="font-weight-bold">{phaseIndex + 1}: </span>
-            <span className="phase-label font-weight-bold">{phase.name}</span>
-            <div className="break mt-1" />
-            <span className="date-label mt-1">
+            <span className="date-label">
               {date(phase.dateStarted ?? "")} —{" "}
               {phase.dateEnded ? date(phase.dateEnded) : "now"}
             </span>
-            <div className="phase-summary text-muted small">
-              {phaseSummary(phase)}
-            </div>
-          </div>
-        </>
-      );
-    }
-
-    return (
-      <div className="d-flex">
-        <div className="mr-2">{phaseIndex + 1}:</div>
-        <div className="small">
-          <div>{phase.name === "Main" ? phaseSummary(phase) : phase.name}</div>
-          <div>
-            <strong>{date(phase.dateStarted ?? "")}</strong> to{" "}
-            <strong>{phase.dateEnded ? date(phase.dateEnded) : "now"}</strong>
+          </>
+        </Tooltip>
+        <div className="phase-selector-select-option cursor-pointer">
+          <span className="font-weight-bold">{phaseIndex + 1}: </span>
+          <span className="phase-label font-weight-bold">{phase.name}</span>
+          <div className="break mt-1" />
+          <span className="date-label mt-1">
+            {date(phase.dateStarted ?? "")} —{" "}
+            {phase.dateEnded ? date(phase.dateEnded) : "now"}
+          </span>
+          <div className="phase-summary text-muted small">
+            {phaseSummary(phase)}
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -117,7 +90,7 @@ export default function PhaseSelector({
 
   return (
     <div>
-      {newUi && <div className="uppercase-title text-muted">Phase</div>}
+      <div className="uppercase-title text-muted">Phase</div>
       {selectOptions.length > 1 ? (
         <SelectField
           options={selectOptions}
@@ -130,28 +103,19 @@ export default function PhaseSelector({
             setPhase(parseInt(value) || 0);
           }}
           sort={false}
-          label={newUi ? undefined : "Phase"}
           labelClassName="mr-2"
-          containerClassName={
-            newUi ? "phase-selector select-dropdown-underline pr-5" : ""
-          }
+          containerClassName="phase-selector select-dropdown-underline pr-5"
           isSearchable={false}
           formatOptionLabel={formatPhase}
         />
       ) : (
         <div className="phase-selector text-dark">
           {selectOptions.length >= 1 ? (
-            <div
-              className="gb-select__single-value"
-              style={newUi ? { height: 24 } : {}}
-            >
+            <div className="gb-select__single-value" style={{ height: 24 }}>
               {formatPhase(selectOptions[0])}
             </div>
           ) : (
-            <div
-              className="gb-select__single-value"
-              style={newUi ? { height: 24 } : {}}
-            >
+            <div className="gb-select__single-value" style={{ height: 24 }}>
               <em>No phases</em>
             </div>
           )}

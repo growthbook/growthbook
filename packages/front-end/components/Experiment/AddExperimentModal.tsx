@@ -5,7 +5,7 @@ import clsx from "clsx";
 import track from "@/services/track";
 import usePermissions from "@/hooks/usePermissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "../Modal";
+import Modal from "@/components/Modal";
 import styles from "./AddExperimentModal.module.scss";
 import ImportExperimentModal from "./ImportExperimentModal";
 import NewExperimentForm from "./NewExperimentForm";
@@ -78,7 +78,8 @@ const AddExperimentModal: FC<{
       description: (
         <>
           Build and run a brand new experiment using{" "}
-          <strong>Feature Flags</strong> or our <strong>Visual Editor</strong>
+          <strong>Feature Flags</strong>, our <strong>Visual Editor</strong>, or{" "}
+          <strong>URL Redirects</strong>
         </>
       ),
       Icon: GoBeaker,

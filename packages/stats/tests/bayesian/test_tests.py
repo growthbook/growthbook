@@ -3,6 +3,7 @@ from functools import partial
 from unittest import TestCase, main as unittest_main
 
 import numpy as np
+from scipy.stats import norm
 
 from gbstats.bayesian.tests import (
     BayesianTestResult,
@@ -12,10 +13,14 @@ from gbstats.bayesian.tests import (
     GaussianBayesianABTest,
     GaussianPrior,
     GaussianBayesianConfig,
+    GaussianEffectABTest,
+    GaussianPrior,
+    EffectBayesianConfig,
 )
 from gbstats.models.statistics import (
     ProportionStatistic,
     SampleMeanStatistic,
+    QuantileStatistic,
 )
 from gbstats.models.tests import Uplift
 
@@ -154,6 +159,109 @@ class TestNorm(TestCase):
             ex = expected[key]
 
             self.assertEqual(getattr(result, key), ex)
+
+
+class TestGaussianEffectABTest(TestCase):
+    def test_bayesian_effect_ab_test(self):
+        nu = 0.9
+        n_c = 11054
+        n_t = 10861
+        quantile_hat_c = 7.157987489967789
+        quantile_hat_t = 7.694499927525767
+        quantile_lower_c = 7.098780136176828
+        quantile_lower_t = 7.64180598628119
+        quantile_upper_c = 7.217194843758751
+        quantile_upper_t = 7.747193868770344
+
+        gaussian_flat_prior = GaussianPrior(variance=float(1e6), pseudo_n=1)
+        gaussian_inf_prior = GaussianPrior(variance=float(1), pseudo_n=1)
+        effect_config_flat = EffectBayesianConfig(
+            difference_type="absolute", prior_effect=gaussian_flat_prior
+        )
+        effect_config_inf = EffectBayesianConfig(
+            difference_type="absolute", prior_effect=gaussian_inf_prior
+        )
+        effect_config_flat_rel = EffectBayesianConfig(
+            difference_type="relative", prior_effect=gaussian_flat_prior
+        )
+        effect_config_inf_rel = EffectBayesianConfig(
+            difference_type="relative", prior_effect=gaussian_inf_prior
+        )
+
+        q_stat_c = QuantileStatistic(
+            n=n_c,
+            n_star=n_c,
+            nu=nu,
+            quantile_hat=quantile_hat_c,
+            quantile_lower=quantile_lower_c,
+            quantile_upper=quantile_upper_c,
+        )
+        q_stat_t = QuantileStatistic(
+            n=n_t,
+            n_star=n_t,
+            nu=nu,
+            quantile_hat=quantile_hat_t,
+            quantile_lower=quantile_lower_t,
+            quantile_upper=quantile_upper_t,
+        )
+
+        b_flat = GaussianEffectABTest(
+            q_stat_c, q_stat_t, config=effect_config_flat
+        ).compute_result()
+        b_relative_flat = GaussianEffectABTest(
+            q_stat_c, q_stat_t, config=effect_config_flat_rel
+        ).compute_result()
+        b_informative = GaussianEffectABTest(
+            q_stat_c, q_stat_t, config=effect_config_inf
+        ).compute_result()
+        b_relative_informative = GaussianEffectABTest(
+            q_stat_c, q_stat_t, config=effect_config_inf_rel
+        ).compute_result()
+
+        self.assertEqual(b_flat.expected, 0.5365124367824539)
+        self.assertEqual(b_relative_flat.expected, 0.07495297222890572)
+        self.assertEqual(b_informative.expected, 0.5357380334109081)
+        self.assertEqual(b_relative_informative.expected, 0.07495191495960002)
+        self.assertEqual(b_flat.ci, [0.4572559582016913, 0.6157689153632164])
+        self.assertEqual(b_relative_flat.ci, [0.06341005842626224, 0.0864958860315492])
+        self.assertEqual(b_informative.ci, [0.4565471445922169, 0.6149289222295993])
+        self.assertEqual(
+            b_relative_informative.ci, [0.06340910198272585, 0.08649472793647417]
+        )
+
+        # adding another test for risk
+        s = 1
+        quantile_lower_c = quantile_hat_c - s
+        quantile_lower_t = quantile_hat_t - s
+        quantile_upper_c = quantile_hat_c + s
+        quantile_upper_t = quantile_hat_t + s
+        q_stat_c = QuantileStatistic(
+            n=n_c,
+            n_star=n_c,
+            nu=nu,
+            quantile_hat=quantile_hat_c,
+            quantile_lower=quantile_lower_c,
+            quantile_upper=quantile_upper_c,
+        )
+        q_stat_t = QuantileStatistic(
+            n=n_t,
+            n_star=n_t,
+            nu=nu,
+            quantile_hat=quantile_hat_t,
+            quantile_lower=quantile_lower_t,
+            quantile_upper=quantile_upper_t,
+        )
+        b_flat = GaussianEffectABTest(
+            q_stat_c, q_stat_t, config=effect_config_flat
+        ).compute_result()
+        m, s = b_flat.expected, (b_flat.ci[1] - b_flat.ci[0]) / (2 * norm.ppf(0.975))
+
+        np.random.seed(20240329)
+        y = s * np.random.normal(size=int(1e7)) + m
+        risk_empirical_trt = -np.mean(y[y < 0]) * np.mean(y < 0)
+        risk_empirical_ctrl = np.mean(y[y > 0]) * np.mean(y > 0)
+        np.testing.assert_almost_equal(b_flat.risk[0], risk_empirical_ctrl, decimal=3)
+        np.testing.assert_almost_equal(b_flat.risk[1], risk_empirical_trt, decimal=3)
 
 
 if __name__ == "__main__":

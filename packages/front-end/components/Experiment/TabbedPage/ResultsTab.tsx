@@ -19,11 +19,10 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import { GBAddCircle } from "@/components/Icons";
-import Results, { ResultsMetricFilters } from "../Results";
-import { StartExperimentBanner } from "../StartExperimentBanner";
-import AnalysisForm from "../AnalysisForm";
-import ExperimentReportsList from "../ExperimentReportsList";
-import { useSnapshot } from "../SnapshotProvider";
+import Results, { ResultsMetricFilters } from "@/components/Experiment/Results";
+import AnalysisForm from "@/components/Experiment/AnalysisForm";
+import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList";
+import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
 
@@ -56,13 +55,8 @@ export default function ResultsTab({
   mutate,
   editMetrics,
   editResult,
-  newPhase,
   editPhases,
-  connections,
-  linkedFeatures,
   setTab,
-  visualChangesets,
-  editTargeting,
   isTabActive,
   safeToEdit,
   baselineRow,
@@ -196,17 +190,6 @@ export default function ResultsTab({
                 Your experiment is still in a <strong>draft</strong> state. You
                 must start the experiment first before seeing results.
               </div>
-
-              <StartExperimentBanner
-                experiment={experiment}
-                mutateExperiment={mutate}
-                linkedFeatures={linkedFeatures}
-                visualChangesets={visualChangesets}
-                editTargeting={editTargeting}
-                connections={connections}
-                openSetupTab={() => setTab("overview")}
-                newPhase={newPhase}
-              />
             </div>
           ) : (
             <>
@@ -241,8 +224,8 @@ export default function ResultsTab({
                         metrics and stats engine to automatically analyze your
                         experiment results.
                       </p>
-                      <Link href="/datasources">
-                        <a className="btn btn-primary">Connect to your Data</a>
+                      <Link href="/datasources" className="btn btn-primary">
+                        Connect to your Data
                       </Link>
                     </>
                   )}

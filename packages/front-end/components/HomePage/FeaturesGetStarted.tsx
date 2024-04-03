@@ -9,9 +9,9 @@ import usePermissions from "@/hooks/usePermissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import FeatureModal from "../Features/FeatureModal";
-import { DocLink } from "../DocLink";
-import InitialSDKConnectionForm from "../Features/SDKConnections/InitialSDKConnectionForm";
+import FeatureModal from "@/components/Features/FeatureModal";
+import { DocLink } from "@/components/DocLink";
+import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import GetStartedStep from "./GetStartedStep";
 import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
 

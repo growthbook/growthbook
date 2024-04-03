@@ -1,6 +1,6 @@
 import { FC, ChangeEventHandler } from "react";
 import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
-import Tooltip from "../Tooltip/Tooltip";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const SnowflakeForm: FC<{
   params: Partial<SnowflakeConnectionParams>;

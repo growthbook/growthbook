@@ -277,7 +277,7 @@ export const createVisualChangeset = async ({
 
   // mark the experiment as having a visual changeset
   if (!experiment.hasVisualChangesets) {
-    await updateExperiment({
+    experiment = await updateExperiment({
       context,
       experiment,
       changes: { hasVisualChangesets: true },
@@ -323,7 +323,7 @@ export const updateVisualChangeset = async ({
         ...vc,
         id: vc.id || uniqid("vc_"),
       }))
-    : [];
+    : visualChangeset.visualChanges || [];
 
   const res = await VisualChangesetModel.updateOne(
     {
@@ -333,7 +333,7 @@ export const updateVisualChangeset = async ({
     {
       $set: {
         ...updates,
-        ...(isUpdatingVisualChanges ? { visualChanges } : {}),
+        visualChanges,
       },
     }
   );
@@ -353,7 +353,7 @@ export const updateVisualChangeset = async ({
     newVisualChangeset: {
       ...visualChangeset,
       ...updates,
-      ...(isUpdatingVisualChanges ? { visualChanges } : {}),
+      visualChanges,
     },
     context,
     bypassWebhooks,

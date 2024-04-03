@@ -1,3 +1,4 @@
+import { filterProjectsByEnvironmentWithNull } from "shared/util";
 import {
   FeatureDefinitionSDKPayload,
   getFeatureDefinitions,
@@ -22,18 +23,29 @@ export const getSdkPayload = createApiRequestHandler()(
       includeVisualExperiments,
       includeDraftExperiments,
       includeExperimentNames,
+      includeRedirectExperiments,
       hashSecureAttributes,
     } = await getPayloadParamsFromApiKey(key, req);
+
+    const environmentDoc = req.context.org?.settings?.environments?.find(
+      (e) => e.id === environment
+    );
+    const filteredProjects = filterProjectsByEnvironmentWithNull(
+      projects,
+      environmentDoc,
+      true
+    );
 
     const defs = await getFeatureDefinitions({
       context: req.context,
       capabilities,
       environment,
-      projects,
+      projects: filteredProjects,
       encryptionKey: encrypted ? encryptionKey : "",
       includeVisualExperiments,
       includeDraftExperiments,
       includeExperimentNames,
+      includeRedirectExperiments,
       hashSecureAttributes,
     });
 

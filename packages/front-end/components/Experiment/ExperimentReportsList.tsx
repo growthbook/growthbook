@@ -11,8 +11,8 @@ import usePermissions from "@/hooks/usePermissions";
 import { useUser } from "@/services/UserContext";
 import { trackReport } from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import DeleteButton from "../DeleteButton/DeleteButton";
-import Tooltip from "../Tooltip/Tooltip";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function ExperimentReportsList({
   experiment,
@@ -79,10 +79,11 @@ export default function ExperimentReportsList({
                       </Tooltip>
                     ) : null}
 
-                    <Link href={`/report/${report.id}`}>
-                      <a className={`text-dark font-weight-bold`}>
-                        {report.title}
-                      </a>
+                    <Link
+                      href={`/report/${report.id}`}
+                      className={`text-dark font-weight-bold`}
+                    >
+                      {report.title}
                     </Link>
                   </div>
                 </td>
@@ -93,8 +94,8 @@ export default function ExperimentReportsList({
                     router.push(`/report/${report.id}`);
                   }}
                 >
-                  <Link href={`/report/${report.id}`}>
-                    <a className={`text-dark`}>{report.description}</a>
+                  <Link href={`/report/${report.id}`} className={`text-dark`}>
+                    {report.description}
                   </Link>
                 </td>
                 <td

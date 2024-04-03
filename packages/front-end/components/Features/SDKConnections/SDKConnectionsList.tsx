@@ -4,6 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { BsLightningFill } from "react-icons/bs";
 import { RxDesktop } from "react-icons/rx";
+import { PiShuffle } from "react-icons/pi";
+import {
+  filterProjectsByEnvironment,
+  getDisallowedProjects,
+} from "shared/util";
+import clsx from "clsx";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
@@ -11,15 +17,19 @@ import usePermissions from "@/hooks/usePermissions";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import StatusCircle from "@/components/Helpers/StatusCircle";
 import ProjectBadges from "@/components/ProjectBadges";
-import Tooltip from "../../Tooltip/Tooltip";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { useEnvironments } from "@/services/features";
+import Badge from "@/components/Badge";
 import SDKLanguageLogo from "./SDKLanguageLogo";
 import SDKConnectionForm from "./SDKConnectionForm";
 
 export default function SDKConnectionsList() {
   const { data, mutate, error } = useSDKConnections();
+  const connections = data?.connections ?? [];
 
   const [modalOpen, setModalOpen] = useState(false);
 
+  const environments = useEnvironments();
   const { projects } = useDefinitions();
 
   const router = useRouter();
@@ -31,8 +41,6 @@ export default function SDKConnectionsList() {
   if (!data) {
     return <LoadingOverlay />;
   }
-
-  const connections = data.connections;
 
   return (
     <div>
@@ -84,6 +92,29 @@ export default function SDKConnectionsList() {
                 connection.connected &&
                 (!hasProxy || connection.proxy.connected);
 
+              const environment = environments.find(
+                (e) => e.id === connection.environment
+              );
+              const envProjects = environment?.projects ?? [];
+              const filteredProjectIds = filterProjectsByEnvironment(
+                connection.projects,
+                environment,
+                true
+              );
+              const showAllEnvironmentProjects =
+                connection.projects.length === 0 &&
+                filteredProjectIds.length > 0;
+              const disallowedProjects = getDisallowedProjects(
+                projects,
+                connection?.projects ?? [],
+                environment
+              );
+              const disallowedProjectIds = disallowedProjects.map((p) => p.id);
+              const filteredProjectIdsWithDisallowed = [
+                ...filteredProjectIds,
+                ...disallowedProjectIds,
+              ];
+
               return (
                 <tr
                   key={connection.id}
@@ -114,15 +145,31 @@ export default function SDKConnectionsList() {
                     </Link>
                   </td>
                   {projects.length > 0 && (
-                    <td className="d-flex align-items-center">
-                      <ProjectBadges
-                        projectIds={
-                          connection.projects.length
-                            ? connection.projects
-                            : undefined
-                        }
-                        resourceType="sdk connection"
-                      />
+                    <td>
+                      {showAllEnvironmentProjects && (
+                        <Badge
+                          content={`All env projects (${envProjects.length})`}
+                          key="All env projects"
+                          className="badge-muted-info border-info"
+                          skipMargin={true}
+                        />
+                      )}
+                      <div
+                        className={clsx("d-flex align-items-center", {
+                          "small mt-1": showAllEnvironmentProjects,
+                        })}
+                      >
+                        <ProjectBadges
+                          projectIds={
+                            filteredProjectIdsWithDisallowed.length
+                              ? filteredProjectIdsWithDisallowed
+                              : undefined
+                          }
+                          invalidProjectIds={disallowedProjectIds}
+                          invalidProjectMessage="This project is not allowed in the selected environment and will not be included in the SDK payload."
+                          resourceType="sdk connection"
+                        />
+                      </div>
                     </td>
                   )}
                   <td>{connection.environment}</td>
@@ -183,6 +230,17 @@ export default function SDKConnectionsList() {
                         }
                       >
                         <RxDesktop className="mx-1 text-blue" />
+                      </Tooltip>
+                    )}
+                    {connection.includeRedirectExperiments && (
+                      <Tooltip
+                        body={
+                          <>
+                            <strong>URL Redirects</strong> are supported
+                          </>
+                        }
+                      >
+                        <PiShuffle className="mx-1 text-blue" />
                       </Tooltip>
                     )}
                   </td>

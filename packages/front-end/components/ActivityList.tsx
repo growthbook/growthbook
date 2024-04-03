@@ -2,10 +2,10 @@ import { FC } from "react";
 import { AuditInterface } from "back-end/types/audit";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
-import useApi from "../hooks/useApi";
+import useApi from "@/hooks/useApi";
 import LoadingOverlay from "./LoadingOverlay";
 import Avatar from "./Avatar/Avatar";
-//import { phaseSummary } from "../services/utils";
+//import { phaseSummary } from "@/services/utils";
 
 const eventActionMapping = {
   "experiment.start": "started experiment",
@@ -41,8 +41,11 @@ const ActivityList: FC<{
         {events.map((event) => {
           return (
             <li key={event.id} className="media d-flex w-100 hover-highlight">
-              <Link href={`/experiment/${event.entity.id}`}>
-                <a className="no-link-color w-100">
+              <Link
+                href={`/experiment/${event.entity.id}`}
+                className="no-link-color w-100"
+              >
+                <>
                   {"email" in event.user && event.user.email && (
                     <Avatar
                       email={event.user.email}
@@ -67,27 +70,8 @@ const ActivityList: FC<{
                     >
                       {date(event.dateCreated)}
                     </div>
-                    {/*{details &&*/}
-                    {/*  (event.event === "experiment.start" ||*/}
-                    {/*    event.event === "experiment.phase") && (*/}
-                    {/*    <small>{phaseSummary(details)}</small>*/}
-                    {/*  )}*/}
-                    {/*{event.event === "experiment.stop" && (*/}
-                    {/*  <small>*/}
-                    {/*    {details && details.reason && (*/}
-                    {/*      <span className="mr-3">*/}
-                    {/*        <strong>Reason: </strong> {details.reason}*/}
-                    {/*      </span>*/}
-                    {/*    )}*/}
-                    {/*    {details && details.results && (*/}
-                    {/*      <>*/}
-                    {/*        <strong>Result: </strong> {details.results}*/}
-                    {/*      </>*/}
-                    {/*    )}*/}
-                    {/*  </small>*/}
-                    {/*)}*/}
                   </div>
-                </a>
+                </>
               </Link>
             </li>
           );

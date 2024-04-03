@@ -8,23 +8,27 @@ import {
 } from "react-icons/fa";
 import { FaGear } from "react-icons/fa6";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
+import { SDKAttribute } from "@back-end/types/organization";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { useAttributeSchema } from "@/services/features";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import usePermissions from "@/hooks/usePermissions";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { DocLink } from "@/components/DocLink";
-import SelectField from "../Forms/SelectField";
-import Toggle from "../Forms/Toggle";
+import SelectField from "@/components/Forms/SelectField";
+import Toggle from "@/components/Forms/Toggle";
 
 export interface Props {
   // eslint-disable-next-line
   form: UseFormReturn<any>;
+  attributeSchema: SDKAttribute[];
 }
 
-export default function FallbackAttributeSelector({ form }: Props) {
+export default function FallbackAttributeSelector({
+  form,
+  attributeSchema,
+}: Props) {
   const [showSBInformation, setShowSBInformation] = useState(false);
 
   const { apiCall } = useAuth();
@@ -41,7 +45,6 @@ export default function FallbackAttributeSelector({ form }: Props) {
     connections: sdkConnectionsData?.connections || [],
   }).includes("stickyBucketing");
 
-  const attributeSchema = useAttributeSchema();
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
@@ -69,18 +72,31 @@ export default function FallbackAttributeSelector({ form }: Props) {
     return null;
   }
 
+  const fallbackAttributeOptions = [
+    { label: "none", value: "" },
+    ...attributeSchema
+      .filter((s) => !hasHashAttributes || s.hashAttribute)
+      .filter((s) => s.property !== form.watch("hashAttribute"))
+      .map((s) => ({ label: s.property, value: s.property })),
+  ];
+
+  // If the current fallbackAttribute isn't in the list (it was archived or has been project-scoped), add it for backwards compatibility
+  if (
+    fallbackAttribute &&
+    !fallbackAttributeOptions.find((o) => o.value === fallbackAttribute)
+  ) {
+    fallbackAttributeOptions.push({
+      label: fallbackAttribute,
+      value: fallbackAttribute,
+    });
+  }
+
   return (
     <SelectField
       containerClassName="flex-1"
       label="Fallback attribute"
       labelClassName="font-weight-bold"
-      options={[
-        { label: "none", value: "" },
-        ...attributeSchema
-          .filter((s) => !hasHashAttributes || s.hashAttribute)
-          .filter((s) => s.property !== form.watch("hashAttribute"))
-          .map((s) => ({ label: s.property, value: s.property })),
-      ]}
+      options={fallbackAttributeOptions}
       formatOptionLabel={({ value, label }) => {
         if (!value) {
           return <em className="text-muted">{label}</em>;

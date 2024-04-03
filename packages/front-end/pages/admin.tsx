@@ -21,7 +21,7 @@ import EditOrganization from "@/components/Admin/EditOrganization";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import CreateOrganization from "@/components/Admin/CreateOrganization";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
-import { useAuth } from "../services/auth";
+import { useAuth } from "@/services/auth";
 
 const numberFormatter = new Intl.NumberFormat();
 

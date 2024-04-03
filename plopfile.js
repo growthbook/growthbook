@@ -34,7 +34,7 @@ module.exports = function (plop) {
   // region Front-end
 
   plop.setGenerator("component", {
-    description: "[front-end] Generates a component and a Storybook story",
+    description: "[front-end] Generates a component",
     prompts: [
       {
         type: "input",
@@ -49,13 +49,6 @@ module.exports = function (plop) {
         path:
           "./packages/front-end/components/{{pascalCase component}}/{{pascalCase component}}.tsx",
         templateFile: "./plop-templates/front-end/component.hbs",
-      },
-      {
-        type: "add",
-        skipIfExists: true,
-        path:
-          "./packages/front-end/components/{{pascalCase component}}/{{pascalCase component}}.stories.tsx",
-        templateFile: "./plop-templates/front-end/component-story.hbs",
       },
     ],
   });

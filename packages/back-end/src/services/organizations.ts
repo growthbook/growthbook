@@ -1,10 +1,12 @@
 import { randomBytes } from "crypto";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
+import { Request } from "express";
 import {
-  FULL_ACCESS_PERMISSIONS,
-  getReadAccessFilter,
-} from "shared/permissions";
+  getLicense,
+  isAirGappedLicenseKey,
+  postSubscriptionUpdateToLicenseServer,
+} from "enterprise";
 import {
   createOrganization,
   findAllOrganizations,
@@ -50,7 +52,7 @@ import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 import { logger } from "../util/logger";
-import { getDefaultRole, getUserPermissions } from "../util/organization.util";
+import { getDefaultRole } from "../util/organization.util";
 import { SegmentInterface } from "../../types/segment";
 import {
   createSegment,
@@ -69,6 +71,12 @@ import {
 import { createMetric } from "./experiments";
 import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
 import { getUsersByIds } from "./users";
+import { ReqContextClass } from "./context";
+
+export {
+  getEnvironments,
+  getEnvironmentIdsFromOrg,
+} from "../util/organization.util";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
@@ -110,44 +118,23 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
     throw new Error("Must be logged in");
   }
 
-  return {
+  return new ReqContextClass({
     org: req.organization,
-    userId: req.userId,
-    email: req.email,
-    environments: getEnvironmentIdsFromOrg(req.organization),
-    userName: req.name || "",
-    readAccessFilter: getReadAccessFilter(
-      getUserPermissions(req.userId, req.organization, req.teams)
-    ),
     auditUser: {
       type: "dashboard",
       id: req.userId,
       email: req.email,
       name: req.name || "",
     },
-  };
-}
-
-export function getEnvironmentIdsFromOrg(org: OrganizationInterface): string[] {
-  return getEnvironments(org).map((e) => e.id);
-}
-
-export function getEnvironments(org: OrganizationInterface) {
-  if (!org.settings?.environments || !org.settings?.environments?.length) {
-    return [
-      {
-        id: "dev",
-        description: "",
-        toggleOnList: true,
-      },
-      {
-        id: "production",
-        description: "",
-        toggleOnList: true,
-      },
-    ];
-  }
-  return org.settings.environments;
+    user: {
+      id: req.userId,
+      email: req.email,
+      name: req.name || "",
+      superAdmin: req.superAdmin,
+    },
+    teams: req.teams,
+    req: req as Request,
+  });
 }
 
 export async function getConfidenceLevelsForOrg(id: string) {
@@ -233,7 +220,13 @@ export async function removeMember(
     pendingMembers,
   });
 
-  return organization;
+  const updatedOrganization = cloneDeep(organization);
+  updatedOrganization.members = members;
+  updatedOrganization.pendingMembers = pendingMembers;
+
+  await updateSubscriptionIfProLicense(updatedOrganization);
+
+  return updatedOrganization;
 }
 
 export async function revokeInvite(
@@ -246,11 +239,34 @@ export async function revokeInvite(
     invites,
   });
 
-  return organization;
+  const updatedOrganization = cloneDeep(organization);
+  updatedOrganization.invites = invites;
+  await updateSubscriptionIfProLicense(updatedOrganization);
+
+  return updatedOrganization;
 }
 
 export function getInviteUrl(key: string) {
   return `${APP_ORIGIN}/invitation?key=${key}`;
+}
+
+async function updateSubscriptionIfProLicense(
+  organization: OrganizationInterface
+) {
+  if (
+    organization.licenseKey &&
+    !isAirGappedLicenseKey(organization.licenseKey)
+  ) {
+    const license = await getLicense(organization.licenseKey);
+    if (license?.plan === "pro") {
+      // Only pro plans have a Stripe subscription that needs to get updated
+      const seatsInUse = getNumberOfUniqueMembersAndInvites(organization);
+      await postSubscriptionUpdateToLicenseServer(
+        organization.licenseKey,
+        seatsInUse
+      );
+    }
+  }
 }
 
 export async function addMemberToOrg({
@@ -298,6 +314,12 @@ export async function addMemberToOrg({
     members,
     pendingMembers,
   });
+
+  const updatedOrganization = cloneDeep(organization);
+  updatedOrganization.members = members;
+  updatedOrganization.pendingMembers = pendingMembers;
+
+  await updateSubscriptionIfProLicense(updatedOrganization);
 }
 
 export async function addMembersToTeam({
@@ -510,13 +532,15 @@ export async function inviteUser({
     invites,
   });
 
-  // append the new invites to the existin object (or refetch)
-  organization.invites = invites;
+  const updatedOrganization = cloneDeep(organization);
+  updatedOrganization.invites = invites;
+
+  await updateSubscriptionIfProLicense(updatedOrganization);
 
   let emailSent = false;
   if (isEmailEnabled()) {
     try {
-      await sendInviteEmail(organization, key);
+      await sendInviteEmail(updatedOrganization, key);
       emailSent = true;
     } catch (e) {
       logger.error(e, "Error sending invite email");
@@ -979,12 +1003,12 @@ export async function expandOrgMembers(
 export function getContextForAgendaJobByOrgObject(
   organization: OrganizationInterface
 ): ApiReqContext {
-  return {
+  return new ReqContextClass({
     org: organization,
-    environments: getEnvironmentIdsFromOrg(organization),
-    readAccessFilter: FULL_ACCESS_PERMISSIONS,
     auditUser: null,
-  };
+    // TODO: Limit background job permissions to the user who created the job
+    role: "admin",
+  });
 }
 
 export async function getContextForAgendaJobByOrgId(

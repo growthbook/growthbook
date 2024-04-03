@@ -12,7 +12,7 @@ import { getValidDate } from "shared/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import SelectField from "@/components/Forms/SelectField";
-import LoadingOverlay from "../LoadingOverlay";
+import LoadingOverlay from "@/components/LoadingOverlay";
 import styles from "./ExperimentGraph.module.scss";
 
 export default function ExperimentGraph({
@@ -450,16 +450,7 @@ export default function ExperimentGraph({
               </svg>
               {showBy !== "all" && (
                 <>
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: 6,
-                      width: "100%",
-                      display: "flex",
-                      justifyContent: "center",
-                      fontSize: "14px",
-                    }}
-                  >
+                  <div className={styles.legendWrap}>
                     {stackedKeys.map((k) => (
                       <div key={k} className={styles.legendRow}>
                         <div

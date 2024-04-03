@@ -16,8 +16,8 @@ import track from "@/services/track";
 import usePermissions from "@/hooks/usePermissions";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ValueDisplay from "@/components/Features/ValueDisplay";
-import DeleteButton from "../DeleteButton/DeleteButton";
-import MoreMenu from "../Dropdown/MoreMenu";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
 
 interface Props {
   i: number;
@@ -132,11 +132,13 @@ export default function PrerequisiteStatusRow({
           </div>
         </div>
       </td>
-      <PrerequisiteStatesCols
-        prereqStates={prereqStatesAndDefaults?.states}
-        defaultValues={prereqStatesAndDefaults?.defaultValues}
-        envs={envs}
-      />
+      {envs.length > 0 && (
+        <PrerequisiteStatesCols
+          prereqStates={prereqStatesAndDefaults?.states}
+          defaultValues={prereqStatesAndDefaults?.defaultValues}
+          envs={envs}
+        />
+      )}
       <td />
     </tr>
   );

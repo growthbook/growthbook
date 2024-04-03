@@ -23,10 +23,7 @@ const TeamsList: FC = () => {
   const canManageTeam = permissions.check("manageTeam");
 
   return (
-    <div className="my-4">
-      <p>
-        Place organization members into teams to grant permissions by group.
-      </p>
+    <div className="mb-4">
       <div>
         {teams && teams.length > 0 ? (
           <table className="table appbox gbtable table-hover">
@@ -56,8 +53,11 @@ const TeamsList: FC = () => {
                   >
                     <td>
                       {
-                        <Link href={`/settings/team/${t.id}`}>
-                          <a className="font-weight-bold">{t.name}</a>
+                        <Link
+                          href={`/settings/team/${t.id}`}
+                          className="font-weight-bold"
+                        >
+                          {t.name}
                         </Link>
                       }
                     </td>
@@ -76,7 +76,7 @@ const TeamsList: FC = () => {
                                 <ProjectBadges
                                   resourceType="team"
                                   projectIds={[p.id]}
-                                  className="badge-ellipsis align-middle font-weight-normal"
+                                  className="badge-ellipsis short align-middle font-weight-normal"
                                 />{" "}
                                 — {pr.role}
                               </div>

@@ -1,6 +1,6 @@
 import { FC, ChangeEventHandler } from "react";
 import { DatabricksConnectionParams } from "back-end/types/integrations/databricks";
-import Field from "../Forms/Field";
+import Field from "@/components/Forms/Field";
 import HostWarning from "./HostWarning";
 
 const DatabricksForm: FC<{

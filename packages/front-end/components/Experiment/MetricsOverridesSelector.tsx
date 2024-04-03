@@ -17,9 +17,9 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
 import { capitalizeFirstLetter } from "@/services/utils";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
-import MetricName from "../Metrics/MetricName";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import MetricName from "@/components/Metrics/MetricName";
 import { EditMetricsFormInterface } from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
 

@@ -1,11 +1,15 @@
 import mongoose from "mongoose";
 import omit from "lodash/omit";
+import { checkIfRevisionNeedsReview } from "shared/util";
 import { FeatureInterface, FeatureRule } from "../../types/feature";
 import {
   FeatureRevisionInterface,
   RevisionLog,
 } from "../../types/feature-revision";
 import { EventAuditUser, EventAuditUserLoggedIn } from "../events/event-types";
+import { OrganizationInterface, ReqContext } from "../../types/organization";
+
+export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
 const featureRevisionSchema = new mongoose.Schema({
   organization: String,
@@ -21,10 +25,12 @@ const featureRevisionSchema = new mongoose.Schema({
   defaultValue: String,
   rules: {},
   status: String,
+  requiresReview: Boolean,
   log: [
     {
       _id: false,
       user: {},
+      approvedBy: {},
       timestamp: Date,
       action: String,
       subject: String,
@@ -37,6 +43,7 @@ featureRevisionSchema.index(
   { organization: 1, featureId: 1, version: 1 },
   { unique: true }
 );
+featureRevisionSchema.index({ organization: 1, status: 1 });
 
 type FeatureRevisionDocument = mongoose.Document & FeatureRevisionInterface;
 
@@ -118,6 +125,23 @@ export async function getRevision(
   return doc ? toInterface(doc) : null;
 }
 
+export async function getRevisionsByStatus(
+  context: ReqContext,
+  statuses: string[]
+) {
+  const revisions = await FeatureRevisionModel.find({
+    organization: context.org.id,
+    status: { $in: statuses },
+  });
+  const docs = revisions
+    .filter((r) => !!r)
+    .map((r) => {
+      return toInterface(r);
+    });
+
+  return docs;
+}
+
 export async function createInitialRevision(
   feature: FeatureInterface,
   user: EventAuditUser | null,
@@ -164,6 +188,8 @@ export async function createRevision({
   changes,
   publish,
   comment,
+  org,
+  canBypassApprovalChecks,
 }: {
   feature: FeatureInterface;
   user: EventAuditUser;
@@ -172,6 +198,8 @@ export async function createRevision({
   changes?: Partial<FeatureRevisionInterface>;
   publish?: boolean;
   comment?: string;
+  org: OrganizationInterface;
+  canBypassApprovalChecks?: boolean;
 }) {
   // Get max version number
   const lastRevision = (
@@ -210,23 +238,48 @@ export async function createRevision({
       rules,
     }),
   };
+  if (!baseVersion) baseVersion = lastRevision?.version;
+  const baseRevision =
+    lastRevision?.version === baseVersion
+      ? lastRevision
+      : await getRevision(feature.organization, feature.id, baseVersion);
 
-  const doc = await FeatureRevisionModel.create({
+  if (!baseRevision) {
+    throw new Error("can not find a base revision");
+  }
+  const status = "draft";
+  const revision = {
     organization: feature.organization,
     featureId: feature.id,
     version: newVersion,
     dateCreated: new Date(),
     dateUpdated: new Date(),
-    datePublished: publish ? new Date() : null,
+    datePublished: null,
     createdBy: user,
     baseVersion: baseVersion || feature.version,
-    status: publish ? "published" : "draft",
-    publishedBy: publish ? user : null,
+    status,
+    publishedBy: null,
     comment: comment || "",
     defaultValue,
     rules,
     log: [log],
+  } as FeatureRevisionInterface;
+  const requiresReview = checkIfRevisionNeedsReview({
+    feature,
+    baseRevision,
+    revision,
+    allEnvironments: environments,
+    settings: org.settings,
   });
+  if (publish && (!requiresReview || canBypassApprovalChecks)) {
+    revision.status = "published";
+    revision.publishedBy = user;
+    revision.datePublished = new Date();
+  } else if (publish && requiresReview) {
+    revision.status = "pending-review";
+  }
+
+  const doc = await FeatureRevisionModel.create(revision);
 
   return toInterface(doc);
 }
@@ -239,15 +292,31 @@ export async function updateRevision(
       "comment" | "defaultValue" | "rules" | "baseVersion"
     >
   >,
-  log: Omit<RevisionLog, "timestamp">
+  log: Omit<RevisionLog, "timestamp">,
+  resetReview: boolean
 ) {
+  let status = revision.status;
+
   // If editing defaultValue or rules, require the revision to be a draft
   if ("defaultValue" in changes || changes.rules) {
-    if (revision.status !== "draft") {
+    if (
+      !(
+        revision.status === "draft" ||
+        revision.status === "pending-review" ||
+        revision.status === "approved" ||
+        revision.status === "changes-requested"
+      )
+    ) {
       throw new Error("Can only update draft revisions");
     }
+    // reset the changes requested since there is no way to reset at the moment.
+    if (revision.status === "changes-requested") {
+      status = "pending-review";
+    }
   }
-
+  if (resetReview && revision.status === "approved") {
+    status = "pending-review";
+  }
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -255,7 +324,7 @@ export async function updateRevision(
       version: revision.version,
     },
     {
-      $set: { ...changes, dateUpdated: new Date() },
+      $set: { ...changes, status, dateUpdated: new Date() },
       $push: {
         log: {
           ...log,
@@ -293,7 +362,86 @@ export async function markRevisionAsPublished(
         publishedBy: user,
         datePublished: new Date(),
         dateUpdated: new Date(),
-        comment: comment ?? revision.comment,
+      },
+      $push: {
+        log,
+      },
+    }
+  );
+}
+
+export async function markRevisionAsReviewRequested(
+  revision: FeatureRevisionInterface,
+  user: EventAuditUser,
+  comment?: string
+) {
+  const action = "Review Requested";
+
+  const log: RevisionLog = {
+    action,
+    subject: "",
+    timestamp: new Date(),
+    user,
+    value: JSON.stringify(comment ? { comment } : {}),
+  };
+  await FeatureRevisionModel.updateOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    {
+      $set: {
+        status: "pending-review",
+        datePublished: null,
+        dateUpdated: new Date(),
+        comment: comment,
+      },
+      $push: {
+        log,
+      },
+    }
+  );
+}
+
+export async function submitReviewAndComments(
+  revision: FeatureRevisionInterface,
+  user: EventAuditUser,
+  reviewSubmittedType: ReviewSubmittedType,
+  comment?: string
+) {
+  const action = reviewSubmittedType;
+  let status = "pending-review";
+  switch (reviewSubmittedType) {
+    case "Approved":
+      status = "approved";
+      break;
+    case "Requested Changes":
+      status = "changes-requested";
+      break;
+    default:
+      // we dont want comments to override approved state
+      status = revision.status;
+  }
+  const log: RevisionLog = {
+    action,
+    subject: "",
+    timestamp: new Date(),
+    user,
+    value: JSON.stringify(comment ? { comment } : {}),
+  };
+
+  await FeatureRevisionModel.updateOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    {
+      $set: {
+        status,
+        datePublished: null,
+        dateUpdated: new Date(),
       },
       $push: {
         log,
@@ -306,8 +454,8 @@ export async function discardRevision(
   revision: FeatureRevisionInterface,
   user: EventAuditUser
 ) {
-  if (revision.status !== "draft") {
-    throw new Error("Can only discard draft revisions");
+  if (revision.status === "published" || revision.status === "discarded") {
+    throw new Error(`Can not discard ${revision.status} revisions`);
   }
 
   const log: RevisionLog = {

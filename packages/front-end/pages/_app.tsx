@@ -1,7 +1,7 @@
 import { AppProps } from "next/app";
-import "../styles/global.scss";
+import "@/styles/global.scss";
 import "@radix-ui/themes/styles.css";
-import "../styles/theme-config.css";
+import "@/styles/theme-config.css";
 import Head from "next/head";
 import { useEffect, useState } from "react";
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
@@ -9,17 +9,17 @@ import { OrganizationMessagesContainer } from "@/components/OrganizationMessages
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
 import { PageHeadProvider } from "@/components/Layout/PageHead";
 import { RadixTheme } from "@/services/RadixTheme";
-import { AuthProvider } from "../services/auth";
-import ProtectedPage from "../components/ProtectedPage";
-import { DefinitionsProvider } from "../services/DefinitionsContext";
-import track from "../services/track";
-import { initEnv } from "../services/env";
-import LoadingOverlay from "../components/LoadingOverlay";
+import { AuthProvider } from "@/services/auth";
+import ProtectedPage from "@/components/ProtectedPage";
+import { DefinitionsProvider } from "@/services/DefinitionsContext";
+import track from "@/services/track";
+import { initEnv } from "@/services/env";
+import LoadingOverlay from "@/components/LoadingOverlay";
 import "diff2html/bundles/css/diff2html.min.css";
-import Layout from "../components/Layout/Layout";
-import { AppearanceUIThemeProvider } from "../services/AppearanceUIThemeProvider";
-import TopNavLite from "../components/Layout/TopNavLite";
-import { AppFeatures } from "../types/app-features";
+import Layout from "@/components/Layout/Layout";
+import { AppearanceUIThemeProvider } from "@/services/AppearanceUIThemeProvider";
+import TopNavLite from "@/components/Layout/TopNavLite";
+import { AppFeatures } from "@/./types/app-features";
 
 type ModAppProps = AppProps & {
   Component: {

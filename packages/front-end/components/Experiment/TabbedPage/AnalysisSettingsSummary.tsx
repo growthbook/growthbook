@@ -31,7 +31,7 @@ import RefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton
 import usePermissions from "@/hooks/usePermissions";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import MetricName from "@/components/Metrics/MetricName";
-import AnalysisForm from "../AnalysisForm";
+import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import OverflowText from "./OverflowText";
 
 export interface Props {
@@ -377,7 +377,6 @@ export default function AnalysisSettingsSummary({
                       }
                       setDifferenceType("relative");
                     }}
-                    newUi={true}
                   />
                 </form>
               ) : (
@@ -395,7 +394,6 @@ export default function AnalysisSettingsSummary({
                     }
                     setDifferenceType("relative");
                   }}
-                  newUi={true}
                 />
               )}
             </div>
@@ -417,7 +415,6 @@ export default function AnalysisSettingsSummary({
                   " "
                 )}
                 display={null}
-                newUi={true}
                 status={status}
                 icon={
                   <span className="position-relative pr-2">
@@ -433,6 +430,7 @@ export default function AnalysisSettingsSummary({
                     />
                   </span>
                 }
+                condensed={true}
               />
             </div>
           )}
@@ -475,7 +473,6 @@ export default function AnalysisSettingsSummary({
                   }
                 : undefined
             }
-            configure={() => setAnalysisModal(true)}
             editMetrics={editMetrics}
             notebookUrl={`/experiments/notebook/${snapshot?.id}`}
             notebookFilename={experiment.trackingKey}
@@ -494,7 +491,6 @@ export default function AnalysisSettingsSummary({
             trackingKey={experiment.trackingKey}
             dimension={dimension}
             project={experiment.project}
-            newUi={true}
           />
         </div>
       </div>

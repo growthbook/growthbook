@@ -42,8 +42,6 @@ export async function getEstimatedImpact(
   req: AuthRequest<{ metric: string; segment?: string; ideaId?: string }>,
   res: Response
 ) {
-  req.checkPermissions("createIdeas", "");
-
   const { metric, segment, ideaId } = req.body;
 
   const idea = await getIdeaById(ideaId || "");
@@ -73,11 +71,13 @@ export async function postIdeas(
   req: AuthRequest<Partial<IdeaInterface>>,
   res: Response
 ) {
-  const { org, userId } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
   const data = req.body;
 
-  req.checkPermissions("createIdeas", data.project);
-
+  if (!context.permissions.canCreateIdea(data)) {
+    context.permissions.throwPermissionError();
+  }
   data.organization = org.id;
   data.source = "web";
   data.userId = userId;
@@ -161,7 +161,8 @@ export async function postIdea(
   const { id } = req.params;
   const idea = await getIdeaById(id);
   const data = req.body;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
   if (!idea) {
     res.status(403).json({
@@ -179,8 +180,9 @@ export async function postIdea(
     return;
   }
 
-  req.checkPermissions("createIdeas", idea.project);
-
+  if (!context.permissions.canUpdateIdea(idea, data)) {
+    context.permissions.throwPermissionError();
+  }
   const existing = idea.toJSON();
 
   data.text && idea.set("text", data.text);
@@ -211,7 +213,8 @@ export async function deleteIdea(
 ) {
   const { id } = req.params;
   const idea = await getIdeaById(id);
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
   if (!idea) {
     res.status(403).json({
@@ -229,7 +232,9 @@ export async function deleteIdea(
     return;
   }
 
-  req.checkPermissions("createIdeas", idea.project);
+  if (!context.permissions.canDeleteIdea(idea)) {
+    context.permissions.throwPermissionError();
+  }
 
   // note: we might want to change this to change the status to
   // 'deleted' instead of actually deleting the document.

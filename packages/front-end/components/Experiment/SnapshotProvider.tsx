@@ -5,7 +5,7 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
-import { getSnapshotAnalysis } from "@/../shared/util";
+import { getSnapshotAnalysis } from "shared/util";
 import useApi from "@/hooks/useApi";
 
 const snapshotContext = React.createContext<{

@@ -4,7 +4,7 @@ import { FaDownload } from "react-icons/fa";
 import { snakeCase } from "lodash";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import Button from "../Button";
+import Button from "@/components/Button";
 
 const DownloadLicenseUsageButton: FC = () => {
   const { apiCall } = useAuth();
@@ -15,10 +15,11 @@ const DownloadLicenseUsageButton: FC = () => {
       const res = await apiCall<{
         status: number;
         licenseMetaData: LicenseMetaData;
-        userLicenseCodes: string[];
+        userEmailCodes: string[];
+        inviteEmailCodes: string[];
         signature: string;
         timestamp: string;
-      }>(`/admin/license-report`, {
+      }>(`/license/report`, {
         method: "GET",
       });
 
@@ -32,8 +33,12 @@ const DownloadLicenseUsageButton: FC = () => {
             {
               license: license,
               licenseMetaData: res.licenseMetaData,
-              userLicenseCodes: res.userLicenseCodes,
-              seatsUsed: res.userLicenseCodes.length,
+              userEmailCodes: res.userEmailCodes,
+              inviteEmailCodes: res.inviteEmailCodes,
+              activeSeatsUsed: res.userEmailCodes.length,
+              seatsUsed: new Set(
+                res.userEmailCodes.concat(res.inviteEmailCodes)
+              ).size,
               signature: res.signature,
               timestamp: res.timestamp,
             },

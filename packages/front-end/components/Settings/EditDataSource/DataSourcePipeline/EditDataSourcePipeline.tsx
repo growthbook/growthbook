@@ -5,7 +5,7 @@ import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import Modal from "@/components/Modal";
 import Toggle from "@/components/Forms/Toggle";
 import Field from "@/components/Forms/Field";
-import { DataSourceQueryEditingModalBaseProps } from "../types";
+import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { dataSourceSchemaName } from "./DataSourcePipeline";
 
 type EditDataSourcePipelineProps = DataSourceQueryEditingModalBaseProps;

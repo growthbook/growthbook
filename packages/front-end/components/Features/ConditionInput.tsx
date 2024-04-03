@@ -16,15 +16,16 @@ import {
   getDefaultOperator,
 } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
-import CodeTextArea from "../Forms/CodeTextArea";
-import StringArrayField from "../Forms/StringArrayField";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import CodeTextArea from "@/components/Forms/CodeTextArea";
+import StringArrayField from "@/components/Forms/StringArrayField";
 import styles from "./ConditionInput.module.scss";
 
 interface Props {
   defaultValue: string;
   onChange: (value: string) => void;
+  project: string;
   labelClassName?: string;
   emptyText?: string;
   title?: string;
@@ -34,7 +35,7 @@ interface Props {
 export default function ConditionInput(props: Props) {
   const { savedGroups } = useDefinitions();
 
-  const attributes = useAttributeMap();
+  const attributes = useAttributeMap(props.project);
 
   const title = props.title || "Target by Attributes";
   const emptyText = props.emptyText || "Applied to everyone by default.";
@@ -49,7 +50,7 @@ export default function ConditionInput(props: Props) {
   );
   const [rawTextMode, setRawTextMode] = useState(false);
 
-  const attributeSchema = useAttributeSchema();
+  const attributeSchema = useAttributeSchema(false, props.project);
 
   useEffect(() => {
     if (advanced) return;

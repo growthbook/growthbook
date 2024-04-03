@@ -1,24 +1,42 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "back-end/types/experiment";
+import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
-import VariationsTable from "../VariationsTable";
+import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";
+import VariationsTable from "@/components/Experiment/VariationsTable";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  visualChangesets: VisualChangesetInterface[];
   mutate: () => void;
   safeToEdit: boolean;
+  editTargeting?: (() => void) | null;
   editVariations?: (() => void) | null;
+  linkedFeatures: LinkedFeatureInfo[];
+  verifiedConnections: SDKConnectionInterface[];
   disableEditing?: boolean;
+  checklistItemsRemaining: number | null;
+  setChecklistItemsRemaining: (value: number | null) => void;
 }
 
 export default function SetupTabOverview({
   experiment,
+  visualChangesets,
   mutate,
+  editTargeting,
   safeToEdit,
   editVariations,
+  linkedFeatures,
+  verifiedConnections,
   disableEditing,
+  checklistItemsRemaining,
+  setChecklistItemsRemaining,
 }: Props) {
   const { apiCall } = useAuth();
 
@@ -31,11 +49,20 @@ export default function SetupTabOverview({
 
   return (
     <div>
-      <div className="pl-1 mb-3">
-        <h2>About this test</h2>
-      </div>
-
-      <div className="appbox bg-white mb-4 p-3">
+      <h2>Overview</h2>
+      {experiment.status === "draft" ? (
+        <PreLaunchChecklist
+          experiment={experiment}
+          mutateExperiment={mutate}
+          linkedFeatures={linkedFeatures}
+          visualChangesets={visualChangesets}
+          editTargeting={editTargeting}
+          verifiedConnections={verifiedConnections}
+          checklistItemsRemaining={checklistItemsRemaining}
+          setChecklistItemsRemaining={setChecklistItemsRemaining}
+        />
+      ) : null}
+      <div className="appbox bg-white my-2 mb-4 p-3">
         <div>
           <MarkdownInlineEdit
             value={experiment.description ?? ""}

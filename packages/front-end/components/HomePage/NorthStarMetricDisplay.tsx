@@ -1,6 +1,5 @@
 import React from "react";
 import { MetricInterface } from "back-end/types/metric";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -9,7 +8,7 @@ import RunQueriesButton, {
 } from "@/components/Queries/RunQueriesButton";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
-import DateGraph from "../Metrics/DateGraph";
+import DateGraph, { DraftExperiment } from "@/components/Metrics/DateGraph";
 
 const NorthStarMetricDisplay = ({
   metricId,
@@ -31,7 +30,7 @@ const NorthStarMetricDisplay = ({
 
   const { data, error, mutate } = useApi<{
     metric: MetricInterface;
-    experiments: Partial<ExperimentInterfaceStringDates>[];
+    experiments: DraftExperiment[];
   }>(`/metric/${metricId}`);
 
   // @todo: get the metric period in days from the 'window'.
@@ -51,8 +50,7 @@ const NorthStarMetricDisplay = ({
     : data.experiments;
   let analysis = data.metric.analysis;
   if (!analysis || !("average" in analysis)) {
-    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'MetricAnaly... Remove this comment to see the full error message
-    analysis = null;
+    analysis = undefined;
   }
   const { status } = getQueryStatus(metric.queries || [], metric.analysisError);
   const hasQueries = metric.queries?.length > 0;

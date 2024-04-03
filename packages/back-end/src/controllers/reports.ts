@@ -248,8 +248,6 @@ export async function putReport(
   req: AuthRequest<Partial<ReportInterface>, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createAnalyses", "");
-
   const context = getContextFromReq(req);
   const { org } = context;
 
@@ -264,6 +262,8 @@ export async function putReport(
     report.experimentId || ""
   );
 
+  // Reports don't have projects, but the experiment does, so check that
+  req.checkPermissions("createAnalyses", experiment?.project || "");
   req.checkPermissions("runQueries", experiment?.project || "");
 
   const updates: Partial<ReportInterface> = {};

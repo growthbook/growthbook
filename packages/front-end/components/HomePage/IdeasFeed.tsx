@@ -5,8 +5,8 @@ import { ago } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Markdown from "../Markdown/Markdown";
-import LoadingOverlay from "../LoadingOverlay";
+import Markdown from "@/components/Markdown/Markdown";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 const IdeasFeed: FC<{
   num?: number;

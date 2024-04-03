@@ -18,18 +18,17 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import MetricForm from "@/components/Metrics/MetricForm";
-import usePermissions from "@/hooks/usePermissions";
 import Toggle from "@/components/Forms/Toggle";
 import { DocLink } from "@/components/DocLink";
 import { useUser } from "@/services/UserContext";
-import { canCreateMetrics } from "@/services/env";
+import { envAllowsCreatingMetrics } from "@/services/env";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { checkMetricProjectPermissions } from "@/services/metrics";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import MetricName from "@/components/Metrics/MetricName";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 interface MetricTableItem {
   id: string;
   managedBy: "" | "api" | "config";
@@ -68,7 +67,7 @@ const MetricsPage = (): React.ReactElement => {
 
   const { getUserDisplay } = useUser();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
 
   const tagsFilter = useTagsFilter("metrics");
@@ -167,12 +166,15 @@ const MetricsPage = (): React.ReactElement => {
     },
     [showArchived, recentlyArchived, tagsFilter.tags]
   );
-  const editMetricsPermissions: { [id: string]: boolean } = {};
+
+  const editMetricsPermissions: {
+    [id: string]: { canDuplicate: boolean; canUpdate: boolean };
+  } = {};
   filteredMetrics.forEach((m) => {
-    editMetricsPermissions[m.id] = checkMetricProjectPermissions(
-      m,
-      permissions
-    );
+    editMetricsPermissions[m.id] = {
+      canDuplicate: permissionsUtil.canCreateMetric(m),
+      canUpdate: permissionsUtil.canUpdateMetric(m, {}),
+    };
   });
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: filteredMetrics,
@@ -240,27 +242,30 @@ const MetricsPage = (): React.ReactElement => {
             transactions, revenue, engagement
           </li>
         </ul>
-        {permissions.check("createMetrics", project) && canCreateMetrics() && (
-          <>
-            <AutoGenerateMetricsButton
-              setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
-              size="lg"
-            />
-            <button
-              className="btn btn-lg btn-success"
-              onClick={(e) => {
-                e.preventDefault();
-                setModalData({
-                  current: {},
-                  edit: false,
-                  duplicate: false,
-                });
-              }}
-            >
-              <FaPlus /> Add your first Metric
-            </button>
-          </>
-        )}
+        {permissionsUtil.canCreateMetric({ projects: [project] }) &&
+          envAllowsCreatingMetrics() && (
+            <>
+              <AutoGenerateMetricsButton
+                setShowAutoGenerateMetricsModal={
+                  setShowAutoGenerateMetricsModal
+                }
+                size="lg"
+              />
+              <button
+                className="btn btn-lg btn-success"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setModalData({
+                    current: {},
+                    edit: false,
+                    duplicate: false,
+                  });
+                }}
+              >
+                <FaPlus /> Add your first Metric
+              </button>
+            </>
+          )}
       </div>
     );
   }
@@ -300,28 +305,31 @@ const MetricsPage = (): React.ReactElement => {
           </DocLink>
         </div>
         <div style={{ flex: 1 }} />
-        {permissions.check("createMetrics", project) && canCreateMetrics() && (
-          <div className="col-auto">
-            <AutoGenerateMetricsButton
-              setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
-            />
-            <button
-              className="btn btn-primary float-right"
-              onClick={() =>
-                setModalData({
-                  current: {},
-                  edit: false,
-                  duplicate: false,
-                })
-              }
-            >
-              <span className="h4 pr-2 m-0 d-inline-block align-top">
-                <GBAddCircle />
-              </span>
-              Add Metric
-            </button>
-          </div>
-        )}
+        {permissionsUtil.canCreateMetric({ projects: [project] }) &&
+          envAllowsCreatingMetrics() && (
+            <div className="col-auto">
+              <AutoGenerateMetricsButton
+                setShowAutoGenerateMetricsModal={
+                  setShowAutoGenerateMetricsModal
+                }
+              />
+              <button
+                className="btn btn-primary float-right"
+                onClick={() =>
+                  setModalData({
+                    current: {},
+                    edit: false,
+                    duplicate: false,
+                  })
+                }
+              >
+                <span className="h4 pr-2 m-0 d-inline-block align-top">
+                  <GBAddCircle />
+                </span>
+                Add Metric
+              </button>
+            </div>
+          )}
       </div>
       <div className="row mb-2 align-items-center">
         <div className="col-lg-3 col-md-4 col-6">
@@ -376,9 +384,8 @@ const MetricsPage = (): React.ReactElement => {
 
             if (
               metric.onDuplicate &&
-              editMetricsPermissions[metric.id] &&
-              permissions.check("createMetrics", project) &&
-              canCreateMetrics()
+              editMetricsPermissions[metric.id].canDuplicate &&
+              envAllowsCreatingMetrics()
             ) {
               moreMenuLinks.push(
                 <button
@@ -397,7 +404,7 @@ const MetricsPage = (): React.ReactElement => {
             if (
               !metric.managedBy &&
               metric.onArchive &&
-              editMetricsPermissions[metric.id]
+              editMetricsPermissions[metric.id].canUpdate
             ) {
               moreMenuLinks.push(
                 <button
@@ -425,14 +432,13 @@ const MetricsPage = (): React.ReactElement => {
                 className={metric.archived ? "text-muted" : ""}
               >
                 <td>
-                  <Link href={getMetricLink(metric.id)}>
-                    <a
-                      className={`${
-                        metric.archived ? "text-muted" : "text-dark"
-                      } font-weight-bold`}
-                    >
-                      <MetricName id={metric.id} />
-                    </a>
+                  <Link
+                    href={getMetricLink(metric.id)}
+                    className={`${
+                      metric.archived ? "text-muted" : "text-dark"
+                    } font-weight-bold`}
+                  >
+                    <MetricName id={metric.id} />
                   </Link>
                 </td>
                 <td>{metric.type}</td>
@@ -495,15 +501,13 @@ const MetricsPage = (): React.ReactElement => {
                     e.preventDefault();
                   }}
                 >
-                  {moreMenuLinks.length ? (
-                    <MoreMenu>
-                      {moreMenuLinks.map((menuItem, i) => (
-                        <div key={`${menuItem}-${i}`} className="d-inline">
-                          {menuItem}
-                        </div>
-                      ))}
-                    </MoreMenu>
-                  ) : null}
+                  <MoreMenu>
+                    {moreMenuLinks.map((menuItem, i) => (
+                      <div key={`${menuItem}-${i}`} className="d-inline">
+                        {menuItem}
+                      </div>
+                    ))}
+                  </MoreMenu>
                 </td>
               </tr>
             );

@@ -11,10 +11,16 @@ import {
 import { FaArrowRight } from "react-icons/fa";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
-import useOrgSettings from "../../hooks/useOrgSettings";
-import { GBDatabase, GBExperiment, GBPremiumBadge, GBSettings } from "../Icons";
-import { inferDocUrl } from "../DocLink";
-import UpgradeModal from "../Settings/UpgradeModal";
+import useStripeSubscription from "@/hooks/useStripeSubscription";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import {
+  GBDatabase,
+  GBExperiment,
+  GBPremiumBadge,
+  GBSettings,
+} from "@/components/Icons";
+import { inferDocUrl } from "@/components/DocLink";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import TopNav from "./TopNav";
@@ -217,7 +223,6 @@ const navlinks: SidebarLinkProps[] = [
         name: "Billing",
         href: "/settings/billing",
         path: /^settings\/billing/,
-        cloudOnly: true,
         permissions: ["manageBilling"],
       },
       {
@@ -240,10 +245,6 @@ const otherPageTitles = [
   {
     path: /^activity/,
     title: "Activity Feed",
-  },
-  {
-    path: /^experiments\/designer/,
-    title: "Visual Experiment Designer",
   },
   {
     path: /^integrations\/vercel/,
@@ -282,13 +283,17 @@ const backgroundShade = (color: string) => {
 const Layout = (): React.ReactElement => {
   const [open, setOpen] = useState(false);
   const settings = useOrgSettings();
-  const { accountPlan } = useUser();
+  const { accountPlan, license } = useUser();
+  const { hasPaymentMethod } = useStripeSubscription();
 
   const { breadcrumb } = usePageHead();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  const showUpgradeButton = ["oss", "starter"].includes(accountPlan);
+  const showUpgradeButton =
+    ["oss", "starter"].includes(accountPlan || "") ||
+    (license?.isTrial && !hasPaymentMethod) ||
+    (["pro", "pro_sso"].includes(accountPlan || "") &&
+      license?.stripeSubscription?.status === "canceled");
 
   // hacky:
   const router = useRouter();
@@ -362,38 +367,37 @@ const Layout = (): React.ReactElement => {
         <div className="">
           <div className="app-sidebar-header">
             <div className="app-sidebar-logo">
-              <Link href="/">
-                <a
-                  aria-current="page"
-                  className="app-sidebar-logo active"
-                  title="GrowthBook Home"
-                  onClick={() => setOpen(false)}
-                >
-                  <div className={styles.sidebarlogo}>
-                    {settings?.customized && settings?.logoPath ? (
-                      <>
-                        <img
-                          className={styles.userlogo}
-                          alt="GrowthBook"
-                          src={settings.logoPath}
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <img
-                          className={styles.logo}
-                          alt="GrowthBook"
-                          src="/logo/growth-book-logomark-white.svg"
-                        />
-                        <img
-                          className={styles.logotext}
-                          alt="GrowthBook"
-                          src="/logo/growth-book-name-white.svg"
-                        />
-                      </>
-                    )}
-                  </div>
-                </a>
+              <Link
+                href="/"
+                aria-current="page"
+                className="app-sidebar-logo active"
+                title="GrowthBook Home"
+                onClick={() => setOpen(false)}
+              >
+                <div className={styles.sidebarlogo}>
+                  {settings?.customized && settings?.logoPath ? (
+                    <>
+                      <img
+                        className={styles.userlogo}
+                        alt="GrowthBook"
+                        src={settings.logoPath}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <img
+                        className={styles.logo}
+                        alt="GrowthBook"
+                        src="/logo/growth-book-logomark-white.svg"
+                      />
+                      <img
+                        className={styles.logotext}
+                        alt="GrowthBook"
+                        src="/logo/growth-book-name-white.svg"
+                      />
+                    </>
+                  )}
+                </div>
               </Link>
             </div>
             <div className={styles.mainmenu}>
@@ -445,15 +449,9 @@ const Layout = (): React.ReactElement => {
               className="btn btn-premium btn-block font-weight-normal"
               onClick={() => setUpgradeModal(true)}
             >
-              {accountPlan === "oss" ? (
-                <>
-                  Try Enterprise <GBPremiumBadge />
-                </>
-              ) : (
-                <>
-                  Try Pro <GBPremiumBadge />
-                </>
-              )}
+              <>
+                Upgrade <GBPremiumBadge />
+              </>
             </button>
           )}
           <a

@@ -31,13 +31,13 @@ import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { trackReport } from "@/services/track";
 import MetricsSelector, {
   MetricsSelectorTooltip,
-} from "../Experiment/MetricsSelector";
-import Field from "../Forms/Field";
-import Modal from "../Modal";
-import SelectField from "../Forms/SelectField";
-import DimensionChooser from "../Dimensions/DimensionChooser";
-import { AttributionModelTooltip } from "../Experiment/AttributionModelTooltip";
-import MetricSelector from "../Experiment/MetricSelector";
+} from "@/components/Experiment/MetricsSelector";
+import Field from "@/components/Forms/Field";
+import Modal from "@/components/Modal";
+import SelectField from "@/components/Forms/SelectField";
+import DimensionChooser from "@/components/Dimensions/DimensionChooser";
+import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
+import MetricSelector from "@/components/Experiment/MetricSelector";
 
 export default function ConfigureReport({
   report,
@@ -304,19 +304,33 @@ export default function ConfigureReport({
             labelClassName="font-weight-bold"
             type="datetime-local"
             {...form.register("startDate")}
-            helpText="Only include users who entered the experiment on or after this date"
+            helpText="Only include users who entered the experiment between the start and end dates"
           />
         </div>
         <div className="col">
-          {form.watch("endDate") && (
-            <Field
-              label="End Date (UTC)"
-              labelClassName="font-weight-bold"
-              type="datetime-local"
-              {...form.register("endDate")}
-              helpText="Only include users who entered the experiment on or before this date"
-            />
-          )}
+          <Field
+            label="End Date (UTC)"
+            labelClassName="font-weight-bold"
+            type="datetime-local"
+            {...form.register("endDate")}
+            helpText={
+              <div>
+                <div style={{ marginRight: -10 }}>
+                  <a
+                    role="button"
+                    className="a"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      form.setValue("endDate", "");
+                    }}
+                  >
+                    Clear input
+                  </a>{" "}
+                  to use latest data whenever report is run
+                </div>
+              </div>
+            }
+          />
         </div>
       </div>
 
@@ -365,6 +379,7 @@ export default function ConfigureReport({
         userIdType={report.args.userIdType}
         labelClassName="font-weight-bold"
         showHelp={true}
+        newUi={false}
       />
       <MetricSelector
         datasource={form.watch("datasource")}

@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/react";
-import { EnvironmentInitValue } from "../pages/api/init";
+import { EnvironmentInitValue } from "@/./pages/api/init";
 
 const env: EnvironmentInitValue = {
   telemetry: "enable",
@@ -66,7 +66,7 @@ export function inTelemetryDebugMode(): boolean {
 export function hasFileConfig() {
   return env.config === "file";
 }
-export function canCreateMetrics() {
+export function envAllowsCreatingMetrics() {
   return env.allowCreateMetrics;
 }
 export function getDefaultConversionWindowHours() {

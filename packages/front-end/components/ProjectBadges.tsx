@@ -1,5 +1,6 @@
 import clsx from "clsx";
-import { FaInfoCircle } from "react-icons/fa";
+import { FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
+import React from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/components/Badge";
 import Tooltip from "./Tooltip/Tooltip";
@@ -8,11 +9,15 @@ export interface Props {
   resourceType:
     | "metric"
     | "data source"
+    | "environment"
     | "member"
     | "team"
     | "fact table"
+    | "attribute"
     | "sdk connection";
   projectIds?: string[];
+  invalidProjectIds?: string[];
+  invalidProjectMessage?: string;
   sort?: boolean;
   className?: string;
 }
@@ -20,6 +25,8 @@ export interface Props {
 export default function ProjectBadges({
   resourceType,
   projectIds,
+  invalidProjectIds = [],
+  invalidProjectMessage = "This project is invalid",
   sort = true,
   className = "badge-ellipsis short",
 }: Props) {
@@ -33,6 +40,7 @@ export default function ProjectBadges({
           !project ? "badge-primary bg-purple" : "badge-gray",
           className
         )}
+        skipMargin={true}
       />
     );
   }
@@ -55,16 +63,32 @@ export default function ProjectBadges({
 
   return (
     <>
-      {filteredProjects.map((p) => {
+      {filteredProjects.map((p, i) => {
         if (!p?.name) return;
         return (
           <Badge
-            content={p.name}
+            content={
+              invalidProjectIds.includes(p.id) ? (
+                <Tooltip
+                  popperClassName="text-left"
+                  popperStyle={{ lineHeight: 1.5 }}
+                  body={invalidProjectMessage}
+                >
+                  <del className="text-danger">
+                    <FaExclamationTriangle className="mr-1" />
+                    {p.name}
+                  </del>
+                </Tooltip>
+              ) : (
+                p.name
+              )
+            }
             key={p.name}
             className={clsx(
               project === p?.id ? "badge-primary bg-purple" : "badge-gray",
               className
             )}
+            skipMargin={i === 0}
           />
         );
       })}

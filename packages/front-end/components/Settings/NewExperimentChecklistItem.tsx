@@ -1,7 +1,7 @@
 import CreatableSelect from "react-select/creatable";
 import { ChecklistTask } from "back-end/types/experimentLaunchChecklist";
-import Field from "../Forms/Field";
-import { ReactSelectProps } from "../Forms/SelectField";
+import Field from "@/components/Forms/Field";
+import { ReactSelectProps } from "@/components/Forms/SelectField";
 
 type AutoChecklistOption = {
   value: string;
@@ -42,8 +42,8 @@ export default function NewExperimentChecklistItem({
       propertyKey: "project",
     },
     {
-      value: "Add atleast 1 tag to this experiment",
-      label: "Add atleast 1 tag to this experiment",
+      value: "Add at least 1 tag to this experiment",
+      label: "Add at least 1 tag to this experiment",
       propertyKey: "tag",
     },
   ];

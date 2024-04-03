@@ -1,5 +1,12 @@
 import { useRouter } from "next/router";
-import React, { FC, useState, useEffect, Fragment } from "react";
+import React, {
+  FC,
+  useState,
+  useEffect,
+  Fragment,
+  ReactNode,
+  ReactElement,
+} from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
 import {
@@ -17,7 +24,6 @@ import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasourc
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DiscussionThread from "@/components/DiscussionThread";
-import useSwitchOrg from "@/services/useSwitchOrg";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -25,7 +31,6 @@ import { useAuth } from "@/services/auth";
 import {
   defaultWinRiskThreshold,
   defaultLoseRiskThreshold,
-  checkMetricProjectPermissions,
   getMetricFormatter,
 } from "@/services/metrics";
 import MetricForm from "@/components/Metrics/MetricForm";
@@ -63,10 +68,12 @@ import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const MetricPage: FC = () => {
   const router = useRouter();
   const { mid } = router.query;
+  const permissionsUtil = usePermissionsUtil();
   const permissions = usePermissions();
   const displayCurrency = useCurrency();
   const { apiCall } = useAuth();
@@ -108,9 +115,6 @@ const MetricPage: FC = () => {
     experiments: Partial<ExperimentInterfaceStringDates>[];
   }>(`/metric/${mid}`);
 
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  useSwitchOrg(data?.metric?.organization);
-
   const {
     getMinSampleSizeForMetric,
     getMinPercentageChangeForMetric,
@@ -135,22 +139,20 @@ const MetricPage: FC = () => {
 
   const metric = data.metric;
   const canEditMetric =
-    checkMetricProjectPermissions(metric, permissions) && !metric.managedBy;
-  const canEditProjects =
-    permissions.check("createMetrics", "") && !metric.managedBy;
+    permissionsUtil.canUpdateMetric(metric, {}) && !metric.managedBy;
+  const canDeleteMetric =
+    permissionsUtil.canDeleteMetric(metric) && !metric.managedBy;
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
   const experiments = data.experiments;
 
-  let analysis = data.metric.analysis;
+  let analysis = data.metric.analysis || null;
   if (!analysis || !("average" in analysis)) {
-    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'MetricAnaly... Remove this comment to see the full error message
     analysis = null;
   }
 
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  const segment = getSegmentById(metric.segment);
+  const segment = getSegmentById(metric.segment || "");
 
   const supportsSQL = datasource?.properties?.queryLanguage === "sql";
   const customzeTimestamp = supportsSQL;
@@ -180,7 +182,7 @@ const MetricPage: FC = () => {
   }
 
   const getMetricUsage = (metric: MetricInterface) => {
-    return async () => {
+    return async (): Promise<ReactElement | null> => {
       try {
         const res = await apiCall<{
           status: number;
@@ -190,46 +192,30 @@ const MetricPage: FC = () => {
           method: "GET",
         });
 
-        const experimentLinks = [];
-        const ideaLinks = [];
+        const experimentLinks: (string | ReactNode)[] = [];
+        const ideaLinks: (string | ReactNode)[] = [];
         let subtitleText = "This metric is not referenced anywhere else.";
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-        if (res.ideas?.length > 0 || res.experiments?.length > 0) {
+        if (res.ideas?.length || res.experiments?.length) {
           subtitleText = "This metric is referenced in ";
-          const refs = [];
-          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-          if (res.experiments.length) {
+          const refs: (string | ReactNode)[] = [];
+          if (res.experiments && res.experiments.length) {
             refs.push(
-              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               res.experiments.length === 1
                 ? "1 experiment"
-                : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                  res.experiments.length + " experiments"
+                : res.experiments.length + " experiments"
             );
-            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             res.experiments.forEach((e) => {
               experimentLinks.push(
-                // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
-                <Link href={`/experiment/${e.id}`}>
-                  <a>{e.name}</a>
-                </Link>
+                <Link href={`/experiment/${e.id}`}>{e.name}</Link>
               );
             });
           }
-          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-          if (res.ideas.length) {
+          if (res.ideas && res.ideas.length) {
             refs.push(
-              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               res.ideas.length === 1 ? "1 idea" : res.ideas.length + " ideas"
             );
-            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             res.ideas.forEach((i) => {
-              ideaLinks.push(
-                // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
-                <Link href={`/idea/${i.id}`}>
-                  <a>{i.text}</a>
-                </Link>
-              );
+              ideaLinks.push(<Link href={`/idea/${i.id}`}>{i.text}</Link>);
             });
           }
           subtitleText += refs.join(" and ");
@@ -294,6 +280,7 @@ const MetricPage: FC = () => {
           </div>
         );
       }
+      return null;
     };
   };
 
@@ -318,8 +305,7 @@ const MetricPage: FC = () => {
         <EditTagsForm
           cancel={() => setEditTags(false)}
           mutate={mutate}
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string[] | undefined' is not assignable to t... Remove this comment to see the full error message
-          tags={metric.tags}
+          tags={metric.tags || []}
           save={async (tags) => {
             await apiCall(`/metric/${metric.id}`, {
               method: "PUT",
@@ -334,8 +320,7 @@ const MetricPage: FC = () => {
         <EditProjectsForm
           cancel={() => setEditProjects(false)}
           mutate={mutate}
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string[] | undefined' is not assignable to t... Remove this comment to see the full error message
-          projects={metric.projects}
+          projects={metric.projects || []}
           save={async (projects) => {
             await apiCall(`/metric/${metric.id}`, {
               method: "PUT",
@@ -419,14 +404,13 @@ const MetricPage: FC = () => {
           <MetricName id={metric.id} />
         </h1>
         <div style={{ flex: 1 }} />
-        {canEditMetric && (
-          <div className="col-auto">
-            <MoreMenu>
+        <div className="col-auto">
+          <MoreMenu>
+            {canDeleteMetric ? (
               <DeleteButton
                 className="btn dropdown-item py-2"
                 text="Delete"
                 title="Delete this metric"
-                // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '() => Promise<JSX.Element | undefined>' is n... Remove this comment to see the full error message
                 getConfirmationContent={getMetricUsage(metric)}
                 onClick={async () => {
                   await apiCall(`/metric/${metric.id}`, {
@@ -438,6 +422,8 @@ const MetricPage: FC = () => {
                 useIcon={true}
                 displayName={"Metric '" + metric.name + "'"}
               />
+            ) : null}
+            {canEditMetric ? (
               <Button
                 className="btn dropdown-item py-2"
                 color=""
@@ -457,15 +443,14 @@ const MetricPage: FC = () => {
                 <FaArchive />{" "}
                 {metric.status === "archived" ? "Unarchive" : "Archive"}
               </Button>
-            </MoreMenu>
-          </div>
-        )}
+            ) : null}
+          </MoreMenu>
+        </div>
       </div>
       <div className="row mb-3 align-items-center">
         <div className="col">
           Projects:{" "}
-          {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-          {metric?.projects?.length > 0 ? (
+          {metric?.projects?.length ? (
             <ProjectBadges
               resourceType="metric"
               projectIds={metric.projects}
@@ -477,7 +462,7 @@ const MetricPage: FC = () => {
               className="badge-ellipsis align-middle"
             />
           )}
-          {canEditProjects && (
+          {canEditMetric && (
             <a
               href="#"
               className="ml-2"
@@ -890,26 +875,34 @@ const MetricPage: FC = () => {
               <p>The most recent 10 experiments using this metric.</p>
               <div className="list-group">
                 {experiments.map((e) => (
-                  <Link href={`/experiment/${e.id}`} key={e.id}>
-                    <a className="list-group-item list-group-item-action">
-                      <div className="d-flex">
-                        <strong className="mr-3">{e.name}</strong>
-                        <div style={{ flex: 1 }} />
-                        {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ExperimentStatus | undefined' is not assigna... Remove this comment to see the full error message */}
-                        <StatusIndicator archived={false} status={e.status} />
-                        <FaChevronRight
-                          className="ml-3"
-                          style={{ fontSize: "1.5em" }}
-                        />
-                      </div>
-                    </a>
+                  <Link
+                    href={`/experiment/${e.id}`}
+                    key={e.id}
+                    className="list-group-item list-group-item-action"
+                  >
+                    <div className="d-flex">
+                      <strong className="mr-3">{e.name}</strong>
+                      <div style={{ flex: 1 }} />
+                      <StatusIndicator
+                        archived={false}
+                        status={e.status || "stopped"}
+                      />
+                      <FaChevronRight
+                        className="ml-3"
+                        style={{ fontSize: "1.5em" }}
+                      />
+                    </div>
                   </Link>
                 ))}
               </div>
             </Tab>
             <Tab display="Discussion" anchor="discussion" lazy={true}>
               <h3>Comments</h3>
-              <DiscussionThread type="metric" id={data.metric.id} />
+              <DiscussionThread
+                type="metric"
+                id={data.metric.id}
+                projects={metric.projects || []}
+              />
             </Tab>
             <Tab display="History" anchor="history" lazy={true}>
               <HistoryTable type="metric" id={metric.id} />
@@ -977,11 +970,10 @@ const MetricPage: FC = () => {
             <RightRailSection
               title="Projects"
               open={() => setEditProjects(true)}
-              canOpen={canEditProjects}
+              canOpen={canEditMetric}
             >
               <RightRailSectionGroup>
-                {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                {metric?.projects?.length > 0 ? (
+                {metric?.projects?.length ? (
                   <ProjectBadges
                     resourceType="metric"
                     projectIds={metric.projects}
@@ -1066,10 +1058,8 @@ const MetricPage: FC = () => {
                       >
                         {metric.table}
                       </RightRailSectionGroup>
-                      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                      {metric.conditions?.length > 0 && (
+                      {metric.conditions && metric.conditions.length > 0 && (
                         <RightRailSectionGroup title="Conditions" type="list">
-                          {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                           {metric.conditions.map(
                             (c) => `${c.column} ${c.operator} "${c.value}"`
                           )}
@@ -1295,16 +1285,13 @@ const MetricPage: FC = () => {
                   <li className="mb-2">
                     <span className="text-gray">Acceptable risk &lt;</span>{" "}
                     <span className="font-weight-bold">
-                      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                      {metric?.winRisk * 100 || defaultWinRiskThreshold * 100}%
+                      {(metric.winRisk || defaultWinRiskThreshold) * 100}%
                     </span>
                   </li>
                   <li className="mb-2">
                     <span className="text-gray">Unacceptable risk &gt;</span>{" "}
                     <span className="font-weight-bold">
-                      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                      {metric?.loseRisk * 100 || defaultLoseRiskThreshold * 100}
-                      %
+                      {(metric.loseRisk || defaultLoseRiskThreshold) * 100}%
                     </span>
                   </li>
                 </ul>

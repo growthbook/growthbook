@@ -5,28 +5,27 @@ import {
   ExperimentTargetingData,
 } from "back-end/types/experiment";
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  FaCheck,
-  FaExclamationCircle,
-  FaExternalLinkAlt,
-} from "react-icons/fa";
+import { FaExclamationCircle, FaExternalLinkAlt } from "react-icons/fa";
 import clsx from "clsx";
 import { BiHide, BiShow } from "react-icons/bi";
 import {
   FeaturePrerequisite,
   SavedGroupTargeting,
 } from "back-end/types/feature";
+import {
+  BsCheckCircle,
+  BsExclamationCircle,
+  BsLightbulb,
+} from "react-icons/bs";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import {
   ChangeType,
   ReleasePlan,
 } from "@/components/Experiment/EditTargetingModal";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
-import { StickyBucketingTooltip } from "@/components/Features/FallbackAttributeSelector";
-import SelectField from "../Forms/SelectField";
-import Tooltip from "../Tooltip/Tooltip";
-import { DocLink } from "../DocLink";
+import SelectField from "@/components/Forms/SelectField";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { DocLink } from "@/components/DocLink";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -190,16 +189,16 @@ export default function ReleaseChangesForm({
                   } Sticky Bucketing`}
                   className="mr-2"
                 >
-                  <span
-                    className="badge badge-muted-info badge-pill ml-2 position-relative"
-                    style={{ zIndex: 1, fontSize: "10px" }}
-                  >
-                    SB
+                  <span className="text-info small ml-2">
+                    (Sticky Bucketing)
                   </span>
                 </Tooltip>
               )}
               {recommended && (
-                <span className="badge badge-purple badge-pill ml-2">
+                <span
+                  className="text-muted uppercase-title float-right position-relative"
+                  style={{ top: 3 }}
+                >
                   recommended
                 </span>
               )}
@@ -207,11 +206,35 @@ export default function ReleaseChangesForm({
           );
         }}
       />
+
+      <div className="mt-4 mb-3">
+        <label className="mb-1">Impact</label>
+        <div className="font-weight-semibold">
+          {form.watch("newPhase")
+            ? form.watch("reseed")
+              ? "New phase, new randomization seed."
+              : "New phase, same randomization seed."
+            : form.watch("reseed")
+            ? "Same phase, new randomization seed."
+            : "Same phase, same randomization seed."}{" "}
+          {usingStickyBucketing
+            ? (form.watch("bucketVersion") ?? 0) <=
+              (experiment.bucketVersion ?? 0)
+              ? "Sticky Bucketed users will keep their assigned bucket."
+              : (form.watch("minBucketVersion") ?? 0) <=
+                (experiment.minBucketVersion ?? 0)
+              ? "Sticky Bucketed users will be reassigned."
+              : "Sticky Bucketed users will be excluded from the experiment."
+            : "No sticky bucketing."}
+        </div>
+      </div>
+
       {recommendedRolloutData && changeType !== "phase" && (
-        <TargetingChangeTooltips
+        <ImpactTooltips
           recommendedRolloutData={recommendedRolloutData}
           releasePlan={releasePlan}
           usingStickyBucketing={usingStickyBucketing}
+          newPhase={form.watch("newPhase")}
         />
       )}
       {changeType === "phase" && releasePlan === "new-phase-same-seed" && (
@@ -222,78 +245,6 @@ export default function ReleaseChangesForm({
         </div>
       )}
 
-      <div className="mt-4">
-        <label>Release plan details</label>
-        <div className="d-flex appbox bg-light px-2 py-2">
-          <div className="col-6">
-            <div className="row">
-              <div className="col">
-                <label className="mb-1">New phase?</label>
-                <div className="mt-1 font-weight-bold">
-                  {form.watch("newPhase")
-                    ? form.watch("reseed")
-                      ? "Yes, new randomization seed"
-                      : "Yes, same randomization seed"
-                    : form.watch("reseed")
-                    ? "No, new randomization seed"
-                    : "No, same randomization seed"}
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="col-6">
-            <div className="d-flex align-items-end mb-2">
-              <label className="mb-0 mr-3">Sticky bucketing</label>
-              <div className="small position-relative" style={{ top: -3 }}>
-                {usingStickyBucketing ? (
-                  <span className="text-success">
-                    <FaCheck className="mr-1" />
-                    enabled
-                  </span>
-                ) : (
-                  <span>
-                    {!orgStickyBucketing ? (
-                      <>
-                        <PremiumTooltip
-                          commercialFeature="sticky-bucketing"
-                          popperStyle={{ maxWidth: 530 }}
-                          body={<StickyBucketingTooltip />}
-                        >
-                          <DocLink docSection="stickyBucketing">
-                            learn more <FaExternalLinkAlt />
-                          </DocLink>
-                        </PremiumTooltip>
-                      </>
-                    ) : null}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="row">
-              <div className="col">
-                {!usingStickyBucketing ? (
-                  <>
-                    <em>
-                      No, disabled {orgStickyBucketing ? "for experiment" : ""}
-                    </em>
-                  </>
-                ) : (
-                  <span className="font-weight-bold">
-                    {(form.watch("bucketVersion") ?? 0) <=
-                    (experiment.bucketVersion ?? 0)
-                      ? "Bucketed users will keep their assigned bucket"
-                      : (form.watch("minBucketVersion") ?? 0) <=
-                        (experiment.minBucketVersion ?? 0)
-                      ? "Bucketed users will be reassigned"
-                      : "Bucketed users will be excluded from the experiment"}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {changeType !== "phase" && (
         <div className="mt-4 mb-1">
           <div className="d-flex">
@@ -302,16 +253,18 @@ export default function ReleaseChangesForm({
             <div className="position-relative small" style={{ bottom: -6 }}>
               <a
                 role="button"
-                className="a ml-3"
+                className="link-purple ml-3"
                 onClick={() => setShowFullTargetingInfo(!showFullTargetingInfo)}
               >
                 {showFullTargetingInfo ? (
                   <>
-                    <BiHide /> Show changes only
+                    <BiHide className="mr-1" />
+                    Show changes only
                   </>
                 ) : (
                   <>
-                    <BiShow /> Show full targeting
+                    <BiShow className="mr-1" />
+                    Show full targeting
                   </>
                 )}
               </a>
@@ -336,112 +289,182 @@ export default function ReleaseChangesForm({
   );
 }
 
-function TargetingChangeTooltips({
+function ImpactTooltips({
   recommendedRolloutData,
   releasePlan = "",
   usingStickyBucketing = false,
+  newPhase,
 }: {
   recommendedRolloutData: RecommendedRolloutData;
   releasePlan?: ReleasePlan;
   usingStickyBucketing?: boolean;
+  newPhase: boolean;
 }) {
   const switchToSB =
     !usingStickyBucketing ||
     !["same-phase-sticky", "new-phase-block-sticky"].includes(releasePlan);
   const riskLevel = recommendedRolloutData.riskLevels[releasePlan];
+  const variationHopping = recommendedRolloutData.variationHopping[releasePlan];
+
+  let recommendStickyBucketing = false;
+  if (riskLevel !== "safe") {
+    if (
+      recommendedRolloutData.reasons.moreRestrictiveTargeting ||
+      recommendedRolloutData.reasons.otherTargetingChanges ||
+      recommendedRolloutData.reasons.decreaseCoverage
+    ) {
+      recommendStickyBucketing = true;
+    }
+    if (
+      recommendedRolloutData.reasons.changeVariationWeights ||
+      recommendedRolloutData.reasons.disableVariation ||
+      recommendedRolloutData.reasons.addToNamespace ||
+      recommendedRolloutData.reasons.decreaseNamespaceRange ||
+      recommendedRolloutData.reasons.otherNamespaceChanges
+    ) {
+      recommendStickyBucketing = false;
+    }
+  }
+
   return (
-    <div
-      className={clsx("alert", {
-        "alert-success": riskLevel === "safe",
-        "alert-warning": ["warning", "danger"].includes(riskLevel),
-      })}
-    >
-      {riskLevel === "safe" && (
-        <>
-          <FaCheck className="mr-1" /> You are using a safe release plan for
-          these changes.
-        </>
-      )}
-      {riskLevel === "warning" && (
-        <>
-          <FaExclamationCircle className="mr-1" /> The changes you have made may
-          impact your experiment.
-        </>
-      )}
-      {riskLevel === "danger" && (
-        <>
-          <FaExclamationCircle className="mr-1" /> The changes you have made
-          have a <span className="text-danger">high risk</span> of impacting
-          your experiment.
-        </>
-      )}
-      {riskLevel !== "safe" && (
-        <ul className="mt-1 mb-0 pl-4">
-          {releasePlan != "new-phase" ? (
-            <>
-              {recommendedRolloutData.reasons.moreRestrictiveTargeting && (
-                <li>
-                  <strong>More restrictive targeting conditions</strong> without
-                  starting a new phase may bias results. Some users already in
-                  the experiment analysis may begin receiving the default
-                  feature value. Re-randomize traffic{" "}
-                  {switchToSB ? " or use Sticky Bucketing" : ""} to help
-                  mitigate.
-                </li>
-              )}
-              {recommendedRolloutData.reasons.otherTargetingChanges && (
-                <li>
-                  <strong>Ambiguous changes to targeting conditions</strong>{" "}
-                  without starting a new phase may bias results. Some users
-                  already in the experiment analysis may begin receiving the
-                  default feature value. Re-randomize traffic{" "}
-                  {switchToSB ? " or use Sticky Bucketing" : ""} to help
-                  mitigate.
-                </li>
-              )}
-              {recommendedRolloutData.reasons.decreaseCoverage && (
-                <li>
-                  <strong>Decreased traffic coverage</strong> without starting a
-                  new phase may bias results. Some users already in the
-                  experiment analysis will begin receiving the default feature
-                  value. Re-randomize traffic{" "}
-                  {switchToSB ? " or use Sticky Bucketing" : ""} to help
-                  mitigate.
-                </li>
-              )}
-              {recommendedRolloutData.reasons.changeVariationWeights && (
-                <li>
-                  <strong>Changing variation weights</strong> could lead to
-                  statistical bias and/or multiple exposures. Re-randomize
-                  traffic to help mitigate.
-                </li>
-              )}
-              {recommendedRolloutData.reasons.disableVariation && (
-                <li>
-                  <strong>Disabling or re-enableing a variation</strong> could
-                  lead to statistical bias and/or multiple exposures.
-                  Re-randomize traffic to help mitigate.
-                </li>
-              )}
-              {(recommendedRolloutData.reasons.addToNamespace ||
-                recommendedRolloutData.reasons.decreaseNamespaceRange ||
-                recommendedRolloutData.reasons.otherNamespaceChanges) && (
-                <li>
-                  <strong>More restrictive namespace targeting</strong> without
-                  starting a new phase may bias results as users in your
-                  experiment analysis may fall back to the default feature
-                  value. Re-randomize traffic to help mitigate.
-                </li>
-              )}
-            </>
-          ) : null}
-        </ul>
+    <div className="appbox bg-light px-3 pt-3 pb-0 mb-0">
+      <div className="mb-1 font-weight-bold">Statistical impact</div>
+      <div
+        className={clsx("mb-3", {
+          "text-success": riskLevel === "safe",
+          "text-warning-muted": ["warning", "danger"].includes(riskLevel),
+        })}
+      >
+        {riskLevel === "safe" && (
+          <span className="font-weight-semibold">
+            <BsCheckCircle className="mr-1" /> Your changes will not bias
+            experiment results.
+          </span>
+        )}
+        {riskLevel === "warning" && (
+          <span className="font-weight-semibold">
+            <BsExclamationCircle className="mr-1" /> The changes you have made
+            may bias experiment results.
+          </span>
+        )}
+        {riskLevel === "danger" && (
+          <span className="font-weight-semibold">
+            <BsExclamationCircle className="mr-1" /> The changes you have made
+            have a <strong>high risk</strong> of biasing experiment results.
+          </span>
+        )}
+        {newPhase && (
+          <div className="ml-4 mt-2 text-dark">
+            Note: starting a new phase restarts the analysis collection window.
+          </div>
+        )}
+        {riskLevel !== "safe" && (
+          <div className="mt-2 mb-0">
+            {releasePlan != "new-phase" ? (
+              <>
+                <div className="pl-4">
+                  {recommendedRolloutData.reasons.moreRestrictiveTargeting && (
+                    <div className="mt-2">
+                      <strong>More restrictive targeting conditions</strong>{" "}
+                      without starting a new phase may bias results. Some users
+                      already in the experiment analysis may begin receiving the
+                      default feature value.
+                    </div>
+                  )}
+                  {recommendedRolloutData.reasons.otherTargetingChanges && (
+                    <div className="mt-2">
+                      <strong>Ambiguous changes to targeting conditions</strong>{" "}
+                      without starting a new phase may bias results. Some users
+                      already in the experiment analysis may begin receiving the
+                      default feature value.
+                    </div>
+                  )}
+                  {recommendedRolloutData.reasons.decreaseCoverage && (
+                    <div className="mt-2">
+                      <strong>Decreased traffic coverage</strong> without
+                      starting a new phase may bias results. Some users already
+                      in the experiment analysis will begin receiving the
+                      default feature value.
+                    </div>
+                  )}
+                  {recommendedRolloutData.reasons.changeVariationWeights && (
+                    <div className="mt-2">
+                      <strong>Changing variation weights</strong> could lead to
+                      statistical bias and/or multiple exposures.
+                    </div>
+                  )}
+                  {recommendedRolloutData.reasons.disableVariation && (
+                    <div className="mt-2">
+                      <strong>Disabling or re-enableing a variation</strong>{" "}
+                      could lead to statistical bias and/or multiple exposures.
+                    </div>
+                  )}
+                  {(recommendedRolloutData.reasons.addToNamespace ||
+                    recommendedRolloutData.reasons.decreaseNamespaceRange ||
+                    recommendedRolloutData.reasons.otherNamespaceChanges) && (
+                    <div className="mt-2">
+                      <strong>More restrictive namespace targeting</strong>{" "}
+                      without starting a new phase may bias results as users in
+                      your experiment analysis may fall back to the default
+                      feature value.
+                    </div>
+                  )}
+                </div>
+
+                <div className="alert mt-2 mb-0 alert-info">
+                  <BsLightbulb /> Re-randomize traffic{" "}
+                  {recommendStickyBucketing && switchToSB
+                    ? " or use Sticky Bucketing"
+                    : ""}{" "}
+                  to help mitigate.
+                </div>
+              </>
+            ) : null}
+          </div>
+        )}
+      </div>
+
+      <div className="mb-1 font-weight-bold">User experience impact</div>
+      <div
+        className={clsx("mb-3", {
+          "text-success": !variationHopping,
+          "text-warning-muted": variationHopping,
+        })}
+      >
+        {variationHopping ? (
+          <div className="font-weight-semibold">
+            <BsExclamationCircle className="mr-1" /> Some users may change their
+            assigned variation.
+          </div>
+        ) : (
+          <div className="font-weight-semibold">
+            <BsCheckCircle className="mr-1" /> Users will keep their assigned
+            variation.
+          </div>
+        )}
+
+        {variationHopping && releasePlan !== "same-phase-sticky" && (
+          <div className="alert mt-2 mb-0 alert-info">
+            <BsLightbulb /> You may be able to use Sticky Bucketing to prevent
+            variation hopping.
+          </div>
+        )}
+      </div>
+
+      {((variationHopping && releasePlan !== "same-phase-sticky") ||
+        recommendStickyBucketing) && (
+        <div className="text-right mb-2 small">
+          <DocLink docSection="stickyBucketing">
+            Learn about Sticky Bucketing <FaExternalLinkAlt />
+          </DocLink>
+        </div>
       )}
     </div>
   );
 }
 
 type RiskLevel = "safe" | "warning" | "danger";
+
 interface RecommendedRolloutData {
   recommendedReleasePlan: ReleasePlan | undefined;
   actualReleasePlan: ReleasePlan | undefined;
@@ -450,6 +473,12 @@ interface RecommendedRolloutData {
     "same-phase-sticky": RiskLevel;
     "same-phase-everyone": RiskLevel;
     "new-phase-block-sticky": RiskLevel;
+  };
+  variationHopping: {
+    "new-phase": boolean;
+    "same-phase-sticky": boolean;
+    "same-phase-everyone": boolean;
+    "new-phase-block-sticky": boolean;
   };
   disableSamePhase: boolean;
   reasons: {
@@ -482,6 +511,12 @@ function getRecommendedRolloutData({
     "same-phase-sticky": "safe",
     "same-phase-everyone": "safe",
     "new-phase-block-sticky": "safe",
+  };
+  const variationHopping: RecommendedRolloutData["variationHopping"] = {
+    "new-phase": true,
+    "same-phase-sticky": false,
+    "same-phase-everyone": false,
+    "new-phase-block-sticky": true,
   };
   let disableSamePhase = false;
 
@@ -600,6 +635,7 @@ function getRecommendedRolloutData({
     actualReleasePlan = stickyBucketing
       ? recommendedReleasePlan
       : "same-phase-everyone";
+    variationHopping["same-phase-everyone"] = false;
   } else {
     // B. Calculate recommendations as if sticky bucketing is enabled
     // (We will override these later if it is not. Calculating this allows us to
@@ -614,6 +650,7 @@ function getRecommendedRolloutData({
         "same-phase-everyone": disableVariation ? "danger" : "warning",
         "new-phase-block-sticky": "safe",
       };
+      variationHopping["same-phase-everyone"] = true;
       reasons = {
         ...reasons,
         moreRestrictiveTargeting,
@@ -631,6 +668,7 @@ function getRecommendedRolloutData({
         "same-phase-everyone": "danger",
         "new-phase-block-sticky": "safe",
       };
+      variationHopping["same-phase-everyone"] = true;
       reasons = { ...reasons, otherTargetingChanges };
     }
     if (
@@ -649,6 +687,7 @@ function getRecommendedRolloutData({
         "same-phase-everyone": "danger",
         "new-phase-block-sticky": "safe",
       };
+      variationHopping["same-phase-everyone"] = true;
       reasons = {
         ...reasons,
         addToNamespace,
@@ -668,6 +707,7 @@ function getRecommendedRolloutData({
         "same-phase-everyone": "safe",
         "new-phase-block-sticky": "safe",
       };
+      variationHopping["same-phase-everyone"] = false;
       disableSamePhase = false;
       reasons = {};
 
@@ -680,6 +720,7 @@ function getRecommendedRolloutData({
           "same-phase-everyone": "warning",
           "new-phase-block-sticky": "safe",
         };
+        variationHopping["same-phase-everyone"] = true;
         reasons = {
           ...reasons,
           moreRestrictiveTargeting,
@@ -703,6 +744,7 @@ function getRecommendedRolloutData({
           "same-phase-everyone": "danger",
           "new-phase-block-sticky": "safe",
         };
+        variationHopping["same-phase-everyone"] = true;
         reasons = {
           ...reasons,
           otherTargetingChanges,
@@ -718,6 +760,7 @@ function getRecommendedRolloutData({
     recommendedReleasePlan,
     actualReleasePlan,
     riskLevels,
+    variationHopping,
     disableSamePhase,
     reasons,
   };

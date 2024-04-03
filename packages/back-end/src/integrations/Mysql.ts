@@ -106,6 +106,9 @@ export default class Mysql extends SqlIntegration {
       ${whereClause}
     ) t`;
   }
+  hasQuantileTesting(): boolean {
+    return false;
+  }
   hasEfficientPercentile(): boolean {
     return false;
   }

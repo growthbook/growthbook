@@ -1,5 +1,4 @@
 import { Response } from "express";
-import { getLicense } from "enterprise";
 import { AuthRequest } from "../../types/AuthRequest";
 import { usingOpenId } from "../../services/auth";
 import { createUser, getUserByEmail } from "../../services/users";
@@ -10,7 +9,6 @@ import {
   getContextFromReq,
   validateLoginMethod,
 } from "../../services/organizations";
-import { IS_CLOUD } from "../../util/secrets";
 import { UserModel } from "../../models/UserModel";
 import {
   deleteWatchedByEntity,
@@ -76,7 +74,6 @@ export async function getUser(req: AuthRequest, res: Response) {
     userName: req.name,
     email: req.email,
     superAdmin: !!req.superAdmin,
-    license: !IS_CLOUD && getLicense(),
     organizations: validOrgs.map((org) => {
       return {
         id: org.id,

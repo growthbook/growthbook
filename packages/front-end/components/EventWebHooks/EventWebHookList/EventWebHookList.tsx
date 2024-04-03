@@ -3,8 +3,8 @@ import { FaBolt } from "react-icons/fa";
 import { EventWebHookInterface } from "back-end/types/event-webhook";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
-import { EventWebHookEditParams } from "../utils";
-import { EventWebHookAddEditModal } from "../EventWebHookAddEditModal/EventWebHookAddEditModal";
+import { EventWebHookEditParams } from "@/components/EventWebHooks/utils";
+import { EventWebHookAddEditModal } from "@/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
 import { EventWebHookListItem } from "./EventWebHookListItem/EventWebHookListItem";
 
 type EventWebHookListProps = {

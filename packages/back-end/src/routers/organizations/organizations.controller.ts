@@ -7,7 +7,6 @@ import {
   getEffectiveAccountPlan,
   getLicense,
   orgHasPremiumFeature,
-  setLicense,
 } from "enterprise";
 import { hasReadAccess } from "shared/permissions";
 import {
@@ -23,6 +22,7 @@ import {
   getContextFromReq,
   getEnvironments,
   getInviteUrl,
+  getNumberOfUniqueMembersAndInvites,
   importConfig,
   inviteUser,
   isEnterpriseSSO,
@@ -36,6 +36,7 @@ import {
 import { updatePassword } from "../../services/users";
 import { getAllTags } from "../../models/TagModel";
 import {
+  Environment,
   Invite,
   MemberRole,
   MemberRoleWithProjects,
@@ -115,10 +116,12 @@ import {
 import { EntityType } from "../../types/Audit";
 import { getTeamsForOrganization } from "../../models/TeamModel";
 import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
-import { getAllFactMetricsForOrganization } from "../../models/FactMetricModel";
 import { TeamInterface } from "../../../types/team";
 import { queueSingleWebhookById } from "../../jobs/sdkWebhooks";
-import { initializeLicense } from "../../services/licenseData";
+import { initializeLicenseForOrg } from "../../services/licenseData";
+import { findSDKConnectionsByOrganization } from "../../models/SdkConnectionModel";
+import { triggerSingleSDKWebhookJobs } from "../../jobs/updateAllJobs";
+import { SDKConnectionInterface } from "../../../types/sdk-connection";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -146,7 +149,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     getAllSavedGroups(orgId),
     findAllProjectsByOrganization(context),
     getAllFactTablesForOrganization(context),
-    getAllFactMetricsForOrganization(context),
+    context.models.factMetrics.getAll(),
   ]);
 
   return res.status(200).json({
@@ -617,21 +620,23 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     externalId,
   } = org;
 
-  if (!IS_CLOUD && licenseKey) {
+  let license;
+  if (licenseKey || process.env.LICENSE_KEY) {
     // automatically set the license data based on org license key
-    const licenseData = getLicense();
-    if (
-      !licenseData ||
-      (licenseData.organizationId && licenseData.organizationId !== id)
-    ) {
+    license = getLicense(licenseKey || process.env.LICENSE_KEY);
+    if (!license || (license.organizationId && license.organizationId !== id)) {
       try {
-        await initializeLicense(licenseKey);
+        license = await initializeLicenseForOrg(org);
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error("setting license failed", e);
       }
     }
   }
+
+  const filteredAttributes = settings?.attributeSchema?.filter((attribute) =>
+    hasReadAccess(context.readAccessFilter, attribute.projects || [])
+  );
 
   // Some other global org data needed by the front-end
   const apiKeys = await getAllApiKeysByOrganization(context);
@@ -654,6 +659,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   });
 
   const currentUserPermissions = getUserPermissions(userId, org, teams || []);
+  const seatsInUse = getNumberOfUniqueMembersAndInvites(org);
 
   return res.status(200).json({
     status: 200,
@@ -666,6 +672,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     members: expandedMembers,
     currentUserPermissions,
     teams: teamsWithMembers,
+    license,
     organization: {
       invites,
       ownerEmail,
@@ -680,12 +687,13 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       freeTrialDate: org.freeTrialDate,
       discountCode: org.discountCode || "",
       slackTeam: connections?.slack?.team,
-      settings,
+      settings: { ...settings, attributeSchema: filteredAttributes },
       autoApproveMembers: org.autoApproveMembers,
       members: org.members,
       messages: messages || [],
       pendingMembers: org.pendingMembers,
     },
+    seatsInUse,
   });
 }
 
@@ -980,6 +988,17 @@ export async function postInvite(
     projectRoles,
   } = req.body;
 
+  const license = getLicense();
+  if (
+    license &&
+    license.hardCap &&
+    getNumberOfUniqueMembersAndInvites(org) >= (license.seats || 0)
+  ) {
+    throw new Error(
+      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit."
+    );
+  }
+
   const { emailSent, inviteUrl } = await inviteUser({
     organization: org,
     email,
@@ -1134,10 +1153,13 @@ export async function putOrganization(
   req: AuthRequest<Partial<OrganizationInterface>>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { name, settings, connections, externalId } = req.body;
 
   const deletedEnvIds: string[] = [];
+  const envsWithModifiedProjects: Environment[] = [];
+  const existingEnvironments = getEnvironments(org);
 
   if (connections || name) {
     req.checkPermissions("organizationSettings");
@@ -1145,11 +1167,9 @@ export async function putOrganization(
   if (settings) {
     Object.keys(settings).forEach((k: keyof OrganizationSettings) => {
       if (k === "environments") {
-        const existing = getEnvironments(org);
-
         // Require permissions for any old environments that changed
         const affectedEnvs: Set<string> = new Set();
-        existing.forEach((env) => {
+        existingEnvironments.forEach((env) => {
           const oldHash = JSON.stringify(env);
           const newHash = JSON.stringify(
             settings[k]?.find((e) => e.id === env.id)
@@ -1163,10 +1183,23 @@ export async function putOrganization(
         });
 
         // Require permissions for any new environments that have been added
-        const oldIds = new Set(existing.map((env) => env.id) || []);
+        const oldIds = new Set(existingEnvironments.map((env) => env.id) || []);
         settings[k]?.forEach((env) => {
           if (!oldIds.has(env.id)) {
             affectedEnvs.add(env.id);
+          }
+        });
+
+        // Check if any environments' projects have been changed (may require webhook triggers)
+        existingEnvironments.forEach((env) => {
+          const oldProjects = env.projects || [];
+          const newProjects =
+            settings[k]?.find((e) => e.id === env.id)?.projects || [];
+          if (JSON.stringify(oldProjects) !== JSON.stringify(newProjects)) {
+            envsWithModifiedProjects.push({
+              ...env,
+              projects: newProjects,
+            });
           }
         });
 
@@ -1178,7 +1211,9 @@ export async function putOrganization(
       } else if (k === "sdkInstructionsViewed" || k === "visualEditorEnabled") {
         req.checkPermissions("manageEnvironments", "", []);
       } else if (k === "attributeSchema") {
-        req.checkPermissions("manageTargetingAttributes");
+        throw new Error(
+          "Not supported: Updating organization attributes not supported via this route."
+        );
       } else if (k === "northStar") {
         req.checkPermissions("manageNorthStarMetric");
       } else if (k === "namespaces") {
@@ -1235,6 +1270,28 @@ export async function putOrganization(
       removeEnvironmentFromSlackIntegration({ organizationId: org.id, envId });
     });
 
+    // Trigger SDK webhooks to reflect project changes in environments
+    const affectedConnections = new Set<SDKConnectionInterface>();
+    if (envsWithModifiedProjects.length) {
+      const connections = await findSDKConnectionsByOrganization(context);
+      for (const env of envsWithModifiedProjects) {
+        const affected = connections.filter((c) => c.environment === env.id);
+        affected.forEach((c) => affectedConnections.add(c));
+      }
+    }
+    for (const connection of affectedConnections) {
+      const isUsingProxy = !!(
+        connection.proxy.enabled && connection.proxy.host
+      );
+      await triggerSingleSDKWebhookJobs(
+        org.id,
+        connection,
+        {},
+        connection.proxy,
+        isUsingProxy
+      );
+    }
+
     res.status(200).json({
       status: 200,
     });
@@ -1253,7 +1310,7 @@ export const autoAddGroupsAttribute = async (
   // Add missing `$groups` attribute automatically if it's being referenced by a Saved Group
   const { org } = getContextFromReq(req);
 
-  req.checkPermissions("manageTargetingAttributes");
+  req.checkPermissions("manageTargetingAttributes", []);
 
   let added = false;
 
@@ -1777,6 +1834,17 @@ export async function addOrphanedUser(
     });
   }
 
+  const license = getLicense();
+  if (
+    license &&
+    license.hardCap &&
+    getNumberOfUniqueMembersAndInvites(org) >= (license.seats || 0)
+  ) {
+    throw new Error(
+      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit."
+    );
+  }
+
   await addMemberToOrg({
     organization: org,
     userId: id,
@@ -1903,27 +1971,12 @@ export async function putLicenseKey(
     throw new Error("missing license key");
   }
 
-  const currentLicenseData = getLicense();
-  let licenseData = null;
-  let error = null;
   try {
-    // set new license
-    licenseData = await initializeLicense(licenseKey);
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error("setting new license failed", e);
-    error = e;
-  }
-  if (!licenseData) {
-    // setting license failed, revert to previous
-    try {
-      await setLicense(currentLicenseData);
-    } catch (e) {
-      // reverting also failed
-      // eslint-disable-next-line no-console
-      console.error("reverting to old license failed", e);
-      await setLicense(null);
-    }
+    org.licenseKey = licenseKey;
+    await initializeLicenseForOrg(org);
+  } catch (error) {
+    // As we show this error on the front-end, show a more generic invalid license key error
+    // if the error is not related to being able to connect to the license server
     if (error.message.includes("Could not connect")) {
       throw new Error(error?.message);
     } else {
