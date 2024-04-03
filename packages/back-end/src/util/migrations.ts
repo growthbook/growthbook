@@ -741,7 +741,7 @@ export function migrateSavedGroup(
 export function migrateSdkWebhookLogModel(
   doc: SdkWebHookLogDocument
 ): SdkWebHookLogDocument {
-  if (doc?.webhookRequestId) {
+  if (doc?.webhookReduestId) {
     doc.webhookRequestId = doc.webhookReduestId;
     delete doc.webhookReduestId;
   }
