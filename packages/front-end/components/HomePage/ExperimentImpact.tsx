@@ -294,12 +294,9 @@ export default function ExperimentImpact({
               obj.variations.push({
                 scaledImpact: impact,
                 selected: e.winner === i,
-                ci0: v?.metrics[metric]?.ci?.[0],
                 se: se,
               });
-              console.log(s.experiment);
-              console.log(v?.metrics[metric]?.expected ?? 0);
-              console.log(v?.metrics[metric]?.uplift);
+
               allScaledImpacts.push(impact);
 
               const totalUnits = v.users + res.variations[0].users;
@@ -532,7 +529,36 @@ export default function ExperimentImpact({
                         <div>
                           <Tooltip
                             popperClassName="text-left"
-                            body="lorem ipsum"
+                            body={
+                              <div>
+                                <div className="mb-1">
+                                  This value is the sum of the adjusted scaled
+                                  impacts of the winning variations from
+                                  experiments marked as Won.
+                                </div>
+                                <div className="mb-1">
+                                  <ol>
+                                    <li>
+                                      We compute the Daily Scaled Impact for all
+                                      variations in all experiments that match
+                                      your filters.
+                                    </li>
+                                    <li>
+                                      We use a James-Stein adjustment to shrink
+                                      estimates towards zero to mitigate
+                                      selection bias.
+                                    </li>
+                                    <li>
+                                      We sum the Scaled Impact of the winning
+                                      variation of experiments marked as won and
+                                      multiply values by 365 to get an annual
+                                      value.
+                                    </li>
+                                  </ol>
+                                </div>
+                                <div className="mb-1">{`The plus-minus value represents a 95% confidence interval.`}</div>
+                              </div>
+                            }
                           >
                             <span className="small font-weight-bold">
                               summed impact / year
@@ -567,7 +593,36 @@ export default function ExperimentImpact({
                         <div>
                           <Tooltip
                             popperClassName="text-left"
-                            body="lorem ipsum"
+                            body={
+                              <div className="mb-2">
+                                <div>
+                                  This value is the sum of the adjusted scaled
+                                  impacts of the worst variation from
+                                  experiments marked as Lost.
+                                </div>
+                                <div className="mb-1">
+                                  <ol>
+                                    <li>
+                                      We compute the Daily Scaled Impact for all
+                                      variations in all experiments that match
+                                      your filters.
+                                    </li>
+                                    <li>
+                                      We use a James-Stein adjustment to shrink
+                                      estimates towards zero to mitigate
+                                      selection bias.
+                                    </li>
+                                    <li>
+                                      We sum the Scaled Impact of the worst
+                                      variation of experiments marked as lost
+                                      and multiply values by 365 to get an
+                                      annual value.
+                                    </li>
+                                  </ol>
+                                </div>
+                                <div className="mb-1">{`The plus-minus value represents a 95% confidence interval.`}</div>
+                              </div>
+                            }
                           >
                             <span className="small text-muted font-weight-bold">
                               avoided loss / year
@@ -579,13 +634,7 @@ export default function ExperimentImpact({
                     </td>
                     <td className="impact-results">
                       <div>
-                        <span style={{ fontSize: "1.2em" }}>
-                          {formatImpact(
-                            summaryObj.others.totalAdjustedImpact * 365,
-                            formatter,
-                            formatterOptions
-                          )}
-                        </span>
+                        <span style={{ fontSize: "1.2em" }}>N/A</span>
                       </div>
                     </td>
                   </tr>
@@ -682,7 +731,8 @@ function ImpactTab({
 
   experimentImpactData.experiments.forEach((e) => {
     const variations: JSX.Element[] = [];
-    const impacts: JSX.Element[] = [];
+    const impactsScaled: JSX.Element[] = [];
+    const impactsTotal: JSX.Element[] = [];
     e.experiment.variations.forEach((v, i) => {
       if (i === 0) return;
       if (experimentImpactType !== "other" && i !== e.keyVariationId) return;
@@ -704,7 +754,30 @@ function ImpactTab({
           </span>
         </div>
       );
-      impacts.push(
+      impactsScaled.push(
+        <div
+          className={clsx("my-1", { won: experimentImpactType === "winner" })}
+        >
+          {impact ? (
+            formatImpact(impact?.scaledImpact ?? 0, formatter, formatterOptions)
+          ) : (
+            <span className="text-muted">N/A</span>
+          )}
+          {!!impact && (
+            <span className="small text-muted">
+              {" "}
+              X{" "}
+              {Intl.NumberFormat(undefined, {
+                maximumFractionDigits: 3,
+              }).format(
+                (impact.scaledImpactAdjusted ?? 0) / (impact.scaledImpact ?? 0)
+              )}{" "}
+              X 365 ={" "}
+            </span>
+          )}
+        </div>
+      );
+      impactsTotal.push(
         <div
           className={clsx("my-1", { won: experimentImpactType === "winner" })}
         >
@@ -717,17 +790,9 @@ function ImpactTab({
           ) : (
             <span className="text-muted">N/A</span>
           )}
-          {!!impact && (
+          {!!impact && impact.se && (
             <span className="plusminus ml-1">
-              ±
-              {Math.abs(impact?.ci0 ?? 0) === Infinity
-                ? "∞"
-                : formatter(
-                    Math.abs(
-                      ((impact?.scaledImpact ?? 0) - (impact?.ci0 ?? 0)) * 365
-                    ),
-                    formatterOptions
-                  )}
+              ± {formatter(impact.se * 1.96 * 365, formatterOptions)}
             </span>
           )}
         </div>
@@ -774,10 +839,12 @@ function ImpactTab({
           </div>
         </td>
         <td>{variations}</td>
-        <td className="impact-results">{impacts}</td>
+        <td className="impact-results">{impactsScaled}</td>
+        <td className="impact-results">{impactsTotal}</td>
       </tr>
     );
   });
+  console.dir(experimentImpactData, { depth: null });
   return (
     <div className="px-3 pt-3">
       {experimentImpactType !== "other" ? (
@@ -814,33 +881,43 @@ function ImpactTab({
                   ? "Worst Variation"
                   : "Variation"}
               </th>
-              <th>Scaled Impact</th>
+              <th>
+                Scaled Impact{" "}
+                <span className="small text-muted">X adj X 365</span>
+              </th>
+              <th>Annual Adj. Scaled Impact</th>
             </tr>
           </thead>
           <tbody>{expRows}</tbody>
           <tbody className="bg-light font-weight-bold">
             <tr>
               <td>Total Impact</td>
-              <td colSpan={3} />
+              <td colSpan={4} />
               <td>
-                {formatImpact(
-                  experimentImpactData.totalAdjustedImpact * 365,
-                  formatter,
-                  formatterOptions
-                )}
-                {experimentImpactData.totalAdjustedImpactVariance ? (
-                  <span className="plusminus ml-1">
-                    ±{" "}
-                    {formatter(
-                      Math.sqrt(
-                        experimentImpactData.totalAdjustedImpactVariance
-                      ) *
-                        1.96 *
-                        365,
+                {experimentImpactType !== "other" ? (
+                  <>
+                    {formatImpact(
+                      experimentImpactData.totalAdjustedImpact * 365,
+                      formatter,
                       formatterOptions
                     )}
-                  </span>
-                ) : null}
+                    {experimentImpactData.totalAdjustedImpactVariance ? (
+                      <span className="plusminus ml-1">
+                        ±{" "}
+                        {formatter(
+                          Math.sqrt(
+                            experimentImpactData.totalAdjustedImpactVariance
+                          ) *
+                            1.96 *
+                            365,
+                          formatterOptions
+                        )}
+                      </span>
+                    ) : null}
+                  </>
+                ) : (
+                  <span>N/A</span>
+                )}
               </td>
             </tr>
           </tbody>
