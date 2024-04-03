@@ -4,7 +4,7 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { SdkWebHookLogDocument } from "@back-end/src/models/SdkWebhookLogModel";
+import { SdkWebHookLogDocument } from "../models/SdkWebhookLogModel";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import {
   DataSourceInterface,
