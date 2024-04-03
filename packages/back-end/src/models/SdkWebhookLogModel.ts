@@ -17,7 +17,7 @@ const sdkWebHookLogSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  webhookReduestId: {
+  webhookRequestId: {
     type: String,
     required: true,
   },
@@ -59,7 +59,7 @@ const SdkWebHookLogModel = mongoose.model<SdkWebHookLogInterface>(
 type CreateSdkWebHookLogOptions = {
   organizationId: string;
   webhookId: string;
-  webhookReduestId: string;
+  webhookRequestId: string;
   payload: Record<string, unknown>;
   result:
     | {
@@ -81,7 +81,7 @@ type CreateSdkWebHookLogOptions = {
  */
 export const createSdkWebhookLog = async ({
   webhookId,
-  webhookReduestId,
+  webhookRequestId,
   organizationId,
   payload,
   result: resultState,
@@ -92,7 +92,7 @@ export const createSdkWebhookLog = async ({
     id: `swhl-${randomUUID()}`,
     dateCreated: now,
     webhookId,
-    webhookReduestId,
+    webhookRequestId,
     organizationId,
     result: resultState.state,
     responseCode: resultState.responseCode,
@@ -106,7 +106,7 @@ export const createSdkWebhookLog = async ({
 /**
  * Get the latest web hook runs for a web hook
  * @param organizationId
- * @param eventWebHookId
+ * @param sdkWebHookId
  * @param limit
  * @returns
  */
