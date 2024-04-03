@@ -39,7 +39,7 @@ const DataSourceQueries = (): React.ReactElement => {
     items: queries || [],
     defaultSortField: "createdAt",
     localStorageKey: "datasourceQueries",
-    searchFields: ["status", "startedAt", "finishedAt"],
+    searchFields: ["status", "queryType", "externalId"],
   });
 
   if (!canView) {
@@ -169,7 +169,7 @@ const DataSourceQueries = (): React.ReactElement => {
                     {title}
                   </button>
                 </td>
-                <td>{query.queryType}</td>
+                <td>{query.queryType || "—"}</td>
                 <td>{datetime(query.createdAt)}</td>
                 <td
                   title={datetime(query.startedAt || "")}
