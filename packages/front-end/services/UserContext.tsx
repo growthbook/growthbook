@@ -380,13 +380,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         open={true}
         cta="Try Again"
         submit={async () => {
-          try {
-            await refreshOrganization();
-          } catch (e) {
-            setOrgLoadingError(e.message);
-            console.error(e);
-            throw new Error("Still receiving error");
-          }
+          await refreshOrganization();
         }}
       >
         <p>
