@@ -769,7 +769,7 @@ export function getLicenseError(org: MinimalOrganization): string {
   }
 
   if (licenseData.usingMongoCache && licenseData.dateUpdated) {
-    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // 7 days
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     if (new Date(licenseData.dateUpdated) < oneWeekAgo) {
       return "License server down for too long";
     }
