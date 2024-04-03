@@ -24,6 +24,7 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
+  getPercentileLabel,
 } from "@/services/metrics";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -102,7 +103,7 @@ function MetricType({
   if (type === "quantile") {
     return (
       <div>
-        <strong>Quantile Metric</strong> - The quantile of some values{" "}
+        <strong>Quantile Metric</strong> - The quantile of values{" "}
         {quantileType === "unit" ? "after aggregating per user" : ""}
       </div>
     );
@@ -397,9 +398,9 @@ export default function FactMetricPage() {
                   {factMetric.metricType === "quantile" ? (
                     <div className="mb-1">
                       {factMetric.metricType === "quantile"
-                        ? `The ${
-                            factMetric.quantileSettings?.quantile
-                          } quantile${
+                        ? `${getPercentileLabel(
+                            factMetric.quantileSettings?.quantile ?? 0.5
+                          )} ${
                             factMetric.quantileSettings?.ignoreZeros
                               ? ", ignoring zeros, "
                               : ""

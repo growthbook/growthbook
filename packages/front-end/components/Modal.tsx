@@ -24,6 +24,7 @@ type ModalProps = {
   disabledMessage?: string;
   docSection?: DocSection;
   error?: string;
+  loading?: boolean;
   size?: "md" | "lg" | "max" | "fill";
   sizeY?: "max" | "fill";
   inline?: boolean;
@@ -65,6 +66,7 @@ const Modal: FC<ModalProps> = ({
   autoFocusSelector = "input:not(:disabled),textarea:not(:disabled),select:not(:disabled)",
   solidOverlay = false,
   error: externalError,
+  loading: externalLoading,
   secondaryCTA,
   tertiaryCTA,
   successMessage,
@@ -83,6 +85,10 @@ const Modal: FC<ModalProps> = ({
   useEffect(() => {
     setError(externalError || null);
   }, [externalError]);
+
+  useEffect(() => {
+    setLoading(externalLoading || false);
+  }, [externalLoading]);
 
   const bodyRef = useRef<HTMLDivElement>(null);
   useEffect(() => {

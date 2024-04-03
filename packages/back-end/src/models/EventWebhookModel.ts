@@ -362,7 +362,7 @@ export const getAllEventWebHooks = async (
   return docs.map(toInterface);
 };
 
-const filterOptional = <T>(want: T[], has: T[] = []) => {
+const filterOptional = <T>(want: T[] = [], has: T[]) => {
   if (!want.length) return true;
   return !!intersection(want, has).length;
 };
@@ -393,8 +393,8 @@ export const getAllEventWebHooksForEvent = async ({
   });
 
   const docs = allDocs.filter((doc) => {
-    if (!filterOptional(tags, doc.tags)) return false;
-    if (!filterOptional(projects, doc.projects)) return false;
+    if (!filterOptional(doc.tags, tags)) return false;
+    if (!filterOptional(doc.projects, projects)) return false;
 
     return true;
   });

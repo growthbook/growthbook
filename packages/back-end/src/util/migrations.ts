@@ -4,6 +4,7 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import { SdkWebHookLogDocument } from "../models/SdkWebhookLogModel";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import {
   DataSourceInterface,
@@ -417,6 +418,20 @@ export function upgradeOrganizationDoc(
     org.settings.statsEngine = DEFAULT_STATS_ENGINE;
   }
 
+  // Migrate Arroval Flow Settings
+  if (
+    org.settings?.requireReviews === true ||
+    org.settings?.requireReviews === false
+  ) {
+    org.settings.requireReviews = [
+      {
+        requireReviewOn: org.settings.requireReviews,
+        resetReviewOnChange: false,
+        environments: [],
+        projects: [],
+      },
+    ];
+  }
   // Rename legacy roles
   const legacyRoleMap: Record<string, MemberRole> = {
     designer: "collaborator",
@@ -721,4 +736,14 @@ export function migrateSavedGroup(
   }
 
   return group;
+}
+
+export function migrateSdkWebhookLogModel(
+  doc: SdkWebHookLogDocument
+): SdkWebHookLogDocument {
+  if (doc?.webhookReduestId) {
+    doc.webhookRequestId = doc.webhookReduestId;
+    delete doc.webhookReduestId;
+  }
+  return doc;
 }

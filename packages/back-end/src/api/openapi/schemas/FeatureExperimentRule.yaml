@@ -16,6 +16,7 @@ properties:
     type: boolean
   type:
     type: string
+    enum: ["experiment"]
   trackingKey:
     type: string
   hashAttribute:

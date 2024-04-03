@@ -1,11 +1,12 @@
 import { useRouter } from "next/router";
 import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import React, { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FaChevronRight,
   FaDraftingCompass,
   FaExchangeAlt,
+  FaExclamationTriangle,
   FaLink,
   FaList,
   FaLock,
@@ -14,7 +15,9 @@ import {
 import { ago, date, datetime } from "shared/dates";
 import {
   autoMerge,
+  checkIfRevisionNeedsReview,
   evaluatePrerequisiteState,
+  filterEnvironmentsByFeature,
   getValidation,
   mergeResultHasChanges,
   PrerequisiteStateResult,
@@ -24,7 +27,9 @@ import { BiHide, BiShow } from "react-icons/bi";
 import { FaPlusMinus } from "react-icons/fa6";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import clsx from "clsx";
+import Link from "next/link";
 import { BsClock } from "react-icons/bs";
+import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
@@ -115,7 +120,6 @@ export default function FeaturesOverview({
   const { fid } = router.query;
 
   const settings = useOrgSettings();
-
   const [edit, setEdit] = useState(false);
   const [editValidator, setEditValidator] = useState(false);
   const [showSchema, setShowSchema] = useState(false);
@@ -145,8 +149,17 @@ export default function FeaturesOverview({
   const { hasCommercialFeature } = useUser();
 
   const { features } = useFeaturesList(false);
-  const environments = useEnvironments();
+  const allEnvironments = useEnvironments();
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envs = environments.map((e) => e.id);
+
+  // Make sure you can't access an invalid env tab, since active env tab is persisted via localStorage
+  useEffect(() => {
+    if (!envs?.length) return;
+    if (!envs.includes(env)) {
+      setEnv(envs[0]);
+    }
+  }, [envs, env, setEnv]);
 
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 800,
@@ -215,7 +228,19 @@ export default function FeaturesOverview({
   const { jsonSchema, validationEnabled, schemaDateUpdated } = getValidation(
     feature
   );
-  const requireReviews = !!settings?.requireReviews;
+  const baseVersion = revision?.baseVersion || feature.version;
+  const baseRevision = revisions.find((r) => r.version === baseVersion);
+  let requireReviews = false;
+  //dont require review when we cant find a base version to compare
+  if (baseRevision) {
+    requireReviews = checkIfRevisionNeedsReview({
+      feature,
+      baseRevision,
+      revision,
+      allEnvironments: environments.map((e) => e.id),
+      settings,
+    });
+  }
   const isLive = revision?.version === feature.version;
   const isPendingReview =
     revision?.status === "pending-review" ||
@@ -279,11 +304,36 @@ export default function FeaturesOverview({
     "createFeatureDrafts",
     feature.project
   );
+  const renderStatusCopy = () => {
+    switch (revision.status) {
+      case "approved":
+        return (
+          <span className="mr-3">
+            <PiCheckCircleFill className="text-success  mr-1" /> Approved
+          </span>
+        );
+      case "pending-review":
+        return (
+          <span className="mr-3">
+            <PiCircleDuotone className="text-warning  mr-1" /> Pending Review
+          </span>
+        );
+      case "changes-requested":
+        return (
+          <span className="mr-3">
+            <PiFileX className="text-danger mr-1" />
+            Changes Requested
+          </span>
+        );
+      default:
+        return;
+    }
+  };
   const renderDraftBannerCopy = () => {
     if (isPendingReview) {
       return (
         <>
-          <BsClock /> Awaiting Approval
+          <BsClock /> Review and Approve
         </>
       );
     }
@@ -327,7 +377,35 @@ export default function FeaturesOverview({
                       {env}
                     </th>
                   ))}
-                  <th className="w-100" />
+                  {envs.length === 0 ? (
+                    <th className="text-center align-bottom">
+                      <span className="font-italic">No environments</span>
+                      <Tooltip
+                        className="ml-1"
+                        popperClassName="text-left font-weight-normal"
+                        body={
+                          <>
+                            <div className="text-warning-orange mb-2">
+                              <FaExclamationTriangle /> This feature has no
+                              associated environments
+                            </div>
+                            <div>
+                              Ensure that this feature&apos;s project is
+                              included in at least one environment to use it.
+                            </div>
+                          </>
+                        }
+                      />
+                      <div
+                        className="float-right small position-relative"
+                        style={{ top: 5 }}
+                      >
+                        <Link href="/environments">Manage Environments</Link>
+                      </div>
+                    </th>
+                  ) : (
+                    <th className="w-100" />
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -379,35 +457,51 @@ export default function FeaturesOverview({
                   <td className="pl-3 font-weight-bold border-right">
                     Summary
                   </td>
-                  <PrerequisiteStatesCols
-                    prereqStates={prereqStates ?? undefined}
-                    envs={envs}
-                    isSummaryRow={true}
-                  />
+                  {envs.length > 0 && (
+                    <PrerequisiteStatesCols
+                      prereqStates={prereqStates ?? undefined}
+                      envs={envs}
+                      isSummaryRow={true}
+                    />
+                  )}
                   <td />
                 </tr>
               </tbody>
             </table>
           ) : (
             <div className="row mt-3">
-              {environments.map((en) => (
-                <div className="col-auto" key={en.id}>
-                  <label
-                    className="font-weight-bold mr-2 mb-0"
-                    htmlFor={`${en.id}_toggle`}
-                  >
-                    {en.id}:{" "}
-                  </label>
-                  <EnvironmentToggle
-                    feature={feature}
-                    environment={en.id}
-                    mutate={() => {
-                      mutate();
-                    }}
-                    id={`${en.id}_toggle`}
-                  />
+              {environments.length > 0 ? (
+                environments.map((en) => (
+                  <div className="col-auto" key={en.id}>
+                    <label
+                      className="font-weight-bold mr-2 mb-0"
+                      htmlFor={`${en.id}_toggle`}
+                    >
+                      {en.id}:{" "}
+                    </label>
+                    <EnvironmentToggle
+                      feature={feature}
+                      environment={en.id}
+                      mutate={() => {
+                        mutate();
+                      }}
+                      id={`${en.id}_toggle`}
+                    />
+                  </div>
+                ))
+              ) : (
+                <div className="alert alert-warning pt-3 pb-2 w-100">
+                  <div className="h4 mb-3">
+                    <FaExclamationTriangle /> This feature has no associated
+                    environments
+                  </div>
+                  <div className="mb-2">
+                    Ensure that this feature&apos;s project is included in at
+                    least one environment to use it.{" "}
+                    <Link href="/environments">Manage Environments</Link>
+                  </div>
                 </div>
-              ))}
+              )}
             </div>
           )}
 
@@ -936,6 +1030,7 @@ export default function FeaturesOverview({
                 </div>
               )}
               <div className="col-auto">
+                {renderStatusCopy()}
                 <a
                   href="#"
                   onClick={(e) => {
@@ -964,168 +1059,178 @@ export default function FeaturesOverview({
             />
           </div>
 
-          <h3>Override Rules</h3>
-          <p>
-            Add powerful logic on top of your feature. The first matching rule
-            applies and overrides the default value.
-          </p>
+          {environments.length > 0 && (
+            <>
+              <h3>Override Rules</h3>
+              <p>
+                Add powerful logic on top of your feature. The first matching
+                rule applies and overrides the default value.
+              </p>
 
-          <div className="mb-0">
-            <ControlledTabs
-              setActive={(v) => {
-                setEnv(v || "");
-              }}
-              active={env}
-              showActiveCount={true}
-              newStyle={false}
-              buttonsClassName="px-3 py-2 h4"
-            >
-              {environments.map((e) => {
-                const rules = getRules(feature, e.id);
-                return (
-                  <Tab
-                    key={e.id}
-                    id={e.id}
-                    display={e.id}
-                    count={rules.length}
-                    padding={false}
-                  >
-                    <div className="border mb-4 border-top-0">
-                      {rules.length > 0 ? (
-                        <RuleList
-                          environment={e.id}
-                          feature={feature}
-                          mutate={mutate}
-                          setRuleModal={setRuleModal}
-                          version={currentVersion}
-                          setVersion={setVersion}
-                          locked={isLocked}
-                          experimentsMap={experimentsMap}
-                        />
-                      ) : (
-                        <div className="p-3 bg-white">
-                          <em>No override rules for this environment yet</em>
+              <div className="mb-0">
+                <ControlledTabs
+                  setActive={(v) => {
+                    setEnv(v || "");
+                  }}
+                  active={env}
+                  showActiveCount={true}
+                  newStyle={false}
+                  buttonsClassName="px-3 py-2 h4"
+                >
+                  {environments.map((e) => {
+                    const rules = getRules(feature, e.id);
+                    return (
+                      <Tab
+                        key={e.id}
+                        id={e.id}
+                        display={e.id}
+                        count={rules.length}
+                        padding={false}
+                      >
+                        <div className="border mb-4 border-top-0">
+                          {rules.length > 0 ? (
+                            <RuleList
+                              environment={e.id}
+                              feature={feature}
+                              mutate={mutate}
+                              setRuleModal={setRuleModal}
+                              version={currentVersion}
+                              setVersion={setVersion}
+                              locked={isLocked}
+                              experimentsMap={experimentsMap}
+                            />
+                          ) : (
+                            <div className="p-3 bg-white">
+                              <em>
+                                No override rules for this environment yet
+                              </em>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  </Tab>
-                );
-              })}
-            </ControlledTabs>
+                      </Tab>
+                    );
+                  })}
+                </ControlledTabs>
 
-            {canEditDrafts && !isLocked && <h4>Add Rules</h4>}
+                {canEditDrafts && !isLocked && <h4>Add Rules</h4>}
 
-            {canEditDrafts && !isLocked && (
-              <div className="row">
-                <div className="col mb-3">
-                  <div
-                    className="bg-white border p-3 d-flex flex-column"
-                    style={{ height: "100%" }}
-                  >
-                    <h4>Forced Value</h4>
-                    <p>
-                      Target groups of users and give them all the same value.
-                    </p>
-                    <div style={{ flex: 1 }} />
-                    <div>
-                      <button
-                        className="btn btn-primary"
-                        onClick={() => {
-                          setRuleModal({
-                            environment: env,
-                            i: getRules(feature, env).length,
-                            defaultType: "force",
-                          });
-                          track("Viewed Rule Modal", {
-                            source: "add-rule",
-                            type: "force",
-                          });
-                        }}
+                {canEditDrafts && !isLocked && (
+                  <div className="row">
+                    <div className="col mb-3">
+                      <div
+                        className="bg-white border p-3 d-flex flex-column"
+                        style={{ height: "100%" }}
                       >
-                        <span className="h4 pr-2 m-0 d-inline-block align-top">
-                          <GBAddCircle />
-                        </span>
-                        Add Forced Rule
-                      </button>
+                        <h4>Forced Value</h4>
+                        <p>
+                          Target groups of users and give them all the same
+                          value.
+                        </p>
+                        <div style={{ flex: 1 }} />
+                        <div>
+                          <button
+                            className="btn btn-primary"
+                            onClick={() => {
+                              setRuleModal({
+                                environment: env,
+                                i: getRules(feature, env).length,
+                                defaultType: "force",
+                              });
+                              track("Viewed Rule Modal", {
+                                source: "add-rule",
+                                type: "force",
+                              });
+                            }}
+                          >
+                            <span className="h4 pr-2 m-0 d-inline-block align-top">
+                              <GBAddCircle />
+                            </span>
+                            Add Forced Rule
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="col mb-3">
+                      <div
+                        className="bg-white border p-3 d-flex flex-column"
+                        style={{ height: "100%" }}
+                      >
+                        <h4>Percentage Rollout</h4>
+                        <p>
+                          Release to a small percent of users while you monitor
+                          logs.
+                        </p>
+                        <div style={{ flex: 1 }} />
+                        <div>
+                          <button
+                            className="btn btn-primary"
+                            onClick={() => {
+                              setRuleModal({
+                                environment: env,
+                                i: getRules(feature, env).length,
+                                defaultType: "rollout",
+                              });
+                              track("Viewed Rule Modal", {
+                                source: "add-rule",
+                                type: "rollout",
+                              });
+                            }}
+                          >
+                            <span className="h4 pr-2 m-0 d-inline-block align-top">
+                              <GBAddCircle />
+                            </span>
+                            Add Rollout Rule
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="col mb-3">
+                      <div
+                        className="bg-white border p-3 d-flex flex-column"
+                        style={{ height: "100%" }}
+                      >
+                        <h4>A/B Experiment</h4>
+                        <p>
+                          Measure the impact of this feature on your key
+                          metrics.
+                        </p>
+                        <div style={{ flex: 1 }} />
+                        <div>
+                          <button
+                            className="btn btn-primary"
+                            onClick={() => {
+                              setRuleModal({
+                                environment: env,
+                                i: getRules(feature, env).length,
+                                defaultType: "experiment-ref-new",
+                              });
+                              track("Viewed Rule Modal", {
+                                source: "add-rule",
+                                type: "experiment",
+                              });
+                            }}
+                          >
+                            <span className="h4 pr-2 m-0 d-inline-block align-top">
+                              <GBAddCircle />
+                            </span>
+                            Add Experiment Rule
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="col mb-3">
-                  <div
-                    className="bg-white border p-3 d-flex flex-column"
-                    style={{ height: "100%" }}
-                  >
-                    <h4>Percentage Rollout</h4>
-                    <p>
-                      Release to a small percent of users while you monitor
-                      logs.
-                    </p>
-                    <div style={{ flex: 1 }} />
-                    <div>
-                      <button
-                        className="btn btn-primary"
-                        onClick={() => {
-                          setRuleModal({
-                            environment: env,
-                            i: getRules(feature, env).length,
-                            defaultType: "rollout",
-                          });
-                          track("Viewed Rule Modal", {
-                            source: "add-rule",
-                            type: "rollout",
-                          });
-                        }}
-                      >
-                        <span className="h4 pr-2 m-0 d-inline-block align-top">
-                          <GBAddCircle />
-                        </span>
-                        Add Rollout Rule
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <div className="col mb-3">
-                  <div
-                    className="bg-white border p-3 d-flex flex-column"
-                    style={{ height: "100%" }}
-                  >
-                    <h4>A/B Experiment</h4>
-                    <p>
-                      Measure the impact of this feature on your key metrics.
-                    </p>
-                    <div style={{ flex: 1 }} />
-                    <div>
-                      <button
-                        className="btn btn-primary"
-                        onClick={() => {
-                          setRuleModal({
-                            environment: env,
-                            i: getRules(feature, env).length,
-                            defaultType: "experiment-ref-new",
-                          });
-                          track("Viewed Rule Modal", {
-                            source: "add-rule",
-                            type: "experiment",
-                          });
-                        }}
-                      >
-                        <span className="h4 pr-2 m-0 d-inline-block align-top">
-                          <GBAddCircle />
-                        </span>
-                        Add Experiment Rule
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
 
-        <div className="mb-4">
-          <h3>Test Feature Rules</h3>
-          <AssignmentTester feature={feature} version={currentVersion} />
-        </div>
+        {environments.length > 0 && (
+          <div className="mb-4">
+            <h3>Test Feature Rules</h3>
+            <AssignmentTester feature={feature} version={currentVersion} />
+          </div>
+        )}
 
         <div className="mb-4">
           <h3>Comments</h3>
@@ -1188,12 +1293,10 @@ export default function FeaturesOverview({
             method="PUT"
             current={feature.project}
             additionalMessage={
-              feature.linkedExperiments?.length ? (
-                <div className="alert alert-danger">
-                  Changing the project may prevent your linked Experiments from
-                  being sent to users.
-                </div>
-              ) : null
+              <div className="alert alert-danger">
+                Changing the project may prevent this Feature Flag and any
+                linked Experiments from being sent to users.
+              </div>
             }
           />
         )}
