@@ -44,6 +44,8 @@ const querySchema = new mongoose.Schema({
   cachedQueryUsed: String,
 });
 
+querySchema.index({ organization: 1, datasource: 1, status: 1, createdAt: -1 });
+
 type QueryDocument = mongoose.Document & QueryInterface;
 
 const QueryModel = mongoose.model<QueryInterface>("Query", querySchema);
@@ -61,11 +63,14 @@ export async function getQueriesByIds(organization: string, ids: string[]) {
 
 export async function getQueriesByDatasource(
   organization: string,
-  datasource: string
+  datasource: string,
+  limit: number = 50
 ) {
-  const docs = await QueryModel.find({ organization, datasource }).sort({
-    createdAt: -1,
-  });
+  const docs = await QueryModel.find({ organization, datasource })
+    .limit(limit)
+    .sort({
+      createdAt: -1,
+    });
   return docs.map((doc) => toInterface(doc));
 }
 

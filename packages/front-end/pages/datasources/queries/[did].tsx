@@ -17,13 +17,17 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
 import ExpandableQuery from "@/components/Queries/ExpandableQuery";
+import usePermissions from "@/hooks/usePermissions";
 
 const DataSourceQueries = (): React.ReactElement => {
+  const permissions = usePermissions();
   const [modalData, setModalData] = useState<QueryInterface | null>(null);
   const router = useRouter();
   const { did } = router.query as { did: string };
   const { getDatasourceById, ready, error: datasourceError } = useDefinitions();
   const d = getDatasourceById(did);
+
+  const canView = d && permissions.check("readData", d.projects || []);
 
   const { data, error: queriesError } = useApi<{
     queries: QueryInterface[];
@@ -37,6 +41,16 @@ const DataSourceQueries = (): React.ReactElement => {
     localStorageKey: "datasourceQueries",
     searchFields: ["status", "startedAt", "finishedAt"],
   });
+
+  if (!canView) {
+    return (
+      <div className="container pagecontents">
+        <div className="alert alert-danger">
+          You do not have access to view this page.
+        </div>
+      </div>
+    );
+  }
 
   if (datasourceError || queriesError) {
     return (
@@ -90,16 +104,16 @@ const DataSourceQueries = (): React.ReactElement => {
         breadcrumb={[
           { display: "Data Sources" },
           { display: d.name, href: `/datasources/${did}` },
-          { display: "Queries" },
+          { display: "Recent Queries" },
         ]}
       />
       <div className="filters md-form row mb-3 align-items-center">
         <div className="col-auto d-flex">
           <h1>
-            Data Source Queries{" "}
+            Recent Queries{" "}
             <Tooltip
               className="small"
-              body="All of the queries GrowthBook has run on this Data Source"
+              body="The 50 most recent queries run on this Data Source"
             />
           </h1>
         </div>
@@ -108,20 +122,26 @@ const DataSourceQueries = (): React.ReactElement => {
       <table className="table appbox gbtable table-hover">
         <thead>
           <tr>
-            <SortableTH field="query" className="col-3">
+            <SortableTH field="query" className="col-4">
               Title
             </SortableTH>
-            <SortableTH field="createdAt" className="col-1">
+            <SortableTH field="queryType" className="col-2">
+              Type
+            </SortableTH>
+            <SortableTH field="createdAt" className="col-2">
               Created
             </SortableTH>
-            <SortableTH field="startedAt" className="col-1">
+            <SortableTH field="startedAt" className="col-2">
               Started
             </SortableTH>
-            <SortableTH field="finishedAt" className="col-1">
+            <SortableTH field="finishedAt" className="col-2">
               Finished
             </SortableTH>
             <SortableTH field="status" className="col-1">
               Status
+            </SortableTH>
+            <SortableTH field="externalId" className="col-2">
+              External ID
             </SortableTH>
           </tr>
         </thead>
@@ -145,8 +165,11 @@ const DataSourceQueries = (): React.ReactElement => {
                 style={{ cursor: "pointer" }}
               >
                 <td>
-                  <button className="btn btn-link p-0">{title}</button>
+                  <button className="btn btn-link p-0 text-left">
+                    {title}
+                  </button>
                 </td>
+                <td>{query.queryType}</td>
                 <td>{datetime(query.createdAt)}</td>
                 <td
                   title={datetime(query.startedAt || "")}
@@ -191,6 +214,7 @@ const DataSourceQueries = (): React.ReactElement => {
                     )}
                   </Tooltip>
                 </td>
+                <td>{query.externalId || "N/A"}</td>
               </tr>
             );
           })}
