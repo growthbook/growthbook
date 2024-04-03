@@ -388,18 +388,6 @@ const sidebars = {
         "self-host/production",
       ],
     },
-    /*
-        {
-      type: "category",
-      label: "Advanced",
-      collapsed: true,
-      items: [
-        { type: "doc", id: "api-overview", label: "API" },
-        { type: "doc", id: "self-host/proxy", label: "Proxy" },
-        { type: "doc", id: "webhooks", label: "Webhooks" },
-      ],
-    },
-     */
     { type: "doc", id: "self-host/proxy", label: "Proxy" },
     { type: "doc", id: "api-overview", label: "API" },
     {
