@@ -5,8 +5,8 @@ import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { EventWebHookEditParams } from "@/components/EventWebHooks/utils";
 import { EventWebHookAddEditModal } from "@/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
+import { DocLink } from "@/components/DocLink";
 import { EventWebHookListItem } from "./EventWebHookListItem/EventWebHookListItem";
-import {DocLink} from "@/components/DocLink";
 
 type EventWebHookListProps = {
   onCreateModalOpen: () => void;
