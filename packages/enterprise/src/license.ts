@@ -8,7 +8,7 @@ import { pick, sortBy } from "lodash";
 import AsyncLock from "async-lock";
 import { stringToBoolean } from "shared/util";
 import { ProxyAgent } from "proxy-agent";
-import { LicenseModel } from "./models/licenseModel";
+import { LicenseDocument, LicenseModel } from "./models/licenseModel";
 
 export const LICENSE_SERVER_URL =
   process.env.LICENSE_SERVER_URL ||
@@ -293,22 +293,6 @@ function getVerifiedLicenseData(key: string): Partial<LicenseInterface> {
   if (!decodedLicense.plan) {
     decodedLicense.plan = "enterprise";
   }
-  // Trying to use SSO, but the plan doesn't support it
-  if (
-    process.env.SSO_CONFIG &&
-    !planHasPremiumFeature(decodedLicense.plan, "sso")
-  ) {
-    throw new Error(`Your License Key does not support SSO.`);
-  }
-  // Trying to use IS_MULTI_ORG, but the plan doesn't support it
-  if (
-    stringToBoolean(process.env.IS_MULTI_ORG) &&
-    !planHasPremiumFeature(decodedLicense.plan, "multi-org")
-  ) {
-    throw new Error(
-      `Your License Key does not support multiple organizations.`
-    );
-  }
 
   const convertedLicense: Partial<LicenseInterface> = {
     id: decodedLicense.ref,
@@ -343,28 +327,6 @@ function getVerifiedLicenseData(key: string): Partial<LicenseInterface> {
   logger.info(decodedLicense, "Using verified license key");
 
   return convertedLicense;
-}
-
-function checkIfEnvVarSettingsAreAllowedByLicense(license: LicenseInterface) {
-  // These are checks that only apply to self-hosted instances
-  if (stringToBoolean(process.env.IS_CLOUD)) {
-    return;
-  }
-
-  if (process.env.SSO_CONFIG && !planHasPremiumFeature(license.plan, "sso")) {
-    // Trying to use SSO, but the plan doesn't support it
-    throw new Error(`Your License Key does not support SSO.`);
-  }
-
-  // Trying to use IS_MULTI_ORG, but the plan doesn't support it
-  if (
-    stringToBoolean(process.env.IS_MULTI_ORG) &&
-    !planHasPremiumFeature(license.plan, "multi-org")
-  ) {
-    throw new Error(
-      `Your License Key does not support multiple organizations.`
-    );
-  }
 }
 
 function verifyLicenseInterface(license: LicenseInterface) {
@@ -601,8 +563,12 @@ export async function postResendEmailVerificationEmailToLicenseServer(
 }
 
 // Creates or updates the license in the MongoDB cache in case the license server goes down.
-async function createOrUpdateLicenseMongoCache(license: LicenseInterface) {
-  const currentCache = await LicenseModel.findOne({ id: license.id });
+async function createOrUpdateLicenseMongoCache(
+  license: LicenseInterface,
+  mongoCache?: LicenseDocument | null
+) {
+  const currentCache =
+    mongoCache || (await LicenseModel.findOne({ id: license.id }));
   if (!currentCache) {
     await LicenseModel.create(license);
   } else {
@@ -612,12 +578,14 @@ async function createOrUpdateLicenseMongoCache(license: LicenseInterface) {
 }
 
 // Updates the local daily cache, the one week backup Mongo cache, and verifies the license.
-export async function setAndVerifyServerLicenseData(license: LicenseInterface) {
+export async function setAndVerifyServerLicenseData(
+  license: LicenseInterface,
+  mongoCache?: LicenseDocument | null
+) {
   verifyLicenseInterface(license);
-  checkIfEnvVarSettingsAreAllowedByLicense(license);
   keyToLicenseData[license.id] = license;
   keyToCacheDate[license.id] = new Date();
-  await createOrUpdateLicenseMongoCache(license);
+  await createOrUpdateLicenseMongoCache(license, mongoCache);
 }
 
 async function getLicenseDataFromServer(
@@ -732,7 +700,6 @@ export async function licenseInit(
           }
 
           verifyLicenseInterface(license);
-          checkIfEnvVarSettingsAreAllowedByLicense(license);
 
           keyToLicenseData[key] = license;
           keyToCacheDate[key] = new Date();
@@ -792,15 +759,47 @@ export function resetInMemoryLicenseCache(): void {
   });
 }
 
-function shouldLimitAccess(org: MinimalOrganization): boolean {
+export function getLicenseError(org: MinimalOrganization): string {
   const licenseData = getLicense(org.licenseKey);
 
-  if (!licenseData || shouldLimitAccessDueToExpiredLicense(licenseData)) {
-    return true;
+  // If there is no license it can't have an error
+  // Licenses might not have a plan if sign up for pro, but abandon checkout
+  if (!licenseData || !licenseData.plan) {
+    return "";
+  }
+
+  if (licenseData.usingMongoCache && licenseData.dateUpdated) {
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // 7 days
+    if (new Date(licenseData.dateUpdated) < oneWeekAgo) {
+      return "License server down for too long";
+    }
+  }
+
+  if (
+    process.env.SSO_CONFIG &&
+    !planHasPremiumFeature(licenseData.plan, "sso")
+  ) {
+    // Trying to use SSO, but the plan doesn't support it
+    // We throw the error here, otherwise they would still be able to use SSO on free plans with only a warning.
+    throw new Error(
+      "Your license does not support SSO. Either upgrade to enterprise or remove SSO_CONFIG environment variable."
+    );
+  }
+
+  if (
+    stringToBoolean(process.env.IS_MULTI_ORG) &&
+    !planHasPremiumFeature(licenseData.plan, "multi-org")
+  ) {
+    // Trying to use IS_MULTI_ORG, but the plan doesn't support it
+    return "No support for multi-org";
+  }
+
+  if (shouldLimitAccessDueToExpiredLicense(licenseData)) {
+    return "License expired";
   }
 
   if (!isAirGappedLicenseKey(org.licenseKey) && !licenseData.emailVerified) {
-    return true;
+    return "Email not verified";
   }
 
   if (
@@ -808,14 +807,14 @@ function shouldLimitAccess(org: MinimalOrganization): boolean {
     licenseData?.organizationId &&
     org.id !== licenseData.organizationId
   ) {
-    return true;
+    return "Invalid license";
   }
 
   if (licenseData?.remoteDowngrade) {
-    return true;
+    return "License invalidated";
   }
 
-  return false;
+  return "";
 }
 
 export function isAirGappedLicenseKey(licenseKey: string | undefined): boolean {
@@ -835,7 +834,7 @@ export function getEffectiveAccountPlan(org: MinimalOrganization): AccountPlan {
     basicPlan = "oss";
   }
 
-  const hasError = shouldLimitAccess(org);
+  const hasError = getLicenseError(org);
   if (hasError) {
     return basicPlan;
   }

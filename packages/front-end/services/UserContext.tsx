@@ -32,12 +32,18 @@ import {
 import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { Permissions, userHasPermission } from "shared/permissions";
-import { isCloud, isMultiOrg, isSentryEnabled } from "@/services/env";
+import {
+  getApiHost,
+  isCloud,
+  isMultiOrg,
+  isSentryEnabled,
+} from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
 import track from "@/services/track";
 import { AppFeatures } from "@/types/app-features";
 import { sha256 } from "@/services/utils";
+import Modal from "@/components/Modal";
 
 type OrgSettingsResponse = {
   organization: OrganizationInterface;
@@ -48,6 +54,7 @@ type OrgSettingsResponse = {
   enterpriseSSO: SSOConnectionInterface | null;
   accountPlan: AccountPlan;
   effectiveAccountPlan: AccountPlan;
+  licenseError: string;
   commercialFeatures: CommercialFeature[];
   license: LicenseInterface;
   licenseKey?: string;
@@ -108,6 +115,7 @@ export interface UserContextValue {
   enterpriseSSO?: SSOConnectionInterface;
   accountPlan?: AccountPlan;
   effectiveAccountPlan?: AccountPlan;
+  licenseError: string;
   commercialFeatures: CommercialFeature[];
   apiKeys: ApiKeyInterface[];
   organization: Partial<OrganizationInterface>;
@@ -145,6 +153,7 @@ export const UserContext = createContext<UserContextValue>({
   },
   apiKeys: [],
   organization: {},
+  licenseError: "",
   seatsInUse: 0,
   teams: [],
   hasCommercialFeature: () => false,
@@ -184,6 +193,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   const {
     data: currentOrg,
     mutate: refreshOrganization,
+    error: orgLoadingError,
   } = useApi<OrgSettingsResponse>(isAuthenticated ? `/organization` : null);
 
   const [hashedOrganizationId, setHashedOrganizationId] = useState<string>("");
@@ -261,7 +271,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     };
   }, [orgId, data?.userId, role]);
 
-  // Refresh organization data when switching orgs
+  // Refresh organization data when switching orgs or license key changes
   useEffect(() => {
     if (orgId) {
       void refreshOrganization();
@@ -276,13 +286,6 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     }
     void updateUser();
   }, [isAuthenticated, updateUser]);
-
-  // Refresh org after loading license
-  useEffect(() => {
-    if (orgId) {
-      void refreshOrganization();
-    }
-  }, [orgId, currentOrg?.organization?.licenseKey, refreshOrganization]);
 
   // Update growthbook tarageting attributes
   const growthbook = useGrowthBook<AppFeatures>();
@@ -370,6 +373,32 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     data?.superAdmin || false
   );
 
+  if (orgLoadingError) {
+    return (
+      <Modal
+        header="logo"
+        open={true}
+        cta="Try Again"
+        submit={async () => {
+          try {
+            await refreshOrganization();
+          } catch (e) {
+            setOrgLoadingError(e.message);
+            console.error(e);
+            throw new Error("Still receiving error");
+          }
+        }}
+      >
+        <p>
+          Error getting organization from the GrowthBook API at{" "}
+          <code>{getApiHost()}/organization</code>.
+        </p>
+        <p>Received the following error message:</p>
+        <div className="alert alert-danger">{orgLoadingError.message}</div>
+      </Modal>
+    );
+  }
+
   return (
     <UserContext.Provider
       value={{
@@ -394,6 +423,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         enterpriseSSO: currentOrg?.enterpriseSSO || undefined,
         accountPlan: currentOrg?.accountPlan,
         effectiveAccountPlan: currentOrg?.effectiveAccountPlan,
+        licenseError: currentOrg?.licenseError || "",
         commercialFeatures: currentOrg?.commercialFeatures || [],
         apiKeys: currentOrg?.apiKeys || [],
         // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'OrganizationInterface | undefined' is not as... Remove this comment to see the full error message

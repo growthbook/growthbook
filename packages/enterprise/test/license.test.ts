@@ -6,6 +6,7 @@ import {
   licenseInit,
   getLicense,
   resetInMemoryLicenseCache,
+  getLicenseError,
 } from "../src/license";
 import { LicenseModel } from "../src/models/licenseModel";
 
@@ -14,7 +15,7 @@ jest.mock("../src/models/licenseModel");
 
 const mockedFetch = fetch as jest.MockedFunction<typeof fetch>;
 
-describe("licenseInit and getLicense", () => {
+describe("licenseInit, getLicense, and getLicenseError", () => {
   const env = process.env;
   const userLicenseCodes = ["code1", "code2"];
   const metaData = {
@@ -34,6 +35,7 @@ describe("licenseInit and getLicense", () => {
     seats: 1,
     isTrial: true,
     plan: "starter",
+    emailVerified: true,
     archived: false,
     dateCreated: "2023-11-10T17:15:11.274Z",
     dateExpires: "2024-10-23T00:00:00.000Z",
@@ -54,28 +56,6 @@ describe("licenseInit and getLicense", () => {
     "DHUuQecjo2Q4NDY3Xz69d6SR2n7lvmf2YL8Nbg8no3-YGN3tv4x8T1saKA5lHcW2VDTH9OXSLHNZNIMZFZUu-a6kZigC8QHykYOHYomyBzOzwjrbH2iSoLcEhucyyWzKAts6wWGrSkyjosXD1tFi9O1loShdmKc16hTunt4NNOHRmJ_ae-V8fWiQHPVrZ7c9tHrcCbXPgONvcNBYq4GRC-mx2aVH1rXoxDQe0sbwHFlOoRbDshPmfR7LBSWbPgQ_ptI8jlaJ1Jko_IClK2EsZYthGfcNjnZOPXz2_Kiwd6U7VY0uMBd6YvWj-rsd5vgTQUaiXl7CRJp3Y6ZDqdLvz1lQOMWw7gOxh_T3djYStWsNcCVBXQn5fqG-81AOY_hsABG21sM8XR4Or8JwmjEWHsjI0pObgD-bptEcTJhMmLQaLnoj77IyRNwQJeVVMm3DKpayugFBSZp71FrhNvfI2hv92QTzaN6OludkfUGspI-_aFbfP2m69xwVf-f0r2iELzlkOB-aCsK1daltFeDD-F1m-Bc-Do3NVrquM4mMuYkvJ9G2OxVO_lioCLE4f_BwawB71BXLQRrGxsV8mF6F3ZST0pytfZSlSkX5iHBVFTE8J2eIlcZXuMgh6Jj2ZS1qCiAsUn6EknEE1GcemOHbykkxNG_835Iati3Y4obBx3k";
 
   const now = new Date("2023-11-21T12:08:12.610Z");
-
-  async function testSSOError(licenseKey) {
-    process.env.SSO_CONFIG = "true";
-
-    expect.assertions(1);
-
-    await expect(
-      licenseInit(licenseKey, userLicenseCodes, metaData)
-    ).rejects.toThrowError("Your License Key does not support SSO.");
-  }
-
-  async function testMultiOrgError(licenseKey) {
-    process.env.IS_MULTI_ORG = "true";
-
-    expect.assertions(1);
-
-    await expect(
-      licenseInit(licenseKey, userLicenseCodes, metaData)
-    ).rejects.toThrowError(
-      "Your License Key does not support multiple organizations."
-    );
-  }
 
   beforeEach(() => {
     jest.resetModules();
@@ -102,6 +82,54 @@ describe("licenseInit and getLicense", () => {
 
     expect(result).toBeUndefined();
     expect(getLicense()).toBeNull();
+  });
+
+  describe("getLicenseError", () => {
+    const org = { id: "org_id", licenseKey };
+
+    describe("when there is no license", () => {
+      it("should not have an error if there is no license", () => {
+        expect(getLicenseError(org)).toBe("");
+      });
+    });
+
+    describe("when there is a valid license on the org", () => {
+      beforeEach(() => {
+        const mockedResponse: Response = ({
+          ok: true,
+          json: jest.fn().mockResolvedValueOnce(licenseData),
+        } as unknown) as Response;
+
+        mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
+        licenseInit(licenseKey, userLicenseCodes, metaData);
+      });
+
+      afterEach(() => {
+        mockedFetch.mockReset();
+      });
+
+      it("should not have an error if the license is valid", () => {
+        expect(getLicenseError(org)).toBe("");
+      });
+
+      it("should throw an error if SSO is enabled but the license does not support it", () => {
+        process.env.SSO_CONFIG = "true";
+
+        expect.assertions(1);
+
+        expect(() => {
+          getLicenseError(org);
+        }).toThrowError(
+          "Your license does not support SSO. Either upgrade to enterprise or remove SSO_CONFIG environment variable."
+        );
+      });
+
+      it("should return multi org error if the license does not support multi org", () => {
+        process.env.IS_MULTI_ORG = "true";
+
+        expect(getLicenseError(org)).toBe("No support for multi-org");
+      });
+    });
   });
 
   describe("new style licenses where licenseKey starts with 'license_'", () => {
@@ -351,12 +379,20 @@ describe("licenseInit and getLicense", () => {
         expect(fetch).toHaveBeenCalledTimes(2);
       });
 
-      it("should throw an error if the plan does not support sso but the env var says it is enabled", async () => {
-        await testSSOError(licenseKey);
-      });
+      it("should throw an error if the data doesn't match the signature", async () => {
+        mockedFetch.mockReset(); // this test's fetch result should be different from the others
+        const licenseDateWithBadSignature = cloneDeep(licenseData);
+        licenseDateWithBadSignature.signedChecksum = "bad signature";
+        const mockedResponse3: Response = ({
+          ok: true,
+          json: jest.fn().mockResolvedValueOnce(licenseDateWithBadSignature),
+        } as unknown) as Response; // Create a mock Response object
 
-      it("should throw an error if the plan does not support multi-org but the env var says it is enabled", async () => {
-        await testMultiOrgError(licenseKey);
+        mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse3));
+
+        await expect(
+          async () => await licenseInit(licenseKey, userLicenseCodes, metaData)
+        ).rejects.toThrowError("Invalid license key signature");
       });
     });
 
@@ -417,14 +453,6 @@ describe("licenseInit and getLicense", () => {
           ).rejects.toThrowError(
             "License server is not working and cached license data is too old"
           );
-        });
-
-        it("should throw an error if the plan does not support sso but the env var says it is enabled", async () => {
-          await testSSOError(licenseKey);
-        });
-
-        it("should throw an error if the plan does not support multi-org but the env var says it is enabled", async () => {
-          await testMultiOrgError(licenseKey);
         });
       });
     });
@@ -555,14 +583,6 @@ describe("licenseInit and getLicense", () => {
       const expected = cloneDeep(oldLicenseData);
       expected.plan = "enterprise";
       expect(getLicense(oldLicenseKey)).toEqual(expected);
-    });
-
-    it("should throw an error if the plan does not support sso but the env var says it is enabled", async () => {
-      await testSSOError(oldLicenseKey);
-    });
-
-    it("should throw an error if the plan does not support multi-org but the env var says it is enabled", async () => {
-      await testMultiOrgError(oldLicenseKey);
     });
   });
 });
