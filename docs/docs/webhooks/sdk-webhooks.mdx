@@ -6,7 +6,7 @@ GrowthBook has SDK-based webhooks that trigger a script on your server whenever 
 
 When logged into GrowthBook as an admin, navigate to **SDK Connections** .
 
-Under the SDK Webhooks section you can add a webhook endpoint and select with method you would like to be notified with `POST,PUT,GET,DELETE,PURGE`.
+Under the SDK Webhooks section you can add a webhook endpoint and select with method you would like to be notified with `POST, PUT, GET, DELETE, PURGE`.
 
 Once a SDK webhook is created you will be able to view the secret and when the last time it was fired as well as if there was an error.
 
@@ -25,7 +25,7 @@ when comparing the signatures, you should remove the `whsec_` prefix from the se
 
 Here is example code in NodeJS for verifying the signature. Other languages should be similar:
 
-```
+```js
 const crypto = require("crypto");
 const express = require("express");
 const bodyParser = require("body-parser");
@@ -40,10 +40,11 @@ app.post(
   "/webhook",
   bodyParser.raw({ type: "application/json" }),
   (req, res) => {
-		//if there is no payload sent the hash is based on an empty string
+    // if there is no payload sent, the hash is based on an empty string
     const payload = req.body?.data?.payload || "";
-    const received = req.get("webhook-secret");
-    if (received && received.startsWith("whsec_")) {
+    const webhookSecret = req.get("webhook-secret");
+
+    if (webhookSecret && webhookSecret.startsWith("whsec_")) {
       const signingKey = received.split("whsec_")[1];
       const computed = crypto
         .createHmac("sha256", GROWTHBOOK_WEBHOOK_SECRET)
@@ -60,9 +61,9 @@ app.post(
     }
 
     const data = JSON.parse(payload);
-// TODO: Do something with the webhook data
+    // TODO: Do something with the webhook data
 
-// Make sure to respond with a 200 status code
+    // Make sure to respond with a 200 status code
     res.status(200).send("");
   }
 );
@@ -72,7 +73,7 @@ app.listen(port, () => {
 });
 ```
 
-## **Errors and Retries**
+## Errors and Retries
 
 If your endpoint returns any HTTP status besides `200`, the webhook will be considered failed.
 
