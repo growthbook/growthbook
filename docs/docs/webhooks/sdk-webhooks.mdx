@@ -2,7 +2,7 @@
 
 GrowthBook has SDK-based webhooks that trigger a script on your server whenever something changes within GrowthBook which will affect that SDK.
 
-## **Adding a Webhook[](http://localhost:3200/app/webhooks/event-webhooks#adding-a-webhook)**
+## Adding a Webhook
 
 When logged into GrowthBook as an admin, navigate to **SDK Connections** .
 
@@ -10,11 +10,11 @@ Under the SDK Webhooks section you can add a webhook endpoint and select with me
 
 Once a SDK webhook is created you will be able to view the secret and when the last time it was fired as well as if there was an error.
 
-### **VPCs and Firewalls[](http://localhost:3200/app/webhooks/event-webhooks#vpcs-and-firewalls)**
+### VPCs and Firewalls
 
 If your webhook endpoint is behind a firewall and you are using GrowthBook Cloud, make sure to whitelist the ip address `52.70.79.40`.
 
-## **Verify Signatures[](http://localhost:3200/app/webhooks/event-webhooks#verify-signatures)**
+## Verify Signatures
 
 Webhook payloads are signed with a shared secret so you can verify they actually came from GrowthBook. The signature is passed in a `webhook-secret` header.
 we are using the `whsec_` Prefix to help identify your crypto method. example `webhook-secret:"whsec_iM0hCLU0fZc885zfkFPX3UJwSHbYyam9ji0WglnT3fc="`
@@ -77,9 +77,9 @@ If your endpoint returns any HTTP status besides `200`, the webhook will be con
 
 Failed webhooks are tried a total of 3 times using an exponential back-off between attempts.
 
-You can view the status of your webhooks in the GrowthBook app under **SDK Connections→** .
+You can view the status of your webhooks in the GrowthBook app under **SDK Connections** .
 
-## **Supported HTTP Types[](http://localhost:3200/app/webhooks/event-webhooks#supported-event-types)**
+## Supported HTTP Types
 
 - **POST**
 - **PUT**
@@ -87,7 +87,7 @@ You can view the status of your webhooks in the GrowthBook app under **SDK Conn
 - **DELETE**
 - **PURGE**
 
-### **Sending Payload[](http://localhost:3200/app/webhooks/event-webhooks#payload)**
+### Sending Payload
 
 SDK Webhooks will send the payload to the endpoint **except GET.** In body is a JSON object containing feature definitions in the same format that SDKs are expecting.
 
