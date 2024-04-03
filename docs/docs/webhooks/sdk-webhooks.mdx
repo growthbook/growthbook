@@ -18,7 +18,7 @@ If your webhook endpoint is behind a firewall and you are using GrowthBook Cloud
 
 Webhook payloads are signed with a shared secret so you can verify they actually came from GrowthBook. The signature is passed in a `webhook-secret` header.
 we are using the `whsec_` Prefix to help identify your crypto method. example `webhook-secret:"whsec_iM0hCLU0fZc885zfkFPX3UJwSHbYyam9ji0WglnT3fc="`.
-The signature is a HMAC SHA-256 hash of the payload using the secret as the key. The secret is the secret key that is generated when you create a webhook. You can find the secret key in the GrowthBook app under SDK Connections.
+The signature is a HMAC SHA-256 hash of the payload using the secret as the key. The secret is the secret key that is generated when you create a webhook. ou can find the secret key in the GrowthBook app under SDK Connections.
 
 Growthbook signs based on the payload that is returned to ensure its integrity. This means that if you do not receive any payload back, and you have the option turned off, we sign based on an empty string as no data is getting passed around.
 when comparing the signatures, you should remove the `whsec_` prefix from the secret key. as `whsec_` is just a prefix to help identify the crypto method.
@@ -31,7 +31,7 @@ const express = require("express");
 const bodyParser = require("body-parser");
 
 // Retrieve from GrowthBook settings
-const GROWTHBOOK_WEBHOOK_SECRET = "abc123";
+const GROWTHBOOK_WEBHOOK_SECRET = "wk_123A5341464B3A13";
 
 const port = 1337;
 const app = express();
@@ -41,12 +41,12 @@ app.post(
   bodyParser.raw({ type: "application/json" }),
   (req, res) => {
 		//if there is no payload sent the hash is based on an empty string
-    const payload = req.body?.data?.payload || new Buffer("");
+    const payload = req.body?.data?.payload || "";
     const received = req.get("webhook-secret");
     if (received && received.startsWith("whsec_")) {
       const signingKey = received.split("whsec_")[1];
       const computed = crypto
-        .createHmac("sha256", signingKey || "")
+        .createHmac("sha256", GROWTHBOOK_WEBHOOK_SECRET)
         .update(payload)
         .digest("hex");
 
