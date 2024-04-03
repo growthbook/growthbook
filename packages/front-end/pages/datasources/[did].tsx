@@ -19,7 +19,6 @@ import { ExperimentAssignmentQueries } from "@/components/Settings/EditDataSourc
 import { DataSourceViewEditExperimentProperties } from "@/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceViewEditExperimentProperties";
 import { DataSourceJupyterNotebookQuery } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/DataSourceJupyterNotebookQuery";
 import ProjectBadges from "@/components/ProjectBadges";
-import usePermissions from "@/hooks/usePermissions";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import DataSourceForm from "@/components/Settings/DataSourceForm";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -31,6 +30,7 @@ import DataSourcePipeline from "@/components/Settings/EditDataSource/DataSourceP
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -40,7 +40,7 @@ function quotePropertyName(name: string) {
 }
 
 const DataSourcePage: FC = () => {
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const [editConn, setEditConn] = useState(false);
   const [viewSchema, setViewSchema] = useState(false);
   const router = useRouter();
@@ -56,17 +56,14 @@ const DataSourcePage: FC = () => {
   const { apiCall } = useAuth();
   const { organization, hasCommercialFeature } = useUser();
 
-  const canEdit =
-    (d &&
-      permissions.check("editDatasourceSettings", d.projects || []) &&
-      !hasFileConfig()) ||
+  const canDelete = (d && permissionsUtil.canDeleteDataSource(d)) || false;
+
+  const canUpdateConnectionParams =
+    (d && permissionsUtil.canUpdateDataSourceParams(d) && !hasFileConfig()) ||
     false;
 
-  const canEditAndDelete =
-    (d &&
-      permissions.check("createDatasources", d.projects || []) &&
-      !hasFileConfig()) ||
-    false;
+  const canUpdateDataSourceSettings =
+    (d && permissionsUtil.canUpdateDataSourceSettings(d)) || false;
 
   const pipelineEnabled =
     useFeatureIsOn("datasource-pipeline-mode") &&
@@ -195,58 +192,60 @@ const DataSourcePage: FC = () => {
       <div className="row">
         <div className="col-md-12">
           <div className="mb-3">
-            {canEdit && (
-              <div className="d-md-flex w-100 justify-content-between">
-                <div>
-                  {canEditAndDelete ? (
-                    <button
-                      className="btn btn-outline-primary mr-2 mt-1 font-weight-bold"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setEditConn(true);
-                      }}
+            {canUpdateConnectionParams ||
+              canUpdateDataSourceSettings ||
+              (canDelete && (
+                <div className="d-md-flex w-100 justify-content-between">
+                  <div>
+                    {canUpdateConnectionParams ? (
+                      <button
+                        className="btn btn-outline-primary mr-2 mt-1 font-weight-bold"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setEditConn(true);
+                        }}
+                      >
+                        <FaKey /> Edit Connection Info
+                      </button>
+                    ) : null}
+                    <DocLink
+                      className="btn btn-outline-secondary mr-2 mt-1 font-weight-bold"
+                      docSection={d.type as DocSection}
+                      fallBackSection="datasources"
                     >
-                      <FaKey /> Edit Connection Info
-                    </button>
-                  ) : null}
-                  <DocLink
-                    className="btn btn-outline-secondary mr-2 mt-1 font-weight-bold"
-                    docSection={d.type as DocSection}
-                    fallBackSection="datasources"
-                  >
-                    <FaExternalLinkAlt /> View Documentation
-                  </DocLink>
-                  {d?.properties?.supportsInformationSchema && (
-                    <button
-                      className="btn btn-outline-info mr-2 mt-1 font-weight-bold"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setViewSchema(true);
-                      }}
-                    >
-                      <FaDatabase /> View Schema Browser
-                    </button>
-                  )}
-                </div>
+                      <FaExternalLinkAlt /> View Documentation
+                    </DocLink>
+                    {d?.properties?.supportsInformationSchema && (
+                      <button
+                        className="btn btn-outline-info mr-2 mt-1 font-weight-bold"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setViewSchema(true);
+                        }}
+                      >
+                        <FaDatabase /> View Schema Browser
+                      </button>
+                    )}
+                  </div>
 
-                <div>
-                  {canEditAndDelete && (
-                    <DeleteButton
-                      displayName={d.name}
-                      className="font-weight-bold mt-1"
-                      text={`Delete "${d.name}" Datasource`}
-                      onClick={async () => {
-                        await apiCall(`/datasource/${d.id}`, {
-                          method: "DELETE",
-                        });
-                        mutateDefinitions({});
-                        router.push("/datasources");
-                      }}
-                    />
-                  )}
+                  <div>
+                    {canDelete && (
+                      <DeleteButton
+                        displayName={d.name}
+                        className="font-weight-bold mt-1"
+                        text={`Delete "${d.name}" Datasource`}
+                        onClick={async () => {
+                          await apiCall(`/datasource/${d.id}`, {
+                            method: "DELETE",
+                          });
+                          mutateDefinitions({});
+                          router.push("/datasources");
+                        }}
+                      />
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              ))}
           </div>
           {!d.properties?.hasSettings && (
             <div className="alert alert-info">
@@ -260,7 +259,7 @@ const DataSourcePage: FC = () => {
                   dataSource={d}
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
-                  canEdit={canEdit}
+                  canEdit={canUpdateConnectionParams}
                 />
               </div>
 
@@ -323,7 +322,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
                   dataSource={d}
-                  canEdit={canEdit}
+                  canEdit={canUpdateConnectionParams}
                 />
               </div>
 
@@ -333,7 +332,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     dataSource={d}
                     onSave={updateDataSourceSettings}
                     onCancel={() => undefined}
-                    canEdit={canEdit}
+                    canEdit={canUpdateConnectionParams}
                   />
                 </div>
               ) : null}
@@ -343,11 +342,14 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   dataSource={d}
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
-                  canEdit={canEdit}
+                  canEdit={canUpdateConnectionParams}
                 />
               </div>
               <div className="my-3 p-3 rounded border bg-white">
-                <DataSourceMetrics dataSource={d} canEdit={canEdit} />
+                <DataSourceMetrics
+                  dataSource={d}
+                  canEdit={canUpdateConnectionParams}
+                />
               </div>
 
               <div className="my-3 p-3 rounded border bg-white">
@@ -355,7 +357,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   dataSource={d}
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
-                  canEdit={canEdit}
+                  canEdit={canUpdateConnectionParams}
                 />
               </div>
 
@@ -365,7 +367,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     dataSource={d}
                     onSave={updateDataSourceSettings}
                     onCancel={() => undefined}
-                    canEdit={canEdit}
+                    canEdit={canUpdateConnectionParams}
                   />
                 </div>
               ) : null}

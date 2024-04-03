@@ -2,6 +2,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import { MetricInterface } from "back-end/types/metric";
 import { Permission, UserPermissions } from "back-end/types/organization";
 import { IdeaInterface } from "back-end/types/idea";
+import { DataSourceInterface } from "back-end/types/datasource";
 import { READ_ONLY_PERMISSIONS } from "./permissions.utils";
 class PermissionError extends Error {
   constructor(message: string) {
@@ -17,6 +18,42 @@ export class Permissions {
     this.userPermissions = permissions;
     this.superAdmin = superAdmin;
   }
+
+  public canViewCreateDataSourceModal = (project?: string): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: project ? [project] : [],
+      },
+      "createDatasources"
+    );
+  };
+
+  public canCreateDataSource = (
+    datasource: Pick<DataSourceInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(datasource, "createDatasources");
+  };
+
+  public canUpdateDataSourceParams = (
+    datasource: Pick<DataSourceInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(datasource, "createDatasources");
+  };
+
+  public canUpdateDataSourceSettings = (
+    datasource: Pick<DataSourceInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      datasource,
+      "editDatasourceSettings"
+    );
+  };
+
+  public canDeleteDataSource = (
+    datasource: Pick<DataSourceInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(datasource, "createDatasources");
+  };
 
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
   public canViewIdeaModal = (project?: string): boolean => {

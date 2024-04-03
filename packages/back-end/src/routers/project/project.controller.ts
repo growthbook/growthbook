@@ -178,7 +178,9 @@ export const deleteProject = async (
   // Clean up data sources
   if (deleteDataSources) {
     try {
-      req.checkPermissions("createDatasources", id);
+      if (!context.permissions.canDeleteDataSource({ projects: [id] })) {
+        context.permissions.throwPermissionError();
+      }
 
       await deleteAllDataSourcesForAProject({
         projectId: id,

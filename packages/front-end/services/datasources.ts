@@ -672,20 +672,3 @@ export function validateSQL(sql: string, requiredColumns: string[]): void {
     );
   }
 }
-
-export function checkDatasourceProjectPermissions(
-  datasource: DataSourceInterfaceWithParams,
-  permissions: Record<GlobalPermission, boolean> & PermissionFunctions,
-  permission: ProjectScopedPermission
-): boolean {
-  let hasPermission = true;
-  if (datasource?.projects?.length) {
-    for (const project of datasource.projects) {
-      hasPermission = permissions.check(permission, project);
-      if (!hasPermission) break;
-    }
-  } else {
-    hasPermission = permissions.check(permission, "");
-  }
-  return hasPermission;
-}

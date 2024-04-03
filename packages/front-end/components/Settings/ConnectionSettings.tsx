@@ -129,6 +129,7 @@ export default function ConnectionSettings({
           setParams={setParams}
           params={datasource?.params || {}}
           error={hasError}
+          projects={datasource?.projects || []}
         />
       );
 
