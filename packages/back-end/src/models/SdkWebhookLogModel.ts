@@ -18,6 +18,11 @@ const sdkWebHookLogSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  /** @deprecated */
+  webhookReduestId: {
+    type: String,
+    required: false,
+  },
   webhookRequestId: {
     type: String,
     required: true,
