@@ -1,34 +1,29 @@
----
-title: SDK Webhooks
-description: Webhooks SDK
-sidebar_label: SDK Webhooks
-slug: /app/webhooks/sdk-webhooks
----
-
 # SDK Webhooks
 
-GrowthBook has event-based webhooks that trigger a script on your server whenever something changes within GrowthBook.
+GrowthBook has SDK-based webhooks that trigger a script on your server whenever something changes within GrowthBook which will affect that SDK.
 
-## Adding a Webhook
+## **Adding a Webhook[](http://localhost:3200/app/webhooks/event-webhooks#adding-a-webhook)**
 
-When logged into GrowthBook as an admin, navigate to **SDK Configuration → SDK Connections**.
+When logged into GrowthBook as an admin, navigate to **SDK Connections** .
 
-Under the SDK Webhooks section you can add a webhook endpoint and select with method you would like to be notified with `POST, PUT, GET, DELETE, PURGE`.
+Under the SDK Webhooks section you can add a webhook endpoint and select with method you would like to be notified with `POST,PUT,GET,DELETE,PURGE`.
 
-Once a SDK webhook is created you will be able to view the secrete and when the last time it was fired as well as if there was an error.
+Once a SDK webhook is created you will be able to view the secret and when the last time it was fired as well as if there was an error.
 
-### VPCs and Firewalls
+### **VPCs and Firewalls[](http://localhost:3200/app/webhooks/event-webhooks#vpcs-and-firewalls)**
 
-If your webhook endpoint is behind a firewall and you are using GrowthBook Cloud, make sure to whitelist the ip address `52.70.79.40`.
+If your webhook endpoint is behind a firewall and you are using GrowthBook Cloud, make sure to whitelist the ip address `52.70.79.40`.
 
-## Verify Signatures
+## **Verify Signatures[](http://localhost:3200/app/webhooks/event-webhooks#verify-signatures)**
 
-Webhook payloads are signed with a shared secret so you can verify they actually came from GrowthBook. The signature is passed in a `webhook-secret` header.
-We are using the `whsec_` prefix to help identify the crypto encoding method. For example: `webhook-secret:"whsec_iM0hCLU0fZc885zfkFPX3UJwSHbYyam9ji0WglnT3fc="`
+Webhook payloads are signed with a shared secret so you can verify they actually came from GrowthBook. The signature is passed in a `webhook-secret` header.
+we are using the `whsec_` Prefix to help identify your crypto method. example `webhook-secret:"whsec_iM0hCLU0fZc885zfkFPX3UJwSHbYyam9ji0WglnT3fc="`
+
+Growthbook signs based on the payload that is returned to ensure its integrity. This means that if you do not receive any payload back, and you have the option turned off, we sign based on an empty string as no data is getting passed around.
 
 Here is example code in NodeJS for verifying the signature. Other languages should be similar:
 
-```js
+```
 const crypto = require("crypto");
 const express = require("express");
 const bodyParser = require("body-parser");
@@ -43,13 +38,14 @@ app.post(
   "/webhook",
   bodyParser.raw({ type: "application/json" }),
   (req, res) => {
-    const payload = req.body;
+		//if there is no payload sent the hash is based on an empty string
+    const payload = req.body?.data?.payload || new Buffer("");
     const received = req.get("webhook-secret");
     if (received && received.startsWith("whsec_")) {
       const signingKey = received.split("whsec_")[1];
       const computed = crypto
         .createHmac("sha256", signingKey || "")
-        .update(res.locals.rawBody || new Buffer(""))
+        .update(payload)
         .digest("hex");
 
       if (
@@ -62,9 +58,9 @@ app.post(
     }
 
     const data = JSON.parse(payload);
-    // TODO: Do something with the webhook data
+// TODO: Do something with the webhook data
 
-    // Make sure to respond with a 200 status code
+// Make sure to respond with a 200 status code
     res.status(200).send("");
   }
 );
@@ -74,15 +70,15 @@ app.listen(port, () => {
 });
 ```
 
-## Errors and Retries
+## **Errors and Retries[](http://localhost:3200/app/webhooks/event-webhooks#errors-and-retries)**
 
-If your endpoint returns any HTTP status besides `200`, the webhook will be considered failed.
+If your endpoint returns any HTTP status besides `200`, the webhook will be considered failed.
 
 Failed webhooks are tried a total of 3 times using an exponential back-off between attempts.
 
-You can view the status of your webhooks in the GrowthBook app under **SDK Connections**.
+You can view the status of your webhooks in the GrowthBook app under **SDK Connections→** .
 
-## Supported HTTP Types
+## **Supported HTTP Types[](http://localhost:3200/app/webhooks/event-webhooks#supported-event-types)**
 
 - **POST**
 - **PUT**
@@ -90,20 +86,36 @@ You can view the status of your webhooks in the GrowthBook app under **SDK Conne
 - **DELETE**
 - **PURGE**
 
-### Sending Payload
+### **Sending Payload[](http://localhost:3200/app/webhooks/event-webhooks#payload)**
 
-SDK Webhooks will optionally send the payload to the endpoint **except GET.** In body is a JSON object containing feature definitions in the same format that SDKs are expecting.
+SDK Webhooks will send the payload to the endpoint **except GET.** In body is a JSON object containing feature definitions in the same format that SDKs are expecting.
 
 Here's an example payload:
 
 ```json
 {
-  "timestamp": 1625098156,
-  "features": {
-    "feature1": {
-      "defaultValue": true
-    }
-  }
+	"type": "payload.changed",
+	"timestamp": "2024-04-03T01:54:20.449Z",
+	"data":{
+		"payload":{
+		  "timestamp": 1625098156,
+		  "features": {
+		    "feature1": {
+		      "defaultValue": true
+		    }
+		  }
+		}
+	}
 }
-
 ```
+
+The`features` field has one entry per feature definition. Features can have the following properties:
+
+- **defaultValue**
+- **rules[]** - Array of feature rules
+  - **condition** - A JSON condition using MongoDB query syntax
+  - **force** - Force a specific value, takes precedence over all other rules besides `condition`
+  - **variations[]** - Run an experiment and randomly assign one of the specified variations
+  - **key** - When running an experiment, this is the experiment key that will be passed to the tracking callback function
+  - **weights[]** - Determines how traffic is split between variations in an experiment
+  - **coverage** - Specifies what sampling rate (0 to 1) to use for including users in an experiment. A rate of `1` means everyone is included. A rate of `0` means no one is.
