@@ -4,6 +4,7 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import { SdkWebHookLogDocument } from "@back-end/src/models/SdkWebhookLogModel";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import {
   DataSourceInterface,
@@ -735,4 +736,14 @@ export function migrateSavedGroup(
   }
 
   return group;
+}
+
+export function migrateSdkWebhookLogModel(
+  doc: SdkWebHookLogDocument
+): SdkWebHookLogDocument {
+  if (doc?.webhookRequestId) {
+    doc.webhookRequestId = doc.webhookReduestId;
+    delete doc.webhookReduestId;
+  }
+  return doc;
 }

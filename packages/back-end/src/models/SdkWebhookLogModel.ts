@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import omit from "lodash/omit";
 import mongoose from "mongoose";
+import { migrateSdkWebhookLogModel } from "@back-end/src/util/migrations";
 import { SdkWebHookLogInterface } from "../../types/sdk-webhook-log";
 
 const sdkWebHookLogSchema = new mongoose.Schema({
@@ -46,10 +47,12 @@ const sdkWebHookLogSchema = new mongoose.Schema({
 
 sdkWebHookLogSchema.index({ eventWebHookId: 1 });
 
-type SdkWebHookLogDocument = mongoose.Document & SdkWebHookLogInterface;
+export type SdkWebHookLogDocument = mongoose.Document & SdkWebHookLogInterface;
 
-const toInterface = (doc: SdkWebHookLogDocument): SdkWebHookLogDocument =>
-  omit(doc.toJSON(), ["__v", "_id"]) as SdkWebHookLogDocument;
+const toInterface = (doc: SdkWebHookLogDocument): SdkWebHookLogDocument => {
+  const asJson = omit(doc.toJSON(), ["__v", "_id"]) as SdkWebHookLogDocument;
+  return migrateSdkWebhookLogModel(asJson);
+};
 
 const SdkWebHookLogModel = mongoose.model<SdkWebHookLogInterface>(
   "SdkWebHookLog",
