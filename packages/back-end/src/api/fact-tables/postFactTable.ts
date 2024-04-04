@@ -1,3 +1,4 @@
+import { validateFactTableProjects } from "../../services/fact-tables";
 import { CreateFactTableProps } from "../../../types/fact-table";
 import { PostFactTableResponse } from "../../../types/openapi";
 import { queueFactTableColumnsRefresh } from "../../jobs/refreshFactTableColumns";
@@ -13,6 +14,17 @@ import { postFactTableValidator } from "../../validators/openapi";
 
 export const postFactTable = createApiRequestHandler(postFactTableValidator)(
   async (req): Promise<PostFactTableResponse> => {
+    const data: CreateFactTableProps = {
+      columns: [],
+      eventName: "",
+      id: "",
+      description: "",
+      owner: "",
+      projects: [],
+      tags: [],
+      ...req.body,
+    };
+
     req.checkPermissions("manageFactTables", req.body.projects || []);
 
     const datasource = await getDataSourceById(
@@ -22,6 +34,8 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
     if (!datasource) {
       throw new Error("Could not find datasource");
     }
+
+    validateFactTableProjects(datasource.projects || [], data.projects);
 
     // Validate projects
     if (req.body.projects?.length) {
@@ -46,17 +60,6 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
         }
       }
     }
-
-    const data: CreateFactTableProps = {
-      columns: [],
-      eventName: "",
-      id: "",
-      description: "",
-      owner: "",
-      projects: [],
-      tags: [],
-      ...req.body,
-    };
 
     const factTable = await createFactTable(req.context, data);
     await queueFactTableColumnsRefresh(factTable);

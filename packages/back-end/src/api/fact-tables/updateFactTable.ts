@@ -1,3 +1,4 @@
+import { validateFactTableProjects } from "../../services/fact-tables";
 import { UpdateFactTableProps } from "../../../types/fact-table";
 import { UpdateFactTableResponse } from "../../../types/openapi";
 import { queueFactTableColumnsRefresh } from "../../jobs/refreshFactTableColumns";
@@ -25,6 +26,14 @@ export const updateFactTable = createApiRequestHandler(
       req.checkPermissions("manageFactTables", req.body.projects);
     }
 
+    const datasource = await getDataSourceById(
+      req.context,
+      factTable.datasource
+    );
+    if (!datasource) {
+      throw new Error("Could not find datasource for this fact table");
+    }
+
     // Validate projects
     if (req.body.projects?.length) {
       const projects = await findAllProjectsByOrganization(req.context);
@@ -36,15 +45,12 @@ export const updateFactTable = createApiRequestHandler(
       }
     }
 
+    if (req.body.projects) {
+      validateFactTableProjects(datasource.projects || [], req.body.projects);
+    }
+
     // Validate userIdTypes
     if (req.body.userIdTypes) {
-      const datasource = await getDataSourceById(
-        req.context,
-        factTable.datasource
-      );
-      if (!datasource) {
-        throw new Error("Could not find datasource for this fact table");
-      }
       for (const userIdType of req.body.userIdTypes) {
         if (
           !datasource.settings?.userIdTypes?.some(
