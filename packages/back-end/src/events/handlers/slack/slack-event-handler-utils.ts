@@ -317,17 +317,18 @@ const buildSlackMessageForExperimentWarningEvent = ({
     }
 
     case "multiple-exposures": {
-      const baseText = `${data.usersCount} users (${data.percent}%) saw multiple variations and were automatically removed from results. Check for bugs in your implementation, event tracking, or data pipeline.`;
+      const text = (experimentName: string) =>
+        `Multiple Exposures Warning for experiment ${experimentName}: ${data.usersCount} users (${data.percent}%) saw multiple variations and were automatically removed from results.`;
 
       return {
-        text: `Multiple Exposures Warning for experiment ${data.experimentName}: ${baseText}`,
+        text: text(data.experimentName),
         blocks: [
           {
             type: "section",
             text: {
               type: "mrkdwn",
               text:
-                `Multiple Exposures Warning for experiment *${data.experimentName}*: : ${baseText}` +
+                text(`*${data.experimentName}*`) +
                 getExperimentUrlFormatted(data.experimentId),
             },
           },
@@ -336,17 +337,18 @@ const buildSlackMessageForExperimentWarningEvent = ({
     }
 
     case "srm": {
-      const baseText = `P-value below ${data.threshold}.`;
+      const text = (experimentName: string) =>
+        `Traffic imbalance detected for experiment detected for experiment ${experimentName} : Sample Ratio Mismatch (SRM) p-value below ${data.threshold}.`;
 
       return {
-        text: `Sample Ratio Mismatch (SRM) detected for experiment ${data.experimentName}: ${baseText}`,
+        text: text(data.experimentName),
         blocks: [
           {
             type: "section",
             text: {
               type: "mrkdwn",
               text:
-                `Sample Ratio Mismatch (SRM) detected for experiment for experiment *${data.experimentName}*: : ${baseText}` +
+                text(`*${data.experimentName}*`) +
                 getExperimentUrlFormatted(data.experimentId),
             },
           },
