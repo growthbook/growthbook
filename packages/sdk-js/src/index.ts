@@ -31,6 +31,8 @@ export type {
   StickyExperimentKey,
   StickyAssignments,
   StickyAssignmentsDocument,
+  TrackingData,
+  TrackingCallback,
 } from "./types/growthbook";
 
 export type {
