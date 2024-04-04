@@ -335,10 +335,10 @@ In Azure, register an Application, instead of Enterprise, as we use OpenID Conne
   <div>
     <ol>
       <li>
-        Create a new SSO Application. Browse to the User Authentication -> SSO Applications from the left nav. Choose "Add new Application" from the top left.
+        Create a new SSO Application. Browse to the User Authentication → SSO Applications from the left nav. Choose "Add new Application" from the top left.
       </li>
       <li>
-        Choose a custom application by clicking 'select' under `custom application`, then click next then next again to confirm. 
+        Choose a custom application by clicking 'select' under `custom application`, then click next then next again to confirm.
         <img src="/images/guides/SSO-jumpcloud-1.png" alt="" />
         <img src="/images/guides/SSO-jumpcloud-2.png" alt="" />
       </li>
@@ -354,14 +354,14 @@ In Azure, register an Application, instead of Enterprise, as we use OpenID Conne
       <li>
         This will open a window letting you add additional configuration options for the GrowthBook application. Here are the settings you should set:
         <ul>
-          <li><strong>Grant types</strong>: Select "Refresh Token" and Authentication Code</li> 
+          <li><strong>Grant types</strong>: Select "Refresh Token" and Authentication Code</li>
           <li><strong>Redirect URIs</strong>: <pre>https://app.growthbook.io/oauth/callback</pre></li>
           <li><strong>Client Authentication Type</strong>: Client Secret Basic</li>
           <li><strong>Login URL</strong>: <pre>https://app.growthbook.io</pre></li>
           <li><strong>Attribute Mapping</strong>: Select both email and profile. The defaults for the fields that appear are all that is required.</li>
         </ul>
         <img src="/images/guides/SSO-jumpcloud-6.png" alt="" />
-        Once you have made the above settings, click 'Activate' from the bottom bar. 
+        Once you have made the above settings, click 'Activate' from the bottom bar.
       </li>
       <li>
         You'll then be presented with a modal giving you the client id and client secret. Here you need to record the <strong>Client ID</strong> and <strong>Client Secret</strong>

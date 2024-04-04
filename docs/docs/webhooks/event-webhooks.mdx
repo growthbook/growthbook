@@ -1,20 +1,20 @@
 ---
-title: Webhooks
-description: Webhooks to help you update your cache or take other actions when the state changes on GrowthBook
-sidebar_label: Webhooks
-slug: /app/webhooks
+title: Event Webhooks
+description: Event Webhooks to help you update your cache or take other actions when the state changes on GrowthBook
+sidebar_label: Event Webhooks
+slug: /app/webhooks/event-webhooks
 ---
 
 import ExternalLink from '@site/src/components/ExternalLink'
 import Pill from '@site/src/components/Pill';
 
-# Webhooks <Pill>beta</Pill>
+# Event Webhooks <Pill>beta</Pill>
 
-GrowthBook has event-based webhooks that trigger a script on your server whenever something changes within GrowthBook. It is currently in beta as we add support for more event types and create better documentation and examples.
+GrowthBook has event-based webhooks that trigger a script on your server whenever something changes within GrowthBook.
 
 ## Adding a Webhook
 
-When logged into GrowthBook as an admin, navigate to **Settings -> Webhooks**.
+When logged into GrowthBook as an admin, navigate to **Settings → Webhooks**.
 
 There you can add a webhook endpoint and select which events you want to be notified about.
 
@@ -40,7 +40,7 @@ You can also add your own custom headers. The format of custom headers is a JSON
 ```
 {
   [Header-Name]: "Header Value",
-  ... 
+  ...
 }
 ```
 
@@ -50,7 +50,7 @@ Webhooks can be used to send notifications to slack channels and users with much
 
 First, you need to follow the instruction from the [slack documentation <ExternalLink />](https://api.slack.com/messaging/webhooks) to setup your own slack application and webhooks.
 
-Once you have setup your application on slack, you should be able to copy the application's webhook endpoint. You can then paste it 
+Once you have setup your application on slack, you should be able to copy the application's webhook endpoint. You can then paste it
 as the endpoint URL of your webhook configuration on GrowthBook.
 
 Next, select the `Slack` payload. That's it, your endpoint is ready to send Slack notifications!
