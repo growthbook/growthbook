@@ -520,18 +520,12 @@ export async function putDataSource(
     return;
   }
   // Require higher permissions to change connection settings vs updating query settings
-  const permissionLevel = params
-    ? "createDatasources"
-    : "editDatasourceSettings";
+  const permissionFunction = params
+    ? context.permissions.canUpdateDataSourceParams
+    : context.permissions.canUpdateDataSourceSettings;
 
-  if (permissionLevel === "editDatasourceSettings") {
-    if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
-      context.permissions.throwPermissionError();
-    }
-  } else {
-    if (!context.permissions.canUpdateDataSourceParams(datasource)) {
-      context.permissions.throwPermissionError();
-    }
+  if (!permissionFunction(datasource)) {
+    context.permissions.throwPermissionError();
   }
 
   if (type && type !== datasource.type) {
@@ -585,14 +579,8 @@ export async function putDataSource(
     }
 
     if (updates?.projects?.length) {
-      if (permissionLevel === "editDatasourceSettings") {
-        if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
-          context.permissions.throwPermissionError();
-        }
-      } else {
-        if (!context.permissions.canUpdateDataSourceParams(datasource)) {
-          context.permissions.throwPermissionError();
-        }
+      if (!permissionFunction(datasource)) {
+        context.permissions.throwPermissionError();
       }
     }
 
