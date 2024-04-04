@@ -6,7 +6,6 @@ import numpy as np
 from pydantic.dataclasses import dataclass
 from scipy.stats import norm  # type: ignore
 
-
 from gbstats.messages import (
     BASELINE_VARIATION_ZERO_MESSAGE,
     LOG_APPROXIMATION_INEXACT_MESSAGE,
@@ -25,6 +24,7 @@ from gbstats.models.statistics import (
     QuantileClusteredStatistic,
 )
 from gbstats.frequentist.tests import frequentist_diff, frequentist_variance
+from gbstats.utils import truncated_normal_mean
 
 # Configs
 
@@ -383,14 +383,19 @@ class GaussianEffectABTest(BayesianABTest):
                 self.stat_b.n,
             ],
         )
-        self.mean_diff = mu_b - mu_a
-        self.std_diff = np.sqrt(sd_a**2 + sd_b**2)
-        risk = self.risk
         self.var_diff = frequentist_variance(
             sd_a**2, mu_a, 1, sd_b**2, mu_b, 1, self.relative
         )
         self.std_diff = np.sqrt(self.var_diff)
         self.mean_diff = frequentist_diff(mu_a, mu_b, self.relative)
+
+        # risk is always absolute in gbstats
+        risk = self.get_risk(
+            frequentist_diff(mu_a, mu_b, False),
+            np.sqrt(
+                frequentist_variance(sd_a**2, mu_a, 1, sd_b**2, mu_b, 1, False)
+            ),
+        )
         ctw = self.chance_to_win(self.mean_diff, self.std_diff)
         ci = self.credible_interval(
             self.mean_diff, self.std_diff, self.alpha, log=False
@@ -432,37 +437,11 @@ class GaussianEffectABTest(BayesianABTest):
             mean=mu_1, variance=v, pseudo_n=self.prior_effect.pseudo_n
         )
 
-    @property
-    def risk(self) -> List[float]:
-        truncated_means = [
-            self.truncated_normal_mean(
-                mu=self.mean_diff, sigma=self.std_diff, threshold=0.0, right=r
-            )
-            for r in [False, True]
-        ]
-        return [
-            -1
-            * truncated_mean
-            * np.max(
-                [
-                    float(1e-5),
-                    norm.cdf(0, loc=self.mean_diff, scale=self.std_diff),
-                ]  # type: ignore
-            )
-            for truncated_mean in truncated_means
-        ]
-
     @staticmethod
-    def truncated_normal_mean(mu, sigma, threshold, right=True):
-        b_centered = (threshold - mu) / sigma
-        if right:
-            missing_mass = np.max(
-                [float(1e-10), norm.cdf(b_centered, loc=0, scale=1)]  # type: ignore
-            )  # type: ignore
-            b_centered_ratio = norm.pdf(b_centered) / missing_mass
-            return mu - sigma * b_centered_ratio
-        else:
-            missing_mass = np.max(
-                [float(1e-10), 1.0 - norm.cdf(b_centered, loc=0, scale=1)]  # type: ignore
-            )
-            return mu + sigma * norm.pdf(b_centered) / missing_mass
+    def get_risk(mu, sigma) -> List[float]:
+        prob_ctrl_is_better = norm.cdf(0.0, loc=mu, scale=sigma)
+        mn_neg = truncated_normal_mean(mu=mu, sigma=sigma, a=-np.inf, b=0.0)
+        mn_pos = truncated_normal_mean(mu=mu, sigma=sigma, a=0, b=np.inf)
+        risk_ctrl = float((1.0 - prob_ctrl_is_better) * mn_pos)
+        risk_trt = -float(prob_ctrl_is_better * mn_neg)
+        return [risk_ctrl, risk_trt]

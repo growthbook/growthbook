@@ -11,6 +11,7 @@ import {
   FeatureUpdatedNotificationEvent,
   NotificationEvent,
 } from "../../notification-events";
+import { getEvent } from "../../../models/EventModel";
 import { SlackIntegrationInterface } from "../../../../types/slack-integration";
 import { APP_ORIGIN } from "../../../util/secrets";
 import {
@@ -25,10 +26,10 @@ type DataForNotificationEvent = {
   slackMessage: SlackMessage;
 };
 
-export const getSlackMessageForNotificationEvent = (
+export const getSlackMessageForNotificationEvent = async (
   event: NotificationEvent,
   eventId: string
-): SlackMessage | null => {
+): Promise<SlackMessage | null> => {
   let invalidEvent: never;
 
   switch (event.event) {
@@ -68,16 +69,19 @@ export const getSlackMessageForNotificationEvent = (
   }
 };
 
-export const getSlackDataForNotificationEvent = (
+export const getSlackDataForNotificationEvent = async (
   event: NotificationEvent,
   eventId: string
-): DataForNotificationEvent | null => {
+): Promise<DataForNotificationEvent | null> => {
   if (event.event === "webhook.test") return null;
 
   const filterData = getFilterDataForNotificationEvent(event);
   if (!filterData) return null;
 
-  const slackMessage = getSlackMessageForNotificationEvent(event, eventId);
+  const slackMessage = await getSlackMessageForNotificationEvent(
+    event,
+    eventId
+  );
   if (!slackMessage) return null;
 
   return { filterData, slackMessage };
@@ -123,13 +127,26 @@ const getFeatureUrlFormatted = (featureId: string): string =>
 const getEventUrlFormatted = (eventId: string): string =>
   `\n• <${APP_ORIGIN}/events/${eventId}|View Event>`;
 
-const buildSlackMessageForFeatureCreatedEvent = (
+const getEventUserFormatted = async (eventId: string) => {
+  const event = await getEvent(eventId);
+
+  if (!event || !event.data?.user) return "an unknown user";
+
+  if (event.data.user.type === "api_key")
+    return `an API request with key ending in ...${event.data.user.apiKey.slice(
+      -4
+    )}`;
+  return `${event.data.user.name} (${event.data.user.email})`;
+};
+
+const buildSlackMessageForFeatureCreatedEvent = async (
   featureEvent: FeatureCreatedNotificationEvent,
   eventId: string
-): SlackMessage => {
-  const featureId = featureEvent.data.current.id;
+): Promise<SlackMessage> => {
+  const { id: featureId } = featureEvent.data.current;
+  const eventUser = await getEventUserFormatted(eventId);
 
-  const text = `The feature ${featureId} has been created`;
+  const text = `The feature ${featureId} has been created by ${eventUser}`;
 
   return {
     text,
@@ -139,7 +156,7 @@ const buildSlackMessageForFeatureCreatedEvent = (
         text: {
           type: "mrkdwn",
           text:
-            `The feature *${featureId}* has been created.` +
+            `The feature *${featureId}* has been created by ${eventUser}.` +
             getFeatureUrlFormatted(featureId) +
             getEventUrlFormatted(eventId),
         },
@@ -148,13 +165,16 @@ const buildSlackMessageForFeatureCreatedEvent = (
   };
 };
 
-const buildSlackMessageForFeatureUpdatedEvent = (
+const buildSlackMessageForFeatureUpdatedEvent = async (
   featureEvent: FeatureUpdatedNotificationEvent,
   eventId: string
-): SlackMessage => {
-  const featureId = featureEvent.data.current.id;
+): Promise<SlackMessage> => {
+  const {
+    current: { id: featureId },
+  } = featureEvent.data;
+  const eventUser = await getEventUserFormatted(eventId);
 
-  const text = `The feature ${featureId} has been updated`;
+  const text = `The feature ${featureId} has been updated by ${eventUser}`;
 
   return {
     text,
@@ -164,7 +184,7 @@ const buildSlackMessageForFeatureUpdatedEvent = (
         text: {
           type: "mrkdwn",
           text:
-            `The feature *${featureId}* has been updated.` +
+            `The feature *${featureId}* has been updated ${eventUser}.` +
             getFeatureUrlFormatted(featureId) +
             getEventUrlFormatted(eventId),
         },
@@ -173,12 +193,15 @@ const buildSlackMessageForFeatureUpdatedEvent = (
   };
 };
 
-const buildSlackMessageForFeatureDeletedEvent = (
+const buildSlackMessageForFeatureDeletedEvent = async (
   featureEvent: FeatureDeletedNotificationEvent,
   eventId: string
-): SlackMessage => {
-  const featureId = featureEvent.data.previous.id;
-  const text = `The feature ${featureId} has been deleted.`;
+): Promise<SlackMessage> => {
+  const {
+    previous: { id: featureId },
+  } = featureEvent.data;
+  const eventUser = await getEventUserFormatted(eventId);
+  const text = `The feature ${featureId} has been deleted by ${eventUser}.`;
 
   return {
     text,
@@ -188,7 +211,7 @@ const buildSlackMessageForFeatureDeletedEvent = (
         text: {
           type: "mrkdwn",
           text:
-            `The feature *${featureId}* has been deleted.` +
+            `The feature *${featureId}* has been deleted by ${eventUser}.` +
             getEventUrlFormatted(eventId),
         },
       },

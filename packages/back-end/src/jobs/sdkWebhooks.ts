@@ -144,7 +144,7 @@ export async function fireWebhook({
   const maxContentSize = 1000;
   const date = new Date();
   const signature = createHmac("sha256", signingKey)
-    .update(payload)
+    .update(sendPayload ? payload : "")
     .digest("hex");
   const secret = `whsec_${signature}`;
   const webhookID = `msg_${md5(key + date.getTime()).substr(0, 16)}`;
@@ -164,7 +164,7 @@ export async function fireWebhook({
   } catch (error) {
     createSdkWebhookLog({
       webhookId,
-      webhookReduestId: webhookID,
+      webhookRequestId: webhookID,
       organizationId,
       payload: JSON.parse(payload),
       result: {
@@ -196,7 +196,7 @@ export async function fireWebhook({
   ).catch((e) => {
     createSdkWebhookLog({
       webhookId,
-      webhookReduestId: webhookID,
+      webhookRequestId: webhookID,
       organizationId,
       payload: JSON.parse(payload),
       result: {
@@ -210,7 +210,7 @@ export async function fireWebhook({
 
   createSdkWebhookLog({
     webhookId,
-    webhookReduestId: webhookID,
+    webhookRequestId: webhookID,
     organizationId,
     payload: JSON.parse(payload),
     result: {
@@ -302,7 +302,6 @@ export async function queueGlobalWebhooks(
     const {
       url,
       signingKey,
-      key,
       method,
       headers,
       sendPayload,
@@ -355,7 +354,7 @@ export async function queueGlobalWebhooks(
           organizationId: context.org.id,
           url,
           signingKey,
-          key,
+          key: connection.key,
           payload,
           method,
           sendPayload,

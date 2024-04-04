@@ -23,6 +23,8 @@ const redactPaths = [
   'res.headers["x-powered-by"]',
   'res.headers["access-control-allow-credentials"]',
   'res.headers["access-control-allow-origin"]',
+  'res.headers["set-cookie"]',
+  'res.headers["cookie"]',
 ];
 if (!IS_CLOUD) {
   redactPaths.push(

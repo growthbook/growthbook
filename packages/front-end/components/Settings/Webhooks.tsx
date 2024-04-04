@@ -8,7 +8,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { DocLink } from "@/components/DocLink";
 import WebhooksModal from "./WebhooksModal";
 
 const Webhooks: FC = () => {
@@ -38,8 +37,7 @@ const Webhooks: FC = () => {
 
       <p>
         SDK Endpoint Webhooks push the latest feature definitions to your server
-        whenever they are modified within the GrowthBook app.{" "}
-        <DocLink docSection="webhooks">View Documentation</DocLink>
+        whenever they are modified within the GrowthBook app.
       </p>
 
       {data.webhooks.length > 0 && (

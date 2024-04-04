@@ -1,6 +1,7 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { MetricInterface } from "back-end/types/metric";
 import { Permission, UserPermissions } from "back-end/types/organization";
+import { IdeaInterface } from "back-end/types/idea";
 import { READ_ONLY_PERMISSIONS } from "./permissions.utils";
 class PermissionError extends Error {
   constructor(message: string) {
@@ -16,6 +17,43 @@ export class Permissions {
     this.userPermissions = permissions;
     this.superAdmin = superAdmin;
   }
+
+  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
+  public canViewIdeaModal = (project?: string): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: project ? [project] : [],
+      },
+      "createIdeas"
+    );
+  };
+
+  public canCreateIdea = (idea: Pick<IdeaInterface, "project">): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: idea.project ? [idea.project] : [],
+      },
+      "createIdeas"
+    );
+  };
+
+  public canUpdateIdea = (
+    existing: Pick<IdeaInterface, "project">,
+    updated: Pick<IdeaInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
+      "createIdeas"
+    );
+  };
+
+  public canDeleteIdea = (idea: Pick<IdeaInterface, "project">): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: idea.project ? [idea.project] : [] },
+      "createIdeas"
+    );
+  };
 
   public canCreateMetric = (
     metric: Pick<MetricInterface, "projects">
