@@ -1,12 +1,18 @@
 import { Context, GrowthBook } from "./index";
 
+type WindowContext = Context & {
+  uuidKey?: string;
+  uuid?: string;
+  attributeKeys?: Record<string, string>;
+  persistUuidOnLoad?: boolean;
+};
 declare global {
   interface Window {
     _growthbook?: GrowthBook;
     growthbook_queue?:
       | Array<(gb: GrowthBook) => void>
       | { push: (cb: (gb: GrowthBook) => void) => void };
-    growthbook_config?: Context & { uuid?: string };
+    growthbook_config?: WindowContext;
     // eslint-disable-next-line
     dataLayer?: any[];
     analytics?: {
@@ -18,8 +24,8 @@ declare global {
 }
 
 const currentScript = document.currentScript;
-const dataContext = currentScript ? currentScript.dataset : {};
-const windowContext = window.growthbook_config || {};
+const dataContext: DOMStringMap = currentScript ? currentScript.dataset : {};
+const windowContext: WindowContext = window.growthbook_config || {};
 
 function setCookie(name: string, value: string) {
   const d = new Date();
@@ -47,6 +53,7 @@ function genUUID() {
 }
 
 const COOKIE_NAME = "gbuuid";
+const uuidKey = windowContext.uuidKey || dataContext.uuidKey || "id";
 let uuid = windowContext.uuid || dataContext.uuid || "";
 function persistUUID() {
   setCookie(COOKIE_NAME, uuid);
@@ -131,7 +138,13 @@ function getDataLayerVariables() {
   return obj;
 }
 
-function getAutoAttributes(useCookies = true) {
+function getAutoAttributes(
+  dataContext: DOMStringMap,
+  windowContext: WindowContext
+) {
+  const useCookies = dataContext.noAutoCookies == null;
+  const attributeKeys = windowContext.attributeKeys || {};
+
   const ua = navigator.userAgent;
 
   const browser = ua.match(/Edg/)
@@ -144,16 +157,24 @@ function getAutoAttributes(useCookies = true) {
     ? "safari"
     : "unknown";
 
+  const _uuid = getUUID(useCookies);
+  if (windowContext.persistUuidOnLoad) {
+    persistUUID();
+  }
+  console.log("here!", windowContext);
+
   return {
     ...getDataLayerVariables(),
-    id: getUUID(useCookies),
-    url: location.href,
-    path: location.pathname,
-    host: location.host,
-    query: location.search,
-    pageTitle: document && document.title,
-    deviceType: ua.match(/Mobi/) ? "mobile" : "desktop",
-    browser,
+    [uuidKey]: _uuid,
+    [attributeKeys.url || "url"]: location.href,
+    [attributeKeys.path || "path"]: location.pathname,
+    [attributeKeys.host || "host"]: location.host,
+    [attributeKeys.query || "query"]: location.search,
+    [attributeKeys.pageTitle || "pageTitle"]: document && document.title,
+    [attributeKeys.deviceType || "deviceType"]: ua.match(/Mobi/)
+      ? "mobile"
+      : "desktop",
+    [attributeKeys.browser || "browser"]: browser,
     ...getUtmAttributes(),
   };
 }
@@ -162,7 +183,7 @@ function getAttributes() {
   // Merge auto attributes and user-supplied attributes
   const attributes = dataContext["noAutoAttributes"]
     ? {}
-    : getAutoAttributes(dataContext["noAutoCookies"] == null);
+    : getAutoAttributes(dataContext, windowContext);
   if (windowContext.attributes) {
     Object.assign(attributes, windowContext.attributes);
   }
