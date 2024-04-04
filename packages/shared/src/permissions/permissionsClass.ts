@@ -2,6 +2,8 @@ import { FeatureInterface } from "back-end/types/feature";
 import { MetricInterface } from "back-end/types/metric";
 import { Permission, UserPermissions } from "back-end/types/organization";
 import { IdeaInterface } from "back-end/types/idea";
+import { ExperimentInterface } from "back-end/types/experiment";
+import { DataSourceInterface } from "back-end/types/datasource";
 import { READ_ONLY_PERMISSIONS } from "./permissions.utils";
 class PermissionError extends Error {
   constructor(message: string) {
@@ -18,12 +20,39 @@ export class Permissions {
     this.superAdmin = superAdmin;
   }
 
-  // canRunExperimentQueries(project?:string)
-  // canRunDataSourceQueries(Pick<DatasourceInterface, "projects">)
-  // canRunMetricQueries
+  //TODO: We should break out `runQueries` into `runExperimentQueries` and then we can consume the
+  // checkProjectFilterPermission. We can't do that here since `runQueries` is a `READ_ONLY` permission
+  // so if we pass an empty projects array to checkProjectFilterPermission, it looks to see if the user has the
+  // permission via any of their project-level roles. But we don't want that behavior here.
+  public canRunExperimentQueries = (
+    experiment: Pick<ExperimentInterface, "project">
+  ): boolean => {
+    return this.hasPermission(
+      "runQueries",
+      experiment.project ? experiment.project : ""
+    );
+  };
 
-  public canRunQueries = (projects: string[]): boolean => {
-    return this.checkProjectFilterPermission({ projects }, "runQueries");
+  //TODO: We should break out `runQueries` into `runIdeaQueries` and then we can consume the
+  // checkProjectFilterPermission. We can't do that here since `runQueries` is a `READ_ONLY` permission
+  // so if we pass an empty projects array to checkProjectFilterPermission, it looks to see if the user has the
+  // permission via any of their project-level roles. But we don't want that behavior here.
+  public canRunIdeaQueries = (
+    idea: Pick<IdeaInterface, "project">
+  ): boolean => {
+    return this.hasPermission("runQueries", idea.project ? idea.project : "");
+  };
+
+  public canRunDataSourceQueries = (
+    datasource: Pick<DataSourceInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(datasource, "runQueries");
+  };
+
+  public canRunMetricQueries = (
+    metric: Pick<MetricInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(metric, "runQueries");
   };
 
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements

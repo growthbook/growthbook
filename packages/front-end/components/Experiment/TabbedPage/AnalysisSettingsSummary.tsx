@@ -328,9 +328,7 @@ export default function AnalysisSettingsSummary({
             ))}
         </div>
 
-        {permissionsUtil.canRunQueries(
-          experiment.project ? [experiment.project] : []
-        ) &&
+        {permissionsUtil.canRunExperimentQueries(experiment) &&
           experiment.metrics.length > 0 && (
             <div className="col-auto">
               {experiment.datasource && latest && latest.queries?.length > 0 ? (
@@ -401,9 +399,7 @@ export default function AnalysisSettingsSummary({
             </div>
           )}
 
-        {permissionsUtil.canRunQueries(
-          experiment?.project ? [experiment.project] : []
-        ) &&
+        {permissionsUtil.canRunExperimentQueries(experiment) &&
           datasource &&
           latest &&
           (status === "failed" || status === "partially-succeeded") && (

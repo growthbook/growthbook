@@ -47,9 +47,15 @@ export async function getEstimatedImpact(
 
   const idea = await getIdeaById(ideaId || "");
 
-  const projects = idea?.project ? [idea.project] : [];
+  if (!idea) {
+    res.status(403).json({
+      status: 404,
+      message: "Idea not found",
+    });
+    return;
+  }
 
-  if (!context.permissions.canRunQueries(projects)) {
+  if (!context.permissions.canRunIdeaQueries(idea)) {
     context.permissions.throwPermissionError();
   }
 

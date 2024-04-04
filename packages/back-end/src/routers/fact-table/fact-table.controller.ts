@@ -95,7 +95,7 @@ export const postFactTable = async (
     throw new Error("Could not find datasource");
   }
 
-  if (!context.permissions.canRunQueries(datasource.projects || [])) {
+  if (!context.permissions.canRunDataSourceQueries(datasource)) {
     context.permissions.throwPermissionError();
   }
 
@@ -140,7 +140,7 @@ export const putFactTable = async (
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
-  if (!context.permissions.canRunQueries(datasource.projects || [])) {
+  if (!context.permissions.canRunDataSourceQueries(datasource)) {
     context.permissions.throwPermissionError();
   }
 
@@ -225,7 +225,7 @@ export const postFactFilterTest = async (
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
-  if (!context.permissions.canRunQueries(datasource.projects || [])) {
+  if (!context.permissions.canRunDataSourceQueries(datasource)) {
     context.permissions.throwPermissionError();
   }
 
@@ -255,7 +255,7 @@ export const postFactFilter = async (
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
-  if (!context.permissions.canRunQueries(datasource.projects || [])) {
+  if (!context.permissions.canRunDataSourceQueries(datasource)) {
     context.permissions.throwPermissionError();
   }
 
@@ -290,7 +290,7 @@ export const putFactFilter = async (
     if (!datasource) {
       throw new Error("Could not find datasource");
     }
-    if (!context.permissions.canRunQueries(datasource.projects || [])) {
+    if (!context.permissions.canRunDataSourceQueries(datasource)) {
       context.permissions.throwPermissionError();
     }
   }

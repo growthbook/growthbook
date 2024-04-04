@@ -728,7 +728,7 @@ export async function testLimitedQuery(
     });
   }
 
-  if (!context.permissions.canRunQueries(datasource.projects || [])) {
+  if (!context.permissions.canRunDataSourceQueries(datasource)) {
     context.permissions.throwPermissionError();
   }
 
@@ -813,7 +813,7 @@ export async function postDimensionSlices(
     throw new Error("Could not find datasource");
   }
 
-  if (!context.permissions.canRunQueries(datasourceObj.projects || [])) {
+  if (!context.permissions.canRunDataSourceQueries(datasourceObj)) {
     context.permissions.throwPermissionError();
   }
 
@@ -859,7 +859,7 @@ export async function cancelDimensionSlices(
     throw new Error("Could not find datasource");
   }
 
-  if (!context.permissions.canRunQueries(datasource.projects || [])) {
+  if (!context.permissions.canRunDataSourceQueries(datasource)) {
     context.permissions.throwPermissionError();
   }
 

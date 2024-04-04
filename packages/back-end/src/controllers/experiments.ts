@@ -1665,9 +1665,7 @@ export async function cancelSnapshot(
     });
   }
 
-  const projects = experiment.project ? [experiment.project] : [];
-
-  if (!context.permissions.canRunQueries(projects)) {
+  if (!context.permissions.canRunExperimentQueries(experiment)) {
     context.permissions.throwPermissionError();
   }
 
@@ -1711,9 +1709,7 @@ export async function postSnapshot(
     return;
   }
 
-  const projects = experiment.project ? [experiment.project] : [];
-
-  if (!context.permissions.canRunQueries(projects)) {
+  if (!context.permissions.canRunExperimentQueries(experiment)) {
     context.permissions.throwPermissionError();
   }
 
@@ -2108,11 +2104,6 @@ export async function cancelPastExperiments(
   res: Response
 ) {
   const context = getContextFromReq(req);
-  // for safety, check if the user has runQueries globally or in atleast 1 project
-  if (!context.permissions.canRunQueries([])) {
-    context.permissions.throwPermissionError();
-  }
-
   const { org } = context;
   const { id } = req.params;
   const pastExperiments = await getPastExperimentsById(org.id, id);
@@ -2186,7 +2177,7 @@ export async function postPastExperiments(
     throw new Error("Could not find datasource");
   }
 
-  if (!context.permissions.canRunQueries(datasourceObj.projects || [])) {
+  if (!context.permissions.canRunDataSourceQueries(datasourceObj)) {
     context.permissions.throwPermissionError();
   }
 

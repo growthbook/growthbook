@@ -11,6 +11,9 @@ import { OrganizationInterface } from "../types/organization";
 import { TeamInterface } from "../types/team";
 import { FeatureInterface } from "../types/feature";
 import { MetricInterface } from "../types/metric";
+import { ExperimentInterface } from "../types/experiment";
+import { IdeaInterface } from "../types/idea";
+import { DataSourceInterface } from "../types/datasource";
 
 describe("Build base user permissions", () => {
   const testOrg: OrganizationInterface = {
@@ -3279,7 +3282,7 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
   });
 });
 
-describe("PermissionsUtilClass.canRunQueries check", () => {
+describe("PermissionsUtilClass.canRunExperimentQueries check", () => {
   const testOrg: OrganizationInterface = {
     id: "org_sktwi1id9l7z9xkjb",
     name: "Test Org",
@@ -3306,7 +3309,271 @@ describe("PermissionsUtilClass.canRunQueries check", () => {
       ],
     },
   };
-  it("canRunQueries returns false for user with global 'engineer' role", () => {
+  it("canRunExperimentQueries returns true for user with global 'experimenter' role if experiment has no project", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+          def: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    const sampleExperiment: Pick<
+      ExperimentInterface,
+      "id" | "trackingKey" | "organization" | "project"
+    > = {
+      id: "exp_test123",
+      trackingKey: "testKey",
+      organization: "org_sktwi1id9l7z9xkjb",
+    };
+
+    expect(permissions.canRunExperimentQueries(sampleExperiment)).toEqual(true);
+  });
+
+  it("canRunExperimentQueries returns false for user with global 'collaborator' role, and project-specific 'analyst' role for atleast 1 project, if experiment has no project", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("collaborator", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+          def: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    const sampleExperiment: Pick<
+      ExperimentInterface,
+      "id" | "trackingKey" | "organization" | "project"
+    > = {
+      id: "exp_test123",
+      trackingKey: "testKey",
+      organization: "org_sktwi1id9l7z9xkjb",
+    };
+
+    expect(permissions.canRunExperimentQueries(sampleExperiment)).toEqual(
+      false
+    );
+  });
+
+  it("canRunExperimentQueries returns true for user with global 'collaborator' role, and project-specific 'analyst' role for experiment's project", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("collaborator", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+          def: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    const sampleExperiment: Pick<
+      ExperimentInterface,
+      "id" | "trackingKey" | "organization" | "project"
+    > = {
+      id: "exp_test123",
+      trackingKey: "testKey",
+      organization: "org_sktwi1id9l7z9xkjb",
+      project: "abc",
+    };
+
+    expect(permissions.canRunExperimentQueries(sampleExperiment)).toEqual(true);
+  });
+});
+
+describe("PermissionsUtilClass.canRunIdeaQueries check", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+  it("canRunIdeaQueries returns true for user with global 'experimenter' role if experiment has no project", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+          def: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    const sampleIdea: Pick<IdeaInterface, "id" | "organization" | "project"> = {
+      id: "exp_test123",
+      organization: "org_sktwi1id9l7z9xkjb",
+    };
+
+    expect(permissions.canRunIdeaQueries(sampleIdea)).toEqual(true);
+  });
+
+  it("canRunIdeaQueries returns false for user with global 'collaborator' role, and project-specific 'analyst' role for atleast 1 project, if experiment has no project", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("collaborator", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+          def: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    const sampleIdea: Pick<IdeaInterface, "id" | "organization" | "project"> = {
+      id: "exp_test123",
+      organization: "org_sktwi1id9l7z9xkjb",
+    };
+
+    expect(permissions.canRunIdeaQueries(sampleIdea)).toEqual(false);
+  });
+
+  it("canRunIdeaQueries returns true for user with global 'collaborator' role, and project-specific 'analyst' role for experiment's project", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("collaborator", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+          def: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    const sampleIdea: Pick<IdeaInterface, "id" | "organization" | "project"> = {
+      id: "exp_test123",
+      organization: "org_sktwi1id9l7z9xkjb",
+      project: "abc",
+    };
+
+    expect(permissions.canRunIdeaQueries(sampleIdea)).toEqual(true);
+  });
+});
+
+describe("PermissionsUtilClass.canRunDataSourceQueries check", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+  it("canRunDataSourceQueries returns false for user with global 'engineer' role", () => {
     const permissions = new Permissions(
       {
         global: {
@@ -3319,10 +3586,16 @@ describe("PermissionsUtilClass.canRunQueries check", () => {
       false
     );
 
-    expect(permissions.canRunQueries([])).toEqual(false);
+    const sampleDataSource: Pick<DataSourceInterface, "id" | "projects"> = {
+      id: "data_abc",
+    };
+
+    expect(permissions.canRunDataSourceQueries(sampleDataSource)).toEqual(
+      false
+    );
   });
 
-  it("canRunQueries returns true for user with global 'analyst' role", () => {
+  it("canRunDataSourceQueries returns true for user with global 'analyst' role", () => {
     const permissions = new Permissions(
       {
         global: {
@@ -3335,10 +3608,14 @@ describe("PermissionsUtilClass.canRunQueries check", () => {
       false
     );
 
-    expect(permissions.canRunQueries([])).toEqual(true);
+    const sampleDataSource: Pick<DataSourceInterface, "id" | "projects"> = {
+      id: "data_abc",
+    };
+
+    expect(permissions.canRunDataSourceQueries(sampleDataSource)).toEqual(true);
   });
 
-  it("canRunQueries returns false for user with global 'collaborator' role, and project-specific 'analyst' roles, but none in the project in question", () => {
+  it("canRunDataSourceQueries returns false for user with global 'collaborator' role, and project-specific 'analyst' roles, but none in the project in question", () => {
     const permissions = new Permissions(
       {
         global: {
@@ -3362,10 +3639,17 @@ describe("PermissionsUtilClass.canRunQueries check", () => {
       false
     );
 
-    expect(permissions.canRunQueries(["ghi", "xyz"])).toEqual(false);
+    const sampleDataSource: Pick<DataSourceInterface, "id" | "projects"> = {
+      id: "data_abc",
+      projects: ["ghi", "xyz"],
+    };
+
+    expect(permissions.canRunDataSourceQueries(sampleDataSource)).toEqual(
+      false
+    );
   });
 
-  it("canRunQueries returns true for user with global 'collaborator' role, and project-specific 'analyst' role for atleast 1 project", () => {
+  it("canRunDataSourceQueries returns true for user with global 'collaborator' role, and project-specific 'analyst' role for atleast 1 project", () => {
     const permissions = new Permissions(
       {
         global: {
@@ -3389,6 +3673,143 @@ describe("PermissionsUtilClass.canRunQueries check", () => {
       false
     );
 
-    expect(permissions.canRunQueries(["ghi", "xyz", "abc"])).toEqual(true);
+    const sampleDataSource: Pick<DataSourceInterface, "id" | "projects"> = {
+      id: "data_abc",
+      projects: ["ghi", "xyz", "abc"],
+    };
+
+    expect(permissions.canRunDataSourceQueries(sampleDataSource)).toEqual(true);
+  });
+});
+
+describe("PermissionsUtilClass.canRunMetricQueries check", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+  it("canRunMetricQueries returns false for user with global 'engineer' role", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    const sampleMetric: Pick<MetricInterface, "id" | "projects"> = {
+      id: "data_abc",
+    };
+
+    expect(permissions.canRunMetricQueries(sampleMetric)).toEqual(false);
+  });
+
+  it("canRunMetricQueries returns true for user with global 'analyst' role", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    const sampleMetric: Pick<MetricInterface, "id" | "projects"> = {
+      id: "data_abc",
+    };
+
+    expect(permissions.canRunMetricQueries(sampleMetric)).toEqual(true);
+  });
+
+  it("canRunMetricQueries returns false for user with global 'collaborator' role, and project-specific 'analyst' roles, but none in the project in question", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("collaborator", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+          def: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    const sampleMetric: Pick<MetricInterface, "id" | "projects"> = {
+      id: "data_abc",
+      projects: ["ghi", "xyz"],
+    };
+
+    expect(permissions.canRunMetricQueries(sampleMetric)).toEqual(false);
+  });
+
+  it("canRunMetricQueries returns true for user with global 'collaborator' role, and project-specific 'analyst' role for atleast 1 project", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("collaborator", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+          def: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    const sampleMetric: Pick<MetricInterface, "id" | "projects"> = {
+      id: "data_abc",
+      projects: ["ghi", "xyz", "abc"],
+    };
+
+    expect(permissions.canRunMetricQueries(sampleMetric)).toEqual(true);
   });
 });

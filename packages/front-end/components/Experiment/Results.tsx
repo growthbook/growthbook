@@ -231,9 +231,7 @@ const Results: FC<{
                 ago(experiment.phases[phase]?.dateStarted ?? "") +
                 ". Give it a little longer and click the 'Update' button above to check again."}
             {!snapshot &&
-              permissionsUtil.canRunQueries(
-                experiment.project ? [experiment.project] : []
-              ) &&
+              permissionsUtil.canRunExperimentQueries(experiment) &&
               `Click the "Update" button above.`}
             {snapshotLoading && <div> Snapshot loading...</div>}
           </div>

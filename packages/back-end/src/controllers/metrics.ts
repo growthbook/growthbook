@@ -181,7 +181,7 @@ export async function cancelMetricAnalysis(
     throw new Error("Could not cancel query");
   }
 
-  if (!context.permissions.canRunQueries(metric.projects || [])) {
+  if (!context.permissions.canRunMetricQueries(metric)) {
     context.permissions.throwPermissionError();
   }
 
@@ -217,7 +217,7 @@ export async function postMetricAnalysis(
     });
   }
 
-  if (!context.permissions.canRunQueries(metric.projects || [])) {
+  if (!context.permissions.canRunMetricQueries(metric)) {
     context.permissions.throwPermissionError();
   }
 

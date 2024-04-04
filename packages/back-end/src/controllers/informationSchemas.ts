@@ -223,7 +223,7 @@ export async function putInformationSchema(
     return;
   }
 
-  if (!context.permissions.canRunQueries(datasource.projects || [])) {
+  if (!context.permissions.canRunDataSourceQueries(datasource)) {
     context.permissions.throwPermissionError();
   }
 

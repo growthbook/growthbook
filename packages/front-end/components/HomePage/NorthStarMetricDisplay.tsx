@@ -79,7 +79,7 @@ const NorthStarMetricDisplay = ({
         ) : (
           <div className="mb-4">
             <h4 className="my-3">{metric.name}</h4>
-            {permissionsUtil.canRunQueries(metric.projects || []) && (
+            {permissionsUtil.canRunMetricQueries(metric) && (
               <form
                 onSubmit={async (e) => {
                   e.preventDefault();

@@ -405,9 +405,7 @@ const IdeaPage = (): ReactElement => {
               </div>
 
               {(!idea.estimateParams || !estimate) &&
-                permissionsUtil.canRunQueries(
-                  idea.project ? [idea.project] : []
-                ) &&
+                permissionsUtil.canRunIdeaQueries(idea) &&
                 canEdit && (
                   <div className="mt-2 text-center">
                     <button
@@ -434,11 +432,7 @@ const IdeaPage = (): ReactElement => {
                   <RightRailSection
                     title="Parameters"
                     open={() => setImpactOpen(true)}
-                    canOpen={
-                      permissionsUtil.canRunQueries(
-                        idea.project ? [idea.project] : []
-                      ) && canEdit
-                    }
+                    canOpen={permissionsUtil.canRunIdeaQueries(idea) && canEdit}
                   >
                     <RightRailSectionGroup title="Metric" type="badge">
                       {getMetricById(estimate?.metric)?.name}

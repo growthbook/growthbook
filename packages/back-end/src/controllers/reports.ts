@@ -206,9 +206,11 @@ export async function refreshReport(
     experiment = await getExperimentById(context, report.experimentId || "");
   }
 
-  const projects = experiment?.project ? [experiment.project] : [];
+  if (!experiment) {
+    throw new Error("Unable to find connected experiment");
+  }
 
-  if (!context.permissions.canRunQueries(projects)) {
+  if (!context.permissions.canRunExperimentQueries(experiment)) {
     context.permissions.throwPermissionError();
   }
 
@@ -266,11 +268,14 @@ export async function putReport(
     report.experimentId || ""
   );
 
-  // Reports don't have projects, but the experiment does, so check that
-  req.checkPermissions("createAnalyses", experiment?.project || "");
-  const projects = experiment?.project ? [experiment.project] : [];
+  if (!experiment) {
+    throw new Error("Unable to find connected experiment");
+  }
 
-  if (!context.permissions.canRunQueries(projects)) {
+  // Reports don't have projects, but the experiment does, so check that
+  req.checkPermissions("createAnalyses", experiment.project || "");
+
+  if (!context.permissions.canRunExperimentQueries(experiment)) {
     context.permissions.throwPermissionError();
   }
 
@@ -354,9 +359,11 @@ export async function cancelReport(
     report.experimentId || ""
   );
 
-  const projects = experiment?.project ? [experiment.project] : [];
+  if (!experiment) {
+    throw new Error("Unable to find connected experiment");
+  }
 
-  if (!context.permissions.canRunQueries(projects)) {
+  if (!context.permissions.canRunExperimentQueries(experiment)) {
     context.permissions.throwPermissionError();
   }
 

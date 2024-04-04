@@ -510,6 +510,7 @@ export default function ReportPage() {
                 }}
                 variations={variations}
                 results={report.results?.dimensions?.[0]}
+                project={experimentData?.experiment.project}
               />
             )}
             {hasData &&
