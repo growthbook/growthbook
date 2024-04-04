@@ -192,60 +192,60 @@ const DataSourcePage: FC = () => {
       <div className="row">
         <div className="col-md-12">
           <div className="mb-3">
-            {canUpdateConnectionParams ||
+            {(canUpdateConnectionParams ||
               canUpdateDataSourceSettings ||
-              (canDelete && (
-                <div className="d-md-flex w-100 justify-content-between">
-                  <div>
-                    {canUpdateConnectionParams ? (
-                      <button
-                        className="btn btn-outline-primary mr-2 mt-1 font-weight-bold"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setEditConn(true);
-                        }}
-                      >
-                        <FaKey /> Edit Connection Info
-                      </button>
-                    ) : null}
-                    <DocLink
-                      className="btn btn-outline-secondary mr-2 mt-1 font-weight-bold"
-                      docSection={d.type as DocSection}
-                      fallBackSection="datasources"
+              canDelete) && (
+              <div className="d-md-flex w-100 justify-content-between">
+                <div>
+                  {canUpdateConnectionParams ? (
+                    <button
+                      className="btn btn-outline-primary mr-2 mt-1 font-weight-bold"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setEditConn(true);
+                      }}
                     >
-                      <FaExternalLinkAlt /> View Documentation
-                    </DocLink>
-                    {d?.properties?.supportsInformationSchema && (
-                      <button
-                        className="btn btn-outline-info mr-2 mt-1 font-weight-bold"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setViewSchema(true);
-                        }}
-                      >
-                        <FaDatabase /> View Schema Browser
-                      </button>
-                    )}
-                  </div>
-
-                  <div>
-                    {canDelete && (
-                      <DeleteButton
-                        displayName={d.name}
-                        className="font-weight-bold mt-1"
-                        text={`Delete "${d.name}" Datasource`}
-                        onClick={async () => {
-                          await apiCall(`/datasource/${d.id}`, {
-                            method: "DELETE",
-                          });
-                          mutateDefinitions({});
-                          router.push("/datasources");
-                        }}
-                      />
-                    )}
-                  </div>
+                      <FaKey /> Edit Connection Info
+                    </button>
+                  ) : null}
+                  <DocLink
+                    className="btn btn-outline-secondary mr-2 mt-1 font-weight-bold"
+                    docSection={d.type as DocSection}
+                    fallBackSection="datasources"
+                  >
+                    <FaExternalLinkAlt /> View Documentation
+                  </DocLink>
+                  {d?.properties?.supportsInformationSchema && (
+                    <button
+                      className="btn btn-outline-info mr-2 mt-1 font-weight-bold"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setViewSchema(true);
+                      }}
+                    >
+                      <FaDatabase /> View Schema Browser
+                    </button>
+                  )}
                 </div>
-              ))}
+
+                <div>
+                  {canDelete && (
+                    <DeleteButton
+                      displayName={d.name}
+                      className="font-weight-bold mt-1"
+                      text={`Delete "${d.name}" Datasource`}
+                      onClick={async () => {
+                        await apiCall(`/datasource/${d.id}`, {
+                          method: "DELETE",
+                        });
+                        mutateDefinitions({});
+                        router.push("/datasources");
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           {!d.properties?.hasSettings && (
             <div className="alert alert-info">
@@ -322,7 +322,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
                   dataSource={d}
-                  canEdit={canUpdateConnectionParams}
+                  canEdit={canUpdateDataSourceSettings}
                 />
               </div>
 
@@ -332,7 +332,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     dataSource={d}
                     onSave={updateDataSourceSettings}
                     onCancel={() => undefined}
-                    canEdit={canUpdateConnectionParams}
+                    canEdit={canUpdateDataSourceSettings}
                   />
                 </div>
               ) : null}
@@ -342,13 +342,13 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   dataSource={d}
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
-                  canEdit={canUpdateConnectionParams}
+                  canEdit={canUpdateDataSourceSettings}
                 />
               </div>
               <div className="my-3 p-3 rounded border bg-white">
                 <DataSourceMetrics
                   dataSource={d}
-                  canEdit={canUpdateConnectionParams}
+                  canEdit={canUpdateDataSourceSettings}
                 />
               </div>
 
@@ -357,7 +357,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   dataSource={d}
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
-                  canEdit={canUpdateConnectionParams}
+                  canEdit={canUpdateDataSourceSettings}
                 />
               </div>
 
@@ -367,7 +367,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     dataSource={d}
                     onSave={updateDataSourceSettings}
                     onCancel={() => undefined}
-                    canEdit={canUpdateConnectionParams}
+                    canEdit={canUpdateDataSourceSettings}
                   />
                 </div>
               ) : null}
