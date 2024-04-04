@@ -158,10 +158,9 @@ function getAutoAttributes(
     : "unknown";
 
   const _uuid = getUUID(useCookies);
-  if (windowContext.persistUuidOnLoad) {
+  if (windowContext.persistUuidOnLoad && useCookies) {
     persistUUID();
   }
-  console.log("here!", windowContext);
 
   return {
     ...getDataLayerVariables(),
