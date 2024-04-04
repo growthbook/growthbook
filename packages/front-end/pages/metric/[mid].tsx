@@ -140,6 +140,7 @@ const MetricPage: FC = () => {
     permissionsUtil.canUpdateMetric(metric, {}) && !metric.managedBy;
   const canDeleteMetric =
     permissionsUtil.canDeleteMetric(metric) && !metric.managedBy;
+  const canRunMetricQuery = permissionsUtil.canRunMetricQueries(metric);
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
@@ -566,24 +567,23 @@ const MetricPage: FC = () => {
                               ) : (
                                 <span className="mr-1">Apply a segment</span>
                               )}
-                              {canEditMetric &&
-                                permissionsUtil.canRunMetricQueries(metric) && (
-                                  <a
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      setSegmentOpen(true);
-                                    }}
-                                    href="#"
-                                  >
-                                    <BsGear />
-                                  </a>
-                                )}
+                              {canEditMetric && canRunMetricQuery && (
+                                <a
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setSegmentOpen(true);
+                                  }}
+                                  href="#"
+                                >
+                                  <BsGear />
+                                </a>
+                              )}
                             </>
                           )}
                         </div>
                         <div style={{ flex: 1 }} />
                         <div className="col-auto">
-                          {permissionsUtil.canRunMetricQueries(metric) && (
+                          {canRunMetricQuery && (
                             <form
                               onSubmit={async (e) => {
                                 e.preventDefault();
@@ -840,8 +840,10 @@ const MetricPage: FC = () => {
                       {!analysis && (
                         <div>
                           <em>
-                            No data for this metric yet. Click the Run Analysis
-                            button above.
+                            No data for this metric yet.{" "}
+                            {canRunMetricQuery
+                              ? "Click the Run Analysis button above."
+                              : null}
                           </em>
                         </div>
                       )}
