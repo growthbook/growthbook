@@ -727,10 +727,10 @@ export async function testLimitedQuery(
       message: "Cannot find data source",
     });
   }
-  req.checkPermissions(
-    "runQueries",
-    datasource?.projects?.length ? datasource.projects : []
-  );
+
+  if (!context.permissions.canRunQueries(datasource.projects || [])) {
+    context.permissions.throwPermissionError();
+  }
 
   const { results, sql, duration, error } = await testQuery(
     datasource,
@@ -812,10 +812,10 @@ export async function postDimensionSlices(
   if (!datasourceObj) {
     throw new Error("Could not find datasource");
   }
-  req.checkPermissions(
-    "runQueries",
-    datasourceObj?.projects?.length ? datasourceObj.projects : []
-  );
+
+  if (!context.permissions.canRunQueries(datasourceObj.projects || [])) {
+    context.permissions.throwPermissionError();
+  }
 
   const integration = getSourceIntegrationObject(datasourceObj, true);
 
@@ -859,10 +859,9 @@ export async function cancelDimensionSlices(
     throw new Error("Could not find datasource");
   }
 
-  req.checkPermissions(
-    "runQueries",
-    datasource.projects ? datasource.projects : []
-  );
+  if (!context.permissions.canRunQueries(datasource.projects || [])) {
+    context.permissions.throwPermissionError();
+  }
 
   const integration = getSourceIntegrationObject(datasource, true);
 

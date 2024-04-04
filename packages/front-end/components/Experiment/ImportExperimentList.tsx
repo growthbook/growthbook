@@ -9,7 +9,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { getExposureQuery } from "@/services/datasources";
-import usePermissions from "@/hooks/usePermissions";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { isCloud } from "@/services/env";
 import RunQueriesButton, {
@@ -22,6 +21,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { generateVariationId } from "@/services/features";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -32,7 +32,7 @@ const ImportExperimentList: FC<{
   changeDatasource?: (id: string) => void;
 }> = ({ onImport, importId, showQueries = true, changeDatasource }) => {
   const { getDatasourceById, ready, datasources, project } = useDefinitions();
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
   const { data, error, mutate } = useApi<{
     experiments: PastExperimentsInterface;
@@ -176,7 +176,7 @@ const ImportExperimentList: FC<{
             last updated {ago(data.experiments.runStarted ?? "")}
           </div>
         </div>
-        {permissions.check("runQueries", project || "") && (
+        {permissionsUtil.canRunQueries([project]) && (
           <div className="col-auto">
             <form
               onSubmit={async (e) => {

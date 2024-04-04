@@ -181,10 +181,9 @@ export async function cancelMetricAnalysis(
     throw new Error("Could not cancel query");
   }
 
-  req.checkPermissions(
-    "runQueries",
-    metric.projects?.length ? metric.projects : []
-  );
+  if (!context.permissions.canRunQueries(metric.projects || [])) {
+    context.permissions.throwPermissionError();
+  }
 
   const integration = await getIntegrationFromDatasourceId(
     context,
@@ -218,10 +217,9 @@ export async function postMetricAnalysis(
     });
   }
 
-  req.checkPermissions(
-    "runQueries",
-    metric.projects?.length ? metric.projects : []
-  );
+  if (!context.permissions.canRunQueries(metric.projects || [])) {
+    context.permissions.throwPermissionError();
+  }
 
   try {
     await refreshMetric(

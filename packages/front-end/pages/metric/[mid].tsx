@@ -52,7 +52,6 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import PickSegmentModal from "@/components/Segments/PickSegmentModal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/components/Button";
-import usePermissions from "@/hooks/usePermissions";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
@@ -74,7 +73,6 @@ const MetricPage: FC = () => {
   const router = useRouter();
   const { mid } = router.query;
   const permissionsUtil = usePermissionsUtil();
-  const permissions = usePermissions();
   const displayCurrency = useCurrency();
   const { apiCall } = useAuth();
   const {
@@ -569,8 +567,7 @@ const MetricPage: FC = () => {
                                 <span className="mr-1">Apply a segment</span>
                               )}
                               {canEditMetric &&
-                                permissions.check(
-                                  "runQueries",
+                                permissionsUtil.canRunQueries(
                                   metric.projects || []
                                 ) && (
                                   <a
@@ -588,8 +585,7 @@ const MetricPage: FC = () => {
                         </div>
                         <div style={{ flex: 1 }} />
                         <div className="col-auto">
-                          {permissions.check(
-                            "runQueries",
+                          {permissionsUtil.canRunQueries(
                             metric.projects || []
                           ) && (
                             <form

@@ -206,7 +206,11 @@ export async function refreshReport(
     experiment = await getExperimentById(context, report.experimentId || "");
   }
 
-  req.checkPermissions("runQueries", experiment?.project || "");
+  const projects = experiment?.project ? [experiment.project] : [];
+
+  if (!context.permissions.canRunQueries(projects)) {
+    context.permissions.throwPermissionError();
+  }
 
   const useCache = !req.query["force"];
 
@@ -264,7 +268,11 @@ export async function putReport(
 
   // Reports don't have projects, but the experiment does, so check that
   req.checkPermissions("createAnalyses", experiment?.project || "");
-  req.checkPermissions("runQueries", experiment?.project || "");
+  const projects = experiment?.project ? [experiment.project] : [];
+
+  if (!context.permissions.canRunQueries(projects)) {
+    context.permissions.throwPermissionError();
+  }
 
   const updates: Partial<ReportInterface> = {};
   let needsRun = false;
@@ -346,7 +354,11 @@ export async function cancelReport(
     report.experimentId || ""
   );
 
-  req.checkPermissions("runQueries", experiment?.project || "");
+  const projects = experiment?.project ? [experiment.project] : [];
+
+  if (!context.permissions.canRunQueries(projects)) {
+    context.permissions.throwPermissionError();
+  }
 
   const integration = await getIntegrationFromDatasourceId(
     context,

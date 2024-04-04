@@ -1665,7 +1665,11 @@ export async function cancelSnapshot(
     });
   }
 
-  req.checkPermissions("runQueries", experiment.project || "");
+  const projects = experiment.project ? [experiment.project] : [];
+
+  if (!context.permissions.canRunQueries(projects)) {
+    context.permissions.throwPermissionError();
+  }
 
   const integration = await getIntegrationFromDatasourceId(
     context,
@@ -1707,7 +1711,11 @@ export async function postSnapshot(
     return;
   }
 
-  req.checkPermissions("runQueries", experiment.project || "");
+  const projects = experiment.project ? [experiment.project] : [];
+
+  if (!context.permissions.canRunQueries(projects)) {
+    context.permissions.throwPermissionError();
+  }
 
   let project = null;
   if (experiment.project) {
@@ -2099,10 +2107,12 @@ export async function cancelPastExperiments(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  // for safety, check if the user has runQueries globally or in atleast 1 project
-  req.checkPermissions("runQueries", []);
-
   const context = getContextFromReq(req);
+  // for safety, check if the user has runQueries globally or in atleast 1 project
+  if (!context.permissions.canRunQueries([])) {
+    context.permissions.throwPermissionError();
+  }
+
   const { org } = context;
   const { id } = req.params;
   const pastExperiments = await getPastExperimentsById(org.id, id);
@@ -2175,10 +2185,10 @@ export async function postPastExperiments(
   if (!datasourceObj) {
     throw new Error("Could not find datasource");
   }
-  req.checkPermissions(
-    "runQueries",
-    datasourceObj?.projects?.length ? datasourceObj.projects : []
-  );
+
+  if (!context.permissions.canRunQueries(datasourceObj.projects || [])) {
+    context.permissions.throwPermissionError();
+  }
 
   const integration = getSourceIntegrationObject(datasourceObj, true);
 

@@ -223,10 +223,9 @@ export async function putInformationSchema(
     return;
   }
 
-  req.checkPermissions(
-    "runQueries",
-    datasource?.projects?.length ? datasource.projects : []
-  );
+  if (!context.permissions.canRunQueries(datasource.projects || [])) {
+    context.permissions.throwPermissionError();
+  }
 
   await queueUpdateInformationSchema(
     datasource.id,

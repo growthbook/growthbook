@@ -7,7 +7,6 @@ import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "@back-end/types/experiment-snapshot";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -19,6 +18,7 @@ import StatusBanner from "@/components/Experiment/StatusBanner";
 import { GBCuped, GBSequential } from "@/components/Icons";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { ExperimentTab } from "./TabbedPage";
 
 const BreakDownResults = dynamic(
@@ -102,7 +102,7 @@ const Results: FC<{
     setPhase(experiment.phases.length - 1);
   }, [experiment.phases.length, setPhase]);
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
 
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
@@ -231,7 +231,9 @@ const Results: FC<{
                 ago(experiment.phases[phase]?.dateStarted ?? "") +
                 ". Give it a little longer and click the 'Update' button above to check again."}
             {!snapshot &&
-              permissions.check("runQueries", experiment.project) &&
+              permissionsUtil.canRunQueries(
+                experiment.project ? [experiment.project] : []
+              ) &&
               `Click the "Update" button above.`}
             {snapshotLoading && <div> Snapshot loading...</div>}
           </div>

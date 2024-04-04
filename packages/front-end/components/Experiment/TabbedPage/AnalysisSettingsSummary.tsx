@@ -28,10 +28,10 @@ import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
 import RefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton";
-import usePermissions from "@/hooks/usePermissions";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import MetricName from "@/components/Metrics/MetricName";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import OverflowText from "./OverflowText";
 
 export interface Props {
@@ -61,7 +61,7 @@ export default function AnalysisSettingsSummary({
     getExperimentMetricById,
   } = useDefinitions();
   const orgSettings = useOrgSettings();
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const { hasCommercialFeature } = useUser();
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
@@ -328,7 +328,9 @@ export default function AnalysisSettingsSummary({
             ))}
         </div>
 
-        {permissions.check("runQueries", experiment.project || "") &&
+        {permissionsUtil.canRunQueries(
+          experiment.project ? [experiment.project] : []
+        ) &&
           experiment.metrics.length > 0 && (
             <div className="col-auto">
               {experiment.datasource && latest && latest.queries?.length > 0 ? (
@@ -399,7 +401,9 @@ export default function AnalysisSettingsSummary({
             </div>
           )}
 
-        {permissions.check("runQueries", experiment?.project || "") &&
+        {permissionsUtil.canRunQueries(
+          experiment?.project ? [experiment.project] : []
+        ) &&
           datasource &&
           latest &&
           (status === "failed" || status === "partially-succeeded") && (

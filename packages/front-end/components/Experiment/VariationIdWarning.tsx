@@ -6,6 +6,7 @@ import {
 } from "back-end/types/report";
 import usePermissions from "@/hooks/usePermissions";
 import FixVariationIds from "@/components/Experiment/FixVariationIds";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const CommaList: FC<{ vals: string[] }> = ({ vals }) => {
   if (!vals.length) {
@@ -42,6 +43,7 @@ const VariationIdWarning: FC<{
   const [idModal, setIdModal] = useState(false);
 
   const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   if (!results) return null;
   const variationResults = results?.variations || [];
@@ -116,7 +118,7 @@ const VariationIdWarning: FC<{
           (<CommaList vals={returnedVariations} />
           ).{" "}
           {setVariationIds &&
-            permissions.check("runQueries", project || "") &&
+            permissionsUtil.canRunQueries(project ? [project] : []) &&
             permissions.check("createAnalyses", project) && (
               <button
                 className="btn btn-info btn-sm ml-3"

@@ -18,6 +18,14 @@ export class Permissions {
     this.superAdmin = superAdmin;
   }
 
+  // canRunExperimentQueries(project?:string)
+  // canRunDataSourceQueries(Pick<DatasourceInterface, "projects">)
+  // canRunMetricQueries
+
+  public canRunQueries = (projects: string[]): boolean => {
+    return this.checkProjectFilterPermission({ projects }, "runQueries");
+  };
+
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
   public canViewIdeaModal = (project?: string): boolean => {
     return this.checkProjectFilterPermission(
