@@ -481,7 +481,6 @@ export class GrowthBook<
   }
 
   private _runAutoExperiment(experiment: AutoExperiment, forceRerun?: boolean) {
-    console.log("run auto experiment", experiment.key, forceRerun);
     const existing = this._activeAutoExperiments.get(experiment);
 
     // If this is a manual experiment and it's not already running, skip
@@ -513,7 +512,6 @@ export class GrowthBook<
 
     // Apply new changes
     if (result.inExperiment) {
-      console.log("in exp", result);
       if (result.value.urlRedirect && experiment.urlPatterns) {
         const url = experiment.persistQueryString
           ? mergeQueryStrings(this._getContextUrl(), result.value.urlRedirect)
@@ -1400,13 +1398,6 @@ export class GrowthBook<
     bucket?: number,
     stickyBucketUsed?: boolean
   ): Result<T> {
-    console.log("_getResult", {
-      variationIndex,
-      hashUsed,
-      featureId,
-      bucket,
-      stickyBucketUsed,
-    });
     let inExperiment = true;
     // If assigned variation is not valid, use the baseline and mark the user as not in the experiment
     if (variationIndex < 0 || variationIndex >= experiment.variations.length) {
