@@ -132,7 +132,8 @@ export async function refreshFeatures(
   skipCache?: boolean,
   allowStale?: boolean,
   updateInstance?: boolean,
-  backgroundSync?: boolean
+  backgroundSync?: boolean,
+  useStoredPayload?: boolean
 ): Promise<void> {
   if (!backgroundSync) {
     cacheSettings.backgroundSync = false;
@@ -142,9 +143,11 @@ export async function refreshFeatures(
     instance,
     allowStale,
     timeout,
-    skipCache
+    skipCache,
+    useStoredPayload
   );
-  updateInstance && data && (await refreshInstance(instance, data));
+  const sse = supportsSSE.has(getKey(instance));
+  updateInstance && data && (await refreshInstance(instance, data, sse));
 }
 
 // Subscribe a GrowthBook instance to feature changes
@@ -192,7 +195,8 @@ async function fetchFeaturesWithCache(
   instance: GrowthBook,
   allowStale?: boolean,
   timeout?: number,
-  skipCache?: boolean
+  skipCache?: boolean,
+  useStoredPayload?: boolean
 ): Promise<FeatureApiResponse | null> {
   const key = getKey(instance);
   const cacheKey = getCacheKey(instance);
@@ -207,6 +211,7 @@ async function fetchFeaturesWithCache(
   if (
     existing &&
     !skipCache &&
+    !useStoredPayload &&
     (allowStale || existing.staleAt > now) &&
     existing.staleAt > minStaleAt
   ) {
@@ -223,7 +228,10 @@ async function fetchFeaturesWithCache(
     }
     return existing.data;
   } else {
-    return await promiseTimeout(fetchFeatures(instance), timeout);
+    return await promiseTimeout(
+      fetchFeatures(instance, useStoredPayload),
+      timeout
+    );
   }
 }
 
@@ -347,12 +355,13 @@ function onNewFeatureData(
     return;
   }
 
+  const sse = supportsSSE.has(key);
   // Update in-memory cache
   cache.set(cacheKey, {
     data,
     version,
     staleAt,
-    sse: supportsSSE.has(key),
+    sse,
   });
   cleanupCache();
   // Update local storage (don't await this, just update asynchronously)
@@ -360,13 +369,16 @@ function onNewFeatureData(
 
   // Update features for all subscribed GrowthBook instances
   const instances = subscribedInstances.get(key);
-  instances && instances.forEach((instance) => refreshInstance(instance, data));
+  instances &&
+    instances.forEach((instance) => refreshInstance(instance, data, sse));
 }
 
 async function refreshInstance(
   instance: GrowthBook,
-  data: FeatureApiResponse
+  data: FeatureApiResponse,
+  sse?: boolean
 ): Promise<void> {
+  instance.shouldStorePayload() && instance.setPayload({ data, sse });
   data = await instance.decryptPayload(data, undefined, polyfills.SubtleCrypto);
 
   await instance.refreshStickyBuckets(data);
@@ -375,7 +387,8 @@ async function refreshInstance(
 }
 
 async function fetchFeatures(
-  instance: GrowthBook
+  instance: GrowthBook,
+  useStoredPayload?: boolean
 ): Promise<FeatureApiResponse> {
   const { apiHost, apiRequestHeaders } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
@@ -383,7 +396,19 @@ async function fetchFeatures(
   const key = getKey(instance);
   const cacheKey = getCacheKey(instance);
 
-  let promise = activeFetches.get(cacheKey);
+  // Bypass normal fetch if hydrating from a stored payload
+  const storedPayload = instance.getPayload();
+  if (useStoredPayload && storedPayload) {
+    const data = storedPayload.data;
+    onNewFeatureData(key, cacheKey, data);
+    startAutoRefresh(instance);
+    if (storedPayload.sse) {
+      supportsSSE.add(key);
+    }
+    return data;
+  }
+
+  let promise = !useStoredPayload ? activeFetches.get(cacheKey) : undefined;
   if (!promise) {
     const fetcher: Promise<Response> = remoteEval
       ? helpers.fetchRemoteEvalCall({
@@ -432,7 +457,7 @@ async function fetchFeatures(
       });
     activeFetches.set(cacheKey, promise);
   }
-  return await promise;
+  return promise;
 }
 
 // Watch a feature endpoint for changes

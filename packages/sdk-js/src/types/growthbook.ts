@@ -204,6 +204,9 @@ export interface Context {
   streamingHost?: string;
   apiHostRequestHeaders?: Record<string, string>;
   streamingHostRequestHeaders?: Record<string, string>;
+  payload?: StoredPayload;
+  storePayload?: boolean;
+  loadStoredPayload?: boolean;
   clientKey?: string;
   renderer?: null | RenderFunction;
   decryptionKey?: string;
@@ -268,6 +271,11 @@ export type FeatureApiResponse = {
   encryptedFeatures?: string;
   experiments?: AutoExperiment[];
   encryptedExperiments?: string;
+};
+
+export type StoredPayload = {
+  data: FeatureApiResponse;
+  sse?: boolean;
 };
 
 // Polyfills required for non-standard browser environments (ReactNative, Node, etc.)
@@ -340,11 +348,13 @@ export type LoadFeaturesOptions = {
   autoRefresh?: boolean;
   timeout?: number;
   skipCache?: boolean;
+  useStoredPayload?: boolean;
 };
 
 export type RefreshFeaturesOptions = {
   timeout?: number;
   skipCache?: boolean;
+  useStoredPayload?: boolean;
 };
 
 export interface Filter {

@@ -4,6 +4,7 @@ export type {
   Polyfills,
   CacheSettings,
   FeatureApiResponse,
+  StoredPayload,
   LoadFeaturesOptions,
   RefreshFeaturesOptions,
   FeatureDefinitions,

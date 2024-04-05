@@ -1,10 +1,12 @@
 import { Context, GrowthBook } from "./index";
 
 type WindowContext = Context & {
+  uuidCookieName?: string;
   uuidKey?: string;
   uuid?: string;
   attributeKeys?: Record<string, string>;
   persistUuidOnLoad?: boolean;
+  loadStoredPayload?: boolean;
 };
 declare global {
   interface Window {
@@ -52,7 +54,8 @@ function genUUID() {
   );
 }
 
-const COOKIE_NAME = "gbuuid";
+const COOKIE_NAME =
+  windowContext.uuidCookieName || dataContext.uuidCookieName || "gbuuid";
 const uuidKey = windowContext.uuidKey || dataContext.uuidKey || "id";
 let uuid = windowContext.uuid || dataContext.uuid || "";
 function persistUUID() {

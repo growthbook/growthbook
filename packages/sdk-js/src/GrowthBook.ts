@@ -1,5 +1,5 @@
 import mutate, { DeclarativeMutation } from "dom-mutator";
-import type {
+import {
   ApiHost,
   Attributes,
   AutoExperiment,
@@ -21,12 +21,14 @@ import type {
   StickyAssignmentsDocument,
   StickyAttributeKey,
   StickyExperimentKey,
+  StoredPayload,
   SubscriptionFunction,
   TrackingCallback,
   TrackingData,
   VariationMeta,
   VariationRange,
   WidenPrimitives,
+  FeatureEvalContext,
 } from "./types/growthbook";
 import type { ConditionInterface } from "./types/mongrule";
 import {
@@ -46,7 +48,6 @@ import {
 } from "./util";
 import { evalCondition } from "./mongrule";
 import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
-import { FeatureEvalContext } from "./types/growthbook";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -160,15 +161,23 @@ export class GrowthBook<
       this._setAntiFlicker();
     }
 
-    if (context.clientKey && !context.remoteEval) {
+    if (
+      context.clientKey &&
+      !context.remoteEval &&
+      !context.loadStoredPayload
+    ) {
       this._refresh({}, true, false);
     }
   }
 
   public async loadFeatures(options?: LoadFeaturesOptions): Promise<void> {
-    if (options && options.autoRefresh) {
+    if (!options) options = {};
+    if (options.autoRefresh) {
       // interpret deprecated autoRefresh option as subscribeToChanges
       this._ctx.subscribeToChanges = true;
+    }
+    if (this.context.loadStoredPayload && !this._loadFeaturesCalled) {
+      options.useStoredPayload = true;
     }
     this._loadFeaturesCalled = true;
 
@@ -208,6 +217,21 @@ export class GrowthBook<
   public getClientKey(): string {
     return this._ctx.clientKey || "";
   }
+  public getPayload(): StoredPayload | undefined {
+    return this._ctx.payload;
+  }
+  public setPayload(payload: StoredPayload | undefined) {
+    if (payload && payload.sse === undefined) {
+      const oldPayload = this.getPayload();
+      if (oldPayload) {
+        payload.sse = oldPayload.sse;
+      }
+    }
+    this._ctx.payload = payload;
+  }
+  public shouldStorePayload(): boolean {
+    return this._ctx.storePayload || false;
+  }
 
   public isRemoteEval(): boolean {
     return this._ctx.remoteEval || false;
@@ -232,7 +256,8 @@ export class GrowthBook<
       options.skipCache || this._ctx.enableDevMode,
       allowStale,
       updateInstance,
-      this._ctx.backgroundSync !== false
+      this._ctx.backgroundSync !== false,
+      options.useStoredPayload
     );
   }
 
