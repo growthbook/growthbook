@@ -9,6 +9,7 @@ import { getAllMetricRegressionAdjustmentStatuses } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
+import { ExperimentNotificationModel } from "../models/ExperimentNotification";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
@@ -2383,4 +2384,29 @@ export async function findOrCreateVisualEditorToken(
   res.status(200).json({
     key: visualEditorKey.key,
   });
+}
+
+export async function getMetricsNotificationsForExperiment({
+  context,
+  experimentId,
+}: {
+  context: ReqContext | ApiReqContext;
+  experimentId: string;
+}) {
+  const experiment = await getExperimentById(context, experimentId);
+
+  if (!experiment) {
+    throw new Error("Experiment not found");
+  }
+
+  if (experiment.organization !== context.org.id) {
+    throw new Error("You do not have access to view this experiment");
+  }
+
+  const experimentNotifications = new ExperimentNotificationModel(context);
+  const notifications = await experimentNotifications.getAllByAttributes({
+    experimentId,
+  });
+
+  return notifications.map(({ metricId }) => metricId);
 }

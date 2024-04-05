@@ -6,6 +6,7 @@ const notificationTriggers = ["snapshot"] as const;
 export const experimentNotificationValidator = baseSchema
   .extend({
     experimentId: z.string(),
+    metricId: z.string(),
     trigger: z.enum(notificationTriggers),
   })
   .strict();

@@ -429,6 +429,10 @@ app.get(
   "/experiment/:id/snapshot/:phase/:dimension",
   experimentsController.getSnapshotWithDimension
 );
+app.get(
+  "/experiment/:id/notifications",
+  experimentsController.getMetricsNotificationsForExperiment
+);
 app.post("/experiment/:id/snapshot", experimentsController.postSnapshot);
 app.post("/experiment/:id", experimentsController.postExperiment);
 app.delete("/experiment/:id", experimentsController.deleteExperiment);

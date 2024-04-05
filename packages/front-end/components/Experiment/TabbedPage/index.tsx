@@ -37,8 +37,14 @@ import Implementation from "./Implementation";
 import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
 import HealthTab from "./HealthTab";
+import NotificationsTab from "./NotificationsTab";
 
-const experimentTabs = ["overview", "results", "health"] as const;
+const experimentTabs = [
+  "overview",
+  "results",
+  "health",
+  "notifications",
+] as const;
 export type ExperimentTab = typeof experimentTabs[number];
 
 export interface Props {
@@ -408,6 +414,13 @@ export default function TabbedPage({
               setVariationFilter([]);
             }}
           />
+        </div>
+        <div
+          className={
+            tab === "notifications" ? "d-block" : "d-none d-print-block"
+          }
+        >
+          <NotificationsTab experiment={experiment} />
         </div>
       </div>
 
