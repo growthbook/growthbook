@@ -18,13 +18,13 @@ from typing import cast
 @dataclass
 class Estimator:
     n_sim: int
-    theta: float
     alpha: float = 0.05
 
     def create_arrays(self):
         array_shape = (self.n_sim,)
         self.pt = np.empty(array_shape)
         self.se = np.empty(array_shape)
+        self.theta = np.empty(array_shape)
 
     @property
     def multiplier(self):
@@ -57,6 +57,14 @@ class Estimator:
     def mse(self):
         return np.mean((self.pt - self.theta) ** 2, axis=0)
 
+    @property
+    def bias(self):
+        return np.mean(self.pt - self.theta)
+
+    @property
+    def variance(self):
+        return np.var(self.pt)
+
 
 @dataclass
 class SimulationStudy:
@@ -67,9 +75,6 @@ class SimulationStudy:
     def run_sim(self):
         self.create_storage_arrays()
         self.run_all_iterations()
-        self.calculate_sim_coverage()
-        self.calculate_sim_mse()
-        self.calculate_sim_rejection_rates()
 
     def run_all_iterations(self):
         for i in range(self.n_sim):
@@ -87,15 +92,6 @@ class SimulationStudy:
 
     def get_standard_error_from_interval(self, lower, upper):
         return (upper - lower) / (2 * self.multiplier)
-
-    def calculate_sim_coverage(self):
-        pass
-
-    def calculate_sim_mse(self):
-        pass
-
-    def calculate_sim_rejection_rates(self):
-        pass
 
     @property
     def multiplier(self):
