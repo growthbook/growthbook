@@ -2364,24 +2364,12 @@
   resolved "https://registry.yarnpkg.com/@clickhouse/client-common/-/client-common-0.2.10.tgz#62f454d2cc2ee27a325034a2cca47c6f5c90d22e"
   integrity sha512-BvTY0IXS96y9RUeNCpKL4HUzHmY80L0lDcGN0lmUD6zjOqYMn78+xyHYJ/AIAX7JQsc+/KwFt2soZutQTKxoGQ==
 
-"@clickhouse/client-common@1.0.1":
-  version "1.0.1"
-  resolved "https://registry.yarnpkg.com/@clickhouse/client-common/-/client-common-1.0.1.tgz#c7dde5eafaad8189649373ecc23354c7a32847b3"
-  integrity sha512-3L6e0foP6VOktScoi6XWMjJyOpKCWgLUYgPVxP2c7gm6Kotq+iRmmmXtXTSg7B7uozcLZycTtPfIw2d80SYsYw==
-
 "@clickhouse/client@^0.2.10":
   version "0.2.10"
   resolved "https://registry.yarnpkg.com/@clickhouse/client/-/client-0.2.10.tgz#519561f3a4fff837bb606c52abfe74e5e7e9abb3"
   integrity sha512-ZwBgzjEAFN/ogS0ym5KHVbR7Hx/oYCX01qGp2baEyfN2HM73kf/7Vp3GvMHWRy+zUXISONEtFv7UTViOXnmFrg==
   dependencies:
     "@clickhouse/client-common" "0.2.10"
-
-"@clickhouse/client@^1.0.1":
-  version "1.0.1"
-  resolved "https://registry.yarnpkg.com/@clickhouse/client/-/client-1.0.1.tgz#364db28d9ef9beaf19104f962c2b06090cb10468"
-  integrity sha512-fluUNnE2R7COJ6rn6DorYfi4D+AQn3t2qeBtEq37bQV3pD4EbKrBfKAwJ13e1lmMWdQ2B9bJUTMqGsRIDdWhJw==
-  dependencies:
-    "@clickhouse/client-common" "1.0.1"
 
 "@colors/colors@1.5.0":
   version "1.5.0"
@@ -2776,7 +2764,7 @@
     uuid "^8.0.0"
 
 "@growthbook/growthbook@^0.34.0":
-  version "0.36.0"
+  version "0.35.0"
   dependencies:
     dom-mutator "^0.6.0"
 

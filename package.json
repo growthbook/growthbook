@@ -29,7 +29,6 @@
     "packages/*"
   ],
   "dependencies": {
-    "@clickhouse/client": "^1.0.1",
     "patch-package": "^8.0.0",
     "wsrun": "^5.2.4"
   },
