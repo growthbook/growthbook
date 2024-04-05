@@ -1,6 +1,10 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { MetricInterface } from "back-end/types/metric";
-import { Permission, UserPermissions } from "back-end/types/organization";
+import {
+  Permission,
+  SDKAttribute,
+  UserPermissions,
+} from "back-end/types/organization";
 import { IdeaInterface } from "back-end/types/idea";
 import { READ_ONLY_PERMISSIONS } from "./permissions.utils";
 class PermissionError extends Error {
@@ -17,6 +21,45 @@ export class Permissions {
     this.userPermissions = permissions;
     this.superAdmin = superAdmin;
   }
+
+  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
+  public canViewAttributeModal = (project?: string): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: project ? [project] : [],
+      },
+      "manageTargetingAttributes"
+    );
+  };
+
+  public canCreateAttribute = (
+    attribute: Pick<SDKAttribute, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      attribute,
+      "manageTargetingAttributes"
+    );
+  };
+
+  public canUpdateAttribute = (
+    existing: Pick<SDKAttribute, "projects">,
+    updates: Pick<SDKAttribute, "projects">
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "manageTargetingAttributes"
+    );
+  };
+
+  public canDeleteAttribute = (
+    attribute: Pick<SDKAttribute, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      attribute,
+      "manageTargetingAttributes"
+    );
+  };
 
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
   public canViewIdeaModal = (project?: string): boolean => {
