@@ -165,8 +165,12 @@ describe("licenseInit and getLicense", () => {
         await licenseInit(licenseKey, userLicenseCodes, metaData);
         expect(getLicense(licenseKey)).toEqual(licenseData);
         expect(fetch).toHaveBeenCalledTimes(1);
-        expect(LicenseModel.create).toHaveBeenCalledTimes(1);
-        expect(LicenseModel.create).toHaveBeenCalledWith(licenseData);
+        expect(LicenseModel.findOneAndUpdate).toHaveBeenCalledTimes(1);
+        expect(LicenseModel.findOneAndUpdate).toHaveBeenCalledWith(
+          { id: licenseKey },
+          { $set: licenseData },
+          { upsert: true }
+        );
         expect(LicenseModel.findOne).toHaveBeenCalledTimes(1);
       });
 
@@ -199,8 +203,12 @@ describe("licenseInit and getLicense", () => {
 
         expect(getLicense(licenseKey)).toEqual(licenseData);
         expect(fetch).toHaveBeenCalledTimes(1);
-        expect(LicenseModel.create).toHaveBeenCalledTimes(1);
-        expect(LicenseModel.create).toHaveBeenCalledWith(licenseData);
+        expect(LicenseModel.findOneAndUpdate).toHaveBeenCalledTimes(1);
+        expect(LicenseModel.findOneAndUpdate).toHaveBeenCalledWith(
+          { id: licenseKey },
+          { $set: licenseData },
+          { upsert: true }
+        );
         expect(LicenseModel.findOne).toHaveBeenCalledTimes(2);
       });
 

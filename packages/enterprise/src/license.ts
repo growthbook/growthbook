@@ -602,13 +602,11 @@ export async function postResendEmailVerificationEmailToLicenseServer(
 
 // Creates or updates the license in the MongoDB cache in case the license server goes down.
 async function createOrUpdateLicenseMongoCache(license: LicenseInterface) {
-  const currentCache = await LicenseModel.findOne({ id: license.id });
-  if (!currentCache) {
-    await LicenseModel.create(license);
-  } else {
-    currentCache.set(license);
-    await currentCache.save();
-  }
+  await LicenseModel.findOneAndUpdate(
+    { id: license.id },
+    { $set: license },
+    { upsert: true }
+  );
 }
 
 // Updates the local daily cache, the one week backup Mongo cache, and verifies the license.
@@ -706,12 +704,7 @@ export async function licenseInit(
                 userLicenseCodes,
                 metaData
               );
-              if (!mongoCache) {
-                await LicenseModel.create(license);
-              } else {
-                mongoCache.set(license);
-                await mongoCache.save();
-              }
+              createOrUpdateLicenseMongoCache(license);
             } catch (e) {
               if (
                 mongoCache &&
