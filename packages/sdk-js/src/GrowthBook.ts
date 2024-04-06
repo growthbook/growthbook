@@ -572,7 +572,9 @@ export class GrowthBook<
           }
         }
       } else {
-        const undo = this._applyDOMChanges(result.value);
+        const undo = this._ctx.applyDomChangesCallback
+          ? this._ctx.applyDomChangesCallback(result.value)
+          : this._applyDOMChanges(result.value);
         if (undo) {
           this._activeAutoExperiments.set(experiment, {
             undo,

@@ -26,6 +26,7 @@ export type {
   UrlTarget,
   AutoExperiment,
   AutoExperimentVariation,
+  DOMMutation,
   UrlTargetType,
   RenderFunction,
   StickyAttributeKey,
@@ -34,6 +35,7 @@ export type {
   StickyAssignmentsDocument,
   TrackingData,
   TrackingCallback,
+  ApplyDomChangesCallback,
 } from "./types/growthbook";
 
 export type {

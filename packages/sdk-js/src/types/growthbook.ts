@@ -163,6 +163,10 @@ export type TrackingCallback = (
   result: Result<any>
 ) => void;
 
+export type ApplyDomChangesCallback = (
+  changes: AutoExperimentVariation
+) => () => void;
+
 export type RenderFunction = () => void;
 
 export interface Context {
@@ -215,6 +219,7 @@ export interface Context {
   navigateDelay?: number;
   antiFlicker?: boolean;
   antiFlickerTimeout?: number;
+  applyDomChangesCallback?: ApplyDomChangesCallback;
   isBrowser?: boolean;
 }
 
