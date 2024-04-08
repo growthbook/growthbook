@@ -780,6 +780,7 @@ export function getLicenseError(org: MinimalOrganization): string {
   }
 
   if (
+    !stringToBoolean(process.env.IS_CLOUD) &&
     stringToBoolean(process.env.IS_MULTI_ORG) &&
     !planHasPremiumFeature(licenseData.plan, "multi-org")
   ) {
