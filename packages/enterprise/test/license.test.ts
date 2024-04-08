@@ -288,10 +288,24 @@ describe("licenseInit, getLicense, and getLicenseError", () => {
         );
       });
 
+      it("should not throw an error if SSO is enabled on cloud even if the license does not support it", () => {
+        process.env.SSO_CONFIG = "true";
+        process.env.IS_CLOUD = "true";
+
+        expect(getLicenseError(org)).toBe("");
+      });
+
       it("should return multi org error if the license does not support multi org", () => {
         process.env.IS_MULTI_ORG = "true";
 
         expect(getLicenseError(org)).toBe("No support for multi-org");
+      });
+
+      it("should not throw an error if multi-org is enabled on cloud even if the license does not support it", () => {
+        process.env.IS_MULTI_ORG = "true";
+        process.env.IS_CLOUD = "true";
+
+        expect(getLicenseError(org)).toBe("");
       });
     });
   });
