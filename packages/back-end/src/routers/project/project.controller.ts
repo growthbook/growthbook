@@ -218,7 +218,9 @@ export const deleteProject = async (
   // Clean up features
   if (deleteFeatures) {
     try {
-      req.checkPermissions("manageFeatures", id);
+      if (!context.permissions.canDeleteFeature({ project: id })) {
+        context.permissions.throwPermissionError();
+      }
 
       await deleteAllFeaturesForAProject({
         projectId: id,

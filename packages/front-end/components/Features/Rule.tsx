@@ -18,6 +18,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Button";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
@@ -77,10 +78,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const rules = getRules(feature, environment);
     const environments = useEnvironments();
     const permissions = usePermissions();
+    const permissionsUtil = usePermissionsUtil();
 
     const canEdit =
       !locked &&
-      permissions.check("manageFeatures", feature.project) &&
+      permissionsUtil.canViewFeatureModal(feature.project) &&
       permissions.check("createFeatureDrafts", feature.project);
 
     const upcomingScheduleRule = getUpcomingScheduleRule(rule);

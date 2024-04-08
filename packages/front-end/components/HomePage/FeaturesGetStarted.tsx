@@ -12,6 +12,7 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import FeatureModal from "@/components/Features/FeatureModal";
 import { DocLink } from "@/components/DocLink";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import GetStartedStep from "./GetStartedStep";
 import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
 
@@ -23,6 +24,7 @@ export default function FeaturesGetStarted({ features }: Props) {
   const settings = useOrgSettings();
   const router = useRouter();
   const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const { organization } = useUser();
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
@@ -83,7 +85,7 @@ export default function FeaturesGetStarted({ features }: Props) {
               cta="View instructions"
               finishedCTA="View instructions"
               imageLeft={false}
-              permissionsError={!permissions.check("manageFeatures", project)}
+              permissionsError={!permissionsUtil.canViewFeatureModal(project)}
               onClick={(finished) => {
                 setCodeModalOpen(true);
                 if (!finished) {
@@ -103,7 +105,7 @@ export default function FeaturesGetStarted({ features }: Props) {
               cta="Add first feature"
               finishedCTA="Add a feature"
               imageLeft={true}
-              permissionsError={!permissions.check("manageFeatures", project)}
+              permissionsError={!permissionsUtil.canViewFeatureModal(project)}
               onClick={(finished) => {
                 setModalOpen(true);
                 if (!finished) {

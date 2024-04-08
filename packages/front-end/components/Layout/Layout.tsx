@@ -217,7 +217,11 @@ const navlinks: SidebarLinkProps[] = [
         href: "/importing",
         path: /^importing/,
         feature: "import-from-x",
-        permissions: ["manageFeatures", "manageEnvironments", "manageProjects"],
+        permissionCallbacks: [
+          () => permissionsUtils.canViewFeatureModal(project),
+          () => permissions.check("manageEnvironments" as GlobalPermission),
+          () => permissionsUtils.canCreateProjects(),
+        ],
       },
       {
         name: "Billing",

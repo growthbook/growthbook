@@ -52,6 +52,7 @@ import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 import Tab from "@/components/Tabs/Tab";
 import Tabs from "@/components/Tabs/Tabs";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
@@ -76,6 +77,7 @@ export default function FeaturesPage() {
   const { organization } = useUser();
 
   const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { project, getProjectById } = useDefinitions();
   const settings = useOrgSettings();
   const environments = useEnvironments();
@@ -335,7 +337,7 @@ export default function FeaturesPage() {
                         <StaleFeatureIcon
                           staleReason={staleReason}
                           onClick={() => {
-                            if (permissions.check("manageFeatures", project))
+                            if (permissionsUtil.canViewFeatureModal(project))
                               setFeatureToToggleStaleDetection(feature);
                           }}
                         />
@@ -482,7 +484,7 @@ export default function FeaturesPage() {
           <h1>Features</h1>
         </div>
         {features.length > 0 &&
-          permissions.check("manageFeatures", project) &&
+          !permissionsUtil.canViewFeatureModal(project) &&
           permissions.check("createFeatureDrafts", project) && (
             <div className="col-auto">
               <button
