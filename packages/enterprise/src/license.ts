@@ -752,7 +752,8 @@ export function resetInMemoryLicenseCache(): void {
 }
 
 export function getLicenseError(org: MinimalOrganization): string {
-  const licenseData = getLicense(org.licenseKey);
+  const key = org.licenseKey || process.env.LICENSE_KEY;
+  const licenseData = getLicense(key);
 
   // If there is no license it can't have an error
   // Licenses might not have a plan if sign up for pro, but abandon checkout
@@ -792,7 +793,7 @@ export function getLicenseError(org: MinimalOrganization): string {
     return "License expired";
   }
 
-  if (!isAirGappedLicenseKey(org.licenseKey) && !licenseData.emailVerified) {
+  if (!isAirGappedLicenseKey(key) && !licenseData.emailVerified) {
     return "Email not verified";
   }
 
