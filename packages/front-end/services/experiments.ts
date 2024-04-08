@@ -129,7 +129,7 @@ export function getRisk(
   // separate CR because sometimes "baseline" above is the variation
   baselineCR: number
 ): { risk: number; relativeRisk: number; showRisk: boolean } {
-  const risk = stats.risk?.[1]?? 0;
+  const risk = stats.risk?.[1] ?? 0;
   const relativeRisk = baselineCR ? risk / baselineCR : 0;
   const showRisk =
     baseline.cr > 0 &&
@@ -178,9 +178,7 @@ export function getRiskByVariation(
   }
 }
 
-export function hasRisk(
-  rows: ExperimentTableRow[]
-) {
+export function hasRisk(rows: ExperimentTableRow[]) {
   return rows.filter((row) => row.variations[1]?.risk?.length).length > 0;
 }
 
