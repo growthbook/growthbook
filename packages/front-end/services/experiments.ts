@@ -4,7 +4,6 @@ import {
   PValueCorrection,
   StatsEngine,
 } from "back-end/types/stats";
-import { useState } from "react";
 import normal from "@stdlib/stats/base/dists/normal";
 import {
   ExperimentReportResultDimension,
@@ -130,7 +129,7 @@ export function getRisk(
   // separate CR because sometimes "baseline" above is the variation
   baselineCR: number
 ): { risk: number; relativeRisk: number; showRisk: boolean } {
-  const risk = stats.risk?.[metric.inverse ? 0 : 1] ?? 0;
+  const risk = stats.risk?.[1]?? 0;
   const relativeRisk = baselineCR ? risk / baselineCR : 0;
   const showRisk =
     baseline.cr > 0 &&
@@ -179,51 +178,12 @@ export function getRiskByVariation(
   }
 }
 
-export function useRiskVariation(
-  numVariations: number,
+export function hasRisk(
   rows: ExperimentTableRow[]
 ) {
-  const { metricDefaults } = useOrganizationMetricDefaults();
-
-  const [riskVariation, setRiskVariation] = useState(() => {
-    // Calculate the total risk for each variation across all metrics
-    const sums: number[] = Array(numVariations).fill(0);
-    rows.forEach((row) => {
-      const baseline = row.variations[0];
-      if (!baseline || !baseline.cr) return;
-
-      let controlMax = 0;
-      row.variations.forEach((stats, i) => {
-        if (!i) return;
-        if (!stats || !stats.risk || !stats.cr) {
-          return;
-        }
-        if (!hasEnoughData(baseline, stats, row.metric, metricDefaults)) {
-          return;
-        }
-        if (isSuspiciousUplift(baseline, stats, row.metric, metricDefaults)) {
-          return;
-        }
-
-        const controlRisk =
-          (row.metric.inverse ? stats.risk[1] : stats.risk[0]) / baseline.cr;
-
-        controlMax = Math.max(controlMax, controlRisk);
-        sums[i] +=
-          (row.metric.inverse ? stats.risk[0] : stats.risk[1]) / stats.cr;
-      });
-      sums[0] += controlMax;
-    });
-
-    // Default to the variation with the lowest total risk
-    return sums.map((v, i) => [v, i]).sort((a, b) => a[0] - b[0])[0][1];
-  });
-
-  const hasRisk =
-    rows.filter((row) => row.variations[1]?.risk?.length).length > 0;
-
-  return { hasRisk, riskVariation, setRiskVariation };
+  return rows.filter((row) => row.variations[1]?.risk?.length).length > 0;
 }
+
 export function useDomain(
   variations: ExperimentReportVariationWithIndex[], // must be ordered, baseline first
   rows: ExperimentTableRow[]

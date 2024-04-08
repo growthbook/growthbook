@@ -20,8 +20,8 @@ import {
   applyMetricOverrides,
   setAdjustedPValuesOnResults,
   ExperimentTableRow,
-  useRiskVariation,
   setAdjustedCIs,
+  hasRisk,
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
@@ -203,7 +203,6 @@ const CompactResults: FC<{
     const vars = results?.variations;
     return variations.map((v, i) => vars?.[i]?.users || 0);
   }, [results, variations]);
-  const risk = useRiskVariation(variations.length, rows);
 
   return (
     <>
@@ -258,7 +257,7 @@ const CompactResults: FC<{
         baselineRow={baselineRow}
         rows={rows.filter((r) => !r.isGuardrail)}
         id={id}
-        hasRisk={risk.hasRisk}
+        hasRisk={hasRisk(rows)}
         tableRowAxis="metric"
         labelHeader="Goal Metrics"
         editMetrics={editMetrics}
@@ -288,7 +287,7 @@ const CompactResults: FC<{
             baselineRow={baselineRow}
             rows={rows.filter((r) => r.isGuardrail)}
             id={id}
-            hasRisk={risk.hasRisk}
+            hasRisk={hasRisk(rows)}
             tableRowAxis="metric"
             labelHeader="Guardrail Metrics"
             editMetrics={editMetrics}
