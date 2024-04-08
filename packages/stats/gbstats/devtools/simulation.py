@@ -40,7 +40,7 @@ class SimulationStudy(ABC):
         for j, test in enumerate(self.tests):
             t = test(stat_a, stat_b, self.configs[j])
             test_result = t.compute_result()
-            self.pt[i, j] = test_result.uplift.mean
+            self.pt[i, j] = test_result.expected
             self.se[i, j] = test_result.uplift.stddev
             self.lower_limit[i, j] = test_result.ci[0]
             self.upper_limit[i, j] = test_result.ci[1]
