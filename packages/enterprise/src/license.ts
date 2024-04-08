@@ -8,7 +8,7 @@ import { pick, sortBy } from "lodash";
 import AsyncLock from "async-lock";
 import { stringToBoolean } from "shared/util";
 import { ProxyAgent } from "proxy-agent";
-import { LicenseDocument, LicenseModel } from "./models/licenseModel";
+import { LicenseModel } from "./models/licenseModel";
 
 export const LICENSE_SERVER_URL =
   process.env.LICENSE_SERVER_URL ||
@@ -517,7 +517,7 @@ export async function postSubscriptionUpdateToLicenseServer(
     })
   );
 
-  await setAndVerifyServerLicenseData(license);
+  setAndVerifyServerLicenseData(license);
   return license;
 }
 
@@ -563,29 +563,23 @@ export async function postResendEmailVerificationEmailToLicenseServer(
 }
 
 // Creates or updates the license in the MongoDB cache in case the license server goes down.
-async function createOrUpdateLicenseMongoCache(
-  license: LicenseInterface,
-  mongoCache?: LicenseDocument | null
-) {
-  const currentCache =
-    mongoCache || (await LicenseModel.findOne({ id: license.id }));
-  if (!currentCache) {
-    await LicenseModel.create(license);
-  } else {
-    currentCache.set(license);
-    await currentCache.save();
-  }
+async function createOrUpdateLicenseMongoCache(license: LicenseInterface) {
+  await LicenseModel.findOneAndUpdate(
+    { id: license.id },
+    { $set: license },
+    { upsert: true }
+  );
 }
 
 // Updates the local daily cache, the one week backup Mongo cache, and verifies the license.
-export async function setAndVerifyServerLicenseData(
-  license: LicenseInterface,
-  mongoCache?: LicenseDocument | null
-) {
+export function setAndVerifyServerLicenseData(license: LicenseInterface) {
   verifyLicenseInterface(license);
   keyToLicenseData[license.id] = license;
   keyToCacheDate[license.id] = new Date();
-  await createOrUpdateLicenseMongoCache(license, mongoCache);
+  createOrUpdateLicenseMongoCache(license).catch((e) => {
+    logger.error(`Error creating mongo cache: ${e}`);
+    throw e;
+  });
 }
 
 async function getLicenseDataFromServer(
@@ -674,12 +668,10 @@ export async function licenseInit(
                 userLicenseCodes,
                 metaData
               );
-              if (!mongoCache) {
-                await LicenseModel.create(license);
-              } else {
-                mongoCache.set(license);
-                await mongoCache.save();
-              }
+              createOrUpdateLicenseMongoCache(license).catch((e) => {
+                logger.error(`Error creating mongo cache: ${e}`);
+                throw e;
+              });
             } catch (e) {
               if (
                 mongoCache &&
