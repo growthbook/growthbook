@@ -621,7 +621,7 @@ def process_data_dict(data: Dict[str, Any]) -> DataForStatsEngine:
     )
 
 
-def process_experiment_results(data: Dict[str, Any]) -> list[Dict[str, Any]]:
+def process_experiment_results(data: Dict[str, Any]) -> List[Dict[str, Any]]:
     d = process_data_dict(data)
     results: List[Dict] = []
     for query_result in d.query_results:
@@ -638,4 +638,26 @@ def process_experiment_results(data: Dict[str, Any]) -> list[Dict[str, Any]]:
                             )
                         )
                     )
+    return results
+
+
+def process_multiple_experiment_results(
+    data: Dict[str, Dict[str, Any]]
+) -> list[Dict[str, Any]]:
+    results: List[Dict] = []
+    for id, expData in data.items():
+        d = process_data_dict(expData)
+        for query_result in d.query_results:
+            for i, metric in enumerate(query_result.metrics):
+                if metric in d.metrics:
+                    rows = filter_query_rows(query_result.rows, i)
+                    if len(rows):
+                        result_dict = asdict(
+                            process_single_metric(
+                                rows=rows,
+                                metric=d.metrics[metric],
+                                analyses=d.analyses,
+                            )
+                        )
+                        results.append({"id": id, "results": result_dict})
     return results

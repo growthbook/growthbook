@@ -89,6 +89,11 @@ export interface DataForStatsEngine {
   query_results: QueryResultsForStatsEngine[];
 }
 
+export interface ExperimentDataForStatsEngine {
+  id: string;
+  data: DataForStatsEngine;
+}
+
 export const MAX_DIMENSIONS = 20;
 
 export function getAvgCPU(pre: os.CpuInfo[], post: os.CpuInfo[]) {
@@ -147,59 +152,34 @@ export function getAnalysisSettingsForStatsEngine(
   return analysisData;
 }
 
-export async function analyzeExperimentMetric(
-  params: ExperimentMetricAnalysisParams
-): Promise<ExperimentMetricAnalysis> {
-  const {
-    variations,
-    metrics,
-    phaseLengthHours,
-    coverage,
-    analyses,
-    queryResults,
-  } = params;
-
-  const phaseLengthDays = Number(phaseLengthHours / 24);
-
-  const statsData: DataForStatsEngine = {
-    metrics: metrics,
-    query_results: queryResults,
-    analyses: analyses.map((a) =>
-      getAnalysisSettingsForStatsEngine(
-        a,
-        variations,
-        coverage,
-        phaseLengthDays
-      )
-    ),
-  };
-
+async function runStatsEngine(
+  statsData: ExperimentDataForStatsEngine[]
+): Promise<ExperimentMetricAnalysis[]> {
   const escapedStatsData = JSON.stringify(statsData).replace(/\\/g, "\\\\");
-
   const start = Date.now();
   const cpus = os.cpus();
   const result = await promisify(PythonShell.runString)(
     `
-from gbstats.gbstats import process_experiment_results
-import json
-import time
-
-start = time.time()
-
-data = json.loads("""${escapedStatsData}""", strict=False)
-
-results = process_experiment_results(data)
-
-print(json.dumps({
-  'results': results,
-  'time': time.time() - start
-}, allow_nan=False))`,
+    from gbstats.gbstats import process_multiple_experiment_results
+    import json
+    import time
+    
+    start = time.time()
+    
+    data = json.loads("""${escapedStatsData}""", strict=False)
+    
+    results = process_multiple_experiment_results(data)
+    
+    print(json.dumps({
+      'results': results,
+      'time': time.time() - start
+    }, allow_nan=False))`,
     {}
   );
 
   try {
     const parsed: {
-      results: ExperimentMetricAnalysis;
+      results: ExperimentMetricAnalysis[];
       time: number;
     } = JSON.parse(result?.[0]);
 
@@ -216,6 +196,64 @@ print(json.dumps({
     logger.error(e, "Failed to run stats model: " + result);
     throw e;
   }
+}
+
+function createStatsEngineData(
+  params: ExperimentMetricAnalysisParams
+): DataForStatsEngine {
+  const {
+    variations,
+    metrics,
+    phaseLengthHours,
+    coverage,
+    analyses,
+    queryResults,
+  } = params;
+
+  const phaseLengthDays = Number(phaseLengthHours / 24);
+
+  return {
+    metrics: metrics,
+    query_results: queryResults,
+    analyses: analyses.map((a) =>
+      getAnalysisSettingsForStatsEngine(
+        a,
+        variations,
+        coverage,
+        phaseLengthDays
+      )
+    ),
+  };
+}
+
+export async function analyzeSingleExperiment(
+  params: ExperimentMetricAnalysisParams
+): Promise<ExperimentMetricAnalysis> {
+  const result = (
+    await runStatsEngine([{ id: "_", data: createStatsEngineData(params) }])
+  )?.[0];
+
+  if (!result) {
+    throw new Error(
+      "Failed to analyze manual snapshot; Stats Engine returned no results"
+    );
+  }
+  return result;
+}
+
+export async function analyzeMultipleExperiments(
+  experimentParams: {
+    experiment: string;
+    params: ExperimentMetricAnalysisParams;
+  }[]
+): Promise<ExperimentMetricAnalysis[]> {
+  const result = await runStatsEngine(
+    experimentParams.map((ep) => {
+      return { id: ep.experiment, data: createStatsEngineData(ep.params) };
+    })
+  );
+
+  return result;
 }
 
 export function getMetricSettingsForStatsEngine(
@@ -404,7 +442,7 @@ export async function analyzeExperimentResults({
   const { queryResults, metricSettings } = mdat;
   let { unknownVariations } = mdat;
 
-  const results = await analyzeExperimentMetric({
+  const results = await analyzeSingleExperiment({
     coverage: snapshotSettings.coverage ?? 1,
     phaseLengthHours: Math.max(
       hoursBetween(snapshotSettings.startDate, snapshotSettings.endDate),

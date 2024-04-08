@@ -108,8 +108,8 @@ import { getIntegrationFromDatasourceId } from "./datasource";
 import {
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
-  analyzeExperimentMetric,
   analyzeExperimentResults,
+  analyzeSingleExperiment,
   getMetricSettingsForStatsEngine,
 } from "./stats";
 import { getEnvironmentIdsFromOrg } from "./organizations";
@@ -264,7 +264,7 @@ export async function getManualSnapshotData(
     });
   });
 
-  const result = await analyzeExperimentMetric({
+  const result = await analyzeSingleExperiment({
     variations: getReportVariations(experiment, phase),
     phaseLengthHours: Math.max(
       hoursBetween(phase.dateStarted, phase.dateEnded ?? new Date()),
