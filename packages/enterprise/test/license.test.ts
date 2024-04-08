@@ -217,6 +217,15 @@ describe("licenseInit, getLicense, and getLicenseError", () => {
         };
         expect(getLicenseError(org_with_old_style_license)).toBe("");
       });
+
+      it("should not throw an error if it is an old syle license in the env var", () => {
+        jest.setSystemTime(old_license_now);
+        process.env.LICENSE_KEY = oldLicenseKey;
+        const org_with_old_style_license = {
+          id: "org_123",
+        };
+        expect(getLicenseError(org_with_old_style_license)).toBe("");
+      });
     });
 
     describe("when there is a license but the org does not match", () => {
