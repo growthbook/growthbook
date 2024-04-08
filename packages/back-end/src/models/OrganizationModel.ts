@@ -10,6 +10,7 @@ import {
 import { upgradeOrganizationDoc } from "../util/migrations";
 import { ApiOrganization } from "../../types/openapi";
 import { IS_CLOUD } from "../util/secrets";
+import { logger } from "../util/logger";
 
 const baseMemberFields = {
   _id: false,
@@ -49,6 +50,7 @@ const organizationSchema = new mongoose.Schema({
     {
       ...baseMemberFields,
       id: String,
+      lastLoginDate: Date,
     },
   ],
   invites: [
@@ -404,4 +406,39 @@ export function toOrganizationApiInterface(
     ownerEmail,
     dateCreated: dateCreated?.toISOString() || "",
   };
+}
+
+export async function updateMember(
+  orgId: string,
+  userId: string,
+  updates: Partial<Member>
+) {
+  const org = await findOrganizationById(orgId);
+
+  if (!org) throw new Error("Organization or member not found");
+
+  const member = org.members.find((m) => m.id === userId);
+
+  if (!member) throw new Error("Member not found");
+
+  try {
+    await updateOrganization(orgId, {
+      members: org.members.map((m) => {
+        if (m.id === userId) {
+          return {
+            ...m,
+            ...updates,
+          };
+        }
+        return m;
+      }),
+    });
+  } catch (e) {
+    logger.error("error updating member", {
+      orgId,
+      userId,
+      error: e,
+    });
+    throw e;
+  }
 }
