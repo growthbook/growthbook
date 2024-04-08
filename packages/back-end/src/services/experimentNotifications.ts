@@ -1,5 +1,4 @@
 import { Context } from "../models/BaseModel";
-import { ExperimentNotificationModel } from "../models/ExperimentNotification";
 import { createEvent } from "../models/EventModel";
 import { getExperimentById } from "../models/ExperimentModel";
 import { EventNotifier } from "../events/notifiers/EventNotifier";
@@ -135,6 +134,7 @@ export const notifyMetricsChange = async ({
     await notifySrm({ context, experiment, lastResult });
   }
 
+  /*
   const experimentNotification = new ExperimentNotificationModel(context);
   const notifications = await experimentNotification.getAllByAttributes({
     trigger: "snapshot",
@@ -142,4 +142,5 @@ export const notifyMetricsChange = async ({
   });
 
   notifications.forEach((n) => experimentNotification.onTrigger(n));
+  */
 };

@@ -138,6 +138,8 @@ export interface ExperimentInterface {
   fallbackAttribute?: string;
   hashVersion: 1 | 2;
   disableStickyBucketing?: boolean;
+  metricsNotificationsEnabled?: boolean;
+  metricsNotifications?: string[];
   bucketVersion?: number;
   minBucketVersion?: number;
   name: string;

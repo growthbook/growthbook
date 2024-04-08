@@ -23,7 +23,3 @@ export type ExperimentWarningNotificationPayload =
   | AutoUpdateFailed
   | MultipleExposures
   | SRM;
-
-import { ExperimentInfoNotificationPayload as ModelExperimentInfoNotificationPayload } from "../models/ExperimentNotification";
-
-export type ExperimentInfoNotificationPayload = ModelExperimentInfoNotificationPayload;
