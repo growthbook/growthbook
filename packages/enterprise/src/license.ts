@@ -768,6 +768,7 @@ export function getLicenseError(org: MinimalOrganization): string {
   }
 
   if (
+    !stringToBoolean(process.env.IS_CLOUD) &&
     process.env.SSO_CONFIG &&
     !planHasPremiumFeature(licenseData.plan, "sso")
   ) {
