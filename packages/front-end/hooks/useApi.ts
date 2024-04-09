@@ -1,9 +1,7 @@
 import useSWR from "swr";
 import { useAuth } from "@/services/auth";
 
-export default function useApi<Response = unknown>(
-  path: string | null,
-) {
+export default function useApi<Response = unknown>(path: string | null) {
   const { apiCall } = useAuth();
   const { orgId } = useAuth();
 
@@ -13,6 +11,6 @@ export default function useApi<Response = unknown>(
   return useSWR<Response, Error>(key, async () =>
     apiCall<Response>(path, {
       method: "GET",
-    }),
+    })
   );
 }
