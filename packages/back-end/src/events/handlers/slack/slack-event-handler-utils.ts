@@ -320,7 +320,7 @@ const buildSlackMessageForExperimentWarningEvent = ({
   let invalidData: never;
 
   switch (data.type) {
-    case "auto-update-failed": {
+    case "auto-update": {
       const text = `Automatic snapshot creation for ${data.experimentName} failed!`;
 
       return {

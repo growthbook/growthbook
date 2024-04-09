@@ -4,13 +4,29 @@ import { getExperimentById } from "../models/ExperimentModel";
 import { EventNotifier } from "../events/notifiers/EventNotifier";
 import { ExperimentWarningNotificationEvent } from "../events/notification-events";
 import { ExperimentSnapshotDocument } from "../models/ExperimentSnapshotModel";
-import { ExperimentInterface } from "../../types/experiment";
+import {
+  ExperimentInterface,
+  ExperimentNotification,
+} from "../../types/experiment";
 import { ExperimentReportResultDimension } from "../../types/report";
 import { ExperimentWarningNotificationPayload } from "../types/ExperimentNotification";
+import { IfEqual } from "../util/types";
+
+// This ensures that the two types remain equal.
+
+// TODO: extend with experiment info
+type ExperimentNotificationFromCode = ExperimentWarningNotificationPayload["type"];
+
+type ExperimentWarningNotificationData = IfEqual<
+  ExperimentNotificationFromCode,
+  ExperimentNotification,
+  ExperimentWarningNotificationPayload,
+  never
+>;
 
 const dispatchEvent = async (
   context: Context,
-  data: ExperimentWarningNotificationPayload
+  data: ExperimentWarningNotificationData
 ) => {
   const payload: ExperimentWarningNotificationEvent = {
     event: "experiment.warning",
@@ -42,8 +58,10 @@ export const notifyFailedAutoUpdate = async ({
 
   if (!experiment) throw new Error("Error while fetching experiment!");
 
+  if (experiment.pastNotifications?.includes("auto-update")) return;
+
   await dispatchEvent(context, {
-    type: "auto-update-failed",
+    type: "auto-update",
     experimentId,
     experimentName: experiment.name,
   });
@@ -62,6 +80,8 @@ const notifyMultipleExposures = async ({
   lastResult: ExperimentReportResultDimension;
   snapshot: ExperimentSnapshotDocument;
 }) => {
+  if (experiment.pastNotifications?.includes("multiple-exposures")) return;
+
   const totalsUsers = lastResult.variations.reduce(
     (totalUsersCount, { users }) => totalUsersCount + users,
     0
@@ -93,6 +113,8 @@ const notifySrm = async ({
   experiment: ExperimentInterface;
   lastResult: ExperimentReportResultDimension;
 }) => {
+  if (experiment.pastNotifications?.includes("srm")) return;
+
   const srmThreshold =
     context.org.settings?.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
@@ -133,14 +155,4 @@ export const notifyMetricsChange = async ({
     });
     await notifySrm({ context, experiment, lastResult });
   }
-
-  /*
-  const experimentNotification = new ExperimentNotificationModel(context);
-  const notifications = await experimentNotification.getAllByAttributes({
-    trigger: "snapshot",
-    experimentId: snapshot.experiment,
-  });
-
-  notifications.forEach((n) => experimentNotification.onTrigger(n));
-  */
 };

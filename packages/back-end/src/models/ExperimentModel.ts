@@ -86,6 +86,7 @@ const experimentSchema = new mongoose.Schema({
   metricsNotificationsEnabled: Boolean,
   // Metrics to be notified about
   metricsNotifications: [String],
+  pastNotifications: [String],
   metricOverrides: [
     {
       _id: false,

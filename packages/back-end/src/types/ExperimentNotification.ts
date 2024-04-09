@@ -1,5 +1,5 @@
 export type AutoUpdateFailed = {
-  type: "auto-update-failed";
+  type: "auto-update";
   experimentName: string;
   experimentId: string;
 };
