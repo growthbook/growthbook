@@ -5023,7 +5023,7 @@
                 "key": "feature-exp",
                 "seed": "feature-exp",
                 "hashAttribute": "id",
-                "fallbackAttribute": "deviceId",
+                "fallbackAttribute": "anonymousId",
                 "hashVersion": 2,
                 "bucketVersion": 0,
                 "condition": { "country": "USA" },

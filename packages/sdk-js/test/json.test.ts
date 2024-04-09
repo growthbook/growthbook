@@ -198,10 +198,20 @@ describe("json test suite", () => {
       expectedExperimentResult,
       expectedStickyBucketAssignmentDocs
     ) => {
+      localStorage.clear();
       await clearCache();
+
+      const sbs = new LocalStorageStickyBucketService();
+      // seed the sticky bucket repo
+      if (ctx.stickyBucketAssignmentDocs) {
+        for (const v of Object.values(ctx.stickyBucketAssignmentDocs)) {
+          await sbs.saveAssignments(v);
+        }
+      }
+
       ctx = {
         ...ctx,
-        stickyBucketService: new LocalStorageStickyBucketService(),
+        stickyBucketService: sbs,
       };
       const growthbook = new GrowthBook(ctx);
       expect(growthbook.evalFeature(key).experimentResult ?? null).toEqual(
@@ -211,7 +221,6 @@ describe("json test suite", () => {
         expectedStickyBucketAssignmentDocs
       );
       growthbook.destroy();
-      localStorage.clear();
     }
   );
 
