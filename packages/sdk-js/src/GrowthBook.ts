@@ -1568,31 +1568,27 @@ export class GrowthBook<
     const { hashAttribute, hashValue } = this._getHashAttribute(
       expHashAttribute
     );
+    const hashKey = `${hashAttribute}||${toString(hashValue)}`;
+
     const {
       hashAttribute: fallbackAttribute,
       hashValue: fallbackValue,
     } = this._getHashAttribute(expFallbackAttribute);
+    const fallbackKey = fallbackValue
+      ? `${fallbackAttribute}||${toString(fallbackValue)}`
+      : null;
 
     const assignments: StickyAssignments = {};
-    if (
-      this._ctx.stickyBucketAssignmentDocs[
-        `${fallbackAttribute}||${fallbackValue}`
-      ]
-    ) {
+    if (fallbackKey && this._ctx.stickyBucketAssignmentDocs[fallbackKey]) {
       Object.assign(
         assignments,
-        this._ctx.stickyBucketAssignmentDocs[
-          `${fallbackAttribute}||${fallbackValue}`
-        ].assignments || {}
+        this._ctx.stickyBucketAssignmentDocs[fallbackKey].assignments || {}
       );
     }
-    if (
-      this._ctx.stickyBucketAssignmentDocs[`${hashAttribute}||${hashValue}`]
-    ) {
+    if (this._ctx.stickyBucketAssignmentDocs[hashKey]) {
       Object.assign(
         assignments,
-        this._ctx.stickyBucketAssignmentDocs[`${hashAttribute}||${hashValue}`]
-          .assignments || {}
+        this._ctx.stickyBucketAssignmentDocs[hashKey].assignments || {}
       );
     }
     return assignments;
