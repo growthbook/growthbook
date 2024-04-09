@@ -70,7 +70,7 @@ export default function ReportPage() {
 
   const { apiCall } = useAuth();
 
-  const canCreateAnalyses = !permissionsUtil.canViewExperimentModal(
+  const canCreateAnalyses = !permissionsUtil.canViewReportModal(
     experimentData?.experiment.project
   );
 

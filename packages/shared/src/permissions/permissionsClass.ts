@@ -61,6 +61,57 @@ export class Permissions {
   };
 
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
+  public canViewReportModal = (project?: string): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: project ? [project] : [],
+      },
+      "createAnalyses"
+    );
+  };
+  // reports don't have projects, but their connected experiments do
+  public canCreateReport = (
+    connectedExperiment: Pick<ExperimentInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: connectedExperiment.project
+          ? [connectedExperiment.project]
+          : [],
+      },
+      "createAnalyses"
+    );
+  };
+
+  // reports don't have projects, but their connected experiments do
+  public canUpdateReport = (
+    connectedExperiment: Pick<ExperimentInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: connectedExperiment.project
+          ? [connectedExperiment.project]
+          : [],
+      },
+      "createAnalyses"
+    );
+  };
+
+  // reports don't have projects, but their connected experiments do
+  public canDeleteReport = (
+    connectedExperiment: Pick<ExperimentInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: connectedExperiment.project
+          ? [connectedExperiment.project]
+          : [],
+      },
+      "createAnalyses"
+    );
+  };
+
+  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
   public canViewIdeaModal = (project?: string): boolean => {
     return this.checkProjectFilterPermission(
       {
