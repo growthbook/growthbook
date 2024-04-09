@@ -2764,7 +2764,9 @@
     uuid "^8.0.0"
 
 "@growthbook/growthbook@^0.34.0":
-  version "0.35.0"
+  version "0.34.0"
+  resolved "https://registry.yarnpkg.com/@growthbook/growthbook/-/growthbook-0.34.0.tgz#df5275fafbbe055c7cfeea2953a4218a9ec9027f"
+  integrity sha512-3K5JL8QftX7y77EpieYg9anXVYb6+ZafTsrNCWp0HOdmtf4lxHOzCUYwuYDaS3bvmaeIUWJ5hYcOTc6WhNbfJw==
   dependencies:
     dom-mutator "^0.6.0"
 
@@ -3224,6 +3226,11 @@
   integrity sha512-gqaTIGC8My3LVSnU38IwjHVKJC94HSonjvFHDk8/aSrApL8v4uWgm8zJkK7MJIIbHuNOr/+Mv2KkQKcxs6LEZA==
   dependencies:
     unist-util-visit "^1.4.1"
+
+"@messageformat/number-skeleton@^1.2.0":
+  version "1.2.0"
+  resolved "https://registry.yarnpkg.com/@messageformat/number-skeleton/-/number-skeleton-1.2.0.tgz#e7c245c41a1b2722bc59dad68f4d454f761bc9b4"
+  integrity sha512-xsgwcL7J7WhlHJ3RNbaVgssaIwcEyFkBqxHdcdaiJzwTZAWEOD8BuUFxnxV9k5S0qHN3v/KzUpq0IUpjH1seRg==
 
 "@mongodb-js/saslprep@^1.1.0":
   version "1.1.5"

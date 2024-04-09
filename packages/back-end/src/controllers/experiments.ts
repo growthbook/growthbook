@@ -1,4 +1,5 @@
 import { Response } from "express";
+
 import uniqid from "uniqid";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
@@ -111,7 +112,7 @@ export async function getExperiments(
       project?: string;
     }
   >,
-  res: Response,
+  res: Response
 ) {
   const context = getContextFromReq(req);
   let project = "";
@@ -129,7 +130,7 @@ export async function getExperiments(
 
 export async function getExperimentsFrequencyMonth(
   req: AuthRequest<null, { num: string }, { project?: string }>,
-  res: Response,
+  res: Response
 ) {
   const context = getContextFromReq(req);
   let project = "";
@@ -222,7 +223,7 @@ export async function getExperimentsFrequencyMonth(
 
 export async function lookupExperimentByTrackingKey(
   req: AuthRequest<unknown, unknown, { trackingKey: string }>,
-  res: ResponseWithStatusAndError<{ experimentId: string | null }>,
+  res: ResponseWithStatusAndError<{ experimentId: string | null }>
 ) {
   const context = getContextFromReq(req);
   const { trackingKey } = req.query;
@@ -236,7 +237,7 @@ export async function lookupExperimentByTrackingKey(
 
   const experiment = await getExperimentByTrackingKey(
     context,
-    trackingKey + "",
+    trackingKey + ""
   );
 
   return res.status(200).json({
@@ -247,7 +248,7 @@ export async function lookupExperimentByTrackingKey(
 
 export async function getExperiment(
   req: AuthRequest<null, { id: string }>,
-  res: Response,
+  res: Response
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -282,12 +283,12 @@ export async function getExperiment(
 
   const visualChangesets = await findVisualChangesetsByExperiment(
     experiment.id,
-    org.id,
+    org.id
   );
 
   const urlRedirects = await findURLRedirectsByExperiment(
     experiment.id,
-    org.id,
+    org.id
   );
 
   const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
@@ -307,7 +308,7 @@ async function _getSnapshot(
   id: string,
   phase?: string,
   dimension?: string,
-  withResults: boolean = true,
+  withResults: boolean = true
 ) {
   const experiment = await getExperimentById(context, id);
 
@@ -328,13 +329,13 @@ async function _getSnapshot(
     experiment.id,
     parseInt(phase),
     dimension,
-    withResults,
+    withResults
   );
 }
 
 export async function getSnapshotWithDimension(
   req: AuthRequest<null, { id: string; phase: string; dimension: string }>,
-  res: Response,
+  res: Response
 ) {
   const context = getContextFromReq(req);
   const { id, phase, dimension } = req.params;
@@ -350,7 +351,7 @@ export async function getSnapshotWithDimension(
 }
 export async function getSnapshot(
   req: AuthRequest<null, { id: string; phase: string }>,
-  res: Response,
+  res: Response
 ) {
   const context = getContextFromReq(req);
   const { id, phase } = req.params;
@@ -367,7 +368,7 @@ export async function getSnapshot(
 
 export async function postSnapshotNotebook(
   req: AuthRequest<null, { id: string }>,
-  res: Response,
+  res: Response
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -382,7 +383,7 @@ export async function postSnapshotNotebook(
 
 export async function getSnapshots(
   req: AuthRequest<unknown, unknown, { ids?: string }>,
-  res: Response,
+  res: Response
 ) {
   const context = getContextFromReq(req);
   const idsString = (req.query?.ids as string) || "";
@@ -444,7 +445,7 @@ export async function postExperiments(
     | { status: 200; duplicateTrackingKey: boolean; existingId: string }
     | PrivateApiErrorResponse,
     EventAuditUserForResponseLocals
-  >,
+  >
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
@@ -556,7 +557,7 @@ export async function postExperiments(
     if (obj.trackingKey && !req.query.allowDuplicateTrackingKey) {
       const existing = await getExperimentByTrackingKey(
         context,
-        obj.trackingKey,
+        obj.trackingKey
       );
       if (existing) {
         return res.status(200).json({
@@ -575,7 +576,7 @@ export async function postExperiments(
     if (req.query.originalId) {
       const visualChangesets = await findVisualChangesetsByExperiment(
         req.query.originalId,
-        org.id,
+        org.id
       );
       for (const visualChangeset of visualChangesets) {
         await createVisualChangeset({
@@ -589,7 +590,7 @@ export async function postExperiments(
 
       const urlRedirects = await findURLRedirectsByExperiment(
         req.query.originalId,
-        org.id,
+        org.id
       );
       for (const urlRedirect of urlRedirects) {
         await createURLRedirect({
@@ -648,7 +649,7 @@ export async function postExperiment(
     | { status: number; experiment?: ExperimentInterface | null }
     | PrivateApiErrorResponse,
     EventAuditUserForResponseLocals
-  >,
+  >
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
@@ -804,19 +805,17 @@ export async function postExperiment(
   }
 
   // Only some fields affect production SDK payloads
-  const needsRunExperimentsPermission = (
-    [
-      "phases",
-      "variations",
-      "project",
-      "name",
-      "trackingKey",
-      "archived",
-      "status",
-      "releasedVariationId",
-      "excludeFromPayload",
-    ] as (keyof ExperimentInterfaceStringDates)[]
-  ).some((key) => key in changes);
+  const needsRunExperimentsPermission = ([
+    "phases",
+    "variations",
+    "project",
+    "name",
+    "trackingKey",
+    "archived",
+    "status",
+    "releasedVariationId",
+    "excludeFromPayload",
+  ] as (keyof ExperimentInterfaceStringDates)[]).some((key) => key in changes);
   if (needsRunExperimentsPermission) {
     const envs = getAffectedEnvsForExperiment({
       experiment,
@@ -840,7 +839,7 @@ export async function postExperiment(
   if (changes.variations && updated) {
     const visualChangesets = await findVisualChangesetsByExperiment(
       experiment.id,
-      org.id,
+      org.id
     );
 
     if (visualChangesets.length) {
@@ -850,14 +849,14 @@ export async function postExperiment(
             visualChangeset: vc,
             experiment: updated,
             context,
-          }),
-        ),
+          })
+        )
       );
     }
 
     const urlRedirects = await findURLRedirectsByExperiment(
       experiment.id,
-      org.id,
+      org.id
     );
     if (urlRedirects.length) {
       await Promise.all(
@@ -866,8 +865,8 @@ export async function postExperiment(
             urlRedirect,
             experiment: updated,
             context,
-          }),
-        ),
+          })
+        )
       );
     }
   }
@@ -899,7 +898,7 @@ export async function postExperiment(
 
 export async function postExperimentArchive(
   req: AuthRequest<null, { id: string }>,
-  res: Response,
+  res: Response
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -964,7 +963,7 @@ export async function postExperimentArchive(
 
 export async function postExperimentUnarchive(
   req: AuthRequest<null, { id: string }>,
-  res: Response,
+  res: Response
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1029,7 +1028,7 @@ export async function postExperimentStatus(
     },
     { id: string }
   >,
-  res: Response,
+  res: Response
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1119,7 +1118,7 @@ export async function postExperimentStop(
     { reason: string; dateEnded: string } & Partial<ExperimentInterface>,
     { id: string }
   >,
-  res: Response,
+  res: Response
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1214,7 +1213,7 @@ export async function postExperimentStop(
 
 export async function deleteExperimentPhase(
   req: AuthRequest<null, { id: string; phase: string }>,
-  res: Response,
+  res: Response
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1283,7 +1282,7 @@ export async function deleteExperimentPhase(
 
 export async function putExperimentPhase(
   req: AuthRequest<ExperimentPhase, { id: string; phase: string }>,
-  res: Response,
+  res: Response
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1350,7 +1349,7 @@ export async function putExperimentPhase(
 
 export async function postExperimentTargeting(
   req: AuthRequest<ExperimentTargetingData, { id: string }>,
-  res: Response,
+  res: Response
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
@@ -1475,7 +1474,7 @@ export async function postExperimentTargeting(
 
 export async function postExperimentPhase(
   req: AuthRequest<ExperimentPhase, { id: string }>,
-  res: Response,
+  res: Response
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
@@ -1573,7 +1572,7 @@ export async function postExperimentPhase(
 
 export async function getWatchingUsers(
   req: AuthRequest<null, { id: string }>,
-  res: Response,
+  res: Response
 ) {
   const { org } = getContextFromReq(req);
   const { id } = req.params;
@@ -1590,7 +1589,7 @@ export async function deleteExperiment(
   res: Response<
     { status: 200 } | PrivateApiErrorResponse,
     EventAuditUserForResponseLocals
-  >,
+  >
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1645,7 +1644,7 @@ export async function deleteExperiment(
 
 export async function cancelSnapshot(
   req: AuthRequest<null, { id: string }>,
-  res: Response,
+  res: Response
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1671,12 +1670,12 @@ export async function cancelSnapshot(
 
   const integration = await getIntegrationFromDatasourceId(
     context,
-    snapshot.settings.datasourceId,
+    snapshot.settings.datasourceId
   );
   const queryRunner = new ExperimentResultsQueryRunner(
     context,
     snapshot,
-    integration,
+    integration
   );
   await queryRunner.cancelQueries();
   await deleteSnapshotById(org.id, snapshot.id);
@@ -1694,7 +1693,7 @@ export async function postSnapshot(
     { id: string },
     { force?: string }
   >,
-  res: Response,
+  res: Response
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1715,8 +1714,7 @@ export async function postSnapshot(
   if (experiment.project) {
     project = await findProjectById(context, experiment.project);
   }
-  const orgSettings: OrganizationSettings =
-    org.settings as OrganizationSettings;
+  const orgSettings: OrganizationSettings = org.settings as OrganizationSettings;
   const { settings } = getScopedSettings({
     organization: org,
     project: project ?? undefined,
@@ -1730,32 +1728,34 @@ export async function postSnapshot(
     ...(experiment.guardrails ?? []),
   ]);
   const allExperimentMetrics = await Promise.all(
-    allExperimentMetricIds.map((m) => getExperimentMetricById(context, m)),
+    allExperimentMetricIds.map((m) => getExperimentMetricById(context, m))
   );
   const denominatorMetricIds = uniq<string>(
     allExperimentMetrics
       .map((m) => m?.denominator)
-      .filter((d) => d && typeof d === "string") as string[],
+      .filter((d) => d && typeof d === "string") as string[]
   );
   const denominatorMetrics = (
     await Promise.all(
-      denominatorMetricIds.map((m) => getMetricById(context, m)),
+      denominatorMetricIds.map((m) => getMetricById(context, m))
     )
   ).filter(Boolean) as MetricInterface[];
   const datasource = await getDataSourceById(context, experiment.datasource);
 
-  const { metricRegressionAdjustmentStatuses, regressionAdjustmentEnabled } =
-    getAllMetricRegressionAdjustmentStatuses({
-      allExperimentMetrics,
-      denominatorMetrics,
-      orgSettings,
-      statsEngine,
-      experimentRegressionAdjustmentEnabled:
-        experiment.regressionAdjustmentEnabled,
-      experimentMetricOverrides: experiment.metricOverrides,
-      datasourceType: datasource?.type,
-      hasRegressionAdjustmentFeature: true,
-    });
+  const {
+    metricRegressionAdjustmentStatuses,
+    regressionAdjustmentEnabled,
+  } = getAllMetricRegressionAdjustmentStatuses({
+    allExperimentMetrics,
+    denominatorMetrics,
+    orgSettings,
+    statsEngine,
+    experimentRegressionAdjustmentEnabled:
+      experiment.regressionAdjustmentEnabled,
+    experimentMetricOverrides: experiment.metricOverrides,
+    datasourceType: datasource?.type,
+    hasRegressionAdjustmentFeature: true,
+  });
 
   if (!experiment.phases[phase]) {
     res.status(404).json({
@@ -1776,7 +1776,7 @@ export async function postSnapshot(
     experiment,
     org,
     regressionAdjustmentEnabled,
-    dimension,
+    dimension
   );
 
   const metricMap = await getMetricMap(context);
@@ -1845,7 +1845,7 @@ export async function postSnapshot(
       defaultAnalysisSettings: analysisSettings,
       additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
         analysisSettings,
-        experiment,
+        experiment
       ),
       metricRegressionAdjustmentStatuses:
         metricRegressionAdjustmentStatuses || [],
@@ -1887,7 +1887,7 @@ export async function postSnapshotAnalysis(
     },
     { id: string }
   >,
-  res: Response,
+  res: Response
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1951,7 +1951,7 @@ export async function postSnapshotAnalysis(
 
 export async function deleteScreenshot(
   req: AuthRequest<{ url: string }, { id: string; variation: number }>,
-  res: Response,
+  res: Response
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -2008,7 +2008,7 @@ export async function deleteScreenshot(
     details: auditDetailsUpdate(
       experiment.variations[variation].screenshots,
       updated?.variations[variation].screenshots,
-      { variation },
+      { variation }
     ),
   });
 
@@ -2023,7 +2023,7 @@ type AddScreenshotRequestBody = {
 };
 export async function addScreenshot(
   req: AuthRequest<AddScreenshotRequestBody, { id: string; variation: number }>,
-  res: Response,
+  res: Response
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
@@ -2105,7 +2105,7 @@ export async function addScreenshot(
 
 export async function cancelPastExperiments(
   req: AuthRequest<null, { id: string }>,
-  res: Response,
+  res: Response
 ) {
   // for safety, check if the user has runQueries globally or in atleast 1 project
   req.checkPermissions("runQueries", []);
@@ -2120,12 +2120,12 @@ export async function cancelPastExperiments(
 
   const integration = await getIntegrationFromDatasourceId(
     context,
-    pastExperiments.datasource,
+    pastExperiments.datasource
   );
   const queryRunner = new PastExperimentsQueryRunner(
     context,
     pastExperiments,
-    integration,
+    integration
   );
   await queryRunner.cancelQueries();
 
@@ -2134,7 +2134,7 @@ export async function cancelPastExperiments(
 
 export async function getPastExperimentsList(
   req: AuthRequest<null, { id: string }>,
-  res: Response,
+  res: Response
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -2147,7 +2147,7 @@ export async function getPastExperimentsList(
 
   const experiments = await getPastExperimentsByDatasource(
     context,
-    pastExperiments.datasource,
+    pastExperiments.datasource
   );
 
   const experimentMap = new Map<string, string>();
@@ -2173,7 +2173,7 @@ export async function getPastExperimentsList(
 //experiments/import, sent here right after "add experiment"
 export async function postPastExperiments(
   req: AuthRequest<{ datasource: string; force: boolean }>,
-  res: Response,
+  res: Response
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -2185,14 +2185,14 @@ export async function postPastExperiments(
   }
   req.checkPermissions(
     "runQueries",
-    datasourceObj?.projects?.length ? datasourceObj.projects : [],
+    datasourceObj?.projects?.length ? datasourceObj.projects : []
   );
 
   const integration = getSourceIntegrationObject(datasourceObj, true);
 
   let pastExperiments = await getPastExperimentsModelByDatasource(
     org.id,
-    datasource,
+    datasource
   );
 
   const start = new Date();
@@ -2224,7 +2224,7 @@ export async function postPastExperiments(
     const queryRunner = new PastExperimentsQueryRunner(
       context,
       pastExperiments,
-      integration,
+      integration
     );
     pastExperiments = await queryRunner.startAnalysis({
       from: start,
@@ -2249,7 +2249,7 @@ export async function postPastExperiments(
 
 export async function postVisualChangeset(
   req: AuthRequest<Partial<VisualChangesetInterface>, { id: string }>,
-  res: Response,
+  res: Response
 ) {
   const context = getContextFromReq(req);
   if (!req.body.urlPatterns) {
@@ -2287,7 +2287,7 @@ export async function postVisualChangeset(
 
 export async function putVisualChangeset(
   req: AuthRequest<Partial<VisualChangesetInterface>, { id: string }>,
-  res: Response,
+  res: Response
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -2299,7 +2299,7 @@ export async function putVisualChangeset(
 
   const experiment = await getExperimentById(
     context,
-    visualChangeset.experiment,
+    visualChangeset.experiment
   );
   if (!experiment) {
     throw new Error("Could not find experiment");
@@ -2333,7 +2333,7 @@ export async function putVisualChangeset(
 
 export async function deleteVisualChangeset(
   req: AuthRequest<null, { id: string }>,
-  res: Response,
+  res: Response
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -2345,7 +2345,7 @@ export async function deleteVisualChangeset(
 
   const experiment = await getExperimentById(
     context,
-    visualChangeset.experiment,
+    visualChangeset.experiment
   );
 
   const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
@@ -2364,7 +2364,7 @@ export async function deleteVisualChangeset(
 
 export async function findOrCreateVisualEditorToken(
   req: AuthRequest,
-  res: Response,
+  res: Response
 ) {
   const { org } = getContextFromReq(req);
 
