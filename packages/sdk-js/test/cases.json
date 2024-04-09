@@ -4957,7 +4957,7 @@
                 "key": "feature-exp",
                 "seed": "feature-exp",
                 "hashAttribute": "id",
-                "fallbackAttribute": "deviceId",
+                "fallbackAttribute": "anonymousId",
                 "hashVersion": 2,
                 "bucketVersion": 0,
                 "condition": { "country": "USA" },
@@ -4971,11 +4971,11 @@
           }
         },
         "stickyBucketAssignmentDocs": {
-          "anonymousId||123": {
+          "anonymousId||ses123": {
             "attributeName": "anonymousId",
-            "attributeValue": "123",
+            "attributeValue": "ses123",
             "assignments": {
-              "feature-exp__0": "2"
+              "feature-exp__0": "1"
             }
           }
         }
@@ -4988,19 +4988,19 @@
         "hashUsed": true,
         "hashValue": "i123",
         "inExperiment": true,
-        "key": "2",
+        "key": "1",
         "stickyBucketUsed": true,
-        "value": "blue",
-        "variationId": 2
+        "value": "red",
+        "variationId": 1
       },
       {
-        "anonymousId||123": {
-          "assignments": { "feature-exp__0": "2" },
+        "anonymousId||ses123": {
+          "assignments": { "feature-exp__0": "1" },
           "attributeName": "anonymousId",
-          "attributeValue": "123"
+          "attributeValue": "ses123"
         },
         "id||i123": {
-          "assignments": { "feature-exp__0": "2" },
+          "assignments": { "feature-exp__0": "1" },
           "attributeName": "id",
           "attributeValue": "i123"
         }
@@ -5037,9 +5037,9 @@
           }
         },
         "stickyBucketAssignmentDocs": {
-          "anonymousId||123": {
+          "anonymousId||ses123": {
             "attributeName": "anonymousId",
-            "attributeValue": "123",
+            "attributeValue": "ses123",
             "assignments": {
               "feature-exp__0": "2"
             }
@@ -5067,10 +5067,10 @@
         "variationId": 1
       },
       {
-        "anonymousId||123": {
+        "anonymousId||ses123": {
           "assignments": { "feature-exp__0": "2" },
           "attributeName": "anonymousId",
-          "attributeValue": "123"
+          "attributeValue": "ses123"
         },
         "id||i123": {
           "assignments": { "feature-exp__0": "1" },
