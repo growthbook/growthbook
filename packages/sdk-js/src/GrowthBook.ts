@@ -1560,17 +1560,40 @@ export class GrowthBook<
     }
   }
 
-  private _getStickyBucketAssignments(expHashAttribute: string, expFallbackAttribute?: string): StickyAssignments {
+  private _getStickyBucketAssignments(
+    expHashAttribute: string,
+    expFallbackAttribute?: string
+  ): StickyAssignments {
     if (!this._ctx.stickyBucketAssignmentDocs) return {};
-    const { hashAttribute, hashValue } = this._getHashAttribute(expHashAttribute);
-    const { hashAttribute: fallbackAttribute, hashValue: fallbackValue } = this._getHashAttribute(expFallbackAttribute);
+    const { hashAttribute, hashValue } = this._getHashAttribute(
+      expHashAttribute
+    );
+    const {
+      hashAttribute: fallbackAttribute,
+      hashValue: fallbackValue,
+    } = this._getHashAttribute(expFallbackAttribute);
 
     const assignments: StickyAssignments = {};
-    if (this._ctx.stickyBucketAssignmentDocs[`${fallbackAttribute}||${fallbackValue}`]) {
-      Object.assign(assignments, this._ctx.stickyBucketAssignmentDocs[`${fallbackAttribute}||${fallbackValue}`].assignments || {});
+    if (
+      this._ctx.stickyBucketAssignmentDocs[
+        `${fallbackAttribute}||${fallbackValue}`
+      ]
+    ) {
+      Object.assign(
+        assignments,
+        this._ctx.stickyBucketAssignmentDocs[
+          `${fallbackAttribute}||${fallbackValue}`
+        ].assignments || {}
+      );
     }
-    if (this._ctx.stickyBucketAssignmentDocs[`${hashAttribute}||${hashValue}`]) {
-      Object.assign(assignments, this._ctx.stickyBucketAssignmentDocs[`${hashAttribute}||${hashValue}`].assignments || {});
+    if (
+      this._ctx.stickyBucketAssignmentDocs[`${hashAttribute}||${hashValue}`]
+    ) {
+      Object.assign(
+        assignments,
+        this._ctx.stickyBucketAssignmentDocs[`${hashAttribute}||${hashValue}`]
+          .assignments || {}
+      );
     }
     return assignments;
   }
@@ -1597,11 +1620,11 @@ export class GrowthBook<
     expMinBucketVersion = expMinBucketVersion || 0;
     expHashAttribute = expHashAttribute || "id";
     expMeta = expMeta || [];
-    const id = this._getStickyBucketExperimentKey(
-      expKey,
-      expBucketVersion
+    const id = this._getStickyBucketExperimentKey(expKey, expBucketVersion);
+    const assignments = this._getStickyBucketAssignments(
+      expHashAttribute,
+      expFallbackAttribute
     );
-    const assignments = this._getStickyBucketAssignments(expHashAttribute, expFallbackAttribute);
 
     // users with any blocked bucket version (0 to minExperimentBucketVersion) are excluded from the test
     if (expMinBucketVersion > 0) {
