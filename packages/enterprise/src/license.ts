@@ -422,7 +422,13 @@ async function callLicenseServer(url: string, body: string, method = "POST") {
   }
 
   if (!serverResult.ok) {
-    const errorText = await serverResult.text();
+    let errorText = await serverResult.text();
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorText = errorJson.error;
+    } catch (e) {
+      // errorText is not valid JSON, so do nothing and keep the original text
+    }
     logger.error(`License Server error (${serverResult.status}): ${errorText}`);
     throw new LicenseServerError(
       `License server errored with: ${errorText}`,
@@ -811,6 +817,7 @@ export function getLicenseError(org: MinimalOrganization): string {
 
   // If there is no license it can't have an error
   // Licenses might not have a plan if sign up for pro, but abandon checkout
+  // Or it might not have a plan if the license is set in the env var but the license server wasn't whitelisted.
   if (!licenseData || !licenseData.plan) {
     return "";
   }
