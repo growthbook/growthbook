@@ -28,7 +28,11 @@ export default function ExperimentSettings({
   const queryParams = new URLSearchParams(window.location.search);
 
   const [editChecklistOpen, setEditChecklistOpen] = useState(
-    () => queryParams.get("editCheckListModal") || false
+    () => queryParams.get("editCheckListModal") || false,
+  );
+
+  const experimentNotificationsEnabled = form.watch(
+    "experimentNotificationsEnabled",
   );
 
   const srmThreshold = form.watch("srmThreshold");
@@ -40,8 +44,8 @@ export default function ExperimentSettings({
     srmThreshold && srmThreshold > 0.01
       ? "Thresholds above 0.01 may lead to many false positives, especially if you refresh results regularly."
       : srmThreshold && srmThreshold < 0.001
-      ? "Thresholds below 0.001 may make it hard to detect imbalances without lots of traffic."
-      : "";
+        ? "Thresholds below 0.001 may make it hard to detect imbalances without lots of traffic."
+        : "";
 
   return (
     <>
@@ -170,6 +174,22 @@ export default function ExperimentSettings({
                   />
                 </div>
               )}
+            </div>
+
+            <div className="form-group mb-4  form-inline">
+              <label
+                className="mr-1"
+                htmlFor="toggle-experimentNotificationsEnabled"
+              >
+                Enable experiment notifications
+              </label>
+              <Toggle
+                id="toggle-experimentNotificationsEnabled"
+                value={experimentNotificationsEnabled}
+                setValue={(value) => {
+                  form.setValue("experimentNotificationsEnabled", value);
+                }}
+              />
             </div>
 
             <div className="d-flex form-group mb-3">

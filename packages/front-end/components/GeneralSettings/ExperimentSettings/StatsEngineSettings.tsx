@@ -5,7 +5,6 @@ import { StatsEngine, PValueCorrection } from "back-end/types/stats";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import Tab from "@/components/Tabs/Tab";
-import Toggle from "@/components/Forms/Toggle";
 import BayesianTab from "./BayesianTab";
 import FrequentistTab from "./FrequentistTab";
 
@@ -18,7 +17,6 @@ interface FormValues {
   sequentialTestingEnabled: boolean;
   regressionAdjustmentEnabled: boolean;
   regressionAdjustmentDays: number;
-  experimentNotificationsEnabled: boolean;
 }
 
 export type StatsEngineSettingsForm = UseFormReturn<FormValues>;
@@ -30,9 +28,6 @@ export default function StatsEngineSettings() {
   const confidenceLevel = form.watch("confidenceLevel");
   const pValueThreshold = form.watch("pValueThreshold");
   const regressionAdjustmentDays = form.watch("regressionAdjustmentDays");
-  const experimentNotificationsEnabled = form.watch(
-    "experimentNotificationsEnabled"
-  );
 
   const [statsEngineTab, setStatsEngineTab] = useState<string>(
     statsEngine || DEFAULT_STATS_ENGINE
@@ -154,19 +149,6 @@ export default function StatsEngineSettings() {
           />
         </Tab>
       </ControlledTabs>
-
-      <div className="form-group mb-2 mt-2 mr-2 form-inline">
-        <label className="mr-1" htmlFor="toggle-experimentNotificationsEnabled">
-          Enable experiment notifications
-        </label>
-        <Toggle
-          id="toggle-experimentNotificationsEnabled"
-          value={experimentNotificationsEnabled}
-          setValue={(value) => {
-            form.setValue("experimentNotificationsEnabled", value);
-          }}
-        />
-      </div>
     </div>
   );
 }

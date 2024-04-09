@@ -9,7 +9,6 @@ import { ensureAndReturn } from "@/types/utils";
 
 interface ExperimentNotificationsSettings {
   enabled: boolean;
-  activationMetric: boolean;
   guardrails: string[];
   metrics: string[];
 }
@@ -24,7 +23,6 @@ export default function NotificationsTab({
   } = useUser();
 
   const metricsIdsParams = [
-    ...(experiment.activationMetric ? [experiment.activationMetric] : []),
     ...(experiment.guardrails || []),
     ...experiment.metrics,
   ]
@@ -39,7 +37,6 @@ export default function NotificationsTab({
       enabled: !!(
         experiment.metricsNotificationsEnabled || experimentNotificationsEnabled
       ),
-      activationMetric: false,
       guardrails: [],
       metrics: [],
     },
@@ -83,24 +80,6 @@ export default function NotificationsTab({
             Please choose the metrics on which you would like to receive
             notifications for this experiment.
           </p>
-
-          <div className="pb-2">
-            <Toggle
-              id="experiment_notifications_activation_metric"
-              label="Activation Metric"
-              className="mr-3"
-              value={form.watch("activationMetric")}
-              setValue={(enabled) => form.setValue("activationMetric", enabled)}
-              disabled={!notificationsEnabled}
-              type="toggle"
-            />
-            <label
-              htmlFor="experiment_notifications_activation_metric"
-              className="mr-2"
-            >
-              Activation Metric
-            </label>
-          </div>
 
           <MultiSelectField
             label="Main Metrics"
