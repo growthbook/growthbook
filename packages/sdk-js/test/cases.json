@@ -4805,6 +4805,7 @@
           }
         }
       },
+      [],
       "feature",
       {
         "bucket": 0.863,
@@ -4858,6 +4859,7 @@
         },
         "stickyBucketAssignmentDocs": {}
       },
+      [],
       "exp1",
       {
         "bucket": 0.6468,
@@ -4908,17 +4910,17 @@
               }
             ]
           }
-        },
-        "stickyBucketAssignmentDocs": {
-          "deviceId||d123": {
-            "attributeName": "deviceId",
-            "attributeValue": "d123",
-            "assignments": {
-              "feature-exp__0": "2"
-            }
-          }
         }
       },
+      [
+        {
+          "attributeName": "deviceId",
+          "attributeValue": "d123",
+          "assignments": {
+            "feature-exp__0": "2"
+          }
+        }
+      ],
       "exp1",
       {
         "bucket": 0.6468,
@@ -4969,17 +4971,17 @@
               }
             ]
           }
-        },
-        "stickyBucketAssignmentDocs": {
-          "deviceId||d456": {
-            "attributeName": "deviceId",
-            "attributeValue": "d456",
-            "assignments": {
-              "feature-exp__0": "2"
-            }
-          }
         }
       },
+      [
+        {
+          "attributeName": "deviceId",
+          "attributeValue": "d456",
+          "assignments": {
+            "feature-exp__0": "2"
+          }
+        }
+      ],
       "exp1",
       {
         "bucket": 0.6468,
@@ -4994,11 +4996,6 @@
         "variationId": 1
       },
       {
-        "deviceId||d456": {
-          "assignments": { "feature-exp__0": "2" },
-          "attributeName": "deviceId",
-          "attributeValue": "d456"
-        },
         "deviceId||d123": {
           "assignments": { "feature-exp__0": "1" },
           "attributeName": "deviceId",
@@ -5035,17 +5032,17 @@
               }
             ]
           }
-        },
-        "stickyBucketAssignmentDocs": {
-          "anonymousId||ses123": {
-            "attributeName": "anonymousId",
-            "attributeValue": "ses123",
-            "assignments": {
-              "feature-exp__0": "1"
-            }
-          }
         }
       },
+      [
+        {
+          "attributeName": "anonymousId",
+          "attributeValue": "ses123",
+          "assignments": {
+            "feature-exp__0": "1"
+          }
+        }
+      ],
       "exp1",
       {
         "bucket": 0.9943,
@@ -5101,24 +5098,24 @@
               }
             ]
           }
-        },
-        "stickyBucketAssignmentDocs": {
-          "anonymousId||ses123": {
-            "attributeName": "anonymousId",
-            "attributeValue": "ses123",
-            "assignments": {
-              "feature-exp__0": "2"
-            }
-          },
-          "id||i123": {
-            "attributeName": "id",
-            "attributeValue": "i123",
-            "assignments": {
-              "feature-exp__0": "1"
-            }
-          }
         }
       },
+      [
+        {
+          "attributeName": "anonymousId",
+          "attributeValue": "ses123",
+          "assignments": {
+            "feature-exp__0": "2"
+          }
+        },
+        {
+          "attributeName": "id",
+          "attributeValue": "i123",
+          "assignments": {
+            "feature-exp__0": "1"
+          }
+        }
+      ],
       "exp1",
       {
         "bucket": 0.9943,
@@ -5173,15 +5170,15 @@
               }
             ]
           }
-        },
-        "stickyBucketAssignmentDocs": {
-          "id||i123": {
-            "assignments": { "feature-exp__0": "1" },
-            "attributeName": "id",
-            "attributeValue": "i123"
-          }
         }
       },
+      [
+        {
+          "assignments": { "feature-exp__0": "1" },
+          "attributeName": "id",
+          "attributeValue": "i123"
+        }
+      ],
       "exp1",
       {
         "bucket": 0.9943,
@@ -5235,15 +5232,15 @@
               }
             ]
           }
-        },
-        "stickyBucketAssignmentDocs": {
-          "id||i123": {
-            "assignments": { "feature-exp__0": "1" },
-            "attributeName": "id",
-            "attributeValue": "i123"
-          }
         }
       },
+      [
+        {
+          "assignments": { "feature-exp__0": "1" },
+          "attributeName": "id",
+          "attributeValue": "i123"
+        }
+      ],
       "exp1",
       null,
       {
@@ -5285,15 +5282,15 @@
               }
             ]
           }
-        },
-        "stickyBucketAssignmentDocs": {
-          "id||i123": {
-            "attributeName": "id",
-            "attributeValue": "i123",
-            "assignments": { "feature-exp__0": "1" }
-          }
         }
       },
+      [
+        {
+          "attributeName": "id",
+          "attributeValue": "i123",
+          "assignments": { "feature-exp__0": "1" }
+        }
+      ],
       "exp1",
       {
         "bucket": 0.9943,

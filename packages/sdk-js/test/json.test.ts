@@ -58,6 +58,7 @@ type Cases = {
   stickyBucket: [
     string,
     Context,
+    StickyAssignmentsDocument[],
     string,
     Result<any>,
     Record<StickyAttributeKey, StickyAssignmentsDocument>
@@ -194,6 +195,7 @@ describe("json test suite", () => {
     async (
       name,
       ctx,
+      stickyBucketAssignmentDocs,
       key,
       expectedExperimentResult,
       expectedStickyBucketAssignmentDocs
@@ -203,10 +205,8 @@ describe("json test suite", () => {
 
       const sbs = new LocalStorageStickyBucketService();
       // seed the sticky bucket repo
-      if (ctx.stickyBucketAssignmentDocs) {
-        for (const v of Object.values(ctx.stickyBucketAssignmentDocs)) {
-          await sbs.saveAssignments(v);
-        }
+      for (const doc of stickyBucketAssignmentDocs) {
+        await sbs.saveAssignments(doc);
       }
 
       ctx = {
@@ -214,6 +214,8 @@ describe("json test suite", () => {
         stickyBucketService: sbs,
       };
       const growthbook = new GrowthBook(ctx);
+      // arbitrary sleep to let SB docs hydrate
+      await sleep(10);
       expect(growthbook.evalFeature(key).experimentResult ?? null).toEqual(
         expectedExperimentResult
       );
