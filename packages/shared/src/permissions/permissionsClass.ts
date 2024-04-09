@@ -2,6 +2,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import { MetricInterface } from "back-end/types/metric";
 import { Permission, UserPermissions } from "back-end/types/organization";
 import { IdeaInterface } from "back-end/types/idea";
+import { ExperimentInterface } from "back-end/types/experiment";
 import { READ_ONLY_PERMISSIONS } from "./permissions.utils";
 class PermissionError extends Error {
   constructor(message: string) {
@@ -17,6 +18,47 @@ export class Permissions {
     this.userPermissions = permissions;
     this.superAdmin = superAdmin;
   }
+
+  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
+  public canViewExperimentModal = (project?: string): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: project ? [project] : [],
+      },
+      "createAnalyses"
+    );
+  };
+
+  public canCreateExperiment = (
+    experiment: Pick<ExperimentInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: experiment.project ? [experiment.project] : [],
+      },
+      "createAnalyses"
+    );
+  };
+
+  public canUpdateExperiment = (
+    existing: Pick<ExperimentInterface, "project">,
+    updated: Pick<ExperimentInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
+      "createAnalyses"
+    );
+  };
+
+  public canDeleteExperiment = (
+    experiment: Pick<ExperimentInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: experiment.project ? [experiment.project] : [] },
+      "createAnalyses"
+    );
+  };
 
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
   public canViewIdeaModal = (project?: string): boolean => {

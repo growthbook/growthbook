@@ -157,7 +157,7 @@ const IdeaPage = (): ReactElement => {
         </div>
         <div className="d-flex align-items-center">
           {!idea.archived &&
-            permissions.check("createAnalyses", idea.project) &&
+            permissionsUtil.canViewExperimentModal(idea.project) &&
             !data.experiment && (
               <div className="col-md-auto">
                 <button

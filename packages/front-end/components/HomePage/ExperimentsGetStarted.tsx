@@ -255,7 +255,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     cta={"Import Experiment"}
                     finishedCTA="Import Experiment"
                     permissionsError={
-                      !permissions.check("createAnalyses", project)
+                      !permissionsUtil.canViewExperimentModal(project)
                     }
                     imageLeft={true}
                     onClick={() => {
@@ -310,7 +310,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     cta="View Sample Experiment"
                     finishedCTA="View Sample Experiment"
                     permissionsError={
-                      !permissions.check("createAnalyses", project)
+                      !permissionsUtil.canViewExperimentModal(project)
                     }
                     imageLeft={false}
                     onClick={openSampleExperiment}
@@ -340,7 +340,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     cta="Design New Experiment"
                     finishedCTA="Design New Experiment"
                     permissionsError={
-                      !permissions.check("createAnalyses", project)
+                      !permissionsUtil.canViewExperimentModal(project)
                     }
                     imageLeft={false}
                     onClick={() => {
@@ -366,7 +366,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     cta="Analyze Existing Experiment"
                     finishedCTA="Analyze Existing Experiment"
                     permissionsError={
-                      !permissions.check("createAnalyses", project)
+                      !permissionsUtil.canViewExperimentModal(project)
                     }
                     imageLeft={false}
                     onClick={() => {

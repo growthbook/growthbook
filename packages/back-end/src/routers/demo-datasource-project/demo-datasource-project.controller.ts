@@ -170,13 +170,15 @@ export const postDemoDatasourceProject = async (
 
   req.checkPermissions("manageProjects", "");
   req.checkPermissions("createDatasources", "");
-  req.checkPermissions("createAnalyses", "");
 
   const { org, environments } = context;
 
   const demoProjId = getDemoDatasourceProjectIdForOrganization(org.id);
 
-  if (!context.permissions.canCreateMetric({ projects: [demoProjId] })) {
+  if (
+    !context.permissions.canCreateMetric({ projects: [demoProjId] }) ||
+    !context.permissions.canCreateExperiment({ project: demoProjId })
+  ) {
     context.permissions.throwPermissionError();
   }
 

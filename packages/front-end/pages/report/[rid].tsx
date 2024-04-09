@@ -41,6 +41,7 @@ import CompactResults from "@/components/Experiment/CompactResults";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import PageHead from "@/components/Layout/PageHead";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -62,20 +63,15 @@ export default function ReportPage() {
       : null
   );
 
-  const {
-    permissions,
-    userId,
-    getUserDisplay,
-    hasCommercialFeature,
-  } = useUser();
+  const { userId, getUserDisplay, hasCommercialFeature } = useUser();
+  const permissionsUtil = usePermissionsUtil();
   const [active, setActive] = useState<string | null>("Results");
   const [refreshError, setRefreshError] = useState("");
 
   const { apiCall } = useAuth();
 
-  const canCreateAnalyses = permissions.check(
-    "createAnalyses",
-    experimentData?.experiment.project || ""
+  const canCreateAnalyses = !permissionsUtil.canViewExperimentModal(
+    experimentData?.experiment.project
   );
 
   // todo: move to report args

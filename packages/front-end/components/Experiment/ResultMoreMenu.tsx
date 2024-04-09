@@ -17,6 +17,7 @@ import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton"
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { trackReport } from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function ResultMoreMenu({
   editMetrics,
@@ -56,9 +57,10 @@ export default function ResultMoreMenu({
   const { apiCall } = useAuth();
   const router = useRouter();
   const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
 
-  const canEdit = permissions.check("createAnalyses", project);
+  const canEdit = permissionsUtil.canViewExperimentModal(project);
 
   const canDownloadJupyterNotebook =
     hasData && supportsNotebooks && notebookUrl && notebookFilename;

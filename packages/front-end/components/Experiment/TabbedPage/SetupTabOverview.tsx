@@ -6,10 +6,10 @@ import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";
 import VariationsTable from "@/components/Experiment/VariationsTable";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -40,10 +40,11 @@ export default function SetupTabOverview({
 }: Props) {
   const { apiCall } = useAuth();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const canCreateAnalyses =
-    !disableEditing && permissions.check("createAnalyses", experiment.project);
+    !disableEditing &&
+    permissionsUtil.canViewExperimentModal(experiment.project);
   const canEditExperiment =
     !experiment.archived && !disableEditing && canCreateAnalyses;
 

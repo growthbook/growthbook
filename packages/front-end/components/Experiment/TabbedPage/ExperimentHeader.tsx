@@ -32,6 +32,7 @@ import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import { ExperimentTab } from ".";
@@ -102,6 +103,7 @@ export default function ExperimentHeader({
   const { apiCall } = useAuth();
   const router = useRouter();
   const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
   const dataSource = getDatasourceById(experiment.datasource);
   const { scrollY } = useScrollPosition();
@@ -129,8 +131,7 @@ export default function ExperimentHeader({
 
   const [showStartExperiment, setShowStartExperiment] = useState(false);
 
-  const canCreateAnalyses = permissions.check(
-    "createAnalyses",
+  const canCreateAnalyses = permissionsUtil.canViewExperimentModal(
     experiment.project
   );
   const canEditExperiment = !experiment.archived && canCreateAnalyses;

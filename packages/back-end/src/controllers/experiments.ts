@@ -452,7 +452,9 @@ export async function postExperiments(
   const data = req.body;
   data.organization = org.id;
 
-  req.checkPermissions("createAnalyses", data.project);
+  if (!context.permissions.canCreateExperiment(data)) {
+    context.permissions.throwPermissionError();
+  }
 
   if (data.datasource) {
     const datasource = await getDataSourceById(context, data.datasource);
@@ -673,7 +675,9 @@ export async function postExperiment(
     return;
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canUpdateExperiment(experiment, req.body)) {
+    context.permissions.throwPermissionError();
+  }
 
   if (data.datasource) {
     const datasource = await getDataSourceById(context, data.datasource);
@@ -923,7 +927,9 @@ export async function postExperimentArchive(
     return;
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -987,7 +993,9 @@ export async function postExperimentUnarchive(
     return;
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
 
   changes.archived = false;
 
@@ -1043,7 +1051,10 @@ export async function postExperimentStatus(
   if (experiment.organization !== org.id) {
     throw new Error("You do not have access to this experiment");
   }
-  req.checkPermissions("createAnalyses", experiment.project);
+
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -1150,7 +1161,10 @@ export async function postExperimentStop(
     });
     return;
   }
-  req.checkPermissions("createAnalyses", experiment.project);
+
+  if (!context.permissions.canUpdateExperiment(experiment, req.body)) {
+    context.permissions.throwPermissionError();
+  }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -1238,7 +1252,9 @@ export async function deleteExperimentPhase(
     return;
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -1305,7 +1321,9 @@ export async function putExperimentPhase(
     throw new Error("Invalid phase");
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -1385,7 +1403,9 @@ export async function postExperimentTargeting(
     return;
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -1499,7 +1519,9 @@ export async function postExperimentPhase(
     });
     return;
   }
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -1612,7 +1634,9 @@ export async function deleteExperiment(
     return;
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canDeleteExperiment(experiment)) {
+    context.permissions.throwPermissionError();
+  }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -1969,7 +1993,9 @@ export async function deleteScreenshot(
     return;
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
 
   if (!experiment.variations[variation]) {
     res.status(404).json({
@@ -2040,7 +2066,10 @@ export async function addScreenshot(
     });
     return;
   }
-  req.checkPermissions("createAnalyses", experiment.project);
+
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
 
   if (!experiment.variations[variation]) {
     res.status(404).json({

@@ -237,12 +237,11 @@ export const deleteProject = async (
   // Clean up experiments
   if (deleteExperiments) {
     try {
-      req.checkPermissions("createAnalyses", id);
-
-      await deleteAllExperimentsForAProject({
-        projectId: id,
-        context,
-      });
+      if (!context.permissions.canDeleteExperiment({ project: id }))
+        await deleteAllExperimentsForAProject({
+          projectId: id,
+          context,
+        });
     } catch (e) {
       return res.json({
         status: 403,

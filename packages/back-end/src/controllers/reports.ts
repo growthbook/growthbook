@@ -45,7 +45,9 @@ export async function postReportFromSnapshot(
     throw new Error("Could not find experiment");
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canCreateExperiment(experiment)) {
+    context.permissions.throwPermissionError();
+  }
 
   const phase = experiment.phases[snapshot.phase];
   if (!phase) {
@@ -262,9 +264,15 @@ export async function putReport(
     report.experimentId || ""
   );
 
+  if (!experiment) {
+    throw new Error("Could not find connected experiment");
+  }
+
   // Reports don't have projects, but the experiment does, so check that
-  req.checkPermissions("createAnalyses", experiment?.project || "");
-  req.checkPermissions("runQueries", experiment?.project || "");
+  if (!context.permissions.canCreateExperiment(experiment)) {
+    context.permissions.throwPermissionError();
+  }
+  req.checkPermissions("runQueries", experiment.project || "");
 
   const updates: Partial<ReportInterface> = {};
   let needsRun = false;
