@@ -1,6 +1,6 @@
 import { Context } from "../models/BaseModel";
 import { createEvent } from "../models/EventModel";
-import { getExperimentById } from "../models/ExperimentModel";
+import { getExperimentById, updateExperiment } from "../models/ExperimentModel";
 import { EventNotifier } from "../events/notifiers/EventNotifier";
 import { ExperimentWarningNotificationEvent } from "../events/notification-events";
 import { ExperimentSnapshotDocument } from "../models/ExperimentSnapshotModel";
@@ -47,6 +47,30 @@ const dispatchEvent = async (
   new EventNotifier(emittedEvent.id).perform();
 };
 
+const updateWrapper = async ({
+  context,
+  experiment,
+  type,
+  handler,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  type: ExperimentNotification;
+  handler: () => Promise<void>;
+}) => {
+  if (experiment.pastNotifications?.includes(type)) return;
+
+  await handler();
+
+  await updateExperiment({
+    experiment,
+    context,
+    changes: {
+      pastNotifications: [...(experiment.pastNotifications || []), type],
+    },
+  });
+};
+
 export const notifyFailedAutoUpdate = async ({
   context,
   experimentId,
@@ -58,12 +82,16 @@ export const notifyFailedAutoUpdate = async ({
 
   if (!experiment) throw new Error("Error while fetching experiment!");
 
-  if (experiment.pastNotifications?.includes("auto-update")) return;
-
-  await dispatchEvent(context, {
+  await updateWrapper({
+    context,
+    experiment,
     type: "auto-update",
-    experimentId,
-    experimentName: experiment.name,
+    handler: () =>
+      dispatchEvent(context, {
+        type: "auto-update",
+        experimentId,
+        experimentName: experiment.name,
+      }),
   });
 };
 
@@ -79,28 +107,32 @@ const notifyMultipleExposures = async ({
   experiment: ExperimentInterface;
   lastResult: ExperimentReportResultDimension;
   snapshot: ExperimentSnapshotDocument;
-}) => {
-  if (experiment.pastNotifications?.includes("multiple-exposures")) return;
-
-  const totalsUsers = lastResult.variations.reduce(
-    (totalUsersCount, { users }) => totalUsersCount + users,
-    0
-  );
-  const percent = snapshot.multipleExposures / totalsUsers;
-  const multipleExposureMinPercent =
-    context.org.settings?.multipleExposureMinPercent ??
-    MINIMUM_MULTIPLE_EXPOSURES_PERCENT;
-
-  if (snapshot.multipleExposures < multipleExposureMinPercent) return;
-
-  await dispatchEvent(context, {
+}) =>
+  updateWrapper({
+    context,
+    experiment,
     type: "multiple-exposures",
-    experimentId: experiment.id,
-    experimentName: experiment.name,
-    usersCount: snapshot.multipleExposures,
-    percent,
+    handler: async () => {
+      const totalsUsers = lastResult.variations.reduce(
+        (totalUsersCount, { users }) => totalUsersCount + users,
+        0
+      );
+      const percent = snapshot.multipleExposures / totalsUsers;
+      const multipleExposureMinPercent =
+        context.org.settings?.multipleExposureMinPercent ??
+        MINIMUM_MULTIPLE_EXPOSURES_PERCENT;
+
+      if (snapshot.multipleExposures < multipleExposureMinPercent) return;
+
+      await dispatchEvent(context, {
+        type: "multiple-exposures",
+        experimentId: experiment.id,
+        experimentName: experiment.name,
+        usersCount: snapshot.multipleExposures,
+        percent,
+      });
+    },
   });
-};
 
 export const DEFAULT_SRM_THRESHOLD = 0.001;
 
@@ -112,21 +144,25 @@ const notifySrm = async ({
   context: Context;
   experiment: ExperimentInterface;
   lastResult: ExperimentReportResultDimension;
-}) => {
-  if (experiment.pastNotifications?.includes("srm")) return;
-
-  const srmThreshold =
-    context.org.settings?.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
-
-  if (srmThreshold <= lastResult.srm) return;
-
-  await dispatchEvent(context, {
+}) =>
+  updateWrapper({
+    context,
+    experiment,
     type: "srm",
-    experimentId: experiment.id,
-    experimentName: experiment.name,
-    threshold: srmThreshold,
+    handler: async () => {
+      const srmThreshold =
+        context.org.settings?.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
+
+      if (srmThreshold <= lastResult.srm) return;
+
+      await dispatchEvent(context, {
+        type: "srm",
+        experimentId: experiment.id,
+        experimentName: experiment.name,
+        threshold: srmThreshold,
+      });
+    },
   });
-};
 
 export const notifyMetricsChange = async ({
   context,
