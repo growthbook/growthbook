@@ -322,17 +322,20 @@ const buildSlackMessageForExperimentWarningEvent = ({
 
   switch (data.type) {
     case "auto-update": {
-      const text = `Automatic snapshot creation for ${data.experimentName} failed!`;
+      const makeText = (name: string) =>
+        `Automatic snapshot creation for ${name} ${
+          data.success ? "succeeded" : "failed"
+        }!`;
 
       return {
-        text,
+        text: makeText(data.experimentName),
         blocks: [
           {
             type: "section",
             text: {
               type: "mrkdwn",
               text:
-                `Automatic snapshot creation for *${data.experimentName}* failed!` +
+                makeText(`*${data.experimentName}*`) +
                 getExperimentUrlFormatted(data.experimentId),
             },
           },

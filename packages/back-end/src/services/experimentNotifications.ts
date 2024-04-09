@@ -89,9 +89,41 @@ export const notifyFailedAutoUpdate = async ({
     handler: () =>
       dispatchEvent(context, {
         type: "auto-update",
+        success: false,
         experimentId,
         experimentName: experiment.name,
       }),
+  });
+};
+
+export const notifyAutoUpdateSuccess = async ({
+  context,
+  experimentId,
+}: {
+  context: Context;
+  experimentId: string;
+}) => {
+  const experiment = await getExperimentById(context, experimentId);
+
+  if (!experiment) throw new Error("Error while fetching experiment!");
+
+  if (!experiment.pastNotifications?.includes("auto-update")) return;
+
+  await dispatchEvent(context, {
+    type: "auto-update",
+    success: true,
+    experimentId,
+    experimentName: experiment.name,
+  });
+
+  await updateExperiment({
+    experiment,
+    context,
+    changes: {
+      pastNotifications: (experiment.pastNotifications || []).filter(
+        (v) => v !== "auto-update"
+      ),
+    },
   });
 };
 
