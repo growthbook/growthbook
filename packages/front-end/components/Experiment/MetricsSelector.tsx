@@ -7,6 +7,7 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricName from "@/components/Metrics/MetricName";
+import ClickToCopy from "@/components/Settings/ClickToCopy";
 
 type MetricOption = {
   id: string;
@@ -160,7 +161,7 @@ const MetricsSelector: FC<{
   });
 
   return (
-    <>
+    <div style={{ position: "relative" }}>
       <MultiSelectField
         value={selected}
         onChange={onChange}
@@ -211,7 +212,12 @@ const MetricsSelector: FC<{
           />
         </div>
       )}
-    </>
+      {selected.length > 0 && (
+        <div style={{ position: "absolute", right: 0, color: "#029dd1" }}>
+          <ClickToCopy compact valueToCopy={JSON.stringify(selected)} />
+        </div>
+      )}
+    </div>
   );
 };
 
