@@ -37,10 +37,10 @@ COPY packages/enterprise/package.json ./packages/enterprise/package.json
 COPY patches ./patches
 # Yarn install with dev dependencies (will be cached as long as dependencies don't change)
 RUN yarn install --frozen-lockfile --ignore-optional
+# adding the `yarn postinstall` since it there seems to be an issue with yarn
 RUN yarn postinstall
 # Build the app and do a clean install with only production dependencies
 COPY packages ./packages
-# adding the `yarn postinstall` since it there seems to be an issue with yarn
 RUN \
   yarn build \
   && rm -rf node_modules \
