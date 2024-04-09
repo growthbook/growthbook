@@ -96,7 +96,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
               displayName="Attribute"
               deleteMessage={
                 <>
-                  Are you sure you want to delete the {v.datatype} attribute:{" "}
+                  Are you sure you want to delete the{" "}
+                  {v.hashAttribute ? "identifier " : ""}
+                  {v.datatype} attribute:{" "}
                   <code className="font-weight-bold">{v.property}</code>?
                   <br />
                   This action cannot be undone.
