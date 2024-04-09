@@ -1,5 +1,5 @@
 import { KnownBlock } from "@slack/web-api";
-import { getNumberFormatter } from "@messageformat/number-skeleton";
+import formatNumber from "number-format.js";
 import { logger } from "../../../util/logger";
 import { cancellableFetch } from "../../../util/http.util";
 import {
@@ -341,8 +341,8 @@ const buildSlackMessageForExperimentWarningEvent = ({
     }
 
     case "multiple-exposures": {
-      const numberFormatter = getNumberFormatter("en", "::precision-intege");
-      const percentFormatter = getNumberFormatter("en", "::percent scale/100");
+      const numberFormatter = (v: number) => formatNumber("#,##0.", v);
+      const percentFormatter = (v: number) => formatNumber("#0.%", v * 100);
 
       const text = (experimentName: string) =>
         `Multiple Exposures Warning for experiment ${experimentName}: ${numberFormatter(
