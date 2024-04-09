@@ -59,6 +59,6 @@ export type ExperimentMetricAnalysis = {
 }[];
 
 export type MultipleExperimentMetricAnalysis = {
-  experiment: string;
-  analysis: ExperimentMetricAnalysis;
+  id: string;
+  results: ExperimentMetricAnalysis;
 };

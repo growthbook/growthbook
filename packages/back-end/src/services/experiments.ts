@@ -335,16 +335,18 @@ export function getAdditionalExperimentAnalysisSettings(
   defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings,
   experiment: ExperimentInterface
 ): ExperimentSnapshotAnalysisSettings[] {
-  // one analysis per possible baseline
   const additionalAnalyses: ExperimentSnapshotAnalysisSettings[] = [];
-  experiment.variations.forEach((v, i) => {
-    if (i > 0) {
-      additionalAnalyses.push({
-        ...defaultAnalysisSettings,
-        baselineVariationIndex: i,
-      });
-    }
-  });
+
+  // one analysis per possible baseline - skip for now
+  // experiment.variations.forEach((v, i) => {
+  //   if (i > 0) {
+  //     additionalAnalyses.push({
+  //       ...defaultAnalysisSettings,
+  //       baselineVariationIndex: i,
+  //     });
+  //   }
+  // });
+  
   // for default baseline, get difference types
   additionalAnalyses.push({
     ...defaultAnalysisSettings,
@@ -355,9 +357,7 @@ export function getAdditionalExperimentAnalysisSettings(
     differenceType: "scaled",
   });
 
-  // Skip all of these additional analyses until we fix the performance issues
-  //return additionalAnalyses;
-  return [];
+  return additionalAnalyses;
 }
 
 export function getSnapshotSettings({

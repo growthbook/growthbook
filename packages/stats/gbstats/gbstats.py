@@ -36,6 +36,7 @@ from gbstats.models.results import (
 from gbstats.models.settings import (
     AnalysisSettingsForStatsEngine,
     DataForStatsEngine,
+    ExperimentDataForStatsEngine,
     ExperimentMetricQueryResponseRows,
     MetricSettingsForStatsEngine,
     MetricType,
@@ -642,22 +643,11 @@ def process_experiment_results(data: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def process_multiple_experiment_results(
-    data: Dict[str, Dict[str, Any]]
+    data: List[Dict[str, Any]]
 ) -> list[Dict[str, Any]]:
     results: List[Dict] = []
-    for id, expData in data.items():
-        d = process_data_dict(expData)
-        for query_result in d.query_results:
-            for i, metric in enumerate(query_result.metrics):
-                if metric in d.metrics:
-                    rows = filter_query_rows(query_result.rows, i)
-                    if len(rows):
-                        result_dict = asdict(
-                            process_single_metric(
-                                rows=rows,
-                                metric=d.metrics[metric],
-                                analyses=d.analyses,
-                            )
-                        )
-                        results.append({"id": id, "results": result_dict})
+    for exp_data in data:
+        exp_data_proc = ExperimentDataForStatsEngine(**exp_data)
+        exp_result = process_experiment_results(exp_data_proc.data)
+        results.append({"id": exp_data_proc.id, "results": exp_result})
     return results

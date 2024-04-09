@@ -17,7 +17,10 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
-import { ExperimentMetricAnalysis } from "../../types/stats";
+import {
+  ExperimentMetricAnalysis,
+  MultipleExperimentMetricAnalysis,
+} from "../../types/stats";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentFactMetricsQueryResponseRows,
@@ -154,32 +157,32 @@ export function getAnalysisSettingsForStatsEngine(
 
 async function runStatsEngine(
   statsData: ExperimentDataForStatsEngine[]
-): Promise<ExperimentMetricAnalysis[]> {
+): Promise<MultipleExperimentMetricAnalysis[]> {
   const escapedStatsData = JSON.stringify(statsData).replace(/\\/g, "\\\\");
   const start = Date.now();
   const cpus = os.cpus();
   const result = await promisify(PythonShell.runString)(
     `
-    from gbstats.gbstats import process_multiple_experiment_results
-    import json
-    import time
-    
-    start = time.time()
-    
-    data = json.loads("""${escapedStatsData}""", strict=False)
-    
-    results = process_multiple_experiment_results(data)
-    
-    print(json.dumps({
-      'results': results,
-      'time': time.time() - start
-    }, allow_nan=False))`,
+from gbstats.gbstats import process_multiple_experiment_results
+import json
+import time
+
+start = time.time()
+
+data = json.loads("""${escapedStatsData}""", strict=False)
+
+results = process_multiple_experiment_results(data)
+
+print(json.dumps({
+  'results': results,
+  'time': time.time() - start
+}, allow_nan=False))`,
     {}
   );
 
   try {
     const parsed: {
-      results: ExperimentMetricAnalysis[];
+      results: MultipleExperimentMetricAnalysis[];
       time: number;
     } = JSON.parse(result?.[0]);
 
@@ -238,7 +241,7 @@ export async function analyzeSingleExperiment(
       "Failed to analyze manual snapshot; Stats Engine returned no results"
     );
   }
-  return result;
+  return result.results;
 }
 
 export async function analyzeMultipleExperiments(
@@ -246,7 +249,7 @@ export async function analyzeMultipleExperiments(
     experiment: string;
     params: ExperimentMetricAnalysisParams;
   }[]
-): Promise<ExperimentMetricAnalysis[]> {
+): Promise<MultipleExperimentMetricAnalysis[]> {
   const result = await runStatsEngine(
     experimentParams.map((ep) => {
       return { id: ep.experiment, data: createStatsEngineData(ep.params) };
