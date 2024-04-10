@@ -207,13 +207,12 @@ const SelectField: FC<SelectFieldProps> = ({
                 inputValue={inputValue}
                 options={sorted}
                 autoFocus={autoFocus}
-                onChange={(selected) => {
+                onChange={(selected: { value: string }) => {
                   onChange(selected?.value || "");
                   setInputValue("");
                 }}
                 onFocus={() => {
-                  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-                  if (!map.has(selected?.value)) {
+                  if (!selected?.value || !map.has(selected?.value)) {
                     // If this was a custom option, reset the input value so it's editable
                     setInputValue(selected?.value || "");
                   }
@@ -243,6 +242,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 formatOptionLabel={formatOptionLabel}
                 formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
+                // @ts-expect-error onPaste is passed to Input
                 onPaste={onPaste}
                 components={{
                   Input,
@@ -257,7 +257,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 classNamePrefix="gb-select"
                 isDisabled={disabled || false}
                 options={sorted}
-                onChange={(selected) => {
+                onChange={(selected: { value: string }) => {
                   onChange(selected?.value || "");
                 }}
                 autoFocus={autoFocus}
@@ -266,10 +266,11 @@ const SelectField: FC<SelectFieldProps> = ({
                 formatOptionLabel={formatOptionLabel}
                 formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
+                // @ts-expect-error onPaste is passed to Input
+                onPaste={onPaste}
                 components={{
                   Input,
                 }}
-                onPaste={onPaste}
               />
             )}
             {required && (
