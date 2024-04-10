@@ -196,7 +196,7 @@ const notifySrm = async ({
     },
   });
 
-export const notifyMetricsChange = async ({
+export const notifyExperimentChange = async ({
   context,
   snapshot,
 }: {
@@ -205,6 +205,12 @@ export const notifyMetricsChange = async ({
 }) => {
   const experiment = await getExperimentById(context, snapshot.experiment);
   if (!experiment) throw new Error("Error while fetching experiment!");
+
+  if (
+    !context.org.settings?.experimentNotificationsEnabled &&
+    !experiment.metricsNotificationsEnabled
+  )
+    return;
 
   const [
     {

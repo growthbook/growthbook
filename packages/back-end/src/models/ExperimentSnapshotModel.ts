@@ -6,7 +6,7 @@ import {
   LegacyExperimentSnapshotInterface,
 } from "../../types/experiment-snapshot";
 import { migrateSnapshot } from "../util/migrations";
-import { notifyMetricsChange } from "../services/experimentNotifications";
+import { notifyExperimentChange } from "../services/experimentNotifications";
 import { queriesSchema } from "./QueryModel";
 import { Context } from "./BaseModel";
 
@@ -190,7 +190,7 @@ export async function updateSnapshot({
   const experimentSnapshotModel = await ExperimentSnapshotModel.findOne({ id });
   if (!experimentSnapshotModel) throw "Internal error";
 
-  await notifyMetricsChange({
+  await notifyExperimentChange({
     context,
     snapshot: experimentSnapshotModel,
   });
@@ -250,7 +250,7 @@ export async function updateSnapshotAnalysis({
   const experimentSnapshotModel = await ExperimentSnapshotModel.findOne({ id });
   if (!experimentSnapshotModel) throw "Internal error";
 
-  await notifyMetricsChange({
+  await notifyExperimentChange({
     context,
     snapshot: experimentSnapshotModel,
   });
@@ -334,7 +334,7 @@ export async function createExperimentSnapshotModel({
 }): Promise<ExperimentSnapshotInterface> {
   const created = await ExperimentSnapshotModel.create(data);
 
-  await notifyMetricsChange({ context, snapshot: created });
+  await notifyExperimentChange({ context, snapshot: created });
 
   return toInterface(created);
 }
