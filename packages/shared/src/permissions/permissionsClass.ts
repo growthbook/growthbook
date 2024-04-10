@@ -1,6 +1,11 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { MetricInterface } from "back-end/types/metric";
-import { Permission, UserPermissions } from "back-end/types/organization";
+import {
+  GlobalPermission,
+  Permission,
+  ProjectScopedPermission,
+  UserPermissions,
+} from "back-end/types/organization";
 import { IdeaInterface } from "back-end/types/idea";
 import { READ_ONLY_PERMISSIONS } from "./permissions.utils";
 class PermissionError extends Error {
@@ -17,6 +22,19 @@ export class Permissions {
     this.userPermissions = permissions;
     this.superAdmin = superAdmin;
   }
+
+  //Global Permissions
+  public canCreatePresentation = (): boolean => {
+    return this.checkGlobalFilterPermission("createPresentations");
+  };
+
+  public canUpdatePresentation = (): boolean => {
+    return this.checkGlobalFilterPermission("createPresentations");
+  };
+
+  public canDeletePresentation = (): boolean => {
+    return this.checkGlobalFilterPermission("createPresentations");
+  };
 
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
   public canViewIdeaModal = (project?: string): boolean => {
@@ -106,9 +124,19 @@ export class Permissions {
     );
   }
 
+  private checkGlobalFilterPermission(
+    permissionToCheck: GlobalPermission
+  ): boolean {
+    if (this.superAdmin) {
+      return true;
+    }
+
+    return this.userPermissions.global.permissions[permissionToCheck] || false;
+  }
+
   private checkProjectFilterPermission(
     obj: { projects?: string[] },
-    permission: Permission
+    permission: ProjectScopedPermission
   ): boolean {
     const projects = obj.projects?.length ? obj.projects : [""];
 
@@ -130,7 +158,7 @@ export class Permissions {
   private checkProjectFilterUpdatePermission(
     existing: { projects?: string[] },
     updates: { projects?: string[] },
-    permission: Permission
+    permission: ProjectScopedPermission
   ): boolean {
     // check if the user has permission to update based on the existing projects
     if (!this.checkProjectFilterPermission(existing, permission)) {
