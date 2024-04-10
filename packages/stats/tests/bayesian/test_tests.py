@@ -7,15 +7,10 @@ from scipy.stats import norm
 
 from gbstats.bayesian.tests import (
     BayesianTestResult,
-    BetaPrior,
-    BinomialBayesianABTest,
-    BinomialBayesianConfig,
-    GaussianBayesianABTest,
     GaussianPrior,
-    GaussianBayesianConfig,
     GaussianEffectABTest,
     GaussianPrior,
-    EffectBayesianConfig,
+    GaussianEffectBayesianConfig,
 )
 from gbstats.models.statistics import (
     ProportionStatistic,
@@ -46,12 +41,12 @@ class TestBinom(TestCase):
     def test_bayesian_binomial_ab_test(self):
         stat_a = ProportionStatistic(sum=49, n=100)
         stat_b = ProportionStatistic(sum=51, n=100)
-        result = BinomialBayesianABTest(stat_a, stat_b).compute_result()
+        result = GaussianEffectABTest(stat_a, stat_b).compute_result()
         expected_rounded_dict = asdict(
             BayesianTestResult(
                 expected=0.0404,
                 ci=[-0.21099, 0.37189],
-                uplift=Uplift(dist="lognormal", mean=0.03961, stddev=0.14112),
+                uplift=Uplift(dist="normal", mean=0.03961, stddev=0.14112),
                 chance_to_win=0.61052,
                 risk=[0.03872, 0.01912],
             )
@@ -60,32 +55,8 @@ class TestBinom(TestCase):
         result_rounded_dict = round_results_dict(asdict(result))
         self.assertDictEqual(result_rounded_dict, expected_rounded_dict)
 
-    def test_bayesian_binomial_ab_test_with_prior(self):
-        stat_a = ProportionStatistic(sum=49, n=100)
-        stat_b = ProportionStatistic(sum=51, n=100)
-        result = BinomialBayesianABTest(
-            stat_a,
-            stat_b,
-            BinomialBayesianConfig(
-                prior_a=BetaPrior(0, 0), prior_b=BetaPrior(100, 100)
-            ),
-        ).compute_result()
-
-        expected_rounded_dict = asdict(
-            BayesianTestResult(
-                expected=0.0309,
-                ci=[-0.18162, 0.2986],
-                uplift=Uplift(dist="lognormal", mean=0.03043, stddev=0.11778),
-                chance_to_win=0.60193,
-                risk=[0.03025, 0.01692],
-            )
-        )
-
-        result_rounded_dict = round_results_dict(asdict(result))
-        self.assertDictEqual(result_rounded_dict, expected_rounded_dict)
-
     def test_missing_data(self):
-        result = BinomialBayesianABTest(
+        result = GaussianEffectABTest(
             ProportionStatistic(0, 0),
             ProportionStatistic(0, 0),
         ).compute_result()
@@ -95,7 +66,7 @@ class TestBinom(TestCase):
 
 class TestNorm(TestCase):
     def test_bayesian_gaussian_ab_test(self):
-        result = GaussianBayesianABTest(
+        result = GaussianEffectABTest(
             SampleMeanStatistic(sum=100, sum_squares=1002.25, n=10),
             SampleMeanStatistic(sum=105, sum_squares=1111.5, n=10),
         ).compute_result()
@@ -103,7 +74,7 @@ class TestNorm(TestCase):
             BayesianTestResult(
                 expected=0.05,
                 ci=[-0.01772, 0.12239],
-                uplift=Uplift(dist="lognormal", mean=0.04879, stddev=0.03402),
+                uplift=Uplift(dist="normal", mean=0.04879, stddev=0.03402),
                 chance_to_win=0.92427,
                 risk=[0.51256, 0.01256],
             )
@@ -112,53 +83,13 @@ class TestNorm(TestCase):
         result_rounded_dict = round_results_dict(asdict(result))
         self.assertDictEqual(result_rounded_dict, expected_rounded_dict)
 
-    def test_bayesian_gaussian_ab_test_priors(self):
-        result = GaussianBayesianABTest(
-            SampleMeanStatistic(sum=100, sum_squares=1002.25, n=10),
-            SampleMeanStatistic(sum=105, sum_squares=1111.5, n=10),
-            config=GaussianBayesianConfig(
-                prior_a=GaussianPrior(0, 100, 1), prior_b=GaussianPrior(0, 20, 1)
-            ),
-        ).compute_result()
-
-        expected_rounded_dict = asdict(
-            BayesianTestResult(
-                expected=0.04974,
-                ci=[-0.01797, 0.12212],
-                uplift=Uplift(dist="lognormal", mean=0.04854, stddev=0.03402),
-                chance_to_win=0.9232,
-                risk=[0.51017, 0.01277],
-            )
-        )
-        result_rounded_dict = round_results_dict(asdict(result))
-        self.assertDictEqual(result_rounded_dict, expected_rounded_dict)
-
     def test_missing_data(self):
-        result = GaussianBayesianABTest(
+        result = GaussianEffectABTest(
             SampleMeanStatistic(sum=0, sum_squares=0, n=0),
             SampleMeanStatistic(sum=0, sum_squares=0, n=0),
         ).compute_result()
         self.assertEqual(result.chance_to_win, 0.5)
         self.assertEqual(result.expected, 0)
-
-    def test_inexact_log_approximation(self):
-        expected = {
-            "chance_to_win": 0.5,
-            "expected": 0,
-            "ci": [0, 0],
-            "uplift": Uplift(dist="lognormal", mean=0, stddev=0),
-            "risk": [0, 0],
-        }
-
-        result = GaussianBayesianABTest(
-            SampleMeanStatistic(sum=99.06, sum_squares=9987.2276, n=381),
-            SampleMeanStatistic(sum=20281.8, sum_squares=3646063.4064, n=381),
-        ).compute_result()
-
-        for key in expected.keys():
-            ex = expected[key]
-
-            self.assertEqual(getattr(result, key), ex)
 
 
 class TestGaussianEffectABTest(TestCase):
@@ -175,16 +106,16 @@ class TestGaussianEffectABTest(TestCase):
 
         gaussian_flat_prior = GaussianPrior(variance=float(1e6), pseudo_n=1)
         gaussian_inf_prior = GaussianPrior(variance=float(1), pseudo_n=1)
-        effect_config_flat = EffectBayesianConfig(
+        effect_config_flat = GaussianEffectBayesianConfig(
             difference_type="absolute", prior_effect=gaussian_flat_prior
         )
-        effect_config_inf = EffectBayesianConfig(
+        effect_config_inf = GaussianEffectBayesianConfig(
             difference_type="absolute", prior_effect=gaussian_inf_prior
         )
-        effect_config_flat_rel = EffectBayesianConfig(
+        effect_config_flat_rel = GaussianEffectBayesianConfig(
             difference_type="relative", prior_effect=gaussian_flat_prior
         )
-        effect_config_inf_rel = EffectBayesianConfig(
+        effect_config_inf_rel = GaussianEffectBayesianConfig(
             difference_type="relative", prior_effect=gaussian_inf_prior
         )
 
@@ -218,15 +149,15 @@ class TestGaussianEffectABTest(TestCase):
             q_stat_c, q_stat_t, config=effect_config_inf_rel
         ).compute_result()
 
-        self.assertEqual(b_flat.expected, 0.5365124367824539)
-        self.assertEqual(b_relative_flat.expected, 0.07495297222890572)
-        self.assertEqual(b_informative.expected, 0.5357380334109081)
-        self.assertEqual(b_relative_informative.expected, 0.07495191495960002)
-        self.assertEqual(b_flat.ci, [0.4572559582016913, 0.6157689153632164])
-        self.assertEqual(b_relative_flat.ci, [0.06341005842626224, 0.0864958860315492])
-        self.assertEqual(b_informative.ci, [0.4565471445922169, 0.6149289222295993])
+        self.assertEqual(b_flat.expected, 0.5365028147821085)
+        self.assertEqual(b_relative_flat.expected, 0.07495294369692297)
+        self.assertEqual(b_informative.expected, 0.028332762775204634)
+        self.assertEqual(b_relative_informative.expected, 0.05428702236908376)
+        self.assertEqual(b_flat.ci, [-7.76407602834227, 8.837081657906486])
+        self.assertEqual(b_relative_flat.ci, [-1.1343293204508107, 1.2842352078446564])
+        self.assertEqual(b_informative.ci, [-1.879177307240868, 1.935842832791277])
         self.assertEqual(
-            b_relative_informative.ci, [0.06340910198272585, 0.08649472793647417]
+            b_relative_informative.ci, [-0.9748693016350619, 1.0834433463732291]
         )
 
         # adding another test for risk

@@ -6,12 +6,8 @@ import pandas as pd
 
 from gbstats.bayesian.tests import (
     BayesianTestResult,
-    BinomialBayesianABTest,
-    BinomialBayesianConfig,
-    GaussianBayesianABTest,
-    GaussianBayesianConfig,
     GaussianEffectABTest,
-    EffectBayesianConfig,
+    GaussianEffectBayesianConfig,
 )
 from gbstats.frequentist.tests import (
     FrequentistConfig,
@@ -20,10 +16,7 @@ from gbstats.frequentist.tests import (
     SequentialTwoSidedTTest,
     TwoSidedTTest,
 )
-from gbstats.messages import (
-    COMPARE_PROPORTION_NON_PROPORTION_ERROR,
-    RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR,
-)
+from gbstats.messages import RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR
 from gbstats.models.results import (
     BaselineResponse,
     BayesianVariationResponse,
@@ -188,13 +181,7 @@ def get_configured_test(
     test_index: int,
     analysis: AnalysisSettingsForStatsEngine,
     metric: MetricSettingsForStatsEngine,
-) -> Union[
-    BinomialBayesianABTest,
-    GaussianBayesianABTest,
-    GaussianEffectABTest,
-    SequentialTwoSidedTTest,
-    TwoSidedTTest,
-]:
+) -> Union[GaussianEffectABTest, SequentialTwoSidedTTest, TwoSidedTTest]:
 
     stat_a = variation_statistic_from_metric_row(row, "baseline", metric)
     stat_b = variation_statistic_from_metric_row(row, f"v{test_index}", metric)
@@ -231,40 +218,12 @@ def get_configured_test(
             stat_b, RegressionAdjustedStatistic
         ):
             raise ValueError(RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR)
-        stat_a_proportion = isinstance(stat_a, ProportionStatistic)
-        stat_b_proportion = isinstance(stat_b, ProportionStatistic)
-        stat_a_quantile = isinstance(
-            stat_a, (QuantileStatistic, QuantileClusteredStatistic)
-        )
-        stat_b_quantile = isinstance(
-            stat_b, (QuantileStatistic, QuantileClusteredStatistic)
-        )
 
-        if stat_a_proportion and stat_b_proportion:
-            return BinomialBayesianABTest(
-                stat_a,
-                stat_b,
-                BinomialBayesianConfig(**base_config, inverse=metric.inverse),
-            )
-        elif stat_a_quantile and stat_b_quantile:
-            return GaussianEffectABTest(
-                stat_a,
-                stat_b,
-                EffectBayesianConfig(**base_config, inverse=metric.inverse),
-            )
-        elif (
-            not stat_a_proportion
-            and not stat_b_proportion
-            and not stat_a_quantile
-            and not stat_b_quantile
-        ):
-            return GaussianBayesianABTest(
-                stat_a,
-                stat_b,
-                GaussianBayesianConfig(**base_config, inverse=metric.inverse),
-            )
-        else:
-            raise ValueError(COMPARE_PROPORTION_NON_PROPORTION_ERROR)
+        return GaussianEffectABTest(
+            stat_a,
+            stat_b,
+            GaussianEffectBayesianConfig(**base_config, inverse=metric.inverse),
+        )
 
 
 # Run A/B test analysis for each variation and dimension
