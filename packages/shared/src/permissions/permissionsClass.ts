@@ -48,6 +48,18 @@ export class Permissions {
     return this.checkGlobalFilterPermission("createDimensions");
   };
 
+  public canCreateSegment = (): boolean => {
+    return this.checkGlobalFilterPermission("createSegments");
+  };
+
+  public canUpdateSegment = (): boolean => {
+    return this.checkGlobalFilterPermission("createSegments");
+  };
+
+  public canDeleteSegment = (): boolean => {
+    return this.checkGlobalFilterPermission("createSegments");
+  };
+
   //Project Permissions
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
   public canViewIdeaModal = (project?: string): boolean => {
