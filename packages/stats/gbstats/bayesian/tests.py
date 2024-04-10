@@ -23,7 +23,7 @@ from gbstats.utils import truncated_normal_mean
 class GaussianPrior:
     mean: float = 0
     variance: float = 1
-    pseudo_n: float = 0
+    flat: bool = True
 
 
 @dataclass
@@ -143,10 +143,10 @@ class GaussianEffectABTest(BayesianABTest):
         data_variance = frequentist_variance(
             self.stat_a.variance,
             self.stat_a.mean,
-            1,
+            self.stat_a.n,
             self.stat_b.variance,
             self.stat_b.mean,
-            1,
+            self.stat_b.n,
             self.relative,
         )
         data_mean = frequentist_diff(
@@ -156,11 +156,15 @@ class GaussianEffectABTest(BayesianABTest):
             self.stat_a.unadjusted_mean,
         )
 
-        post_prec = 1 / data_variance + 1 / self.prior_effect.variance
+        post_prec = (
+            1 / data_variance
+            + int(not self.prior_effect.flat) / self.prior_effect.variance
+        )
         self.mean_diff = (
             data_mean / data_variance
             + self.prior_effect.mean / self.prior_effect.variance
         ) / post_prec
+
         self.std_diff = np.sqrt(1 / post_prec)
 
         ctw = self.chance_to_win(self.mean_diff, self.std_diff)
@@ -177,10 +181,10 @@ class GaussianEffectABTest(BayesianABTest):
                 frequentist_variance(
                     self.stat_a.variance,
                     self.stat_a.mean,
-                    1,
+                    self.stat_a.n,
                     self.stat_b.variance,
                     self.stat_b.mean,
-                    1,
+                    self.stat_b.n,
                     False,
                 )
             ),

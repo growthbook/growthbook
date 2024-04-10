@@ -457,7 +457,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(round_(result.at[0, "v1_cr"]), 2.5)
         self.assertEqual(round_(result.at[0, "v1_rawrisk"][1]), 0.2052515)
         self.assertEqual(round_(result.at[0, "v1_expected"]), -0.074074074)
-        self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.079755378)
+        self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.071834168)
         self.assertEqual(result.at[0, "v1_p_value"], None)
 
     def test_get_metric_df_bayesian_ratio(self):
@@ -473,7 +473,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(round_(result.at[0, "v1_cr"]), 0.6)
         self.assertEqual(round_(result.at[0, "v1_rawrisk"][1]), 0.024065883)
         self.assertEqual(round_(result.at[0, "v1_expected"]), 0.133333333)
-        self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.706241155)
+        self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.694926359)
         self.assertEqual(result.at[0, "v1_p_value"], None)
 
     def test_get_metric_df_inverse(self):
@@ -491,7 +491,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(round_(result.at[0, "v1_cr"]), 2.5)
         self.assertEqual(round_(result.at[0, "v1_rawrisk"][1]), 0.2052515)
         self.assertEqual(round_(result.at[0, "v1_expected"]), -0.074074074)
-        self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 1 - 0.079755378)
+        self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 1 - 0.071834168)
         self.assertEqual(result.at[0, "v1_p_value"], None)
 
     def test_get_metric_df_zero_val(self):

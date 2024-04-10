@@ -44,11 +44,11 @@ class TestBinom(TestCase):
         result = GaussianEffectABTest(stat_a, stat_b).compute_result()
         expected_rounded_dict = asdict(
             BayesianTestResult(
-                expected=0.0404,
-                ci=[-0.21099, 0.37189],
-                uplift=Uplift(dist="normal", mean=0.03961, stddev=0.14112),
-                chance_to_win=0.61052,
-                risk=[0.03872, 0.01912],
+                expected=0.04082,
+                ci=[-0.24779, 0.32943],
+                uplift=Uplift(dist="normal", mean=0.04082, stddev=0.14725),
+                chance_to_win=0.60918,
+                risk=[0.03932, 0.01932],
             )
         )
 
@@ -73,9 +73,9 @@ class TestNorm(TestCase):
         expected_rounded_dict = asdict(
             BayesianTestResult(
                 expected=0.05,
-                ci=[-0.01772, 0.12239],
-                uplift=Uplift(dist="normal", mean=0.04879, stddev=0.03402),
-                chance_to_win=0.92427,
+                ci=[-0.02, 0.12],
+                uplift=Uplift(dist="normal", mean=0.05, stddev=0.03572),
+                chance_to_win=0.91923,
                 risk=[0.51256, 0.01256],
             )
         )
@@ -104,8 +104,12 @@ class TestGaussianEffectABTest(TestCase):
         quantile_upper_c = 7.217194843758751
         quantile_upper_t = 7.747193868770344
 
-        gaussian_flat_prior = GaussianPrior(variance=float(1e6), pseudo_n=1)
-        gaussian_inf_prior = GaussianPrior(variance=float(1), pseudo_n=1)
+        gaussian_improper_flat_prior = GaussianPrior(flat=True)
+        gaussian_flat_prior = GaussianPrior(variance=float(1e6), flat=False)
+        gaussian_inf_prior = GaussianPrior(variance=float(1), flat=False)
+        effect_config_improper_flat = GaussianEffectBayesianConfig(
+            difference_type="absolute", prior_effect=gaussian_improper_flat_prior
+        )
         effect_config_flat = GaussianEffectBayesianConfig(
             difference_type="absolute", prior_effect=gaussian_flat_prior
         )
@@ -136,6 +140,9 @@ class TestGaussianEffectABTest(TestCase):
             quantile_upper=quantile_upper_t,
         )
 
+        b_improper_flat = GaussianEffectABTest(
+            q_stat_c, q_stat_t, config=effect_config_improper_flat
+        ).compute_result()
         b_flat = GaussianEffectABTest(
             q_stat_c, q_stat_t, config=effect_config_flat
         ).compute_result()
@@ -149,15 +156,17 @@ class TestGaussianEffectABTest(TestCase):
             q_stat_c, q_stat_t, config=effect_config_inf_rel
         ).compute_result()
 
-        self.assertEqual(b_flat.expected, 0.5365028147821085)
-        self.assertEqual(b_relative_flat.expected, 0.07495294369692297)
-        self.assertEqual(b_informative.expected, 0.028332762775204634)
-        self.assertEqual(b_relative_informative.expected, 0.05428702236908376)
-        self.assertEqual(b_flat.ci, [-7.76407602834227, 8.837081657906486])
-        self.assertEqual(b_relative_flat.ci, [-1.1343293204508107, 1.2842352078446564])
-        self.assertEqual(b_informative.ci, [-1.879177307240868, 1.935842832791277])
+        self.assertEqual(b_improper_flat.expected, 0.5365124375579776)
+        self.assertEqual(b_flat.expected, 0.5365124366806674)
+        self.assertEqual(b_relative_flat.expected, 0.07495297222736319)
+        self.assertEqual(b_informative.expected, 0.5356365596437939)
+        self.assertEqual(b_relative_informative.expected, 0.07495037261804469)
+        self.assertEqual(b_improper_flat.ci, [0.45725595891154225, 0.6157689162044129])
+        self.assertEqual(b_flat.ci, [0.4572559580990325, 0.6157689152623023])
+        self.assertEqual(b_relative_flat.ci, [0.06341005842481906, 0.08649588602990732])
+        self.assertEqual(b_informative.ci, [0.45644480210148514, 0.6148283171861025])
         self.assertEqual(
-            b_relative_informative.ci, [-0.9748693016350619, 1.0834433463732291]
+            b_relative_informative.ci, [0.06340765898986044, 0.08649308624622894]
         )
 
         # adding another test for risk
