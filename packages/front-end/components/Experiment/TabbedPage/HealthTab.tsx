@@ -13,6 +13,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
   HealthTabConfigParams,
   HealthTabOnboardingModal,
@@ -44,6 +45,7 @@ export default function HealthTab({
   const { runHealthTrafficQuery } = useOrgSettings();
   const { refreshOrganization } = useUser();
   const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
 
@@ -52,7 +54,7 @@ export default function HealthTab({
   );
 
   const hasPermissionToConfigHealthTag =
-    permissions.check("organizationSettings") &&
+    permissionsUtil.canManageOrgSettings() &&
     permissions.check("runQueries", datasource?.projects || []) &&
     permissions.check("editDatasourceSettings", datasource?.projects || []);
   const [healthIssues, setHealthIssues] = useState<IssueValue[]>([]);

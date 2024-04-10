@@ -19,6 +19,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 type CheckListItem = {
   display: string | ReactElement;
@@ -53,12 +54,13 @@ export function PreLaunchChecklist({
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
   const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const [checkListOpen, setCheckListOpen] = useState(true);
   const [showSdkForm, setShowSdkForm] = useState(false);
   const [updatingChecklist, setUpdatingChecklist] = useState(false);
   const showEditChecklistLink =
     hasCommercialFeature("custom-launch-checklist") &&
-    permissions.check("organizationSettings");
+    permissionsUtil.canManageOrgSettings();
   const canCreateAnalyses = permissions.check(
     "createAnalyses",
     experiment.project

@@ -2505,6 +2505,67 @@ describe("PermissionsUtilClass.canDeleteSegmentcheck", () => {
     expect(permissions.canDeleteSegment()).toEqual(true);
   });
 });
+
+describe("PermissionsUtilClass.canManageOrgSettings", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("User with global engineer role can not manage org settings", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canManageOrgSettings()).toEqual(false);
+  });
+
+  it("User with global admin role can manage org settings", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("admin", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canManageOrgSettings()).toEqual(true);
+  });
+});
 // permissionsClass Project Permissions Test
 describe("PermissionsUtilClass.canViewIdeaModal check", () => {
   const testOrg: OrganizationInterface = {

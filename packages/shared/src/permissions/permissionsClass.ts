@@ -60,6 +60,10 @@ export class Permissions {
     return this.checkGlobalFilterPermission("createSegments");
   };
 
+  public canManageOrgSettings = (): boolean => {
+    return this.checkGlobalFilterPermission("organizationSettings");
+  };
+
   //Project Permissions
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
   public canViewIdeaModal = (project?: string): boolean => {

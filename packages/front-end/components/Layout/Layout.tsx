@@ -147,20 +147,12 @@ const navlinks: SidebarLinkProps[] = [
     Icon: GBSettings,
     path: /^(settings|admin|projects|integrations)/,
     autoClose: true,
-    permissions: [
-      "organizationSettings",
-      "manageTeam",
-      "manageTags",
-      "manageApiKeys",
-      "manageBilling",
-      "manageWebhooks",
-    ],
     subLinks: [
       {
         name: "General",
         href: "/settings",
         path: /^settings$/,
-        permissions: ["organizationSettings"],
+        permissionCallbacks: [() => permissionsUtils.canManageOrgSettings()],
       },
       {
         name: "Team",
