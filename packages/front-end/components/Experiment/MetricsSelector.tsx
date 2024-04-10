@@ -176,6 +176,19 @@ const MetricsSelector: FC<{
         formatOptionLabel={({ value, label }) => {
           return value ? <MetricName id={value} /> : label;
         }}
+        onPaste={(e) => {
+          try {
+            const clipboard = e.clipboardData;
+            const data = JSON.parse(clipboard.getData("Text"));
+            if (data.every((d) => d.startsWith("met_"))) {
+              e.preventDefault();
+              e.stopPropagation();
+              onChange(data);
+            }
+          } catch (e) {
+            // fail silently
+          }
+        }}
       />
       {Object.keys(tagCounts).length > 0 && (
         <div className="metric-from-tag text-muted form-inline mt-2">

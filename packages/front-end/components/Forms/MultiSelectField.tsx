@@ -88,6 +88,7 @@ const MultiSelectField: FC<
     closeMenuOnSelect?: boolean;
     creatable?: boolean;
     formatOptionLabel?: (value: SingleValue) => ReactNode;
+    onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   }
 > = ({
   value,
@@ -103,6 +104,7 @@ const MultiSelectField: FC<
   creatable,
   closeMenuOnSelect = false,
   formatOptionLabel,
+  onPaste,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -131,17 +133,7 @@ const MultiSelectField: FC<
       render={(id, ref) => {
         return (
           <Component
-            onPaste={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              try {
-                const clipboard = e.clipboardData;
-                const data = JSON.parse(clipboard.getData("Text"));
-                if (data.every((d) => d.startsWith("met_"))) onChange(data);
-              } catch (e) {
-                // fail silently
-              }
-            }}
+            onPaste={onPaste}
             useDragHandle
             classNamePrefix="gb-multi-select"
             helperClass="multi-select-container"

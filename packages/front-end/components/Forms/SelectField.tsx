@@ -1,5 +1,9 @@
 import { FC, useMemo, useRef, ReactNode, useState } from "react";
-import ReactSelect, { FormatOptionLabelMeta } from "react-select";
+import ReactSelect, {
+  components,
+  InputProps,
+  FormatOptionLabelMeta,
+} from "react-select";
 import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
 import CreatableSelect from "react-select/creatable";
@@ -26,6 +30,7 @@ export type SelectFieldProps = Omit<
   formatGroupLabel?: (value: GroupedValue) => ReactNode;
   isSearchable?: boolean;
   isClearable?: boolean;
+  onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
 };
 
 export function useSelectOptions(
@@ -66,6 +71,12 @@ export function useSelectOptions(
     return [m, clone] as const;
   }, [options, initialOption]);
 }
+
+const Input = (props: InputProps) => {
+  // @ts-expect-error dhh was right
+  const { onPaste } = props.selectProps;
+  return <components.Input onPaste={onPaste} {...props} />;
+};
 
 export const ReactSelectProps = {
   // See react-select.scss and apply styles with CSS
@@ -134,6 +145,7 @@ const SelectField: FC<SelectFieldProps> = ({
   formatGroupLabel,
   isSearchable = true,
   isClearable = false,
+  onPaste,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -231,6 +243,10 @@ const SelectField: FC<SelectFieldProps> = ({
                 formatOptionLabel={formatOptionLabel}
                 formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
+                onPaste={onPaste}
+                components={{
+                  Input,
+                }}
               />
             ) : (
               <ReactSelect
@@ -250,6 +266,10 @@ const SelectField: FC<SelectFieldProps> = ({
                 formatOptionLabel={formatOptionLabel}
                 formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
+                components={{
+                  Input,
+                }}
+                onPaste={onPaste}
               />
             )}
             {required && (
