@@ -9,6 +9,11 @@ import {
   FaQuestionCircle,
 } from "react-icons/fa";
 import { BsArrowRepeat, BsLightningFill } from "react-icons/bs";
+import {
+  filterProjectsByEnvironment,
+  getDisallowedProjects,
+} from "shared/util";
+import clsx from "clsx";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBEdit, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -27,7 +32,10 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import { isCloud } from "@/services/env";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PageHead from "@/components/Layout/PageHead";
-import Webhooks from "./webhooks";
+import { useEnvironments } from "@/services/features";
+import Badge from "@/components/Badge";
+import ProjectBadges from "@/components/ProjectBadges";
+import SdkWebhooks from "@/pages/sdks/SdkWebhooks";
 
 function ConnectionDot({ left }: { left: boolean }) {
   return (
@@ -155,9 +163,43 @@ export default function SDKConnectionPage() {
     initialValue?: SDKConnectionInterface;
   }>({ mode: "closed" });
 
-  const { getProjectById, projects } = useDefinitions();
+  const environments = useEnvironments();
+  const { projects } = useDefinitions();
 
   const permissions = usePermissions();
+
+  const connection:
+    | SDKConnectionInterface
+    | undefined = data?.connections?.find((conn) => conn.id === sdkid);
+  const environment = environments.find(
+    (e) => e.id === connection?.environment
+  );
+  const envProjects = environment?.projects ?? [];
+  const filteredProjectIds = filterProjectsByEnvironment(
+    connection?.projects ?? [],
+    environment,
+    true
+  );
+  const showAllEnvironmentProjects =
+    (connection?.projects?.length ?? 0) === 0 && filteredProjectIds.length > 0;
+  const disallowedProjects = getDisallowedProjects(
+    projects,
+    connection?.projects ?? [],
+    environment
+  );
+  const disallowedProjectIds = disallowedProjects.map((p) => p.id);
+  const filteredProjectIdsWithDisallowed = [
+    ...filteredProjectIds,
+    ...disallowedProjectIds,
+  ];
+
+  const hasPermission = connection
+    ? permissions.check("manageEnvironments", connection.projects, [
+        connection.environment,
+      ])
+    : false;
+
+  const hasProxy = connection?.proxy?.enabled && !!connection?.proxy?.host;
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
@@ -165,22 +207,9 @@ export default function SDKConnectionPage() {
   if (!data) {
     return <LoadingOverlay />;
   }
-
-  const connection: SDKConnectionInterface | undefined = data.connections.find(
-    (conn) => conn.id === sdkid
-  );
-
   if (!connection) {
     return <div className="alert alert-danger">Invalid SDK Connection id</div>;
   }
-
-  const hasPermission = permissions.check(
-    "manageEnvironments",
-    connection.projects,
-    [connection.environment]
-  );
-
-  const hasProxy = connection.proxy.enabled && !!connection.proxy.host;
 
   return (
     <div className="contents container pagecontents">
@@ -234,7 +263,7 @@ export default function SDKConnectionPage() {
                   Duplicate
                 </button>
                 <DeleteButton
-                  className="dropdown-item"
+                  className="dropdown-item text-danger"
                   displayName="SDK Connection"
                   text="Delete"
                   useIcon={false}
@@ -258,39 +287,35 @@ export default function SDKConnectionPage() {
         </div>
 
         {(projects.length > 0 || connection.projects.length > 0) && (
-          <div className="col-auto">
-            Projects:{" "}
-            {connection.projects.length > 0 ? (
-              <>
-                {connection.projects.map((p) => {
-                  const proj = getProjectById(p);
-                  if (proj) {
-                    return (
-                      <span className="badge badge-secondary mr-1" key={p}>
-                        {proj.name}
-                      </span>
-                    );
-                  } else {
-                    return (
-                      <Tooltip
-                        body={
-                          <>
-                            Project <code>{p}</code> not found
-                          </>
-                        }
-                        key={p}
-                      >
-                        <span className="badge badge-danger mr-1">
-                          <FaExclamationTriangle /> Invalid project
-                        </span>
-                      </Tooltip>
-                    );
-                  }
+          <div className="col-auto d-flex">
+            <div className="mr-2">Projects:</div>
+
+            <div>
+              {showAllEnvironmentProjects && (
+                <Badge
+                  content={`All env projects (${envProjects.length})`}
+                  key="All env projects"
+                  className="badge-muted-info border-info"
+                  skipMargin={true}
+                />
+              )}
+              <div
+                className={clsx("d-flex align-items-center", {
+                  "small mt-1": showAllEnvironmentProjects,
                 })}
-              </>
-            ) : (
-              <em>All Projects</em>
-            )}
+              >
+                <ProjectBadges
+                  projectIds={
+                    filteredProjectIdsWithDisallowed.length
+                      ? filteredProjectIdsWithDisallowed
+                      : undefined
+                  }
+                  invalidProjectIds={disallowedProjectIds}
+                  invalidProjectMessage="This project is not allowed in the selected environment and will not be included in the SDK payload."
+                  resourceType="sdk connection"
+                />
+              </div>
+            </div>
           </div>
         )}
 
@@ -455,7 +480,7 @@ export default function SDKConnectionPage() {
           </Tooltip>
         </div>
       </div>
-      <Webhooks sdkid={sdkid} />
+      <SdkWebhooks sdkid={sdkid} />
       <div className="mt-4">
         <CodeSnippetModal
           connections={data.connections}

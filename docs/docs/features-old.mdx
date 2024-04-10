@@ -78,7 +78,7 @@ growthbook.setAttributes({
 });
 ```
 
-You can update the attributes in the GrowthBook App under **Settings** > **Attributes**:
+You can update the attributes in the GrowthBook App under **Settings** → **Attributes**:
 
 ![List of targeting attributes](/images/edit-targeting-attributes.png)
 
@@ -106,7 +106,7 @@ Each attribute has 4 parts:
 
 ### Saved Groups
 
-Available via API or under _SDK Configuration -> Saved Groups_, **Saved Groups** allows you to define a list of attribute values that can be referenced from feature targeting rules. Saved Group values are passed by reference, so updates will affect all references of this group used in your feature flag targeting rules. Each saved group specifies an attribute for which these are possible values. When targeting to attributes that have a Saved Group defined, you will have options _'Is in the Saved Group'_ and _'Is not in the Saved Group'_, and then you can select the Saved Group name. Saved groups are useful to avoid having to copy and paste lists of user attribute values between feature targeting conditions.
+Available via API or under _SDK Configuration → Saved Groups_, **Saved Groups** allows you to define a list of attribute values that can be referenced from feature targeting rules. Saved Group values are passed by reference, so updates will affect all references of this group used in your feature flag targeting rules. Each saved group specifies an attribute for which these are possible values. When targeting to attributes that have a Saved Group defined, you will have options _'Is in the Saved Group'_ and _'Is not in the Saved Group'_, and then you can select the Saved Group name. Saved groups are useful to avoid having to copy and paste lists of user attribute values between feature targeting conditions.
 
 For example, you could make a Saved Group called _“Enterprise Customer Ids”_ that is an array of secure strings, and use it to release all of your new enterprise features. If you later add or remove a customer from the group, it will automatically update all of the features.
 
@@ -194,7 +194,7 @@ Users are randomly assigned a value from 0 to 1 for each namespace. Each experim
 
 ![Namespaces](/images/namespaces.png)
 
-Before you can use namespaces, you must configure them under SDK Connections > Namespaces.
+Before you can use namespaces, you must configure them under SDK Connections → Namespaces.
 
 ## Publishing Changes
 

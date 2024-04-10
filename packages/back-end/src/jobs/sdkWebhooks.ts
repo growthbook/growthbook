@@ -2,6 +2,7 @@ import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import md5 from "md5";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
+import { filterProjectsByEnvironmentWithNull } from "shared/util";
 import { getFeatureDefinitions } from "../services/features";
 import { CRON_ENABLED, WEBHOOKS } from "../util/secrets";
 import { SDKPayloadKey } from "../../types/sdk-payload";
@@ -143,7 +144,7 @@ export async function fireWebhook({
   const maxContentSize = 1000;
   const date = new Date();
   const signature = createHmac("sha256", signingKey)
-    .update(payload)
+    .update(sendPayload ? payload : "")
     .digest("hex");
   const secret = `whsec_${signature}`;
   const webhookID = `msg_${md5(key + date.getTime()).substr(0, 16)}`;
@@ -163,7 +164,7 @@ export async function fireWebhook({
   } catch (error) {
     createSdkWebhookLog({
       webhookId,
-      webhookReduestId: webhookID,
+      webhookRequestId: webhookID,
       organizationId,
       payload: JSON.parse(payload),
       result: {
@@ -195,7 +196,7 @@ export async function fireWebhook({
   ).catch((e) => {
     createSdkWebhookLog({
       webhookId,
-      webhookReduestId: webhookID,
+      webhookRequestId: webhookID,
       organizationId,
       payload: JSON.parse(payload),
       result: {
@@ -209,7 +210,7 @@ export async function fireWebhook({
 
   createSdkWebhookLog({
     webhookId,
-    webhookReduestId: webhookID,
+    webhookRequestId: webhookID,
     organizationId,
     payload: JSON.parse(payload),
     result: {
@@ -242,11 +243,20 @@ export async function queueSingleWebhookById(webhookId: string) {
       connection.organization
     );
 
+    const environmentDoc = context.org?.settings?.environments?.find(
+      (e) => e.id === connection.environment
+    );
+    const filteredProjects = filterProjectsByEnvironmentWithNull(
+      connection.projects,
+      environmentDoc,
+      true
+    );
+
     const defs = await getFeatureDefinitions({
       context,
       capabilities: getConnectionSDKCapabilities(connection),
       environment: connection.environment,
-      projects: connection.projects,
+      projects: filteredProjects,
       encryptionKey: connection.encryptPayload
         ? connection.encryptionKey
         : undefined,
@@ -292,7 +302,6 @@ export async function queueGlobalWebhooks(
     const {
       url,
       signingKey,
-      key,
       method,
       headers,
       sendPayload,
@@ -306,20 +315,28 @@ export async function queueGlobalWebhooks(
     for (let i = 0; i < connections.length; i++) {
       const connection = connections[i];
 
+      const environmentDoc = context.org?.settings?.environments?.find(
+        (e) => e.id === connection.environment
+      );
+      const filteredProjects = filterProjectsByEnvironmentWithNull(
+        connection.projects,
+        environmentDoc,
+        true
+      );
+
       // Skip if this SDK Connection isn't affected by the changes
       if (
         payloadKeys.some(
           (key: { environment: string; project: string }) =>
             key.environment === connection.environment &&
-            (!connection.projects.length ||
-              connection.projects.includes(key.project))
+            (!filteredProjects || filteredProjects.includes(key.project))
         )
       ) {
         const defs = await getFeatureDefinitions({
           context,
           capabilities: getConnectionSDKCapabilities(connection),
           environment: connection.environment,
-          projects: connection.projects,
+          projects: filteredProjects,
           encryptionKey: connection.encryptPayload
             ? connection.encryptionKey
             : undefined,
@@ -337,7 +354,7 @@ export async function queueGlobalWebhooks(
           organizationId: context.org.id,
           url,
           signingKey,
-          key,
+          key: connection.key,
           payload,
           method,
           sendPayload,
