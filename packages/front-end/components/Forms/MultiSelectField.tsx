@@ -67,7 +67,7 @@ const SortableCreatableSelect = SortableContainer(
 ) as React.ComponentClass<Props<SingleValue, true> & SortableContainerProps>;
 
 const Input = (props: InputProps) => {
-  // @ts-expect-error dhh was right
+  // @ts-expect-error will be passed down
   const { onPaste } = props.selectProps;
   return <components.Input onPaste={onPaste} {...props} />;
 };
