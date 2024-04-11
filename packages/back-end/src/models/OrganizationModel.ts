@@ -412,6 +412,8 @@ export async function updateMember(
   userId: string,
   updates: Partial<Member>
 ) {
+  if (updates.id) throw new Error("Cannot update member id");
+
   const member = org.members.find((m) => m.id === userId);
 
   if (!member) throw new Error("Member not found");
