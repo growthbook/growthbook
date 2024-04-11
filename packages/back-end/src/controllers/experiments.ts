@@ -1,4 +1,5 @@
 import { Response } from "express";
+
 import uniqid from "uniqid";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
@@ -1789,14 +1790,15 @@ export async function postSnapshot(
     }
 
     try {
-      const snapshot = await createManualSnapshot(
+      const snapshot = await createManualSnapshot({
         experiment,
-        phase,
+        phaseIndex: phase,
         users,
         metrics,
         analysisSettings,
-        metricMap
-      );
+        metricMap,
+        context,
+      });
       res.status(200).json({
         status: 200,
         snapshot,
@@ -1916,7 +1918,12 @@ export async function postSnapshotAnalysis(
     snapshot.settings.coverage =
       experiment.phases[phaseIndex ?? latestPhase].coverage;
     // JIT migrate snapshots to have
-    await updateSnapshot(org.id, id, { settings: snapshot.settings });
+    await updateSnapshot({
+      organization: org.id,
+      id,
+      updates: { settings: snapshot.settings },
+      context,
+    });
   }
 
   const metricMap = await getMetricMap(context);
@@ -1928,6 +1935,7 @@ export async function postSnapshotAnalysis(
       analysisSettings: analysisSettings,
       metricMap: metricMap,
       snapshot: snapshot,
+      context,
     });
     res.status(200).json({
       status: 200,

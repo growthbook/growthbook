@@ -14235,6 +14235,11 @@ npm-run-path@^4.0.0, npm-run-path@^4.0.1:
   dependencies:
     path-key "^3.0.0"
 
+number-format.js@^2.0.9:
+  version "2.0.9"
+  resolved "https://registry.yarnpkg.com/number-format.js/-/number-format.js-2.0.9.tgz#91f54f9d2afc62cd3b608cb67cdc587319af8ceb"
+  integrity sha512-VMDspFTTDRgWopKSYsIUGZKcjuL39zQw3cDG20fKxVroqSRI6OofHlWCRwUimNvOpDuLIL92L1K8NVHCRAbF1A==
+
 numbered@^1.1.0:
   version "1.1.0"
   resolved "https://registry.npmjs.org/numbered/-/numbered-1.1.0.tgz"
