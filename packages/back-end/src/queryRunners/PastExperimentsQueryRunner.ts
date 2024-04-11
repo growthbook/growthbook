@@ -74,20 +74,19 @@ export class PastExperimentsQueryRunner extends QueryRunner<
       }
     });
 
-    // Group by experiment, choosing the exposure query with the most users
-    const experimentMap = new Map<string, PastExperiment>();
-    experimentExposureMap.forEach((exp) => {
-      const key = exp.trackingKey;
-      const el = experimentMap.get(key);
-      if (!el || el.users < exp.users) {
-        experimentMap.set(key, exp);
-      }
-    });
-
     // Round the weights
     const possibleWeights = [
+      1,
+      2,
+      3,
+      4,
       5,
+      6,
+      7,
+      8,
+      9,
       10,
+      15,
       16,
       20,
       25,
@@ -103,7 +102,7 @@ export class PastExperimentsQueryRunner extends QueryRunner<
       90,
       95,
     ];
-    experimentMap.forEach((exp) => {
+    experimentExposureMap.forEach((exp) => {
       const totalWeight = exp.weights.reduce((sum, weight) => sum + weight, 0);
       exp.weights = exp.weights.map((w) => {
         // Map the observed percentage traffic to the closest reasonable number
@@ -125,8 +124,8 @@ export class PastExperimentsQueryRunner extends QueryRunner<
     });
 
     // Filter out experiments with too few or too many variations
-    return Array.from(experimentMap.values()).filter(
-      (e) => e.numVariations > 1 && e.numVariations < 10
+    return Array.from(experimentExposureMap.values()).filter(
+      (e) => e.numVariations > 1 && e.numVariations < 13
     );
   }
   async getLatestModel(): Promise<PastExperimentsInterface> {
