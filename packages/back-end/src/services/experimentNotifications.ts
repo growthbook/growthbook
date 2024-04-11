@@ -51,16 +51,21 @@ const memoizeNotification = async ({
   context,
   experiment,
   type,
-  handler,
+  triggered,
+  dispatch,
 }: {
   context: Context;
   experiment: ExperimentInterface;
   type: ExperimentNotification;
-  handler: () => Promise<boolean>;
+  triggered: boolean;
+  dispatch: () => Promise<void>;
 }) => {
-  if (experiment.pastNotifications?.includes(type)) return;
+  if (triggered && experiment.pastNotifications?.includes(type)) return;
+  if (!triggered && !experiment.pastNotifications?.includes(type)) return;
 
-  const pastNotifications = (await handler())
+  await dispatch();
+
+  const pastNotifications = triggered
     ? [...(experiment.pastNotifications || []), type]
     : (experiment.pastNotifications || []).filter((t) => t !== type);
 
@@ -86,15 +91,14 @@ export const notifyAutoUpdate = ({
     context,
     experiment,
     type: "auto-update",
-    handler: async () => {
-      await dispatchEvent(context, {
+    triggered: !success,
+    dispatch: () =>
+      dispatchEvent(context, {
         type: "auto-update",
         success,
         experimentId: experiment.id,
         experimentName: experiment.name,
-      });
-      return success;
-    },
+      }),
   });
 
 export const MINIMUM_MULTIPLE_EXPOSURES_PERCENT = 0.01;
@@ -109,22 +113,25 @@ const notifyMultipleExposures = async ({
   experiment: ExperimentInterface;
   firstResult: ExperimentReportResultDimension;
   snapshot: ExperimentSnapshotDocument;
-}) =>
-  memoizeNotification({
+}) => {
+  const totalsUsers = firstResult.variations.reduce(
+    (totalUsersCount, { users }) => totalUsersCount + users,
+    0
+  );
+  const percent = snapshot.multipleExposures / totalsUsers;
+  const multipleExposureMinPercent =
+    context.org.settings?.multipleExposureMinPercent ??
+    MINIMUM_MULTIPLE_EXPOSURES_PERCENT;
+
+  const triggered = multipleExposureMinPercent <= snapshot.multipleExposures;
+
+  await memoizeNotification({
     context,
     experiment,
     type: "multiple-exposures",
-    handler: async () => {
-      const totalsUsers = firstResult.variations.reduce(
-        (totalUsersCount, { users }) => totalUsersCount + users,
-        0
-      );
-      const percent = snapshot.multipleExposures / totalsUsers;
-      const multipleExposureMinPercent =
-        context.org.settings?.multipleExposureMinPercent ??
-        MINIMUM_MULTIPLE_EXPOSURES_PERCENT;
-
-      if (snapshot.multipleExposures < multipleExposureMinPercent) return false;
+    triggered,
+    dispatch: async () => {
+      if (!triggered) return;
 
       await dispatchEvent(context, {
         type: "multiple-exposures",
@@ -133,10 +140,9 @@ const notifyMultipleExposures = async ({
         usersCount: snapshot.multipleExposures,
         percent,
       });
-
-      return true;
     },
   });
+};
 
 export const DEFAULT_SRM_THRESHOLD = 0.001;
 
@@ -148,16 +154,19 @@ const notifySrm = async ({
   context: Context;
   experiment: ExperimentInterface;
   firstResult: ExperimentReportResultDimension;
-}) =>
-  memoizeNotification({
+}) => {
+  const srmThreshold =
+    context.org.settings?.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
+
+  const triggered = srmThreshold <= firstResult.srm;
+
+  await memoizeNotification({
     context,
     experiment,
     type: "srm",
-    handler: async () => {
-      const srmThreshold =
-        context.org.settings?.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
-
-      if (srmThreshold <= firstResult.srm) return false;
+    triggered,
+    dispatch: async () => {
+      if (!triggered) return;
 
       await dispatchEvent(context, {
         type: "srm",
@@ -165,10 +174,9 @@ const notifySrm = async ({
         experimentName: experiment.name,
         threshold: srmThreshold,
       });
-
-      return true;
     },
   });
+};
 
 export const notifyExperimentChange = async ({
   context,
