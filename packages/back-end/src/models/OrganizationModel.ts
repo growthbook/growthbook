@@ -10,7 +10,6 @@ import {
 import { upgradeOrganizationDoc } from "../util/migrations";
 import { ApiOrganization } from "../../types/openapi";
 import { IS_CLOUD } from "../util/secrets";
-import { logger } from "../util/logger";
 
 const baseMemberFields = {
   _id: false,
@@ -409,36 +408,23 @@ export function toOrganizationApiInterface(
 }
 
 export async function updateMember(
-  orgId: string,
+  org: OrganizationInterface,
   userId: string,
   updates: Partial<Member>
 ) {
-  const org = await findOrganizationById(orgId);
-
-  if (!org) throw new Error("Organization or member not found");
-
   const member = org.members.find((m) => m.id === userId);
 
   if (!member) throw new Error("Member not found");
 
-  try {
-    await updateOrganization(orgId, {
-      members: org.members.map((m) => {
-        if (m.id === userId) {
-          return {
-            ...m,
-            ...updates,
-          };
-        }
-        return m;
-      }),
-    });
-  } catch (e) {
-    logger.error("error updating member", {
-      orgId,
-      userId,
-      error: e,
-    });
-    throw e;
-  }
+  await updateOrganization(org.id, {
+    members: org.members.map((m) => {
+      if (m.id === userId) {
+        return {
+          ...m,
+          ...updates,
+        };
+      }
+      return m;
+    }),
+  });
 }

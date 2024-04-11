@@ -167,7 +167,7 @@ export async function processJWT(
             lastLoginDate.getTime() < now.getTime() - interval
           ) {
             try {
-              await updateMember(req.organization.id, memberRecord.id, {
+              await updateMember(req.organization, memberRecord.id, {
                 lastLoginDate: now,
               });
             } catch (e) {
