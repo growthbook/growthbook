@@ -1,0 +1,140 @@
+# Default values for growthbook.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: growthbook/growthbook
+  pullPolicy: Always
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: latest
+
+externalSecretName: growthbook-external-secret
+
+port:
+  frontendPort: 3000
+  backendPort: 3100
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+env:
+  - name: NODE_ENV
+    value: production
+  - name: MONGODB_URI
+    valueFrom:
+      secretKeyRef:
+        name: growthbook-external-secret
+        key: mongo-connection-uri
+  - name: JWT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: growthbook-external-secret
+        key: jwt-secret
+  - name: ENCRYPTION_KEY
+    valueFrom:
+      secretKeyRef:
+        name: growthbook-external-secret
+        key: encryption-key      
+  # Specify your app_origin, api_host
+  - name: APP_ORIGIN
+    value: https://my-app-origin.io:443
+  - name: API_HOST
+    value: https://my-api-host.io:443
+
+# Set your nodeSelector setting, following example uses AWS on_demand node.
+nodeSelector:
+ capacity-type: on_demand
+
+# Specify your storage class spec for persisting upload images to external file system
+pvc:
+ claimName: growthbook-efs-claim
+ storageClassName: efs-sc
+ storage: 5Gi
+
+volume:
+  name: uploads-persistent-storage
+  mountPath: /usr/local/src/app/packages/back-end/uploads
+
+service:
+  type: ClusterIP
+
+ingress:
+  name: growthbook-ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    # Specify your app-origin with 'https://' prefix
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://my-app-origin.io"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "Authorization,Referer,sec-ch-ua,sec-ch-ua-mobile,sec-ch-ua-platform,User-Agent,X-Organization,Content-Type"
+
+  enabled: true
+  # Specify your app-origin, api-host without 'https://' prefix
+  appOriginName: my-app-origin.io
+  apiHostName: my-api-host.io
+
+# Specify your own secret
+# Following example uses ExternalSecret provided by Vault
+externalSecret:
+  name: growthbook-external-secret
+  spec:
+    backendType: vault
+    template:
+      type: kubernetes.io/tls
+    data:
+      - key: your-tls-crt-path
+        name: tls.crt
+        property: public_key
+      - key: your-tls-key-path
+        name: tls.key
+        property: private_key
+      - key: your-encryption-key-path
+        name: encryption-key
+        property: encryption-key
+      - key: your-jwt-secret-path
+        name: jwt-secret
+        property: jwt-secret
+      - key: your-mongo-connection-uri-path
+        name: mongo-connection-uri
+        property: mongo-connection-uri
+      - key: your-mongo-root-password-path
+        name: mongodb-root-password
+        property: mongodb-root-password
+    kvVersion: 2
+    vaultMountPoint: your-vault-mount-point
+    vaultRole: external-secrets
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Disable if you already set up mongodb, you should also disable dependencies in Chart.yaml.
+# Make sure you specify right mongodb credential in secret
+# Example below assumes prometheus is running at sys-monitoring namespace
+# For more configurations and explanations, visit https://github.com/bitnami/charts/tree/master/bitnami/mongodb
+mongodb:
+  auth:
+    existingSecret: growthbook-external-secret
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      namespace: sys-monitoring
+      interval: 30s
+      scrapeTimeout: 30s
+      additionalLabels: {}
+    service:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
