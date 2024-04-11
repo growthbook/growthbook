@@ -27,6 +27,7 @@ class SimulationStudy(ABC):
         self.test_names = list(test_dict.keys())
         self.tests = list([v[0] for v in test_dict.values()])
         self.configs = list([v[1] for v in test_dict.values()])
+        self.n_tests = len(self.tests)
         self.data_params = data_params
         self.create_storage_arrays()
 
@@ -48,7 +49,7 @@ class SimulationStudy(ABC):
             self.results[i, j] = test_result
 
     def create_storage_arrays(self):
-        array_shape = (self.n_sim, len(self.tests))
+        array_shape = (self.n_sim, self.n_tests)
         self.pt = np.empty(array_shape)
         self.se = np.empty(array_shape)
         self.theta = np.empty(array_shape)
@@ -68,7 +69,7 @@ class SimulationStudy(ABC):
                 (self.lower_limit[:, j] <= self.theta[:, j])
                 * (self.upper_limit[:, j] >= self.theta[:, j])
             )
-            for j in range(len(self.tests))
+            for j in range(self.n_tests)
         ]
 
     @property
@@ -76,22 +77,20 @@ class SimulationStudy(ABC):
         return [
             1.0
             - np.mean((self.lower_limit[:, j] < 0.0) * (self.upper_limit[:, j] > 0.0))
-            for j in range(len(self.tests))
+            for j in range(self.n_tests)
         ]
 
     @property
     def mse(self):
         return [
             np.mean((self.pt[:, j] - self.theta[:, j]) ** 2)
-            for j in range(len(self.tests))
+            for j in range(self.n_tests)
         ]
 
     @property
     def bias(self):
-        return [
-            np.mean(self.pt[:, j] - self.theta[:, j]) for j in range(len(self.tests))
-        ]
+        return [np.mean(self.pt[:, j] - self.theta[:, j]) for j in range(self.n_tests)]
 
     @property
     def variance(self):
-        return [np.var(self.pt[:, j]) for j in range(len(self.tests))]
+        return [np.var(self.pt[:, j]) for j in range(self.n_tests)]
