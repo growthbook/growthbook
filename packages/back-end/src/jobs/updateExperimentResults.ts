@@ -23,10 +23,7 @@ import {
 import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
 import { getMetricMap } from "../models/MetricModel";
-import {
-  notifyFailedAutoUpdate,
-  notifyAutoUpdateSuccess,
-} from "../services/experimentNotifications";
+import { notifyAutoUpdate } from "../services/experimentNotifications";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
 import { logger } from "../util/logger";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
@@ -209,10 +206,10 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
         },
       });
 
-      await notifyAutoUpdateSuccess({ context, experimentId });
+      await notifyAutoUpdate({ context, experiment, success: true });
     } catch (e) {
       logger.error(e, "Failed to turn off autoSnapshots: " + experimentId);
-      await notifyFailedAutoUpdate({ context, experimentId });
+      await notifyAutoUpdate({ context, experiment, success: false });
     }
   }
 }

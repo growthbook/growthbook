@@ -47,7 +47,7 @@ const dispatchEvent = async (
   new EventNotifier(emittedEvent.id).perform();
 };
 
-const updateWrapper = async ({
+const memoizeNotification = async ({
   context,
   experiment,
   type,
@@ -56,76 +56,46 @@ const updateWrapper = async ({
   context: Context;
   experiment: ExperimentInterface;
   type: ExperimentNotification;
-  handler: () => Promise<void>;
+  handler: () => Promise<boolean>;
 }) => {
   if (experiment.pastNotifications?.includes(type)) return;
 
-  await handler();
+  const pastNotifications = (await handler())
+    ? [...(experiment.pastNotifications || []), type]
+    : (experiment.pastNotifications || []).filter((t) => t !== type);
 
   await updateExperiment({
     experiment,
     context,
     changes: {
-      pastNotifications: [...(experiment.pastNotifications || []), type],
+      pastNotifications,
     },
   });
 };
 
-export const notifyFailedAutoUpdate = async ({
+export const notifyAutoUpdate = ({
   context,
-  experimentId,
+  experiment,
+  success,
 }: {
   context: Context;
-  experimentId: string;
-}) => {
-  const experiment = await getExperimentById(context, experimentId);
-
-  if (!experiment) throw new Error("Error while fetching experiment!");
-
-  await updateWrapper({
+  experiment: ExperimentInterface;
+  success: boolean;
+}) =>
+  memoizeNotification({
     context,
     experiment,
     type: "auto-update",
-    handler: () =>
-      dispatchEvent(context, {
+    handler: async () => {
+      await dispatchEvent(context, {
         type: "auto-update",
-        success: false,
-        experimentId,
+        success,
+        experimentId: experiment.id,
         experimentName: experiment.name,
-      }),
-  });
-};
-
-export const notifyAutoUpdateSuccess = async ({
-  context,
-  experimentId,
-}: {
-  context: Context;
-  experimentId: string;
-}) => {
-  const experiment = await getExperimentById(context, experimentId);
-
-  if (!experiment) throw new Error("Error while fetching experiment!");
-
-  if (!experiment.pastNotifications?.includes("auto-update")) return;
-
-  await dispatchEvent(context, {
-    type: "auto-update",
-    success: true,
-    experimentId,
-    experimentName: experiment.name,
-  });
-
-  await updateExperiment({
-    experiment,
-    context,
-    changes: {
-      pastNotifications: (experiment.pastNotifications || []).filter(
-        (v) => v !== "auto-update"
-      ),
+      });
+      return success;
     },
   });
-};
 
 export const MINIMUM_MULTIPLE_EXPOSURES_PERCENT = 0.01;
 
@@ -140,7 +110,7 @@ const notifyMultipleExposures = async ({
   firstResult: ExperimentReportResultDimension;
   snapshot: ExperimentSnapshotDocument;
 }) =>
-  updateWrapper({
+  memoizeNotification({
     context,
     experiment,
     type: "multiple-exposures",
@@ -154,7 +124,7 @@ const notifyMultipleExposures = async ({
         context.org.settings?.multipleExposureMinPercent ??
         MINIMUM_MULTIPLE_EXPOSURES_PERCENT;
 
-      if (snapshot.multipleExposures < multipleExposureMinPercent) return;
+      if (snapshot.multipleExposures < multipleExposureMinPercent) return false;
 
       await dispatchEvent(context, {
         type: "multiple-exposures",
@@ -163,6 +133,8 @@ const notifyMultipleExposures = async ({
         usersCount: snapshot.multipleExposures,
         percent,
       });
+
+      return true;
     },
   });
 
@@ -177,7 +149,7 @@ const notifySrm = async ({
   experiment: ExperimentInterface;
   firstResult: ExperimentReportResultDimension;
 }) =>
-  updateWrapper({
+  memoizeNotification({
     context,
     experiment,
     type: "srm",
@@ -185,7 +157,7 @@ const notifySrm = async ({
       const srmThreshold =
         context.org.settings?.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
-      if (srmThreshold <= firstResult.srm) return;
+      if (srmThreshold <= firstResult.srm) return false;
 
       await dispatchEvent(context, {
         type: "srm",
@@ -193,6 +165,8 @@ const notifySrm = async ({
         experimentName: experiment.name,
         threshold: srmThreshold,
       });
+
+      return true;
     },
   });
 
