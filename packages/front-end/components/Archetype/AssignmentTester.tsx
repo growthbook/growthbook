@@ -1,11 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { FeatureInterface, FeatureTestResult } from "back-end/types/feature";
 import { FaChevronRight } from "react-icons/fa";
-import { useForm } from "react-hook-form";
 import { ArchetypeInterface } from "back-end/types/archetype";
 import { FiAlertTriangle } from "react-icons/fi";
 import { useAuth } from "@/services/auth";
-import { useAttributeSchema } from "@/services/features";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -54,7 +52,7 @@ export default function AssignmentTester({ feature, version }: Props) {
     return false;
   }, [feature]);
 
-  const [archetypeKey, forceArchetypeRerender] = useIncrementer();
+  const [archetypeKey, forceArchetypeRefetch] = useIncrementer();
   const { apiCall } = useAuth();
 
   useEffect(() => {
@@ -71,34 +69,17 @@ export default function AssignmentTester({ feature, version }: Props) {
         setData(data);
       })
       .catch((e) => console.error(e));
-  }, [formValues, apiCall, feature, version, skipRulesWithPrerequisites]);
+  }, [
+    formValues,
+    apiCall,
+    feature,
+    version,
+    skipRulesWithPrerequisites,
+    archetypeKey,
+  ]);
 
   const { hasCommercialFeature } = useUser();
   const hasArchetypeAccess = hasCommercialFeature("archetypes");
-
-  const attributeSchema = useAttributeSchema(true);
-
-  const orderedAttributes = useMemo(
-    () => [
-      ...attributeSchema.filter((o) => !o.archived),
-      ...attributeSchema.filter((o) => o.archived),
-    ],
-    [attributeSchema]
-  );
-
-  const attributesMap = new Map();
-  const defaultValues = orderedAttributes
-    .filter((o) => !o.archived)
-    .reduce((list, attr) => {
-      attributesMap.set(attr.property, attr);
-      const defaultValue = attr.datatype === "boolean" ? false : undefined;
-      return { ...list, [attr.property]: defaultValue };
-    }, {});
-
-  // eslint-disable-next-line
-  const attributeForm = useForm<any>({
-    defaultValues: defaultValues,
-  });
 
   useEffect(() => {
     apiCall<{
@@ -329,7 +310,7 @@ export default function AssignmentTester({ feature, version }: Props) {
             feature={feature}
             archetype={data.archetype}
             featureResults={data.featureResults}
-            onChange={forceArchetypeRerender}
+            onChange={forceArchetypeRefetch}
             key={archetypeKey}
           />
         )}
@@ -417,7 +398,7 @@ export default function AssignmentTester({ feature, version }: Props) {
           {hasArchetypeAccess ? (
             <ArchetypeAttributesModal
               close={async () => {
-                forceArchetypeRerender();
+                forceArchetypeRefetch();
                 setOpenArchetypeModal(null);
               }}
               initialValues={openArchetypeModal}

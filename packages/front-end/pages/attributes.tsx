@@ -94,6 +94,16 @@ const FeatureAttributesPage = (): React.ReactElement => {
             </button>
             <DeleteButton
               displayName="Attribute"
+              deleteMessage={
+                <>
+                  Are you sure you want to delete the{" "}
+                  {v.hashAttribute ? "identifier " : ""}
+                  {v.datatype} attribute:{" "}
+                  <code className="font-weight-bold">{v.property}</code>?
+                  <br />
+                  This action cannot be undone.
+                </>
+              }
               className="dropdown-item text-danger"
               onClick={async () => {
                 await apiCall<{
