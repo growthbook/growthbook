@@ -39,7 +39,7 @@
     "@octokit/oauth-methods": "^4.0.1",
     "@octokit/rest": "^20.0.2",
     "@opentelemetry/api": "^1.4.1",
-    "@opentelemetry/auto-instrumentations-node": "^0.43.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.44.0",
     "@sentry/node": "^7.14.2",
     "@slack/web-api": "^5.14.0",
     "@stdlib/random": "^0.1.1",
