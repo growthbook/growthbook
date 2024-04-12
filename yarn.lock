@@ -2764,7 +2764,9 @@
     uuid "^8.0.0"
 
 "@growthbook/growthbook@^0.34.0":
-  version "0.36.0"
+  version "0.34.0"
+  resolved "https://registry.yarnpkg.com/@growthbook/growthbook/-/growthbook-0.34.0.tgz#df5275fafbbe055c7cfeea2953a4218a9ec9027f"
+  integrity sha512-3K5JL8QftX7y77EpieYg9anXVYb6+ZafTsrNCWp0HOdmtf4lxHOzCUYwuYDaS3bvmaeIUWJ5hYcOTc6WhNbfJw==
   dependencies:
     dom-mutator "^0.6.0"
 
@@ -3646,6 +3648,30 @@
   dependencies:
     "@opentelemetry/semantic-conventions" "1.22.0"
 
+"@opentelemetry/exporter-metrics-otlp-http@0.50.0":
+  version "0.50.0"
+  resolved "https://registry.yarnpkg.com/@opentelemetry/exporter-metrics-otlp-http/-/exporter-metrics-otlp-http-0.50.0.tgz#fa804b8d300f3e9c1b6047f4a17949cfaed902db"
+  integrity sha512-DMilj0pTOGxeaRPvVBil/KugvLMV5l+GzoXEWBKXYGEnfNlX+huPeMpYl+zJJBtI3Coht2KArnNOLhs2wqA3yA==
+  dependencies:
+    "@opentelemetry/core" "1.23.0"
+    "@opentelemetry/otlp-exporter-base" "0.50.0"
+    "@opentelemetry/otlp-transformer" "0.50.0"
+    "@opentelemetry/resources" "1.23.0"
+    "@opentelemetry/sdk-metrics" "1.23.0"
+
+"@opentelemetry/exporter-metrics-otlp-proto@^0.50.0":
+  version "0.50.0"
+  resolved "https://registry.yarnpkg.com/@opentelemetry/exporter-metrics-otlp-proto/-/exporter-metrics-otlp-proto-0.50.0.tgz#f10177bf064ddd571d41ce8d29b2e71a9ee4c63e"
+  integrity sha512-1kDjDgA9dF7GRp9Dd22MbY+WXXdPPiHLo4E9LWRyJG9E/hZkRy2zapOa/nWhadvG+4Ji65MRhPrZUvnqC/INww==
+  dependencies:
+    "@opentelemetry/core" "1.23.0"
+    "@opentelemetry/exporter-metrics-otlp-http" "0.50.0"
+    "@opentelemetry/otlp-exporter-base" "0.50.0"
+    "@opentelemetry/otlp-proto-exporter-base" "0.50.0"
+    "@opentelemetry/otlp-transformer" "0.50.0"
+    "@opentelemetry/resources" "1.23.0"
+    "@opentelemetry/sdk-metrics" "1.23.0"
+
 "@opentelemetry/exporter-trace-otlp-grpc@0.50.0":
   version "0.50.0"
   resolved "https://registry.yarnpkg.com/@opentelemetry/exporter-trace-otlp-grpc/-/exporter-trace-otlp-grpc-0.50.0.tgz#758ee4be1ce8d23f75c24c078976ad78fba46563"
@@ -4157,7 +4183,7 @@
     "@opentelemetry/core" "1.23.0"
     "@opentelemetry/resources" "1.23.0"
 
-"@opentelemetry/sdk-metrics@1.23.0":
+"@opentelemetry/sdk-metrics@1.23.0", "@opentelemetry/sdk-metrics@^1.23.0":
   version "1.23.0"
   resolved "https://registry.yarnpkg.com/@opentelemetry/sdk-metrics/-/sdk-metrics-1.23.0.tgz#b4cf3cc86b6dedf5c438c67c829df7399bf64be1"
   integrity sha512-4OkvW6+wST4h6LFG23rXSTf6nmTf201h9dzq7bE0z5R9ESEVLERZz6WXwE7PSgg1gdjlaznm1jLJf8GttypFDg==
