@@ -37,8 +37,6 @@ COPY packages/enterprise/package.json ./packages/enterprise/package.json
 COPY patches ./patches
 # Yarn install with dev dependencies (will be cached as long as dependencies don't change)
 RUN yarn install --frozen-lockfile --ignore-optional
-# adding the `yarn postinstall` since it there seems to be an issue with yarn
-RUN yarn postinstall
 # Build the app and do a clean install with only production dependencies
 COPY packages ./packages
 RUN \
@@ -51,9 +49,7 @@ RUN \
   && rm -rf packages/enterprise/node_modules \
   && rm -rf packages/sdk-js/node_modules \
   && rm -rf packages/sdk-react/node_modules \
-  && yarn install --frozen-lockfile --production=true --ignore-optional \
-  && yarn postinstall
-
+  && yarn install --frozen-lockfile --production=true --ignore-optional
 
 
 # Package the full app together
