@@ -1,4 +1,4 @@
-import { checkSrm } from "../src/util/stats";
+import { checkSrm, powerEst } from "../src/util/stats";
 
 describe("backend", () => {
   it("calculates SRM correctly", () => {
@@ -34,5 +34,11 @@ describe("backend", () => {
 
     // Completely equal
     expect(+checkSrm([500, 500], [0.5, 0.5]).toFixed(9)).toEqual(1);
+  });
+  it("calculates power correctly", () => {
+    // Simple 2-way test
+    expect(+powerEst(0.5, 1, 40, 4000, 10, 0.05, true).toFixed(5)).toEqual(
+      0.20095
+    );
   });
 });
