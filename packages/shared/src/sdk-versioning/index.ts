@@ -233,7 +233,7 @@ export function getMinSupportedSDKVersions(
   languages.forEach((language) => {
     const minVersion = getSDKCapabilityVersion(language, capability);
 
-    if (minVersion && minVersion !== "0.0.0") {
+    if (minVersion) {
       matches.push({ language, minVersion });
     }
   });
