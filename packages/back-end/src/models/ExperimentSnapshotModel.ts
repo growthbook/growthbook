@@ -338,3 +338,7 @@ export async function createExperimentSnapshotModel({
 
   return toInterface(created);
 }
+
+export const getDefaultAnalysisResults = (
+  snapshot: ExperimentSnapshotDocument
+) => snapshot.results?.[0];

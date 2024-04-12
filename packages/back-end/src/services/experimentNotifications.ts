@@ -3,7 +3,10 @@ import { createEvent } from "../models/EventModel";
 import { getExperimentById, updateExperiment } from "../models/ExperimentModel";
 import { EventNotifier } from "../events/notifiers/EventNotifier";
 import { ExperimentWarningNotificationEvent } from "../events/notification-events";
-import { ExperimentSnapshotDocument } from "../models/ExperimentSnapshotModel";
+import {
+  ExperimentSnapshotDocument,
+  getDefaultAnalysisResults,
+} from "../models/ExperimentSnapshotModel";
 import {
   ExperimentInterface,
   ExperimentNotification,
@@ -106,15 +109,15 @@ export const MINIMUM_MULTIPLE_EXPOSURES_PERCENT = 0.01;
 const notifyMultipleExposures = async ({
   context,
   experiment,
-  firstResult,
+  results,
   snapshot,
 }: {
   context: Context;
   experiment: ExperimentInterface;
-  firstResult: ExperimentReportResultDimension;
+  results: ExperimentReportResultDimension;
   snapshot: ExperimentSnapshotDocument;
 }) => {
-  const totalsUsers = firstResult.variations.reduce(
+  const totalsUsers = results.variations.reduce(
     (totalUsersCount, { users }) => totalUsersCount + users,
     0
   );
@@ -149,16 +152,16 @@ export const DEFAULT_SRM_THRESHOLD = 0.001;
 const notifySrm = async ({
   context,
   experiment,
-  firstResult,
+  results,
 }: {
   context: Context;
   experiment: ExperimentInterface;
-  firstResult: ExperimentReportResultDimension;
+  results: ExperimentReportResultDimension;
 }) => {
   const srmThreshold =
     context.org.settings?.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
-  const triggered = srmThreshold <= firstResult.srm;
+  const triggered = srmThreshold <= results.srm;
 
   await memoizeNotification({
     context,
@@ -188,21 +191,15 @@ export const notifyExperimentChange = async ({
   const experiment = await getExperimentById(context, snapshot.experiment);
   if (!experiment) throw new Error("Error while fetching experiment!");
 
-  const [
-    {
-      results: [firstResult],
-    },
-  ] = snapshot.analyses.sort(
-    (a, b) => a.dateCreated.getTime() - b.dateCreated.getTime()
-  );
+  const results = getDefaultAnalysisResults(snapshot);
 
-  if (firstResult) {
+  if (results) {
     await notifyMultipleExposures({
       context,
       experiment,
-      firstResult,
+      results,
       snapshot,
     });
-    await notifySrm({ context, experiment, firstResult });
+    await notifySrm({ context, experiment, results });
   }
 };
