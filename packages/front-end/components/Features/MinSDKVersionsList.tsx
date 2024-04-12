@@ -4,7 +4,7 @@ import {
 } from "shared/sdk-versioning";
 import { languageMapping } from "./SDKConnections/SDKLanguageLogo";
 
-export default function MinSDKVersions({
+export default function MinSDKVersionsList({
   capability,
 }: {
   capability: SDKCapability;

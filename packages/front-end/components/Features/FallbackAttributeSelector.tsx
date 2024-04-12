@@ -18,7 +18,7 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import { DocLink } from "@/components/DocLink";
 import SelectField from "@/components/Forms/SelectField";
 import Toggle from "@/components/Forms/Toggle";
-import MinSDKVersions from "@/components/Features/MinSDKVersions";
+import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 
 export interface Props {
   // eslint-disable-next-line
@@ -200,7 +200,7 @@ export function StickyBucketingTooltip() {
       <div className="mb-2">
         Sticky Bucketing requires changes to your SDK implementation and is only
         supported in the following SDKs and versions:
-        <MinSDKVersions capability="stickyBucketing" />
+        <MinSDKVersionsList capability="stickyBucketing" />
       </div>
     </>
   );

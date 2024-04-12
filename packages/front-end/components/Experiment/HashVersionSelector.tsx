@@ -5,7 +5,7 @@ import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import MinSDKVersions from "@/components/Features/MinSDKVersions";
+import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 
 export function HashVersionTooltip({ children }: { children: ReactNode }) {
   return (
@@ -14,7 +14,7 @@ export function HashVersionTooltip({ children }: { children: ReactNode }) {
         <>
           V2 fixes potential bias issues when using similarly named tracking
           keys, but is only supported in the following SDKs and versions:
-          <MinSDKVersions capability="bucketingV2" />
+          <MinSDKVersionsList capability="bucketingV2" />
           Unsupported SDKs will fall back to using the V1 algorithm
           automatically.
         </>

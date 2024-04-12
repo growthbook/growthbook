@@ -3,7 +3,6 @@ import { FeatureInterface, FeatureTestResult } from "back-end/types/feature";
 import { FaChevronRight } from "react-icons/fa";
 import { ArchetypeInterface } from "back-end/types/archetype";
 import { FiAlertTriangle } from "react-icons/fi";
-import MinSDKVersions from "@/components/Features/MinSDKVersions";
 import { useAuth } from "@/services/auth";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -16,6 +15,7 @@ import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Toggle from "@/components/Forms/Toggle";
 import { useIncrementer } from "@/hooks/useIncrementer";
+import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import styles from "./AssignmentTester.module.scss";
 
 export interface Props {
@@ -379,7 +379,7 @@ export default function AssignmentTester({ feature, version }: Props) {
                           <br />
                           <br />
                           The following SDK versions support V2 hashing:
-                          <MinSDKVersions capability="bucketingV2" />
+                          <MinSDKVersionsList capability="bucketingV2" />
                         </>
                       }
                     >

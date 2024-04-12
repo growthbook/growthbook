@@ -38,7 +38,7 @@ import { useUser } from "@/services/UserContext";
 import { DocLink } from "@/components/DocLink";
 import SelectField from "@/components/Forms/SelectField";
 import { GBAddCircle } from "@/components/Icons";
-import MinSDKVersions from "@/components/Features/MinSDKVersions";
+import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 
 export interface Props {
   value: FeaturePrerequisite[];
@@ -608,7 +608,7 @@ export const PrerequisiteAlerts = ({
             <>
               Prerequisite evaluation is only supported in the following SDKs
               and versions:
-              <MinSDKVersions capability="prerequisites" />
+              <MinSDKVersionsList capability="prerequisites" />
             </>
           }
         />

@@ -17,7 +17,7 @@ import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Toggle from "@/components/Forms/Toggle";
-import MinSDKVersions from "@/components/Features/MinSDKVersions";
+import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 
 function validateUrl(
   urlString: string
@@ -82,7 +82,7 @@ const UrlRedirectSdkAlert = ({
             <>
               URL Redirects are only supported in the following SDKs and
               versions:
-              <MinSDKVersions capability="redirects" />
+              <MinSDKVersionsList capability="redirects" />
             </>
           }
         />
