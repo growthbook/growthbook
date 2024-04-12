@@ -47,7 +47,7 @@ const dispatchEvent = async (
   new EventNotifier(emittedEvent.id).perform();
 };
 
-const memoizeNotification = async ({
+export const memoizeNotification = async ({
   context,
   experiment,
   type,
