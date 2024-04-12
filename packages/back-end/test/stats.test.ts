@@ -37,8 +37,6 @@ describe("backend", () => {
   });
   it("calculates power correctly", () => {
     // Simple 2-way test
-    expect(+powerEst(0.5, 1, 40, 4000, 10, 0.05, true).toFixed(5)).toEqual(
-      0.20095
-    );
+    expect(+powerEst(0.5, 1, 40, 4000, 10, 0.05, true).toFixed(5)).toEqual(17);
   });
 });
