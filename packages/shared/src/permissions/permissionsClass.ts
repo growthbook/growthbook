@@ -36,6 +36,19 @@ export class Permissions {
     return this.checkGlobalFilterPermission("createPresentations");
   };
 
+  public canCreateDimension = (): boolean => {
+    return this.checkGlobalFilterPermission("createDimensions");
+  };
+
+  public canUpdateDimension = (): boolean => {
+    return this.checkGlobalFilterPermission("createDimensions");
+  };
+
+  public canDeleteDimension = (): boolean => {
+    return this.checkGlobalFilterPermission("createDimensions");
+  };
+
+  //Project Permissions
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
   public canViewIdeaModal = (project?: string): boolean => {
     return this.checkProjectFilterPermission(
