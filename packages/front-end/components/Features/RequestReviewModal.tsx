@@ -261,14 +261,18 @@ export default function RequestReviewModal({
               <div className="mt-3 mb-4 ml-1">
                 <div className="d-flex">
                   <input
+                    id="adminPublish"
                     type="checkbox"
-                    className="mr-2"
+                    className="mr-2 cursor-pointer"
                     checked={adminPublish}
                     onChange={async (e) => setAdminPublish(e.target.checked)}
                   />
-                  <span className="font-weight-bold mr-1">
+                  <label
+                    htmlFor="adminPublish"
+                    className="text-body cursor-pointer font-weight-bold mb-0 mr-1"
+                  >
                     Bypass approval requirement to publish
-                  </span>
+                  </label>
                   (optional for Admins only)
                 </div>
               </div>

@@ -15,6 +15,8 @@ import Toggle from "@/components/Forms/Toggle";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useUser } from "@/services/UserContext";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import MinSDKVersionsList from "./MinSDKVersionsList";
 
 export interface Props {
   close: () => void;
@@ -195,10 +197,14 @@ export default function AttributeModal({ close, attribute }: Props) {
           {form.watch("format") === "version" && (
             <div className="alert alert-warning">
               <strong>Warning:</strong> Version string attributes are only
-              supported in the latest Javascript and React SDK versions. Other
-              language support is coming soon. Do not use this format if you are
-              using an older SDK version or a different language as it will
-              break any filtering based on the attribute.
+              supported in{" "}
+              <Tooltip
+                body={<MinSDKVersionsList capability="semverTargeting" />}
+              >
+                <span className="text-primary">some SDK versions</span>
+              </Tooltip>
+              . Do not use this format if you are using an incompatible SDK as
+              it will break any filtering based on the attribute.
             </div>
           )}
         </>
