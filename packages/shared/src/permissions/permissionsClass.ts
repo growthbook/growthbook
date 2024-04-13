@@ -4,9 +4,11 @@ import {
   GlobalPermission,
   Permission,
   ProjectScopedPermission,
+  SDKAttribute,
   UserPermissions,
 } from "back-end/types/organization";
 import { IdeaInterface } from "back-end/types/idea";
+import { ExperimentInterface } from "back-end/types/experiment";
 import { READ_ONLY_PERMISSIONS } from "./permissions.utils";
 class PermissionError extends Error {
   constructor(message: string) {
@@ -49,6 +51,63 @@ export class Permissions {
   };
 
   //Project Permissions
+  public canCreateVisualChange = (
+    experiment: Pick<ExperimentInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: experiment.project ? [experiment.project] : [] },
+      "manageVisualChanges"
+    );
+  };
+
+  public canUpdateVisualChange = (
+    experiment: Pick<ExperimentInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: experiment.project ? [experiment.project] : [] },
+      "manageVisualChanges"
+    );
+  };
+
+  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
+  public canViewAttributeModal = (project?: string): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: project ? [project] : [],
+      },
+      "manageTargetingAttributes"
+    );
+  };
+
+  public canCreateAttribute = (
+    attribute: Pick<SDKAttribute, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      attribute,
+      "manageTargetingAttributes"
+    );
+  };
+
+  public canUpdateAttribute = (
+    existing: Pick<SDKAttribute, "projects">,
+    updates: Pick<SDKAttribute, "projects">
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "manageTargetingAttributes"
+    );
+  };
+
+  public canDeleteAttribute = (
+    attribute: Pick<SDKAttribute, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      attribute,
+      "manageTargetingAttributes"
+    );
+  };
+
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
   public canViewIdeaModal = (project?: string): boolean => {
     return this.checkProjectFilterPermission(
