@@ -25,27 +25,27 @@ export class Permissions {
 
   //Global Permissions
   public canCreatePresentation = (): boolean => {
-    return this.checkGlobalFilterPermission("createPresentations");
+    return this.checkGlobalPermission("createPresentations");
   };
 
   public canUpdatePresentation = (): boolean => {
-    return this.checkGlobalFilterPermission("createPresentations");
+    return this.checkGlobalPermission("createPresentations");
   };
 
   public canDeletePresentation = (): boolean => {
-    return this.checkGlobalFilterPermission("createPresentations");
+    return this.checkGlobalPermission("createPresentations");
   };
 
   public canCreateDimension = (): boolean => {
-    return this.checkGlobalFilterPermission("createDimensions");
+    return this.checkGlobalPermission("createDimensions");
   };
 
   public canUpdateDimension = (): boolean => {
-    return this.checkGlobalFilterPermission("createDimensions");
+    return this.checkGlobalPermission("createDimensions");
   };
 
   public canDeleteDimension = (): boolean => {
-    return this.checkGlobalFilterPermission("createDimensions");
+    return this.checkGlobalPermission("createDimensions");
   };
 
   //Project Permissions
@@ -137,14 +137,8 @@ export class Permissions {
     );
   }
 
-  private checkGlobalFilterPermission(
-    permissionToCheck: GlobalPermission
-  ): boolean {
-    if (this.superAdmin) {
-      return true;
-    }
-
-    return this.userPermissions.global.permissions[permissionToCheck] || false;
+  private checkGlobalPermission(permission: GlobalPermission): boolean {
+    return this.hasPermission(permission, "");
   }
 
   private checkProjectFilterPermission(
