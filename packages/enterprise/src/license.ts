@@ -699,6 +699,7 @@ export async function licenseInit(
   }
 
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
 
   // When hitting a page for a new license we often make many simulataneous requests
   // By acquiring a lock we make sure to only call the license server once, the remaining
@@ -711,7 +712,7 @@ export async function licenseInit(
       if (
         forceRefresh ||
         !keyToLicenseData[key] ||
-        (keyToCacheDate[key] !== null && keyToCacheDate[key] <= oneDayAgo)
+        (keyToCacheDate[key] !== null && keyToCacheDate[key] <= oneMinuteAgo)
       ) {
         if (!isAirGappedLicenseKey(key)) {
           if (!userLicenseCodes || !metaData) {
