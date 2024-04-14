@@ -13,7 +13,7 @@ export interface FeatureEnvironment {
 
 export interface SchemaField {
   key: string;
-  type: "number" | "string" | "boolean";
+  type: "integer" | "float" | "string" | "boolean";
   required: boolean;
   default: string;
   description: string;

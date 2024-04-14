@@ -9,6 +9,7 @@ import {
   FeatureRule,
   ForceRule,
   RolloutRule,
+  SchemaField,
   SimpleSchema,
 } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -993,34 +994,74 @@ export function getDisallowedProjects(
 export function simpleToJSONSchema(simple: SimpleSchema): string {
   const getValue = (
     value: string,
-    type: "string" | "number" | "boolean"
+    field: SchemaField
   ): string | number | boolean => {
+    const type = field.type;
+    // Validation
+    if (field.type !== "boolean") {
+      if (field.enum.length > 0 && !field.enum.includes(value)) {
+        throw new Error(`Value '${value}' not in enum for field ${field.key}`);
+      }
+      if (field.type === "string") {
+        if (value.length < field.min) {
+          throw new Error(
+            `Value '${value}' is shorter than min length for field ${field.key}`
+          );
+        }
+        if (value.length > field.max) {
+          throw new Error(
+            `Value '${value}' is longer than max length for field ${field.key}`
+          );
+        }
+      } else {
+        if (parseFloat(value) < field.min) {
+          throw new Error(
+            `Value '${value}' is less than min value for field ${field.key}`
+          );
+        }
+        if (parseFloat(value) > field.max) {
+          throw new Error(
+            `Value '${value}' is greater than max value for field ${field.key}`
+          );
+        }
+      }
+
+      if (field.type === "integer" && !Number.isInteger(parseFloat(value))) {
+        throw new Error(
+          `Value '${value}' is not an integer for field ${field.key}`
+        );
+      }
+    }
+
     if (type === "string") return value;
-    if (type === "number") return parseFloat(value);
+    if (type === "float") return parseFloat(value);
+    if (type === "integer") return parseInt(value);
     else return value !== "false";
   };
 
   const fields = simple.fields.map((f) => {
     const schema: Record<string, unknown> = {
-      type: f.type,
-      required: f.required,
+      type: ["float", "integer"].includes(f.type) ? "number" : f.type,
       description: f.description,
     };
 
-    if (f.default) schema.default = getValue(f.default, f.type);
+    if (f.default) schema.default = getValue(f.default, f);
 
     if (f.type !== "boolean" && f.enum.length) {
-      schema.enum = f.enum.map((v) => getValue(v, f.type));
+      schema.enum = f.enum.map((v) => getValue(v, f));
     }
     if (f.type === "string") {
-      if (f.min) schema.minLength = f.min;
-      if (f.max) schema.maxLength = f.max;
-      if (f.required && !f.min) schema.minLength = 1;
-    } else if (f.type === "number") {
-      if (f.min) schema.minimum = f.min;
-      if (f.max) schema.maximum = f.max;
+      schema.minLength = f.min;
+      schema.maxLength = f.max;
+    } else if (f.type === "float" || f.type === "integer") {
+      schema.minimum = f.min;
+      schema.maximum = f.max;
+
+      if (f.type === "integer") {
+        schema.multipleOf = 1;
+      }
     }
-    return { key: f.key, schema };
+    return { key: f.key, required: f.required, schema };
   });
   if (fields.length === 0) {
     throw new Error("Invalid simple schema");
@@ -1028,8 +1069,12 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
 
   switch (simple.type) {
     case "object":
+      if (fields.some((f) => !f.key)) {
+        throw new Error("Property keys cannot be left blank");
+      }
       return JSON.stringify({
         type: "object",
+        required: fields.filter((f) => f.required).map((f) => f.key),
         properties: fields.reduce((acc, f) => {
           acc[f.key] = f.schema;
           return acc;
@@ -1037,10 +1082,14 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
         additionalProperties: false,
       });
     case "object[]":
+      if (fields.some((f) => !f.key)) {
+        throw new Error("Property keys cannot be left blank");
+      }
       return JSON.stringify({
         type: "array",
         items: {
           type: "object",
+          required: fields.filter((f) => f.required).map((f) => f.key),
           properties: fields.reduce((acc, f) => {
             acc[f.key] = f.schema;
             return acc;
@@ -1052,7 +1101,10 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
     case "field[]":
       return JSON.stringify({
         type: "array",
-        items: fields[0].schema,
+        items: {
+          ...fields[0].schema,
+          required: fields[0].required,
+        },
       });
   }
 }
