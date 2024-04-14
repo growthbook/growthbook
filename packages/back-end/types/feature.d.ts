@@ -11,6 +11,31 @@ export interface FeatureEnvironment {
   rules: FeatureRule[];
 }
 
+export interface SchemaField {
+  key: string;
+  type: "number" | "string" | "boolean";
+  required: boolean;
+  default: string;
+  description: string;
+  // Empty array = no enum
+  enum: string[];
+  // For strings, this is the length. For numbers, this is the range.
+  min: number;
+  max: number;
+}
+export interface SimpleSchema {
+  type: "object" | "object[]" | "field[]";
+  fields: SchemaField[];
+}
+
+export interface JSONSchemaDef {
+  schemaType: "schema" | "simple";
+  schema: string;
+  simple: SimpleSchema;
+  date: Date;
+  enabled: boolean;
+}
+
 export type LegacyFeatureInterface = FeatureInterface & {
   environments?: string[];
   rules?: FeatureRule[];
@@ -21,6 +46,9 @@ export type LegacyFeatureInterface = FeatureInterface & {
     publishedBy: UserRef;
   };
   draft?: FeatureDraftChanges;
+  // schemaType and simple may not exist in old feature documents
+  jsonSchema?: Pick<JSONSchemaDef, "schema" | "date" | "enabled"> &
+    Partial<Pick<JSONSchemaDef, "schemaType" | "simple">>;
 };
 
 export interface FeatureDraftChanges {
@@ -49,11 +77,7 @@ export interface FeatureInterface {
   tags?: string[];
   environmentSettings: Record<string, FeatureEnvironment>;
   linkedExperiments?: string[];
-  jsonSchema?: {
-    schema: string;
-    date: Date;
-    enabled: boolean;
-  };
+  jsonSchema?: JSONSchemaDef;
 
   /** @deprecated */
   legacyDraft?: FeatureRevisionInterface | null;

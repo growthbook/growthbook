@@ -9,6 +9,7 @@ import {
   FeatureRule,
   ForceRule,
   RolloutRule,
+  SimpleSchema,
 } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
@@ -24,11 +25,22 @@ import { getMatchingRules, includeExperimentInPayload } from ".";
 
 export function getValidation(feature: FeatureInterface) {
   try {
-    const jsonSchema = feature?.jsonSchema?.schema
-      ? JSON.parse(feature?.jsonSchema?.schema)
-      : null;
-    const validationEnabled = jsonSchema ? feature?.jsonSchema?.enabled : false;
-    const schemaDateUpdated = feature?.jsonSchema?.date;
+    if (!feature?.jsonSchema) {
+      return {
+        jsonSchema: null,
+        validationEnabled: false,
+        schemaDateUpdated: null,
+      };
+    }
+
+    const schemaString =
+      feature.jsonSchema.schemaType === "schema"
+        ? feature.jsonSchema.schema
+        : simpleToJSONSchema(feature.jsonSchema.simple);
+
+    const jsonSchema = JSON.parse(schemaString);
+    const validationEnabled = feature.jsonSchema.enabled;
+    const schemaDateUpdated = feature?.jsonSchema.date;
     return { jsonSchema, validationEnabled, schemaDateUpdated };
   } catch (e) {
     // log an error?
@@ -976,4 +988,71 @@ export function getDisallowedProjects(
   return allProjects.filter((p) =>
     getDisallowedProjectIds(projects, environment).includes(p.id)
   );
+}
+
+export function simpleToJSONSchema(simple: SimpleSchema): string {
+  const getValue = (
+    value: string,
+    type: "string" | "number" | "boolean"
+  ): string | number | boolean => {
+    if (type === "string") return value;
+    if (type === "number") return parseFloat(value);
+    else return value !== "false";
+  };
+
+  const fields = simple.fields.map((f) => {
+    const schema: Record<string, unknown> = {
+      type: f.type,
+      required: f.required,
+      description: f.description,
+    };
+
+    if (f.default) schema.default = getValue(f.default, f.type);
+
+    if (f.type !== "boolean" && f.enum.length) {
+      schema.enum = f.enum.map((v) => getValue(v, f.type));
+    }
+    if (f.type === "string") {
+      if (f.min) schema.minLength = f.min;
+      if (f.max) schema.maxLength = f.max;
+      if (f.required && !f.min) schema.minLength = 1;
+    } else if (f.type === "number") {
+      if (f.min) schema.minimum = f.min;
+      if (f.max) schema.maximum = f.max;
+    }
+    return { key: f.key, schema };
+  });
+  if (fields.length === 0) {
+    throw new Error("Invalid simple schema");
+  }
+
+  switch (simple.type) {
+    case "object":
+      return JSON.stringify({
+        type: "object",
+        properties: fields.reduce((acc, f) => {
+          acc[f.key] = f.schema;
+          return acc;
+        }, {} as Record<string, unknown>),
+        additionalProperties: false,
+      });
+    case "object[]":
+      return JSON.stringify({
+        type: "array",
+        items: {
+          type: "object",
+          properties: fields.reduce((acc, f) => {
+            acc[f.key] = f.schema;
+            return acc;
+          }, {} as Record<string, unknown>),
+          additionalProperties: false,
+        },
+        additionalItems: false,
+      });
+    case "field[]":
+      return JSON.stringify({
+        type: "array",
+        items: fields[0].schema,
+      });
+  }
 }

@@ -8,6 +8,7 @@ import {
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
+  JSONSchemaDef,
   LegacyFeatureInterface,
 } from "../../types/feature";
 import { ExperimentInterface } from "../../types/experiment";
@@ -764,11 +765,10 @@ export async function setDefaultValue(
 export async function setJsonSchema(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
-  schema: string,
-  enabled?: boolean
+  def: Omit<JSONSchemaDef, "date">
 ) {
   return await updateFeature(context, feature, {
-    jsonSchema: { schema, enabled: enabled ?? true, date: new Date() },
+    jsonSchema: { ...def, date: new Date() },
   });
 }
 

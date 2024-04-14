@@ -256,6 +256,7 @@ export default function FeaturesOverview({
 
   const projectId = feature.project;
 
+  // TODO: support simple schemas
   const schemaDescription = new Map();
   if (jsonSchema && "properties" in jsonSchema) {
     Object.keys(jsonSchema.properties).map((key) => {

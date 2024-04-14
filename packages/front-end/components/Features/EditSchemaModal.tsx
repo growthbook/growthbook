@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface, JSONSchemaDef } from "back-end/types/feature";
 import React from "react";
 import Ajv from "ajv";
 import dJSON from "dirty-json";
@@ -59,12 +59,17 @@ export default function EditSchemaModal({ feature, close, mutate }: Props) {
           );
         }
 
+        const body: Omit<JSONSchemaDef, "date"> = {
+          // TODO: Support simple schema
+          schemaType: "schema",
+          simple: { type: "object", fields: [] },
+          schema: value.schema,
+          enabled: value.enabled,
+        };
+
         await apiCall(`/feature/${feature.id}/schema`, {
           method: "POST",
-          body: JSON.stringify({
-            schema: value.schema,
-            enabled: value.enabled,
-          }),
+          body: JSON.stringify(body),
         });
         mutate();
       })}

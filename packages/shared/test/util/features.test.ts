@@ -356,9 +356,12 @@ describe("autoMerge", () => {
   });
 });
 
+// TODO: add test cases for simple schemas
 describe("getValidation", () => {
   it("returns validationEnabled as true if jsonSchema is populated and enabled", () => {
     feature.jsonSchema = {
+      schemaType: "schema",
+      simple: { type: "object", fields: [] },
       schema: JSON.stringify(exampleJsonSchema),
       date: new Date("2020-04-20"),
       enabled: true,
@@ -367,6 +370,8 @@ describe("getValidation", () => {
   });
   it("returns validationEnabled as false if jsonSchema enabled value is false", () => {
     feature.jsonSchema = {
+      schemaType: "schema",
+      simple: { type: "object", fields: [] },
       schema: JSON.stringify(exampleJsonSchema),
       date: new Date("2020-04-20"),
       enabled: false,
@@ -375,6 +380,8 @@ describe("getValidation", () => {
   });
   it("returns validationEnabled as false if jsonSchema is invalid", () => {
     feature.jsonSchema = {
+      schemaType: "schema",
+      simple: { type: "object", fields: [] },
       schema: "blahblah",
       date: new Date("2020-04-20"),
       enabled: false,
@@ -391,6 +398,8 @@ describe("validateJSONFeatureValue", () => {
   it("returns valid as true if all values are valid and json schema test passes", () => {
     const value = { test: "123" };
     feature.jsonSchema = {
+      schemaType: "schema",
+      simple: { type: "object", fields: [] },
       schema: JSON.stringify(exampleJsonSchema),
       date: new Date("2020-04-20"),
       enabled: true,
@@ -400,6 +409,8 @@ describe("validateJSONFeatureValue", () => {
   it("returns valid as false if all values are valid but json schema test fails", () => {
     const value = { test: 999 };
     feature.jsonSchema = {
+      schemaType: "schema",
+      simple: { type: "object", fields: [] },
       schema: JSON.stringify(exampleJsonSchema),
       date: new Date("2020-04-20"),
       enabled: true,
@@ -409,6 +420,8 @@ describe("validateJSONFeatureValue", () => {
   it("returns valid as false if json schema is invalid", () => {
     const value = { test: 999 };
     feature.jsonSchema = {
+      schemaType: "schema",
+      simple: { type: "object", fields: [] },
       schema: '{ "type": 123 }',
       date: new Date("2020-04-20"),
       enabled: true,
@@ -418,6 +431,8 @@ describe("validateJSONFeatureValue", () => {
   it("returns valid as false if unparseable json value is supplied", () => {
     const value = "{ not json }";
     feature.jsonSchema = {
+      schemaType: "schema",
+      simple: { type: "object", fields: [] },
       schema: JSON.stringify(exampleJsonSchema),
       date: new Date("2020-04-20"),
       enabled: true,
@@ -427,6 +442,8 @@ describe("validateJSONFeatureValue", () => {
   it("returns valid as true if validation is not enabled", () => {
     const value = { test: "123" };
     feature.jsonSchema = {
+      schemaType: "schema",
+      simple: { type: "object", fields: [] },
       schema: JSON.stringify(exampleJsonSchema),
       date: new Date("2020-04-20"),
       enabled: false,
