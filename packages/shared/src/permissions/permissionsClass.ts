@@ -1,7 +1,9 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { MetricInterface } from "back-end/types/metric";
 import {
+  GlobalPermission,
   Permission,
+  ProjectScopedPermission,
   SDKAttribute,
   UserPermissions,
 } from "back-end/types/organization";
@@ -23,6 +25,32 @@ export class Permissions {
     this.superAdmin = superAdmin;
   }
 
+  //Global Permissions
+  public canCreatePresentation = (): boolean => {
+    return this.checkGlobalPermission("createPresentations");
+  };
+
+  public canUpdatePresentation = (): boolean => {
+    return this.checkGlobalPermission("createPresentations");
+  };
+
+  public canDeletePresentation = (): boolean => {
+    return this.checkGlobalPermission("createPresentations");
+  };
+
+  public canCreateDimension = (): boolean => {
+    return this.checkGlobalPermission("createDimensions");
+  };
+
+  public canUpdateDimension = (): boolean => {
+    return this.checkGlobalPermission("createDimensions");
+  };
+
+  public canDeleteDimension = (): boolean => {
+    return this.checkGlobalPermission("createDimensions");
+  };
+
+  //Project Permissions
   public canCreateVisualChange = (
     experiment: Pick<ExperimentInterface, "project">
   ): boolean => {
@@ -168,9 +196,13 @@ export class Permissions {
     );
   }
 
+  private checkGlobalPermission(permission: GlobalPermission): boolean {
+    return this.hasPermission(permission, "");
+  }
+
   private checkProjectFilterPermission(
     obj: { projects?: string[] },
-    permission: Permission
+    permission: ProjectScopedPermission
   ): boolean {
     const projects = obj.projects?.length ? obj.projects : [""];
 
@@ -192,7 +224,7 @@ export class Permissions {
   private checkProjectFilterUpdatePermission(
     existing: { projects?: string[] },
     updates: { projects?: string[] },
-    permission: Permission
+    permission: ProjectScopedPermission
   ): boolean {
     // check if the user has permission to update based on the existing projects
     if (!this.checkProjectFilterPermission(existing, permission)) {
