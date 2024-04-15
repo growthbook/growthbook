@@ -647,7 +647,11 @@ def process_multiple_experiment_results(
 ) -> list[Dict[str, Any]]:
     results: List[Dict] = []
     for exp_data in data:
-        exp_data_proc = ExperimentDataForStatsEngine(**exp_data)
-        exp_result = process_experiment_results(exp_data_proc.data)
-        results.append({"id": exp_data_proc.id, "results": exp_result})
+        try:
+            raise ValueError("test")
+            exp_data_proc = ExperimentDataForStatsEngine(**exp_data)
+            exp_result = process_experiment_results(exp_data_proc.data)
+            results.append({"id": exp_data_proc.id, "results": exp_result})
+        except Exception as e:
+            results.append({"id": exp_data["id"], "results": [], "error": str(e)[:64]})
     return results

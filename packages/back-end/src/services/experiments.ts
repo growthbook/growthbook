@@ -265,6 +265,7 @@ export async function getManualSnapshotData(
   });
 
   const result = await analyzeSingleExperiment({
+    id: experiment.id,
     variations: getReportVariations(experiment, phase),
     phaseLengthHours: Math.max(
       hoursBetween(phase.dateStarted, phase.dateEnded ?? new Date()),
@@ -332,21 +333,10 @@ export function getDefaultExperimentAnalysisSettings(
 }
 
 export function getAdditionalExperimentAnalysisSettings(
-  defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings,
-  experiment: ExperimentInterface
+  defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings
 ): ExperimentSnapshotAnalysisSettings[] {
   const additionalAnalyses: ExperimentSnapshotAnalysisSettings[] = [];
 
-  // one analysis per possible baseline - skip for now
-  // experiment.variations.forEach((v, i) => {
-  //   if (i > 0) {
-  //     additionalAnalyses.push({
-  //       ...defaultAnalysisSettings,
-  //       baselineVariationIndex: i,
-  //     });
-  //   }
-  // });
-  
   // for default baseline, get difference types
   additionalAnalyses.push({
     ...defaultAnalysisSettings,
