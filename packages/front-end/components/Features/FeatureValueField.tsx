@@ -151,13 +151,8 @@ const useScript = (id: string, url: string) => {
       script.src = url;
       script.id = id;
       script.async = false;
+      document.body.appendChild(script);
     }
-
-    document.body.appendChild(script);
-
-    return () => {
-      document.body.removeChild(script);
-    };
   }, [id, url]);
 };
 
