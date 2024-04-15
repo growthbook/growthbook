@@ -35,7 +35,7 @@ import PageHead from "@/components/Layout/PageHead";
 import { useEnvironments } from "@/services/features";
 import Badge from "@/components/Badge";
 import ProjectBadges from "@/components/ProjectBadges";
-import Webhooks from "./webhooks";
+import SdkWebhooks from "@/pages/sdks/SdkWebhooks";
 
 function ConnectionDot({ left }: { left: boolean }) {
   return (
@@ -480,7 +480,7 @@ export default function SDKConnectionPage() {
           </Tooltip>
         </div>
       </div>
-      <Webhooks sdkid={sdkid} />
+      <SdkWebhooks sdkid={sdkid} />
       <div className="mt-4">
         <CodeSnippetModal
           connections={data.connections}

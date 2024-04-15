@@ -6,6 +6,7 @@ import {
   getAccountPlan,
   getEffectiveAccountPlan,
   getLicense,
+  getLicenseError,
   orgHasPremiumFeature,
 } from "enterprise";
 import { hasReadAccess } from "shared/permissions";
@@ -667,6 +668,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     enterpriseSSO,
     accountPlan: getAccountPlan(org),
     effectiveAccountPlan: getEffectiveAccountPlan(org),
+    licenseError: getLicenseError(org),
     commercialFeatures: [...accountFeatures[getEffectiveAccountPlan(org)]],
     roles: getRoles(org),
     members: expandedMembers,
