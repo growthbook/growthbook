@@ -1,7 +1,9 @@
-name: Manual 2.9.0 Retag Release
+name: One-time 2.9.0 Retag Release
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - ji/retag2.9
 
 jobs:
   # Tag the latest docker release with the tag
