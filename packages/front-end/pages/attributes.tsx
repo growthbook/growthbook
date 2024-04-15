@@ -3,7 +3,6 @@ import { FaQuestionCircle } from "react-icons/fa";
 import { SDKAttribute } from "back-end/types/organization";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBAddCircle } from "@/components/Icons";
-import usePermissions from "@/hooks/usePermissions";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
@@ -12,17 +11,15 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useUser } from "@/services/UserContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const FeatureAttributesPage = (): React.ReactElement => {
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
   const { project } = useDefinitions();
   const attributeSchema = useAttributeSchema(true, project);
 
-  const canCreateAttributes = permissions.check(
-    "manageTargetingAttributes",
-    project
-  );
+  const canCreateAttributes = permissionsUtil.canViewAttributeModal(project);
 
   const [modalData, setModalData] = useState<null | string>(null);
   const { refreshOrganization } = useUser();
@@ -56,7 +53,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
       </td>
       <td className="text-gray">{v.hashAttribute && <>yes</>}</td>
       <td>
-        {permissions.check("manageTargetingAttributes", v.projects || []) ? (
+        {permissionsUtil.canCreateAttribute(v) ? (
           <MoreMenu>
             {!v.archived && (
               <button
@@ -94,6 +91,16 @@ const FeatureAttributesPage = (): React.ReactElement => {
             </button>
             <DeleteButton
               displayName="Attribute"
+              deleteMessage={
+                <>
+                  Are you sure you want to delete the{" "}
+                  {v.hashAttribute ? "identifier " : ""}
+                  {v.datatype} attribute:{" "}
+                  <code className="font-weight-bold">{v.property}</code>?
+                  <br />
+                  This action cannot be undone.
+                </>
+              }
               className="dropdown-item text-danger"
               onClick={async () => {
                 await apiCall<{

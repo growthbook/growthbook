@@ -1,5 +1,5 @@
 import mutate, { DeclarativeMutation } from "dom-mutator";
-import {
+import type {
   ApiHost,
   Attributes,
   AutoExperiment,
@@ -161,12 +161,12 @@ export class GrowthBook<
       this._setAntiFlicker();
     }
 
-    if (
-      context.clientKey &&
-      !context.remoteEval &&
-      !context.loadStoredPayload
-    ) {
-      this._refresh({}, true, false);
+    if (!context.remoteEval) {
+      if (context.clientKey && !context.loadStoredPayload) {
+        this._refresh({}, true, false);
+      } else if (context.stickyBucketService) {
+        this.refreshStickyBuckets();
+      }
     }
   }
 
@@ -1088,12 +1088,14 @@ export class GrowthBook<
     let foundStickyBucket = false;
     let stickyBucketVersionIsBlocked = false;
     if (this._ctx.stickyBucketService && !experiment.disableStickyBucketing) {
-      const { variation, versionIsBlocked } = this._getStickyBucketVariation(
-        experiment.key,
-        experiment.bucketVersion,
-        experiment.minBucketVersion,
-        experiment.meta
-      );
+      const { variation, versionIsBlocked } = this._getStickyBucketVariation({
+        expKey: experiment.key,
+        expBucketVersion: experiment.bucketVersion,
+        expHashAttribute: experiment.hashAttribute,
+        expFallbackAttribute: experiment.fallbackAttribute,
+        expMinBucketVersion: experiment.minBucketVersion,
+        expMeta: experiment.meta,
+      });
       foundStickyBucket = variation >= 0;
       assigned = variation;
       stickyBucketVersionIsBlocked = !!versionIsBlocked;
@@ -1584,36 +1586,72 @@ export class GrowthBook<
     }
   }
 
-  private _getStickyBucketAssignments(): StickyAssignments {
-    const mergedAssignments: StickyAssignments = {};
-    Object.values(this._ctx.stickyBucketAssignmentDocs || {}).forEach((doc) => {
-      if (doc.assignments) Object.assign(mergedAssignments, doc.assignments);
-    });
-    return mergedAssignments;
+  private _getStickyBucketAssignments(
+    expHashAttribute: string,
+    expFallbackAttribute?: string
+  ): StickyAssignments {
+    if (!this._ctx.stickyBucketAssignmentDocs) return {};
+    const { hashAttribute, hashValue } = this._getHashAttribute(
+      expHashAttribute
+    );
+    const hashKey = `${hashAttribute}||${toString(hashValue)}`;
+
+    const {
+      hashAttribute: fallbackAttribute,
+      hashValue: fallbackValue,
+    } = this._getHashAttribute(expFallbackAttribute);
+    const fallbackKey = fallbackValue
+      ? `${fallbackAttribute}||${toString(fallbackValue)}`
+      : null;
+
+    const assignments: StickyAssignments = {};
+    if (fallbackKey && this._ctx.stickyBucketAssignmentDocs[fallbackKey]) {
+      Object.assign(
+        assignments,
+        this._ctx.stickyBucketAssignmentDocs[fallbackKey].assignments || {}
+      );
+    }
+    if (this._ctx.stickyBucketAssignmentDocs[hashKey]) {
+      Object.assign(
+        assignments,
+        this._ctx.stickyBucketAssignmentDocs[hashKey].assignments || {}
+      );
+    }
+    return assignments;
   }
 
-  private _getStickyBucketVariation(
-    experimentKey: string,
-    experimentBucketVersion?: number,
-    minExperimentBucketVersion?: number,
-    meta?: VariationMeta[]
-  ): {
+  private _getStickyBucketVariation({
+    expKey,
+    expBucketVersion,
+    expHashAttribute,
+    expFallbackAttribute,
+    expMinBucketVersion,
+    expMeta,
+  }: {
+    expKey: string;
+    expBucketVersion?: number;
+    expHashAttribute?: string;
+    expFallbackAttribute?: string;
+    expMinBucketVersion?: number;
+    expMeta?: VariationMeta[];
+  }): {
     variation: number;
     versionIsBlocked?: boolean;
   } {
-    experimentBucketVersion = experimentBucketVersion || 0;
-    minExperimentBucketVersion = minExperimentBucketVersion || 0;
-    meta = meta || [];
-    const id = this._getStickyBucketExperimentKey(
-      experimentKey,
-      experimentBucketVersion
+    expBucketVersion = expBucketVersion || 0;
+    expMinBucketVersion = expMinBucketVersion || 0;
+    expHashAttribute = expHashAttribute || "id";
+    expMeta = expMeta || [];
+    const id = this._getStickyBucketExperimentKey(expKey, expBucketVersion);
+    const assignments = this._getStickyBucketAssignments(
+      expHashAttribute,
+      expFallbackAttribute
     );
-    const assignments = this._getStickyBucketAssignments();
 
     // users with any blocked bucket version (0 to minExperimentBucketVersion) are excluded from the test
-    if (minExperimentBucketVersion > 0) {
-      for (let i = 0; i <= minExperimentBucketVersion; i++) {
-        const blockedKey = this._getStickyBucketExperimentKey(experimentKey, i);
+    if (expMinBucketVersion > 0) {
+      for (let i = 0; i <= expMinBucketVersion; i++) {
+        const blockedKey = this._getStickyBucketExperimentKey(expKey, i);
         if (assignments[blockedKey] !== undefined) {
           return {
             variation: -1,
@@ -1626,7 +1664,7 @@ export class GrowthBook<
     if (variationKey === undefined)
       // no assignment found
       return { variation: -1 };
-    const variation = meta.findIndex((m) => m.key === variationKey);
+    const variation = expMeta.findIndex((m) => m.key === variationKey);
     if (variation < 0)
       // invalid assignment, treat as "no assignment found"
       return { variation: -1 };
