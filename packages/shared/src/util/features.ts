@@ -146,10 +146,12 @@ export function validateFeatureValue(
     }
   } else if (type === "json") {
     let parsedValue;
+    let validJSON = true;
     try {
       parsedValue = JSON.parse(value);
     } catch (e) {
       // If the JSON is invalid, try to parse it with 'dirty-json' instead
+      validJSON = false;
       try {
         parsedValue = dJSON.parse(value);
       } catch (e) {
@@ -161,7 +163,10 @@ export function validateFeatureValue(
     if (!valid) {
       throw new Error(prefix + errors.join(", "));
     }
-    return stringify(parsedValue);
+    // If the JSON was invalid but could be parsed by 'dirty-json', return the fixed JSON
+    if (!validJSON) {
+      return stringify(parsedValue);
+    }
   }
 
   return value;
