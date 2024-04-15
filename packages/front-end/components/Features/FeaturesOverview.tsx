@@ -285,6 +285,7 @@ export default function FeaturesOverview({
         maximum,
         minLength,
         maxLength,
+        multipleOf,
         ...otherDetails
       } = schema as {
         type?: string;
@@ -294,10 +295,21 @@ export default function FeaturesOverview({
         maxium?: unknown;
         minLength?: number;
         maxLength?: number;
+        multipleOf?: number;
         [key: string]: unknown;
       };
+
+      let typeStr = type + "";
+      if (multipleOf) {
+        if (typeStr === "number" && multipleOf === 1) {
+          typeStr = "integer";
+        } else {
+          otherDetails["multipleOf"] = multipleOf;
+        }
+      }
+
       return {
-        type: (type || "unknown") + "",
+        type: typeStr || "unknown",
         description: (description || "") + "",
         details: JSON.stringify(otherDetails, null, 2),
         enum: values?.length ? values.map((v) => v + "") : undefined,
@@ -824,7 +836,7 @@ export default function FeaturesOverview({
                                     </div>
                                   )}
                                   {field.description && (
-                                    <div className="bg-light p-2 mb-1">
+                                    <div className="bg-light p-2 mb-1 border">
                                       {field.description}
                                     </div>
                                   )}

@@ -327,7 +327,7 @@ function EditSimpleSchema({
                     <EditSchemaField
                       i={i}
                       value={field}
-                      inObject={schema.type === "object"}
+                      inObject={true}
                       onChange={(newValue) => {
                         const newFields = [...schema.fields];
                         newFields[i] = newValue;
@@ -360,7 +360,7 @@ function EditSimpleSchema({
                     {
                       key: "",
                       type: "string",
-                      required: false,
+                      required: true,
                       default: "",
                       description: "",
                       enum: [],
