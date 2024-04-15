@@ -11,7 +11,9 @@ import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
+  SnapshotAnalysisParams,
   createManualSnapshot,
+  createMultipleSnapshotAnalysis,
   createSnapshot,
   createSnapshotAnalysis,
   getAdditionalExperimentAnalysisSettings,
@@ -1842,8 +1844,7 @@ export async function postSnapshot(
       useCache,
       defaultAnalysisSettings: analysisSettings,
       additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
-        analysisSettings,
-        experiment
+        analysisSettings
       ),
       metricRegressionAdjustmentStatuses:
         metricRegressionAdjustmentStatuses || [],
@@ -1978,38 +1979,37 @@ export async function postSnapshotsWithScaledImpactAnalysis(
   });
   const snapshots = await Promise.all(snapshotsPromises);
 
-  const preppedSnapshots: ExperimentSnapshotInterface[] = [];
-  await Promise.all(
-    snapshots.map(async (s) => {
-      if (!s) return;
-      const defaultAnalysis = getSnapshotAnalysis(s);
-      if (!defaultAnalysis) return;
+  const snapshotAnalysesToCreate: SnapshotAnalysisParams[] = [];
+  await snapshots.forEach(async (s) => {
+    if (!s) return;
+    const defaultAnalysis = getSnapshotAnalysis(s);
+    if (!defaultAnalysis) return;
 
-      const scaledImpactAnalysisSettings: ExperimentSnapshotAnalysisSettings = {
-        ...defaultAnalysis.settings,
-        differenceType: "scaled",
-      };
-      if (getSnapshotAnalysis(s, scaledImpactAnalysisSettings)) {
-        preppedSnapshots.push(s);
-        return;
-      }
+    const scaledImpactAnalysisSettings: ExperimentSnapshotAnalysisSettings = {
+      ...defaultAnalysis.settings,
+      differenceType: "scaled",
+    };
+    if (getSnapshotAnalysis(s, scaledImpactAnalysisSettings)) {
+      return;
+    }
 
-      const experiment = await getExperimentById(context, s.experiment);
-      if (!experiment) return;
+    const experiment = await getExperimentById(context, s.experiment);
+    if (!experiment) return;
 
-      addCoverageToSnapshotIfMissing(s, experiment);
+    addCoverageToSnapshotIfMissing(s, experiment);
 
-      await createSnapshotAnalysis({
-        experiment: experiment,
-        organization: org,
-        analysisSettings: scaledImpactAnalysisSettings,
-        metricMap: metricMap,
-        snapshot: s,
-      }).catch((e) => {
-        req.log.error(e);
-      });
-    })
-  );
+    snapshotAnalysesToCreate.push({
+      experiment: experiment,
+      organization: org,
+      analysisSettings: scaledImpactAnalysisSettings,
+      metricMap: metricMap,
+      snapshot: s,
+    });
+  });
+
+  await createMultipleSnapshotAnalysis(snapshotAnalysesToCreate).catch((e) => {
+    req.log.error(e);
+  });
   res.status(200).json({
     status: 200,
   });

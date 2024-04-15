@@ -233,13 +233,13 @@ export async function analyzeSingleExperiment(
   params: ExperimentMetricAnalysisParams
 ): Promise<ExperimentMetricAnalysis> {
   const result = (
-    await runStatsEngine([{ id: params.id, data: createStatsEngineData(params) }])
+    await runStatsEngine([
+      { id: params.id, data: createStatsEngineData(params) },
+    ])
   )?.[0];
 
   if (!result) {
-    throw new Error(
-      "Error in stats engine: no rows returned"
-    );
+    throw new Error("Error in stats engine: no rows returned");
   }
   if (result.error) {
     logger.error(result.error, "Failed to run stats model: " + result.error);
