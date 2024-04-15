@@ -732,15 +732,9 @@ export default function FeaturesOverview({
               {hasJsonValidator && jsonSchema ? (
                 <>
                   <div className="d-flex align-items-center">
-                    {validationEnabled ? (
-                      <strong className="text-success">
-                        Validation Enabled
-                      </strong>
-                    ) : (
-                      <strong className="text-warning">
-                        Validation Disabled
-                      </strong>
-                    )}
+                    <strong>
+                      {validationEnabled ? "Enabled" : "Disabled"}
+                    </strong>
 
                     {schemaDateUpdated && (
                       <div className="text-muted ml-3">
@@ -749,106 +743,113 @@ export default function FeaturesOverview({
                       </div>
                     )}
 
-                    <div className="ml-auto">
-                      <a
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setShowSchema(!showSchema);
-                        }}
-                      >
-                        <small>
-                          {showSchema ? "Hide Raw Schema" : "Show Raw Schema"}
-                        </small>
-                      </a>
-                    </div>
-                  </div>
-                  <div className="d-flex align-items-top mt-3 border-top pt-3">
-                    {jsonSchemaDescription ? (
-                      <div>{jsonSchemaDescription}</div>
-                    ) : null}
-                    {jsonSchemaFields.map((field) => (
-                      <div key={field.key} className="ml-2">
-                        <div>
-                          <Tooltip
-                            body={
-                              <div>
-                                {field.key ? (
-                                  <div className="mb-1">
-                                    Property: <strong>{field.key}</strong>
-                                  </div>
-                                ) : null}
-                                <div className="mb-1">
-                                  Type: <strong>{field.type}</strong>
-                                </div>
-                                {field.required !== undefined ? (
-                                  <div className="mb-1">
-                                    Required:{" "}
-                                    <strong>
-                                      {field.required ? "yes" : "no"}
-                                    </strong>
-                                  </div>
-                                ) : (
-                                  ""
-                                )}
-                                {field.valueRange && (
-                                  <div className="mb-1">
-                                    Value: Between{" "}
-                                    <strong>
-                                      {field.valueRange[0] || "-"}
-                                    </strong>{" "}
-                                    and{" "}
-                                    <strong>
-                                      {field.valueRange[1] || "-"}
-                                    </strong>
-                                  </div>
-                                )}
-                                {field.lengthRange && (
-                                  <div className="mb-1">
-                                    Length: Between{" "}
-                                    <strong>{field.lengthRange[0]}</strong> and{" "}
-                                    <strong>{field.lengthRange[1]}</strong>
-                                  </div>
-                                )}
-                                {field.enum && field.enum.length > 0 && (
-                                  <div className="mb-1">
-                                    One of:{" "}
-                                    {field.enum.map((e) => (
-                                      <span
-                                        className="px-1 border bg-light mr-1"
-                                        key={e}
-                                      >
-                                        {e}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
-                                {field.description && (
-                                  <div className="bg-light p-2 mb-1">
-                                    {field.description}
-                                  </div>
-                                )}
-                                {field.details && field.details !== "{}" && (
-                                  <div>
-                                    Other Settings:
-                                    <Code
-                                      language="json"
-                                      code={field.details}
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                            }
-                            tipMinWidth="300px"
-                          >
-                            <strong>{field.key}</strong>{" "}
-                            <MdInfoOutline className="text-info" />
-                          </Tooltip>
-                        </div>
+                    {validationEnabled ? (
+                      <div className="ml-auto">
+                        <a
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setShowSchema(!showSchema);
+                          }}
+                        >
+                          <small>
+                            {showSchema
+                              ? "Hide Raw JSON Schema"
+                              : "Show Raw JSON Schema"}
+                          </small>
+                        </a>
                       </div>
-                    ))}
+                    ) : null}
                   </div>
-                  {showSchema && (
+                  {validationEnabled ? (
+                    <div className="d-flex align-items-top mt-3 border-top pt-3">
+                      {jsonSchemaDescription ? (
+                        <div>{jsonSchemaDescription}</div>
+                      ) : null}
+                      {jsonSchemaFields.map((field) => (
+                        <div key={field.key} className="ml-2">
+                          <div>
+                            <Tooltip
+                              body={
+                                <div>
+                                  {field.key ? (
+                                    <div className="mb-1">
+                                      Property: <strong>{field.key}</strong>
+                                    </div>
+                                  ) : null}
+                                  <div className="mb-1">
+                                    Type: <strong>{field.type}</strong>
+                                  </div>
+                                  {field.required !== undefined ? (
+                                    <div className="mb-1">
+                                      Required:{" "}
+                                      <strong>
+                                        {field.required ? "yes" : "no"}
+                                      </strong>
+                                    </div>
+                                  ) : (
+                                    ""
+                                  )}
+                                  {field.valueRange && (
+                                    <div className="mb-1">
+                                      Value: Between{" "}
+                                      <strong>
+                                        {field.valueRange[0] || "-"}
+                                      </strong>{" "}
+                                      and{" "}
+                                      <strong>
+                                        {field.valueRange[1] || "-"}
+                                      </strong>
+                                    </div>
+                                  )}
+                                  {field.lengthRange && (
+                                    <div className="mb-1">
+                                      Length: Between{" "}
+                                      <strong>{field.lengthRange[0]}</strong>{" "}
+                                      and{" "}
+                                      <strong>{field.lengthRange[1]}</strong>
+                                    </div>
+                                  )}
+                                  {field.enum && field.enum.length > 0 && (
+                                    <div className="mb-1">
+                                      One of:{" "}
+                                      {field.enum.map((e) => (
+                                        <span
+                                          className="px-1 border bg-light mr-1"
+                                          key={e}
+                                        >
+                                          {e}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {field.description && (
+                                    <div className="bg-light p-2 mb-1">
+                                      {field.description}
+                                    </div>
+                                  )}
+                                  {field.details && field.details !== "{}" && (
+                                    <div>
+                                      Other Settings:
+                                      <Code
+                                        language="json"
+                                        code={field.details}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              }
+                              tipMinWidth="300px"
+                            >
+                              <strong>{field.key}</strong>{" "}
+                              <MdInfoOutline className="text-info" />
+                            </Tooltip>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                  {showSchema && validationEnabled && (
                     <>
                       <Code
                         language="json"
