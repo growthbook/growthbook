@@ -1002,7 +1002,7 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
       if (field.enum.length > 0 && !field.enum.includes(value)) {
         throw new Error(`Value '${value}' not in enum for field ${field.key}`);
       }
-      if (field.type === "string") {
+      if (field.type === "string" && !field.enum.length) {
         if (value.length < field.min) {
           throw new Error(
             `Value '${value}' is shorter than min length for field ${field.key}`
@@ -1013,7 +1013,7 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
             `Value '${value}' is longer than max length for field ${field.key}`
           );
         }
-      } else {
+      } else if (!field.enum.length) {
         if (parseFloat(value) < field.min) {
           throw new Error(
             `Value '${value}' is less than min value for field ${field.key}`
@@ -1042,8 +1042,9 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
   const fields = simple.fields.map((f) => {
     const schema: Record<string, unknown> = {
       type: ["float", "integer"].includes(f.type) ? "number" : f.type,
-      description: f.description,
     };
+
+    if (f.description) schema.description = f.description;
 
     if (f.default) schema.default = getValue(f.default, f);
 
@@ -1054,6 +1055,9 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
       if (f.type === "string") {
         schema.minLength = f.min;
         schema.maxLength = f.max;
+        if (f.max < f.min || f.min < 0) {
+          throw new Error(`Invalid min or max for field ${f.key}`);
+        }
       } else if (f.type === "float" || f.type === "integer") {
         schema.minimum = f.min;
         schema.maximum = f.max;
@@ -1061,12 +1065,16 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
         if (f.type === "integer") {
           schema.multipleOf = 1;
         }
+
+        if (f.max < f.min) {
+          throw new Error(`Invalid min or max for field ${f.key}`);
+        }
       }
     }
     return { key: f.key, required: f.required, schema };
   });
   if (fields.length === 0) {
-    throw new Error("Invalid simple schema");
+    throw new Error("Schema must have at least 1 field");
   }
 
   switch (simple.type) {
@@ -1098,7 +1106,6 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
           }, {} as Record<string, unknown>),
           additionalProperties: false,
         },
-        additionalItems: false,
       });
     case "primitive[]":
       return JSON.stringify({
@@ -1107,5 +1114,7 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
       });
     case "primitive":
       return JSON.stringify(fields[0].schema);
+    default:
+      throw new Error("Invalid simple schema type");
   }
 }

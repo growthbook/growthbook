@@ -1,4 +1,8 @@
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import {
+  FeatureInterface,
+  FeatureRule,
+  SimpleSchema,
+} from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import {
   OrganizationSettings,
@@ -15,6 +19,7 @@ import {
   checkEnvironmentsMatch,
   checkIfRevisionNeedsReview,
   resetReviewOnChange,
+  simpleToJSONSchema,
 } from "../../src/util";
 
 const feature: FeatureInterface = {
@@ -353,6 +358,294 @@ describe("autoMerge", () => {
         },
       },
     });
+  });
+});
+
+describe("simpleToJSONSchema", () => {
+  const simpleSchema: SimpleSchema = {
+    type: "object",
+    fields: [
+      {
+        key: "a_string",
+        type: "string",
+        description: "foo",
+        required: true,
+        enum: [],
+        default: "",
+        min: 0,
+        max: 256,
+      },
+      {
+        key: "a_integer",
+        type: "integer",
+        description: "",
+        required: false,
+        enum: [],
+        default: "",
+        min: -10,
+        max: -1,
+      },
+      {
+        key: "a_float",
+        type: "float",
+        description: "",
+        required: true,
+        enum: ["0.5", "0.75", "1.5", "3.0"],
+        default: "0.5",
+        min: 0,
+        max: 25,
+      },
+      {
+        key: "a_boolean",
+        type: "boolean",
+        description: "",
+        required: false,
+        enum: [],
+        default: "",
+        min: 5,
+        max: 10,
+      },
+    ],
+  };
+  const expectedProperties = {
+    a_string: {
+      type: "string",
+      description: "foo",
+      minLength: 0,
+      maxLength: 256,
+    },
+    a_integer: {
+      type: "number",
+      minimum: -10,
+      maximum: -1,
+      multipleOf: 1,
+    },
+    a_float: {
+      type: "number",
+      enum: [0.5, 0.75, 1.5, 3],
+      default: 0.5,
+    },
+    a_boolean: {
+      type: "boolean",
+    },
+  };
+
+  it("converts object", () => {
+    expect(JSON.parse(simpleToJSONSchema(simpleSchema))).toEqual({
+      type: "object",
+      properties: expectedProperties,
+      required: ["a_string", "a_float"],
+      additionalProperties: false,
+    });
+  });
+  it("converts array of objects", () => {
+    const arraySchema: SimpleSchema = { ...simpleSchema, type: "object[]" };
+    expect(JSON.parse(simpleToJSONSchema(arraySchema))).toEqual({
+      type: "array",
+      items: {
+        type: "object",
+        properties: expectedProperties,
+        required: ["a_string", "a_float"],
+        additionalProperties: false,
+      },
+    });
+  });
+  it("converts primitive", () => {
+    const primitiveSchema: SimpleSchema = {
+      ...simpleSchema,
+      type: "primitive",
+    };
+    expect(JSON.parse(simpleToJSONSchema(primitiveSchema))).toEqual(
+      expectedProperties.a_string
+    );
+  });
+  it("converts array of primitives", () => {
+    const primitiveArraySchema: SimpleSchema = {
+      ...simpleSchema,
+      type: "primitive[]",
+    };
+    expect(JSON.parse(simpleToJSONSchema(primitiveArraySchema))).toEqual({
+      type: "array",
+      items: expectedProperties.a_string,
+    });
+  });
+
+  it("throws an error if type is invalid", () => {
+    const invalidSchema = { ...simpleSchema, type: "invalid" };
+    expect(() =>
+      JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema))
+    ).toThrowError("Invalid simple schema type");
+  });
+
+  it("throws an error if min is greater than max", () => {
+    const invalidSchema = {
+      ...simpleSchema,
+      fields: [
+        ...simpleSchema.fields,
+        {
+          key: "invalid",
+          type: "integer",
+          description: "",
+          required: false,
+          enum: [],
+          default: "",
+          min: 10,
+          max: 5,
+        },
+      ],
+    };
+    expect(() =>
+      JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema))
+    ).toThrowError("Invalid min or max for field invalid");
+  });
+
+  it("throws an error if min is greater than max for strings", () => {
+    const invalidSchema = {
+      ...simpleSchema,
+      fields: [
+        ...simpleSchema.fields,
+        {
+          key: "invalid",
+          type: "string",
+          description: "",
+          required: false,
+          enum: [],
+          default: "",
+          min: 10,
+          max: 5,
+        },
+      ],
+    };
+    expect(() =>
+      JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema))
+    ).toThrowError("Invalid min or max for field invalid");
+  });
+
+  it("throws an error if min is less than zero for strings", () => {
+    const invalidSchema = {
+      ...simpleSchema,
+      fields: [
+        ...simpleSchema.fields,
+        {
+          key: "invalid",
+          type: "string",
+          description: "",
+          required: false,
+          enum: [],
+          default: "",
+          min: -1,
+          max: 5,
+        },
+      ],
+    };
+    expect(() =>
+      JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema))
+    ).toThrowError("Invalid min or max for field invalid");
+  });
+
+  it("throws if default value not in enum", () => {
+    const invalidSchema = {
+      ...simpleSchema,
+      fields: [
+        ...simpleSchema.fields,
+        {
+          key: "invalid",
+          type: "float",
+          description: "",
+          required: true,
+          enum: ["0.5", "0.75", "1.5", "3.0"],
+          default: "0.25",
+          min: 0,
+          max: 25,
+        },
+      ],
+    };
+    expect(() =>
+      JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema))
+    ).toThrowError("Value '0.25' not in enum for field invalid");
+  });
+
+  it("throws if fields are empty", () => {
+    const invalidSchema = { ...simpleSchema, fields: [] };
+    expect(() =>
+      JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema))
+    ).toThrowError("Schema must have at least 1 field");
+  });
+
+  it("throws if default value is outside of min/max", () => {
+    const invalidSchema = {
+      ...simpleSchema,
+      fields: [
+        ...simpleSchema.fields,
+        {
+          key: "invalid",
+          type: "integer",
+          description: "",
+          required: true,
+          enum: [],
+          default: "100",
+          min: 0,
+          max: 25,
+        },
+      ],
+    };
+    expect(() =>
+      JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema))
+    ).toThrowError("Value '100' is greater than max value for field invalid");
+  });
+
+  it("ignores min/max for enums", () => {
+    const validSchema = {
+      ...simpleSchema,
+      fields: [
+        ...simpleSchema.fields,
+        {
+          key: "valid",
+          type: "string",
+          description: "",
+          required: true,
+          enum: ["a", "b", "cdefghijklm"],
+          min: 2,
+          max: 4,
+        },
+      ],
+    };
+    expect(JSON.parse(simpleToJSONSchema(validSchema as SimpleSchema))).toEqual(
+      {
+        type: "object",
+        properties: {
+          ...expectedProperties,
+          valid: {
+            type: "string",
+            enum: ["a", "b", "cdefghijklm"],
+          },
+        },
+        required: ["a_string", "a_float", "valid"],
+        additionalProperties: false,
+      }
+    );
+  });
+
+  it("throws an error when integer value is a float", () => {
+    const invalidSchema = {
+      ...simpleSchema,
+      fields: [
+        ...simpleSchema.fields,
+        {
+          key: "invalid",
+          type: "integer",
+          description: "",
+          required: true,
+          enum: [],
+          default: "0.5",
+          min: 0,
+          max: 25,
+        },
+      ],
+    };
+    expect(() =>
+      JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema))
+    ).toThrowError("Value '0.5' is not an integer for field invalid");
   });
 });
 
