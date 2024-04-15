@@ -10,7 +10,7 @@ import Ajv from "ajv";
 import dJSON from "dirty-json";
 import stringify from "json-stringify-pretty-compact";
 import { simpleToJSONSchema } from "shared/util";
-import { FaAngleDown, FaAngleRight } from "react-icons/fa";
+import { FaAngleDown, FaAngleRight, FaTimes } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import Toggle from "@/components/Forms/Toggle";
@@ -61,6 +61,7 @@ function EditSchemaField({
             onChange={(type) =>
               onChange({ ...value, type: type as SchemaField["type"] })
             }
+            sort={false}
             options={[
               {
                 value: "string",
@@ -148,6 +149,7 @@ function EditSchemaField({
           {value.type === "boolean" ? (
             <SelectField
               label="Default Value"
+              sort={false}
               value={
                 ["false", ""].includes(value.default) ? value.default : "true"
               }
@@ -168,6 +170,7 @@ function EditSchemaField({
           ) : value.enum.length > 0 ? (
             <SelectField
               label="Default Value"
+              sort={false}
               value={value.default}
               onChange={(v) => onChange({ ...value, default: v })}
               options={value.enum.map((v) => ({ value: v, label: v }))}
@@ -211,6 +214,7 @@ function EditSimpleSchema({
       <SelectField
         label="Type"
         value={schema.type}
+        sort={false}
         onChange={(type) =>
           setSchema({
             ...schema,
@@ -227,15 +231,21 @@ function EditSimpleSchema({
             label: "Array of Objects",
           },
           {
-            value: "field[]",
+            value: "primitive",
+            label: "Primitive Value (string, number, boolean)",
+          },
+          {
+            value: "primitive[]",
             label: "Array of Primitive Values",
           },
         ]}
         required
       />
-      {schema.type === "field[]" ? (
+      {schema.type === "primitive[]" || schema.type === "primitive" ? (
         <div className="form-group">
-          <label>Array Values</label>
+          <label>
+            {schema.type === "primitive" ? "Primitive Value" : "Array Items"}
+          </label>
           <div className="appbox p-3 bg-light">
             <EditSchemaField
               i={0}
@@ -263,39 +273,41 @@ function EditSimpleSchema({
         </div>
       ) : (
         <div className="form-group">
-          <label>
-            {schema.type === "object" ? "Object Properties" : "Array Items"}
-          </label>
+          <label>Object Properties</label>
           <div>
             {schema.fields.map((field, i) => (
-              <div className="appbox p-3 bg-light" key={i}>
+              <div className="appbox mb-2 bg-light" key={i}>
                 <div className="d-flex align-items-center">
-                  <div>
-                    <button
-                      className="btn btn-link btn-sm"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        const newExpandedFields = new Set(expandedFields);
-                        if (expandedFields.has(i)) {
-                          newExpandedFields.delete(i);
-                        } else {
-                          newExpandedFields.add(i);
-                        }
-                        setExpandedFields(newExpandedFields);
-                      }}
-                    >
+                  <div></div>
+                  <h3
+                    className="mb-0"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const newExpandedFields = new Set(expandedFields);
+                      if (expandedFields.has(i)) {
+                        newExpandedFields.delete(i);
+                      } else {
+                        newExpandedFields.add(i);
+                      }
+                      setExpandedFields(newExpandedFields);
+                    }}
+                  >
+                    <button className="btn btn-link">
                       {expandedFields.has(i) ? (
                         <FaAngleDown />
                       ) : (
                         <FaAngleRight />
                       )}
                     </button>
-                  </div>
-                  <h3 className="mb-0">
-                    {field.key ? field.key : "New Property"}
+                    <span
+                      style={{ verticalAlign: "middle" }}
+                      className="cursor-pointer"
+                    >
+                      {field.key ? field.key : "New Property"}
+                    </span>
                   </h3>
                   <button
-                    className="btn btn-danger btn-sm ml-auto"
+                    className="btn btn-link text-secondary ml-auto"
                     title="Delete Property"
                     onClick={(e) => {
                       e.preventDefault();
@@ -307,23 +319,25 @@ function EditSimpleSchema({
                       });
                     }}
                   >
-                    &times;
+                    <FaTimes />
                   </button>
                 </div>
                 {expandedFields.has(i) ? (
-                  <EditSchemaField
-                    i={i}
-                    value={field}
-                    inObject={schema.type === "object"}
-                    onChange={(newValue) => {
-                      const newFields = [...schema.fields];
-                      newFields[i] = newValue;
-                      setSchema({
-                        ...schema,
-                        fields: newFields,
-                      });
-                    }}
-                  />
+                  <div className="p-3">
+                    <EditSchemaField
+                      i={i}
+                      value={field}
+                      inObject={schema.type === "object"}
+                      onChange={(newValue) => {
+                        const newFields = [...schema.fields];
+                        newFields[i] = newValue;
+                        setSchema({
+                          ...schema,
+                          fields: newFields,
+                        });
+                      }}
+                    />
+                  </div>
                 ) : null}
               </div>
             ))}

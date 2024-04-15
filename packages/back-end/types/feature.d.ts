@@ -24,7 +24,7 @@ export interface SchemaField {
   max: number;
 }
 export interface SimpleSchema {
-  type: "object" | "object[]" | "field[]";
+  type: "object" | "object[]" | "primitive" | "primitive[]";
   fields: SchemaField[];
 }
 

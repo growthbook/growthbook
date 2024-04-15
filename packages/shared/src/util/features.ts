@@ -1050,15 +1050,17 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
     if (f.type !== "boolean" && f.enum.length) {
       schema.enum = f.enum.map((v) => getValue(v, f));
     }
-    if (f.type === "string") {
-      schema.minLength = f.min;
-      schema.maxLength = f.max;
-    } else if (f.type === "float" || f.type === "integer") {
-      schema.minimum = f.min;
-      schema.maximum = f.max;
+    if (!schema.enum) {
+      if (f.type === "string") {
+        schema.minLength = f.min;
+        schema.maxLength = f.max;
+      } else if (f.type === "float" || f.type === "integer") {
+        schema.minimum = f.min;
+        schema.maximum = f.max;
 
-      if (f.type === "integer") {
-        schema.multipleOf = 1;
+        if (f.type === "integer") {
+          schema.multipleOf = 1;
+        }
       }
     }
     return { key: f.key, required: f.required, schema };
@@ -1098,13 +1100,12 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
         },
         additionalItems: false,
       });
-    case "field[]":
+    case "primitive[]":
       return JSON.stringify({
         type: "array",
-        items: {
-          ...fields[0].schema,
-          required: fields[0].required,
-        },
+        items: fields[0].schema,
       });
+    case "primitive":
+      return JSON.stringify(fields[0].schema);
   }
 }

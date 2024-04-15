@@ -3,7 +3,6 @@ import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { useEffect, useMemo, useState } from "react";
 import {
-  FaChevronRight,
   FaDraftingCompass,
   FaExchangeAlt,
   FaExclamationTriangle,
@@ -12,7 +11,7 @@ import {
   FaLock,
   FaTimes,
 } from "react-icons/fa";
-import { ago, date, datetime } from "shared/dates";
+import { ago, date } from "shared/dates";
 import {
   autoMerge,
   checkIfRevisionNeedsReview,
@@ -22,7 +21,7 @@ import {
   mergeResultHasChanges,
   PrerequisiteStateResult,
 } from "shared/util";
-import { MdHistory, MdRocketLaunch } from "react-icons/md";
+import { MdHistory, MdInfoOutline, MdRocketLaunch } from "react-icons/md";
 import { BiHide, BiShow } from "react-icons/bi";
 import { FaPlusMinus } from "react-icons/fa6";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -256,23 +255,104 @@ export default function FeaturesOverview({
 
   const projectId = feature.project;
 
-  // TODO: support simple schemas
-  const schemaDescription = new Map();
-  if (jsonSchema && "properties" in jsonSchema) {
-    Object.keys(jsonSchema.properties).map((key) => {
-      schemaDescription.set(key, { required: false, describes: true });
-    });
-  }
-  if (jsonSchema && "required" in jsonSchema) {
-    Object.values(jsonSchema.required).map((key) => {
-      if (schemaDescription.has(key)) {
-        schemaDescription.set(key, { required: true, describes: true });
-      } else {
-        schemaDescription.set(key, { required: true, describes: false });
+  // Human-readable description of the JSON Schema validation
+  let jsonSchemaDescription = "";
+  const jsonSchemaFields: {
+    key: string;
+    required?: boolean;
+    type: string;
+    description: string;
+    details: string;
+    enum?: string[];
+    lengthRange?: [number, number];
+    valueRange?: [string, string];
+  }[] = [];
+  if (jsonSchema) {
+    const getFieldData = (schema: unknown) => {
+      if (!schema || typeof schema !== "object") {
+        return {
+          type: "unknown",
+          description: "",
+          details: "",
+        };
       }
-    });
+
+      const {
+        type,
+        description,
+        enum: values,
+        minimum,
+        maximum,
+        minLength,
+        maxLength,
+        ...otherDetails
+      } = schema as {
+        type?: string;
+        description?: string;
+        enum?: unknown[];
+        minimum?: unknown;
+        maxium?: unknown;
+        minLength?: number;
+        maxLength?: number;
+        [key: string]: unknown;
+      };
+      return {
+        type: (type || "unknown") + "",
+        description: (description || "") + "",
+        details: JSON.stringify(otherDetails, null, 2),
+        enum: values?.length ? values.map((v) => v + "") : undefined,
+        valueRange:
+          minimum || maximum
+            ? ([minimum + "", maximum + ""] as [string, string])
+            : undefined,
+        lengthRange:
+          minLength || maxLength
+            ? ([minLength || 0, maxLength || 0] as [number, number])
+            : undefined,
+      };
+    };
+
+    if ("properties" in jsonSchema) {
+      const required = new Set(jsonSchema.required || []);
+      Object.entries(jsonSchema.properties).forEach(([key, value]) => {
+        jsonSchemaFields.push({
+          key,
+          required: required.has(key),
+          ...getFieldData(value),
+        });
+      });
+      jsonSchemaDescription = "An object with properties";
+    } else if (
+      "items" in jsonSchema &&
+      jsonSchema.items &&
+      typeof jsonSchema.items === "object" &&
+      !Array.isArray(jsonSchema.items)
+    ) {
+      if ("properties" in jsonSchema.items) {
+        const required = new Set(jsonSchema.items.required || []);
+        Object.entries(jsonSchema.items.properties).forEach(([key, value]) => {
+          jsonSchemaFields.push({
+            key,
+            required: required.has(key),
+            ...getFieldData(value),
+          });
+        });
+        jsonSchemaDescription = "An array of objects with properties";
+      } else {
+        jsonSchemaDescription = "An array of";
+        jsonSchemaFields.push({
+          key: jsonSchema.items.type + "s",
+          ...getFieldData(jsonSchema.items),
+        });
+      }
+    } else {
+      jsonSchemaDescription = "A";
+      jsonSchemaFields.push({
+        key: jsonSchema.items.type + "",
+        ...getFieldData(jsonSchema),
+      });
+    }
   }
-  const schemaDescriptionItems = [...schemaDescription.keys()];
 
   const hasDraftPublishPermission =
     (approved &&
@@ -635,13 +715,8 @@ export default function FeaturesOverview({
             <h3 className={hasJsonValidator ? "" : "mb-4"}>
               <PremiumTooltip commercialFeature="json-validation">
                 {" "}
-                Json Schema{" "}
+                JSON Validation{" "}
               </PremiumTooltip>
-              <Tooltip
-                body={
-                  "Adding a json schema will allow you to validate json objects used in this feature."
-                }
-              />
               {hasJsonValidator && canEdit && (
                 <>
                   <a
@@ -653,93 +728,149 @@ export default function FeaturesOverview({
                 </>
               )}
             </h3>
-            {hasJsonValidator && (
-              <div className="appbox mb-4 p-3 card">
-                {jsonSchema ? (
-                  <>
-                    <div className="d-flex justify-content-between">
-                      {/* region Title Bar */}
-
-                      <div className="d-flex align-items-left flex-column">
-                        <div>
-                          {validationEnabled ? (
-                            <strong className="text-success">Enabled</strong>
-                          ) : (
-                            <>
-                              <strong className="text-warning">Disabled</strong>
-                            </>
-                          )}
-                          {schemaDescription && schemaDescriptionItems && (
-                            <>
-                              {" "}
-                              Describes:
-                              {schemaDescriptionItems.map((v, i) => {
-                                const required = schemaDescription.has(v)
-                                  ? schemaDescription.get(v).required
-                                  : false;
-                                return (
-                                  <strong
-                                    className="ml-1"
-                                    key={i}
-                                    title={
-                                      required ? "This field is required" : ""
-                                    }
-                                  >
-                                    {v}
-                                    {required && (
-                                      <span className="text-danger text-su">
-                                        *
-                                      </span>
-                                    )}
-                                    {i < schemaDescriptionItems.length - 1 && (
-                                      <span>, </span>
-                                    )}
-                                  </strong>
-                                );
-                              })}
-                            </>
-                          )}
-                        </div>
-                        {schemaDateUpdated && (
-                          <div className="text-muted">
-                            Date updated:{" "}
-                            {schemaDateUpdated
-                              ? datetime(schemaDateUpdated)
-                              : ""}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="d-flex align-items-center">
-                        <button
-                          className="btn ml-3 text-dark"
-                          onClick={() => setShowSchema(!showSchema)}
-                        >
-                          <FaChevronRight
-                            style={{
-                              transform: `rotate(${
-                                showSchema ? "90deg" : "0deg"
-                              })`,
-                            }}
-                          />
-                        </button>
-                      </div>
-                    </div>
-                    {showSchema && (
-                      <>
-                        <Code
-                          language="json"
-                          code={feature?.jsonSchema?.schema || "{}"}
-                          className="disabled"
-                        />
-                      </>
+            <div className="appbox mb-4 p-3 card">
+              {hasJsonValidator && jsonSchema ? (
+                <>
+                  <div className="d-flex align-items-center">
+                    {validationEnabled ? (
+                      <strong className="text-success">
+                        Validation Enabled
+                      </strong>
+                    ) : (
+                      <strong className="text-warning">
+                        Validation Disabled
+                      </strong>
                     )}
-                  </>
-                ) : (
-                  "No schema defined"
-                )}
-              </div>
-            )}
+
+                    {schemaDateUpdated && (
+                      <div className="text-muted ml-3">
+                        Updated{" "}
+                        {schemaDateUpdated ? ago(schemaDateUpdated) : ""}
+                      </div>
+                    )}
+
+                    <div className="ml-auto">
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setShowSchema(!showSchema);
+                        }}
+                      >
+                        <small>
+                          {showSchema ? "Hide Raw Schema" : "Show Raw Schema"}
+                        </small>
+                      </a>
+                    </div>
+                  </div>
+                  <div className="d-flex align-items-top mt-3 border-top pt-3">
+                    {jsonSchemaDescription ? (
+                      <div>{jsonSchemaDescription}</div>
+                    ) : null}
+                    {jsonSchemaFields.map((field) => (
+                      <div key={field.key} className="ml-2">
+                        <div>
+                          <Tooltip
+                            body={
+                              <div>
+                                {field.key ? (
+                                  <div className="mb-1">
+                                    Property: <strong>{field.key}</strong>
+                                  </div>
+                                ) : null}
+                                <div className="mb-1">
+                                  Type: <strong>{field.type}</strong>
+                                </div>
+                                {field.required !== undefined ? (
+                                  <div className="mb-1">
+                                    Required:{" "}
+                                    <strong>
+                                      {field.required ? "yes" : "no"}
+                                    </strong>
+                                  </div>
+                                ) : (
+                                  ""
+                                )}
+                                {field.valueRange && (
+                                  <div className="mb-1">
+                                    Value: Between{" "}
+                                    <strong>
+                                      {field.valueRange[0] || "-"}
+                                    </strong>{" "}
+                                    and{" "}
+                                    <strong>
+                                      {field.valueRange[1] || "-"}
+                                    </strong>
+                                  </div>
+                                )}
+                                {field.lengthRange && (
+                                  <div className="mb-1">
+                                    Length: Between{" "}
+                                    <strong>{field.lengthRange[0]}</strong> and{" "}
+                                    <strong>{field.lengthRange[1]}</strong>
+                                  </div>
+                                )}
+                                {field.enum && field.enum.length > 0 && (
+                                  <div className="mb-1">
+                                    One of:{" "}
+                                    {field.enum.map((e) => (
+                                      <span
+                                        className="px-1 border bg-light mr-1"
+                                        key={e}
+                                      >
+                                        {e}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                                {field.description && (
+                                  <div className="bg-light p-2 mb-1">
+                                    {field.description}
+                                  </div>
+                                )}
+                                {field.details && field.details !== "{}" && (
+                                  <div>
+                                    Other Settings:
+                                    <Code
+                                      language="json"
+                                      code={field.details}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            }
+                            tipMinWidth="300px"
+                          >
+                            <strong>{field.key}</strong>{" "}
+                            <MdInfoOutline className="text-info" />
+                          </Tooltip>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {showSchema && (
+                    <>
+                      <Code
+                        language="json"
+                        code={JSON.stringify(jsonSchema, null, 2)}
+                        expandable
+                      />
+                    </>
+                  )}
+                </>
+              ) : (
+                <div>
+                  <em>
+                    No validation added.{" "}
+                    <Tooltip
+                      body={
+                        "Add validation using a JSON Schema or our simple validation builder"
+                      }
+                    />
+                  </em>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
