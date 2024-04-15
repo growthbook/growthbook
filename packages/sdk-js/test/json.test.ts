@@ -13,7 +13,6 @@ import { evalCondition } from "../src/mongrule";
 import {
   StickyAssignmentsDocument,
   StickyAttributeKey,
-  TrackingData,
   VariationRange,
 } from "../src/types/growthbook";
 import {
@@ -70,7 +69,11 @@ type Cases = {
     eq: [string, string, boolean][];
   };
   // name, context, result
-  urlRedirect: [string, Context, TrackingData[]][];
+  urlRedirect: [
+    string,
+    Context,
+    { inExperiment: boolean; urlRedirect: any; urlWithParams: string }[]
+  ][];
 };
 
 const round = (n: number) => Math.floor(n * 1e8) / 1e8;
@@ -280,7 +283,12 @@ describe("json test suite", () => {
       const growthbook = new GrowthBook(ctx);
       await sleep();
       const trackingCalls = growthbook.getDeferredTrackingCalls();
-      const actualResult = trackingCalls.map((c) => ({
+      const actualResult: {
+        inExperiment: boolean;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        urlRedirect: any;
+        urlWithParams: string;
+      }[] = trackingCalls.map((c) => ({
         inExperiment: c.result.inExperiment,
         urlRedirect: c.result.value.urlRedirect,
         urlWithParams: growthbook.getRedirectUrl(),
