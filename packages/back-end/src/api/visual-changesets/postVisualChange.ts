@@ -19,7 +19,9 @@ export const postVisualChange = createApiRequestHandler(
       throw new Error("Experiment not found");
     }
 
-    req.checkPermissions("manageVisualChanges", experiment.project);
+    if (!req.context.permissions.canCreateVisualChange(experiment)) {
+      req.context.permissions.throwPermissionError();
+    }
 
     const res = await createVisualChange(
       req.params.id,
