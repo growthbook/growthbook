@@ -69,7 +69,8 @@ export class GrowthBook<
   private _ctx: Context;
   private _renderer: null | RenderFunction;
   private _redirectedUrl: string;
-  private _trackedExperiments: Set<unknown>;
+  private _trackedExperiments: Set<string>;
+  private _trackedExperimentKeys: Set<string>;
   private _trackedFeatures: Record<string, string>;
   private _subscriptions: Set<SubscriptionFunction>;
   private _rtQueue: RealtimeUsageData[];
@@ -102,6 +103,7 @@ export class GrowthBook<
     this._ctx = this.context = context;
     this._renderer = null;
     this._trackedExperiments = new Set();
+    this._trackedExperimentKeys = new Set();
     this._trackedFeatures = {};
     this.debug = false;
     this._subscriptions = new Set();
@@ -425,6 +427,14 @@ export class GrowthBook<
     return this._ctx.experiments || [];
   }
 
+  public getTrackedFeatures(): Record<string, string> {
+    return this._trackedFeatures;
+  }
+
+  public getTrackedExperiments(): string[] {
+    return Array.from(this._trackedExperimentKeys);
+  }
+
   public subscribe(cb: SubscriptionFunction): () => void {
     this._subscriptions.add(cb);
     return () => {
@@ -453,6 +463,7 @@ export class GrowthBook<
     this._subscriptions.clear();
     this._assigned.clear();
     this._trackedExperiments.clear();
+    this._trackedExperimentKeys.clear();
     this._trackedFeatures = {};
     this._rtQueue = [];
     if (this._rtTimer) {
@@ -1353,11 +1364,6 @@ export class GrowthBook<
   }
 
   private _track<T>(experiment: Experiment<T>, result: Result<T>) {
-    if (!this._ctx.trackingCallback) {
-      this._deferredTrackingCalls.push({ experiment, result });
-      return;
-    }
-
     const key = experiment.key;
 
     // Make sure a tracking callback is only fired once per unique experiment
@@ -1365,6 +1371,12 @@ export class GrowthBook<
       result.hashAttribute + result.hashValue + key + result.variationId;
     if (this._trackedExperiments.has(k)) return;
     this._trackedExperiments.add(k);
+    this._trackedExperimentKeys.add(key);
+
+    if (!this._ctx.trackingCallback) {
+      this._deferredTrackingCalls.push({ experiment, result });
+      return;
+    }
 
     try {
       this._ctx.trackingCallback(experiment, result);
