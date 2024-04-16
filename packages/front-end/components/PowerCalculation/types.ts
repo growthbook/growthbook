@@ -47,29 +47,26 @@ export const ensureAndReturnPowerCalculationParams = (
 };
 
 interface SampleSizeAndRuntime {
-  effectSize: number;
-  neededSample: number;
+  effect: number;
+  users: number;
+  days: number;
   type: "mean" | "proportion";
 }
 
 interface MinimumDetectableEffectOverTime {
   type: "mean" | "proportion";
-  weeks: [
-    {
-      users: number;
-      effect: number;
-    }
-  ];
+  weeks: {
+    users: number;
+    effect: number;
+  }[];
 }
 
 interface PowerOverTime {
   type: "mean" | "proportion";
-  weeks: [
-    {
-      users: number;
-      power: number;
-    }
-  ];
+  weeks: {
+    users: number;
+    power: number;
+  }[];
 }
 
 export type PowerCalculationResults = {
