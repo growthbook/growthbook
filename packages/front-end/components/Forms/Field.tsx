@@ -30,7 +30,8 @@ export type BaseFieldProps = {
   containerClassName?: string;
   inputGroupClassName?: string;
   labelClassName?: string;
-  render?: (id: string, ref: unknown) => ReactElement;
+  // eslint-disable-next-line
+  render?: (id: string, ref: any) => ReactElement;
   options?: SelectOptions;
   optionGroups?: { [key: string]: SelectOptions };
   initialOption?: string;

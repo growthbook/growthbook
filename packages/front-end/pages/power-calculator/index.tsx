@@ -6,7 +6,7 @@ const PowerCalculationPage = (): React.ReactElement => {
 
   return (
     <>
-      {showModal && <PowerCalculationModal close={() => setShowModal(false)} />}
+      {showModal && <PowerCalculationModal close={() => setShowModal(false)} onSuccess={() => Promise.resolve(undefined)} />}
       <div className="contents container pagecontents ml-1 pr-4">
         <div className="row mb-4">
           <div className="col">
