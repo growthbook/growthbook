@@ -1,4 +1,4 @@
-import { useEffect, useState, ReactNode } from "react";
+import { useState } from "react";
 import { useForm, UseFormReturn } from "react-hook-form";
 import clsx from "clsx";
 import Modal from "@/components/Modal";
@@ -29,11 +29,11 @@ interface PowerCalculationParams {
 
 const SelectStep = ({
   form,
-  setSecondaryCTA,
+  close,
   onNext,
 }: {
   form: UseFormReturn<PowerCalculationParams>;
-  setSecondaryCTA: (_: ReactNode) => void;
+  close?: () => void;
   onNext: () => void;
 }) => {
   const { metrics: appMetrics } = useDefinitions();
@@ -47,20 +47,24 @@ const SelectStep = ({
     isNaN(usersPerDay) ||
     isUsersPerDayInvalid;
 
-  useEffect(() =>
-    setSecondaryCTA(
-      <button
-        disabled={isNextDisabled}
-        onClick={onNext}
-        className="btn btn-primary"
-      >
-        Next &gt;
-      </button>
-    )
-  );
-
   return (
-    <>
+    <Modal
+      open
+      size="lg"
+      header="New Calculation"
+      close={close}
+      includeCloseCta={false}
+      cta="Next >"
+      secondaryCTA={
+        <button
+          disabled={isNextDisabled}
+          onClick={onNext}
+          className="btn btn-primary"
+        >
+          Next &gt;
+        </button>
+      }
+    >
       <MultiSelectField
         labelClassName="d-flex"
         label={
@@ -117,7 +121,7 @@ const SelectStep = ({
           ) : undefined
         }
       />
-    </>
+    </Modal>
   );
 };
 
@@ -168,14 +172,11 @@ const MetricParams = ({
   metricId: string;
 }) => {
   const metrics = form.watch("metrics");
-  const params = ensureAndReturn(metrics[metricId]);
-
-  console.log("m", metrics);
-  console.log("p", params);
+  const { name } = ensureAndReturn(metrics[metricId]);
 
   return (
     <div className="card gsbox mb-3 p-3 mb-2 power-analysis-params">
-      <div className="card-title uppercase-title mb-3">{params.name}</div>
+      <div className="card-title uppercase-title mb-3">{name}</div>
       <div className="row">
         <InputField entry="effectSize" form={form} metricId={metricId} />
         <InputField entry="mean" form={form} metricId={metricId} />
@@ -187,90 +188,22 @@ const MetricParams = ({
 
 const SetParamsStep = ({
   form,
-  setSecondaryCTA,
+  close,
   onSubmit,
 }: {
   form: UseFormReturn<PowerCalculationParams>;
-  setSecondaryCTA: (_: ReactNode) => void;
+  close?: () => void;
   onSubmit: () => Promise<void>;
 }) => {
-  useEffect(() =>
-    setSecondaryCTA(
-      <button className="btn btn-primary" onClick={onSubmit}>
-        Submit
-      </button>
-    )
-  );
-
   const effectSize = form.watch("effectSize");
   const isEffectSizeInvalid = effectSize !== undefined && effectSize <= 0;
+
   const conversionRate = form.watch("conversionRate");
   const isConversionRateInvalid =
     conversionRate !== undefined && conversionRate <= 0;
 
-  return (
-    <div className="ml-2">
-      <p>Customize metric details for calculating experiment duration.</p>
-
-      <div className="card gsbox mb-3 p-3 mb-2 power-analysis-params">
-        <div className="card-title uppercase-title mb-3">Total Revenue</div>
-        <div className="row">
-          <div className="col">
-            <Field
-              label={<span className="font-weight-bold mr-1">Effect Size</span>}
-              type="number"
-              {...form.register("effectSize", {
-                valueAsNumber: true,
-              })}
-              className={clsx(
-                "w-50",
-                isEffectSizeInvalid && "border border-danger"
-              )}
-              helpText={
-                isEffectSizeInvalid ? (
-                  <div className="text-danger">Must be greater than 0</div>
-                ) : undefined
-              }
-            />
-          </div>
-          <div className="col">
-            <Field
-              label={<span className="font-weight-bold mr-1">Effect Size</span>}
-              type="number"
-              {...form.register("conversionRate", {
-                valueAsNumber: true,
-              })}
-              className={clsx(
-                "w-50",
-                isConversionRateInvalid && "border border-danger"
-              )}
-              helpText={
-                isConversionRateInvalid ? (
-                  <div className="text-danger">Must be greater than 0</div>
-                ) : undefined
-              }
-            />
-          </div>
-          <div className="col" />
-        </div>
-      </div>
-
-      {Object.keys(form.watch("metrics")).map((metricId) => (
-        <MetricParams key={metricId} metricId={metricId} form={form} />
-      ))}
-    </div>
-  );
-};
-
-export default function PowerCalculationModal({ close, onSuccess }: Props) {
-  const [step, setStep] = useState<"select" | "set-params">("select");
-  const [secondaryCTA, setSecondaryCTA] = useState<ReactNode>(null);
-
-  const form = useForm<PowerCalculationParams>({
-    defaultValues: {
-      metrics: {},
-    },
-  });
+  const metrics = form.watch("metrics");
+  const metricIds = Object.keys(metrics);
 
   return (
     <Modal
@@ -279,23 +212,92 @@ export default function PowerCalculationModal({ close, onSuccess }: Props) {
       header="New Calculation"
       close={close}
       includeCloseCta={false}
-      cta="Next >"
-      secondaryCTA={secondaryCTA}
+      cta="Submit"
+      secondaryCTA={
+        <button className="btn btn-primary" onClick={onSubmit}>
+          Submit
+        </button>
+      }
     >
+      <div className="ml-2">
+        <p>Customize metric details for calculating experiment duration.</p>
+
+        <div className="card gsbox mb-3 p-3 mb-2 power-analysis-params">
+          <div className="card-title uppercase-title mb-3">Total Revenue</div>
+          <div className="row">
+            <div className="col">
+              <Field
+                label={
+                  <span className="font-weight-bold mr-1">Effect Size</span>
+                }
+                type="number"
+                {...form.register("effectSize", {
+                  valueAsNumber: true,
+                })}
+                className={clsx(
+                  "w-50",
+                  isEffectSizeInvalid && "border border-danger"
+                )}
+                helpText={
+                  isEffectSizeInvalid ? (
+                    <div className="text-danger">Must be greater than 0</div>
+                  ) : undefined
+                }
+              />
+            </div>
+            <div className="col">
+              <Field
+                label={
+                  <span className="font-weight-bold mr-1">Effect Size</span>
+                }
+                type="number"
+                {...form.register("conversionRate", {
+                  valueAsNumber: true,
+                })}
+                className={clsx(
+                  "w-50",
+                  isConversionRateInvalid && "border border-danger"
+                )}
+                helpText={
+                  isConversionRateInvalid ? (
+                    <div className="text-danger">Must be greater than 0</div>
+                  ) : undefined
+                }
+              />
+            </div>
+            <div className="col" />
+          </div>
+        </div>
+
+        {metricIds.map((metricId) => (
+          <MetricParams key={metricId} metricId={metricId} form={form} />
+        ))}
+      </div>
+    </Modal>
+  );
+};
+
+export default function PowerCalculationModal({ close, onSuccess }: Props) {
+  const [step, setStep] = useState<"select" | "set-params">("select");
+
+  const form = useForm<PowerCalculationParams>({
+    defaultValues: {
+      metrics: {},
+    },
+  });
+
+  return (
+    <>
       {step === "select" && (
         <SelectStep
           form={form}
-          setSecondaryCTA={setSecondaryCTA}
+          close={close}
           onNext={() => setStep("set-params")}
         />
       )}
       {step === "set-params" && (
-        <SetParamsStep
-          form={form}
-          setSecondaryCTA={setSecondaryCTA}
-          onSubmit={onSuccess}
-        />
+        <SetParamsStep form={form} close={close} onSubmit={onSuccess} />
       )}
-    </Modal>
+    </>
   );
 }
