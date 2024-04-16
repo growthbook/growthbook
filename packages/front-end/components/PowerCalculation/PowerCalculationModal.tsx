@@ -189,10 +189,12 @@ const MetricParams = ({
 const SetParamsStep = ({
   form,
   close,
+  onBack,
   onSubmit,
 }: {
   form: UseFormReturn<PowerCalculationParams>;
   close?: () => void;
+  onBack: () => void;
   onSubmit: () => Promise<void>;
 }) => {
   const effectSize = form.watch("effectSize");
@@ -214,6 +216,11 @@ const SetParamsStep = ({
       includeCloseCta={false}
       cta="Submit"
       secondaryCTA={
+        <button className="btn btn-link" onClick={onBack}>
+          &lt; Back
+        </button>
+      }
+      tertiaryCTA={
         <button className="btn btn-primary" onClick={onSubmit}>
           Submit
         </button>
@@ -296,7 +303,12 @@ export default function PowerCalculationModal({ close, onSuccess }: Props) {
         />
       )}
       {step === "set-params" && (
-        <SetParamsStep form={form} close={close} onSubmit={onSuccess} />
+        <SetParamsStep
+          form={form}
+          close={close}
+          onBack={() => setStep("select")}
+          onSubmit={onSuccess}
+        />
       )}
     </>
   );
