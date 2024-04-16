@@ -37,8 +37,6 @@ COPY packages/enterprise/package.json ./packages/enterprise/package.json
 COPY patches ./patches
 # Yarn install with dev dependencies (will be cached as long as dependencies don't change)
 RUN yarn install --frozen-lockfile --ignore-optional
-# Apply patches this is not ideal since this should run at the end of yarn install but since node 20 it is not
-RUN yarn postinstall
 # Build the app and do a clean install with only production dependencies
 COPY packages ./packages
 RUN \
@@ -52,7 +50,6 @@ RUN \
   && rm -rf packages/sdk-js/node_modules \
   && rm -rf packages/sdk-react/node_modules \
   && yarn install --frozen-lockfile --production=true --ignore-optional
-RUN yarn postinstall
 
 
 # Package the full app together
