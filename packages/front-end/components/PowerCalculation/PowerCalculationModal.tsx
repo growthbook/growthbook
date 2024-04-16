@@ -80,7 +80,7 @@ const SelectStep = ({
             "metrics",
             value.reduce((metrics, id) => {
               const metric = ensureAndReturn(
-                appMetrics.find((m) => m.id === id),
+                appMetrics.find((m) => m.id === id)
               );
 
               return {
@@ -97,7 +97,7 @@ const SelectStep = ({
                       }),
                 },
               };
-            }, metrics),
+            }, metrics)
           );
         }}
       />
@@ -192,7 +192,7 @@ const MetricParamsInput = ({
               form={form}
               metricId={metricId}
             />
-          ),
+          )
         )}
       </div>
     </div>

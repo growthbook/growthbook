@@ -32,7 +32,7 @@ const validEntry = (v: number | undefined) =>
   v !== undefined && !isNaN(v) && 0 < v;
 
 export const isValidPowerCalculationParams = (
-  v: PartialPowerCalculationParams,
+  v: PartialPowerCalculationParams
 ): v is PowerCalculationParams =>
   validEntry(v.usersPerDay) &&
   Object.keys(v.metrics).every((key) => {
@@ -47,7 +47,7 @@ export const isValidPowerCalculationParams = (
   });
 
 export const ensureAndReturnPowerCalculationParams = (
-  v: PartialPowerCalculationParams,
+  v: PartialPowerCalculationParams
 ): PowerCalculationParams => {
   if (!isValidPowerCalculationParams(v)) throw "internal error";
   return v;

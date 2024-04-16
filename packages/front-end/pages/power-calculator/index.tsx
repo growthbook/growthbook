@@ -19,7 +19,7 @@ const dummyResultsData = (metrics: PowerCalculationParams["metrics"]) => ({
         users: 12245,
       },
     }),
-    {},
+    {}
   ),
   weeks: [...Array(7).keys()].map(() => ({
     users: 12245,
@@ -33,7 +33,7 @@ const dummyResultsData = (metrics: PowerCalculationParams["metrics"]) => ({
           power: 0.8,
         },
       }),
-      {},
+      {}
     ),
   })),
 });

@@ -141,7 +141,9 @@ const MinimumDetectableEffect = ({
 }) => (
   <div className="row card gsbox mb-3 border">
     <div className="row pt-4 pl-4 pr-4 pb-1">
-      <h2>Minimum Detectable Effect Over Time</h2>
+      <div className="w-100">
+        <h2>Minimum Detectable Effect Over Time</h2>
+      </div>
       <p>
         To achieve 80% power for all metrics, we advocate running your
         experiment for at least{" "}
@@ -187,7 +189,9 @@ const PowerOverTime = ({
 }) => (
   <div className="row card gsbox mb-3 border">
     <div className="row pt-4 pl-4 pr-4 pb-1">
-      <h2>Power Over Time</h2>
+      <div className="w-100">
+        <h2>Power Over Time</h2>
+      </div>
       <p>
         To achieve 80% power for all metrics, we advocate running your
         experiment for at least{" "}

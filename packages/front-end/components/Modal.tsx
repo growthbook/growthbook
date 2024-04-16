@@ -1,10 +1,4 @@
-import {
-  FC,
-  useRef,
-  useEffect,
-  useState,
-  ReactNode,
-} from "react";
+import { FC, useRef, useEffect, useState, ReactNode } from "react";
 import clsx from "clsx";
 import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
