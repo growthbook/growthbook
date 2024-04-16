@@ -1326,9 +1326,13 @@ export const autoAddGroupsAttribute = async (
   res: Response<{ status: 200; added: boolean }>
 ) => {
   // Add missing `$groups` attribute automatically if it's being referenced by a Saved Group
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
-  req.checkPermissions("manageTargetingAttributes", []);
+  // TODO: When we add project-scoping to saved groups - pass in the actual projects array below
+  if (!context.permissions.canCreateAttribute({})) {
+    context.permissions.throwPermissionError();
+  }
 
   let added = false;
 
@@ -1974,11 +1978,8 @@ export async function putLicenseKey(
     throw new Error("Must be part of an organization");
   }
   req.checkPermissions("manageBilling");
-  if (IS_CLOUD) {
-    throw new Error("License keys are only applicable to self-hosted accounts");
-  }
 
-  if (IS_MULTI_ORG) {
+  if (!IS_CLOUD && IS_MULTI_ORG) {
     throw new Error(
       "You must use the LICENSE_KEY environmental variable on multi org sites."
     );
