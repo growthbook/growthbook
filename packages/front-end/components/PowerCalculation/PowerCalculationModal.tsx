@@ -7,32 +7,26 @@ import Field from "@/components/Forms/Field";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ensureAndReturn } from "@/types/utils";
+import {
+  isValidPowerCalculationParams,
+  ensureAndReturnPowerCalculationParams,
+  PowerCalculationParams,
+  PartialPowerCalculationParams,
+} from "./types";
 
 export type Props = {
   close?: () => void;
-  onSuccess: (calculation: unknown) => Promise<void>;
+  onSuccess: (_: PowerCalculationParams) => void;
 };
 
-interface MetricParams {
-  name: string;
-  effectSize?: number;
-  mean?: number;
-  standardDeviation?: number;
-}
-
-interface PowerCalculationParams {
-  metrics: { [id: string]: MetricParams };
-  effectSize?: number;
-  conversionRate?: number;
-  usersPerDay?: number;
-}
+type Form = UseFormReturn<PartialPowerCalculationParams>;
 
 const SelectStep = ({
   form,
   close,
   onNext,
 }: {
-  form: UseFormReturn<PowerCalculationParams>;
+  form: Form;
   close?: () => void;
   onNext: () => void;
 }) => {
@@ -137,7 +131,7 @@ const InputField = ({
   metricId,
 }: {
   entry: keyof typeof titles;
-  form: UseFormReturn<PowerCalculationParams>;
+  form: Form;
   metricId: string;
 }) => {
   const metrics = form.watch("metrics");
@@ -164,13 +158,7 @@ const InputField = ({
   );
 };
 
-const MetricParams = ({
-  form,
-  metricId,
-}: {
-  form: UseFormReturn<PowerCalculationParams>;
-  metricId: string;
-}) => {
+const MetricParams = ({ form, metricId }: { form: Form; metricId: string }) => {
   const metrics = form.watch("metrics");
   const { name } = ensureAndReturn(metrics[metricId]);
 
@@ -192,10 +180,10 @@ const SetParamsStep = ({
   onBack,
   onSubmit,
 }: {
-  form: UseFormReturn<PowerCalculationParams>;
+  form: Form;
   close?: () => void;
   onBack: () => void;
-  onSubmit: () => Promise<void>;
+  onSubmit: (_: PowerCalculationParams) => void;
 }) => {
   const effectSize = form.watch("effectSize");
   const isEffectSizeInvalid = effectSize !== undefined && effectSize <= 0;
@@ -221,7 +209,13 @@ const SetParamsStep = ({
         </button>
       }
       tertiaryCTA={
-        <button className="btn btn-primary" onClick={onSubmit}>
+        <button
+          disabled={!isValidPowerCalculationParams(form.getValues())}
+          className="btn btn-primary"
+          onClick={() =>
+            onSubmit(ensureAndReturnPowerCalculationParams(form.getValues()))
+          }
+        >
           Submit
         </button>
       }
@@ -287,7 +281,7 @@ const SetParamsStep = ({
 export default function PowerCalculationModal({ close, onSuccess }: Props) {
   const [step, setStep] = useState<"select" | "set-params">("select");
 
-  const form = useForm<PowerCalculationParams>({
+  const form = useForm<PartialPowerCalculationParams>({
     defaultValues: {
       metrics: {},
     },
