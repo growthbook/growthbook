@@ -73,7 +73,6 @@ jobs:
       - name: Check api types
         run: |
           yarn generate-api-types
-          git status --porcelain 
           [[ -n $(git status --porcelain) ]] && echo "You need to run yarn generate-api-types" && exit 1 || true
 
       - name: Type-check
