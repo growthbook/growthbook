@@ -21,21 +21,13 @@ import { BsFiletypeHtml } from "react-icons/bs";
 import { DocSection } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
-export type LanguageEnvironment =
-  | "frontend"
-  | "backend"
-  | "mobile"
-  | "nocode"
-  | "edge"
-  | "other";
 export type LanguageType =
   | "frontend"
   | "backend"
   | "mobile"
   | "nocode"
   | "edge"
-  | "other"
-  | "";
+  | "other";
 export const languageMapping: Record<
   SDKLanguage,
   {
@@ -43,7 +35,6 @@ export const languageMapping: Record<
     color: string;
     label: string;
     docs: DocSection;
-    environment: LanguageEnvironment;
     type: LanguageType;
     hideVersion?: boolean;
   }
@@ -53,7 +44,6 @@ export const languageMapping: Record<
     color: "#95BF47",
     label: "Shopify",
     docs: "shopify",
-    environment: "frontend",
     type: "nocode",
     hideVersion: true,
   },
@@ -62,7 +52,6 @@ export const languageMapping: Record<
     color: "#00749C",
     label: "Wordpress",
     docs: "wordpress",
-    environment: "frontend",
     type: "nocode",
     hideVersion: true,
   },
@@ -71,7 +60,6 @@ export const languageMapping: Record<
     color: "#146EF5",
     label: "Webflow",
     docs: "webflow",
-    environment: "frontend",
     type: "nocode",
     hideVersion: true,
   },
@@ -80,7 +68,6 @@ export const languageMapping: Record<
     color: "#777",
     label: "Generic",
     docs: "nocode",
-    environment: "frontend",
     type: "nocode",
     hideVersion: true,
   },
@@ -89,7 +76,6 @@ export const languageMapping: Record<
     color: "#f7df1e",
     label: "JavaScript",
     docs: "javascript",
-    environment: "frontend",
     type: "frontend",
   },
   react: {
@@ -97,7 +83,6 @@ export const languageMapping: Record<
     color: "#61DBFB",
     label: "React",
     docs: "tsx",
-    environment: "frontend",
     type: "frontend",
   },
   nodejs: {
@@ -105,7 +90,6 @@ export const languageMapping: Record<
     color: "#339933",
     label: "Node.js",
     docs: "javascript",
-    environment: "backend",
     type: "backend",
   },
   php: {
@@ -113,7 +97,6 @@ export const languageMapping: Record<
     color: "#8993be",
     label: "PHP",
     docs: "php",
-    environment: "backend",
     type: "backend",
   },
   ruby: {
@@ -121,7 +104,6 @@ export const languageMapping: Record<
     color: "#A91401",
     label: "Ruby",
     docs: "ruby",
-    environment: "backend",
     type: "backend",
   },
   python: {
@@ -129,7 +111,6 @@ export const languageMapping: Record<
     color: "#306998",
     label: "Python",
     docs: "python",
-    environment: "backend",
     type: "backend",
   },
   java: {
@@ -137,7 +118,6 @@ export const languageMapping: Record<
     color: "#f89820",
     label: "Java",
     docs: "java",
-    environment: "backend",
     type: "backend",
   },
   csharp: {
@@ -145,7 +125,6 @@ export const languageMapping: Record<
     color: "#684D95",
     label: "C Sharp",
     docs: "csharp",
-    environment: "backend",
     type: "backend",
   },
   go: {
@@ -153,7 +132,6 @@ export const languageMapping: Record<
     color: "#29BEB0",
     label: "Golang",
     docs: "go",
-    environment: "backend",
     type: "backend",
   },
   ios: {
@@ -161,7 +139,6 @@ export const languageMapping: Record<
     color: "#000000",
     label: "Swift",
     docs: "swift",
-    environment: "mobile",
     type: "mobile",
   },
   android: {
@@ -169,7 +146,6 @@ export const languageMapping: Record<
     color: "#78C257",
     label: "Kotlin",
     docs: "kotlin",
-    environment: "mobile",
     type: "mobile",
   },
   flutter: {
@@ -177,7 +153,6 @@ export const languageMapping: Record<
     color: "#02569B",
     label: "Flutter",
     docs: "flutter",
-    environment: "mobile",
     type: "mobile",
   },
   "edge-lambda": {
@@ -185,7 +160,6 @@ export const languageMapping: Record<
     color: "#e57714",
     label: "AWS Lambda",
     docs: "sdks",
-    environment: "edge",
     type: "edge",
   },
   "edge-cloudflare": {
@@ -193,7 +167,6 @@ export const languageMapping: Record<
     color: "#f78220",
     label: "CloudFlare",
     docs: "sdks",
-    environment: "edge",
     type: "edge",
   },
   other: {
@@ -201,7 +174,6 @@ export const languageMapping: Record<
     color: "#777",
     label: "Other",
     docs: "sdks",
-    environment: "other",
     type: "other",
     hideVersion: true,
   },
@@ -259,8 +231,30 @@ export default function SDKLanguageLogo({
   );
 }
 
-export function getLanguagesByType(languageType: LanguageType): SDKLanguage[] {
+export function getLanguagesByType(
+  languageType: LanguageType | ""
+): SDKLanguage[] {
+  if (!languageType) return [];
   return Object.entries(languageMapping)
     .filter(([_, language]) => language.type === languageType)
     .map((o) => o[0]) as SDKLanguage[];
+}
+
+export function getConnectionLanguageType(
+  languages: SDKLanguage[]
+): LanguageType | "multi" | "" {
+  const languageTypes = new Set<LanguageType>();
+  languages.forEach((language) => {
+    const type = languageMapping?.[language]?.type;
+    if (type) {
+      languageTypes.add(type);
+    }
+  });
+  if (languageTypes.size === 0) {
+    return "";
+  }
+  if (languageTypes.size === 1) {
+    return [...languageTypes][0];
+  }
+  return "multi";
 }

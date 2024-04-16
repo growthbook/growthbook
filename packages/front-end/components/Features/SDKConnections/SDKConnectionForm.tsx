@@ -44,9 +44,9 @@ import { DocLink } from "@/components/DocLink";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import {
   getLanguagesByType,
-  LanguageEnvironment,
   LanguageType,
   languageMapping,
+  getConnectionLanguageType,
 } from "./SDKLanguageLogo";
 
 function getSecurityTabState(
@@ -143,9 +143,9 @@ export default function SDKConnectionForm({
     form.watch("sdkVersion")
   );
 
-  const [languageType, setLanguageType] = useState<LanguageType>("");
-
-  const showLanguageTypeSelector = (form.watch("languages")?.length || 0) <= 1;
+  const [languageTypeFilter, setLanguageTypeFilter] = useState<
+    LanguageType | "multi" | ""
+  >(getConnectionLanguageType(initialValue.languages ?? []));
 
   const useLatestSdkVersion = () => {
     const language = form.watch("languages")?.[0] || "other";
@@ -154,21 +154,25 @@ export default function SDKConnectionForm({
   };
 
   const languages = form.watch("languages");
-  const languageEnvironments: Set<LanguageEnvironment> = new Set(
-    languages.map((l) => languageMapping[l].environment)
+  const languageTypes: Set<LanguageType> = new Set(
+    languages.map((l) => languageMapping[l].type)
   );
-  const languageEnvironment =
-    languageEnvironments.size === 0
+  const languageType =
+    languageTypes.size === 0
       ? "backend" // show the least amount of configuration options if nothing is set
-      : languageEnvironments.size === 1
-      ? [...languageEnvironments][0]
-      : languageEnvironments.has("frontend")
+      : languageTypes.size === 1
+      ? [...languageTypes][0]
+      : languageTypes.has("frontend")
       ? "frontend"
-      : languageEnvironments.has("mobile")
-      ? "mobile"
-      : languageEnvironments.has("backend")
+      : languageTypes.has("backend")
       ? "backend"
-      : "hybrid";
+      : languageTypes.has("mobile")
+      ? "mobile"
+      : languageTypes.has("nocode")
+      ? "mobile"
+      : languageTypes.has("edge")
+      ? "edge"
+      : "other";
 
   const latestSdkCapabilities = getConnectionSDKCapabilities(
     form.getValues(),
@@ -231,10 +235,10 @@ export default function SDKConnectionForm({
   }
 
   useEffect(() => {
-    if (languageEnvironment === "backend") {
+    if (languageType === "backend") {
       setSelectedSecurityTab("none");
     }
-  }, [languageEnvironment, setSelectedSecurityTab]);
+  }, [languageType, setSelectedSecurityTab]);
 
   useEffect(() => {
     if (!edit) {
@@ -370,43 +374,69 @@ export default function SDKConnectionForm({
       <div className="px-2">
         <Field label="Name" {...form.register("name")} required />
 
-        {showLanguageTypeSelector && (
+        <SelectField
+          label="SDK Type"
+          placeholder={
+            languageTypeFilter === "multi" ? "Multiple" : "Choose SDK type..."
+          }
+          autoComplete="off"
+          sort={false}
+          options={[
+            { label: "Back End", value: "backend" },
+            { label: "Front End", value: "frontend" },
+            { label: "Mobile", value: "mobile" },
+            { label: "No/Low Code Platform", value: "nocode" },
+            { label: "Edge", value: "edge" },
+            { label: "Other", value: "other" },
+          ]}
+          value={languageTypeFilter}
+          onChange={(v) => {
+            if (v === languageTypeFilter) return;
+            setLanguageTypeFilter(v as LanguageType);
+            form.setValue("languages", []);
+          }}
+        />
+
+        {languageTypeFilter !== "" ? (
           <div className="mb-4">
-            <SelectField
-              label="SDK Type"
-              placeholder="Choose a SDK type..."
-              autoComplete="off"
-              sort={false}
-              options={[
-                { label: "Back End", value: "backend" },
-                { label: "Front End", value: "frontend" },
-                { label: "Mobile", value: "mobile" },
-                { label: "No/Low Code Platform", value: "nocode" },
-                { label: "Edge", value: "edge" },
-                { label: "Other", value: "other" },
-              ]}
-              value={languageType}
-              onChange={(v) => setLanguageType(v as LanguageType)}
-            />
-          </div>
-        )}
-        <div className="form-group">
-          <div className="d-flex align-items-center mt-4 mb-2">
-            <label className="mb-0">SDK Language</label>
-            {languageError ? (
-              <span className="ml-3 alert px-1 py-0 mb-0 alert-danger">
-                {languageError}
-              </span>
-            ) : null}
-            <div className="flex-1" />
+            <div className="form-group">
+              <label>SDK Language</label>
+              {languageError ? (
+                <span className="ml-3 alert px-1 py-0 mb-0 alert-danger">
+                  {languageError}
+                </span>
+              ) : null}
+              <SDKLanguageSelector
+                value={form.watch("languages")}
+                setValue={(languages) => {
+                  form.setValue("languages", languages);
+                  if (languages?.length === 1) {
+                    form.setValue(
+                      "sdkVersion",
+                      getLatestSDKVersion(languages[0])
+                    );
+                  }
+                }}
+                multiple={languageTypeFilter === "multi"}
+                includeOther={true}
+                limitLanguages={
+                  languageTypeFilter === "multi"
+                    ? undefined
+                    : getLanguagesByType(languageTypeFilter)
+                }
+                skipLabel={languageTypeFilter !== "multi"}
+                hideShowAllLanguages={true}
+              />
+            </div>
+
             {form.watch("languages")?.length === 1 &&
               !form.watch("languages")[0].match(/^(other|nocode-.*)$/) && (
-                <div className="text-right position-relative">
-                  <div className="d-inline-flex align-items-center">
-                    <label className="mb-0 mr-2">SDK ver.</label>
+                <div className="form-group" style={{ marginTop: -10 }}>
+                  <label>SDK version</label>
+                  <div className="d-flex align-items-center">
                     <SelectField
-                      className="text-left"
-                      style={{ width: 120 }}
+                      style={{ width: 130 }}
+                      className="mr-4"
                       placeholder="0.0.0"
                       autoComplete="off"
                       sort={false}
@@ -421,42 +451,30 @@ export default function SDKConnectionForm({
                       }
                       onChange={(v) => form.setValue("sdkVersion", v)}
                     />
+                    {usingLatestVersion ? (
+                      <span className="small text-muted">Using latest</span>
+                    ) : (
+                      <a
+                        role="button"
+                        className="small"
+                        onClick={useLatestSdkVersion}
+                      >
+                        Use latest
+                      </a>
+                    )}
                   </div>
-                  {usingLatestVersion ? (
-                    <div
-                      className="small position-absolute text-muted"
-                      style={{ zIndex: 1, right: 3 }}
-                    >
-                      Using latest
-                    </div>
-                  ) : (
-                    <a
-                      role="button"
-                      className="d-block small position-absolute"
-                      style={{ zIndex: 1, right: 3 }}
-                      onClick={useLatestSdkVersion}
-                    >
-                      Use latest
-                    </a>
-                  )}
                 </div>
               )}
           </div>
-          <SDKLanguageSelector
-            value={form.watch("languages")}
-            setValue={(languages) => {
-              form.setValue("languages", languages);
-              if (languages?.length === 1) {
-                form.setValue("sdkVersion", getLatestSDKVersion(languages[0]));
-              }
-            }}
-            multiple={false}
-            includeOther={true}
-            limitLanguages={getLanguagesByType(languageType)}
-            skipLabel={showLanguageTypeSelector}
-            hideShowAllLanguages={true}
-          />
-        </div>
+        ) : (
+          <>
+            {languageError ? (
+              <div className="alert px-3 py-2 mb-4 alert-danger">
+                {languageError}
+              </div>
+            ) : null}
+          </>
+        )}
 
         <div className="mb-4">
           <SelectField
@@ -542,7 +560,7 @@ export default function SDKConnectionForm({
           )}
         </div>
 
-        {languageEnvironment !== "backend" && (
+        {languageType !== "backend" && (
           <>
             <label>SDK Payload Security</label>
             <div className="border rounded pt-3 px-3 mb-4 bg-light">
@@ -594,8 +612,8 @@ export default function SDKConnectionForm({
                   <></>
                 </Tab>
 
-                {["frontend", "mobile", "other", "edge"].includes(
-                  languageEnvironment
+                {["frontend", "mobile", "nocode", "edge", "other"].includes(
+                  languageType
                 ) && (
                   <Tab
                     id="ciphered"
@@ -789,7 +807,7 @@ export default function SDKConnectionForm({
                   </Tab>
                 )}
 
-                {["frontend", "other"].includes(languageEnvironment) && (
+                {["frontend", "nocode", "other"].includes(languageType) && (
                   <Tab
                     id="remote"
                     padding={false}

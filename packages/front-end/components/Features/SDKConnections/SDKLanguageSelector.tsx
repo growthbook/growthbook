@@ -82,7 +82,6 @@ export default function SDKLanguageSelector({
   const [includeAll, setIncludeAll] = useState(false);
 
   const renderLabels = !skipLabel || includeAll;
-  console.log({ skipLabel, includeAll, renderLabels });
 
   const filterLanguages = (languages: SDKLanguage[]): SDKLanguage[] => {
     if (includeAll) return languages;
