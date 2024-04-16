@@ -39,7 +39,7 @@ import {
   isSentryEnabled,
 } from "@/services/env";
 import useApi from "@/hooks/useApi";
-import { useAuth, UserOrganizations } from "@/services/auth";
+import { safeLogout, useAuth, UserOrganizations } from "@/services/auth";
 import track from "@/services/track";
 import { AppFeatures } from "@/types/app-features";
 import { sha256 } from "@/services/utils";
@@ -374,13 +374,21 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   );
 
   if (orgLoadingError) {
+    const mustLoginUsingSSO = orgLoadingError.message.includes(
+      "You must log in via SSO"
+    );
     return (
       <Modal
         header="logo"
         open={true}
-        cta="Try Again"
+        cta={mustLoginUsingSSO ? "Log out" : "Try Again"}
         submit={async () => {
-          await refreshOrganization();
+          if (mustLoginUsingSSO) {
+            await safeLogout();
+            router.push("/login");
+          } else {
+            await refreshOrganization();
+          }
         }}
       >
         <p>
