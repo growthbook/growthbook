@@ -3,6 +3,8 @@ import { IconType } from "react-icons";
 import { DiRuby, DiPython, DiReact, DiAndroid } from "react-icons/di";
 import { FaHashtag, FaApple, FaJava, FaCode } from "react-icons/fa";
 import {
+  SiAwslambda,
+  SiCloudflare,
   SiFlutter,
   SiGo,
   SiJavascript,
@@ -19,7 +21,21 @@ import { BsFiletypeHtml } from "react-icons/bs";
 import { DocSection } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
-export type LanguageEnvironment = "frontend" | "backend" | "mobile" | "hybrid";
+export type LanguageEnvironment =
+  | "frontend"
+  | "backend"
+  | "mobile"
+  | "nocode"
+  | "edge"
+  | "other";
+export type LanguageType =
+  | "frontend"
+  | "backend"
+  | "mobile"
+  | "nocode"
+  | "edge"
+  | "other"
+  | "";
 export const languageMapping: Record<
   SDKLanguage,
   {
@@ -28,6 +44,7 @@ export const languageMapping: Record<
     label: string;
     docs: DocSection;
     environment: LanguageEnvironment;
+    type: LanguageType;
     hideVersion?: boolean;
   }
 > = {
@@ -37,6 +54,7 @@ export const languageMapping: Record<
     label: "Shopify",
     docs: "shopify",
     environment: "frontend",
+    type: "nocode",
     hideVersion: true,
   },
   "nocode-wordpress": {
@@ -45,6 +63,7 @@ export const languageMapping: Record<
     label: "Wordpress",
     docs: "wordpress",
     environment: "frontend",
+    type: "nocode",
     hideVersion: true,
   },
   "nocode-webflow": {
@@ -53,6 +72,7 @@ export const languageMapping: Record<
     label: "Webflow",
     docs: "webflow",
     environment: "frontend",
+    type: "nocode",
     hideVersion: true,
   },
   "nocode-other": {
@@ -61,14 +81,16 @@ export const languageMapping: Record<
     label: "Generic",
     docs: "nocode",
     environment: "frontend",
+    type: "nocode",
     hideVersion: true,
   },
   javascript: {
     Icon: SiJavascript,
     color: "#f7df1e",
-    label: "Javascript",
+    label: "JavaScript",
     docs: "javascript",
     environment: "frontend",
+    type: "frontend",
   },
   react: {
     Icon: DiReact,
@@ -76,6 +98,7 @@ export const languageMapping: Record<
     label: "React",
     docs: "tsx",
     environment: "frontend",
+    type: "frontend",
   },
   nodejs: {
     Icon: SiNodedotjs,
@@ -83,6 +106,7 @@ export const languageMapping: Record<
     label: "Node.js",
     docs: "javascript",
     environment: "backend",
+    type: "backend",
   },
   php: {
     Icon: SiPhp,
@@ -90,6 +114,7 @@ export const languageMapping: Record<
     label: "PHP",
     docs: "php",
     environment: "backend",
+    type: "backend",
   },
   ruby: {
     Icon: DiRuby,
@@ -97,6 +122,7 @@ export const languageMapping: Record<
     label: "Ruby",
     docs: "ruby",
     environment: "backend",
+    type: "backend",
   },
   python: {
     Icon: DiPython,
@@ -104,6 +130,7 @@ export const languageMapping: Record<
     label: "Python",
     docs: "python",
     environment: "backend",
+    type: "backend",
   },
   java: {
     Icon: FaJava,
@@ -111,6 +138,7 @@ export const languageMapping: Record<
     label: "Java",
     docs: "java",
     environment: "backend",
+    type: "backend",
   },
   csharp: {
     Icon: FaHashtag,
@@ -118,6 +146,7 @@ export const languageMapping: Record<
     label: "C Sharp",
     docs: "csharp",
     environment: "backend",
+    type: "backend",
   },
   go: {
     Icon: SiGo,
@@ -125,6 +154,7 @@ export const languageMapping: Record<
     label: "Golang",
     docs: "go",
     environment: "backend",
+    type: "backend",
   },
   ios: {
     Icon: FaApple,
@@ -132,6 +162,7 @@ export const languageMapping: Record<
     label: "Swift",
     docs: "swift",
     environment: "mobile",
+    type: "mobile",
   },
   android: {
     Icon: DiAndroid,
@@ -139,6 +170,7 @@ export const languageMapping: Record<
     label: "Kotlin",
     docs: "kotlin",
     environment: "mobile",
+    type: "mobile",
   },
   flutter: {
     Icon: SiFlutter,
@@ -146,13 +178,31 @@ export const languageMapping: Record<
     label: "Flutter",
     docs: "flutter",
     environment: "mobile",
+    type: "mobile",
+  },
+  "edge-lambda": {
+    Icon: SiAwslambda,
+    color: "#e57714",
+    label: "AWS Lambda",
+    docs: "sdks",
+    environment: "edge",
+    type: "edge",
+  },
+  "edge-cloudflare": {
+    Icon: SiCloudflare,
+    color: "#f78220",
+    label: "CloudFlare",
+    docs: "sdks",
+    environment: "edge",
+    type: "edge",
   },
   other: {
     Icon: FaCode,
     color: "#777",
     label: "Other",
     docs: "sdks",
-    environment: "hybrid",
+    environment: "other",
+    type: "other",
     hideVersion: true,
   },
 };
@@ -207,4 +257,10 @@ export default function SDKLanguageLogo({
       )}
     </span>
   );
+}
+
+export function getLanguagesByType(languageType: LanguageType): SDKLanguage[] {
+  return Object.entries(languageMapping)
+    .filter(([_, language]) => language.type === languageType)
+    .map((o) => o[0]) as SDKLanguage[];
 }

@@ -42,7 +42,12 @@ import Tab from "@/components/Tabs/Tab";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { DocLink } from "@/components/DocLink";
 import SDKLanguageSelector from "./SDKLanguageSelector";
-import { LanguageEnvironment, languageMapping } from "./SDKLanguageLogo";
+import {
+  getLanguagesByType,
+  LanguageEnvironment,
+  LanguageType,
+  languageMapping,
+} from "./SDKLanguageLogo";
 
 function getSecurityTabState(
   value: Partial<SDKConnectionInterface>
@@ -137,6 +142,10 @@ export default function SDKConnectionForm({
     form.watch("languages")?.[0] || "other",
     form.watch("sdkVersion")
   );
+
+  const [languageType, setLanguageType] = useState<LanguageType>("");
+
+  const showLanguageTypeSelector = (form.watch("languages")?.length || 0) <= 1;
 
   const useLatestSdkVersion = () => {
     const language = form.watch("languages")?.[0] || "other";
@@ -361,6 +370,26 @@ export default function SDKConnectionForm({
       <div className="px-2">
         <Field label="Name" {...form.register("name")} required />
 
+        {showLanguageTypeSelector && (
+          <div className="mb-4">
+            <SelectField
+              label="SDK Type"
+              placeholder="Choose a SDK type..."
+              autoComplete="off"
+              sort={false}
+              options={[
+                { label: "Back End", value: "backend" },
+                { label: "Front End", value: "frontend" },
+                { label: "Mobile", value: "mobile" },
+                { label: "No/Low Code Platform", value: "nocode" },
+                { label: "Edge", value: "edge" },
+                { label: "Other", value: "other" },
+              ]}
+              value={languageType}
+              onChange={(v) => setLanguageType(v as LanguageType)}
+            />
+          </div>
+        )}
         <div className="form-group">
           <div className="d-flex align-items-center mt-4 mb-2">
             <label className="mb-0">SDK Language</label>
@@ -423,6 +452,9 @@ export default function SDKConnectionForm({
             }}
             multiple={false}
             includeOther={true}
+            limitLanguages={getLanguagesByType(languageType)}
+            skipLabel={showLanguageTypeSelector}
+            hideShowAllLanguages={true}
           />
         </div>
 
@@ -562,7 +594,7 @@ export default function SDKConnectionForm({
                   <></>
                 </Tab>
 
-                {["frontend", "mobile", "hybrid"].includes(
+                {["frontend", "mobile", "other", "edge"].includes(
                   languageEnvironment
                 ) && (
                   <Tab
@@ -757,7 +789,7 @@ export default function SDKConnectionForm({
                   </Tab>
                 )}
 
-                {["frontend", "hybrid"].includes(languageEnvironment) && (
+                {["frontend", "other"].includes(languageEnvironment) && (
                   <Tab
                     id="remote"
                     padding={false}

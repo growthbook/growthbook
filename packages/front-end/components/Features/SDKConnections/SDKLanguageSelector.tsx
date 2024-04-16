@@ -52,12 +52,16 @@ export default function SDKLanguageSelector({
   multiple = false,
   includeOther = true,
   limitLanguages,
+  skipLabel = false,
+  hideShowAllLanguages = false,
 }: {
   value: SDKLanguage[];
   setValue: (languages: SDKLanguage[]) => void;
   multiple?: boolean;
   includeOther?: boolean;
   limitLanguages?: SDKLanguage[];
+  skipLabel?: boolean;
+  hideShowAllLanguages?: boolean;
 }) {
   const selected = new Set(value);
 
@@ -77,6 +81,9 @@ export default function SDKLanguageSelector({
 
   const [includeAll, setIncludeAll] = useState(false);
 
+  const renderLabels = !skipLabel || includeAll;
+  console.log({ skipLabel, includeAll, renderLabels });
+
   const filterLanguages = (languages: SDKLanguage[]): SDKLanguage[] => {
     if (includeAll) return languages;
     return languages.filter(
@@ -95,6 +102,7 @@ export default function SDKLanguageSelector({
     "go",
   ]);
   const mobile = filterLanguages(["ios", "android", "flutter"]);
+  const edge = filterLanguages(["edge-lambda", "edge-cloudflare"]);
   const nocode = filterLanguages([
     "nocode-shopify",
     "nocode-wordpress",
@@ -107,9 +115,11 @@ export default function SDKLanguageSelector({
       <div className="row">
         {backEnd.length > 0 && (
           <div className="col-auto">
-            <small>
-              <strong>Back-end</strong>
-            </small>
+            {renderLabels && (
+              <small>
+                <strong>Back-end</strong>
+              </small>
+            )}
             <div className="d-flex flex-wrap">
               {backEnd.map((l) => (
                 <LanguageOption
@@ -125,9 +135,11 @@ export default function SDKLanguageSelector({
         )}
         {frontEnd.length > 0 && (
           <div className="col-auto">
-            <small>
-              <strong>Front-end</strong>
-            </small>
+            {renderLabels && (
+              <small>
+                <strong>Front-end</strong>
+              </small>
+            )}
             <div className="d-flex align-items-center">
               {frontEnd.map((l) => (
                 <LanguageOption
@@ -143,9 +155,11 @@ export default function SDKLanguageSelector({
         )}
         {mobile.length > 0 && (
           <div className="col-auto">
-            <small>
-              <strong>Mobile</strong>
-            </small>
+            {renderLabels && (
+              <small>
+                <strong>Mobile</strong>
+              </small>
+            )}
             <div className="d-flex">
               {mobile.map((l) => (
                 <LanguageOption
@@ -159,11 +173,33 @@ export default function SDKLanguageSelector({
             </div>
           </div>
         )}
+        {edge.length > 0 && (
+          <div className="col-auto">
+            {renderLabels && (
+              <small>
+                <strong>Edge</strong>
+              </small>
+            )}
+            <div className="d-flex">
+              {edge.map((l) => (
+                <LanguageOption
+                  key={l}
+                  language={l}
+                  setValue={setValue}
+                  selected={selected}
+                  multiple={multiple}
+                />
+              ))}
+            </div>
+          </div>
+        )}
         {nocode.length > 0 && (
           <div className="col-auto">
-            <small>
-              <strong>No/Low Code Platform</strong>
-            </small>
+            {renderLabels && (
+              <small>
+                <strong>No/Low Code Platform</strong>
+              </small>
+            )}
             <div className="d-flex">
               {nocode.map((l) => (
                 <LanguageOption
@@ -179,9 +215,11 @@ export default function SDKLanguageSelector({
         )}
         {includeOther && (!limitLanguages || limitLanguages.includes("other")) && (
           <div className="col-auto">
-            <small>
-              <strong>Other</strong>
-            </small>
+            {renderLabels && (
+              <small>
+                <strong>Other</strong>
+              </small>
+            )}
             <LanguageOption
               language={"other"}
               setValue={setValue}
@@ -190,7 +228,7 @@ export default function SDKLanguageSelector({
             />
           </div>
         )}
-        {!includeAll && limitLanguages && (
+        {!includeAll && limitLanguages && !hideShowAllLanguages && (
           <div className="col-auto align-self-center" style={{ marginTop: 10 }}>
             <a
               href="#"
