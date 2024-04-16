@@ -178,6 +178,7 @@ const MetricParamsInput = ({
   metricId: string;
 }) => {
   const metrics = form.watch("metrics");
+  // eslint-disable-next-line
   const { name, type: _type, ...params } = ensureAndReturn(metrics[metricId]);
 
   return (
