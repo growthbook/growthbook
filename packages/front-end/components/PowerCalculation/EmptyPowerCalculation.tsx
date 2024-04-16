@@ -1,7 +1,7 @@
 export default function EmptyPowerCalculation({
-  setShowModal,
+  showModal,
 }: {
-  setShowModal: (_: boolean) => void;
+  showModal: () => void;
 }) {
   return (
     <div className="contents container pagecontents ml-1 pr-4">
@@ -12,7 +12,7 @@ export default function EmptyPowerCalculation({
         <div className="col-auto">
           <button
             className="btn btn-primary float-right"
-            onClick={() => setShowModal(true)}
+            onClick={() => showModal()}
             type="button"
           >
             New Calculation
@@ -29,7 +29,7 @@ export default function EmptyPowerCalculation({
           </div>
           <button
             className="btn action-link mr-3 btn-primary mt-3"
-            onClick={() => setShowModal(true)}
+            onClick={() => showModal()}
             type="button"
           >
             New Calculation

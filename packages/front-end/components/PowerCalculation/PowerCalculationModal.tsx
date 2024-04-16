@@ -10,6 +10,7 @@ import { ensureAndReturn } from "@/types/utils";
 import {
   isValidPowerCalculationParams,
   ensureAndReturnPowerCalculationParams,
+  MetricParams,
   PowerCalculationParams,
   PartialPowerCalculationParams,
 } from "./types";
@@ -77,16 +78,26 @@ const SelectStep = ({
         onChange={(value: string[]) => {
           form.setValue(
             "metrics",
-            value.reduce(
-              (metrics, id) => ({
+            value.reduce((metrics, id) => {
+              const metric = ensureAndReturn(
+                appMetrics.find((m) => m.id === id),
+              );
+
+              return {
                 ...metrics,
                 [id]: metrics[id] || {
-                  name: ensureAndReturn(appMetrics.find((m) => m.id === id))
-                    .name,
+                  name: metric.name,
+                  effect: undefined,
+                  ...(metric.type === "binomial"
+                    ? { type: "binomial", conversionRate: undefined }
+                    : {
+                        type: "mean",
+                        mean: undefined,
+                        standardDeviation: undefined,
+                      }),
                 },
-              }),
-              metrics
-            )
+              };
+            }, metrics),
           );
         }}
       />
@@ -120,9 +131,10 @@ const SelectStep = ({
 };
 
 const titles = {
-  effectSize: "Effect Size",
+  effect: "Effect Size",
   mean: "Mean",
   standardDeviation: "Standard Deviation",
+  conversionRate: "Conversion Rate",
 } as const;
 
 const InputField = ({
@@ -158,17 +170,30 @@ const InputField = ({
   );
 };
 
-const MetricParams = ({ form, metricId }: { form: Form; metricId: string }) => {
+const MetricParamsInput = ({
+  form,
+  metricId,
+}: {
+  form: Form;
+  metricId: string;
+}) => {
   const metrics = form.watch("metrics");
-  const { name } = ensureAndReturn(metrics[metricId]);
+  const { name, type: _type, ...params } = ensureAndReturn(metrics[metricId]);
 
   return (
     <div className="card gsbox mb-3 p-3 mb-2 power-analysis-params">
       <div className="card-title uppercase-title mb-3">{name}</div>
       <div className="row">
-        <InputField entry="effectSize" form={form} metricId={metricId} />
-        <InputField entry="mean" form={form} metricId={metricId} />
-        <InputField entry="standardDeviation" form={form} metricId={metricId} />
+        {Object.keys(params).map(
+          (entry: keyof Omit<MetricParams, "name" | "type">) => (
+            <InputField
+              key={name}
+              entry={entry}
+              form={form}
+              metricId={metricId}
+            />
+          ),
+        )}
       </div>
     </div>
   );
@@ -185,13 +210,6 @@ const SetParamsStep = ({
   onBack: () => void;
   onSubmit: (_: PowerCalculationParams) => void;
 }) => {
-  const effectSize = form.watch("effectSize");
-  const isEffectSizeInvalid = effectSize !== undefined && effectSize <= 0;
-
-  const conversionRate = form.watch("conversionRate");
-  const isConversionRateInvalid =
-    conversionRate !== undefined && conversionRate <= 0;
-
   const metrics = form.watch("metrics");
   const metricIds = Object.keys(metrics);
 
@@ -223,55 +241,8 @@ const SetParamsStep = ({
       <div className="ml-2">
         <p>Customize metric details for calculating experiment duration.</p>
 
-        <div className="card gsbox mb-3 p-3 mb-2 power-analysis-params">
-          <div className="card-title uppercase-title mb-3">Total Revenue</div>
-          <div className="row">
-            <div className="col">
-              <Field
-                label={
-                  <span className="font-weight-bold mr-1">Effect Size</span>
-                }
-                type="number"
-                {...form.register("effectSize", {
-                  valueAsNumber: true,
-                })}
-                className={clsx(
-                  "w-50",
-                  isEffectSizeInvalid && "border border-danger"
-                )}
-                helpText={
-                  isEffectSizeInvalid ? (
-                    <div className="text-danger">Must be greater than 0</div>
-                  ) : undefined
-                }
-              />
-            </div>
-            <div className="col">
-              <Field
-                label={
-                  <span className="font-weight-bold mr-1">Effect Size</span>
-                }
-                type="number"
-                {...form.register("conversionRate", {
-                  valueAsNumber: true,
-                })}
-                className={clsx(
-                  "w-50",
-                  isConversionRateInvalid && "border border-danger"
-                )}
-                helpText={
-                  isConversionRateInvalid ? (
-                    <div className="text-danger">Must be greater than 0</div>
-                  ) : undefined
-                }
-              />
-            </div>
-            <div className="col" />
-          </div>
-        </div>
-
         {metricIds.map((metricId) => (
-          <MetricParams key={metricId} metricId={metricId} form={form} />
+          <MetricParamsInput key={metricId} metricId={metricId} form={form} />
         ))}
       </div>
     </Modal>

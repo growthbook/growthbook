@@ -1,105 +1,60 @@
 import { useMemo, useState } from "react";
 import PowerCalculationModal from "@/components/PowerCalculation/PowerCalculationModal";
 import EmptyPowerCalculation from "@/components/PowerCalculation/EmptyPowerCalculation";
+import PowerCalculationContent from "@/components/PowerCalculation/PowerCalculationContent";
 import {
   PowerCalculationParams,
   PowerCalculationResults,
 } from "@/components/PowerCalculation/types";
 
-const dummyResultsData: PowerCalculationResults[string] = {
-  sampleSizeAndRuntime: {
-    effect: 32.34,
-    days: 10,
+const dummyResultsData = (metrics: PowerCalculationParams["metrics"]) => ({
+  sampleSizeAndRuntime: Object.keys(metrics).reduce(
+    (sampleSizeAndRuntime, id) => ({
+      ...sampleSizeAndRuntime,
+      [id]: {
+        type: metrics[id].type,
+        name: metrics[id].name,
+        effect: 0.3234,
+        days: 10,
+        users: 12245,
+      },
+    }),
+    {},
+  ),
+  weeks: [...Array(7).keys()].map(() => ({
     users: 12245,
-    type: "mean",
-  },
-  minimumDetectableEffectOverTime: {
-    type: "mean",
-    weeks: [
-      {
-        users: 12245,
-        effect: 32.34,
-      },
-      {
-        users: 12245,
-        effect: 32.34,
-      },
-      {
-        users: 12245,
-        effect: 32.34,
-      },
-      {
-        users: 12245,
-        effect: 32.34,
-      },
-      {
-        users: 12245,
-        effect: 32.34,
-      },
-      {
-        users: 12245,
-        effect: 32.34,
-      },
-      {
-        users: 12245,
-        effect: 32.34,
-      },
-    ],
-  },
-  powerOverTime: {
-    type: "mean",
-    weeks: [
-      {
-        users: 12245,
-        power: 32.34,
-      },
-      {
-        users: 12245,
-        power: 32.34,
-      },
-      {
-        users: 12245,
-        power: 32.34,
-      },
-      {
-        users: 12245,
-        power: 32.34,
-      },
-      {
-        users: 12245,
-        power: 32.34,
-      },
-      {
-        users: 12245,
-        power: 32.34,
-      },
-      {
-        users: 12245,
-        power: 32.34,
-      },
-    ],
-  },
-};
+    metrics: Object.keys(metrics).reduce(
+      (ret, id) => ({
+        ...ret,
+        [id]: {
+          type: metrics[id].type,
+          name: metrics[id].name,
+          effect: 0.3234,
+          power: 0.8,
+        },
+      }),
+      {},
+    ),
+  })),
+});
 
 const PowerCalculationPage = (): React.ReactElement => {
   const [showModal, setShowModal] = useState(false);
   const [powerCalculationParams, setPowerCalculationParams] = useState<
     PowerCalculationParams | undefined
   >();
+  const [variations, setVariations] = useState(2);
 
   const results: PowerCalculationResults | undefined = useMemo(() => {
     if (!powerCalculationParams) return;
 
-    return Object.values(
-      powerCalculationParams.metrics
-    ).reduce<PowerCalculationResults>(
-      (results, { name }) => ({
-        ...results,
-        [name]: dummyResultsData,
-      }),
-      { "Total Revenue": dummyResultsData }
-    );
-  }, [powerCalculationParams]);
+    return {
+      variations,
+      duration: 3,
+      power: 0.8,
+      ...dummyResultsData(powerCalculationParams.metrics),
+    };
+  }, [powerCalculationParams, variations]);
 
   return (
     <>
@@ -113,9 +68,19 @@ const PowerCalculationPage = (): React.ReactElement => {
         />
       )}
       {powerCalculationParams === undefined && (
-        <EmptyPowerCalculation setShowModal={setShowModal} />
+        <EmptyPowerCalculation showModal={() => setShowModal(true)} />
       )}
-      {results && JSON.stringify(results, null, 2)}
+      {results && (
+        <PowerCalculationContent
+          results={results}
+          clear={() => setPowerCalculationParams(undefined)}
+          updateVariations={setVariations}
+          showModal={() => {
+            setPowerCalculationParams(undefined);
+            setShowModal(true);
+          }}
+        />
+      )}
     </>
   );
 };

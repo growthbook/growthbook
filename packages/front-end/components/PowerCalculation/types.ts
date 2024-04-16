@@ -1,14 +1,20 @@
-interface MetricParams {
-  name: string;
-  effectSize: number;
-  mean: number;
-  standardDeviation: number;
-}
+export type MetricParams =
+  | {
+      type: "mean";
+      name: string;
+      effect: number;
+      mean: number;
+      standardDeviation: number;
+    }
+  | {
+      type: "binomial";
+      name: string;
+      effect: number;
+      conversionRate: number;
+    };
 
 export interface PowerCalculationParams {
   metrics: { [id: string]: MetricParams };
-  effectSize: number;
-  conversionRate: number;
   usersPerDay: number;
 }
 
@@ -26,53 +32,53 @@ const validEntry = (v: number | undefined) =>
   v !== undefined && !isNaN(v) && 0 < v;
 
 export const isValidPowerCalculationParams = (
-  v: PartialPowerCalculationParams
+  v: PartialPowerCalculationParams,
 ): v is PowerCalculationParams =>
-  ["effectSize", "conversionRate", "usersPerDay"].every((k) =>
-    validEntry(v[k])
-  ) &&
+  validEntry(v.usersPerDay) &&
   Object.keys(v.metrics).every((key) => {
     const params = v.metrics[key];
     if (!params) return false;
-    return ["effectSize", "mean", "standardDeviation"].every((k) =>
-      validEntry(params[k])
-    );
+    return [
+      "effect",
+      ...(params.type === "binomial"
+        ? ["conversionRate"]
+        : ["mean", "standardDeviation"]),
+    ].every((k) => validEntry(params[k]));
   });
 
 export const ensureAndReturnPowerCalculationParams = (
-  v: PartialPowerCalculationParams
+  v: PartialPowerCalculationParams,
 ): PowerCalculationParams => {
   if (!isValidPowerCalculationParams(v)) throw "internal error";
   return v;
 };
 
 interface SampleSizeAndRuntime {
+  name: string;
   effect: number;
   users: number;
   days: number;
-  type: "mean" | "proportion";
+  type: "mean" | "binomial";
 }
 
-interface MinimumDetectableEffectOverTime {
-  type: "mean" | "proportion";
-  weeks: {
-    users: number;
-    effect: number;
-  }[];
-}
-
-interface PowerOverTime {
-  type: "mean" | "proportion";
-  weeks: {
-    users: number;
-    power: number;
-  }[];
+interface Week {
+  users: number;
+  metrics: {
+    [id: string]: {
+      name: string;
+      type: "mean" | "binomial";
+      effect: number;
+      power: number;
+    };
+  };
 }
 
 export type PowerCalculationResults = {
-  [name: string]: {
-    sampleSizeAndRuntime: SampleSizeAndRuntime;
-    minimumDetectableEffectOverTime: MinimumDetectableEffectOverTime;
-    powerOverTime: PowerOverTime;
+  variations: number;
+  duration: number;
+  power: number;
+  sampleSizeAndRuntime: {
+    [id: string]: SampleSizeAndRuntime;
   };
+  weeks: Week[];
 };
