@@ -15,7 +15,7 @@ function LanguageOption({
 }) {
   return (
     <div
-      className={`cursor-pointer border rounded mr-2 mb-2 ${
+      className={`btn hover-highlight cursor-pointer border rounded mr-2 mb-2 ${
         selected.has(language) ? "bg-light" : ""
       }`}
       style={{
@@ -115,9 +115,9 @@ export default function SDKLanguageSelector({
         {backEnd.length > 0 && (
           <div className="col-auto">
             {renderLabels && (
-              <small>
+              <div className="small">
                 <strong>Back-end</strong>
-              </small>
+              </div>
             )}
             <div className="d-flex flex-wrap">
               {backEnd.map((l) => (
@@ -135,9 +135,9 @@ export default function SDKLanguageSelector({
         {frontEnd.length > 0 && (
           <div className="col-auto">
             {renderLabels && (
-              <small>
+              <div className="small">
                 <strong>Front-end</strong>
-              </small>
+              </div>
             )}
             <div className="d-flex align-items-center">
               {frontEnd.map((l) => (
@@ -155,9 +155,9 @@ export default function SDKLanguageSelector({
         {mobile.length > 0 && (
           <div className="col-auto">
             {renderLabels && (
-              <small>
+              <div className="small">
                 <strong>Mobile</strong>
-              </small>
+              </div>
             )}
             <div className="d-flex">
               {mobile.map((l) => (
@@ -175,9 +175,9 @@ export default function SDKLanguageSelector({
         {edge.length > 0 && (
           <div className="col-auto">
             {renderLabels && (
-              <small>
+              <div className="small">
                 <strong>Edge</strong>
-              </small>
+              </div>
             )}
             <div className="d-flex">
               {edge.map((l) => (
@@ -195,9 +195,9 @@ export default function SDKLanguageSelector({
         {nocode.length > 0 && (
           <div className="col-auto">
             {renderLabels && (
-              <small>
+              <div className="small">
                 <strong>No/Low Code Platform</strong>
-              </small>
+              </div>
             )}
             <div className="d-flex">
               {nocode.map((l) => (
@@ -215,9 +215,9 @@ export default function SDKLanguageSelector({
         {includeOther && (!limitLanguages || limitLanguages.includes("other")) && (
           <div className="col-auto">
             {renderLabels && (
-              <small>
+              <div className="small">
                 <strong>Other</strong>
-              </small>
+              </div>
             )}
             <LanguageOption
               language={"other"}
