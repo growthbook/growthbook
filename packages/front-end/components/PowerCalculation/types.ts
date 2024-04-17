@@ -38,22 +38,50 @@ export type PartialPowerCalculationParams = Partial<
   };
 };
 
-const validEntry = (v: number | undefined) =>
-  v !== undefined && !isNaN(v) && 0 < v;
+export const config = {
+  usersPerDay: {
+    title: "Users Per Day",
+    isPercent: false,
+    canBeNegative: false,
+  },
+  effectSize: { title: "Effect Size", isPercent: true, canBeNegative: false },
+  mean: { title: "Mean", isPercent: false, canBeNegative: true },
+  standardDeviation: {
+    title: "Standard Deviation",
+    isPercent: false,
+    canBeNegative: false,
+  },
+  conversionRate: {
+    title: "Conversion Rate",
+    isPercent: true,
+    canBeNegative: false,
+  },
+} as const;
+
+const validEntry = (name: keyof typeof config, v: number | undefined) => {
+  if (v === undefined) return false;
+  if (isNaN(v)) return false;
+
+  if (config[name].isPercent) if (v < 0 || 1 < v) return false;
+
+  if (config[name].canBeNegative) return true;
+
+  return 0 <= v;
+};
 
 export const isValidPowerCalculationParams = (
   v: PartialPowerCalculationParams
 ): v is FullModalPowerCalculationParams =>
-  validEntry(v.usersPerDay) &&
+  validEntry("usersPerDay", v.usersPerDay) &&
   Object.keys(v.metrics).every((key) => {
     const params = v.metrics[key];
     if (!params) return false;
-    return [
-      "effect",
+    return ([
+      "effectSize",
       ...(params.type === "binomial"
-        ? ["conversionRate"]
-        : ["mean", "standardDeviation"]),
-    ].every((k) => validEntry(params[k]));
+        ? (["conversionRate"] as const)
+        : (["mean", "standardDeviation"] as const)),
+    ] as const).every((k) => validEntry(k, params[k]));
   });
 
 export const ensureAndReturnPowerCalculationParams = (

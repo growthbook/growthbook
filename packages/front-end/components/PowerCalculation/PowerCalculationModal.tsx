@@ -8,6 +8,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ensureAndReturn } from "@/types/utils";
 import {
+  config,
   isValidPowerCalculationParams,
   ensureAndReturnPowerCalculationParams,
   MetricParams,
@@ -129,21 +130,6 @@ const SelectStep = ({
     </Modal>
   );
 };
-
-const config = {
-  effectSize: { title: "Effect Size", isPercent: true, canBeNegative: false },
-  mean: { title: "Mean", isPercent: false, canBeNegative: true },
-  standardDeviation: {
-    title: "Standard Deviation",
-    isPercent: false,
-    canBeNegative: false,
-  },
-  conversionRate: {
-    title: "Conversion Rate",
-    isPercent: true,
-    canBeNegative: false,
-  },
-} as const;
 
 const InputField = ({
   entry,
