@@ -32,7 +32,7 @@ const AnalysisSettings = ({
   );
 
   const isValidCurrentVariations =
-    MIN_VARIATIONS < currentVariations && currentVariations <= MAX_VARIATIONS;
+    MIN_VARIATIONS <= currentVariations && currentVariations <= MAX_VARIATIONS;
 
   return (
     <div className="row card gsbox mb-3 border">
