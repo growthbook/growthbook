@@ -58,6 +58,7 @@ export default function EditDefaultValueModal({
       })}
       close={close}
       open={true}
+      size={feature.valueType === "json" ? "lg" : "md"}
     >
       <div className="alert alert-info">
         Changes here will be added to a draft revision. You will have a chance

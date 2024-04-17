@@ -9,7 +9,7 @@ import React, { useState } from "react";
 import Ajv from "ajv";
 import dJSON from "dirty-json";
 import stringify from "json-stringify-pretty-compact";
-import { simpleToJSONSchema } from "shared/util";
+import { inferSimpleSchemaFromValue, simpleToJSONSchema } from "shared/util";
 import { FaAngleDown, FaAngleRight, FaTimes } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
@@ -20,6 +20,7 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { GBAddCircle } from "@/components/Icons";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 
 export interface Props {
   feature: FeatureInterface;
@@ -278,7 +279,6 @@ function EditSimpleSchema({
             {schema.fields.map((field, i) => (
               <div className="appbox mb-2 bg-light" key={i}>
                 <div className="d-flex align-items-center">
-                  <div></div>
                   <h3
                     className="mb-0"
                     onClick={(e) => {
@@ -306,6 +306,34 @@ function EditSimpleSchema({
                       {field.key ? field.key : "New Property"}
                     </span>
                   </h3>
+                  {!expandedFields.has(i) && (
+                    <div className="mx-2 text-muted">
+                      {field.type}{" "}
+                      {field.type !== "boolean" && field.enum.length ? (
+                        <>
+                          (One of:{" "}
+                          <OverflowText maxWidth={400}>
+                            {field.enum.map((v) => (
+                              <span
+                                className="badge badge-light border mr-1"
+                                key={v}
+                              >
+                                {v}
+                              </span>
+                            ))}
+                          </OverflowText>
+                          )
+                        </>
+                      ) : field.type === "string" ? (
+                        `(${field.min} - ${field.max} chars)`
+                      ) : ["integer", "float"].includes(field.type) ? (
+                        `(${field.min} to ${field.max})`
+                      ) : (
+                        ""
+                      )}
+                      {!field.required ? " (Optional)" : ""}
+                    </div>
+                  )}
                   <button
                     className="btn btn-link text-secondary ml-auto"
                     title="Delete Property"
@@ -381,12 +409,20 @@ function EditSimpleSchema({
 }
 
 export default function EditSchemaModal({ feature, close, mutate }: Props) {
+  const defaultSimpleSchema = feature.jsonSchema?.simple?.fields?.length
+    ? feature.jsonSchema.simple
+    : inferSimpleSchemaFromValue(feature.defaultValue);
+
+  const defaultJSONSchema = feature.jsonSchema?.schema || "{}";
+
+  const defaultSchemaType = defaultJSONSchema !== "{}" ? "schema" : "simple";
+
   const form = useForm<Omit<JSONSchemaDef, "date">>({
     defaultValues: {
-      schemaType: feature?.jsonSchema?.schemaType || "schema",
-      simple: feature?.jsonSchema?.simple || { type: "object", fields: [] },
-      schema: feature?.jsonSchema?.schema || "{}",
-      enabled: feature?.jsonSchema?.enabled ?? true,
+      schemaType: defaultSchemaType,
+      simple: defaultSimpleSchema,
+      schema: defaultJSONSchema,
+      enabled: feature.jsonSchema?.enabled ?? true,
     },
   });
   const { apiCall } = useAuth();
@@ -395,6 +431,7 @@ export default function EditSchemaModal({ feature, close, mutate }: Props) {
     <Modal
       header="Edit Feature Validation"
       cta="Save"
+      size="lg"
       submit={form.handleSubmit(async (value) => {
         if (value.enabled && value.schemaType === "schema") {
           // make sure the json schema is valid json schema
@@ -472,7 +509,18 @@ export default function EditSchemaModal({ feature, close, mutate }: Props) {
               },
             ]}
             value={form.watch("schemaType")}
-            setValue={(v) => form.setValue("schemaType", v)}
+            setValue={(v) => {
+              form.setValue("schemaType", v);
+
+              if (v === "schema" && form.watch("schema") === "{}") {
+                try {
+                  const schemaString = simpleToJSONSchema(form.watch("simple"));
+                  form.setValue("schema", stringify(JSON.parse(schemaString)));
+                } catch (e) {
+                  // Ignore errors, we just want to set the default value
+                }
+              }
+            }}
           />
           {form.watch("schemaType") === "simple" ? (
             <EditSimpleSchema

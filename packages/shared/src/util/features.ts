@@ -1123,3 +1123,153 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
       throw new Error("Invalid simple schema type");
   }
 }
+
+export function inferSchemaField(
+  value: unknown,
+  key: string,
+  existing?: SchemaField
+): undefined | SchemaField {
+  if (value == null) {
+    return existing;
+  }
+
+  let type: SchemaField["type"];
+  let min = existing?.min || 0;
+  let max = existing?.max || 0;
+  switch (typeof value) {
+    case "string":
+      type = "string";
+      max = Math.max(max || 64, value.length);
+      break;
+    case "boolean":
+      type = "boolean";
+      break;
+    case "number":
+      type = Number.isInteger(value) ? "integer" : "float";
+      if (value < 0) {
+        min = Math.min(min || -999, value);
+      }
+      max = Math.max(max || 999, value);
+      break;
+    default:
+      throw new Error(`Invalid value type: ${typeof value}`);
+  }
+
+  if (existing?.type && type !== existing?.type) {
+    // Where there's a mix of integers and floats, use float
+    if (type === "float" && existing.type === "integer") {
+      type = "float";
+    } else if (type === "integer" && existing.type === "float") {
+      type = "float";
+    }
+    // Any other mixing of types is an error
+    else {
+      throw new Error("Conflicting types");
+    }
+  }
+
+  return {
+    key,
+    type,
+    required: true,
+    enum: [],
+    min,
+    max,
+    default: "",
+    description: "",
+  };
+}
+
+export function inferSchemaFields(
+  obj: Record<string, unknown>,
+  existing?: Map<string, SchemaField>
+): Map<string, SchemaField> {
+  const fields = existing || new Map<string, SchemaField>();
+  for (const key in obj) {
+    const value = obj[key];
+    const existingField = fields.get(key);
+
+    // If there are existing fields, but this field is new, mark it as not required
+    const newField = !!(existing && !existingField);
+
+    const field = inferSchemaField(value, key, existingField);
+    if (field) {
+      if (newField) field.required = false;
+      fields.set(key, field);
+    }
+  }
+
+  // If there are fields that are no longer present, mark them as not required
+  const currentKeys = Object.keys(obj);
+  for (const key of fields.keys()) {
+    if (!currentKeys.includes(key)) {
+      const field = fields.get(key);
+      if (field) {
+        field.required = false;
+      }
+    }
+  }
+
+  return fields;
+}
+
+export function inferSimpleSchemaFromValue(rawValue: string): SimpleSchema {
+  try {
+    const value = JSON.parse(rawValue);
+
+    if (value == null) {
+      throw new Error("Unable to convert null or undefined value to schema");
+    }
+    if (typeof value === "object") {
+      // Array of primitives or objects
+      if (Array.isArray(value)) {
+        // Don't have much to go on here, but assume it's an array of objects
+        if (value.length === 0 || value[0] == null) {
+          return { type: "object[]", fields: [] };
+        }
+
+        // Array of primitives
+        if (typeof value[0] !== "object") {
+          // TODO: loop through all values and make sure the types are consistent
+          const field = inferSchemaField(value[0], "");
+
+          return {
+            type: "primitive[]",
+            fields: field ? [field] : [],
+          };
+        }
+
+        // Loop through all values and infer the schema
+        let fields: undefined | Map<string, SchemaField> = undefined;
+        for (const obj of value) {
+          if (!obj || typeof obj !== "object" || Array.isArray(obj)) {
+            throw new Error("Array must contain objects");
+          }
+          fields = inferSchemaFields(obj as Record<string, unknown>, fields);
+        }
+
+        return {
+          type: "object[]",
+          fields: fields ? Array.from(fields.values()) : [],
+        };
+      }
+
+      // Non-array object
+      const fields = inferSchemaFields(value as Record<string, unknown>);
+      return {
+        type: "object",
+        fields: Array.from(fields.values()),
+      };
+    }
+
+    // Primitive
+    const field = inferSchemaField(value, "");
+    if (!field) {
+      throw new Error("Unable to infer schema from value");
+    }
+    return { type: "primitive", fields: [field] };
+  } catch (e) {
+    // Fall back to a generic schema
+    return { type: "object", fields: [] };
+  }
+}
