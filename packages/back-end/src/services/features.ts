@@ -1,12 +1,12 @@
 import { webcrypto as crypto } from "node:crypto";
-import { createHash, randomUUID } from "crypto";
+import { createHash } from "crypto";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import { orgHasPremiumFeature } from "enterprise";
 import {
-  FeatureRule as FeatureDefinitionRule,
   AutoExperiment,
+  FeatureRule as FeatureDefinitionRule,
   GrowthBook,
   ParentConditionInterface,
 } from "@growthbook/growthbook";
@@ -30,15 +30,15 @@ import {
   FeatureDefinitionWithProject,
 } from "../../types/api";
 import {
+  ExperimentRefRule,
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
+  FeaturePrerequisite,
   FeatureRule,
+  FeatureTestResult,
   ForceRule,
   RolloutRule,
-  FeatureTestResult,
-  ExperimentRefRule,
-  FeaturePrerequisite,
 } from "../../types/feature";
 import { getAllFeatures } from "../models/FeatureModel";
 import {
@@ -198,7 +198,6 @@ export function generateAutoExperimentsPayload({
 
       const exp: AutoExperimentWithProject = {
         key: e.trackingKey,
-        uid: randomUUID(),
         status: e.status,
         project: e.project,
         variations: e.variations.map((v) => {
@@ -266,6 +265,9 @@ export function generateAutoExperimentsPayload({
       if (data.type === "redirect" && data.urlRedirect.persistQueryString) {
         exp.persistQueryString = true;
       }
+
+      // Deterministic hash based on the contents of the object
+      exp.expHash = sha256(JSON.stringify(exp), "");
 
       return exp;
     }
@@ -469,6 +471,26 @@ async function getFeatureDefinitionsResponse({
       }
     }
   }
+
+  // Generate any just-in-time fields
+  experiments = experiments?.map((exp) => {
+    if (!exp.changeType) {
+      if (
+        exp.urlPatterns &&
+        exp.variations.some((variation) => {
+          return variation.urlRedirect;
+        })
+      ) {
+        exp.changeType = "redirect";
+      } else {
+        exp.changeType = "visual";
+      }
+    }
+    if (!exp.expHash) {
+      exp.expHash = sha256(JSON.stringify(exp), "");
+    }
+    return exp;
+  });
 
   // Filter list of features/experiments to the selected projects
   if (projects && projects.length > 0) {
