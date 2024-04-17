@@ -664,6 +664,9 @@ async function updateLicenseFromServer(
       logger.error(`Error creating mongo cache: ${e}`);
       throw e;
     });
+    verifyLicenseInterface(license);
+    keyToLicenseData[licenseKey] = license;
+    keyToCacheDate[licenseKey] = new Date();
     throw e;
   }
   return license;

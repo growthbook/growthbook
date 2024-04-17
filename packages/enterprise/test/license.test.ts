@@ -690,7 +690,11 @@ describe("src/license", () => {
           });
 
           it("should throw error if the license server is down and there is no cached data in LicenseModel", async () => {
-            await licenseInit(licenseKey, userLicenseCodes, metaData);
+            await expect(async () => {
+              await licenseInit(licenseKey, userLicenseCodes, metaData);
+            }).rejects.toThrowError(
+              "License server errored with: internal server error"
+            );
             expect(getLicense(licenseKey)).toEqual({
               firstFailedFetchDate: now,
               id: "license_19exntswvlosvp1d6",
@@ -699,14 +703,6 @@ describe("src/license", () => {
               lastFailedFetchDate: now,
               usingMongoCache: true,
             });
-          });
-
-          it("should throw an error if the license server is down and force refresh is true", async () => {
-            expect(
-              licenseInit(licenseKey, userLicenseCodes, metaData, true)
-            ).rejects.toThrowError(
-              "License server errored with: internal server error"
-            );
           });
         });
 
@@ -722,10 +718,38 @@ describe("src/license", () => {
             };
             jest
               .spyOn(LicenseModel, "findOne")
-              .mockResolvedValue(previousCache);
+              .mockResolvedValue(cloneDeep(previousCache));
           });
 
-          it("should return cache from LicenseModel if the license server is down and a cache exists in licenseModel that is less than 7 days and save the failures in the mongo cache", async () => {
+          it("should throw an error if force refresh is true and save the failures in the mongo cache", async () => {
+            await expect(async () => {
+              await licenseInit(licenseKey, userLicenseCodes, metaData, true);
+            }).rejects.toThrowError(
+              "License server errored with: internal server error"
+            );
+
+            const expectedLicense = {
+              ...previousCache,
+              usingMongoCache: true,
+              firstFailedFetchDate: new Date(now),
+              lastFailedFetchDate: new Date(now),
+              lastServerErrorMessage:
+                "License server errored with: internal server error",
+            };
+
+            expect(LicenseModel.findOneAndUpdate).toHaveBeenCalledTimes(1);
+            expect(LicenseModel.findOneAndUpdate).toHaveBeenCalledWith(
+              { id: licenseKey },
+              {
+                $set: expectedLicense,
+              },
+              { upsert: true }
+            );
+
+            expect(getLicense(licenseKey)).toEqual(expectedLicense);
+          });
+
+          it("should fetch in the background and return cache from LicenseModel if a cache exists in licenseModel that is between 2 and 7 days and save the failures in the mongo cache", async () => {
             const firstCallTime = now.getTime() + 2 * 24 * 60 * 60 * 1000;
             jest.setSystemTime(firstCallTime);
 
@@ -789,7 +813,11 @@ describe("src/license", () => {
             const callTime = now.getTime() + 8 * 24 * 60 * 60 * 1000;
             jest.setSystemTime(callTime);
 
-            await licenseInit(licenseKey, userLicenseCodes, metaData);
+            await expect(async () => {
+              await licenseInit(licenseKey, userLicenseCodes, metaData, true);
+            }).rejects.toThrowError(
+              "License server errored with: internal server error"
+            );
 
             expect(getLicense(licenseKey)).toEqual({
               ...previousCache,
