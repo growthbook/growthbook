@@ -1,12 +1,18 @@
 import Link from "next/link";
 import { useState } from "react";
+import clsx from "clsx";
 import { PowerCalculationResults } from "@/components/PowerCalculation/types";
 import { ensureAndReturn } from "@/types/utils";
+import { GBHeadingArrowLeft } from "@/components/Icons";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 2,
 });
+
+const numberFormatter = Intl.NumberFormat("en-US");
+
+const MAX_VARIATIONS = 12;
 
 const AnalysisSettings = ({
   results,
@@ -18,6 +24,9 @@ const AnalysisSettings = ({
   const [currentVariations, setCurrentVariations] = useState(
     results.variations
   );
+
+  const isValidCurrentVariations =
+    0 < currentVariations && currentVariations <= MAX_VARIATIONS;
 
   return (
     <div className="row card gsbox mb-3 border">
@@ -37,25 +46,39 @@ const AnalysisSettings = ({
           </div>
         </div>
         <div className="vr"></div>
-        <div className="col-4 align-self-end">
+        <div className="col-4 align-self-end mb-4">
           <div className="font-weight-bold mb-2"># of Variations</div>
-          <div className="form-group pb-3">
-            <div className="d-inline pr-3">
-              <input
-                type="number"
-                className="form-control w-50 d-inline"
-                value={currentVariations}
-                onChange={(e) => setCurrentVariations(Number(e.target.value))}
-              />
-            </div>
+          <div className="form-group d-flex mb-0 flex-row">
+            <input
+              type="number"
+              className={clsx(
+                "form-control w-50 mr-2",
+                !isValidCurrentVariations && "border border-danger"
+              )}
+              value={currentVariations}
+              onChange={(e) => setCurrentVariations(Number(e.target.value))}
+            />
             <button
-              disabled={currentVariations === results.variations}
+              disabled={
+                currentVariations === results.variations ||
+                !isValidCurrentVariations
+              }
               onClick={() => updateVariations(currentVariations)}
               className="btn border border-primary text-primary"
             >
               Update
             </button>
           </div>
+          <small
+            className={clsx(
+              "form-text text-muted",
+              isValidCurrentVariations && "invisible"
+            )}
+          >
+            <div className="text-danger">
+              Enter a value between 0 - {MAX_VARIATIONS}
+            </div>
+          </small>
         </div>
       </div>
     </div>
@@ -65,9 +88,7 @@ const AnalysisSettings = ({
 const MetricLabel = ({ name, type }: { name: string; type: string }) => (
   <>
     <div className="font-weight-bold">{name}</div>
-    <div className="text-muted font-italic">
-      {type === "binomial" ? "Proportion" : "Mean"}
-    </div>
+    <div className="small">{type === "binomial" ? "Proportion" : "Mean"}</div>
   </>
 );
 
@@ -85,11 +106,8 @@ const SampleSizeAndRuntime = ({
           variations.
         </p>
 
-        <table className="table gbtable table-hover appbox">
-          <thead
-            className="sticky-top bg-white shadow-sm"
-            style={{ top: "56px", zIndex: 900 }}
-          >
+        <table className="table">
+          <thead>
             <tr>
               <th>Metric</th>
               <th>Effect Size</th>
@@ -109,7 +127,8 @@ const SampleSizeAndRuntime = ({
                   </td>
                   <td>{percentFormatter.format(effect)}</td>
                   <td>
-                    {days} days; {users} users
+                    {numberFormatter.format(days)} days;{" "}
+                    {numberFormatter.format(users)} users
                   </td>
                 </tr>
               );
@@ -150,17 +169,16 @@ const MinimumDetectableEffect = ({
         <span className="font-weight-bold">3 weeks</span>.
       </p>
 
-      <table className="table gbtable table-hover appbox">
-        <thead
-          className="sticky-top bg-white shadow-sm"
-          style={{ top: "56px", zIndex: 900 }}
-        >
+      <table className="table">
+        <thead>
           <tr>
             <th>Metric</th>
             {weeks.map(({ users }, idx) => (
               <th key={idx}>
                 <div className="font-weight-bold">Week {idx + 1}</div>
-                <span>{users} Users</span>
+                <span className="small">
+                  {numberFormatter.format(users)} Users
+                </span>
               </th>
             ))}
           </tr>
@@ -172,7 +190,9 @@ const MinimumDetectableEffect = ({
                 <MetricLabel {...weeks[0]?.metrics[id]} />
               </td>
               {weeks.map(({ metrics }) => (
-                <td key={id}>{metrics[id]?.effect}</td>
+                <td key={id}>
+                  {percentFormatter.format(ensureAndReturn(metrics[id]).effect)}
+                </td>
               ))}
             </tr>
           ))}
@@ -198,17 +218,16 @@ const PowerOverTime = ({
         <span className="font-weight-bold">3 weeks</span>.
       </p>
 
-      <table className="table gbtable table-hover appbox">
-        <thead
-          className="sticky-top bg-white shadow-sm"
-          style={{ top: "56px", zIndex: 900 }}
-        >
+      <table className="table">
+        <thead>
           <tr>
             <th>Metric</th>
             {weeks.map(({ users }, idx) => (
               <th key={idx}>
                 <div className="font-weight-bold">Week {idx + 1}</div>
-                <span>{users} Users</span>
+                <span className="small">
+                  {numberFormatter.format(users)} Users
+                </span>
               </th>
             ))}
           </tr>
@@ -220,7 +239,9 @@ const PowerOverTime = ({
                 <MetricLabel {...weeks[0]?.metrics[id]} />
               </td>
               {weeks.map(({ metrics }) => (
-                <td key={id}>{metrics[id]?.power}</td>
+                <td key={id}>
+                  {percentFormatter.format(ensureAndReturn(metrics[id]).power)}
+                </td>
               ))}
             </tr>
           ))}
@@ -268,6 +289,9 @@ export default function PowerCalculationContent({
             onClick={() => showModal()}
             type="button"
           >
+            <span className="h4 pr-2 m-0 d-inline-block align-top">
+              <GBHeadingArrowLeft />
+            </span>
             New Calculation
           </button>
         </div>
