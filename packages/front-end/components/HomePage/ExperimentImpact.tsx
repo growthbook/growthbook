@@ -7,7 +7,7 @@ import {
   ExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
-import { FaArrowDown, FaArrowUp } from "react-icons/fa";
+import { FaArrowDown, FaArrowUp, FaExclamationTriangle } from "react-icons/fa";
 import { useForm } from "react-hook-form";
 import clsx from "clsx";
 import { MdInfoOutline } from "react-icons/md";
@@ -60,21 +60,21 @@ type ExperimentImpactFilters = {
 };
 
 type ExperimentImpact = {
-  endDate: Date;
   inSample: boolean;
   variations: {
     scaledImpact: number;
     scaledImpactAdjusted?: number;
-    se?: number;
+    se: number;
     selected: boolean;
   }[];
 };
 
 type ExperimentWithImpact = {
   keyVariationId?: number;
-  impact?: ExperimentImpact;
+  impact: ExperimentImpact;
   type: ExperimentImpactType;
   experiment: ExperimentInterfaceStringDates;
+  error?: string;
 };
 
 type ExperimentImpactType = "winner" | "loser" | "other";
@@ -120,7 +120,7 @@ export default function ExperimentImpact({
       endDate: "",
       projects: [],
       metric: settings.northStar?.metricIds?.[0] ?? "",
-      adjusted: true,
+      adjusted: false,
     },
   });
 
@@ -280,23 +280,22 @@ export default function ExperimentImpact({
         (selectedProjects.includes(e.project ?? "") ||
           !selectedProjects.length);
 
-      // if we can't compute scaled impact, don't include in summary
-      const inSample = !!s && fitsFilters;
-
       const summary =
-        e.results === "won" && !!e.winner
+        e.results === "won" && !!e.winner && e.status === "stopped"
           ? "winner"
-          : e.results === "lost"
+          : e.results === "lost" && e.status === "stopped"
           ? "loser"
           : "other";
 
-      const ei: ExperimentWithImpact = { experiment: e, type: summary };
+      if (fitsFilters) {
+        console.dir(s, { depth: 3 })
+      }
+      const ei: ExperimentWithImpact = { experiment: e, type: summary, impact: {
+        inSample: fitsFilters,
+        variations: [],
+      }};
+
       if (s) {
-        const obj: ExperimentImpact = {
-          endDate: s.settings.endDate,
-          inSample: inSample,
-          variations: [],
-        };
         const defaultSettings = getSnapshotAnalysis(s)?.settings;
         const scaledAnalysis = defaultSettings
           ? getSnapshotAnalysis(s, {
@@ -315,7 +314,7 @@ export default function ExperimentImpact({
             if (i !== 0) {
               const se = v?.metrics[metric]?.uplift?.stddev ?? 0;
               const impact = v?.metrics[metric]?.expected ?? 0;
-              obj.variations.push({
+              ei.impact.variations.push({
                 scaledImpact: impact,
                 selected: e.winner === i,
                 se: se,
@@ -329,14 +328,18 @@ export default function ExperimentImpact({
               }
             }
           });
+        } else {
+          ei.error = "No snapshot with scaled impact available.";
         }
-        ei.impact = obj;
+      } else {
+        ei.error = "No snapshot with results available.";
       }
       experimentImpacts.set(e.id, ei);
     });
 
     const adjustment = jamesSteinAdjustment(allScaledImpacts, overallSE ?? 0);
 
+    const applyAdjustment = adjusted && nExpsUsedForAdjustment >= 5;
     summaryObj = {
       winners: {
         totalAdjustedImpact: 0,
@@ -364,25 +367,25 @@ export default function ExperimentImpact({
           const adjustedImpact =
             adjustment.mean +
             (1 - adjustment.adjustment) * (v.scaledImpact - adjustment.mean);
-          v.scaledImpactAdjusted = adjusted ? adjustedImpact : v.scaledImpact;
+          v.scaledImpactAdjusted = applyAdjustment ? adjustedImpact : v.scaledImpact;
 
-          if (e.experiment.results === "won" && v.selected) {
+          if (e.type === "winner" && v.selected) {
             e.keyVariationId = vi + 1;
             experimentImpact = v.scaledImpact;
             experimentAdjustedImpact = v.scaledImpactAdjusted;
-            experimentAdjustedImpactStdDev = v.se ?? 0;
-          } else if (e.experiment.results === "lost") {
+            experimentAdjustedImpactStdDev = v.se;
+          } else if (e.type === "loser") {
             // only include biggest loser for "savings"
             if (v.scaledImpact < (experimentImpact ?? Infinity)) {
               e.keyVariationId = vi + 1;
               experimentImpact = v.scaledImpact;
               experimentAdjustedImpact = v.scaledImpactAdjusted;
-              experimentAdjustedImpactStdDev = v.se ?? 0;
+              experimentAdjustedImpactStdDev = v.se;
             }
           }
         });
 
-        if (e.experiment.results === "won") {
+        if (e.type === "winner") {
           summaryObj.winners.totalAdjustedImpact +=
             experimentAdjustedImpact ?? 0;
           summaryObj.winners.totalAdjustedImpactVariance += Math.pow(
@@ -390,7 +393,7 @@ export default function ExperimentImpact({
             2
           );
           summaryObj.winners.experiments.push(e);
-        } else if (e.experiment.results === "lost") {
+        } else if (e.type === "loser") {
           // invert sign of lost impact
           summaryObj.losers.totalAdjustedImpact -=
             experimentAdjustedImpact ?? 0;
@@ -405,9 +408,10 @@ export default function ExperimentImpact({
       }
     }
   }
+
   return (
     <div className="pt-2">
-      <div className="row align-items-start">
+      <div className="row align-items-start mb-4">
         <div className="col-md-12 col-lg-auto">
           <h3 className="mt-2 mb-3 mr-4">Experiment Impact</h3>
         </div>
@@ -445,7 +449,7 @@ export default function ExperimentImpact({
             <Field
               type="date"
               {...form.register("endDate")}
-              helpText={
+              helpText={form.getValues("endDate") !== "" ? (
                 <div style={{ marginRight: -10 }}>
                   <a
                     role="button"
@@ -458,8 +462,8 @@ export default function ExperimentImpact({
                     Clear Input
                   </a>{" "}
                   to include today
-                </div>
-              }
+                </div> 
+  ) : null}
             />
           </div>
         </div>
@@ -474,7 +478,8 @@ export default function ExperimentImpact({
                       "Whether to use the James-Stein shrinkage estimator to compute an adjustment factor to mitigate selection bias from summing only a subset of experiments (e.g. winners)."
                     }
                   </div>
-                  <div>{`To estimate the background variance in treatment effects used for the James-Stein estimator, we use all ${nExpsUsedForAdjustment} experiments that have ever used this metric and for which we can compute scaled impact, regardless of your project or date filters.`}</div>
+
+                  {nExpsUsedForAdjustment >= 5 ? <div>{`To estimate the background variance in treatment effects used for the James-Stein estimator, we use all ${nExpsUsedForAdjustment} experiments that have ever used this metric and for which we can compute scaled impact, regardless of your project or date filters.`}</div>: null}
                 </>
               }
             />
@@ -482,9 +487,11 @@ export default function ExperimentImpact({
           <div className="d-flex pl-3">
             <Toggle
               id="adjust-scaled-impact"
-              className="form-check-input "
+              className="form-check-input"
+              disabled={nExpsUsedForAdjustment < 5}
+              disabledMessage={"Disabled as there are not enough experiments to shrink estimates"}
               setValue={(v) => form.setValue("adjusted", v)}
-              value={adjusted}
+              value={adjusted && nExpsUsedForAdjustment >= 5}
             />
           </div>
         </div>
@@ -525,21 +532,21 @@ export default function ExperimentImpact({
                           className="d-inline-block badge-success rounded-circle mr-1"
                           style={{ width: 10, height: 10 }}
                         />
-                        Winners
+                        Won
                       </th>
                       <th style={{ width: 200 }} className="border-top-0">
                         <div
                           className="d-inline-block badge-danger rounded-circle mr-1"
                           style={{ width: 10, height: 10 }}
                         />
-                        Losers
+                        Lost
                       </th>
                       <th style={{ width: 200 }} className="border-top-0">
                         <div
                           className="d-inline-block badge-secondary rounded-circle mr-1"
                           style={{ width: 10, height: 10 }}
                         />
-                        Others
+                        Other
                       </th>
                     </tr>
                   </thead>
@@ -700,7 +707,7 @@ export default function ExperimentImpact({
             <Tab
               key={"winner"}
               id={"winner"}
-              display={"Winners"}
+              display={"Won"}
               count={summaryObj.winners.experiments.length}
               padding={false}
             >
@@ -715,7 +722,7 @@ export default function ExperimentImpact({
             <Tab
               key={"loser"}
               id={"loser"}
-              display={"Losers"}
+              display={"Lost"}
               count={summaryObj.losers.experiments.length}
               padding={false}
             >
@@ -730,7 +737,7 @@ export default function ExperimentImpact({
             <Tab
               key={"other"}
               id={"other"}
-              display={"Others"}
+              display={"Other"}
               count={summaryObj.others.experiments.length}
               padding={false}
             >
@@ -788,6 +795,7 @@ function ImpactTab({
     const variations: JSX.Element[] = [];
     const impactsScaled: JSX.Element[] = [];
     const impactsTotal: JSX.Element[] = [];
+    if (!e.error) {
     e.experiment.variations.forEach((v, i) => {
       if (i === 0) return;
       if (experimentImpactType !== "other" && i !== e.keyVariationId) return;
@@ -856,6 +864,7 @@ function ImpactTab({
         </div>
       );
     });
+  }
     expRows.push(
       <tr key={e.experiment.id} className="hover-highlight">
         <td>
@@ -882,7 +891,7 @@ function ImpactTab({
         </td>
         <td>
           <div className="d-flex">
-            {e.experiment.results ? (
+            {e.experiment.results && e.experiment.status === "stopped" ? (
               <div
                 className="experiment-status-widget d-inline-block position-relative"
                 style={{ height: 25, lineHeight: "25px", top: 2 }}
@@ -896,9 +905,14 @@ function ImpactTab({
             )}
           </div>
         </td>
+        {e.error ? 
+        <td colSpan={3}><div className="alert alert-danger px-2 py-1 mb-1 ml-1">
+        <FaExclamationTriangle className="mr-1" />
+        No results available. Check experiment results for errors.
+      </div></td> : <>
         <td>{variations}</td>
         <td className="impact-results">{impactsScaled}</td>
-        <td className="impact-results">{impactsTotal}</td>
+        <td className="impact-results">{impactsTotal}</td></>}
       </tr>
     );
   });
