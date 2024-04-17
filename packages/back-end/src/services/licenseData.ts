@@ -65,8 +65,8 @@ export async function getLicenseMetaData() {
 
 export async function initializeLicenseForOrg(
   reqOrg?: OrganizationInterface,
-  newLicenseKey?: string,
-  forceRefresh = false
+  forceRefresh = false,
+  newLicenseKey?: string
 ) {
   let org = reqOrg;
   if (!org) {

@@ -1983,7 +1983,7 @@ async function setLicenseKey(org: OrganizationInterface, licenseKey: string) {
 
   try {
     org.licenseKey = licenseKey;
-    await initializeLicenseForOrg(org, licenseKey, true);
+    await initializeLicenseForOrg(org, true, licenseKey);
   } catch (error) {
     // As we show this error on the front-end, show a more generic invalid license key error
     // if the error is not related to being able to connect to the license server
