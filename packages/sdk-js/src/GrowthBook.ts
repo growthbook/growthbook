@@ -71,6 +71,7 @@ export class GrowthBook<
   private _redirectedUrl: string;
   private _trackedExperiments: Set<string>;
   private _trackedExperimentKeys: Set<string>;
+  private _trackedExperimentHashes: Set<string>;
   private _trackedFeatures: Record<string, string>;
   private _subscriptions: Set<SubscriptionFunction>;
   private _rtQueue: RealtimeUsageData[];
@@ -104,6 +105,7 @@ export class GrowthBook<
     this._renderer = null;
     this._trackedExperiments = new Set();
     this._trackedExperimentKeys = new Set();
+    this._trackedExperimentHashes = new Set();
     this._trackedFeatures = {};
     this.debug = false;
     this._subscriptions = new Set();
@@ -431,8 +433,11 @@ export class GrowthBook<
     return this._trackedFeatures;
   }
 
-  public getTrackedExperiments(): string[] {
-    return Array.from(this._trackedExperimentKeys);
+  public getTrackedExperiments(): { keys: string[]; hashes: string[] } {
+    return {
+      keys: Array.from(this._trackedExperimentKeys),
+      hashes: Array.from(this._trackedExperimentHashes),
+    };
   }
 
   public subscribe(cb: SubscriptionFunction): () => void {
@@ -464,6 +469,7 @@ export class GrowthBook<
     this._assigned.clear();
     this._trackedExperiments.clear();
     this._trackedExperimentKeys.clear();
+    this._trackedExperimentHashes.clear();
     this._trackedFeatures = {};
     this._rtQueue = [];
     if (this._rtTimer) {
@@ -1372,6 +1378,7 @@ export class GrowthBook<
     if (this._trackedExperiments.has(k)) return;
     this._trackedExperiments.add(k);
     this._trackedExperimentKeys.add(key);
+    experiment.expHash && this._trackedExperimentHashes.add(experiment.expHash);
 
     if (!this._ctx.trackingCallback) {
       this._deferredTrackingCalls.push({ experiment, result });
