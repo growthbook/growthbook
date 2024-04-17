@@ -433,11 +433,28 @@ export class GrowthBook<
     return this._trackedFeatures;
   }
 
-  public getTrackedExperiments(): { keys: string[]; hashes: string[] } {
-    return {
-      keys: Array.from(this._trackedExperimentKeys),
-      hashes: Array.from(this._trackedExperimentHashes),
-    };
+  public getTrackedExperiments(): string[] {
+    return Array.from(this._trackedExperimentKeys);
+  }
+
+  public getTrackedExperimentHashes(): string[] {
+    return Array.from(this._trackedExperimentHashes);
+  }
+
+  public getBlockedExperiments(): string[] {
+    return this._ctx.blockedExperiments || [];
+  }
+
+  public setBlockedExperiments(experiments: string[]) {
+    this._ctx.blockedExperiments = experiments;
+  }
+
+  public getBlockedExperimentHashes(): string[] {
+    return this._ctx.blockedExperimentHashes || [];
+  }
+
+  public setBlockedExperimentHashes(experiments: string[]) {
+    this._ctx.blockedExperimentHashes = experiments;
   }
 
   public subscribe(cb: SubscriptionFunction): () => void {
@@ -1035,6 +1052,13 @@ export class GrowthBook<
       return this._getResult(experiment, -1, false, featureId);
     }
 
+    // 2.1 If the experiment is blocked, return immediately
+    if (this._isExperimentBlockedByContext(experiment)) {
+      process.env.NODE_ENV !== "production" &&
+        this.log("Experiment blocked", { id: key });
+      return this._getResult(experiment, -1, false, featureId);
+    }
+
     // 2.5. Merge in experiment overrides from the context
     experiment = this._mergeOverrides(experiment);
 
@@ -1505,6 +1529,21 @@ export class GrowthBook<
     const groups = this._ctx.groups || {};
     for (let i = 0; i < expGroups.length; i++) {
       if (groups[expGroups[i]]) return true;
+    }
+    return false;
+  }
+
+  private _isExperimentBlockedByContext<T>(experiment: Experiment<T>): boolean {
+    const blockedExperiments = this._ctx.blockedExperiments || [];
+    const blockedExperimentHashes = this._ctx.blockedExperimentHashes || [];
+    if (blockedExperiments.includes(experiment.key)) {
+      return true;
+    }
+    if (
+      experiment.expHash &&
+      blockedExperimentHashes.includes(experiment.expHash)
+    ) {
+      return true;
     }
     return false;
   }

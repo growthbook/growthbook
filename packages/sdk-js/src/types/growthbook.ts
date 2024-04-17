@@ -178,6 +178,8 @@ export interface Context {
   features?: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
   forcedVariations?: Record<string, number>;
+  blockedExperiments?: string[];
+  blockedExperimentHashes: string[];
   stickyBucketAssignmentDocs?: Record<
     StickyAttributeKey,
     StickyAssignmentsDocument
