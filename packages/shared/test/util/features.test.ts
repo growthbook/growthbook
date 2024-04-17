@@ -784,11 +784,9 @@ describe("validateFeatureValue", () => {
       feature.valueType = "json";
     });
 
-    it("parses json and returns in string format", () => {
+    it("returns unmodified string when already valid", () => {
       const value = '{ "test": 123 }';
-      expect(validateFeatureValue(feature, value, "testVal")).toEqual(
-        '{"test": 123}'
-      );
+      expect(validateFeatureValue(feature, value, "testVal")).toEqual(value);
     });
 
     it('parses json that is "slightly" invalid', () => {
