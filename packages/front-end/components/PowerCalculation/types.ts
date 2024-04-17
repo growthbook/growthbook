@@ -90,7 +90,7 @@ export type PowerCalculationResults = {
     [id: string]: SampleSizeAndRuntime;
   };
   weeks: Week[];
-  minimumDetectableOverTime?: {
+  minimumDetectableEffectOverTime?: {
     weeks: number;
     effectThreshold: number;
   };
