@@ -15,7 +15,7 @@ const dummyResultsData = (metrics: PowerCalculationParams["metrics"]) => ({
       [id]: {
         type: metrics[id].type,
         name: metrics[id].name,
-        effect: 0.3234,
+        effectSize: 0.3234,
         days: 10,
         users: 12245,
       },
@@ -30,7 +30,7 @@ const dummyResultsData = (metrics: PowerCalculationParams["metrics"]) => ({
         [id]: {
           type: metrics[id].type,
           name: metrics[id].name,
-          effect: 0.3234,
+          effectSize: 0.3234,
           power: 0.8,
         },
       }),
