@@ -9,7 +9,6 @@ import { growthbook } from "@/pages/_app";
 import Modal from "./Modal";
 import Button from "./Button";
 
-// TODO - parameterize this
 const CHROME_EXTENSION_LINK =
   "https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia";
 
@@ -78,27 +77,28 @@ export async function openVisualEditor(
       });
       return { error: "NO_EXTENSION" };
     }
+  }
 
-    try {
-      const res = await apiCall<{ key: string }>("/visual-editor/key", {
-        method: "GET",
-      });
-      const apiKey = res.key;
-      window.postMessage(
-        {
-          type: "GB_REQUEST_OPEN_VISUAL_EDITOR",
-          data: {
-            apiHost,
-            apiKey,
-          },
+  try {
+    const res = await apiCall<{ key: string }>("/visual-editor/key", {
+      method: "GET",
+    });
+    const apiKey = res.key;
+    window.postMessage(
+      {
+        type: "GB_REQUEST_OPEN_VISUAL_EDITOR",
+        data: {
+          apiHost,
+          apiKey,
         },
-        window.location.origin
-      );
-      // Give time for the Chrome extension to receive the API host/key
-      await new Promise((resolve) => setTimeout(resolve, 300));
-    } catch (e) {
-      console.error("Failed to set visual editor key automatically", e);
-    }
+      },
+      window.location.origin
+    );
+
+    // Give time for the Chrome extension to receive the API host/key
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  } catch (e) {
+    console.error("Failed to set visual editor key automatically", e);
   }
 
   track("Open visual editor", {
