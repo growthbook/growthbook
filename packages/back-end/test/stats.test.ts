@@ -1,4 +1,9 @@
-import { checkSrm, powerEst } from "../src/util/stats";
+import {
+  checkSrm,
+  frequentistVariance,
+  powerEst,
+  findMde,
+} from "../src/util/stats";
 
 describe("backend", () => {
   it("calculates SRM correctly", () => {
@@ -31,12 +36,43 @@ describe("backend", () => {
     expect(+checkSrm([500, 500, 600], [0.34, 0.33, 0.33]).toFixed(9)).toEqual(
       0.000592638
     );
-
     // Completely equal
     expect(+checkSrm([500, 500], [0.5, 0.5]).toFixed(9)).toEqual(1);
   });
-  it("calculates power correctly", () => {
-    // Simple 2-way test
-    expect(+powerEst(0.5, 1, 40, 4000, 10, 0.05, true).toFixed(5)).toEqual(17);
+  it("delta method variance absolute correct", () => {
+    expect(+frequentistVariance(2, 7, 4, 0.5, 5, 15, false).toFixed(5)).toEqual(
+      0.53333
+    );
   });
+
+  it("delta method variance relative correct", () => {
+    expect(+frequentistVariance(2, 7, 4, 0.5, 5, 15, true).toFixed(5)).toEqual(
+      0.00589
+    );
+  });
+  it("calculates power correctly", () => {
+    expect(
+      +powerEst(
+        0.0706142187656053,
+        10.0,
+        3909.9997749994377,
+        400000,
+        3,
+        0.05,
+        true
+      ).toFixed(5)
+    ).toEqual(0.80366);
+  });
+  it("calculates two-tailed mde correctly", () => {
+    expect(
+      +findMde(0.8, 10.0, 3909.9997749994377, 400000, 3, 0.05, true).toFixed(5)
+    ).toEqual(0.07061);
+  });
+  //it("calculates sequential power correctly", () => {
+  //  expect(+
+  //    powerEst(
+  //      0.05, 10.0, 3909.9997749994377, 400000, 3, 0.05, true, 5000).toFixed(5)).toEqual(
+  //    0.22615
+  //  );
+  //});
 });
