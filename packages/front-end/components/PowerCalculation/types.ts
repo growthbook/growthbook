@@ -2,24 +2,34 @@ export type MetricParams =
   | {
       type: "mean";
       name: string;
-      effect: number;
+      effectSize: number;
       mean: number;
       standardDeviation: number;
     }
   | {
       type: "binomial";
       name: string;
-      effect: number;
+      effectSize: number;
       conversionRate: number;
     };
 
 export interface PowerCalculationParams {
   metrics: { [id: string]: MetricParams };
+  nVariations: number;
   usersPerDay: number;
+  statsEngine: {
+    type: "frequentist";
+    sequentialTesting: false | number;
+  };
 }
 
+export type FullModalPowerCalculationParams = Omit<
+  PowerCalculationParams,
+  "nVariations" | "statsEngine"
+>;
+
 export type PartialPowerCalculationParams = Partial<
-  Omit<PowerCalculationParams, "metrics">
+  Omit<FullModalPowerCalculationParams, "metrics">
 > & {
   metrics: {
     [id: string]: Partial<Omit<MetricParams, "name">> & {
@@ -33,7 +43,7 @@ const validEntry = (v: number | undefined) =>
 
 export const isValidPowerCalculationParams = (
   v: PartialPowerCalculationParams
-): v is PowerCalculationParams =>
+): v is FullModalPowerCalculationParams =>
   validEntry(v.usersPerDay) &&
   Object.keys(v.metrics).every((key) => {
     const params = v.metrics[key];
@@ -48,14 +58,14 @@ export const isValidPowerCalculationParams = (
 
 export const ensureAndReturnPowerCalculationParams = (
   v: PartialPowerCalculationParams
-): PowerCalculationParams => {
+): FullModalPowerCalculationParams => {
   if (!isValidPowerCalculationParams(v)) throw "internal error";
   return v;
 };
 
 interface SampleSizeAndRuntime {
   name: string;
-  effect: number;
+  effectSize: number;
   users: number;
   days: number;
   type: "mean" | "binomial";
@@ -67,18 +77,25 @@ interface Week {
     [id: string]: {
       name: string;
       type: "mean" | "binomial";
-      effect: number;
+      effectSize: number;
       power: number;
     };
   };
 }
 
 export type PowerCalculationResults = {
-  variations: number;
   duration: number;
   power: number;
   sampleSizeAndRuntime: {
     [id: string]: SampleSizeAndRuntime;
   };
   weeks: Week[];
+  minimumDetectableOverTime?: {
+    weeks: number;
+    effectThreshold: number;
+  };
+  powerOverTime?: {
+    weeks: number;
+    powerThreshold: number;
+  };
 };

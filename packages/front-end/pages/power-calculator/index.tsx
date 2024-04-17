@@ -5,6 +5,7 @@ import PowerCalculationContent from "@/components/PowerCalculation/PowerCalculat
 import {
   PowerCalculationParams,
   PowerCalculationResults,
+  FullModalPowerCalculationParams,
 } from "@/components/PowerCalculation/types";
 
 const dummyResultsData = (metrics: PowerCalculationParams["metrics"]) => ({
@@ -41,7 +42,7 @@ const dummyResultsData = (metrics: PowerCalculationParams["metrics"]) => ({
 const PowerCalculationPage = (): React.ReactElement => {
   const [showModal, setShowModal] = useState(false);
   const [powerCalculationParams, setPowerCalculationParams] = useState<
-    PowerCalculationParams | undefined
+    FullModalPowerCalculationParams | undefined
   >();
   const [variations, setVariations] = useState(2);
 
@@ -49,10 +50,22 @@ const PowerCalculationPage = (): React.ReactElement => {
     if (!powerCalculationParams) return;
 
     return {
-      variations,
       duration: 3,
       power: 0.8,
       ...dummyResultsData(powerCalculationParams.metrics),
+    };
+  }, [powerCalculationParams]);
+
+  const finalParams: PowerCalculationParams | undefined = useMemo(() => {
+    if (!powerCalculationParams) return;
+
+    return {
+      ...powerCalculationParams,
+      nVariations: variations,
+      statsEngine: {
+        type: "frequentist",
+        sequentialTesting: false,
+      },
     };
   }, [powerCalculationParams, variations]);
 
@@ -67,11 +80,12 @@ const PowerCalculationPage = (): React.ReactElement => {
           }}
         />
       )}
-      {powerCalculationParams === undefined && (
+      {finalParams === undefined && (
         <EmptyPowerCalculation showModal={() => setShowModal(true)} />
       )}
-      {results && (
+      {results && finalParams && (
         <PowerCalculationContent
+          params={finalParams}
           results={results}
           clear={() => setPowerCalculationParams(undefined)}
           updateVariations={setVariations}

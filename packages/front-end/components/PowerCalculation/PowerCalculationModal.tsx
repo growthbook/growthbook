@@ -11,13 +11,13 @@ import {
   isValidPowerCalculationParams,
   ensureAndReturnPowerCalculationParams,
   MetricParams,
-  PowerCalculationParams,
+  FullModalPowerCalculationParams,
   PartialPowerCalculationParams,
 } from "./types";
 
 export type Props = {
   close?: () => void;
-  onSuccess: (_: PowerCalculationParams) => void;
+  onSuccess: (_: FullModalPowerCalculationParams) => void;
 };
 
 type Form = UseFormReturn<PartialPowerCalculationParams>;
@@ -87,7 +87,7 @@ const SelectStep = ({
                 ...metrics,
                 [id]: metrics[id] || {
                   name: metric.name,
-                  effect: undefined,
+                  effectSize: undefined,
                   ...(metric.type === "binomial"
                     ? { type: "binomial", conversionRate: undefined }
                     : {
@@ -130,11 +130,19 @@ const SelectStep = ({
   );
 };
 
-const titles = {
-  effect: "Effect Size",
-  mean: "Mean",
-  standardDeviation: "Standard Deviation",
-  conversionRate: "Conversion Rate",
+const config = {
+  effectSize: { title: "Effect Size", isPercent: true, canBeNegative: false },
+  mean: { title: "Mean", isPercent: false, canBeNegative: true },
+  standardDeviation: {
+    title: "Standard Deviation",
+    isPercent: false,
+    canBeNegative: false,
+  },
+  conversionRate: {
+    title: "Conversion Rate",
+    isPercent: true,
+    canBeNegative: false,
+  },
 } as const;
 
 const InputField = ({
@@ -142,19 +150,32 @@ const InputField = ({
   form,
   metricId,
 }: {
-  entry: keyof typeof titles;
+  entry: keyof typeof config;
   form: Form;
   metricId: string;
 }) => {
   const metrics = form.watch("metrics");
   const params = ensureAndReturn(metrics[metricId]);
   const entryValue = params[entry];
-  const isKeyInvalid = entryValue !== undefined && entryValue <= 0;
+  const { title, isPercent, canBeNegative } = config[entry];
+
+  const isKeyInvalid = (() => {
+    if (entryValue === undefined) return false;
+    if (isPercent) return entryValue < 0 || 1 < entryValue;
+    if (canBeNegative) return false;
+    return entryValue < 0;
+  })();
+
+  const helpText = (() => {
+    if (isPercent) return "Must be between 0 and 100";
+    if (canBeNegative) return "Must be a number";
+    return "Must be greater than 0";
+  })();
 
   return (
     <div className="col">
       <Field
-        label={<span className="font-weight-bold mr-1">{titles[entry]}</span>}
+        label={<span className="font-weight-bold mr-1">{title}</span>}
         type="number"
         {...form.register(`metrics.${metricId}.${entry}`, {
           valueAsNumber: true,
@@ -162,7 +183,7 @@ const InputField = ({
         className={clsx("w-50", isKeyInvalid && "border border-danger")}
         helpText={
           isKeyInvalid ? (
-            <div className="text-danger">Must be greater than 0</div>
+            <div className="text-danger">{helpText}</div>
           ) : undefined
         }
       />
@@ -209,7 +230,7 @@ const SetParamsStep = ({
   form: Form;
   close?: () => void;
   onBack: () => void;
-  onSubmit: (_: PowerCalculationParams) => void;
+  onSubmit: (_: FullModalPowerCalculationParams) => void;
 }) => {
   const metrics = form.watch("metrics");
   const metricIds = Object.keys(metrics);

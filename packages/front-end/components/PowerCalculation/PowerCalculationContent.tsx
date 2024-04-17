@@ -1,32 +1,38 @@
 import Link from "next/link";
 import { useState } from "react";
 import clsx from "clsx";
-import { PowerCalculationResults } from "@/components/PowerCalculation/types";
+import {
+  PowerCalculationParams,
+  PowerCalculationResults,
+} from "@/components/PowerCalculation/types";
 import { ensureAndReturn } from "@/types/utils";
 import { GBHeadingArrowLeft } from "@/components/Icons";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
-  maximumFractionDigits: 2,
+  maximumFractionDigits: 0,
 });
 
 const numberFormatter = Intl.NumberFormat("en-US");
 
+const MIN_VARIATIONS = 2;
 const MAX_VARIATIONS = 12;
 
 const AnalysisSettings = ({
+  params,
   results,
   updateVariations,
 }: {
+  params: PowerCalculationParams;
   results: PowerCalculationResults;
   updateVariations: (_: number) => void;
 }) => {
   const [currentVariations, setCurrentVariations] = useState(
-    results.variations
+    params.nVariations
   );
 
   const isValidCurrentVariations =
-    0 < currentVariations && currentVariations <= MAX_VARIATIONS;
+    MIN_VARIATIONS < currentVariations && currentVariations <= MAX_VARIATIONS;
 
   return (
     <div className="row card gsbox mb-3 border">
@@ -34,7 +40,7 @@ const AnalysisSettings = ({
         <div className="col-7">
           <h2>Analysis Settings</h2>
           <p>
-            {results.variations} Variations · Frequentist (Sequential Testing
+            {params.nVariations} Variations · Frequentist (Sequential Testing
             enabled) · <Link href="#">Edit</Link>
           </p>
           <div className="alert alert-info w-75">
@@ -60,7 +66,7 @@ const AnalysisSettings = ({
             />
             <button
               disabled={
-                currentVariations === results.variations ||
+                currentVariations === params.nVariations ||
                 !isValidCurrentVariations
               }
               onClick={() => updateVariations(currentVariations)}
@@ -76,7 +82,7 @@ const AnalysisSettings = ({
             )}
           >
             <div className="text-danger">
-              Enter a value between 0 - {MAX_VARIATIONS}
+              Enter a value between {MIN_VARIATIONS} - {MAX_VARIATIONS}
             </div>
           </small>
         </div>
@@ -116,7 +122,7 @@ const SampleSizeAndRuntime = ({
           </thead>
           <tbody>
             {Object.keys(sampleSizeAndRuntime).map((id) => {
-              const { type, users, days, effect, name } = ensureAndReturn(
+              const { type, users, days, effectSize, name } = ensureAndReturn(
                 sampleSizeAndRuntime[id]
               );
 
@@ -125,7 +131,7 @@ const SampleSizeAndRuntime = ({
                   <td>
                     <MetricLabel name={name} type={type} />
                   </td>
-                  <td>{percentFormatter.format(effect)}</td>
+                  <td>{numberFormatter.format(effectSize)}</td>
                   <td>
                     {numberFormatter.format(days)} days;{" "}
                     {numberFormatter.format(users)} users
@@ -191,7 +197,9 @@ const MinimumDetectableEffect = ({
               </td>
               {weeks.map(({ metrics }) => (
                 <td key={id}>
-                  {percentFormatter.format(ensureAndReturn(metrics[id]).effect)}
+                  {numberFormatter.format(
+                    ensureAndReturn(metrics[id]).effectSize
+                  )}
                 </td>
               ))}
             </tr>
@@ -253,11 +261,13 @@ const PowerOverTime = ({
 
 export default function PowerCalculationContent({
   results,
+  params,
   updateVariations,
   clear,
   showModal,
 }: {
   results: PowerCalculationResults;
+  params: PowerCalculationParams;
   updateVariations: (_: number) => void;
   clear: () => void;
   showModal: () => void;
@@ -296,7 +306,11 @@ export default function PowerCalculationContent({
           </button>
         </div>
       </div>
-      <AnalysisSettings results={results} updateVariations={updateVariations} />
+      <AnalysisSettings
+        params={params}
+        results={results}
+        updateVariations={updateVariations}
+      />
       <SampleSizeAndRuntime
         sampleSizeAndRuntime={results.sampleSizeAndRuntime}
       />
