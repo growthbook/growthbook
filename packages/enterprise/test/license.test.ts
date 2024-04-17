@@ -700,6 +700,14 @@ describe("src/license", () => {
               usingMongoCache: true,
             });
           });
+
+          it("should throw an error if the license server is down and force refresh is true", async () => {
+            expect(
+              licenseInit(licenseKey, userLicenseCodes, metaData, true)
+            ).rejects.toThrowError(
+              "License server errored with: internal server error"
+            );
+          });
         });
 
         describe("and when there is cached data in LicenseModel", () => {

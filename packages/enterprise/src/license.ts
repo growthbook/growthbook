@@ -664,6 +664,7 @@ async function updateLicenseFromServer(
       logger.error(`Error creating mongo cache: ${e}`);
       throw e;
     });
+    throw e;
   }
   return license;
 }
