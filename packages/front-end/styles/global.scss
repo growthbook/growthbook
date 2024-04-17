@@ -763,6 +763,9 @@ main.main.report {
     font-weight: 600;
   }
 }
+.bg-highlight {
+  background-color: var(--background-highlight);
+}
 .hover-highlight {
   transition: background-color 0.1s;
   &:hover {
@@ -990,18 +993,14 @@ main.main.report {
     border-right: 0;
     padding: 6px 20px;
     background-color: var(--surface-background-color);
-    color: var(--text-color-main);
+    color: var(--text-color-muted);
     &:hover {
-      background-color: rgba(colors.$highlight-purple, 0.08);
+      background-color: var(--background-highlight);
       border: 1px solid rgba(colors.$highlight-purple, 0.15);
       border-right: 0;
-      color: colors.$highlight-purple;
     }
     &.active {
-      color: colors.$highlight-purple;
-      background-color: rgba(colors.$highlight-purple, 0.15);
       border: 1px solid rgba(colors.$highlight-purple, 0.15);
-      font-weight: bold;
     }
     &:first-child {
       border-top-left-radius: 3px;
@@ -3102,15 +3101,15 @@ input:disabled {
     position: relative;
     box-sizing: border-box;
     flex: 1;
-    padding: 22px 20px 14px;
+    padding: 24px 20px 18px;
     max-width: 300px;
 
     &.selected {
-      border-color: #28a745 !important;
+      color: var(--text-color-main);
+      border-color: var(--border-color-100) !important;
     }
     &.active {
-      background: transparent;
-      box-shadow: 0 0 0 3px var(--text-color-primary);
+      box-shadow: 0 0 0 1px var(--text-color-primary);
     }
 
     .subtitle {

@@ -5,7 +5,6 @@ import {
 import { useForm } from "react-hook-form";
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import {
   FaCheck,
   FaExclamationCircle,
@@ -438,7 +437,7 @@ export default function SDKConnectionForm({
                   <label>SDK version</label>
                   <div className="d-flex align-items-center">
                     <SelectField
-                      style={{ width: 130 }}
+                      style={{ width: 180 }}
                       className="mr-4"
                       placeholder="0.0.0"
                       autoComplete="off"
@@ -453,10 +452,26 @@ export default function SDKConnectionForm({
                         getDefaultSDKVersion(languages[0])
                       }
                       onChange={(v) => form.setValue("sdkVersion", v)}
+                      formatOptionLabel={({ value, label }) => {
+                        const latest = getLatestSDKVersion(
+                          form.watch("languages")[0]
+                        );
+                        return (
+                          <span>
+                            {label}
+                            {value === latest && (
+                              <span
+                                className="text-muted uppercase-title float-right position-relative"
+                                style={{ top: 3 }}
+                              >
+                                latest
+                              </span>
+                            )}
+                          </span>
+                        );
+                      }}
                     />
-                    {usingLatestVersion ? (
-                      <span className="small text-muted">Using latest</span>
-                    ) : (
+                    {!usingLatestVersion && (
                       <a
                         role="button"
                         className="small"
@@ -566,7 +581,7 @@ export default function SDKConnectionForm({
         {languageType !== "backend" && (
           <>
             <label>SDK Payload Security</label>
-            <div className="border rounded pt-3 px-3 mb-4">
+            <div className="bg-highlight rounded pt-4 pb-2 px-4 mb-4">
               <ControlledTabs
                 newStyle={true}
                 className="mb-3"
@@ -972,9 +987,9 @@ export default function SDKConnectionForm({
         )}
 
         {(showVisualEditorSettings || showRedirectSettings) && (
-          <>
+          <div className="mt-5">
             <label>Auto Experiments</label>
-            <div className="border rounded pt-3 px-3">
+            <div className="mt-2">
               {showVisualEditorSettings && (
                 <div className="mb-4 d-flex align-items-center">
                   <Toggle
@@ -985,7 +1000,7 @@ export default function SDKConnectionForm({
                     }
                   />
                   <label
-                    className="ml-2 mb-0"
+                    className="ml-2 mb-0 cursor-pointer"
                     htmlFor="sdk-connection-visual-experiments-toggle"
                   >
                     Enable <strong>Visual Editor experiments</strong> (
@@ -1004,7 +1019,7 @@ export default function SDKConnectionForm({
                     }
                   />
                   <label
-                    className="ml-2 mb-0"
+                    className="ml-2 mb-0 cursor-pointer"
                     htmlFor="sdk-connection-redirects-toggle"
                   >
                     Enable <strong>URL Redirect experiments</strong> (
@@ -1041,7 +1056,7 @@ export default function SDKConnectionForm({
                       }
                     >
                       <label
-                        className="ml-2 mb-0"
+                        className="ml-2 mb-0 cursor-pointer"
                         htmlFor="sdk-connection-include-draft-experiments-toggle"
                       >
                         Include draft experiments <FaInfoCircle />
@@ -1051,14 +1066,14 @@ export default function SDKConnectionForm({
                 </>
               )}
             </div>
-          </>
+          </div>
         )}
 
-        {isCloud() && gb?.isOn("proxy-cloud") && (
-          <div className="mt-4">
-            <label className="mb-2">GrowthBook Proxy</label>
+        {isCloud() && (
+          <div className="mt-5">
+            <label className="mb-1">GrowthBook Proxy</label>
             <div
-              className="border rounded py-3 px-3 d-flex align-top"
+              className="d-flex align-items-top mt-2"
               style={{ justifyContent: "space-between" }}
             >
               <div className="d-flex align-items-center">

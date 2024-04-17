@@ -15,14 +15,14 @@ function LanguageOption({
 }) {
   return (
     <div
-      className={`btn hover-highlight cursor-pointer border rounded mr-2 mb-2 ${
+      className={`hover-highlight cursor-pointer border rounded mr-2 mb-2 ${
         selected.has(language) ? "bg-light" : ""
       }`}
       style={{
         height: 50,
         padding: 10,
         boxShadow: selected.has(language)
-          ? "0 0 0 3px var(--text-color-primary)"
+          ? "0 0 0 1px var(--text-color-primary)"
           : "",
       }}
       key={language}
