@@ -179,7 +179,7 @@ export interface Context {
   experiments?: AutoExperiment[];
   forcedVariations?: Record<string, number>;
   blockedExperiments?: string[];
-  blockedExperimentHashes: string[];
+  blockedExperimentHashes?: string[];
   stickyBucketAssignmentDocs?: Record<
     StickyAttributeKey,
     StickyAssignmentsDocument
