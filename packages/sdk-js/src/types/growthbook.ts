@@ -82,6 +82,8 @@ export type UrlTarget = {
 
 export type Experiment<T> = {
   key: string;
+  uid?: string;
+  changeType?: "redirect" | "visual";
   variations: [T, T, ...T[]];
   ranges?: VariationRange[];
   meta?: VariationMeta[];

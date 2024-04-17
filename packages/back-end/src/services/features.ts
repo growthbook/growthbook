@@ -1,5 +1,5 @@
 import { webcrypto as crypto } from "node:crypto";
-import { createHash } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
@@ -161,12 +161,12 @@ export function generateAutoExperimentsPayload({
     prereqStateCache
   );
 
-  const sortedVisualExperiments = [
+  const sortedAutoExperiments = [
     ...newURLRedirectExperiments,
     ...newVisualExperiments,
   ];
 
-  const sdkExperiments: Array<AutoExperimentWithProject | null> = sortedVisualExperiments.map(
+  const sdkExperiments: Array<AutoExperimentWithProject | null> = sortedAutoExperiments.map(
     (data) => {
       const { experiment: e } = data;
       if (e.status === "stopped" && e.excludeFromPayload) return null;
@@ -198,6 +198,7 @@ export function generateAutoExperimentsPayload({
 
       const exp: AutoExperimentWithProject = {
         key: e.trackingKey,
+        uid: randomUUID(),
         status: e.status,
         project: e.project,
         variations: e.variations.map((v) => {
@@ -519,8 +520,6 @@ async function getFeatureDefinitionsResponse({
       experiments = experiments.filter((e) => e.changeType === "redirect");
     }
   }
-
-  experiments = experiments.map((exp) => omit(exp, ["changeType"]));
 
   if (!encryptionKey) {
     return {
