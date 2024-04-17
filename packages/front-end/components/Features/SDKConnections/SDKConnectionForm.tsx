@@ -97,8 +97,6 @@ export default function SDKConnectionForm({
     track("View SDK Connection Form");
   }, [edit]);
 
-  const gb = useGrowthBook();
-
   const [selectedSecurityTab, setSelectedSecurityTab] = useState<string | null>(
     getSecurityTabState(initialValue)
   );
@@ -181,9 +179,6 @@ export default function SDKConnectionForm({
     form.getValues(),
     "min-ver-intersection"
   );
-
-  const enableRemoteEval =
-    hasRemoteEvaluationFeature && !!gb?.isOn("remote-evaluation");
 
   const showVisualEditorSettings = latestSdkCapabilities.includes(
     "visualEditor"
@@ -274,7 +269,7 @@ export default function SDKConnectionForm({
         form.setValue("includeExperimentNames", false);
       }
     } else if (selectedSecurityTab === "remote") {
-      if (!enableRemoteEval) {
+      if (!hasRemoteEvaluationFeature) {
         form.setValue("remoteEvalEnabled", false);
         return;
       }
@@ -288,7 +283,7 @@ export default function SDKConnectionForm({
     form,
     hasEncryptionFeature,
     hasSecureAttributesFeature,
-    enableRemoteEval,
+    hasRemoteEvaluationFeature,
   ]);
 
   useEffect(() => {
@@ -944,8 +939,7 @@ export default function SDKConnectionForm({
                         ) : null}
                       </div>
                     </div>
-                    {gb?.isOn("remote-evaluation") &&
-                    !currentSdkCapabilities.includes("remoteEval") ? (
+                    {!currentSdkCapabilities.includes("remoteEval") ? (
                       <div
                         className="ml-2 mt-3 text-warning-orange"
                         style={{ marginBottom: -5 }}
