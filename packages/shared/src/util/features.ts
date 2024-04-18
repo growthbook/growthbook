@@ -73,6 +73,12 @@ export function mergeRevision(
   return newFeature;
 }
 
+export function getJSONValidator() {
+  return new Ajv({
+    strictSchema: false,
+  });
+}
+
 export function validateJSONFeatureValue(
   // eslint-disable-next-line
   value: any,
@@ -83,7 +89,7 @@ export function validateJSONFeatureValue(
     return { valid: true, enabled: validationEnabled, errors: [] };
   }
   try {
-    const ajv = new Ajv();
+    const ajv = getJSONValidator();
     const validate = ajv.compile(jsonSchema);
     let parsedValue;
     if (typeof value === "string") {
@@ -1069,6 +1075,7 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
 
         if (f.type === "integer") {
           schema.multipleOf = 1;
+          schema.format = "number";
         }
 
         if (f.max < f.min) {
@@ -1095,6 +1102,7 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
           return acc;
         }, {} as Record<string, unknown>),
         additionalProperties: false,
+        format: "grid",
       });
     case "object[]":
       if (fields.some((f) => !f.key)) {
@@ -1110,15 +1118,20 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
             return acc;
           }, {} as Record<string, unknown>),
           additionalProperties: false,
+          format: fields.length > 5 ? "grid" : undefined,
         },
+        format: fields.length > 5 ? "tabs" : "table",
       });
     case "primitive[]":
       return JSON.stringify({
         type: "array",
         items: fields[0].schema,
+        format: "table",
       });
     case "primitive":
-      return JSON.stringify(fields[0].schema);
+      return JSON.stringify({
+        ...fields[0].schema,
+      });
     default:
       throw new Error("Invalid simple schema type");
   }

@@ -6,10 +6,13 @@ import {
   SimpleSchema,
 } from "back-end/types/feature";
 import React, { useState } from "react";
-import Ajv from "ajv";
 import dJSON from "dirty-json";
 import stringify from "json-stringify-pretty-compact";
-import { inferSimpleSchemaFromValue, simpleToJSONSchema } from "shared/util";
+import {
+  getJSONValidator,
+  inferSimpleSchemaFromValue,
+  simpleToJSONSchema,
+} from "shared/util";
 import { FaAngleDown, FaAngleRight, FaTimes } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
@@ -415,7 +418,14 @@ export default function EditSchemaModal({ feature, close, mutate }: Props) {
 
   const defaultJSONSchema = feature.jsonSchema?.schema || "{}";
 
-  const defaultSchemaType = defaultJSONSchema !== "{}" ? "schema" : "simple";
+  console.log(feature.jsonSchema, defaultJSONSchema);
+
+  const defaultSchemaType =
+    feature.jsonSchema?.schemaType === "simple"
+      ? "simple"
+      : defaultJSONSchema !== "{}"
+      ? "schema"
+      : "simple";
 
   const form = useForm<Omit<JSONSchemaDef, "date">>({
     defaultValues: {
@@ -448,7 +458,7 @@ export default function EditSchemaModal({ feature, close, mutate }: Props) {
                 schemaString = stringify(parsedSchema);
               }
               // make sure it is valid json schema:
-              const ajv = new Ajv();
+              const ajv = getJSONValidator();
               ajv.compile(parsedSchema);
             }
           } catch (e) {
@@ -468,7 +478,7 @@ export default function EditSchemaModal({ feature, close, mutate }: Props) {
           const schemaString = simpleToJSONSchema(value.simple);
           try {
             const parsedSchema = JSON.parse(schemaString);
-            const ajv = new Ajv();
+            const ajv = getJSONValidator();
             ajv.compile(parsedSchema);
           } catch (e) {
             throw new Error(

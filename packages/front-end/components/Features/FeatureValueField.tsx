@@ -1,6 +1,6 @@
 import { FeatureValueType } from "back-end/types/feature";
 import { ReactNode, useEffect, useRef, useState } from "react";
-import Ajv from "ajv";
+import { getJSONValidator } from "shared/util";
 import Field from "@/components/Forms/Field";
 import Toggle from "@/components/Forms/Toggle";
 import { useUser } from "@/services/UserContext";
@@ -37,7 +37,7 @@ export default function FeatureValueField({
 
     try {
       const parsed = JSON.parse(value);
-      const ajv = new Ajv();
+      const ajv = getJSONValidator();
       const validate = ajv.compile(jsonSchema);
       return !validate(parsed);
     } catch (e) {
@@ -191,6 +191,37 @@ function ReactJSONEditor({
         initialVal = {};
       }
 
+      class IconLib extends window.JSONEditor.AbstractIconLib {
+        getIcon(key) {
+          const mapping = {
+            collapse: "▼",
+            expand: "▶",
+            delete: "✖",
+            edit: "✎",
+            add: "✚",
+            subtract: "-",
+            cancel: "✖",
+            save: "↓",
+            moveup: "⇡",
+            movedown: "⇣",
+            moveright: "⇢",
+            moveleft: "⇠",
+            copy: "⧉",
+            clear: "✖",
+            time: "⏱",
+            calendar: "📅",
+            upload: "⇧",
+            edit_properties: "☰",
+          };
+
+          const icon = document.createElement("span");
+          icon.innerHTML = mapping[key] || key;
+          return icon;
+        }
+      }
+
+      window.JSONEditor.defaults.iconlibs.unicode = IconLib;
+
       editorRef.current = new window.JSONEditor(containerRef.current, {
         schema,
         theme: "bootstrap4",
@@ -198,8 +229,10 @@ function ReactJSONEditor({
         disable_collapse: true,
         disable_edit_json: true,
         disable_properties: true,
-        form_name_root: "Value",
+        disable_array_delete_last_row: true,
         startval: initialVal,
+        show_opt_in: true,
+        iconlib: "unicode",
       });
       editorRef.current.on("ready", () => {
         editorRef.current.on("change", () => {

@@ -286,6 +286,7 @@ export default function FeaturesOverview({
         minLength,
         maxLength,
         multipleOf,
+        format,
         ...otherDetails
       } = schema as {
         type?: string;
@@ -296,6 +297,7 @@ export default function FeaturesOverview({
         minLength?: number;
         maxLength?: number;
         multipleOf?: number;
+        format?: string;
         [key: string]: unknown;
       };
 
@@ -306,6 +308,10 @@ export default function FeaturesOverview({
         } else {
           otherDetails["multipleOf"] = multipleOf;
         }
+      }
+
+      if (format && (format !== "number" || typeStr !== "integer")) {
+        otherDetails["format"] = format;
       }
 
       return {
@@ -360,7 +366,7 @@ export default function FeaturesOverview({
     } else {
       jsonSchemaDescription = "A";
       jsonSchemaFields.push({
-        key: jsonSchema.items.type + "",
+        key: jsonSchema.type + "",
         ...getFieldData(jsonSchema),
       });
     }
