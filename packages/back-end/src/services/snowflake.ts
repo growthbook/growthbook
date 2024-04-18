@@ -29,8 +29,9 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
   conn: SnowflakeConnectionParams,
   sql: string
 ): Promise<QueryResponse<T[]>> {
+  const account = conn.account.replace(/\.[^.]*$/, "");
   const connection = createConnection({
-    account: conn.account,
+    account,
     username: conn.username,
     password: conn.password,
     database: conn.database,
