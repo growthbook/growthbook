@@ -8,6 +8,7 @@ from gbstats.bayesian.tests import (
     BayesianTestResult,
     GaussianEffectABTest,
     GaussianEffectBayesianConfig,
+    GaussianPrior,
 )
 from gbstats.frequentist.tests import (
     FrequentistConfig,
@@ -219,10 +220,20 @@ def get_configured_test(
         ):
             raise ValueError(RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR)
 
+        prior = GaussianPrior(
+            mean=0,
+            variance=pow(analysis.prior_stddev, 2),
+            informative=analysis.prior_informative,
+        )
         return GaussianEffectABTest(
             stat_a,
             stat_b,
-            GaussianEffectBayesianConfig(**base_config, inverse=metric.inverse),
+            GaussianEffectBayesianConfig(
+                **base_config,
+                inverse=metric.inverse,
+                prior_effect=prior,
+                prior_type="relative",
+            ),
         )
 
 

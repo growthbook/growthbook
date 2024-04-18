@@ -23,7 +23,7 @@ from gbstats.utils import truncated_normal_mean
 class GaussianPrior:
     mean: float = 0
     variance: float = 1
-    flat: bool = True
+    informative: bool = False
 
 
 @dataclass
@@ -132,13 +132,13 @@ class GaussianEffectABTest(BayesianABTest):
             self.prior_effect = GaussianPrior(
                 config.prior_effect.mean / self.stat_a.unadjusted_mean,
                 config.prior_effect.variance / pow(self.stat_a.unadjusted_mean, 2),
-                config.prior_effect.flat,
+                config.prior_effect.informative,
             )
         elif not self.relative and config.prior_type == "relative":
             self.prior_effect = GaussianPrior(
                 config.prior_effect.mean * self.stat_a.unadjusted_mean,
                 config.prior_effect.variance * pow(self.stat_a.unadjusted_mean, 2),
-                config.prior_effect.flat,
+                config.prior_effect.informative,
             )
         else:
             self.prior_effect = config.prior_effect
@@ -173,7 +173,7 @@ class GaussianEffectABTest(BayesianABTest):
 
         post_prec = (
             1 / data_variance
-            + int(not self.prior_effect.flat) / self.prior_effect.variance
+            + int(self.prior_effect.informative) / self.prior_effect.variance
         )
         self.mean_diff = (
             data_mean / data_variance

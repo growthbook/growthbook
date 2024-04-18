@@ -404,6 +404,19 @@ const Results: FC<{
                 </div>
               </>
             )}
+            {analysis?.settings?.statsEngine === "bayesian" && (
+              <>
+                <div>
+                  <span className="text-muted">Informative prior:</span>{" "}
+                  <span>
+                    {analysis?.settings?.informativePrior &&
+                    analysis?.settings?.informativePriorStdDev
+                      ? `N(0, ${analysis.settings.informativePriorStdDev}^2)`
+                      : "Disabled"}
+                  </span>
+                </div>
+              </>
+            )}
             <div>
               <span className="text-muted">Run date:</span>{" "}
               <span>

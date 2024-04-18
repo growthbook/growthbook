@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { FormProvider, useForm, useFormContext } from "react-hook-form";
 import isEqual from "lodash/isEqual";
 import {
+  DEFAULT_INFORMATIVE_PRIOR_STDDEV,
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
@@ -102,6 +103,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
       pValueCorrection: null,
       statsEngine: DEFAULT_STATS_ENGINE,
+      informativePrior: false,
+      informativePriorStdDev: DEFAULT_INFORMATIVE_PRIOR_STDDEV,
       regressionAdjustmentEnabled: DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
       sequentialTestingEnabled: false,
@@ -149,6 +152,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
     multipleExposureMinPercent: form.watch("multipleExposureMinPercent"),
     statsEngine: form.watch("statsEngine"),
     confidenceLevel: form.watch("confidenceLevel"),
+    informativePrior: form.watch("informativePrior"),
+    informativePriorStdDev: form.watch("informativePriorStdDev"),
     pValueThreshold: form.watch("pValueThreshold"),
     pValueCorrection: form.watch("pValueCorrection"),
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),

@@ -12,6 +12,7 @@ import {
   DEFAULT_METRIC_CAPPING_VALUE,
   DEFAULT_METRIC_WINDOW,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+  DEFAULT_INFORMATIVE_PRIOR_STDDEV,
 } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import {
@@ -308,6 +309,10 @@ export function getDefaultExperimentAnalysisSettings(
     : false;
   return {
     statsEngine,
+    informativePrior: organization.settings?.informativePrior ?? false,
+    informativePriorStdDev:
+      organization.settings?.informativePriorStdDev ??
+      DEFAULT_INFORMATIVE_PRIOR_STDDEV,
     dimensions: dimension ? [dimension] : [],
     regressionAdjusted:
       hasRegressionAdjustmentFeature &&

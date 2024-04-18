@@ -543,7 +543,7 @@ export function getRowResults({
     } else {
       significant = false;
       significantUnadjusted = false;
-      significantReason = `This metric is not statistically significant. The chance to win is outside the CI interval [${percentFormatter.format(
+      significantReason = `This metric is not statistically significant. The chance to win is between the significance thresholds [${percentFormatter.format(
         ciLower
       )}, ${percentFormatter.format(ciUpper)}].`;
     }

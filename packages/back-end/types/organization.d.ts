@@ -173,6 +173,8 @@ export interface OrganizationSettings {
   multipleExposureMinPercent?: number;
   defaultRole?: MemberRoleInfo;
   statsEngine?: StatsEngine;
+  informativePrior?: boolean;
+  informativePriorStdDev?: number;
   pValueThreshold?: number;
   pValueCorrection?: PValueCorrection;
   regressionAdjustmentEnabled?: boolean;

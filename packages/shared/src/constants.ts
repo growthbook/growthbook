@@ -10,6 +10,9 @@ export const DEFAULT_METRIC_WINDOW_HOURS = 72;
 export const DEFAULT_METRIC_CAPPING = "";
 export const DEFAULT_METRIC_CAPPING_VALUE = 0;
 
+// Bayesian prior
+export const DEFAULT_INFORMATIVE_PRIOR_STDDEV = 0.1;
+
 // Regression Adjustment (CUPED):
 export const DEFAULT_REGRESSION_ADJUSTMENT_ENABLED = false;
 export const DEFAULT_REGRESSION_ADJUSTMENT_DAYS = 14;
