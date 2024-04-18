@@ -19,8 +19,15 @@ export function isEmailEnabled(): boolean {
   return !!(EMAIL_ENABLED && EMAIL_HOST && EMAIL_PORT && EMAIL_FROM);
 }
 
-nunjucks.configure(path.join(__dirname, "..", "templates", "email"), {
-  autoescape: true,
+const env = nunjucks.configure(
+  path.join(__dirname, "..", "templates", "email"),
+  {
+    autoescape: true,
+  }
+);
+
+env.addFilter("noHyperlink", (str) => {
+  return str.replace(".", ".").replace("/", "∕").replace(":", "∶");
 });
 
 const transporter = isEmailEnabled()

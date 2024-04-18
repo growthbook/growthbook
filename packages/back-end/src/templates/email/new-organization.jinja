@@ -1,7 +1,7 @@
 {% extends "base.jinja" %}
 
 {% block preview %}
-  {{ email }} at {{ company }}
+  {{ email }} at {{ company|noHyperlink }}
 {% endblock %}
 
 {% block title %}
@@ -10,7 +10,7 @@
 
 {% block top %}
   <p>
-    Company: {{ company }}<br/>
+    Company: {{ company|noHyperlink }}<br/>
     Email: {{ email }}
   </p>
 {% endblock %}
