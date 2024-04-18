@@ -184,21 +184,41 @@ const SampleSizeAndRuntime = ({
 };
 
 const MinimumDetectableEffect = ({
+  minimumDetectableEffectOverTime,
   weeks,
-}: {
-  weeks: PowerCalculationResults["weeks"];
-}) => (
+}: PowerCalculationResults) => (
   <div className="row card gsbox mb-3 border">
     <div className="row pt-4 pl-4 pr-4 pb-1">
       <div className="w-100">
         <h2>Minimum Detectable Effect Over Time</h2>
       </div>
-      <p>
-        To achieve 80% power for all metrics, we advocate running your
-        experiment for at least{" "}
-        <span className="font-weight-bold">3 weeks</span>.
-      </p>
-
+      {minimumDetectableEffectOverTime.weeks ? (
+        <p>
+          To achieve{" "}
+          {percentFormatter.format(
+            minimumDetectableEffectOverTime.powerThreshold
+          )}{" "}
+          power for all metrics, we advocate running your experiment for at
+          least{" "}
+          <span className="font-weight-bold">
+            {numberFormatter.format(minimumDetectableEffectOverTime.weeks)}{" "}
+            weeks
+          </span>
+          .
+        </p>
+      ) : (
+        <p>
+          The experiment needs to run for more than{" "}
+          <span className="font-weight-bold">
+            {Object.keys(weeks).length} weeks
+          </span>{" "}
+          to achieve{" "}
+          {percentFormatter.format(
+            minimumDetectableEffectOverTime.powerThreshold
+          )}{" "}
+          power for all metrics.
+        </p>
+      )}
       <table className="table">
         <thead>
           <tr>
@@ -234,21 +254,32 @@ const MinimumDetectableEffect = ({
   </div>
 );
 
-const PowerOverTime = ({
-  weeks,
-}: {
-  weeks: PowerCalculationResults["weeks"];
-}) => (
+const PowerOverTime = ({ powerOverTime, weeks }: PowerCalculationResults) => (
   <div className="row card gsbox mb-3 border">
     <div className="row pt-4 pl-4 pr-4 pb-1">
       <div className="w-100">
         <h2>Power Over Time</h2>
       </div>
-      <p>
-        To achieve 80% power for all metrics, we advocate running your
-        experiment for at least{" "}
-        <span className="font-weight-bold">3 weeks</span>.
-      </p>
+      {powerOverTime.weeks ? (
+        <p>
+          To achieve {percentFormatter.format(powerOverTime.powerThreshold)}{" "}
+          power for all metrics, we advocate running your experiment for at
+          least{" "}
+          <span className="font-weight-bold">
+            {numberFormatter.format(powerOverTime.weeks)} weeks
+          </span>
+          .
+        </p>
+      ) : (
+        <p>
+          The experiment needs to run for more than{" "}
+          <span className="font-weight-bold">
+            {Object.keys(weeks).length} weeks
+          </span>{" "}
+          to achieve {percentFormatter.format(powerOverTime.powerThreshold)}{" "}
+          power for all metrics.
+        </p>
+      )}
 
       <table className="table">
         <thead>
@@ -339,8 +370,8 @@ export default function PowerCalculationContent({
         params={params}
         sampleSizeAndRuntime={results.sampleSizeAndRuntime}
       />
-      <MinimumDetectableEffect weeks={results.weeks} />
-      <PowerOverTime weeks={results.weeks} />
+      <MinimumDetectableEffect {...results} />
+      <PowerOverTime {...results} />
     </div>
   );
 }

@@ -15,23 +15,23 @@ const dummyResultsData = (metrics: PowerCalculationParams["metrics"]) => ({
       [id]: {
         type: metrics[id].type,
         name: metrics[id].name,
-        effectSize: 0.3234,
-        days: 10,
-        users: 12245,
+        effectSize: Math.random(),
+        days: Math.floor(Math.random() * 10),
+        users: Math.floor(Math.random() * 12245),
       },
     }),
     {}
   ),
-  weeks: [...Array(7).keys()].map(() => ({
-    users: 12245,
+  weeks: [...Array(9).keys()].map(() => ({
+    users: Math.floor(Math.random() * 12245),
     metrics: Object.keys(metrics).reduce(
       (ret, id) => ({
         ...ret,
         [id]: {
           type: metrics[id].type,
           name: metrics[id].name,
-          effectSize: 0.3234,
-          power: 0.8,
+          effectSize: Math.random(),
+          power: Math.random(),
         },
       }),
       {}
@@ -66,6 +66,13 @@ const PowerCalculationPage = (): React.ReactElement => {
     return {
       duration: 3,
       power: 0.8,
+      minimumDetectableEffectOverTime: {
+        weeks: 3,
+        powerThreshold: 0.8,
+      },
+      powerOverTime: {
+        powerThreshold: 0.8,
+      },
       ...dummyResultsData(finalParams.metrics),
     };
   }, [finalParams]);
