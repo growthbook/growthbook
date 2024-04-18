@@ -7,7 +7,7 @@ import {
   getDefaultSDKVersion,
   getLatestSDKVersion,
   getSDKCapabilities,
-} from "./index";
+} from ".";
 
 const languages = [
   "javascript",
@@ -66,10 +66,10 @@ function updateInfo(lang: string, { versions, capabilities }: Info) {
 }
 
 function captable(languages: string[]) {
-  const default_versions = languages.map((lang) =>
+  const defaultVersions = languages.map((lang) =>
     getDefaultSDKVersion(lang as SDKLanguage)
   );
-  const latest_versions = languages.map((lang) =>
+  const latestVersions = languages.map((lang) =>
     getLatestSDKVersion(lang as SDKLanguage)
   );
   const info = getInfo(languages);
@@ -81,8 +81,8 @@ function captable(languages: string[]) {
   });
   const captable = [
     ["SDK", ...languages],
-    ["**Default**", ...default_versions],
-    ["**Latest**", ...latest_versions],
+    ["**Default**", ...defaultVersions],
+    ["**Latest**", ...latestVersions],
     ["**Capabilities**"],
     ...capsRows,
   ];
