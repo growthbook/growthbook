@@ -19,6 +19,8 @@ export function isEmailEnabled(): boolean {
   return !!(EMAIL_ENABLED && EMAIL_HOST && EMAIL_PORT && EMAIL_FROM);
 }
 
+const noHyperlink = (str: string) => str.replace(/[^a-zA-Z0-9\s]/g, "");
+
 const env = nunjucks.configure(
   path.join(__dirname, "..", "templates", "email"),
   {
@@ -26,9 +28,7 @@ const env = nunjucks.configure(
   }
 );
 
-env.addFilter("noHyperlink", (str) => {
-  return str.replace(/[^a-zA-Z0-9\s]/g, "");
-});
+env.addFilter("noHyperlink", noHyperlink);
 
 const transporter = isEmailEnabled()
   ? nodemailer.createTransport({
@@ -100,7 +100,9 @@ export async function sendInviteEmail(
 
   await sendMail({
     html,
-    subject: `You've been invited to join ${organization.name} on GrowthBook`,
+    subject: `You've been invited to join ${noHyperlink(
+      organization.name
+    )} on GrowthBook`,
     to: invite.email,
     text: `Join ${organization.name} on GrowthBook by visiting ${inviteUrl}`,
     ignoreUnsubscribes: true,
@@ -124,7 +126,7 @@ export async function sendExperimentChangesEmail(
     experimentUrl,
     experimentName,
   });
-  const subject = `Experiment Change for: ${experimentName}`;
+  const subject = `Experiment Change for: ${noHyperlink(experimentName)}`;
 
   await Promise.all(
     userIds.map(async (id) => {
@@ -134,7 +136,9 @@ export async function sendExperimentChangesEmail(
         subject,
         to: email,
         text:
-          `The experiment '${experimentName}' has the following metric changes:` +
+          `The experiment '${noHyperlink(
+            experimentName
+          )}' has the following metric changes:` +
           "- " +
           experimentChanges.join("\n- ") +
           `\n\nSee more details at ${experimentUrl}`,
@@ -165,9 +169,9 @@ export async function sendNewOrgEmail(company: string, email: string) {
   });
   await sendMail({
     html,
-    subject: `New company created: ${company}`,
+    subject: `New company created: ${noHyperlink(company)}`,
     to: SITE_MANAGER_EMAIL,
-    text: `Company Name: ${company}\nOwner Email: ${email}`,
+    text: `Company Name: ${noHyperlink(company)}\nOwner Email: ${email}`,
   });
 }
 
@@ -185,9 +189,13 @@ export async function sendNewMemberEmail(
 
   await sendMail({
     html,
-    subject: `A new user joined your GrowthBook account: ${name} (${email})`,
+    subject: `A new user joined your GrowthBook account: ${noHyperlink(
+      name
+    )} (${email})`,
     to: ownerEmail,
-    text: `Organization: ${organization}\nName: ${name}\nEmail: ${email}`,
+    text: `Organization: ${noHyperlink(organization)}\nName: ${noHyperlink(
+      name
+    )}\nEmail: ${email}`,
   });
 }
 
@@ -207,9 +215,13 @@ export async function sendPendingMemberEmail(
 
   await sendMail({
     html,
-    subject: `A new user is requesting to join your GrowthBook account: ${name} (${email})`,
+    subject: `A new user is requesting to join your GrowthBook account: ${noHyperlink(
+      name
+    )} (${email})`,
     to: ownerEmail,
-    text: `Organization: ${organization}\nName: ${name}\nEmail: ${email}`,
+    text: `Organization: ${noHyperlink(organization)}\nName: ${noHyperlink(
+      name
+    )}\nEmail: ${email}`,
   });
 }
 
@@ -227,9 +239,11 @@ export async function sendPendingMemberApprovalEmail(
 
   await sendMail({
     html,
-    subject: `You've been approved as a member with ${organization} on GrowthBook`,
+    subject: `You've been approved as a member with ${noHyperlink(
+      organization
+    )} on GrowthBook`,
     to: email,
-    text: `Join ${organization} on GrowthBook`,
+    text: `Join ${noHyperlink(organization)} on GrowthBook`,
   });
 }
 
