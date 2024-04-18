@@ -416,6 +416,7 @@ describe("simpleToJSONSchema", () => {
     },
     a_integer: {
       type: "number",
+      format: "number",
       minimum: -10,
       maximum: -1,
       multipleOf: 1,
@@ -436,6 +437,7 @@ describe("simpleToJSONSchema", () => {
       properties: expectedProperties,
       required: ["a_string", "a_float"],
       additionalProperties: false,
+      format: "grid",
     });
   });
   it("converts array of objects", () => {
@@ -448,6 +450,7 @@ describe("simpleToJSONSchema", () => {
         required: ["a_string", "a_float"],
         additionalProperties: false,
       },
+      format: "table",
     });
   });
   it("converts primitive", () => {
@@ -467,6 +470,7 @@ describe("simpleToJSONSchema", () => {
     expect(JSON.parse(simpleToJSONSchema(primitiveArraySchema))).toEqual({
       type: "array",
       items: expectedProperties.a_string,
+      format: "table",
     });
   });
 
@@ -622,6 +626,7 @@ describe("simpleToJSONSchema", () => {
         },
         required: ["a_string", "a_float", "valid"],
         additionalProperties: false,
+        format: "grid",
       }
     );
   });
@@ -646,6 +651,63 @@ describe("simpleToJSONSchema", () => {
     expect(() =>
       JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema))
     ).toThrowError("Value '0.5' is not an integer for field invalid");
+  });
+
+  it("Uses tab layout when there are more than 5 fields in object[] schema", () => {
+    const arraySchema: SimpleSchema = {
+      ...simpleSchema,
+      fields: [
+        ...simpleSchema.fields,
+        {
+          key: "int1",
+          type: "integer",
+          description: "",
+          required: true,
+          enum: [],
+          default: "",
+          min: 0,
+          max: 25,
+        },
+        {
+          key: "int2",
+          type: "integer",
+          description: "",
+          required: true,
+          enum: [],
+          default: "",
+          min: 0,
+          max: 25,
+        },
+      ],
+      type: "object[]",
+    };
+    expect(JSON.parse(simpleToJSONSchema(arraySchema))).toEqual({
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          ...expectedProperties,
+          int1: {
+            type: "number",
+            format: "number",
+            minimum: 0,
+            maximum: 25,
+            multipleOf: 1,
+          },
+          int2: {
+            type: "number",
+            format: "number",
+            minimum: 0,
+            maximum: 25,
+            multipleOf: 1,
+          },
+        },
+        required: ["a_string", "a_float", "int1", "int2"],
+        additionalProperties: false,
+        format: "grid",
+      },
+      format: "tabs",
+    });
   });
 });
 
