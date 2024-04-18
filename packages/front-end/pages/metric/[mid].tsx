@@ -21,6 +21,10 @@ import { BsGear } from "react-icons/bs";
 import { IdeaInterface } from "back-end/types/idea";
 import { date } from "shared/dates";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import {
+  DEFAULT_LOSE_RISK_THRESHOLD,
+  DEFAULT_WIN_RISK_THRESHOLD,
+} from "shared/constants";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DiscussionThread from "@/components/DiscussionThread";
@@ -28,11 +32,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
-import {
-  defaultWinRiskThreshold,
-  defaultLoseRiskThreshold,
-  getMetricFormatter,
-} from "@/services/metrics";
+import { getMetricFormatter } from "@/services/metrics";
 import MetricForm from "@/components/Metrics/MetricForm";
 import Tabs from "@/components/Tabs/Tabs";
 import Tab from "@/components/Tabs/Tab";
@@ -1285,13 +1285,13 @@ const MetricPage: FC = () => {
                   <li className="mb-2">
                     <span className="text-gray">Acceptable risk &lt;</span>{" "}
                     <span className="font-weight-bold">
-                      {(metric.winRisk || defaultWinRiskThreshold) * 100}%
+                      {(metric.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100}%
                     </span>
                   </li>
                   <li className="mb-2">
                     <span className="text-gray">Unacceptable risk &gt;</span>{" "}
                     <span className="font-weight-bold">
-                      {(metric.loseRisk || defaultLoseRiskThreshold) * 100}%
+                      {(metric.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100}%
                     </span>
                   </li>
                 </ul>
