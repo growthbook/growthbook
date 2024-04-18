@@ -130,7 +130,7 @@ const SampleSizeAndRuntime = ({
               <tr>
                 <th>Metric</th>
                 <th>Effect Size</th>
-                <th>Meeded Sample</th>
+                <th>Needed Sample</th>
               </tr>
             </thead>
             <tbody>
@@ -172,9 +172,14 @@ const SampleSizeAndRuntime = ({
                 {percentFormatter.format(params.targetPower)}
               </span>{" "}
               requires running your experiment for{" "}
-              <span className="font-weight-bold">{selectedDays} days</span>{" "}
+              <span className="font-weight-bold">
+                {numberFormatter.format(selectedDays)} days
+              </span>{" "}
               (roughly collecting{" "}
-              <span className="font-weight-bold">{selectedUsers} users</span>)
+              <span className="font-weight-bold">
+                {numberFormatter.format(selectedUsers)} users
+              </span>
+              )
             </p>
           </div>
         </div>

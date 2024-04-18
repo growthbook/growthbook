@@ -16,7 +16,7 @@ const dummyResultsData = (metrics: PowerCalculationParams["metrics"]) => ({
         type: metrics[id].type,
         name: metrics[id].name,
         effectSize: Math.random(),
-        days: Math.floor(Math.random() * 10),
+        days: 1 + Math.floor(Math.random() * 10),
         users: Math.floor(Math.random() * 12245),
       },
     }),
