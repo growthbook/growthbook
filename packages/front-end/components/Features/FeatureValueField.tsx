@@ -4,6 +4,7 @@ import { getJSONValidator } from "shared/util";
 import Field from "@/components/Forms/Field";
 import Toggle from "@/components/Forms/Toggle";
 import { useUser } from "@/services/UserContext";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 export interface Props {
   valueType: FeatureValueType;
@@ -165,6 +166,9 @@ function ReactJSONEditor({
   value: string;
   setValue: (value: string) => void;
 }) {
+  const [loading, setLoading] = useState(true);
+  const [fallback, setFallback] = useState(false);
+
   useScript(
     "jsondditor",
     "//cdn.jsdelivr.net/npm/@json-editor/json-editor@latest/dist/jsoneditor.min.js"
@@ -174,6 +178,10 @@ function ReactJSONEditor({
   const editorRef = useRef<JSONEditor>(null);
 
   useEffect(() => {
+    const fallbackTimer = setTimeout(() => {
+      setFallback(true);
+    }, 4000);
+
     if (!containerRef.current) return;
 
     let timer: NodeJS.Timeout;
@@ -183,6 +191,9 @@ function ReactJSONEditor({
         timer = setTimeout(init, 300);
         return;
       }
+
+      clearTimeout(fallbackTimer);
+      setLoading(false);
 
       let initialVal: unknown;
       try {
@@ -242,6 +253,7 @@ function ReactJSONEditor({
     };
     init();
     return () => {
+      clearTimeout(fallbackTimer);
       if (timer) clearTimeout(timer);
       if (editorRef.current) {
         editorRef.current.destroy();
@@ -250,5 +262,19 @@ function ReactJSONEditor({
     // eslint-disable-next-line
   }, []);
 
-  return <div ref={containerRef}></div>;
+  if (fallback) {
+    return (
+      <Field
+        label=""
+        value={value}
+        onChange={(e) => {
+          setValue(e.target.value);
+        }}
+        textarea
+        minRows={4}
+      />
+    );
+  }
+
+  return <div ref={containerRef}>{loading && <LoadingSpinner />}</div>;
 }
