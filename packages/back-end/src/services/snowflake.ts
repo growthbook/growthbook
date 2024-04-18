@@ -29,7 +29,8 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
   conn: SnowflakeConnectionParams,
   sql: string
 ): Promise<QueryResponse<T[]>> {
-  const account = conn.account.replace(/\.[^.]*$/, ""); // Remove the region from the account name
+  //remove out the .us-west-2 from the account name
+  const account = conn.account.replace(/\.us-west-2$/, "");
   const connection = createConnection({
     account,
     username: conn.username,
