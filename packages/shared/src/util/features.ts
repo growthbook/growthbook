@@ -1236,16 +1236,22 @@ export function inferSimpleSchemaFromValue(rawValue: string): SimpleSchema {
     if (typeof value === "object") {
       // Array of primitives or objects
       if (Array.isArray(value)) {
+        // Skip all null elements
+        const nonNullValues = value.filter((v) => v != null);
+
         // Don't have much to go on here, but assume it's an array of objects
-        if (value.length === 0 || value[0] == null) {
+        if (nonNullValues.length === 0) {
           return { type: "object[]", fields: [] };
         }
 
         // Array of primitives
-        if (typeof value[0] !== "object") {
-          // TODO: loop through all values and make sure the types are consistent
-          const field = inferSchemaField(value[0], "");
+        if (typeof nonNullValues[0] !== "object") {
+          let fields: undefined | Map<string, SchemaField> = undefined;
+          for (const v of nonNullValues) {
+            fields = inferSchemaFields({ "": v }, fields);
+          }
 
+          const field = fields?.get("");
           return {
             type: "primitive[]",
             fields: field ? [field] : [],
@@ -1254,7 +1260,7 @@ export function inferSimpleSchemaFromValue(rawValue: string): SimpleSchema {
 
         // Loop through all values and infer the schema
         let fields: undefined | Map<string, SchemaField> = undefined;
-        for (const obj of value) {
+        for (const obj of nonNullValues) {
           if (!obj || typeof obj !== "object" || Array.isArray(obj)) {
             throw new Error("Array must contain objects");
           }

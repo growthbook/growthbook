@@ -1,6 +1,7 @@
 import {
   FeatureInterface,
   FeatureRule,
+  SchemaField,
   SimpleSchema,
 } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
@@ -20,6 +21,9 @@ import {
   checkIfRevisionNeedsReview,
   resetReviewOnChange,
   simpleToJSONSchema,
+  inferSchemaField,
+  inferSchemaFields,
+  inferSimpleSchemaFromValue,
 } from "../../src/util";
 
 const feature: FeatureInterface = {
@@ -707,6 +711,421 @@ describe("simpleToJSONSchema", () => {
         format: "grid",
       },
       format: "tabs",
+    });
+  });
+});
+
+describe("inferSchemaField", () => {
+  it("Infers primitive values in isolation", () => {
+    expect(inferSchemaField("test", "t")).toEqual({
+      type: "string",
+      key: "t",
+      description: "",
+      required: true,
+      enum: [],
+      default: "",
+      min: 0,
+      max: 64,
+    });
+    expect(inferSchemaField(123, "")).toEqual({
+      type: "integer",
+      key: "",
+      description: "",
+      required: true,
+      enum: [],
+      default: "",
+      min: 0,
+      max: 999,
+    });
+    expect(inferSchemaField(-0.5, "")).toEqual({
+      type: "float",
+      key: "",
+      description: "",
+      required: true,
+      enum: [],
+      default: "",
+      min: -999,
+      max: 999,
+    });
+    expect(inferSchemaField(true, "")).toEqual({
+      type: "boolean",
+      key: "",
+      description: "",
+      required: true,
+      enum: [],
+      default: "",
+      min: 0,
+      max: 0,
+    });
+  });
+  it("Takes a bigger max/min if the value exceeds the current max/min", () => {
+    expect(inferSchemaField(1000, "")).toEqual({
+      type: "integer",
+      key: "",
+      description: "",
+      required: true,
+      enum: [],
+      default: "",
+      min: 0,
+      max: 1000,
+    });
+    expect(inferSchemaField(-1000, "")).toEqual({
+      type: "integer",
+      key: "",
+      description: "",
+      required: true,
+      enum: [],
+      default: "",
+      min: -1000,
+      max: 999,
+    });
+    expect(inferSchemaField(1000.5, "")).toEqual({
+      type: "float",
+      key: "",
+      description: "",
+      required: true,
+      enum: [],
+      default: "",
+      min: 0,
+      max: 1000.5,
+    });
+    expect(inferSchemaField(-1000.5, "")).toEqual({
+      type: "float",
+      key: "",
+      description: "",
+      required: true,
+      enum: [],
+      default: "",
+      min: -1000.5,
+      max: 999,
+    });
+
+    // Does the same for max string length
+    expect(inferSchemaField("a".repeat(300), "")).toEqual({
+      type: "string",
+      key: "",
+      description: "",
+      required: true,
+      enum: [],
+      default: "",
+      min: 0,
+      max: 300,
+    });
+  });
+  it("Infers primitive values given an existing schema", () => {
+    // Existing string with long max length should keep the max length
+    expect(
+      inferSchemaField("test", "h", {
+        type: "string",
+        key: "h",
+        description: "",
+        required: true,
+        enum: [],
+        default: "",
+        min: 0,
+        max: 256,
+      })
+    ).toEqual({
+      type: "string",
+      key: "h",
+      description: "",
+      required: true,
+      enum: [],
+      default: "",
+      min: 0,
+      max: 256,
+    });
+
+    // Existing integer with a min value should keep the min value
+    expect(
+      inferSchemaField(123, "", {
+        type: "integer",
+        key: "",
+        description: "",
+        required: true,
+        enum: [],
+        default: "",
+        min: -999,
+        max: 999,
+      })
+    ).toEqual({
+      type: "integer",
+      key: "",
+      description: "",
+      required: true,
+      enum: [],
+      default: "",
+      min: -999,
+      max: 999,
+    });
+  });
+
+  it("Upgrades from integer to float", () => {
+    // Existing float with a new integer value should keep the float type
+    expect(
+      inferSchemaField(123, "", {
+        type: "float",
+        key: "",
+        description: "",
+        required: true,
+        enum: [],
+        default: "",
+        min: 0,
+        max: 999,
+      })
+    ).toEqual({
+      type: "float",
+      key: "",
+      description: "",
+      required: true,
+      enum: [],
+      default: "",
+      min: 0,
+      max: 999,
+    });
+
+    // Existing integer type, given a new float value, should change the type to float
+    expect(
+      inferSchemaField(123.5, "", {
+        type: "integer",
+        key: "",
+        description: "",
+        required: true,
+        enum: [],
+        default: "",
+        min: 0,
+        max: 999,
+      })
+    ).toEqual({
+      type: "float",
+      key: "",
+      description: "",
+      required: true,
+      enum: [],
+      default: "",
+      min: 0,
+      max: 999,
+    });
+  });
+
+  it("throws when the types change in an incompatible way", () => {
+    // Changing from string to integer should throw
+    expect(() =>
+      inferSchemaField(123, "", {
+        type: "string",
+        key: "",
+        description: "",
+        required: true,
+        enum: [],
+        default: "",
+        min: 0,
+        max: 999,
+      })
+    ).toThrowError("Conflicting types");
+  });
+
+  it("throws when an unknown type is encountered", () => {
+    // Try to infer type of an object (only primitives are supported)
+    expect(() => inferSchemaField({ a: 1 }, "")).toThrowError(
+      "Invalid value type: object"
+    );
+  });
+
+  it("returns early when value is null or undefined", () => {
+    expect(inferSchemaField(null, "")).toEqual(undefined);
+    expect(inferSchemaField(undefined, "")).toEqual(undefined);
+
+    // If given an existing schema, should return that
+    const schema: SchemaField = {
+      type: "string",
+      key: "",
+      description: "",
+      required: true,
+      enum: [],
+      default: "",
+      min: 0,
+      max: 999,
+    };
+    expect(inferSchemaField(null, "", schema)).toEqual(schema);
+    expect(inferSchemaField(undefined, "", schema)).toEqual(schema);
+  });
+});
+
+describe("inferSchemaFields", () => {
+  // structuredClone missing from our jest version
+  // This is a hack, but should work since we aren't using Dates or other non-JSON types
+  const structuredClone = (obj: unknown) => JSON.parse(JSON.stringify(obj));
+  it("Infers object fields in isolation", () => {
+    const obj = {
+      a_string: "test",
+      a_integer: 123,
+    };
+    expect([...inferSchemaFields(obj).entries()]).toEqual([
+      ["a_string", inferSchemaField("test", "a_string")],
+      ["a_integer", inferSchemaField(123, "a_integer")],
+    ]);
+  });
+  it("Infers object fields given an existing schema", () => {
+    const obj = {
+      a_string: "test",
+      a_float: -50,
+    };
+    const existing_float_schema = inferSchemaField(
+      256.1,
+      "a_float"
+    ) as SchemaField;
+    const existing_str_schema = inferSchemaField(
+      "test",
+      "a_string"
+    ) as SchemaField;
+    const existing = new Map([
+      ["a_float", structuredClone(existing_float_schema)],
+      ["a_string", structuredClone(existing_str_schema)],
+    ]);
+    expect([...inferSchemaFields(obj, existing).entries()]).toEqual([
+      ["a_float", inferSchemaField(-50, "a_float", existing_float_schema)],
+      ["a_string", inferSchemaField("test", "a_string")],
+    ]);
+  });
+  it("Sets required to false when a field is missing from existing schema", () => {
+    // Field missing from existing schema
+    const obj = {
+      a_string: "test",
+      a_integer: 123,
+    };
+    const existing_int = inferSchemaField(50, "a_integer") as SchemaField;
+    const existing = new Map([["a_integer", structuredClone(existing_int)]]);
+    expect([...inferSchemaFields(obj, existing).entries()]).toEqual([
+      ["a_integer", inferSchemaField(123, "a_integer", existing_int)],
+      [
+        "a_string",
+        { ...inferSchemaField("test", "a_string"), required: false },
+      ],
+    ]);
+  });
+  it("Sets required to false when a field is missing from the new schema", () => {
+    // Field missing from new schema
+    const obj = {
+      a_string: "test",
+    };
+    const existing_str = inferSchemaField("test", "a_string") as SchemaField;
+    const existing_int = inferSchemaField(50, "a_integer") as SchemaField;
+    const existing = new Map([
+      // Need to clone since the function mutates the arguments
+      ["a_integer", structuredClone(existing_int)],
+      ["a_string", structuredClone(existing_str)],
+    ]);
+    expect([...inferSchemaFields(obj, existing).entries()]).toEqual([
+      ["a_integer", { ...existing_int, required: false }],
+      ["a_string", existing_str],
+    ]);
+  });
+});
+
+describe("inferSimpleSchemaFromValue", () => {
+  it("Infers a primitive value", () => {
+    expect(inferSimpleSchemaFromValue(JSON.stringify("test"))).toEqual({
+      type: "primitive",
+      fields: [inferSchemaField("test", "")],
+    });
+
+    expect(inferSimpleSchemaFromValue(JSON.stringify(123))).toEqual({
+      type: "primitive",
+      fields: [inferSchemaField(123, "")],
+    });
+
+    expect(inferSimpleSchemaFromValue(JSON.stringify(-0.5))).toEqual({
+      type: "primitive",
+      fields: [inferSchemaField(-0.5, "")],
+    });
+
+    expect(inferSimpleSchemaFromValue(JSON.stringify(false))).toEqual({
+      type: "primitive",
+      fields: [inferSchemaField(false, "")],
+    });
+  });
+  it("Returns generic schema when value is null, undefined, or invalid JSON", () => {
+    expect(inferSimpleSchemaFromValue(JSON.stringify(null))).toEqual({
+      type: "object",
+      fields: [],
+    });
+    expect(inferSimpleSchemaFromValue("not json")).toEqual({
+      type: "object",
+      fields: [],
+    });
+  });
+  it("Inferes a primitive array", () => {
+    expect(
+      inferSimpleSchemaFromValue(JSON.stringify(["test", "test2"]))
+    ).toEqual({
+      type: "primitive[]",
+      fields: [inferSchemaField("test", "")],
+    });
+    expect(
+      inferSimpleSchemaFromValue(
+        JSON.stringify([null, null, 123, 456, 1000, 26.5, -50])
+      )
+    ).toEqual({
+      type: "primitive[]",
+      fields: [{ ...inferSchemaField(1000, ""), min: -999, type: "float" }],
+    });
+    expect(inferSimpleSchemaFromValue(JSON.stringify([true, false]))).toEqual({
+      type: "primitive[]",
+      fields: [inferSchemaField(true, "")],
+    });
+  });
+  it("Returns generic schema when primitive array values are mixed", () => {
+    expect(
+      inferSimpleSchemaFromValue(JSON.stringify(["test", 123, false]))
+    ).toEqual({
+      type: "object",
+      fields: [],
+    });
+  });
+  it("Infers an object", () => {
+    expect(
+      inferSimpleSchemaFromValue(JSON.stringify({ a: "test", b: 123 }))
+    ).toEqual({
+      type: "object",
+      fields: [inferSchemaField("test", "a"), inferSchemaField(123, "b")],
+    });
+  });
+  it("Infers an array of objects", () => {
+    expect(
+      inferSimpleSchemaFromValue(
+        JSON.stringify([
+          { a: null, b: 123.5 },
+          { a: "test2", b: 1000 },
+          { b: -50, c: true },
+        ])
+      )
+    ).toEqual({
+      type: "object[]",
+      fields: [
+        { ...inferSchemaField(123.5, "b"), min: -999, max: 1000 },
+        { ...inferSchemaField("test", "a"), required: false },
+        { ...inferSchemaField(true, "c"), required: false },
+      ],
+    });
+  });
+  it("Returns generic schema when value has too much nesting", () => {
+    expect(
+      inferSimpleSchemaFromValue(
+        JSON.stringify({ a: { b: { c: { d: { e: "test" } } } } })
+      )
+    ).toEqual({
+      type: "object",
+      fields: [],
+    });
+  });
+  it("Returns generic array schema given an empty array (or one full of nulls)", () => {
+    expect(inferSimpleSchemaFromValue(JSON.stringify([]))).toEqual({
+      type: "object[]",
+      fields: [],
+    });
+    expect(inferSimpleSchemaFromValue(JSON.stringify([null, null]))).toEqual({
+      type: "object[]",
+      fields: [],
     });
   });
 });
