@@ -44,7 +44,7 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
   await new Promise((resolve, reject) => {
     const promiseTimeout = setTimeout(() => {
       reject(new Error("Snowflake connection timeout"));
-    }, 10000);
+    }, 30000);
     connection.connect((err, conn) => {
       clearTimeout(promiseTimeout);
       if (err) {
