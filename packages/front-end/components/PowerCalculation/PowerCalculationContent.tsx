@@ -162,7 +162,7 @@ const SampleSizeAndRuntime = ({
             </tbody>
           </table>
         </div>
-        <div className="col-4 align-self-center">
+        <div className="col-4 mt-4">
           <div className="card alert alert-info">
             <div className="card-title uppercase-title mb-0">Summary</div>
             <h4>{selectedName}</h4>
