@@ -18,6 +18,7 @@ import { getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
 import { MetricInterface } from "back-end/types/metric";
 import { getRegressionAdjustmentsForMetric } from "shared/experiments";
+import { DifferenceType } from "@back-end/types/stats";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
@@ -103,6 +104,7 @@ export default function ConfigureReport({
   const form = useForm({
     defaultValues: {
       ...report.args,
+      differenceType: report.args.differenceType ?? "relative",
       exposureQueryId:
         getExposureQuery(
           datasource?.settings,
@@ -190,6 +192,7 @@ export default function ConfigureReport({
           ...value,
           skipPartialData: !!value.skipPartialData,
         };
+        console.log(args);
         if (value.regressionAdjustmentEnabled) {
           args.metricRegressionAdjustmentStatuses = metricRegressionAdjustmentStatuses;
         }
@@ -380,6 +383,28 @@ export default function ConfigureReport({
         labelClassName="font-weight-bold"
         showHelp={true}
         newUi={false}
+      />
+      <SelectField
+        label="Difference Type"
+        labelClassName="font-weight-bold"
+        value={form.watch("differenceType")}
+        onChange={(v) => form.setValue("differenceType", v as DifferenceType)}
+        sort={false}
+        options={[
+          {
+            label: "Relative",
+            value: "relative",
+          },
+          {
+            label: "Absolute",
+            value: "absolute",
+          },
+          {
+            label: "Scaled Impact",
+            value: "scaled",
+          },
+        ]}
+        helpText="Choose the units to display lifts in"
       />
       <MetricSelector
         datasource={form.watch("datasource")}
