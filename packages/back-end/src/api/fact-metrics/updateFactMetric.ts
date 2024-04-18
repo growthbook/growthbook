@@ -17,6 +17,10 @@ export function getUpdateFactMetricPropsFromBody(
     cappingSettings,
     windowSettings,
     regressionAdjustmentSettings,
+    riskThresholdSuccess,
+    riskThresholdDanger,
+    minPercentChange,
+    maxPercentChange,
     ...otherFields
   } = body;
 
@@ -26,6 +30,24 @@ export function getUpdateFactMetricPropsFromBody(
 
   const metricType = updates.metricType;
 
+  if (riskThresholdDanger || riskThresholdSuccess) {
+    updates.loseRisk = riskThresholdDanger ?? factMetric.loseRisk;
+    updates.winRisk = riskThresholdSuccess ?? factMetric.winRisk;
+    if (updates.loseRisk < updates.winRisk) {
+      throw new Error(
+        `riskThresholdDanger (${updates.loseRisk}) must be higher than riskThresholdSuccess ((${updates.winRisk}))`
+      );
+    }
+  }
+  if (maxPercentChange || minPercentChange) {
+    updates.maxPercentChange = maxPercentChange ?? factMetric.maxPercentChange;
+    updates.minPercentChange = minPercentChange ?? factMetric.minPercentChange;
+    if (updates.maxPercentChange < updates.minPercentChange) {
+      throw new Error(
+        `maxPercentChange (${updates.maxPercentChange}) must be larger than minPercentChange (${updates.minPercentChange})`
+      );
+    }
+  }
   if (numerator) {
     updates.numerator = {
       filters: [],

@@ -175,6 +175,8 @@ export class FactMetricModel extends BaseClass {
 
     return {
       ...otherFields,
+      riskThresholdDanger: otherFields.loseRisk,
+      riskThresholdSuccess: otherFields.winRisk,
       metricType: metricType,
       quantileSettings: quantileSettings || undefined,
       cappingSettings: {

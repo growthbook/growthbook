@@ -131,10 +131,29 @@ properties:
         description: If false, the organization default settings will be used
       enabled:
         type: boolean
-        description: Controls whether or not regresion adjustment is applied to the metric
+        description: Controls whether or not regression adjustment is applied to the metric
       days:
         type: number
         description: Number of pre-exposure days to use for the regression adjustment
+  riskThresholdSuccess:
+    type: number
+    description: Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.
+    minimum: 0
+  riskThresholdDanger:
+    type: number
+    description: Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.
+    minimum: 0
+  minPercentChange:
+    type: number
+    description: Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)
+    minimum: 0
+  maxPercentChange:
+    type: number
+    description: Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%)
+    minimum: 0
+  minSampleSize:
+    type: number
+    minimum: 0
   managedBy:
     type: string
     description: Set this to "api" to disable editing in the GrowthBook UI

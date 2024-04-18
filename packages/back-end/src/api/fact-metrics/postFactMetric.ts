@@ -36,8 +36,45 @@ export async function getCreateMetricPropsFromBody(
     regressionAdjustmentSettings,
     numerator,
     denominator,
+    riskThresholdSuccess,
+    riskThresholdDanger,
+    minPercentChange,
+    maxPercentChange,
+    minSampleSize,
     ...otherFields
   } = body;
+
+  // Enforce that both and riskThresholdSuccess exist, or neither
+  const riskDangerExists = typeof riskThresholdDanger !== "undefined";
+  const riskSuccessExists = typeof riskThresholdSuccess !== "undefined";
+  if (riskDangerExists !== riskSuccessExists)
+    throw new Error(
+      "Must provide both riskThresholdDanger and riskThresholdSuccess or neither."
+    );
+  // We have both. Make sure they're valid
+  if (riskDangerExists && riskSuccessExists) {
+    // Enforce riskThresholdDanger must be higher than riskThresholdSuccess
+    if (riskThresholdDanger < riskThresholdSuccess)
+      throw new Error(
+        "riskThresholdDanger must be higher than riskThresholdSuccess"
+      );
+  }
+  // Min/max percentage change
+  const maxPercentExists = typeof maxPercentChange !== "undefined";
+  const minPercentExists = typeof minPercentChange !== "undefined";
+  // Enforce both max/min percent or neither
+  if (maxPercentExists !== minPercentExists)
+    throw new Error(
+      "Must specify both `maxPercentChange` and `minPercentChange` or neither"
+    );
+
+  if (maxPercentExists && minPercentExists) {
+    // Enforce max is greater than min
+    if (maxPercentChange <= minPercentChange)
+      throw new Error(
+        "`maxPercentChange` must be greater than `minPercentChange`"
+      );
+  }
 
   const cleanedNumerator = {
     filters: [],
@@ -50,13 +87,20 @@ export async function getCreateMetricPropsFromBody(
 
   const data: CreateFactMetricProps = {
     datasource: factTable.datasource,
-    loseRisk: scopedSettings.loseRisk.value || 0,
-    winRisk: scopedSettings.winRisk.value || 0,
+    loseRisk: riskThresholdDanger || scopedSettings.loseRisk.value || 0,
+    winRisk: riskThresholdSuccess || scopedSettings.winRisk.value || 0,
     maxPercentChange:
-      scopedSettings.metricDefaults.value.maxPercentageChange || 0,
+      maxPercentChange ||
+      scopedSettings.metricDefaults.value.maxPercentageChange ||
+      0,
     minPercentChange:
-      scopedSettings.metricDefaults.value.minPercentageChange || 0,
-    minSampleSize: scopedSettings.metricDefaults.value.minimumSampleSize || 0,
+      minPercentChange ||
+      scopedSettings.metricDefaults.value.minPercentageChange ||
+      0,
+    minSampleSize:
+      minSampleSize ||
+      scopedSettings.metricDefaults.value.minimumSampleSize ||
+      0,
     description: "",
     owner: "",
     projects: [],
