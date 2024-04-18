@@ -12,10 +12,10 @@ import { hasFileConfig } from "@/services/env";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import { GBAddCircle } from "@/components/Icons";
-import usePermissions from "@/hooks/usePermissions";
 import { DocLink } from "@/components/DocLink";
 import Code, { Language } from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const DimensionsPage: FC = () => {
   const {
@@ -27,7 +27,10 @@ const DimensionsPage: FC = () => {
     mutateDefinitions,
   } = useDefinitions();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
+  const canCreateDimension = permissionsUtil.canCreateDimension();
+  const canEditDimension = permissionsUtil.canUpdateDimension();
+  const canDeleteDimension = permissionsUtil.canDeleteDimension();
 
   const [
     dimensionForm,
@@ -95,7 +98,7 @@ const DimensionsPage: FC = () => {
           </DocLink>
         </div>
         <div style={{ flex: 1 }}></div>
-        {!hasFileConfig() && permissions.createDimensions && (
+        {!hasFileConfig() && canCreateDimension && (
           <div className="col-auto">
             <Button
               color="primary"
@@ -132,9 +135,7 @@ const DimensionsPage: FC = () => {
                   <th className="d-none d-md-table-cell">Identifier Type</th>
                   <th className="d-none d-lg-table-cell">Definition</th>
                   {!hasFileConfig() && <th>Date Updated</th>}
-                  {!hasFileConfig() && permissions.createDimensions && (
-                    <th></th>
-                  )}
+                  {!hasFileConfig() && <th></th>}
                 </tr>
               </thead>
               <tbody>
@@ -183,31 +184,35 @@ const DimensionsPage: FC = () => {
                       </td>
                       {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Date | null' is not assignable t... Remove this comment to see the full error message */}
                       {!hasFileConfig() && <td>{ago(s.dateUpdated)}</td>}
-                      {!hasFileConfig() && permissions.createDimensions && (
+                      {!hasFileConfig() && (
                         <td>
-                          <a
-                            href="#"
-                            className="tr-hover text-primary mr-3"
-                            title="Edit this dimension"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setDimensionForm(s);
-                            }}
-                          >
-                            <FaPencilAlt />
-                          </a>
-                          <DeleteButton
-                            link={true}
-                            className={"tr-hover text-primary"}
-                            displayName={s.name}
-                            title="Delete this dimension"
-                            onClick={async () => {
-                              await apiCall(`/dimensions/${s.id}`, {
-                                method: "DELETE",
-                              });
-                              await mutateDefinitions({});
-                            }}
-                          />
+                          {canEditDimension ? (
+                            <a
+                              href="#"
+                              className="tr-hover text-primary mr-3"
+                              title="Edit this dimension"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setDimensionForm(s);
+                              }}
+                            >
+                              <FaPencilAlt />
+                            </a>
+                          ) : null}
+                          {canDeleteDimension ? (
+                            <DeleteButton
+                              link={true}
+                              className={"tr-hover text-primary"}
+                              displayName={s.name}
+                              title="Delete this dimension"
+                              onClick={async () => {
+                                await apiCall(`/dimensions/${s.id}`, {
+                                  method: "DELETE",
+                                });
+                                await mutateDefinitions({});
+                              }}
+                            />
+                          ) : null}
                         </td>
                       )}
                     </tr>
@@ -221,7 +226,7 @@ const DimensionsPage: FC = () => {
       {!error && dimensions.length === 0 && !hasFileConfig() && (
         <div className="alert alert-info">
           You don&apos;t have any user dimensions defined yet.{" "}
-          {permissions.createDimensions &&
+          {canCreateDimension &&
             "Click the button above to create your first one."}
         </div>
       )}

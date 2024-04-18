@@ -353,7 +353,7 @@ export default function AccountPlanNotices() {
           }
         >
           <div className="alert alert-danger py-1 px-2 d-none d-md-block mb-0 mr-1">
-            <FaExclamationTriangle /> license quota exceded
+            <FaExclamationTriangle /> license quota exceeded
           </div>
         </Tooltip>
       );
