@@ -192,7 +192,7 @@ export default function ConfigureReport({
           ...value,
           skipPartialData: !!value.skipPartialData,
         };
-        console.log(args);
+
         if (value.regressionAdjustmentEnabled) {
           args.metricRegressionAdjustmentStatuses = metricRegressionAdjustmentStatuses;
         }
