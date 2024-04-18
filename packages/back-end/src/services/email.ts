@@ -27,7 +27,7 @@ const env = nunjucks.configure(
 );
 
 env.addFilter("noHyperlink", (str) => {
-  return str.replace(".", ".").replace("/", "∕").replace(":", "∶");
+  return str.replace(/[^a-zA-Z0-9\s]/g, "");
 });
 
 const transporter = isEmailEnabled()
