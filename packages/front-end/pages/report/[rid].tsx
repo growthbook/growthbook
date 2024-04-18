@@ -133,9 +133,7 @@ export default function ReportPage() {
   const phaseAgeMinutes =
     (Date.now() - getValidDate(report.args.startDate).getTime()) / (1000 * 60);
 
-  const statsEngine = data?.report?.args?.statsEngine || DEFAULT_STATS_ENGINE;
-  const regressionAdjustmentAvailable =
-    hasRegressionAdjustmentFeature && statsEngine === "frequentist";
+  const regressionAdjustmentAvailable = hasRegressionAdjustmentFeature;
   const regressionAdjustmentEnabled =
     hasRegressionAdjustmentFeature &&
     regressionAdjustmentAvailable &&

@@ -253,7 +253,6 @@ export function getAllMetricRegressionAdjustmentStatuses({
   allExperimentMetrics,
   denominatorMetrics,
   orgSettings,
-  statsEngine,
   experimentRegressionAdjustmentEnabled,
   experimentMetricOverrides = [],
   datasourceType,
@@ -262,7 +261,6 @@ export function getAllMetricRegressionAdjustmentStatuses({
   allExperimentMetrics: (ExperimentMetricInterface | null)[];
   denominatorMetrics: MetricInterface[];
   orgSettings: OrganizationSettings;
-  statsEngine: string;
   experimentRegressionAdjustmentEnabled?: boolean;
   experimentMetricOverrides?: MetricOverride[];
   datasourceType?: DataSourceInterfaceWithParams["type"];
@@ -297,10 +295,6 @@ export function getAllMetricRegressionAdjustmentStatuses({
     metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
   }
   if (!experimentRegressionAdjustmentEnabled) {
-    regressionAdjustmentEnabled = false;
-  }
-  if (statsEngine === "bayesian") {
-    regressionAdjustmentAvailable = false;
     regressionAdjustmentEnabled = false;
   }
   if (

@@ -316,7 +316,6 @@ export function getDefaultExperimentAnalysisSettings(
     dimensions: dimension ? [dimension] : [],
     regressionAdjusted:
       hasRegressionAdjustmentFeature &&
-      statsEngine === "frequentist" &&
       (regressionAdjustmentEnabled !== undefined
         ? regressionAdjustmentEnabled
         : organization.settings?.regressionAdjustmentEnabled ?? false),
@@ -415,8 +414,7 @@ export function getSnapshotSettings({
     experimentId: experiment.trackingKey || experiment.id,
     goalMetrics: experiment.metrics,
     guardrailMetrics: experiment.guardrails || [],
-    regressionAdjustmentEnabled:
-      settings.statsEngine === "frequentist" && !!settings.regressionAdjusted,
+    regressionAdjustmentEnabled: !!settings.regressionAdjusted,
     exposureQueryId: experiment.exposureQueryId,
     metricSettings: metricSettings,
     variations: experiment.variations.map((v, i) => ({

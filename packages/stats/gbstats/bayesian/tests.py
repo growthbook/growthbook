@@ -157,10 +157,10 @@ class GaussianEffectABTest(BayesianABTest):
 
         data_variance = frequentist_variance(
             self.stat_a.variance,
-            self.stat_a.mean,
+            self.stat_a.unadjusted_mean,
             self.stat_a.n,
             self.stat_b.variance,
-            self.stat_b.mean,
+            self.stat_b.unadjusted_mean,
             self.stat_b.n,
             self.relative,
         )

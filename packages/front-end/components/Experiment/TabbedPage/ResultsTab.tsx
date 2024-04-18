@@ -131,7 +131,6 @@ export default function ResultsTab({
       allExperimentMetrics,
       denominatorMetrics,
       orgSettings,
-      statsEngine,
       experimentRegressionAdjustmentEnabled:
         experiment.regressionAdjustmentEnabled,
       experimentMetricOverrides: experiment.metricOverrides,
@@ -142,7 +141,6 @@ export default function ResultsTab({
     allExperimentMetrics,
     denominatorMetrics,
     orgSettings,
-    statsEngine,
     experiment.regressionAdjustmentEnabled,
     experiment.metricOverrides,
     datasource?.type,
