@@ -112,9 +112,11 @@ const report = () => {
 function main() {
   const path = process.argv[2];
   if (path) {
+    // eslint-disable-next-line no-console
     console.log("Saving to file", path);
     fs.writeFileSync(path, report());
   } else {
+    // eslint-disable-next-line no-console
     console.log("Please provide file path");
     process.exit(1);
   }
