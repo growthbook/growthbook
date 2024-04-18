@@ -40,9 +40,13 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
     ...getProxySettings(),
     application: "GrowthBook_GrowthBook",
   });
-
+  // promise with timeout to prevent hanging
   await new Promise((resolve, reject) => {
+    const promiseTimeout = setTimeout(() => {
+      reject(new Error("Snowflake connection timeout"));
+    }, 10000);
     connection.connect((err, conn) => {
+      clearTimeout(promiseTimeout);
       if (err) {
         reject(err);
       } else {
