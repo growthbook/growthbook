@@ -15,7 +15,7 @@
     "test": "jest --forceExit --verbose --detectOpenHandles",
     "clean": "rimraf node_modules",
     "type-check": "tsc --pretty --noEmit",
-    "generate-sdk-report": "ts-node --swc ./src/sdk-versioning/sdk-report.ts ./src/sdk-versioning/CAPABILITIES.md"
+    "generate-sdk-report": "node -r @swc-node/register ./src/sdk-versioning/sdk-report.ts ./src/sdk-versioning/CAPABILITIES.md"
   },
   "dependencies": {
     "@growthbook/growthbook": "^0.36.0",
@@ -26,6 +26,7 @@
     "uniqid": "^5.4.0"
   },
   "devDependencies": {
+    "@swc-node/register": "^1.9.0",
     "@swc/cli": "^0.1.57",
     "@swc/core": "^1.3.4",
     "@swc/jest": "^0.2.23",
@@ -35,8 +36,7 @@
     "cross-env": "^7.0.3",
     "jest": "^27.1.1",
     "rimraf": "^3.0.2",
-    "typescript": "5.3.3",
-    "ts-node": "^10.9.1"
+    "typescript": "5.3.3"
   },
   "license": "MIT"
 }

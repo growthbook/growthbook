@@ -3370,7 +3370,9 @@
     uuid "^8.0.0"
 
 "@growthbook/growthbook@^0.34.0":
-  version "0.36.0"
+  version "0.34.0"
+  resolved "https://registry.yarnpkg.com/@growthbook/growthbook/-/growthbook-0.34.0.tgz#df5275fafbbe055c7cfeea2953a4218a9ec9027f"
+  integrity sha512-3K5JL8QftX7y77EpieYg9anXVYb6+ZafTsrNCWp0HOdmtf4lxHOzCUYwuYDaS3bvmaeIUWJ5hYcOTc6WhNbfJw==
   dependencies:
     dom-mutator "^0.6.0"
 
@@ -6236,6 +6238,31 @@
     "@styled-system/core" "^5.1.2"
     "@styled-system/css" "^5.1.5"
 
+"@swc-node/core@^1.13.0":
+  version "1.13.0"
+  resolved "https://registry.yarnpkg.com/@swc-node/core/-/core-1.13.0.tgz#209d70f6371049926915a7d23a502144cdb5cffb"
+  integrity sha512-lFPD4nmy4ifAOVMChFjwlpXN5KQXvegqeyuzz1KQz42q1lf+cL3Qux1/GteGuZjh8HC+Rj1RdNrHpE/MCfJSTw==
+
+"@swc-node/register@^1.9.0":
+  version "1.9.0"
+  resolved "https://registry.yarnpkg.com/@swc-node/register/-/register-1.9.0.tgz#dcab1567a3999f75e04fc1cf9803d9673dddc50a"
+  integrity sha512-i0iYInD4q5v3xQC6bKvs0QtfUxu197CU5qKALmpxEqTYs7sIhQ7KFLe3kP+eAR4gRkJTvAgjQgrokXLN2jZrOw==
+  dependencies:
+    "@swc-node/core" "^1.13.0"
+    "@swc-node/sourcemap-support" "^0.5.0"
+    colorette "^2.0.20"
+    debug "^4.3.4"
+    pirates "^4.0.6"
+    tslib "^2.6.2"
+
+"@swc-node/sourcemap-support@^0.5.0":
+  version "0.5.0"
+  resolved "https://registry.yarnpkg.com/@swc-node/sourcemap-support/-/sourcemap-support-0.5.0.tgz#bf2a3e8097eb810b9137305c8cb429288a328fde"
+  integrity sha512-fbhjL5G0YvFoWwNhWleuBUfotiX+USiA9oJqu9STFw+Hb0Cgnddn+HVS/K5fI45mn92e8V+cHD2jgFjk4w2T9Q==
+  dependencies:
+    source-map-support "^0.5.21"
+    tslib "^2.6.2"
+
 "@swc/cli@^0.1.57":
   version "0.1.57"
   resolved "https://registry.npmjs.org/@swc/cli/-/cli-0.1.57.tgz"
@@ -9100,6 +9127,11 @@ colorette@^2.0.16, colorette@^2.0.7:
   version "2.0.19"
   resolved "https://registry.npmjs.org/colorette/-/colorette-2.0.19.tgz"
   integrity sha512-3tlv/dIP7FWvj3BsbHrGLJ6l/oKh1O3TcgBqMn+yyCagOxc23fyzDS6HypQbgxWbkpDnf52p1LuR4eWDQ/K9WQ==
+
+colorette@^2.0.20:
+  version "2.0.20"
+  resolved "https://registry.yarnpkg.com/colorette/-/colorette-2.0.20.tgz#9eb793e6833067f7235902fcd3b09917a000a95a"
+  integrity sha512-IfEDxwoWIjkeXL1eXcDiow4UbKjhLdq6/EuSVR9GMN7KVH3r9gQ83e73hsz1Nd1T3ijd5xv1wcWRYO+D6kCI2w==
 
 colorspace@1.1.x:
   version "1.1.2"
@@ -16182,6 +16214,11 @@ pirates@^4.0.4:
   resolved "https://registry.npmjs.org/pirates/-/pirates-4.0.5.tgz"
   integrity sha512-8V9+HQPupnaXMA23c5hvl69zXvTwTzyAYasnkb0Tts4XvO4CliqONMOnvlq26rkhLC3nWDFBJf73LU1e1VZLaQ==
 
+pirates@^4.0.6:
+  version "4.0.6"
+  resolved "https://registry.yarnpkg.com/pirates/-/pirates-4.0.6.tgz#3018ae32ecfcff6c29ba2267cbf21166ac1f36b9"
+  integrity sha512-saLsH7WeYYPiD25LDuLRRY/i+6HaPYr6G1OUlN39otzkSTxKnubR9RTxS3/Kk50s1g2JTgFwWQDQyplC5/SHZg==
+
 pkg-dir@^4.2.0:
   version "4.2.0"
   resolved "https://registry.npmjs.org/pkg-dir/-/pkg-dir-4.2.0.tgz"
@@ -17910,7 +17947,7 @@ sonic-boom@^3.0.0, sonic-boom@^3.1.0:
   resolved "https://registry.npmjs.org/source-map-js/-/source-map-js-1.0.2.tgz"
   integrity sha512-R0XvVJ9WusLiqTCEiGCmICCMplcCkIwwR11mOSD9CR5u+IXYdiseeEuXCVAjS54zqwkLcPNnmU4OeJ6tUrWhDw==
 
-source-map-support@^0.5.6, source-map-support@~0.5.20:
+source-map-support@^0.5.21, source-map-support@^0.5.6, source-map-support@~0.5.20:
   version "0.5.21"
   resolved "https://registry.npmjs.org/source-map-support/-/source-map-support-0.5.21.tgz"
   integrity sha512-uBHU3L3czsIyYXKX88fdrGovxdSCoTGDRZ6SYXtSRxLZUzHg5P/66Ht6uoUlHu9EZod+inXhKo3qQgwXUT/y1w==
