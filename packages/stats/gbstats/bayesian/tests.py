@@ -176,9 +176,14 @@ class GaussianEffectABTest(BayesianABTest):
             + int(self.prior_effect.informative) / self.prior_effect.variance
         )
         self.mean_diff = (
-            data_mean / data_variance
-            + self.prior_effect.mean / self.prior_effect.variance
-        ) / post_prec
+            (
+                data_mean / data_variance
+                + self.prior_effect.mean / self.prior_effect.variance
+            )
+            / post_prec
+            if self.prior_effect.informative
+            else data_mean
+        )
 
         self.std_diff = np.sqrt(1 / post_prec)
 
