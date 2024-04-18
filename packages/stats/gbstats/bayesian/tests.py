@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from dataclasses import field
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 import numpy as np
 from pydantic.dataclasses import dataclass
@@ -30,6 +30,7 @@ class GaussianPrior:
 class BayesianConfig(BaseConfig):
     inverse: bool = False
     alpha: float = 0.05
+    prior_type: Literal["relative", "absolute"] = "relative"
 
 
 @dataclass
@@ -126,7 +127,21 @@ class GaussianEffectABTest(BayesianABTest):
         config: GaussianEffectBayesianConfig = GaussianEffectBayesianConfig(),
     ):
         super().__init__(stat_a, stat_b, config)
-        self.prior_effect = config.prior_effect
+        # rescale prior if needed
+        if self.relative and config.prior_type == "absolute":
+            self.prior_effect = GaussianPrior(
+                config.prior_effect.mean / self.stat_a.unadjusted_mean,
+                config.prior_effect.variance / pow(self.stat_a.unadjusted_mean, 2),
+                config.prior_effect.flat,
+            )
+        elif not self.relative and config.prior_type == "relative":
+            self.prior_effect = GaussianPrior(
+                config.prior_effect.mean * self.stat_a.unadjusted_mean,
+                config.prior_effect.variance * pow(self.stat_a.unadjusted_mean, 2),
+                config.prior_effect.flat,
+            )
+        else:
+            self.prior_effect = config.prior_effect
         self.stat_a = stat_a
         self.stat_b = stat_b
 

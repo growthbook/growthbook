@@ -157,14 +157,14 @@ class TestGaussianEffectABTest(TestCase):
         ).compute_result()
 
         self.assertEqual(b_improper_flat.expected, 0.5365124375579776)
-        self.assertEqual(b_flat.expected, 0.5365124366806674)
+        self.assertEqual(b_flat.expected, 0.536512437540855)
         self.assertEqual(b_relative_flat.expected, 0.07495297222736319)
-        self.assertEqual(b_informative.expected, 0.5356365596437939)
+        self.assertEqual(b_informative.expected, 0.536495315442269)
         self.assertEqual(b_relative_informative.expected, 0.07495037261804469)
         self.assertEqual(b_improper_flat.ci, [0.45725595891154225, 0.6157689162044129])
-        self.assertEqual(b_flat.ci, [0.4572559580990325, 0.6157689152623023])
+        self.assertEqual(b_flat.ci, [0.4572559588956844, 0.6157689161860256])
         self.assertEqual(b_relative_flat.ci, [0.06341005842481906, 0.08649588602990732])
-        self.assertEqual(b_informative.ci, [0.45644480210148514, 0.6148283171861025])
+        self.assertEqual(b_informative.ci, [0.4572401014910488, 0.6157505293934893])
         self.assertEqual(
             b_relative_informative.ci, [0.06340765898986044, 0.08649308624622894]
         )
