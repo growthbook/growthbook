@@ -165,8 +165,14 @@ export type TrackingCallback = (
   result: Result<any>
 ) => void;
 
+export type NavigateCallback = (
+  url: string,
+  gb?: GrowthBook
+) => void | Promise<void>;
+
 export type ApplyDomChangesCallback = (
-  changes: AutoExperimentVariation
+  changes: AutoExperimentVariation,
+  gb?: GrowthBook
 ) => () => void;
 
 export type RenderFunction = () => void;
@@ -180,6 +186,11 @@ export interface Context {
   forcedVariations?: Record<string, number>;
   blockedExperiments?: string[];
   blockedExperimentHashes?: string[];
+  disableVisualExperiments?: boolean;
+  disableJsInjection?: boolean;
+  disableUrlRedirectExperiments?: boolean;
+  disableCrossOriginRedirectExperiments?: boolean;
+  disableExperimentsOnLoad?: boolean;
   stickyBucketAssignmentDocs?: Record<
     StickyAttributeKey,
     StickyAssignmentsDocument
@@ -219,7 +230,7 @@ export interface Context {
   renderer?: null | RenderFunction;
   decryptionKey?: string;
   remoteEval?: boolean;
-  navigate?: (url: string) => void;
+  navigate?: NavigateCallback;
   navigateDelay?: number;
   antiFlicker?: boolean;
   antiFlickerTimeout?: number;

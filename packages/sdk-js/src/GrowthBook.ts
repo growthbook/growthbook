@@ -160,7 +160,9 @@ export class GrowthBook<
 
     if (context.experiments) {
       this.ready = true;
-      this._updateAllAutoExperiments();
+      if (!context.disableExperimentsOnLoad) {
+        this._updateAllAutoExperiments();
+      }
     } else if (context.antiFlicker) {
       this._setAntiFlicker();
     }
@@ -185,7 +187,7 @@ export class GrowthBook<
     }
     this._loadFeaturesCalled = true;
 
-    await this._refresh(options, true, true);
+    await this._refresh(options, true, true, true);
 
     if (this._canSubscribe()) {
       subscribe(this);
@@ -248,7 +250,8 @@ export class GrowthBook<
   private async _refresh(
     options?: RefreshFeaturesOptions,
     allowStale?: boolean,
-    updateInstance?: boolean
+    updateInstance?: boolean,
+    firstLoad?: true
   ) {
     options = options || {};
     if (!this._ctx.clientKey) {
@@ -261,7 +264,8 @@ export class GrowthBook<
       allowStale,
       updateInstance,
       this._ctx.backgroundSync !== false,
-      options.useStoredPayload
+      options.useStoredPayload,
+      firstLoad && this._ctx.disableExperimentsOnLoad
     );
   }
 
@@ -275,10 +279,15 @@ export class GrowthBook<
     }
   }
 
-  public setFeatures(features: Record<string, FeatureDefinition>) {
+  public setFeatures(
+    features: Record<string, FeatureDefinition>,
+    skipRender?: boolean
+  ) {
     this._ctx.features = features;
     this.ready = true;
-    this._render();
+    if (!skipRender) {
+      this._render();
+    }
   }
 
   public async setEncryptedFeatures(
@@ -296,10 +305,15 @@ export class GrowthBook<
     );
   }
 
-  public setExperiments(experiments: AutoExperiment[]): void {
+  public setExperiments(
+    experiments: AutoExperiment[],
+    skipUpdate?: boolean
+  ): void {
     this._ctx.experiments = experiments;
     this.ready = true;
-    this._updateAllAutoExperiments();
+    if (!skipUpdate) {
+      this._updateAllAutoExperiments();
+    }
   }
 
   public async setEncryptedExperiments(
@@ -607,7 +621,7 @@ export class GrowthBook<
         }
       } else {
         const undo = this._ctx.applyDomChangesCallback
-          ? this._ctx.applyDomChangesCallback(result.value)
+          ? this._ctx.applyDomChangesCallback(result.value, this)
           : this._applyDOMChanges(result.value);
         if (undo) {
           this._activeAutoExperiments.set(experiment, {
@@ -1053,7 +1067,11 @@ export class GrowthBook<
     }
 
     // 2.1 If the experiment is blocked, return immediately
-    if (this._isExperimentBlockedByContext(experiment)) {
+    if (
+      this._isExperimentBlockedByContext(
+        experiment as Experiment<AutoExperimentVariation>
+      )
+    ) {
       process.env.NODE_ENV !== "production" &&
         this.log("Experiment blocked", { id: key });
       return this._getResult(experiment, -1, false, featureId);
@@ -1533,18 +1551,54 @@ export class GrowthBook<
     return false;
   }
 
-  private _isExperimentBlockedByContext<T>(experiment: Experiment<T>): boolean {
-    const blockedExperiments = this._ctx.blockedExperiments || [];
-    const blockedExperimentHashes = this._ctx.blockedExperimentHashes || [];
-    if (blockedExperiments.includes(experiment.key)) {
+  private _isExperimentBlockedByContext(
+    experiment: Experiment<AutoExperimentVariation>
+  ): boolean {
+    if (
+      experiment.changeType === "visual" &&
+      this._ctx.disableVisualExperiments
+    )
       return true;
+
+    if (experiment.changeType === "redirect") {
+      if (this._ctx.disableUrlRedirectExperiments) return true;
+
+      if (this._ctx.disableCrossOriginRedirectExperiments) {
+        let isCrossOrigin = false;
+        try {
+          if (
+            !experiment.urlPatterns ||
+            !experiment.urlPatterns[0] ||
+            !experiment.urlPatterns[0].pattern
+          )
+            return false;
+          const originUrl = new URL(experiment.urlPatterns[0].pattern);
+          for (const variation of experiment.variations) {
+            const variantUrl = new URL(variation?.urlRedirect || "");
+            if (
+              originUrl.protocol !== variantUrl.protocol ||
+              originUrl.host !== variantUrl.host
+            ) {
+              isCrossOrigin = true;
+              break;
+            }
+          }
+        } catch (e) {
+          // ignore invalid URLs
+        }
+        return isCrossOrigin;
+      }
     }
+
+    if ((this._ctx.blockedExperiments || []).includes(experiment.key))
+      return true;
+
     if (
       experiment.expHash &&
-      blockedExperimentHashes.includes(experiment.expHash)
-    ) {
+      (this._ctx.blockedExperimentHashes || []).includes(experiment.expHash)
+    )
       return true;
-    }
+
     return false;
   }
 
@@ -1592,7 +1646,7 @@ export class GrowthBook<
       document.head.appendChild(s);
       undo.push(() => s.remove());
     }
-    if (changes.js) {
+    if (changes.js && !this._ctx.disableJsInjection) {
       const script = document.createElement("script");
       script.innerHTML = changes.js;
       document.head.appendChild(script);
