@@ -65,13 +65,7 @@ The recommended way to run an A/B test is by using Feature Flags and our SDKs.
 
 ## What is the best way to redirect users to a URL based on their experiment variation?
 
-Experimenters often want to display different URLs to different users. Unfortunately, waiting to look up a user's experiment variation and rendering a page accordingly can lead to undesirable effects like flickering in the user interface. If only one of the variations suffers from flickering or a delay in loading, these problems can also lead to bias.
-
-In general, we suggest three approaches, ranked from the least risky to the most risky in terms of user experience and potential bias:
-
-1. Render page A or page B conditionally using the GrowthBook SDK within the backend controller logic or middleware layer. This method is quick, unbiased, and avoids any flickering or sudden redirection.
-2. Render page A or page B conditionally using the GrowthBook JS SDK on the front-end. This option is nearly as good as the first one, and while you might be able to implement this without any flickering for users, it might have a slight loading delay. It can be unbiased if both pages A and B result in the same loading delay.
-3. Perform front-end redirection using JS code snippets in the visual editor with the command `window.location.href="mytarget.html"`. This approach is problematic but can be acceptable if executed carefully. It introduces noticeable flickering before and after redirection. For fairness, it's best to initiate the redirection from a neutral or minimally loaded page for both variations A and B. This helps avoid introducing bias—for instance, preventing a scenario where page A appears more favorable simply because it loaded faster due to the implementation of the experiment.
+You can now easily set up URL Redirect experiments within GrowthBook and customize navigation depending on your application. Read more about running a URL Redirect experiment [here](/app/url-redirects).
 
 ## How much traffic do I need to run A/B tests?
 
