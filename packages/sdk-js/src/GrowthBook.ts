@@ -1563,7 +1563,7 @@ export class GrowthBook<
     if (experiment.changeType === "redirect") {
       if (this._ctx.disableUrlRedirectExperiments) return true;
 
-      if (this._ctx.disableCrossOriginRedirectExperiments) {
+      if (this._ctx.disableCrossOriginUrlRedirectExperiments) {
         let isCrossOrigin = false;
         try {
           if (

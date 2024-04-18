@@ -189,7 +189,7 @@ export interface Context {
   disableVisualExperiments?: boolean;
   disableJsInjection?: boolean;
   disableUrlRedirectExperiments?: boolean;
-  disableCrossOriginRedirectExperiments?: boolean;
+  disableCrossOriginUrlRedirectExperiments?: boolean;
   disableExperimentsOnLoad?: boolean;
   stickyBucketAssignmentDocs?: Record<
     StickyAttributeKey,
