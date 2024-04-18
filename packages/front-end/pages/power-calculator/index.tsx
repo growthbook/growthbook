@@ -46,28 +46,29 @@ const PowerCalculationPage = (): React.ReactElement => {
   >();
   const [variations, setVariations] = useState(2);
 
-  const results: PowerCalculationResults | undefined = useMemo(() => {
-    if (!powerCalculationParams) return;
-
-    return {
-      duration: 3,
-      power: 0.8,
-      ...dummyResultsData(powerCalculationParams.metrics),
-    };
-  }, [powerCalculationParams]);
-
   const finalParams: PowerCalculationParams | undefined = useMemo(() => {
     if (!powerCalculationParams) return;
 
     return {
       ...powerCalculationParams,
       nVariations: variations,
+      targetPower: 0.8,
       statsEngine: {
         type: "frequentist",
         sequentialTesting: false,
       },
     };
   }, [powerCalculationParams, variations]);
+
+  const results: PowerCalculationResults | undefined = useMemo(() => {
+    if (!finalParams) return;
+
+    return {
+      duration: 3,
+      power: 0.8,
+      ...dummyResultsData(finalParams.metrics),
+    };
+  }, [finalParams]);
 
   return (
     <>

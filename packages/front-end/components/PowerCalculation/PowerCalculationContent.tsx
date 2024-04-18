@@ -99,65 +99,89 @@ const MetricLabel = ({ name, type }: { name: string; type: string }) => (
 );
 
 const SampleSizeAndRuntime = ({
+  params,
   sampleSizeAndRuntime,
 }: {
+  params: PowerCalculationParams;
   sampleSizeAndRuntime: PowerCalculationResults["sampleSizeAndRuntime"];
-}) => (
-  <div className="row card gsbox mb-3 border">
-    <div className="row pt-4 pl-4 pr-4 pb-1">
-      <div className="col-7">
-        <h2>Calculated Sample Size & Runtime</h2>
-        <p>
-          Needed sample sizes are based on total number of users across all
-          variations.
-        </p>
+}) => {
+  const [selectedRow, setSelectedRow] = useState(
+    Object.keys(sampleSizeAndRuntime)[0]
+  );
 
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Metric</th>
-              <th>Effect Size</th>
-              <th>Meeded Sample</th>
-            </tr>
-          </thead>
-          <tbody>
-            {Object.keys(sampleSizeAndRuntime).map((id) => {
-              const { type, users, days, effectSize, name } = ensureAndReturn(
-                sampleSizeAndRuntime[id]
-              );
+  const {
+    name: selectedName,
+    users: selectedUsers,
+    days: selectedDays,
+  } = sampleSizeAndRuntime[selectedRow];
 
-              return (
-                <tr key={name}>
-                  <td>
-                    <MetricLabel name={name} type={type} />
-                  </td>
-                  <td>{numberFormatter.format(effectSize)}</td>
-                  <td>
-                    {numberFormatter.format(days)} days;{" "}
-                    {numberFormatter.format(users)} users
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      <div className="col-4 align-self-center">
-        <div className="card alert alert-info">
-          <div className="card-title uppercase-title mb-0">Summary</div>
-          <h4>Total Revenue</h4>
+  return (
+    <div className="row card gsbox mb-3 border">
+      <div className="row pt-4 pl-4 pr-4 pb-1">
+        <div className="col-7">
+          <h2>Calculated Sample Size & Runtime</h2>
           <p>
-            Reliably detecting a lift of{" "}
-            <span className="font-weight-bold">X%</span> requires running your
-            experiment for <span className="font-weight-bold">Z days</span>{" "}
-            (roughly collecting{" "}
-            <span className="font-weight-bold">Y users</span>)
+            Needed sample sizes are based on total number of users across all
+            variations.
           </p>
+
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Metric</th>
+                <th>Effect Size</th>
+                <th>Meeded Sample</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.keys(sampleSizeAndRuntime).map((id) => {
+                const { type, users, days, effectSize, name } = ensureAndReturn(
+                  sampleSizeAndRuntime[id]
+                );
+
+                return (
+                  <tr
+                    key={name}
+                    className={clsx(
+                      "power-analysis-row",
+                      selectedRow === id && "selected"
+                    )}
+                    onClick={() => setSelectedRow(id)}
+                  >
+                    <td>
+                      <MetricLabel name={name} type={type} />
+                    </td>
+                    <td>{numberFormatter.format(effectSize)}</td>
+                    <td>
+                      {numberFormatter.format(days)} days;{" "}
+                      {numberFormatter.format(users)} users
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div className="col-4 align-self-center">
+          <div className="card alert alert-info">
+            <div className="card-title uppercase-title mb-0">Summary</div>
+            <h4>{selectedName}</h4>
+            <p>
+              Reliably detecting a lift of{" "}
+              <span className="font-weight-bold">
+                {percentFormatter.format(params.targetPower)}
+              </span>{" "}
+              requires running your experiment for{" "}
+              <span className="font-weight-bold">{selectedDays} days</span>{" "}
+              (roughly collecting{" "}
+              <span className="font-weight-bold">{selectedUsers} users</span>)
+            </p>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const MinimumDetectableEffect = ({
   weeks,
@@ -312,6 +336,7 @@ export default function PowerCalculationContent({
         updateVariations={updateVariations}
       />
       <SampleSizeAndRuntime
+        params={params}
         sampleSizeAndRuntime={results.sampleSizeAndRuntime}
       />
       <MinimumDetectableEffect weeks={results.weeks} />

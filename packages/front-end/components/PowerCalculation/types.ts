@@ -17,6 +17,7 @@ export interface PowerCalculationParams {
   metrics: { [id: string]: MetricParams };
   nVariations: number;
   usersPerDay: number;
+  targetPower: number;
   statsEngine: {
     type: "frequentist";
     sequentialTesting: false | number;
