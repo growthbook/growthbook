@@ -6,7 +6,6 @@ type WindowContext = Context & {
   uuid?: string;
   attributeKeys?: Record<string, string>;
   persistUuidOnLoad?: boolean;
-  loadStoredPayload?: boolean;
 };
 declare global {
   interface Window {
