@@ -104,9 +104,9 @@ class TestGaussianEffectABTest(TestCase):
         quantile_upper_c = 7.217194843758751
         quantile_upper_t = 7.747193868770344
 
-        gaussian_improper_flat_prior = GaussianPrior(flat=True)
-        gaussian_flat_prior = GaussianPrior(variance=float(1e6), flat=False)
-        gaussian_inf_prior = GaussianPrior(variance=float(1), flat=False)
+        gaussian_improper_flat_prior = GaussianPrior(informative=False)
+        gaussian_flat_prior = GaussianPrior(variance=float(1e6), informative=True)
+        gaussian_inf_prior = GaussianPrior(variance=float(1), informative=True)
         effect_config_improper_flat = GaussianEffectBayesianConfig(
             difference_type="absolute", prior_effect=gaussian_improper_flat_prior
         )
@@ -156,12 +156,12 @@ class TestGaussianEffectABTest(TestCase):
             q_stat_c, q_stat_t, config=effect_config_inf_rel
         ).compute_result()
 
-        self.assertEqual(b_improper_flat.expected, 0.5365124375579776)
+        self.assertEqual(b_improper_flat.expected, 0.5365124375579775)
         self.assertEqual(b_flat.expected, 0.536512437540855)
         self.assertEqual(b_relative_flat.expected, 0.07495297222736319)
         self.assertEqual(b_informative.expected, 0.536495315442269)
         self.assertEqual(b_relative_informative.expected, 0.07495037261804469)
-        self.assertEqual(b_improper_flat.ci, [0.45725595891154225, 0.6157689162044129])
+        self.assertEqual(b_improper_flat.ci, [0.45725595891154214, 0.6157689162044129])
         self.assertEqual(b_flat.ci, [0.4572559588956844, 0.6157689161860256])
         self.assertEqual(b_relative_flat.ci, [0.06341005842481906, 0.08649588602990732])
         self.assertEqual(b_informative.ci, [0.4572401014910488, 0.6157505293934893])
