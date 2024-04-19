@@ -41,6 +41,7 @@ import CompactResults from "@/components/Experiment/CompactResults";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import PageHead from "@/components/Layout/PageHead";
+import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -143,6 +144,7 @@ export default function ReportPage() {
 
   const sequentialTestingEnabled =
     hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled;
+  const differenceType = report.args.differenceType ?? "relative";
 
   return (
     <>
@@ -287,6 +289,19 @@ export default function ReportPage() {
                     userIdType={report.args.userIdType}
                     labelClassName="mr-2"
                     disabled={true}
+                  />
+                </div>
+                <div className="col-auto d-flex align-items-end mr-3">
+                  <DifferenceTypeChooser
+                    differenceType={report.args.differenceType ?? "relative"}
+                    // ensure disabled is true to style correctly
+                    // and callbacks are not needed
+                    disabled={true}
+                    phase={0}
+                    setDifferenceType={() => {}}
+                    setAnalysisSettings={() => {}}
+                    loading={false}
+                    mutate={() => {}}
                   />
                 </div>
                 <div className="col-auto d-flex align-items-end mr-3">
@@ -450,6 +465,7 @@ export default function ReportPage() {
                   seriestype={report.args.dimension}
                   variations={variations}
                   statsEngine={report.args.statsEngine}
+                  differenceType={differenceType}
                 />
               ) : (
                 <BreakDownResults
@@ -473,7 +489,7 @@ export default function ReportPage() {
                     report.args.metricRegressionAdjustmentStatuses
                   }
                   sequentialTestingEnabled={sequentialTestingEnabled}
-                  differenceType={"relative"}
+                  differenceType={differenceType}
                 />
               ))}
             {report.results && !report.args.dimension && (
@@ -540,7 +556,7 @@ export default function ReportPage() {
                       report.args.metricRegressionAdjustmentStatuses
                     }
                     sequentialTestingEnabled={sequentialTestingEnabled}
-                    differenceType={"relative"}
+                    differenceType={differenceType}
                     isTabActive={true}
                   />
                 </div>

@@ -4,20 +4,20 @@ import {
   ExperimentReportVariation,
 } from "back-end/types/report";
 import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
+import {
+  ExperimentMetricInterface,
+  isExpectedDirection,
+  isStatSig,
+  shouldHighlight,
+} from "shared/experiments";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
-import { ExperimentMetricInterface } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   formatNumber,
   formatPercent,
   getExperimentMetricFormatter,
 } from "@/services/metrics";
-import {
-  getEffectLabel,
-  isExpectedDirection,
-  isStatSig,
-  shouldHighlight,
-} from "@/services/experiments";
+import { getEffectLabel } from "@/services/experiments";
 import { useCurrency } from "@/hooks/useCurrency";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";

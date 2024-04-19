@@ -32,7 +32,7 @@ export async function getLicenseData(req: AuthRequest, res: Response) {
 
   let licenseData;
 
-  if (req.organization?.licenseKey) {
+  if (req.organization?.licenseKey || process.env.LICENSE_KEY) {
     // Force refresh the license data
     licenseData = await initializeLicenseForOrg(req.organization, true);
   } else if (req.organization?.subscription) {

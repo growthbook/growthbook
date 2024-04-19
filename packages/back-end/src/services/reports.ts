@@ -111,7 +111,7 @@ export function getAnalysisSettingsFromReportArgs(
     sequentialTesting: args.sequentialTestingEnabled,
     sequentialTestingTuningParameter: args.sequentialTestingTuningParameter,
     pValueThreshold: args.pValueThreshold,
-    differenceType: "relative",
+    differenceType: args.differenceType ?? "relative",
     baselineVariationIndex: 0,
   };
 }
