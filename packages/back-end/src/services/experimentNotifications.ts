@@ -126,7 +126,7 @@ const notifyMultipleExposures = async ({
     context.org.settings?.multipleExposureMinPercent ??
     MINIMUM_MULTIPLE_EXPOSURES_PERCENT;
 
-  const triggered = multipleExposureMinPercent <= snapshot.multipleExposures;
+  const triggered = multipleExposureMinPercent < percent;
 
   await memoizeNotification({
     context,
@@ -161,7 +161,7 @@ const notifySrm = async ({
   const srmThreshold =
     context.org.settings?.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
-  const triggered = srmThreshold <= results.srm;
+  const triggered = srmThreshold < results.srm;
 
   await memoizeNotification({
     context,
