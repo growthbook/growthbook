@@ -149,6 +149,13 @@ export function isRuleEnabled(rule: FeatureRule): boolean {
     return false;
   }
 
+  // Disable if percent rollout is 0
+  // Fixes a bug in SDKs where ~1 out of 10,000 users would get a feature even if it was set to 0% rollout
+  // If we ever add sticky bucketing to rollouts, we will need to remove this
+  if (rule.type === "rollout" && rule.coverage === 0) {
+    return false;
+  }
+
   return true;
 }
 
