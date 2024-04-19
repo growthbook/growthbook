@@ -4,10 +4,14 @@ import { IconType } from "react-icons/lib";
 import { useRouter } from "next/router";
 import clsx from "clsx";
 import { FiChevronRight } from "react-icons/fi";
-import { useGrowthBook } from "@growthbook/growthbook-react";
+import { GrowthBook, useGrowthBook } from "@growthbook/growthbook-react";
+import { GlobalPermission } from "@back-end/types/organization";
+import { Permissions } from "shared/permissions";
 import { AppFeatures } from "@/types/app-features";
 import { isCloud, isMultiOrg } from "@/services/env";
-import { useUser } from "@/services/UserContext";
+import { PermissionFunctions, useUser } from "@/services/UserContext";
+import usePermissions from "@/hooks/usePermissions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import styles from "./SidebarLink.module.scss";
 
 export type SidebarLinkProps = {
@@ -19,15 +23,17 @@ export type SidebarLinkProps = {
   divider?: boolean;
   sectionTitle?: string;
   className?: string;
-  superAdmin?: boolean;
-  cloudOnly?: boolean;
-  multiOrgOnly?: boolean;
-  selfHostedOnly?: boolean;
   autoClose?: boolean;
-  permissionCallbacks?: (() => boolean)[];
+  filter?: (props: {
+    permissionsUtils: Permissions;
+    permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
+    superAdmin: boolean;
+    isCloud: boolean;
+    isMultiOrg: boolean;
+    gb?: GrowthBook<AppFeatures>;
+  }) => boolean;
   subLinks?: SidebarLinkProps[];
   beta?: boolean;
-  feature?: keyof AppFeatures;
 };
 
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
@@ -39,6 +45,8 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
   const showSubMenuIcons = true;
 
   const growthbook = useGrowthBook<AppFeatures>();
+  const permissions = usePermissions();
+  const permissionsUtils = usePermissionsUtil();
 
   const [open, setOpen] = useState(selected);
 
@@ -49,49 +57,22 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
     }
   }, [selected]);
 
-  if (props.feature && growthbook && !growthbook.isOn(props.feature)) {
+  const shouldShowProps = {
+    permissionsUtils,
+    permissions,
+    superAdmin: !!superAdmin,
+    isCloud: isCloud(),
+    isMultiOrg: isMultiOrg(),
+    gb: growthbook,
+  };
+
+  if (props.filter && !props.filter(shouldShowProps)) {
     return null;
   }
 
-  if (props.superAdmin && !superAdmin) return null;
-
-  if (props.multiOrgOnly && !isMultiOrg()) {
-    return null;
-  }
-  if (props.cloudOnly && !isCloud()) {
-    return null;
-  }
-  if (props.selfHostedOnly && isCloud()) {
-    return null;
-  }
-
-  const permittedSubLinks = (props.subLinks || []).filter((l) => {
-    if (l.superAdmin && !superAdmin) return false;
-
-    if (l.multiOrgOnly && !isMultiOrg()) {
-      return false;
-    }
-    if (l.cloudOnly && !isCloud()) {
-      return false;
-    }
-    if (l.selfHostedOnly && isCloud()) {
-      return false;
-    }
-    // User must pass at least one of the permission checks
-    if (l.permissionCallbacks && !l.permissionCallbacks.some((cb) => cb())) {
-      return false;
-    }
-
-    if (l.feature && !growthbook?.isOn(l.feature)) {
-      return false;
-    }
-
-    return true;
-  });
-
-  if (props.subLinks && !permittedSubLinks.length) {
-    return null;
-  }
+  const permittedSubLinks = (props.subLinks || []).filter(
+    (l) => !l.filter || l.filter(shouldShowProps)
+  );
 
   return (
     <>

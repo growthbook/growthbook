@@ -9,10 +9,9 @@ import {
   BsCodeSlash,
 } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
-import { Permissions } from "shared/permissions";
 import { GlobalPermission } from "@back-end/types/organization";
 import { getGrowthBookBuild } from "@/services/env";
-import { PermissionFunctions, useUser } from "@/services/UserContext";
+import { useUser } from "@/services/UserContext";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
@@ -23,227 +22,217 @@ import {
 } from "@/components/Icons";
 import { inferDocUrl } from "@/components/DocLink";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import usePermissions from "@/hooks/usePermissions";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import TopNav from "./TopNav";
 import styles from "./Layout.module.scss";
 import { usePageHead } from "./PageHead";
 
-function buildNavlinks(
-  permissionsUtils: Permissions,
-  permissions: Record<GlobalPermission, boolean> & PermissionFunctions
-): SidebarLinkProps[] {
-  return [
-    {
-      name: "Get Started",
-      href: "/getstarted",
-      Icon: BsLightbulb,
-      path: /^getstarted/,
-      className: styles.first,
-    },
-    {
-      name: "Features",
-      href: "/features",
-      Icon: BsFlag,
-      path: /^features/,
-    },
-    {
-      name: "Experiments",
-      href: "/experiments",
-      path: /^experiment/,
-      Icon: GBExperiment,
-    },
-    {
-      name: "Metrics and Data",
-      href: "/metrics",
-      path: /^(metric|segment|dimension|datasources|fact-)/,
-      autoClose: true,
-      Icon: GBDatabase,
-      subLinks: [
-        {
-          name: "Metrics",
-          href: "/metrics",
-          path: /^(metric|fact-metric)/,
-        },
-        {
-          name: "Fact Tables",
-          href: "/fact-tables",
-          path: /^fact-tables/,
-          beta: true,
-          feature: "fact-tables",
-        },
-        {
-          name: "Segments",
-          href: "/segments",
-          path: /^segment/,
-        },
-        {
-          name: "Dimensions",
-          href: "/dimensions",
-          path: /^dimension/,
-        },
-        {
-          name: "Data Sources",
-          href: "/datasources",
-          path: /^datasources/,
-        },
-      ],
-    },
-    {
-      name: "Management",
-      href: "/dashboard",
-      Icon: BsClipboardCheck,
-      path: /^(dashboard|idea|presentation)/,
-      autoClose: true,
-      subLinks: [
-        {
-          name: "Dashboard",
-          href: "/dashboard",
-          path: /^dashboard/,
-        },
-        {
-          name: "Ideas",
-          href: "/ideas",
-          path: /^idea/,
-        },
-        {
-          name: "Presentations",
-          href: "/presentations",
-          path: /^presentation/,
-        },
-      ],
-    },
-    {
-      name: "SDK Configuration",
-      href: "/sdks",
-      path: /^(attributes|namespaces|environments|saved-groups|sdks)/,
-      autoClose: true,
-      Icon: BsCodeSlash,
-      subLinks: [
-        {
-          name: "SDK Connections",
-          href: "/sdks",
-          path: /^sdks/,
-        },
-        {
-          name: "Attributes",
-          href: "/attributes",
-          path: /^attributes/,
-        },
-        {
-          name: "Namespaces",
-          href: "/namespaces",
-          path: /^namespaces/,
-        },
-        {
-          name: "Environments",
-          href: "/environments",
-          path: /^environments/,
-        },
-        {
-          name: "Saved Groups",
-          href: "/saved-groups",
-          path: /^saved-groups/,
-        },
-      ],
-    },
-    {
-      name: "Settings",
-      href: "/settings",
-      Icon: GBSettings,
-      path: /^(settings|admin|projects|integrations)/,
-      autoClose: true,
-      subLinks: [
-        {
-          name: "General",
-          href: "/settings",
-          path: /^settings$/,
-          permissionCallbacks: [
-            () => permissions.check("organizationSettings"),
-          ],
-        },
-        {
-          name: "Team",
-          href: "/settings/team",
-          path: /^settings\/team/,
-          permissionCallbacks: [() => permissions.check("manageTeam")],
-        },
-        {
-          name: "Tags",
-          href: "/settings/tags",
-          path: /^settings\/tags/,
-          permissionCallbacks: [() => permissions.check("manageTags")],
-        },
-        {
-          name: "Projects",
-          href: "/projects",
-          path: /^project/,
-          permissionCallbacks: [() => permissionsUtils.canUpdateSomeProjects()],
-        },
-        {
-          name: "API Keys",
-          href: "/settings/keys",
-          path: /^settings\/keys/,
-          permissionCallbacks: [() => permissions.check("manageApiKeys")],
-        },
-        {
-          name: "Webhooks",
-          href: "/settings/webhooks",
-          path: /^settings\/webhooks/,
-          permissionCallbacks: [() => permissions.check("manageWebhooks")],
-        },
-        {
-          name: "Logs",
-          href: "/events",
-          path: /^events/,
-          permissionCallbacks: [() => permissions.check("viewEvents")],
-        },
-        {
-          name: "Slack",
-          href: "/integrations/slack",
-          path: /^integrations\/slack/,
-          feature: "slack-integration",
-          permissionCallbacks: [() => permissions.check("manageIntegrations")],
-        },
-        {
-          name: "GitHub",
-          href: "/integrations/github",
-          path: /^integrations\/github/,
-          feature: "github-integration",
-          permissionCallbacks: [() => permissions.check("manageIntegrations")],
-        },
-        {
-          name: "Import your data",
-          href: "/importing",
-          path: /^importing/,
-          feature: "import-from-x",
-          permissionCallbacks: [
-            () =>
-              permissions.check("manageFeatures", "") &&
-              permissions.check("manageEnvironments" as GlobalPermission) &&
-              permissionsUtils.canCreateProjects(),
-          ],
-        },
-        {
-          name: "Billing",
-          href: "/settings/billing",
-          path: /^settings\/billing/,
-          permissionCallbacks: [() => permissions.check("manageBilling")],
-        },
-        {
-          name: "Admin",
-          href: "/admin",
-          path: /^admin/,
-          multiOrgOnly: true,
-          divider: true,
-          superAdmin: true,
-        },
-      ],
-    },
-  ];
-}
+const navlinks: SidebarLinkProps[] = [
+  {
+    name: "Get Started",
+    href: "/getstarted",
+    Icon: BsLightbulb,
+    path: /^getstarted/,
+    className: styles.first,
+  },
+  {
+    name: "Features",
+    href: "/features",
+    Icon: BsFlag,
+    path: /^features/,
+  },
+  {
+    name: "Experiments",
+    href: "/experiments",
+    path: /^experiment/,
+    Icon: GBExperiment,
+  },
+  {
+    name: "Metrics and Data",
+    href: "/metrics",
+    path: /^(metric|segment|dimension|datasources|fact-)/,
+    autoClose: true,
+    Icon: GBDatabase,
+    subLinks: [
+      {
+        name: "Metrics",
+        href: "/metrics",
+        path: /^(metric|fact-metric)/,
+      },
+      {
+        name: "Fact Tables",
+        href: "/fact-tables",
+        path: /^fact-tables/,
+        beta: true,
+      },
+      {
+        name: "Segments",
+        href: "/segments",
+        path: /^segment/,
+      },
+      {
+        name: "Dimensions",
+        href: "/dimensions",
+        path: /^dimension/,
+      },
+      {
+        name: "Data Sources",
+        href: "/datasources",
+        path: /^datasources/,
+      },
+    ],
+  },
+  {
+    name: "Management",
+    href: "/dashboard",
+    Icon: BsClipboardCheck,
+    path: /^(dashboard|idea|presentation)/,
+    autoClose: true,
+    subLinks: [
+      {
+        name: "Dashboard",
+        href: "/dashboard",
+        path: /^dashboard/,
+      },
+      {
+        name: "Ideas",
+        href: "/ideas",
+        path: /^idea/,
+      },
+      {
+        name: "Presentations",
+        href: "/presentations",
+        path: /^presentation/,
+      },
+    ],
+  },
+  {
+    name: "SDK Configuration",
+    href: "/sdks",
+    path: /^(attributes|namespaces|environments|saved-groups|sdks)/,
+    autoClose: true,
+    Icon: BsCodeSlash,
+    subLinks: [
+      {
+        name: "SDK Connections",
+        href: "/sdks",
+        path: /^sdks/,
+      },
+      {
+        name: "Attributes",
+        href: "/attributes",
+        path: /^attributes/,
+      },
+      {
+        name: "Namespaces",
+        href: "/namespaces",
+        path: /^namespaces/,
+      },
+      {
+        name: "Environments",
+        href: "/environments",
+        path: /^environments/,
+      },
+      {
+        name: "Saved Groups",
+        href: "/saved-groups",
+        path: /^saved-groups/,
+      },
+    ],
+  },
+  {
+    name: "Settings",
+    href: "/settings",
+    Icon: GBSettings,
+    path: /^(settings|admin|projects|integrations)/,
+    autoClose: true,
+    subLinks: [
+      {
+        name: "General",
+        href: "/settings",
+        path: /^settings$/,
+        filter: ({ permissions }) => permissions.check("organizationSettings"),
+      },
+      {
+        name: "Team",
+        href: "/settings/team",
+        path: /^settings\/team/,
+        filter: ({ permissions }) => permissions.check("manageTeam"),
+      },
+      {
+        name: "Tags",
+        href: "/settings/tags",
+        path: /^settings\/tags/,
+        filter: ({ permissions }) => permissions.check("manageTags"),
+      },
+      {
+        name: "Projects",
+        href: "/projects",
+        path: /^project/,
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canUpdateSomeProjects(),
+      },
+      {
+        name: "API Keys",
+        href: "/settings/keys",
+        path: /^settings\/keys/,
+        filter: ({ permissions }) => permissions.check("manageApiKeys"),
+      },
+      {
+        name: "Webhooks",
+        href: "/settings/webhooks",
+        path: /^settings\/webhooks/,
+        filter: ({ permissions }) => permissions.check("manageWebhooks"),
+      },
+      {
+        name: "Logs",
+        href: "/events",
+        path: /^events/,
+        filter: ({ permissions }) => permissions.check("viewEvents"),
+      },
+      {
+        name: "Slack",
+        href: "/integrations/slack",
+        path: /^integrations\/slack/,
+        filter: ({ permissions, gb }) =>
+          permissions.check("manageIntegrations") &&
+          !!gb?.isOn("slack-integration"),
+      },
+      {
+        name: "GitHub",
+        href: "/integrations/github",
+        path: /^integrations\/github/,
+        filter: ({ permissions, gb }) =>
+          permissions.check("manageIntegrations") &&
+          !!gb?.isOn("github-integration"),
+      },
+      {
+        name: "Import your data",
+        href: "/importing",
+        path: /^importing/,
+        filter: ({ permissions, permissionsUtils, gb }) =>
+          permissions.check("manageFeatures", "") &&
+          permissions.check("manageEnvironments" as GlobalPermission) &&
+          permissionsUtils.canCreateProjects() &&
+          !!gb?.isOn("import-from-x"),
+      },
+      {
+        name: "Billing",
+        href: "/settings/billing",
+        path: /^settings\/billing/,
+        filter: ({ permissions }) => permissions.check("manageBilling"),
+      },
+      {
+        name: "Admin",
+        href: "/admin",
+        path: /^admin/,
+        divider: true,
+        filter: ({ superAdmin, isMultiOrg }) => superAdmin && isMultiOrg,
+      },
+    ],
+  },
+];
 
 const otherPageTitles = [
   {
@@ -293,10 +282,6 @@ const Layout = (): React.ReactElement => {
   const settings = useOrgSettings();
   const { accountPlan, license } = useUser();
   const { hasPaymentMethod } = useStripeSubscription();
-  const permissionsUtils = usePermissionsUtil();
-  const permissions = usePermissions();
-
-  const navlinks = buildNavlinks(permissionsUtils, permissions);
 
   const { breadcrumb } = usePageHead();
 
