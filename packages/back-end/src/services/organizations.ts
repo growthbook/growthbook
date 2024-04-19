@@ -465,6 +465,8 @@ export async function acceptInvite(key: string, userId: string) {
       role: invite.role || "admin",
       limitAccessByEnvironment: !!invite.limitAccessByEnvironment,
       environments: invite.environments || [],
+      projectRoles: invite.projectRoles,
+      teams: invite.teams,
       dateCreated: new Date(),
     },
   ];

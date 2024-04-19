@@ -13,9 +13,9 @@ import AttributeForm from "@/components/Archetype/AttributeForm";
 import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { NewBucketingSDKList } from "@/components/Experiment/HashVersionSelector";
 import Toggle from "@/components/Forms/Toggle";
 import { useIncrementer } from "@/hooks/useIncrementer";
+import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import styles from "./AssignmentTester.module.scss";
 
 export interface Props {
@@ -379,7 +379,7 @@ export default function AssignmentTester({ feature, version }: Props) {
                           <br />
                           <br />
                           The following SDK versions support V2 hashing:
-                          <NewBucketingSDKList />
+                          <MinSDKVersionsList capability="bucketingV2" />
                         </>
                       }
                     >

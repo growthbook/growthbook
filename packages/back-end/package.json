@@ -27,7 +27,7 @@
     "generate-api-types": "yarn generate-api-models && swagger-cli bundle -t yaml src/api/openapi/openapi.tmp.yaml -o generated/spec.yaml && node src/scripts/generate-openapi.mjs"
   },
   "dependencies": {
-    "@clickhouse/client": "^0.2.10",
+    "@clickhouse/client": "^1.0.1",
     "@databricks/sql": "^1.8.1",
     "@dqbd/tiktoken": "^1.0.7",
     "@google-cloud/bigquery": "5",
@@ -90,7 +90,7 @@
     "python-shell": "^3.0.0",
     "saslprep": "^1.0.0",
     "shared": "0.0.1",
-    "snowflake-sdk": "1.8.0",
+    "snowflake-sdk": "1.10.1",
     "sql-formatter": "^11.0.2",
     "string-env-interpolation": "^1.0.1",
     "stripe": "^12.0.0",
@@ -119,7 +119,7 @@
     "@types/lodash": "^4.14.157",
     "@types/md5": "^2.2.0",
     "@types/mssql": "^8.1.1",
-    "@types/node": "^16.18.74",
+    "@types/node": "^20.11.1",
     "@types/node-fetch": "^2.5.8",
     "@types/node-int64": "^0.4.29",
     "@types/nodemailer": "^6.4.1",

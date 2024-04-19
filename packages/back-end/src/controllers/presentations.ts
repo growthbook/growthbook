@@ -88,10 +88,13 @@ export async function deletePresentation(
   req: AuthRequest<ExperimentInterface, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createPresentations");
-
   const { id } = req.params;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
+
+  if (!context.permissions.canDeletePresentation()) {
+    context.permissions.throwPermissionError();
+  }
 
   const p = await getPresentationById(id);
 
@@ -130,10 +133,14 @@ export async function postPresentation(
   req: AuthRequest<Partial<PresentationInterface>>,
   res: Response
 ) {
-  req.checkPermissions("createPresentations");
-
   const data = req.body;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
+
+  if (!context.permissions.canCreatePresentation()) {
+    context.permissions.throwPermissionError();
+  }
+
   data.organization = org.id;
 
   data.userId = req.userId;
@@ -154,11 +161,14 @@ export async function updatePresentation(
   req: AuthRequest<PresentationInterface, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createPresentations");
-
   const { id } = req.params;
   const data = req.body;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
+
+  if (!context.permissions.canUpdatePresentation()) {
+    context.permissions.throwPermissionError();
+  }
 
   const p = await getPresentationById(id);
 

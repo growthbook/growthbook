@@ -221,6 +221,25 @@ export const getSDKCapabilityVersion = (
   return null;
 };
 
+export type MinSupportedSDKVersions = {
+  language: SDKLanguage;
+  minVersion: string;
+};
+export function getMinSupportedSDKVersions(
+  capability: SDKCapability
+): MinSupportedSDKVersions[] {
+  const languages = Object.keys(sdks) as SDKLanguage[];
+  const matches: MinSupportedSDKVersions[] = [];
+  languages.forEach((language) => {
+    const minVersion = getSDKCapabilityVersion(language, capability);
+
+    if (minVersion) {
+      matches.push({ language, minVersion });
+    }
+  });
+  return matches;
+}
+
 // Copied from the JS SDK's mongrule.ts
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function paddedVersionString(input: any): string {

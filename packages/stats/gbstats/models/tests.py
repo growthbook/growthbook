@@ -36,6 +36,7 @@ class BaseABTest(ABC):
         self,
         stat_a: TestStatistic,
         stat_b: TestStatistic,
+        config: BaseConfig = BaseConfig(),
     ):
         self.stat_a = stat_a
         self.stat_b = stat_b
