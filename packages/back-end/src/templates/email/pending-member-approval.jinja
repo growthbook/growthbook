@@ -6,10 +6,10 @@
 {% endblock %}
 
 {% block title %}
-  You&apos;ve been approved as a member with {{ organization|noHyperlink }} on GrowthBook
+  You&apos;ve been approved as a member with <strong>{{ organization|noHyperlink }}</strong> on GrowthBook
 {% endblock %}
 
 {% block top %}
-  <p style='text-align:center; margin: 20px 0 30px;'>You&apos;re all set to start using GrowthBook with {{ organization|noHyperlink }}</p>
+  <p style='text-align:center; margin: 20px 0 30px;'>You&apos;re all set to start using GrowthBook with <strong>{{ organization|noHyperlink }}</strong></p>
   {{ utils.button("Visit GrowthBook", mainUrl) }}
 {% endblock %}
