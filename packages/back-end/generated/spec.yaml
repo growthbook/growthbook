@@ -1033,6 +1033,8 @@ paths:
                         type: string
                       coverage:
                         type: number
+                      enrollmentPaused:
+                        type: boolean
                       trafficSplit:
                         type: array
                         items:
@@ -1258,6 +1260,8 @@ paths:
                         type: string
                       coverage:
                         type: number
+                      enrollmentPaused:
+                        type: boolean
                       trafficSplit:
                         type: array
                         items:
@@ -3922,6 +3926,8 @@ components:
               condition:
                 type: object
                 additionalProperties: true
+              enrollmentPaused:
+                type: boolean
     FeatureForceRule:
       type: object
       required:
@@ -4064,6 +4070,8 @@ components:
               maxItems: 2
         coverage:
           type: number
+        enrollmentPaused:
+          type: boolean
         value:
           type: array
           items:
@@ -4299,6 +4307,8 @@ components:
                 type: string
               coverage:
                 type: number
+              enrollmentPaused:
+                type: boolean
               trafficSplit:
                 type: array
                 items:

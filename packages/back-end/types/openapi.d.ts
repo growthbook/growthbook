@@ -450,6 +450,7 @@ export interface components {
                 range: (number)[];
               };
               coverage?: number;
+              enrollmentPaused?: boolean;
               value?: ({
                   value: string;
                   weight: number;
@@ -520,6 +521,7 @@ export interface components {
                   range: (number)[];
                 };
                 coverage?: number;
+                enrollmentPaused?: boolean;
                 value?: ({
                     value: string;
                     weight: number;
@@ -605,6 +607,7 @@ export interface components {
             range: (number)[];
           };
           coverage?: number;
+          enrollmentPaused?: boolean;
           value?: ({
               value: string;
               weight: number;
@@ -675,6 +678,7 @@ export interface components {
               range: (number)[];
             };
             coverage?: number;
+            enrollmentPaused?: boolean;
             value?: ({
                 value: string;
                 weight: number;
@@ -744,6 +748,7 @@ export interface components {
         range: (number)[];
       };
       coverage?: number;
+      enrollmentPaused?: boolean;
       value?: ({
           value: string;
           weight: number;
@@ -775,6 +780,7 @@ export interface components {
           condition?: {
             [key: string]: unknown | undefined;
           };
+          enrollmentPaused?: boolean;
         })[];
     };
     FeatureForceRule: {
@@ -826,6 +832,7 @@ export interface components {
         range: (number)[];
       };
       coverage?: number;
+      enrollmentPaused?: boolean;
       value?: ({
           value: string;
           weight: number;
@@ -909,6 +916,7 @@ export interface components {
           reasonForStopping: string;
           seed: string;
           coverage: number;
+          enrollmentPaused?: boolean;
           trafficSplit: ({
               variationId: string;
               weight: number;
@@ -1454,6 +1462,7 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
+                        enrollmentPaused?: boolean;
                         value?: ({
                             value: string;
                             weight: number;
@@ -1524,6 +1533,7 @@ export interface operations {
                             range: (number)[];
                           };
                           coverage?: number;
+                          enrollmentPaused?: boolean;
                           value?: ({
                               value: string;
                               weight: number;
@@ -1776,6 +1786,7 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
+                      enrollmentPaused?: boolean;
                       value?: ({
                           value: string;
                           weight: number;
@@ -1846,6 +1857,7 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
+                        enrollmentPaused?: boolean;
                         value?: ({
                             value: string;
                             weight: number;
@@ -1963,6 +1975,7 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
+                      enrollmentPaused?: boolean;
                       value?: ({
                           value: string;
                           weight: number;
@@ -2033,6 +2046,7 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
+                        enrollmentPaused?: boolean;
                         value?: ({
                             value: string;
                             weight: number;
@@ -2274,6 +2288,7 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
+                      enrollmentPaused?: boolean;
                       value?: ({
                           value: string;
                           weight: number;
@@ -2344,6 +2359,7 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
+                        enrollmentPaused?: boolean;
                         value?: ({
                             value: string;
                             weight: number;
@@ -2465,6 +2481,7 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
+                      enrollmentPaused?: boolean;
                       value?: ({
                           value: string;
                           weight: number;
@@ -2535,6 +2552,7 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
+                        enrollmentPaused?: boolean;
                         value?: ({
                             value: string;
                             weight: number;
@@ -3032,6 +3050,7 @@ export interface operations {
                     reasonForStopping: string;
                     seed: string;
                     coverage: number;
+                    enrollmentPaused?: boolean;
                     trafficSplit: ({
                         variationId: string;
                         weight: number;
@@ -3170,6 +3189,7 @@ export interface operations {
               reasonForStopping?: string;
               seed?: string;
               coverage?: number;
+              enrollmentPaused?: boolean;
               trafficSplit?: ({
                   variationId: string;
                   weight: number;
@@ -3232,6 +3252,7 @@ export interface operations {
                   reasonForStopping: string;
                   seed: string;
                   coverage: number;
+                  enrollmentPaused?: boolean;
                   trafficSplit: ({
                       variationId: string;
                       weight: number;
@@ -3354,6 +3375,7 @@ export interface operations {
                   reasonForStopping: string;
                   seed: string;
                   coverage: number;
+                  enrollmentPaused?: boolean;
                   trafficSplit: ({
                       variationId: string;
                       weight: number;
@@ -3488,6 +3510,7 @@ export interface operations {
               reasonForStopping?: string;
               seed?: string;
               coverage?: number;
+              enrollmentPaused?: boolean;
               trafficSplit?: ({
                   variationId: string;
                   weight: number;
@@ -3550,6 +3573,7 @@ export interface operations {
                   reasonForStopping: string;
                   seed: string;
                   coverage: number;
+                  enrollmentPaused?: boolean;
                   trafficSplit: ({
                       variationId: string;
                       weight: number;
@@ -4454,6 +4478,7 @@ export interface operations {
                   reasonForStopping: string;
                   seed: string;
                   coverage: number;
+                  enrollmentPaused?: boolean;
                   trafficSplit: ({
                       variationId: string;
                       weight: number;

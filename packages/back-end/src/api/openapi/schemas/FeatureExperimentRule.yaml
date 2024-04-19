@@ -48,6 +48,8 @@ properties:
         maxItems: 2
   coverage:
     type: number
+  enrollmentPaused:
+    type: boolean
   value:
     type: array
     items:

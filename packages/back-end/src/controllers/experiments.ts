@@ -1371,6 +1371,7 @@ export async function postExperimentTargeting(
     seed,
     newPhase,
     reseed,
+    enrollmentPaused,
   } = req.body;
 
   const changes: Changeset = {};
@@ -1399,17 +1400,24 @@ export async function postExperimentTargeting(
   // Infer the user's intent (pause vs soft-stop) based on changes being applied.
   // This is temporary. Later, we'll add UI-level controls...
 
-  let enrollmentPaused = false; // todo: allow this to be passed from the UI, bypass logic below
-  if (coverage === 0) {
-    if (phases?.[phases.length - 1]?.enrollmentPaused) {
-      // if previously paused and coverage is still 0, remain paused
-      enrollmentPaused = true;
-    } else if ((bucketVersion ?? 0) == (experiment.bucketVersion ?? 0)) {
-      // if not incrementing bucketVersion, then we're probably relying on sticky bucketing
-      enrollmentPaused = true;
-    }
+  // todo: We use `enrollmentPaused` if provided. However, the UI currently doesn't provide this
+  let _enrollmentPaused = false;
+  if (enrollmentPaused !== undefined) {
+    // use provided value (currently never)
+    _enrollmentPaused = enrollmentPaused;
   } else {
-    enrollmentPaused = false;
+    // infer intent
+    if (coverage === 0) {
+      if (phases?.[phases.length - 1]?.enrollmentPaused) {
+        // if previously paused and coverage is still 0, remain paused
+        _enrollmentPaused = true;
+      } else if ((bucketVersion ?? 0) == (experiment.bucketVersion ?? 0)) {
+        // if not incrementing bucketVersion, then we're probably relying on sticky bucketing
+        _enrollmentPaused = true;
+      }
+    } else {
+      _enrollmentPaused = false;
+    }
   }
 
   // Already has phases and we're updating an existing phase
@@ -1423,7 +1431,7 @@ export async function postExperimentTargeting(
       namespace,
       variationWeights,
       seed,
-      enrollmentPaused,
+      enrollmentPaused: _enrollmentPaused,
     };
   } else {
     // If we had a previous phase, mark it as ended
@@ -1442,7 +1450,7 @@ export async function postExperimentTargeting(
       reason: "",
       variationWeights,
       seed: phases.length && reseed ? uuidv4() : seed,
-      enrollmentPaused,
+      enrollmentPaused: _enrollmentPaused,
     });
   }
   changes.phases = phases;

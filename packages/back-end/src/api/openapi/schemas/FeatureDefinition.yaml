@@ -48,3 +48,5 @@ properties:
         condition:
           type: object
           additionalProperties: true
+        enrollmentPaused:
+          type: boolean

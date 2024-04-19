@@ -791,6 +791,7 @@ export async function toExperimentApiInterface(
             range: p.namespace.range,
           }
         : undefined,
+      enrollmentPaused: !!p.enrollmentPaused,
     })),
     settings: {
       datasourceId: experiment.datasource || "",
@@ -1732,6 +1733,7 @@ export function postExperimentApiPayloadToInterface(
       variationWeights:
         p.variationWeights ||
         payload.variations.map(() => 1 / payload.variations.length),
+      enrollmentPaused: !!p.enrollmentPaused,
     };
   }) || [
     {

@@ -196,6 +196,7 @@ export type ExperimentTargetingData = Pick<
   ExperimentPhaseStringDates,
   | "condition"
   | "coverage"
+  | "enrollmentPaused"
   | "namespace"
   | "seed"
   | "variationWeights"

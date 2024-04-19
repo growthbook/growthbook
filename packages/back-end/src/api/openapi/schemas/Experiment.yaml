@@ -109,6 +109,8 @@ properties:
           type: string
         coverage:
           type: number
+        enrollmentPaused:
+          type: boolean
         trafficSplit:
           type: array
           items:

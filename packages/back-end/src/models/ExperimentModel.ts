@@ -176,6 +176,7 @@ const experimentSchema = new mongoose.Schema({
       seed: String,
       variationWeights: [Number],
       groups: [String],
+      enrollmentPaused: Boolean,
     },
   ],
   data: String,
