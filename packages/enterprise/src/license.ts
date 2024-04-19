@@ -582,7 +582,7 @@ export async function postResendEmailVerificationEmailToLicenseServer(
 
 // Creates or updates the license in the MongoDB cache in case the license server goes down.
 async function createOrUpdateLicenseMongoCache(license: LicenseInterface) {
-  await LicenseModel.findOneAndUpdate(
+  await LicenseModel.findOneAndReplace(
     { id: license.id },
     { $set: license },
     { upsert: true }

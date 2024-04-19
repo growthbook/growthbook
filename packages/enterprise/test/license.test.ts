@@ -432,8 +432,8 @@ describe("src/license", () => {
           await licenseInit(licenseKey, userLicenseCodes, metaData);
           expect(getLicense(licenseKey)).toEqual(licenseData);
           expect(fetch).toHaveBeenCalledTimes(1);
-          expect(LicenseModel.findOneAndUpdate).toHaveBeenCalledTimes(1);
-          expect(LicenseModel.findOneAndUpdate).toHaveBeenCalledWith(
+          expect(LicenseModel.findOneAndReplace).toHaveBeenCalledTimes(1);
+          expect(LicenseModel.findOneAndReplace).toHaveBeenCalledWith(
             { id: licenseKey },
             { $set: licenseData },
             { upsert: true }
@@ -473,8 +473,8 @@ describe("src/license", () => {
             usingMongoCache: true,
           });
           expect(fetch).toHaveBeenCalledTimes(1);
-          expect(LicenseModel.findOneAndUpdate).toHaveBeenCalledTimes(1);
-          expect(LicenseModel.findOneAndUpdate).toHaveBeenCalledWith(
+          expect(LicenseModel.findOneAndReplace).toHaveBeenCalledTimes(1);
+          expect(LicenseModel.findOneAndReplace).toHaveBeenCalledWith(
             { id: licenseKey },
             { $set: licenseData },
             { upsert: true }
@@ -703,14 +703,14 @@ describe("src/license", () => {
         });
 
         describe("and when there is cached data in LicenseModel", () => {
-          const mockFindOneAndUpdate = jest.fn();
+          const mockfindOneAndReplace = jest.fn();
           let previousCache;
 
           beforeEach(() => {
             previousCache = {
               ...licenseData,
               toJSON: () => licenseData,
-              findOneAndUpdate: mockFindOneAndUpdate,
+              findOneAndReplace: mockfindOneAndReplace,
             };
             jest
               .spyOn(LicenseModel, "findOne")
@@ -727,8 +727,8 @@ describe("src/license", () => {
 
             await backgroundUpdateLicenseFromServerForTests;
 
-            expect(LicenseModel.findOneAndUpdate).toHaveBeenCalledTimes(1);
-            expect(LicenseModel.findOneAndUpdate).toHaveBeenCalledWith(
+            expect(LicenseModel.findOneAndReplace).toHaveBeenCalledTimes(1);
+            expect(LicenseModel.findOneAndReplace).toHaveBeenCalledWith(
               { id: licenseKey },
               {
                 $set: {
@@ -758,8 +758,8 @@ describe("src/license", () => {
             expect(getLicense(licenseKey)).toEqual(licenseData);
             await backgroundUpdateLicenseFromServerForTests;
 
-            expect(LicenseModel.findOneAndUpdate).toHaveBeenCalledTimes(2);
-            expect(LicenseModel.findOneAndUpdate).toHaveBeenCalledWith(
+            expect(LicenseModel.findOneAndReplace).toHaveBeenCalledTimes(2);
+            expect(LicenseModel.findOneAndReplace).toHaveBeenCalledWith(
               { id: licenseKey },
               {
                 $set: {
