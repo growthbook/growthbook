@@ -8,6 +8,10 @@ import {
   UserPermissions,
 } from "back-end/types/organization";
 import { IdeaInterface } from "back-end/types/idea";
+import {
+  FactTableInterface,
+  UpdateFactTableProps,
+} from "back-end/types/fact-table";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { READ_ONLY_PERMISSIONS } from "./permissions.utils";
 class PermissionError extends Error {
@@ -143,6 +147,39 @@ export class Permissions {
       { projects: idea.project ? [idea.project] : [] },
       "createIdeas"
     );
+  };
+
+  // Helper methods for the front-end
+  public canViewCreateFactTableModal = (project?: string): boolean => {
+    return this.canCreateFactTable({ projects: project ? [project] : [] });
+  };
+  public canViewEditFactTableModal = (
+    factTable: Pick<FactTableInterface, "projects">
+  ): boolean => {
+    return this.canUpdateFactTable(factTable, {});
+  };
+
+  public canCreateFactTable = (
+    factTable: Pick<FactTableInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(factTable, "manageFactTables");
+  };
+
+  public canUpdateFactTable = (
+    existing: Pick<FactTableInterface, "projects">,
+    updates: UpdateFactTableProps
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "manageFactTables"
+    );
+  };
+
+  public canDeleteFactTable = (
+    factTable: Pick<FactTableInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(factTable, "manageFactTables");
   };
 
   public canCreateMetric = (
