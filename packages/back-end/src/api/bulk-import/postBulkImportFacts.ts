@@ -1,5 +1,8 @@
 import { DataSourceInterface } from "../../../types/datasource";
-import { FactMetricInterface } from "../../../types/fact-table";
+import {
+  CreateFactTableProps,
+  FactMetricInterface,
+} from "../../../types/fact-table";
 import { PostBulkImportFactsResponse } from "../../../types/openapi";
 import { queueFactTableColumnsRefresh } from "../../jobs/refreshFactTableColumns";
 import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
@@ -109,24 +112,7 @@ export const postBulkImportFacts = createApiRequestHandler(
         }
         // Create new fact table
         else {
-          if (
-            !req.context.permissions.canCreateFactTable({
-              ...data,
-              projects: data.projects || [],
-            })
-          ) {
-            req.context.permissions.throwPermissionError();
-          }
-
-          if (!dataSourceMap.has(data.datasource)) {
-            throw new Error("Could not find datasource");
-          }
-
-          if (data.userIdTypes) {
-            validateUserIdTypes(data.datasource, data.userIdTypes);
-          }
-
-          const newFactTable = await createFactTable(req.context, {
+          const factTable: CreateFactTableProps = {
             columns: [],
             eventName: "",
             id: id,
@@ -135,7 +121,21 @@ export const postBulkImportFacts = createApiRequestHandler(
             projects: [],
             tags: [],
             ...data,
-          });
+          };
+
+          if (!req.context.permissions.canCreateFactTable(factTable)) {
+            req.context.permissions.throwPermissionError();
+          }
+
+          if (!dataSourceMap.has(factTable.datasource)) {
+            throw new Error("Could not find datasource");
+          }
+
+          if (factTable.userIdTypes) {
+            validateUserIdTypes(factTable.datasource, factTable.userIdTypes);
+          }
+
+          const newFactTable = await createFactTable(req.context, factTable);
           await queueFactTableColumnsRefresh(newFactTable);
           factTableMap.set(newFactTable.id, newFactTable);
           numCreated.factTables++;
@@ -151,7 +151,7 @@ export const postBulkImportFacts = createApiRequestHandler(
             `Could not find fact table ${factTableId} for filter ${id}`
           );
         }
-        if (!req.context.permissions.canUpdateFactTable(factTable, data)) {
+        if (!req.context.permissions.canUpdateFactTable(factTable, {})) {
           req.context.permissions.throwPermissionError();
         }
 

@@ -192,7 +192,7 @@ export const putColumn = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  if (!context.permissions.canUpdateFactTable(factTable, data)) {
+  if (!context.permissions.canUpdateFactTable(factTable, {})) {
     context.permissions.throwPermissionError();
   }
 
@@ -248,7 +248,7 @@ export const postFactFilter = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  if (!context.permissions.canUpdateFactTable(factTable, data)) {
+  if (!context.permissions.canUpdateFactTable(factTable, {})) {
     context.permissions.throwPermissionError();
   }
 
@@ -278,7 +278,7 @@ export const putFactFilter = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  if (!context.permissions.canUpdateFactTable(factTable, data)) {
+  if (!context.permissions.canUpdateFactTable(factTable, {})) {
     context.permissions.throwPermissionError();
   }
 
