@@ -13,7 +13,6 @@ import { evalCondition } from "../src/mongrule";
 import {
   StickyAssignmentsDocument,
   StickyAttributeKey,
-  TrackingData,
   VariationRange,
 } from "../src/types/growthbook";
 import {
@@ -58,6 +57,7 @@ type Cases = {
   stickyBucket: [
     string,
     Context,
+    StickyAssignmentsDocument[],
     string,
     Result<any>,
     Record<StickyAttributeKey, StickyAssignmentsDocument>
@@ -69,7 +69,11 @@ type Cases = {
     eq: [string, string, boolean][];
   };
   // name, context, result
-  urlRedirect: [string, Context, TrackingData[]][];
+  urlRedirect: [
+    string,
+    Context,
+    { inExperiment: boolean; urlRedirect: any; urlWithParams: string }[]
+  ][];
 };
 
 const round = (n: number) => Math.floor(n * 1e8) / 1e8;
@@ -194,16 +198,27 @@ describe("json test suite", () => {
     async (
       name,
       ctx,
+      stickyBucketAssignmentDocs,
       key,
       expectedExperimentResult,
       expectedStickyBucketAssignmentDocs
     ) => {
+      localStorage.clear();
       await clearCache();
+
+      const sbs = new LocalStorageStickyBucketService();
+      // seed the sticky bucket repo
+      for (const doc of stickyBucketAssignmentDocs) {
+        await sbs.saveAssignments(doc);
+      }
+
       ctx = {
         ...ctx,
-        stickyBucketService: new LocalStorageStickyBucketService(),
+        stickyBucketService: sbs,
       };
       const growthbook = new GrowthBook(ctx);
+      // arbitrary sleep to let SB docs hydrate
+      await sleep(10);
       expect(growthbook.evalFeature(key).experimentResult ?? null).toEqual(
         expectedExperimentResult
       );
@@ -211,7 +226,6 @@ describe("json test suite", () => {
         expectedStickyBucketAssignmentDocs
       );
       growthbook.destroy();
-      localStorage.clear();
     }
   );
 
@@ -269,7 +283,12 @@ describe("json test suite", () => {
       const growthbook = new GrowthBook(ctx);
       await sleep();
       const trackingCalls = growthbook.getDeferredTrackingCalls();
-      const actualResult = trackingCalls.map((c) => ({
+      const actualResult: {
+        inExperiment: boolean;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        urlRedirect: any;
+        urlWithParams: string;
+      }[] = trackingCalls.map((c) => ({
         inExperiment: c.result.inExperiment,
         urlRedirect: c.result.value.urlRedirect,
         urlWithParams: growthbook.getRedirectUrl(),

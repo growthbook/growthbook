@@ -16,7 +16,7 @@ export default function useStripeSubscription() {
 
   //TODO: Remove this once we have moved the license off the organization
   const stripeSubscription =
-    organization?.subscription || license?.stripeSubscription;
+    license?.stripeSubscription || organization?.subscription;
 
   const freeSeats = organization?.freeSeats || 3;
 
