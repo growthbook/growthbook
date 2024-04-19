@@ -10,7 +10,6 @@ import { Permissions } from "shared/permissions";
 import { AppFeatures } from "@/types/app-features";
 import { isCloud, isMultiOrg } from "@/services/env";
 import { PermissionFunctions, useUser } from "@/services/UserContext";
-import usePermissions from "@/hooks/usePermissions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import styles from "./SidebarLink.module.scss";
 
@@ -37,7 +36,7 @@ export type SidebarLinkProps = {
 };
 
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
-  const { superAdmin } = useUser();
+  const { permissions, superAdmin } = useUser();
   const router = useRouter();
 
   const path = router.route.substr(1);
@@ -45,7 +44,6 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
   const showSubMenuIcons = true;
 
   const growthbook = useGrowthBook<AppFeatures>();
-  const permissions = usePermissions();
   const permissionsUtils = usePermissionsUtil();
 
   const [open, setOpen] = useState(selected);
@@ -57,7 +55,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
     }
   }, [selected]);
 
-  const shouldShowProps = {
+  const filterProps = {
     permissionsUtils,
     permissions,
     superAdmin: !!superAdmin,
@@ -66,12 +64,12 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
     gb: growthbook,
   };
 
-  if (props.filter && !props.filter(shouldShowProps)) {
+  if (props.filter && !props.filter(filterProps)) {
     return null;
   }
 
   const permittedSubLinks = (props.subLinks || []).filter(
-    (l) => !l.filter || l.filter(shouldShowProps)
+    (l) => !l.filter || l.filter(filterProps)
   );
 
   return (
