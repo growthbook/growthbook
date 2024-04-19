@@ -244,8 +244,14 @@ const MinimumDetectableEffect = ({
               <td>
                 <MetricLabel {...weeks[0]?.metrics[id]} />
               </td>
-              {weeks.map(({ metrics }) => (
-                <td key={id}>
+              {weeks.map(({ metrics }, idx) => (
+                <td
+                  key={`${id}-${idx}`}
+                  className={clsx(
+                    ensureAndReturn(metrics[id]).isThreshold &&
+                      "power-analysis-cell-threshold"
+                  )}
+                >
                   {numberFormatter.format(
                     ensureAndReturn(metrics[id]).effectSize
                   )}
@@ -306,8 +312,14 @@ const PowerOverTime = ({ powerOverTime, weeks }: PowerCalculationResults) => (
               <td>
                 <MetricLabel {...weeks[0]?.metrics[id]} />
               </td>
-              {weeks.map(({ metrics }) => (
-                <td key={id}>
+              {weeks.map(({ metrics }, idx) => (
+                <td
+                  key={`${id}-${idx}`}
+                  className={clsx(
+                    ensureAndReturn(metrics[id]).isThreshold &&
+                      "power-analysis-cell-threshold"
+                  )}
+                >
                   {percentFormatter.format(ensureAndReturn(metrics[id]).power)}
                 </td>
               ))}

@@ -8,36 +8,47 @@ import {
   FullModalPowerCalculationParams,
 } from "@/components/PowerCalculation/types";
 
-const dummyResultsData = (metrics: PowerCalculationParams["metrics"]) => ({
-  sampleSizeAndRuntime: Object.keys(metrics).reduce(
-    (sampleSizeAndRuntime, id) => ({
-      ...sampleSizeAndRuntime,
-      [id]: {
-        type: metrics[id].type,
-        name: metrics[id].name,
-        effectSize: Math.random(),
-        days: 1 + Math.floor(Math.random() * 10),
-        users: Math.floor(Math.random() * 12245),
-      },
+const dummyResultsData = (metrics: PowerCalculationParams["metrics"]) => {
+  const thresholds = Object.keys(metrics).reduce(
+    (thresholds, id) => ({
+      ...thresholds,
+      [id]: 1 + Math.floor(Math.random() * 9),
     }),
     {}
-  ),
-  weeks: [...Array(9).keys()].map(() => ({
-    users: Math.floor(Math.random() * 12245),
-    metrics: Object.keys(metrics).reduce(
-      (ret, id) => ({
-        ...ret,
+  );
+
+  return {
+    sampleSizeAndRuntime: Object.keys(metrics).reduce(
+      (sampleSizeAndRuntime, id) => ({
+        ...sampleSizeAndRuntime,
         [id]: {
           type: metrics[id].type,
           name: metrics[id].name,
           effectSize: Math.random(),
-          power: Math.random(),
+          days: 1 + Math.floor(Math.random() * 10),
+          users: Math.floor(Math.random() * 12245),
         },
       }),
       {}
     ),
-  })),
-});
+    weeks: [...Array(9).keys()].map((idx) => ({
+      users: 12245,
+      metrics: Object.keys(metrics).reduce(
+        (ret, id) => ({
+          ...ret,
+          [id]: {
+            type: metrics[id].type,
+            name: metrics[id].name,
+            isThreshold: idx === thresholds[id],
+            effectSize: Math.random(),
+            power: Math.random(),
+          },
+        }),
+        {}
+      ),
+    })),
+  };
+};
 
 const PowerCalculationPage = (): React.ReactElement => {
   const [showModal, setShowModal] = useState(false);

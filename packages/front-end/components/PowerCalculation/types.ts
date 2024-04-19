@@ -106,6 +106,7 @@ interface Week {
     [id: string]: {
       name: string;
       type: "mean" | "binomial";
+      isThreshold: boolean;
       effectSize: number;
       power: number;
     };
