@@ -46,38 +46,6 @@ export async function getCreateMetricPropsFromBody(
     ...otherFields
   } = body;
 
-  // Enforce that both and riskThresholdSuccess exist, or neither
-  const riskDangerExists = typeof riskThresholdDanger !== "undefined";
-  const riskSuccessExists = typeof riskThresholdSuccess !== "undefined";
-  if (riskDangerExists !== riskSuccessExists)
-    throw new Error(
-      "Must provide both riskThresholdDanger and riskThresholdSuccess or neither."
-    );
-  // We have both. Make sure they're valid
-  if (riskDangerExists && riskSuccessExists) {
-    // Enforce riskThresholdDanger must be higher than riskThresholdSuccess
-    if (riskThresholdDanger < riskThresholdSuccess)
-      throw new Error(
-        "riskThresholdDanger must be higher than riskThresholdSuccess"
-      );
-  }
-  // Min/max percentage change
-  const maxPercentExists = typeof maxPercentChange !== "undefined";
-  const minPercentExists = typeof minPercentChange !== "undefined";
-  // Enforce both max/min percent or neither
-  if (maxPercentExists !== minPercentExists)
-    throw new Error(
-      "Must specify both `maxPercentChange` and `minPercentChange` or neither"
-    );
-
-  if (maxPercentExists && minPercentExists) {
-    // Enforce max is greater than min
-    if (maxPercentChange <= minPercentChange)
-      throw new Error(
-        "`maxPercentChange` must be greater than `minPercentChange`"
-      );
-  }
-
   const cleanedNumerator = {
     filters: [],
     ...numerator,

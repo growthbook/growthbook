@@ -19,35 +19,17 @@ export function getUpdateFactMetricPropsFromBody(
     regressionAdjustmentSettings,
     riskThresholdSuccess,
     riskThresholdDanger,
-    minPercentChange,
-    maxPercentChange,
     ...otherFields
   } = body;
 
   const updates: UpdateFactMetricProps = {
     ...otherFields,
+    winRisk: riskThresholdSuccess,
+    loseRisk: riskThresholdDanger,
   };
 
   const metricType = updates.metricType;
 
-  if (riskThresholdDanger || riskThresholdSuccess) {
-    updates.loseRisk = riskThresholdDanger ?? factMetric.loseRisk;
-    updates.winRisk = riskThresholdSuccess ?? factMetric.winRisk;
-    if (updates.loseRisk < updates.winRisk) {
-      throw new Error(
-        `riskThresholdDanger (${updates.loseRisk}) must be higher than riskThresholdSuccess ((${updates.winRisk}))`
-      );
-    }
-  }
-  if (maxPercentChange || minPercentChange) {
-    updates.maxPercentChange = maxPercentChange ?? factMetric.maxPercentChange;
-    updates.minPercentChange = minPercentChange ?? factMetric.minPercentChange;
-    if (updates.maxPercentChange < updates.minPercentChange) {
-      throw new Error(
-        `maxPercentChange (${updates.maxPercentChange}) must be larger than minPercentChange (${updates.minPercentChange})`
-      );
-    }
-  }
   if (numerator) {
     updates.numerator = {
       filters: [],

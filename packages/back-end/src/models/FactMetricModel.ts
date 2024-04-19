@@ -156,6 +156,17 @@ export class FactMetricModel extends BaseClass {
         throw new Error("Must specify `quantileSettings` for Quantile metrics");
       }
     }
+    if (data.loseRisk < data.winRisk) {
+      throw new Error(
+        `riskThresholdDanger (${data.loseRisk}) must be greater than riskThresholdSuccess (${data.winRisk})`
+      );
+    }
+
+    if (data.minPercentChange >= data.maxPercentChange) {
+      throw new Error(
+        `maxPercentChange (${data.maxPercentChange}) must be greater than minPercentChange (${data.minPercentChange})`
+      );
+    }
   }
 
   public toApiInterface(factMetric: FactMetricInterface): ApiFactMetric {
@@ -170,13 +181,15 @@ export class FactMetricModel extends BaseClass {
       dateUpdated,
       denominator,
       metricType,
+      loseRisk,
+      winRisk,
       ...otherFields
     } = omit(factMetric, ["organization"]);
 
     return {
       ...otherFields,
-      riskThresholdDanger: otherFields.loseRisk,
-      riskThresholdSuccess: otherFields.winRisk,
+      riskThresholdDanger: loseRisk,
+      riskThresholdSuccess: winRisk,
       metricType: metricType,
       quantileSettings: quantileSettings || undefined,
       cappingSettings: {
