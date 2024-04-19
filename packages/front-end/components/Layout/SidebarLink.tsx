@@ -72,6 +72,10 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
     (l) => !l.filter || l.filter(filterProps)
   );
 
+  if (props.subLinks && !permittedSubLinks.length) {
+    return null;
+  }
+
   return (
     <>
       {props.divider && (
