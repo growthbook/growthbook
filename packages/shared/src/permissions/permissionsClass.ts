@@ -149,21 +149,14 @@ export class Permissions {
     );
   };
 
-  // This is a helper method to use on the frontend to determine whether or not a user can create Fact Tables in current project
+  // Helper methods for the front-end
   public canViewCreateFactTableModal = (project?: string): boolean => {
-    return this.checkProjectFilterPermission(
-      {
-        projects: project ? [project] : [],
-      },
-      "manageFactTables"
-    );
+    return this.canCreateFactTable({ projects: project ? [project] : [] });
   };
-
-  // This is a helper method to use on the frontend to determine whether or not a user can edit a Fact Table
   public canViewEditFactTableModal = (
     factTable: Pick<FactTableInterface, "projects">
   ): boolean => {
-    return this.checkProjectFilterPermission(factTable, "manageFactTables");
+    return this.canUpdateFactTable(factTable, {});
   };
 
   public canCreateFactTable = (
