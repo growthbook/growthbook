@@ -581,7 +581,7 @@ export async function postResendEmailVerificationEmailToLicenseServer(
 }
 
 // Creates or updates the license in the MongoDB cache in case the license server goes down.
-async function createOrUpdateLicenseMongoCache(license: LicenseInterface) {
+async function createOrReplaceLicenseMongoCache(license: LicenseInterface) {
   await LicenseModel.findOneAndReplace(
     { id: license.id },
     { $set: license },
@@ -594,7 +594,7 @@ export function setAndVerifyServerLicenseData(license: LicenseInterface) {
   verifyLicenseInterface(license);
   keyToLicenseData[license.id] = license;
   keyToCacheDate[license.id] = new Date();
-  createOrUpdateLicenseMongoCache(license).catch((e) => {
+  createOrReplaceLicenseMongoCache(license).catch((e) => {
     logger.error(`Error creating mongo cache: ${e}`);
     throw e;
   });
@@ -633,7 +633,7 @@ async function updateLicenseFromServer(
       userLicenseCodes,
       metaData
     );
-    createOrUpdateLicenseMongoCache(license).catch((e) => {
+    createOrReplaceLicenseMongoCache(license).catch((e) => {
       logger.error(`Error creating mongo cache: ${e}`);
       throw e;
     });
@@ -660,7 +660,7 @@ async function updateLicenseFromServer(
     license.lastFailedFetchDate = now;
     license.lastServerErrorMessage = e.message;
     license.usingMongoCache = true;
-    createOrUpdateLicenseMongoCache(license).catch((e) => {
+    createOrReplaceLicenseMongoCache(license).catch((e) => {
       logger.error(`Error creating mongo cache: ${e}`);
       throw e;
     });
