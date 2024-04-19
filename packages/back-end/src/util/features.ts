@@ -374,6 +374,9 @@ export function getFeatureDefinition({
           const phase = exp.phases[exp.phases.length - 1];
           if (!phase) return null;
 
+          // Scrub coverage === 0, unless experiment is paused
+          if (phase.coverage === 0 && !phase.enrollmentPaused) return null;
+
           const condition = getParsedCondition(
             groupMap,
             phase.condition,

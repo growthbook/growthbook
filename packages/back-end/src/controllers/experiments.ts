@@ -1395,6 +1395,23 @@ export async function postExperimentTargeting(
 
   const phases = [...experiment.phases];
 
+  // enrollmentPaused means: coverage is 0, but we want to keep the experiment live due to sticky bucketing.
+  // Infer the user's intent (pause vs soft-stop) based on changes being applied.
+  // This is temporary. Later, we'll add UI-level controls...
+
+  let enrollmentPaused = false; // todo: allow this to be passed from the UI, bypass logic below
+  if (coverage === 0) {
+    if (phases?.[phases.length - 1]?.enrollmentPaused) {
+      // if previously paused and coverage is still 0, remain paused
+      enrollmentPaused = true;
+    } else if ((bucketVersion ?? 0) == (experiment.bucketVersion ?? 0)) {
+      // if not incrementing bucketVersion, then we're probably relying on sticky bucketing
+      enrollmentPaused = true;
+    }
+  } else {
+    enrollmentPaused = false;
+  }
+
   // Already has phases and we're updating an existing phase
   if (phases.length && !newPhase) {
     phases[phases.length - 1] = {
@@ -1406,6 +1423,7 @@ export async function postExperimentTargeting(
       namespace,
       variationWeights,
       seed,
+      enrollmentPaused,
     };
   } else {
     // If we had a previous phase, mark it as ended
@@ -1424,6 +1442,7 @@ export async function postExperimentTargeting(
       reason: "",
       variationWeights,
       seed: phases.length && reseed ? uuidv4() : seed,
+      enrollmentPaused,
     });
   }
   changes.phases = phases;

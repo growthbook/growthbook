@@ -196,6 +196,9 @@ export function generateAutoExperimentsPayload({
 
       if (!phase) return null;
 
+      // Scrub coverage === 0, unless experiment is paused
+      if (phase.coverage === 0 && !phase.enrollmentPaused) return null;
+
       const exp: AutoExperimentWithProject = {
         key: e.trackingKey,
         status: e.status,

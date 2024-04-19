@@ -63,6 +63,7 @@ export interface ExperimentPhase {
   namespace: NamespaceValue;
   seed?: string;
   variationWeights: number[];
+  enrollmentPaused?: boolean;
 }
 
 export type ExperimentPhaseStringDates = Omit<
