@@ -65,31 +65,29 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
     return null;
   }
 
-  const permittedSubLinks: SidebarLinkProps[] = [];
+  const permittedSubLinks = (props.subLinks || []).filter((l) => {
+    if (l.superAdmin && !superAdmin) return false;
 
-  if (props.subLinks) {
-    props.subLinks.forEach((l) => {
-      if (l.superAdmin && !superAdmin) return null;
+    if (l.multiOrgOnly && !isMultiOrg()) {
+      return false;
+    }
+    if (l.cloudOnly && !isCloud()) {
+      return false;
+    }
+    if (l.selfHostedOnly && isCloud()) {
+      return false;
+    }
+    // User must pass at least one of the permission checks
+    if (l.permissionCallbacks && !l.permissionCallbacks.some((cb) => cb())) {
+      return false;
+    }
 
-      if (l.multiOrgOnly && !isMultiOrg()) {
-        return null;
-      }
-      if (l.cloudOnly && !isCloud()) {
-        return null;
-      }
-      if (l.selfHostedOnly && isCloud()) {
-        return null;
-      }
-      if (l.permissionCallbacks) {
-        // User must pass all permission checks for sublink to be shown
-        if (l.permissionCallbacks.every((cb) => cb())) {
-          permittedSubLinks.push(l);
-        }
-      } else {
-        permittedSubLinks.push(l);
-      }
-    });
-  }
+    if (l.feature && !growthbook?.isOn(l.feature)) {
+      return false;
+    }
+
+    return true;
+  });
 
   if (props.subLinks && !permittedSubLinks.length) {
     return null;
@@ -151,47 +149,43 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
             [styles.open]: open || selected,
           })}
         >
-          {permittedSubLinks
-            .filter(
-              (subLink) => !subLink.feature || growthbook?.isOn(subLink.feature)
-            )
-            .map((l) => {
-              const sublinkSelected = l.path.test(path);
+          {permittedSubLinks.map((l) => {
+            const sublinkSelected = l.path.test(path);
 
-              return (
-                <li
-                  key={l.href}
-                  className={clsx(
-                    "sidebarlink sublink",
-                    styles.link,
-                    styles.sublink,
-                    {
-                      [styles.subdivider]: l.divider,
-                      [styles.selected]: sublinkSelected,
-                      selected: sublinkSelected,
-                      [styles.collapsed]: !open && !sublinkSelected,
-                    }
+            return (
+              <li
+                key={l.href}
+                className={clsx(
+                  "sidebarlink sublink",
+                  styles.link,
+                  styles.sublink,
+                  {
+                    [styles.subdivider]: l.divider,
+                    [styles.selected]: sublinkSelected,
+                    selected: sublinkSelected,
+                    [styles.collapsed]: !open && !sublinkSelected,
+                  }
+                )}
+              >
+                <Link href={l.href} className="align-middle">
+                  {showSubMenuIcons && (
+                    <>
+                      {l.Icon && <l.Icon className={styles.icon} />}
+                      {l.icon && (
+                        <span>
+                          <img src={`/icons/${l.icon}`} />
+                        </span>
+                      )}
+                    </>
                   )}
-                >
-                  <Link href={l.href} className="align-middle">
-                    {showSubMenuIcons && (
-                      <>
-                        {l.Icon && <l.Icon className={styles.icon} />}
-                        {l.icon && (
-                          <span>
-                            <img src={`/icons/${l.icon}`} />
-                          </span>
-                        )}
-                      </>
-                    )}
-                    {l.name}
-                    {l.beta && (
-                      <div className="badge badge-purple ml-2">beta</div>
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
+                  {l.name}
+                  {l.beta && (
+                    <div className="badge badge-purple ml-2">beta</div>
+                  )}
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       ) : null}
     </>

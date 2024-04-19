@@ -24,7 +24,6 @@ import {
 import { inferDocUrl } from "@/components/DocLink";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
@@ -33,7 +32,6 @@ import styles from "./Layout.module.scss";
 import { usePageHead } from "./PageHead";
 
 function buildNavlinks(
-  project: string,
   permissionsUtils: Permissions,
   permissions: Record<GlobalPermission, boolean> & PermissionFunctions
 ): SidebarLinkProps[] {
@@ -182,9 +180,7 @@ function buildNavlinks(
           name: "Projects",
           href: "/projects",
           path: /^project/,
-          permissionCallbacks: [
-            () => permissionsUtils.canUpdateProject(project),
-          ],
+          permissionCallbacks: [() => permissionsUtils.canUpdateSomeProjects()],
         },
         {
           name: "API Keys",
@@ -224,9 +220,10 @@ function buildNavlinks(
           path: /^importing/,
           feature: "import-from-x",
           permissionCallbacks: [
-            () => permissions.check("manageFeatures", project),
-            () => permissions.check("manageEnvironments" as GlobalPermission),
-            () => permissionsUtils.canCreateProjects(),
+            () =>
+              permissions.check("manageFeatures", "") &&
+              permissions.check("manageEnvironments" as GlobalPermission) &&
+              permissionsUtils.canCreateProjects(),
           ],
         },
         {
@@ -296,11 +293,10 @@ const Layout = (): React.ReactElement => {
   const settings = useOrgSettings();
   const { accountPlan, license } = useUser();
   const { hasPaymentMethod } = useStripeSubscription();
-  const { project } = useDefinitions();
   const permissionsUtils = usePermissionsUtil();
   const permissions = usePermissions();
 
-  const navlinks = buildNavlinks(project, permissionsUtils, permissions);
+  const navlinks = buildNavlinks(permissionsUtils, permissions);
 
   const { breadcrumb } = usePageHead();
 

@@ -197,6 +197,14 @@ export class Permissions {
     );
   };
 
+  public canUpdateSomeProjects = (): boolean => {
+    // TODO: loop through all projects and check if the user has permission to update at least one
+    return this.checkProjectFilterPermission(
+      { projects: [] },
+      "manageProjects"
+    );
+  };
+
   public canUpdateProject = (project: string): boolean => {
     return this.checkProjectFilterPermission(
       { projects: [project] },
