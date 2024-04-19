@@ -1,7 +1,14 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { MetricInterface } from "back-end/types/metric";
-import { Permission, UserPermissions } from "back-end/types/organization";
+import {
+  GlobalPermission,
+  Permission,
+  ProjectScopedPermission,
+  SDKAttribute,
+  UserPermissions,
+} from "back-end/types/organization";
 import { IdeaInterface } from "back-end/types/idea";
+import { ExperimentInterface } from "back-end/types/experiment";
 import { READ_ONLY_PERMISSIONS } from "./permissions.utils";
 class PermissionError extends Error {
   constructor(message: string) {
@@ -17,6 +24,89 @@ export class Permissions {
     this.userPermissions = permissions;
     this.superAdmin = superAdmin;
   }
+
+  //Global Permissions
+  public canCreatePresentation = (): boolean => {
+    return this.checkGlobalPermission("createPresentations");
+  };
+
+  public canUpdatePresentation = (): boolean => {
+    return this.checkGlobalPermission("createPresentations");
+  };
+
+  public canDeletePresentation = (): boolean => {
+    return this.checkGlobalPermission("createPresentations");
+  };
+
+  public canCreateDimension = (): boolean => {
+    return this.checkGlobalPermission("createDimensions");
+  };
+
+  public canUpdateDimension = (): boolean => {
+    return this.checkGlobalPermission("createDimensions");
+  };
+
+  public canDeleteDimension = (): boolean => {
+    return this.checkGlobalPermission("createDimensions");
+  };
+
+  //Project Permissions
+  public canCreateVisualChange = (
+    experiment: Pick<ExperimentInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: experiment.project ? [experiment.project] : [] },
+      "manageVisualChanges"
+    );
+  };
+
+  public canUpdateVisualChange = (
+    experiment: Pick<ExperimentInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: experiment.project ? [experiment.project] : [] },
+      "manageVisualChanges"
+    );
+  };
+
+  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
+  public canViewAttributeModal = (project?: string): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: project ? [project] : [],
+      },
+      "manageTargetingAttributes"
+    );
+  };
+
+  public canCreateAttribute = (
+    attribute: Pick<SDKAttribute, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      attribute,
+      "manageTargetingAttributes"
+    );
+  };
+
+  public canUpdateAttribute = (
+    existing: Pick<SDKAttribute, "projects">,
+    updates: Pick<SDKAttribute, "projects">
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "manageTargetingAttributes"
+    );
+  };
+
+  public canDeleteAttribute = (
+    attribute: Pick<SDKAttribute, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      attribute,
+      "manageTargetingAttributes"
+    );
+  };
 
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
   public canViewIdeaModal = (project?: string): boolean => {
@@ -127,9 +217,13 @@ export class Permissions {
     );
   }
 
+  private checkGlobalPermission(permission: GlobalPermission): boolean {
+    return this.hasPermission(permission, "");
+  }
+
   private checkProjectFilterPermission(
     obj: { projects?: string[] },
-    permission: Permission
+    permission: ProjectScopedPermission
   ): boolean {
     const projects = obj.projects?.length ? obj.projects : [""];
 
@@ -151,7 +245,7 @@ export class Permissions {
   private checkProjectFilterUpdatePermission(
     existing: { projects?: string[] },
     updates: { projects?: string[] },
-    permission: Permission
+    permission: ProjectScopedPermission
   ): boolean {
     // check if the user has permission to update based on the existing projects
     if (!this.checkProjectFilterPermission(existing, permission)) {

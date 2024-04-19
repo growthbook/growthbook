@@ -18,7 +18,7 @@ export const slackEventHandler: NotificationEventHandler = async ({
   organizationId,
   id,
 }) => {
-  const result = getSlackDataForNotificationEvent(data, id);
+  const result = await getSlackDataForNotificationEvent(data, id);
   if (!result) {
     // Unsupported events do not return a result
     return;

@@ -1270,6 +1270,7 @@ async function getDraftRevision(
       feature,
       user: context.auditUser,
       environments: getEnvironmentIdsFromOrg(context.org),
+      baseVersion: version,
       org,
     });
 
@@ -1323,7 +1324,7 @@ export async function putRevisionComment(
 
   await updateRevision(
     revision,
-    { comment },
+    {},
     {
       user: res.locals.eventAudit,
       action: "edit comment",

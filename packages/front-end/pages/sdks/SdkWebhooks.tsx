@@ -13,8 +13,9 @@ import { useUser } from "@/services/UserContext";
 import Button from "@/components/Button";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle } from "@/components/Icons";
+import { DocLink } from "@/components/DocLink";
 
-export default function SDKWebhooks({ sdkid }) {
+export default function SdkWebhooks({ sdkid }) {
   const { data, mutate } = useApi<{ webhooks?: WebhookInterface[] }>(
     `/webhooks/sdk/${sdkid}`
   );
@@ -104,6 +105,10 @@ export default function SDKWebhooks({ sdkid }) {
   };
   const renderAddWebhookButton = () => (
     <>
+      <div className="text-muted mb-3">
+        Refer to the <DocLink docSection="sdkWebhooks">documentation</DocLink>{" "}
+        for setup instructions
+      </div>
       {hasWebhookPermissions && (
         <Tooltip
           body={
@@ -147,7 +152,7 @@ export default function SDKWebhooks({ sdkid }) {
 
   const renderTable = () => {
     return (
-      <div className="gb-webhook-table-container mb-3">
+      <div className="gb-webhook-table-container mb-2">
         <table className="table appbox gbtable mb-0">
           <thead>
             <tr>
@@ -168,7 +173,7 @@ export default function SDKWebhooks({ sdkid }) {
   const isEmpty = data?.webhooks?.length === 0;
   return (
     <div className="gb-sdk-connections-webhooks mb-5">
-      <h2 className="mb-3">SDK Webhooks</h2>
+      <h2 className="mb-2">SDK Webhooks</h2>
       {createWebhookModalOpen && (
         <WebhooksModal
           close={() => setCreateWebhookModalOpen(null)}
