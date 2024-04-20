@@ -164,7 +164,7 @@ export async function fireWebhook({
   } catch (error) {
     createSdkWebhookLog({
       webhookId,
-      webhookReduestId: webhookID,
+      webhookRequestId: webhookID,
       organizationId,
       payload: JSON.parse(payload),
       result: {
@@ -196,7 +196,7 @@ export async function fireWebhook({
   ).catch((e) => {
     createSdkWebhookLog({
       webhookId,
-      webhookReduestId: webhookID,
+      webhookRequestId: webhookID,
       organizationId,
       payload: JSON.parse(payload),
       result: {
@@ -210,7 +210,7 @@ export async function fireWebhook({
 
   createSdkWebhookLog({
     webhookId,
-    webhookReduestId: webhookID,
+    webhookRequestId: webhookID,
     organizationId,
     payload: JSON.parse(payload),
     result: {
@@ -302,7 +302,6 @@ export async function queueGlobalWebhooks(
     const {
       url,
       signingKey,
-      key,
       method,
       headers,
       sendPayload,
@@ -355,7 +354,7 @@ export async function queueGlobalWebhooks(
           organizationId: context.org.id,
           url,
           signingKey,
-          key,
+          key: connection.key,
           payload,
           method,
           sendPayload,

@@ -89,6 +89,7 @@ export interface Member extends MemberRoleWithProjects {
   dateCreated?: Date;
   externalId?: string;
   managedByIdp?: boolean;
+  lastLoginDate?: Date;
 }
 
 export interface ExpandedMember extends Member {

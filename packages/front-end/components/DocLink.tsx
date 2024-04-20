@@ -12,7 +12,8 @@ const docSections = {
   datasources: "/app/datasources",
   dashboard: "/app/experiment-configuration",
   api: "/app/api",
-  webhooks: "/app/webhooks",
+  eventWebhooks: "/app/webhooks/event-webhooks",
+  sdkWebhooks: "/app/webhooks/sdk-webhooks",
   //DataSourceType
   athena: "/app/datasources#aws-athena",
   mixpanel: "/guide/mixpanel",
@@ -41,6 +42,7 @@ const docSections = {
   config_organization_settings: "/self-host/config#organization-settings",
   env_prod: "/self-host/env#production-settings",
   visual_editor: "/app/visual",
+  url_redirects: "/app/url-redirects",
   temporaryRollout: "/app/visual#stopping-an-experiment",
   encryptedSDKEndpoints: "/lib/js#loading-features",
   hashSecureAttributes: "/lib/js#secure-attributes",
@@ -68,7 +70,7 @@ const urlPathMapping: Record<string, DocSection> = {
   "/dashboard": "experimentConfiguration",
   "/settings/keys": "api",
   "/environments": "api",
-  "/settings/webhooks": "webhooks",
+  "/settings/webhooks": "eventWebhooks",
 };
 
 //for testing use "http://localhost:3200"

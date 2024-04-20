@@ -1,8 +1,7 @@
-import React, { FC, useEffect, useState } from "react";
+import React, { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
-import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
@@ -23,17 +22,6 @@ const EditLicenseModal: FC<{
       licenseKey: "",
     },
   });
-
-  useEffect(() => {
-    if (isCloud()) {
-      close();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCloud]);
-
-  if (isCloud()) {
-    return null;
-  }
 
   return (
     <Modal

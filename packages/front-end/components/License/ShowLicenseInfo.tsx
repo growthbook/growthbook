@@ -114,22 +114,23 @@ const ShowLicenseInfo: FC<{
                 {license &&
                   license.plan && ( // A license might not have a plan if a stripe pro form is not filled out
                     <>
-                      {["pro", "pro_sso"].includes(license.plan) && (
-                        <div className="col-sm-2">
-                          <div>Status:</div>
-                          <span
-                            className={`text-muted ${
-                              !["active", "trialing"].includes(
-                                license.stripeSubscription?.status || ""
-                              )
-                                ? "alert-danger"
-                                : ""
-                            }`}
-                          >
-                            {license.stripeSubscription?.status}
-                          </span>
-                        </div>
-                      )}
+                      {["pro", "pro_sso"].includes(license.plan) &&
+                        license.stripeSubscription?.status && (
+                          <div className="col-sm-2">
+                            <div>Status:</div>
+                            <span
+                              className={`text-muted ${
+                                !["active", "trialing"].includes(
+                                  license.stripeSubscription?.status || ""
+                                )
+                                  ? "alert-danger"
+                                  : ""
+                              }`}
+                            >
+                              {license.stripeSubscription?.status}
+                            </span>
+                          </div>
+                        )}
                       <div className="col-sm-2">
                         <div>Issued:</div>
                         <span className="text-muted">

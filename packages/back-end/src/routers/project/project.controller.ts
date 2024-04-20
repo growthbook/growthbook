@@ -55,8 +55,11 @@ export const postProject = async (
     EventAuditUserForResponseLocals
   >
 ) => {
-  req.checkPermissions("manageProjects", "");
+  const context = getContextFromReq(req);
 
+  if (!context.permissions.canCreateProjects()) {
+    context.permissions.throwPermissionError();
+  }
   const { name, description } = req.body;
   const { org } = getContextFromReq(req);
 
@@ -99,9 +102,12 @@ export const putProject = async (
   >
 ) => {
   const { id } = req.params;
-  req.checkPermissions("manageProjects", id);
 
   const context = getContextFromReq(req);
+
+  if (!context.permissions.canUpdateProject(id)) {
+    context.permissions.throwPermissionError();
+  }
 
   const project = await findProjectById(context, id);
 
@@ -166,10 +172,11 @@ export const deleteProject = async (
     deleteSlackIntegrations = false,
     deleteDataSources = false,
   } = req.query;
-
-  req.checkPermissions("manageProjects", id);
-
   const context = getContextFromReq(req);
+
+  if (!context.permissions.canDeleteProject(id)) {
+    context.permissions.throwPermissionError();
+  }
   const { org } = context;
 
   await deleteProjectById(id, org.id);
@@ -304,9 +311,12 @@ export const putProjectSettings = async (
   res: Response<PutProjectSettingsResponse | ApiErrorResponse>
 ) => {
   const { id } = req.params;
-  req.checkPermissions("manageProjects", id);
 
   const context = getContextFromReq(req);
+
+  if (!context.permissions.canUpdateProject(id)) {
+    context.permissions.throwPermissionError();
+  }
 
   const project = await findProjectById(context, id);
 
