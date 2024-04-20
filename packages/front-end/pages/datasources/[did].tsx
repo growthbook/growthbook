@@ -56,14 +56,16 @@ const DataSourcePage: FC = () => {
   const { apiCall } = useAuth();
   const { organization, hasCommercialFeature } = useUser();
 
-  const canDelete = (d && permissionsUtil.canDeleteDataSource(d)) || false;
+  const canDelete =
+    (d && permissionsUtil.canDeleteDataSource(d) && !hasFileConfig()) || false;
 
   const canUpdateConnectionParams =
     (d && permissionsUtil.canUpdateDataSourceParams(d) && !hasFileConfig()) ||
     false;
 
   const canUpdateDataSourceSettings =
-    (d && permissionsUtil.canUpdateDataSourceSettings(d)) || false;
+    (d && permissionsUtil.canUpdateDataSourceSettings(d) && !hasFileConfig()) ||
+    false;
 
   const pipelineEnabled =
     useFeatureIsOn("datasource-pipeline-mode") &&
@@ -259,7 +261,7 @@ const DataSourcePage: FC = () => {
                   dataSource={d}
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
-                  canEdit={canUpdateConnectionParams}
+                  canEdit={canUpdateDataSourceSettings}
                 />
               </div>
 

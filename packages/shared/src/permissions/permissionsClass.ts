@@ -76,12 +76,7 @@ export class Permissions {
 
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
   public canViewAttributeModal = (project?: string): boolean => {
-    return this.checkProjectFilterPermission(
-      {
-        projects: project ? [project] : [],
-      },
-      "manageTargetingAttributes"
-    );
+    return this.canCreateAttribute({ projects: project ? [project] : [] });
   };
 
   public canCreateAttribute = (
@@ -115,12 +110,7 @@ export class Permissions {
 
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
   public canViewIdeaModal = (project?: string): boolean => {
-    return this.checkProjectFilterPermission(
-      {
-        projects: project ? [project] : [],
-      },
-      "createIdeas"
-    );
+    return this.canCreateIdea({ project });
   };
 
   public canCreateIdea = (idea: Pick<IdeaInterface, "project">): boolean => {
@@ -258,12 +248,7 @@ export class Permissions {
   };
 
   public canViewCreateDataSourceModal = (project?: string): boolean => {
-    return this.checkProjectFilterPermission(
-      {
-        projects: project ? [project] : [],
-      },
-      "createDatasources"
-    );
+    return this.canCreateDataSource({ projects: project ? [project] : [] });
   };
 
   public canCreateDataSource = (
