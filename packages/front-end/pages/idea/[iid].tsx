@@ -51,6 +51,7 @@ const IdeaPage = (): ReactElement => {
     getSegmentById,
     refreshTags,
     getProjectById,
+    getDatasourceById,
   } = useDefinitions();
 
   const { permissions, getUserDisplay } = useUser();
@@ -107,6 +108,9 @@ const IdeaPage = (): ReactElement => {
   const canCreateIdeasInCurrentProject = permissionsUtil.canViewIdeaModal(
     project
   );
+
+  const metric = getMetricById(estimate?.metric || "");
+  const datasource = getDatasourceById(metric?.datasource || "");
 
   return (
     <div className="container-fluid pagecontents pt-3">
@@ -405,7 +409,8 @@ const IdeaPage = (): ReactElement => {
               </div>
 
               {(!idea.estimateParams || !estimate) &&
-                permissionsUtil.canRunIdeaQueries(idea) &&
+                datasource &&
+                permissionsUtil.canRunIdeaQueries(datasource) &&
                 canEdit && (
                   <div className="mt-2 text-center">
                     <button
@@ -432,10 +437,14 @@ const IdeaPage = (): ReactElement => {
                   <RightRailSection
                     title="Parameters"
                     open={() => setImpactOpen(true)}
-                    canOpen={permissionsUtil.canRunIdeaQueries(idea) && canEdit}
+                    canOpen={
+                      (!datasource ||
+                        permissionsUtil.canRunIdeaQueries(datasource)) &&
+                      canEdit
+                    }
                   >
                     <RightRailSectionGroup title="Metric" type="badge">
-                      {getMetricById(estimate?.metric)?.name}
+                      {metric?.name}
                     </RightRailSectionGroup>
                     <RightRailSectionGroup
                       title="Percent of Traffic"

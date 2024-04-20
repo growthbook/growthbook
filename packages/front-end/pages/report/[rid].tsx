@@ -41,6 +41,7 @@ import CompactResults from "@/components/Experiment/CompactResults";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import PageHead from "@/components/Layout/PageHead";
+import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -143,6 +144,7 @@ export default function ReportPage() {
 
   const sequentialTestingEnabled =
     hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled;
+  const differenceType = report.args.differenceType ?? "relative";
 
   return (
     <>
@@ -290,6 +292,19 @@ export default function ReportPage() {
                   />
                 </div>
                 <div className="col-auto d-flex align-items-end mr-3">
+                  <DifferenceTypeChooser
+                    differenceType={report.args.differenceType ?? "relative"}
+                    // ensure disabled is true to style correctly
+                    // and callbacks are not needed
+                    disabled={true}
+                    phase={0}
+                    setDifferenceType={() => {}}
+                    setAnalysisSettings={() => {}}
+                    loading={false}
+                    mutate={() => {}}
+                  />
+                </div>
+                <div className="col-auto d-flex align-items-end mr-3">
                   <div>
                     <div className="uppercase-title text-muted">Date range</div>
                     <div className="relative">
@@ -363,6 +378,7 @@ export default function ReportPage() {
                 <div className="col-auto">
                   <ResultMoreMenu
                     id={report.id}
+                    datasource={datasource}
                     hasData={hasData}
                     forceRefresh={async () => {
                       try {
@@ -450,6 +466,7 @@ export default function ReportPage() {
                   seriestype={report.args.dimension}
                   variations={variations}
                   statsEngine={report.args.statsEngine}
+                  differenceType={differenceType}
                 />
               ) : (
                 <BreakDownResults
@@ -473,11 +490,12 @@ export default function ReportPage() {
                     report.args.metricRegressionAdjustmentStatuses
                   }
                   sequentialTestingEnabled={sequentialTestingEnabled}
-                  differenceType={"relative"}
+                  differenceType={differenceType}
                 />
               ))}
             {report.results && !report.args.dimension && (
               <VariationIdWarning
+                datasource={datasource}
                 unknownVariations={report.results?.unknownVariations || []}
                 isUpdating={status === "running"}
                 setVariationIds={async (ids) => {
@@ -541,7 +559,7 @@ export default function ReportPage() {
                       report.args.metricRegressionAdjustmentStatuses
                     }
                     sequentialTestingEnabled={sequentialTestingEnabled}
-                    differenceType={"relative"}
+                    differenceType={differenceType}
                     isTabActive={true}
                   />
                 </div>

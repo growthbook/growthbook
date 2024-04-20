@@ -65,6 +65,7 @@ export interface Props {
   ) => void;
   loading: boolean;
   mutate: () => void;
+  disabled?: boolean;
 }
 
 export default function DifferenceTypeChooser({
@@ -76,6 +77,7 @@ export default function DifferenceTypeChooser({
   setAnalysisSettings,
   loading,
   mutate,
+  disabled,
 }: Props) {
   const { apiCall } = useAuth();
 
@@ -118,11 +120,13 @@ export default function DifferenceTypeChooser({
         uuid={"difference-type-selector"}
         right={false}
         className="mt-2"
-        toggleClassName="d-inline-block dropdown-underline"
+        toggleClassName={`d-inline-block ${
+          disabled ? "" : "dropdown-underline"
+        }`}
         header={<div className="h6 mb-0">Difference Type</div>}
         toggle={<div className="d-inline-flex align-items-center">{title}</div>}
-        caret={true}
-        enabled={true}
+        caret={!disabled}
+        enabled={!disabled}
         open={open}
         setOpen={(b: boolean) => setOpen(b)}
       >

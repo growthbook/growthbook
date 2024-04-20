@@ -5,12 +5,11 @@ import {
   UserIdType,
 } from "back-end/types/datasource";
 import { FaPencilAlt, FaPlus } from "react-icons/fa";
-import { checkDatasourceProjectPermissions } from "@/services/datasources";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
-import usePermissions from "@/hooks/usePermissions";
 import { EditIdentifierType } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/EditIdentifierType";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 type DataSourceInlineEditIdentifierTypesProps = DataSourceQueryEditingModalBaseProps;
 
@@ -23,14 +22,8 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
 
-  const permissions = usePermissions();
-  canEdit =
-    canEdit &&
-    checkDatasourceProjectPermissions(
-      dataSource,
-      permissions,
-      "editDatasourceSettings"
-    );
+  const permissionsUtil = usePermissionsUtil();
+  canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
 
   const userIdTypes = useMemo(() => dataSource.settings?.userIdTypes || [], [
     dataSource.settings?.userIdTypes,

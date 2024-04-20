@@ -4,6 +4,7 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
+import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
 import usePermissions from "@/hooks/usePermissions";
 import FixVariationIds from "@/components/Experiment/FixVariationIds";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -32,6 +33,7 @@ const VariationIdWarning: FC<{
   unknownVariations: string[];
   setVariationIds?: (ids: string[]) => Promise<void>;
   project?: string;
+  datasource?: DataSourceInterfaceWithParams | null;
 }> = ({
   isUpdating,
   results,
@@ -39,6 +41,7 @@ const VariationIdWarning: FC<{
   unknownVariations,
   setVariationIds,
   project,
+  datasource,
 }) => {
   const [idModal, setIdModal] = useState(false);
 
@@ -118,7 +121,8 @@ const VariationIdWarning: FC<{
           (<CommaList vals={returnedVariations} />
           ).{" "}
           {setVariationIds &&
-            permissionsUtil.canRunExperimentQueries({ project }) &&
+            datasource &&
+            permissionsUtil.canRunExperimentQueries(datasource) &&
             permissions.check("createAnalyses", project) && (
               <button
                 className="btn btn-info btn-sm ml-3"

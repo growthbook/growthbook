@@ -328,49 +328,69 @@ export default function AnalysisSettingsSummary({
             ))}
         </div>
 
-        {permissionsUtil.canRunExperimentQueries(experiment) &&
-          experiment.metrics.length > 0 && (
-            <div className="col-auto">
-              {experiment.datasource && latest && latest.queries?.length > 0 ? (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    apiCall<{ snapshot: ExperimentSnapshotInterface }>(
-                      `/experiment/${experiment.id}/snapshot`,
-                      {
-                        method: "POST",
-                        body: JSON.stringify({
-                          phase,
-                          dimension,
-                        }),
-                      }
-                    )
-                      .then((res) => {
-                        trackSnapshot(
-                          "create",
-                          "RunQueriesButton",
-                          datasource?.type || null,
-                          res.snapshot
-                        );
+        {!ds ||
+          (permissionsUtil.canRunExperimentQueries(ds) &&
+            experiment.metrics.length > 0 && (
+              <div className="col-auto">
+                {experiment.datasource &&
+                latest &&
+                latest.queries?.length > 0 ? (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      apiCall<{ snapshot: ExperimentSnapshotInterface }>(
+                        `/experiment/${experiment.id}/snapshot`,
+                        {
+                          method: "POST",
+                          body: JSON.stringify({
+                            phase,
+                            dimension,
+                          }),
+                        }
+                      )
+                        .then((res) => {
+                          trackSnapshot(
+                            "create",
+                            "RunQueriesButton",
+                            datasource?.type || null,
+                            res.snapshot
+                          );
 
-                        setAnalysisSettings(null);
-                        mutateSnapshot();
-                        setRefreshError("");
-                      })
-                      .catch((e) => {
-                        setRefreshError(e.message);
-                      });
-                  }}
-                >
-                  <RunQueriesButton
-                    cta="Update"
-                    cancelEndpoint={`/snapshot/${latest.id}/cancel`}
+                          setAnalysisSettings(null);
+                          mutateSnapshot();
+                          setRefreshError("");
+                        })
+                        .catch((e) => {
+                          setRefreshError(e.message);
+                        });
+                    }}
+                  >
+                    <RunQueriesButton
+                      cta="Update"
+                      cancelEndpoint={`/snapshot/${latest.id}/cancel`}
+                      mutate={mutateSnapshot}
+                      model={latest}
+                      icon="refresh"
+                      color="outline-primary"
+                      onSubmit={() => {
+                        // todo: remove baseline resetter (here and below) once refactored.
+                        if (baselineRow !== 0) {
+                          setBaselineRow?.(0);
+                          setVariationFilter?.([]);
+                        }
+                        setDifferenceType("relative");
+                      }}
+                    />
+                  </form>
+                ) : (
+                  <RefreshSnapshotButton
                     mutate={mutateSnapshot}
-                    model={latest}
-                    icon="refresh"
-                    color="outline-primary"
+                    phase={phase}
+                    experiment={experiment}
+                    lastAnalysis={analysis}
+                    dimension={dimension}
+                    setAnalysisSettings={setAnalysisSettings}
                     onSubmit={() => {
-                      // todo: remove baseline resetter (here and below) once refactored.
                       if (baselineRow !== 0) {
                         setBaselineRow?.(0);
                         setVariationFilter?.([]);
@@ -378,29 +398,12 @@ export default function AnalysisSettingsSummary({
                       setDifferenceType("relative");
                     }}
                   />
-                </form>
-              ) : (
-                <RefreshSnapshotButton
-                  mutate={mutateSnapshot}
-                  phase={phase}
-                  experiment={experiment}
-                  lastAnalysis={analysis}
-                  dimension={dimension}
-                  setAnalysisSettings={setAnalysisSettings}
-                  onSubmit={() => {
-                    if (baselineRow !== 0) {
-                      setBaselineRow?.(0);
-                      setVariationFilter?.([]);
-                    }
-                    setDifferenceType("relative");
-                  }}
-                />
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            ))}
 
-        {permissionsUtil.canRunExperimentQueries(experiment) &&
-          datasource &&
+        {ds &&
+          permissionsUtil.canRunExperimentQueries(ds) &&
           latest &&
           (status === "failed" || status === "partially-succeeded") && (
             <div className="col-auto pl-1">
@@ -438,6 +441,7 @@ export default function AnalysisSettingsSummary({
         <div className="col-auto px-0">
           <ResultMoreMenu
             id={snapshot?.id || ""}
+            datasource={datasource}
             forceRefresh={
               experiment.metrics.length > 0 ||
               (experiment.guardrails?.length ?? 0) > 0

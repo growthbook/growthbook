@@ -140,10 +140,11 @@ const MetricPage: FC = () => {
     permissionsUtil.canUpdateMetric(metric, {}) && !metric.managedBy;
   const canDeleteMetric =
     permissionsUtil.canDeleteMetric(metric) && !metric.managedBy;
-  const canRunMetricQuery = permissionsUtil.canRunMetricQueries(metric);
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
+  const canRunMetricQuery =
+    datasource && permissionsUtil.canRunMetricQueries(datasource);
   const experiments = data.experiments;
 
   let analysis = data.metric.analysis || null;

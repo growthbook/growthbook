@@ -166,6 +166,8 @@ const Results: FC<{
     return <div className="alert alert-danger m-3">{error.message}</div>;
   }
 
+  const datasource = getDatasourceById(experiment.datasource);
+
   return (
     <>
       {!draftMode ? (
@@ -231,7 +233,8 @@ const Results: FC<{
                 ago(experiment.phases[phase]?.dateStarted ?? "") +
                 ". Give it a little longer and click the 'Update' button above to check again."}
             {!snapshot &&
-              permissionsUtil.canRunExperimentQueries(experiment) &&
+              datasource &&
+              permissionsUtil.canRunExperimentQueries(datasource) &&
               `Click the "Update" button above.`}
             {snapshotLoading && <div> Snapshot loading...</div>}
           </div>
@@ -239,6 +242,7 @@ const Results: FC<{
 
       {snapshot && !snapshot.dimension && (
         <VariationIdWarning
+          datasource={datasource}
           unknownVariations={snapshot.unknownVariations || []}
           isUpdating={status === "running"}
           results={analysis?.results?.[0]}

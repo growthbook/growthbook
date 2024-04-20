@@ -147,11 +147,15 @@ export async function refreshMetric(
   metricAnalysisDays: number = DEFAULT_METRIC_ANALYSIS_DAYS
 ) {
   if (metric.datasource) {
-    const integration = await getIntegrationFromDatasourceId(
+    const { datasource, integration } = await getIntegrationFromDatasourceId(
       context,
       metric.datasource,
       true
     );
+
+    if (!context.permissions.canRunMetricQueries(datasource)) {
+      context.permissions.throwPermissionError();
+    }
 
     let segment: SegmentInterface | undefined = undefined;
     if (metric.segment) {
@@ -623,11 +627,15 @@ export async function createSnapshot({
 
   const snapshot = await createExperimentSnapshotModel(data);
 
-  const integration = await getIntegrationFromDatasourceId(
+  const { integration, datasource } = await getIntegrationFromDatasourceId(
     context,
     experiment.datasource,
     true
   );
+
+  if (!context.permissions.canRunExperimentQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
 
   const queryRunner = new ExperimentResultsQueryRunner(
     context,

@@ -242,7 +242,7 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
       <div className="col-12">
         <div className="col-auto ml-auto">
           <div className="row align-items-center mb-3">
-            {permissionsUtil.canRunDataSourceQueries(dataSource) ? (
+            {permissionsUtil.canRunHealthQueries(dataSource) ? (
               <div className="mr-2">
                 <form
                   onSubmit={async (e) => {

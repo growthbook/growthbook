@@ -30,10 +30,10 @@ import { logger } from "../util/logger";
 import { updateOrganization } from "../models/OrganizationModel";
 import { initializeLicenseForOrg } from "../services/licenseData";
 
-function withLicenseServerErrorHandling(
-  fn: (req: AuthRequest, res: Response) => Promise<void>
+function withLicenseServerErrorHandling<T>(
+  fn: (req: AuthRequest<T>, res: Response) => Promise<void>
 ) {
-  return async (req: AuthRequest, res: Response) => {
+  return async (req: AuthRequest<T>, res: Response) => {
     try {
       return await fn(req, res);
     } catch (e) {

@@ -99,7 +99,12 @@ export async function getIntegrationFromDatasourceId(
   if (!datasource) {
     throw new Error("Could not load data source");
   }
-  return getSourceIntegrationObject(datasource, throwOnDecryptionError);
+  const integration = getSourceIntegrationObject(
+    datasource,
+    throwOnDecryptionError
+  );
+
+  return { datasource, integration };
 }
 
 export function getSourceIntegrationObject(

@@ -44,10 +44,7 @@ import {
   updateSnapshot,
   updateSnapshotsOnPhaseDelete,
 } from "../models/ExperimentSnapshotModel";
-import {
-  getIntegrationFromDatasourceId,
-  getSourceIntegrationObject,
-} from "../services/datasource";
+import { getIntegrationFromDatasourceId } from "../services/datasource";
 import { addTagsDiff } from "../models/TagModel";
 import { getContextFromReq, userHasAccess } from "../services/organizations";
 import { removeExperimentFromPresentations } from "../services/presentations";
@@ -1665,14 +1662,15 @@ export async function cancelSnapshot(
     });
   }
 
-  if (!context.permissions.canRunExperimentQueries(experiment)) {
+  const { datasource, integration } = await getIntegrationFromDatasourceId(
+    context,
+    experiment.datasource
+  );
+
+  if (!context.permissions.canRunExperimentQueries(datasource)) {
     context.permissions.throwPermissionError();
   }
 
-  const integration = await getIntegrationFromDatasourceId(
-    context,
-    snapshot.settings.datasourceId
-  );
   const queryRunner = new ExperimentResultsQueryRunner(
     context,
     snapshot,
@@ -1709,10 +1707,6 @@ export async function postSnapshot(
     return;
   }
 
-  if (!context.permissions.canRunExperimentQueries(experiment)) {
-    context.permissions.throwPermissionError();
-  }
-
   let project = null;
   if (experiment.project) {
     project = await findProjectById(context, experiment.project);
@@ -1744,6 +1738,12 @@ export async function postSnapshot(
     )
   ).filter(Boolean) as MetricInterface[];
   const datasource = await getDataSourceById(context, experiment.datasource);
+
+  if (datasource) {
+    if (!context.permissions.canRunExperimentQueries(datasource)) {
+      context.permissions.throwPermissionError();
+    }
+  }
 
   const {
     metricRegressionAdjustmentStatuses,
@@ -1828,14 +1828,6 @@ export async function postSnapshot(
       });
       return;
     }
-  }
-
-  if (experiment.organization !== org.id) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this experiment",
-    });
-    return;
   }
 
   try {
@@ -2111,10 +2103,15 @@ export async function cancelPastExperiments(
     throw new Error("Could not cancel query");
   }
 
-  const integration = await getIntegrationFromDatasourceId(
+  const { datasource, integration } = await getIntegrationFromDatasourceId(
     context,
     pastExperiments.datasource
   );
+
+  if (!context.permissions.canRunPastExperimentQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
   const queryRunner = new PastExperimentsQueryRunner(
     context,
     pastExperiments,
@@ -2172,16 +2169,14 @@ export async function postPastExperiments(
   const { org } = context;
   const { datasource, force } = req.body;
 
-  const datasourceObj = await getDataSourceById(context, datasource);
-  if (!datasourceObj) {
-    throw new Error("Could not find datasource");
-  }
+  const {
+    datasource: datasourceObj,
+    integration,
+  } = await getIntegrationFromDatasourceId(context, datasource);
 
-  if (!context.permissions.canRunDataSourceQueries(datasourceObj)) {
+  if (!context.permissions.canRunPastExperimentQueries(datasourceObj)) {
     context.permissions.throwPermissionError();
   }
-
-  const integration = getSourceIntegrationObject(datasourceObj, true);
 
   let pastExperiments = await getPastExperimentsModelByDatasource(
     org.id,

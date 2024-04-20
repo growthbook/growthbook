@@ -55,10 +55,6 @@ export async function getEstimatedImpact(
     return;
   }
 
-  if (!context.permissions.canRunIdeaQueries(idea)) {
-    context.permissions.throwPermissionError();
-  }
-
   const estimate = await getImpactEstimate(
     context,
     metric,

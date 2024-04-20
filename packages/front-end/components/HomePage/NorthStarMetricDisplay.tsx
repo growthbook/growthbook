@@ -24,7 +24,7 @@ const NorthStarMetricDisplay = ({
   hoverDate?: number | null;
   onHoverCallback?: (ret: { d: number | null }) => void;
 }): React.ReactElement => {
-  const { project } = useDefinitions();
+  const { project, getDatasourceById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
 
@@ -55,6 +55,8 @@ const NorthStarMetricDisplay = ({
   const { status } = getQueryStatus(metric.queries || [], metric.analysisError);
   const hasQueries = metric.queries?.length > 0;
 
+  const datasource = getDatasourceById(metric.datasource);
+
   return (
     <>
       <div className="mt-2">
@@ -79,7 +81,7 @@ const NorthStarMetricDisplay = ({
         ) : (
           <div className="mb-4">
             <h4 className="my-3">{metric.name}</h4>
-            {permissionsUtil.canRunMetricQueries(metric) && (
+            {datasource && permissionsUtil.canRunMetricQueries(datasource) && (
               <form
                 onSubmit={async (e) => {
                   e.preventDefault();

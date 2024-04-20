@@ -18,13 +18,17 @@ import {
   updateReport,
 } from "../models/ReportModel";
 import { ReportQueryRunner } from "../queryRunners/ReportQueryRunner";
-import { getIntegrationFromDatasourceId } from "../services/datasource";
+import {
+  getIntegrationFromDatasourceId,
+  getSourceIntegrationObject,
+} from "../services/datasource";
 import { generateReportNotebook } from "../services/notebook";
 import { getContextFromReq } from "../services/organizations";
 import { reportArgsFromSnapshot } from "../services/reports";
 import { AuthRequest } from "../types/AuthRequest";
 import { ExperimentInterface } from "../../types/experiment";
 import { getFactTableMap } from "../models/FactTableModel";
+import { getDataSourceById } from "../models/DataSourceModel";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
@@ -210,7 +214,12 @@ export async function refreshReport(
     throw new Error("Unable to find connected experiment");
   }
 
-  if (!context.permissions.canRunExperimentQueries(experiment)) {
+  const datasource = await getDataSourceById(context, report.args.datasource);
+  if (!datasource) {
+    throw new Error("Unable to find datasource");
+  }
+
+  if (!context.permissions.canRunExperimentQueries(datasource)) {
     context.permissions.throwPermissionError();
   }
 
@@ -227,11 +236,7 @@ export async function refreshReport(
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
 
-  const integration = await getIntegrationFromDatasourceId(
-    context,
-    report.args.datasource,
-    true
-  );
+  const integration = getSourceIntegrationObject(datasource, true);
   const queryRunner = new ReportQueryRunner(
     context,
     report,
@@ -275,10 +280,6 @@ export async function putReport(
   // Reports don't have projects, but the experiment does, so check that
   req.checkPermissions("createAnalyses", experiment.project || "");
 
-  if (!context.permissions.canRunExperimentQueries(experiment)) {
-    context.permissions.throwPermissionError();
-  }
-
   const updates: Partial<ReportInterface> = {};
   let needsRun = false;
   if ("args" in req.body) {
@@ -319,11 +320,19 @@ export async function putReport(
     const metricMap = await getMetricMap(context);
     const factTableMap = await getFactTableMap(context);
 
-    const integration = await getIntegrationFromDatasourceId(
+    const datasource = await getDataSourceById(
       context,
-      updatedReport.args.datasource,
-      true
+      updatedReport.args.datasource
     );
+    if (!datasource) {
+      throw new Error("Unable to find datasource");
+    }
+
+    if (!context.permissions.canRunExperimentQueries(datasource)) {
+      context.permissions.throwPermissionError();
+    }
+
+    const integration = getSourceIntegrationObject(datasource, true);
     const queryRunner = new ReportQueryRunner(
       context,
       updatedReport,
@@ -363,14 +372,15 @@ export async function cancelReport(
     throw new Error("Unable to find connected experiment");
   }
 
-  if (!context.permissions.canRunExperimentQueries(experiment)) {
-    context.permissions.throwPermissionError();
-  }
-
-  const integration = await getIntegrationFromDatasourceId(
+  const { integration, datasource } = await getIntegrationFromDatasourceId(
     context,
     report.args.datasource
   );
+
+  if (!context.permissions.canRunExperimentQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
   const queryRunner = new ReportQueryRunner(context, report, integration);
   await queryRunner.cancelQueries();
 
