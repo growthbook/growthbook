@@ -13,6 +13,7 @@ import {
   UpdateFactTableProps,
 } from "back-end/types/fact-table";
 import { ExperimentInterface } from "back-end/types/experiment";
+import { DataSourceInterface } from "back-end/types/datasource";
 import { READ_ONLY_PERMISSIONS } from "./permissions.utils";
 class PermissionError extends Error {
   constructor(message: string) {
@@ -75,12 +76,7 @@ export class Permissions {
 
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
   public canViewAttributeModal = (project?: string): boolean => {
-    return this.checkProjectFilterPermission(
-      {
-        projects: project ? [project] : [],
-      },
-      "manageTargetingAttributes"
-    );
+    return this.canCreateAttribute({ projects: project ? [project] : [] });
   };
 
   public canCreateAttribute = (
@@ -114,12 +110,7 @@ export class Permissions {
 
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
   public canViewIdeaModal = (project?: string): boolean => {
-    return this.checkProjectFilterPermission(
-      {
-        projects: project ? [project] : [],
-      },
-      "createIdeas"
-    );
+    return this.canCreateIdea({ project });
   };
 
   public canCreateIdea = (idea: Pick<IdeaInterface, "project">): boolean => {
@@ -254,6 +245,37 @@ export class Permissions {
       { projects: [project] },
       "manageProjects"
     );
+  };
+
+  public canViewCreateDataSourceModal = (project?: string): boolean => {
+    return this.canCreateDataSource({ projects: project ? [project] : [] });
+  };
+
+  public canCreateDataSource = (
+    datasource: Pick<DataSourceInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(datasource, "createDatasources");
+  };
+
+  public canUpdateDataSourceParams = (
+    datasource: Pick<DataSourceInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(datasource, "createDatasources");
+  };
+
+  public canUpdateDataSourceSettings = (
+    datasource: Pick<DataSourceInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      datasource,
+      "editDatasourceSettings"
+    );
+  };
+
+  public canDeleteDataSource = (
+    datasource: Pick<DataSourceInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(datasource, "createDatasources");
   };
 
   public throwPermissionError(): void {
