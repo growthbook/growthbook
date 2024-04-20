@@ -519,13 +519,16 @@ export async function putDataSource(
     });
     return;
   }
-  // Require higher permissions to change connection settings vs updating query settings
-  const permissionFunction = params
-    ? context.permissions.canUpdateDataSourceParams
-    : context.permissions.canUpdateDataSourceSettings;
 
-  if (!permissionFunction(datasource)) {
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
     context.permissions.throwPermissionError();
+  }
+
+  // Require higher permissions to change connection settings vs updating query settings
+  if (params) {
+    if (!context.permissions.canUpdateDataSourceParams(datasource)) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   if (type && type !== datasource.type) {
