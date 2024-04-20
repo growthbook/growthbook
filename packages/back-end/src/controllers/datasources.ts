@@ -531,6 +531,13 @@ export async function putDataSource(
     }
   }
 
+  // If changing projects, make sure the user has access to the new projects as well
+  if (projects) {
+    if (!context.permissions.canUpdateDataSourceSettings({ projects })) {
+      context.permissions.throwPermissionError();
+    }
+  }
+
   if (type && type !== datasource.type) {
     res.status(400).json({
       status: 400,
@@ -579,12 +586,6 @@ export async function putDataSource(
       );
       (params as GoogleAnalyticsParams).refreshToken =
         tokens.refresh_token || "";
-    }
-
-    if (updates?.projects?.length) {
-      if (!permissionFunction(datasource)) {
-        context.permissions.throwPermissionError();
-      }
     }
 
     // If the connection params changed, re-validate the connection
