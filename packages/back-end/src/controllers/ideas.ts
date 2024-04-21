@@ -39,22 +39,12 @@ export async function getIdeas(
 }
 
 export async function getEstimatedImpact(
-  req: AuthRequest<{ metric: string; segment?: string; ideaId?: string }>,
+  req: AuthRequest<{ metric: string; segment?: string }>,
   res: Response
 ) {
+  const { metric, segment } = req.body;
+
   const context = getContextFromReq(req);
-  const { metric, segment, ideaId } = req.body;
-
-  const idea = await getIdeaById(ideaId || "");
-
-  if (!idea) {
-    res.status(403).json({
-      status: 404,
-      message: "Idea not found",
-    });
-    return;
-  }
-
   const estimate = await getImpactEstimate(
     context,
     metric,

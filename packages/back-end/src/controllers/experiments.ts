@@ -1664,7 +1664,7 @@ export async function cancelSnapshot(
 
   const { datasource, integration } = await getIntegrationFromDatasourceId(
     context,
-    experiment.datasource
+    snapshot.settings.datasourceId
   );
 
   if (!context.permissions.canRunExperimentQueries(datasource)) {
@@ -2172,7 +2172,7 @@ export async function postPastExperiments(
   const {
     datasource: datasourceObj,
     integration,
-  } = await getIntegrationFromDatasourceId(context, datasource);
+  } = await getIntegrationFromDatasourceId(context, datasource, true);
 
   if (!context.permissions.canRunPastExperimentQueries(datasourceObj)) {
     context.permissions.throwPermissionError();
