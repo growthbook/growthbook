@@ -1,6 +1,6 @@
 import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { ReqContext } from "@back-end/types/organization";
+import { ReqContext } from "../../types/organization";
 import {
   DataSourceInterface,
   DataSourceProperties,

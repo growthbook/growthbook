@@ -14,7 +14,7 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import { AUTOMATIC_DIMENSION_OTHER_NAME } from "shared/constants";
-import { ReqContext } from "@back-end/types/organization";
+import { ReqContext } from "../../types/organization";
 import { MetricInterface, MetricType } from "../../types/metric";
 import {
   DataSourceSettings,

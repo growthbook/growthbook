@@ -1,5 +1,5 @@
 import Agenda, { Job } from "agenda";
-import { ReqContext } from "@back-end/types/organization";
+import { ReqContext } from "../../types/organization";
 import { getFactTable, updateFactTableColumns } from "../models/FactTableModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import {

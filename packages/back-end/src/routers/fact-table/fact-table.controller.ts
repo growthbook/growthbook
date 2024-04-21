@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { ReqContext } from "@back-end/types/organization";
+import { ReqContext } from "../../../types/organization";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getContextFromReq } from "../../services/organizations";
 import {
