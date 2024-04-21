@@ -18,16 +18,12 @@ import {
   updateReport,
 } from "../models/ReportModel";
 import { ReportQueryRunner } from "../queryRunners/ReportQueryRunner";
-import {
-  getIntegrationFromDatasourceId,
-  getSourceIntegrationObject,
-} from "../services/datasource";
+import { getIntegrationFromDatasourceId } from "../services/datasource";
 import { generateReportNotebook } from "../services/notebook";
 import { getContextFromReq } from "../services/organizations";
 import { reportArgsFromSnapshot } from "../services/reports";
 import { AuthRequest } from "../types/AuthRequest";
 import { getFactTableMap } from "../models/FactTableModel";
-import { getDataSourceById } from "../models/DataSourceModel";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
@@ -203,11 +199,6 @@ export async function refreshReport(
     throw new Error("Unknown report id");
   }
 
-  const datasource = await getDataSourceById(context, report.args.datasource);
-  if (!datasource) {
-    throw new Error("Unable to find datasource");
-  }
-
   const useCache = !req.query["force"];
 
   const statsEngine = report.args?.statsEngine || DEFAULT_STATS_ENGINE;
@@ -221,7 +212,11 @@ export async function refreshReport(
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
 
-  const integration = getSourceIntegrationObject(context, datasource, true);
+  const integration = await getIntegrationFromDatasourceId(
+    context,
+    report.args.datasource,
+    true
+  );
   const queryRunner = new ReportQueryRunner(
     context,
     report,
