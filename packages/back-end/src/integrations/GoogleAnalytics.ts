@@ -53,7 +53,7 @@ function convertDate(rawDate: string): string {
   return "";
 }
 
-class GoogleAnalytics implements SourceIntegrationInterface {
+export default class GoogleAnalytics implements SourceIntegrationInterface {
   params: GoogleAnalyticsParams;
   context: ReqContext;
   datasource: DataSourceInterface;
@@ -354,4 +354,3 @@ class GoogleAnalytics implements SourceIntegrationInterface {
     });
   }
 }
-export default GoogleAnalytics;

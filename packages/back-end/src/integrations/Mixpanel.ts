@@ -41,6 +41,14 @@ export default class Mixpanel implements SourceIntegrationInterface {
     this.context = context;
     this.datasource = datasource;
 
+    // Default settings
+    this.datasource.settings.events = {
+      experimentEvent: "$experiment_started",
+      experimentIdProperty: "Experiment name",
+      variationIdProperty: "Variant name",
+      ...this.datasource.settings.events,
+    };
+
     this.decryptionError = false;
     try {
       this.params = decryptDataSourceParams<MixpanelConnectionParams>(

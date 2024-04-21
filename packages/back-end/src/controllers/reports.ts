@@ -26,7 +26,6 @@ import { generateReportNotebook } from "../services/notebook";
 import { getContextFromReq } from "../services/organizations";
 import { reportArgsFromSnapshot } from "../services/reports";
 import { AuthRequest } from "../types/AuthRequest";
-import { ExperimentInterface } from "../../types/experiment";
 import { getFactTableMap } from "../models/FactTableModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 
@@ -204,16 +203,6 @@ export async function refreshReport(
     throw new Error("Unknown report id");
   }
 
-  let experiment: ExperimentInterface | null = null;
-
-  if (report.experimentId) {
-    experiment = await getExperimentById(context, report.experimentId || "");
-  }
-
-  if (!experiment) {
-    throw new Error("Unable to find connected experiment");
-  }
-
   const datasource = await getDataSourceById(context, report.args.datasource);
   if (!datasource) {
     throw new Error("Unable to find datasource");
@@ -269,12 +258,8 @@ export async function putReport(
     report.experimentId || ""
   );
 
-  if (!experiment) {
-    throw new Error("Unable to find connected experiment");
-  }
-
   // Reports don't have projects, but the experiment does, so check that
-  req.checkPermissions("createAnalyses", experiment.project || "");
+  req.checkPermissions("createAnalyses", experiment?.project || "");
 
   const updates: Partial<ReportInterface> = {};
   let needsRun = false;
@@ -316,15 +301,12 @@ export async function putReport(
     const metricMap = await getMetricMap(context);
     const factTableMap = await getFactTableMap(context);
 
-    const datasource = await getDataSourceById(
+    const integration = await getIntegrationFromDatasourceId(
       context,
-      updatedReport.args.datasource
+      updatedReport.args.datasource,
+      true
     );
-    if (!datasource) {
-      throw new Error("Unable to find datasource");
-    }
 
-    const integration = getSourceIntegrationObject(context, datasource, true);
     const queryRunner = new ReportQueryRunner(
       context,
       updatedReport,
@@ -353,15 +335,6 @@ export async function cancelReport(
   const report = await getReportById(org.id, id);
   if (!report) {
     throw new Error("Could not cancel query");
-  }
-
-  const experiment = await getExperimentById(
-    context,
-    report.experimentId || ""
-  );
-
-  if (!experiment) {
-    throw new Error("Unable to find connected experiment");
   }
 
   const integration = await getIntegrationFromDatasourceId(

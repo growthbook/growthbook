@@ -408,21 +408,18 @@ const IdeaPage = (): ReactElement => {
                 </div>
               </div>
 
-              {(!idea.estimateParams || !estimate) &&
-                datasource &&
-                permissionsUtil.canRunMetricQueries(datasource) &&
-                canEdit && (
-                  <div className="mt-2 text-center">
-                    <button
-                      className="btn btn-outline-primary"
-                      onClick={() => {
-                        setImpactOpen(true);
-                      }}
-                    >
-                      <FaChartLine /> Estimate Impact
-                    </button>
-                  </div>
-                )}
+              {(!idea.estimateParams || !estimate) && canEdit && (
+                <div className="mt-2 text-center">
+                  <button
+                    className="btn btn-outline-primary"
+                    onClick={() => {
+                      setImpactOpen(true);
+                    }}
+                  >
+                    <FaChartLine /> Estimate Impact
+                  </button>
+                </div>
+              )}
 
               <hr />
               <ImpactProjections

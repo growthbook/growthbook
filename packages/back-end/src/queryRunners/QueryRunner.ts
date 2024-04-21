@@ -116,7 +116,9 @@ export abstract class QueryRunner<
     this.context = context;
     this.emitter = new EventEmitter();
 
-    this.checkPermissions();
+    if (!this.checkPermissions()) {
+      this.context.permissions.throwPermissionError();
+    }
   }
 
   abstract checkPermissions(): boolean;
