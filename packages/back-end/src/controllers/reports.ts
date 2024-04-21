@@ -219,10 +219,6 @@ export async function refreshReport(
     throw new Error("Unable to find datasource");
   }
 
-  if (!context.permissions.canRunExperimentQueries(datasource)) {
-    context.permissions.throwPermissionError();
-  }
-
   const useCache = !req.query["force"];
 
   const statsEngine = report.args?.statsEngine || DEFAULT_STATS_ENGINE;
@@ -236,7 +232,7 @@ export async function refreshReport(
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
 
-  const integration = getSourceIntegrationObject(datasource, true);
+  const integration = getSourceIntegrationObject(context, datasource, true);
   const queryRunner = new ReportQueryRunner(
     context,
     report,
@@ -328,11 +324,7 @@ export async function putReport(
       throw new Error("Unable to find datasource");
     }
 
-    if (!context.permissions.canRunExperimentQueries(datasource)) {
-      context.permissions.throwPermissionError();
-    }
-
-    const integration = getSourceIntegrationObject(datasource, true);
+    const integration = getSourceIntegrationObject(context, datasource, true);
     const queryRunner = new ReportQueryRunner(
       context,
       updatedReport,
@@ -372,14 +364,10 @@ export async function cancelReport(
     throw new Error("Unable to find connected experiment");
   }
 
-  const { integration, datasource } = await getIntegrationFromDatasourceId(
+  const integration = await getIntegrationFromDatasourceId(
     context,
     report.args.datasource
   );
-
-  if (!context.permissions.canRunExperimentQueries(datasource)) {
-    context.permissions.throwPermissionError();
-  }
 
   const queryRunner = new ReportQueryRunner(context, report, integration);
   await queryRunner.cancelQueries();

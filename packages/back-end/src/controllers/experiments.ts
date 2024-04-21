@@ -1662,14 +1662,10 @@ export async function cancelSnapshot(
     });
   }
 
-  const { datasource, integration } = await getIntegrationFromDatasourceId(
+  const integration = await getIntegrationFromDatasourceId(
     context,
     snapshot.settings.datasourceId
   );
-
-  if (!context.permissions.canRunExperimentQueries(datasource)) {
-    context.permissions.throwPermissionError();
-  }
 
   const queryRunner = new ExperimentResultsQueryRunner(
     context,
@@ -1738,12 +1734,6 @@ export async function postSnapshot(
     )
   ).filter(Boolean) as MetricInterface[];
   const datasource = await getDataSourceById(context, experiment.datasource);
-
-  if (datasource) {
-    if (!context.permissions.canRunExperimentQueries(datasource)) {
-      context.permissions.throwPermissionError();
-    }
-  }
 
   const {
     metricRegressionAdjustmentStatuses,
@@ -2103,14 +2093,10 @@ export async function cancelPastExperiments(
     throw new Error("Could not cancel query");
   }
 
-  const { datasource, integration } = await getIntegrationFromDatasourceId(
+  const integration = await getIntegrationFromDatasourceId(
     context,
     pastExperiments.datasource
   );
-
-  if (!context.permissions.canRunPastExperimentQueries(datasource)) {
-    context.permissions.throwPermissionError();
-  }
 
   const queryRunner = new PastExperimentsQueryRunner(
     context,
@@ -2169,14 +2155,11 @@ export async function postPastExperiments(
   const { org } = context;
   const { datasource, force } = req.body;
 
-  const {
-    datasource: datasourceObj,
-    integration,
-  } = await getIntegrationFromDatasourceId(context, datasource, true);
-
-  if (!context.permissions.canRunPastExperimentQueries(datasourceObj)) {
-    context.permissions.throwPermissionError();
-  }
+  const integration = await getIntegrationFromDatasourceId(
+    context,
+    datasource,
+    true
+  );
 
   let pastExperiments = await getPastExperimentsModelByDatasource(
     org.id,

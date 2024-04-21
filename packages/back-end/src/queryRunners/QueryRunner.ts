@@ -115,7 +115,11 @@ export abstract class QueryRunner<
     this.useCache = useCache;
     this.context = context;
     this.emitter = new EventEmitter();
+
+    this.checkPermissions();
   }
+
+  abstract checkPermissions(): boolean;
 
   abstract startQueries(params: Params): Promise<Queries>;
 
@@ -509,8 +513,8 @@ export abstract class QueryRunner<
       logger.debug("Trying to reuse existing query for " + name);
       try {
         const existing = await getRecentQuery(
-          this.integration.organization,
-          this.integration.datasource,
+          this.integration.context.org.id,
+          this.integration.datasource.id,
           query
         );
         if (existing) {
@@ -578,8 +582,8 @@ export abstract class QueryRunner<
     const doc = await createNewQuery({
       query,
       queryType,
-      datasource: this.integration.datasource,
-      organization: this.integration.organization,
+      datasource: this.integration.datasource.id,
+      organization: this.integration.context.org.id,
       language: this.integration.getSourceProperties().queryLanguage,
       dependencies: dependencies,
       running: readyToRun,

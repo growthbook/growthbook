@@ -364,7 +364,7 @@ export async function getDataSources(req: AuthRequest, res: Response) {
   res.status(200).json({
     status: 200,
     datasources: datasources.map((d) => {
-      const integration = getSourceIntegrationObject(d);
+      const integration = getSourceIntegrationObject(context, d);
       return {
         id: d.id,
         name: d.name,
@@ -385,10 +385,9 @@ export async function getDataSource(
   const context = getContextFromReq(req);
   const { id } = req.params;
 
-  const { datasource, integration } = await getIntegrationFromDatasourceId(
-    context,
-    id
-  );
+  const integration = await getIntegrationFromDatasourceId(context, id);
+
+  const datasource = integration.datasource;
 
   res.status(200).json({
     id: datasource.id,
@@ -413,7 +412,6 @@ export async function postDataSources(
   res: Response
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { name, description, type, params, projects } = req.body;
   const settings = req.body.settings || {};
 
@@ -431,7 +429,7 @@ export async function postDataSources(
     };
 
     const datasource = await createDataSource(
-      org.id,
+      context,
       name,
       type,
       params,
@@ -586,7 +584,7 @@ export async function putDataSource(
     // If the connection params changed, re-validate the connection
     // If the user is just updating the display name, no need to do this
     if (params) {
-      const integration = getSourceIntegrationObject(datasource);
+      const integration = getSourceIntegrationObject(context, datasource);
       mergeParams(integration, params);
       await integration.testConnection();
       updates.params = encryptParams(integration.params);
@@ -739,11 +737,8 @@ export async function testLimitedQuery(
     });
   }
 
-  if (!context.permissions.canRunTestQueries(datasource)) {
-    context.permissions.throwPermissionError();
-  }
-
   const { results, sql, duration, error } = await testQuery(
+    context,
     datasource,
     query,
     templateVariables
@@ -819,15 +814,11 @@ export async function postDimensionSlices(
   const { org } = context;
   const { dataSourceId, queryId, lookbackDays } = req.body;
 
-  const { datasource, integration } = await getIntegrationFromDatasourceId(
+  const integration = await getIntegrationFromDatasourceId(
     context,
     dataSourceId,
     true
   );
-
-  if (!context.permissions.canRunHealthQueries(datasource)) {
-    context.permissions.throwPermissionError();
-  }
 
   const model = await createDimensionSlices({
     organization: org.id,
@@ -862,15 +853,11 @@ export async function cancelDimensionSlices(
     throw new Error("Could not cancel automatic dimension");
   }
 
-  const { datasource, integration } = await getIntegrationFromDatasourceId(
+  const integration = await getIntegrationFromDatasourceId(
     context,
     dimensionSlices.datasource,
     true
   );
-
-  if (!context.permissions.canRunHealthQueries(datasource)) {
-    context.permissions.throwPermissionError();
-  }
 
   const queryRunner = new DimensionSlicesQueryRunner(
     context,

@@ -1,8 +1,8 @@
 import cloneDeep from "lodash/cloneDeep";
+import { ReqContext } from "@back-end/types/organization";
 import {
+  DataSourceInterface,
   DataSourceProperties,
-  DataSourceSettings,
-  DataSourceType,
 } from "../../types/datasource";
 import { DimensionInterface } from "../../types/dimension";
 import { MixpanelConnectionParams } from "../../types/integrations/mixpanel";
@@ -33,29 +33,23 @@ import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 import { applyMetricOverrides } from "../util/integration";
 
 export default class Mixpanel implements SourceIntegrationInterface {
-  type!: DataSourceType;
-  datasource!: string;
+  context: ReqContext;
+  datasource: DataSourceInterface;
   params: MixpanelConnectionParams;
-  organization!: string;
-  settings: DataSourceSettings;
-  decryptionError!: boolean;
-  constructor(encryptedParams: string, settings: DataSourceSettings) {
+  decryptionError: boolean;
+  constructor(context: ReqContext, datasource: DataSourceInterface) {
+    this.context = context;
+    this.datasource = datasource;
+
+    this.decryptionError = false;
     try {
       this.params = decryptDataSourceParams<MixpanelConnectionParams>(
-        encryptedParams
+        datasource.params
       );
     } catch (e) {
       this.params = { projectId: "", secret: "", username: "" };
       this.decryptionError = true;
     }
-    this.settings = {
-      events: {
-        experimentEvent: "$experiment_started",
-        experimentIdProperty: "Experiment name",
-        variationIdProperty: "Variant name",
-        ...settings.events,
-      },
-    };
   }
   getExperimentMetricQuery(): string {
     throw new Error("Method not implemented.");
@@ -212,7 +206,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
               if(!state.inExperiment) {
                 state.inExperiment = true;
                 state.variation = ${getMixpanelPropertyColumn(
-                  this.settings.events?.variationIdProperty || "Variant name"
+                  this.datasource.settings.events?.variationIdProperty ||
+                    "Variant name"
                 )};
                 ${
                   dimension
@@ -228,7 +223,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
                 continue;
               }
               else if(state.variation !== ${getMixpanelPropertyColumn(
-                this.settings.events?.variationIdProperty || "Variant name"
+                this.datasource.settings.events?.variationIdProperty ||
+                  "Variant name"
               )}) {
                 state.multipleVariants = true;
                 continue;
@@ -609,8 +605,12 @@ function is${name}(event) {
   }
 
   private getGroupByUserFields() {
-    if (this.settings?.events?.extraUserIdProperty) {
-      return JSON.stringify([this.settings?.events?.extraUserIdProperty]) + ",";
+    if (this.datasource.settings?.events?.extraUserIdProperty) {
+      return (
+        JSON.stringify([
+          this.datasource.settings?.events?.extraUserIdProperty,
+        ]) + ","
+      );
     }
     return "";
   }
@@ -685,12 +685,14 @@ function is${name}(event) {
     return checks.join(" && ");
   }
   private getExperimentEventName() {
-    return this.settings.events?.experimentEvent || "$experiment_started";
+    return (
+      this.datasource.settings.events?.experimentEvent || "$experiment_started"
+    );
   }
   private getValidExperimentCondition(id: string, start: Date, end?: Date) {
     const experimentEvent = this.getExperimentEventName();
     const experimentIdCol = getMixpanelPropertyColumn(
-      this.settings.events?.experimentIdProperty || "Experiment name"
+      this.datasource.settings.events?.experimentIdProperty || "Experiment name"
     );
     let timeCheck = `event.time >= ${start.getTime()}`;
     if (end) {

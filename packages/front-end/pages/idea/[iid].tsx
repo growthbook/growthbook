@@ -410,7 +410,7 @@ const IdeaPage = (): ReactElement => {
 
               {(!idea.estimateParams || !estimate) &&
                 datasource &&
-                permissionsUtil.canRunIdeaQueries(datasource) &&
+                permissionsUtil.canRunMetricQueries(datasource) &&
                 canEdit && (
                   <div className="mt-2 text-center">
                     <button
@@ -439,7 +439,7 @@ const IdeaPage = (): ReactElement => {
                     open={() => setImpactOpen(true)}
                     canOpen={
                       (!datasource ||
-                        permissionsUtil.canRunIdeaQueries(datasource)) &&
+                        permissionsUtil.canRunMetricQueries(datasource)) &&
                       canEdit
                     }
                   >

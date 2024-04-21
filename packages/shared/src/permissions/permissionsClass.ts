@@ -296,12 +296,6 @@ export class Permissions {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
-  public canRunIdeaQueries = (
-    datasource: Pick<DataSourceInterface, "projects">
-  ): boolean => {
-    return this.checkProjectFilterPermission(datasource, "runQueries");
-  };
-
   public canRunTestQueries = (
     datasource: Pick<DataSourceInterface, "projects">
   ): boolean => {

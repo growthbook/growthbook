@@ -1,8 +1,7 @@
 import { analyticsreporting_v4, google } from "googleapis";
-import { DataSourceType } from "aws-sdk/clients/quicksight";
 import cloneDeep from "lodash/cloneDeep";
+import { ReqContext } from "@back-end/types/organization";
 import {
-  SourceIntegrationConstructor,
   SourceIntegrationInterface,
   MetricValueParams,
   ExperimentMetricQueryResponse,
@@ -23,8 +22,8 @@ import {
 } from "../util/secrets";
 import { sumSquaresFromStats } from "../util/stats";
 import {
+  DataSourceInterface,
   DataSourceProperties,
-  DataSourceSettings,
 } from "../../types/datasource";
 import { MetricInterface } from "../../types/metric";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
@@ -54,25 +53,25 @@ function convertDate(rawDate: string): string {
   return "";
 }
 
-const GoogleAnalytics: SourceIntegrationConstructor = class
-  implements SourceIntegrationInterface {
+class GoogleAnalytics implements SourceIntegrationInterface {
   params: GoogleAnalyticsParams;
-  type!: DataSourceType;
-  datasource!: string;
-  organization!: string;
-  settings: DataSourceSettings;
-  decryptionError!: boolean;
+  context: ReqContext;
+  datasource: DataSourceInterface;
+  decryptionError: boolean;
 
-  constructor(encryptedParams: string) {
+  constructor(context: ReqContext, datasource: DataSourceInterface) {
+    this.context = context;
+    this.datasource = datasource;
+
+    this.decryptionError = false;
     try {
       this.params = decryptDataSourceParams<GoogleAnalyticsParams>(
-        encryptedParams
+        datasource.params
       );
     } catch (e) {
       this.params = { customDimension: "", refreshToken: "", viewId: "" };
       this.decryptionError = true;
     }
-    this.settings = {};
   }
   getExperimentMetricQuery(): string {
     throw new Error("Method not implemented.");
@@ -354,5 +353,5 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
       };
     });
   }
-};
+}
 export default GoogleAnalytics;

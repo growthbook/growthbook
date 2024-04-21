@@ -110,7 +110,7 @@ export async function getTableData(
     databaseName,
     tableSchema,
     tableName,
-  } = await fetchTableData(datasource, informationSchema, tableId);
+  } = await fetchTableData(context, datasource, informationSchema, tableId);
 
   if (!tableData) {
     res

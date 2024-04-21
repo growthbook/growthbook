@@ -1,4 +1,5 @@
 import Agenda, { Job } from "agenda";
+import { ReqContext } from "@back-end/types/organization";
 import { getFactTable, updateFactTableColumns } from "../models/FactTableModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import {
@@ -38,7 +39,11 @@ const refreshFactTableColumns = trackJob(
     > = {};
 
     try {
-      const columns = await runRefreshColumnsQuery(datasource, factTable);
+      const columns = await runRefreshColumnsQuery(
+        context,
+        datasource,
+        factTable
+      );
       updates.columns = columns;
       updates.columnsError = null;
     } catch (e) {
@@ -50,10 +55,15 @@ const refreshFactTableColumns = trackJob(
 );
 
 export async function runRefreshColumnsQuery(
+  context: ReqContext,
   datasource: DataSourceInterface,
   factTable: Pick<FactTableInterface, "sql" | "eventName" | "columns">
 ): Promise<ColumnInterface[]> {
-  const integration = getSourceIntegrationObject(datasource, true);
+  if (!context.permissions.canRunFactQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource, true);
 
   if (!integration.getTestQuery || !integration.runTestQuery) {
     throw new Error("Testing not supported on this data source");

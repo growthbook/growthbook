@@ -58,13 +58,13 @@ export async function getImpactEstimate(
     return null;
   }
 
-  const { datasource, integration } = await getIntegrationFromDatasourceId(
+  const integration = await getIntegrationFromDatasourceId(
     context,
     metricObj.datasource,
     true
   );
 
-  if (!context.permissions.canRunIdeaQueries(datasource)) {
+  if (!context.permissions.canRunMetricQueries(integration.datasource)) {
     context.permissions.throwPermissionError();
   }
 
