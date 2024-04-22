@@ -1,0 +1,8 @@
+{
+  "versions": [
+    {
+      "version": "0.2.0",
+      "capabilities": ["prerequisites", "semverTargeting", "bucketingV2"]
+    }
+  ]
+}
