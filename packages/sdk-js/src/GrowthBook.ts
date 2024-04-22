@@ -1649,6 +1649,9 @@ export class GrowthBook<
     if (changes.js && !this._ctx.disableJsInjection) {
       const script = document.createElement("script");
       script.innerHTML = changes.js;
+      if (this._ctx.jsInjectionNonce) {
+        script.nonce = this._ctx.jsInjectionNonce;
+      }
       document.head.appendChild(script);
       undo.push(() => script.remove());
     }

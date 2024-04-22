@@ -188,6 +188,7 @@ export interface Context {
   blockedExperimentHashes?: string[];
   disableVisualExperiments?: boolean;
   disableJsInjection?: boolean;
+  jsInjectionNonce?: string;
   disableUrlRedirectExperiments?: boolean;
   disableCrossOriginUrlRedirectExperiments?: boolean;
   disableExperimentsOnLoad?: boolean;
