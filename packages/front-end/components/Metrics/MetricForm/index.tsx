@@ -8,8 +8,10 @@ import {
 import { useFieldArray, useForm } from "react-hook-form";
 import { FaArrowRight, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import {
+  DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { isProjectListValidForProject } from "shared/util";
@@ -17,11 +19,7 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
-import {
-  defaultLoseRiskThreshold,
-  defaultWinRiskThreshold,
-  getMetricFormatter,
-} from "@/services/metrics";
+import { getMetricFormatter } from "@/services/metrics";
 import { useAuth } from "@/services/auth";
 import RadioSelector from "@/components/Forms/RadioSelector";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -334,8 +332,8 @@ const MetricForm: FC<MetricFormProps> = ({
           : project
           ? [project]
           : [],
-      winRisk: (current.winRisk || defaultWinRiskThreshold) * 100,
-      loseRisk: (current.loseRisk || defaultLoseRiskThreshold) * 100,
+      winRisk: (current.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100,
+      loseRisk: (current.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100,
       maxPercentChange: getMaxPercentageChangeForMetric(current) * 100,
       minPercentChange: getMinPercentageChangeForMetric(current) * 100,
       minSampleSize: getMinSampleSizeForMetric(current),
