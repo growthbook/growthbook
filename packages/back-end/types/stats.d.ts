@@ -25,6 +25,7 @@ interface BaseVariationResponse {
 interface BayesianVariationResponse extends BaseVariationResponse {
   chanceToWin?: number;
   risk?: [number, number];
+  riskType?: "relative" | "absolute";
 }
 
 interface FrequentistVariationResponse extends BaseVariationResponse {

@@ -248,7 +248,7 @@ def analyze_metric_df(
             df[f"v{i}_stddev"] = None
             df[f"v{i}_expected"] = 0
             df[f"v{i}_p_value"] = None
-            df[f"v{i}_rawrisk"] = None
+            df[f"v{i}_risk"] = None
             df[f"v{i}_prob_beat_baseline"] = None
             df[f"v{i}_uplift"] = None
             df[f"v{i}_error_message"] = None
@@ -275,7 +275,8 @@ def analyze_metric_df(
 
             # Unpack result in Pandas row
             if isinstance(res, BayesianTestResult):
-                s.at[f"v{i}_rawrisk"] = res.risk
+                s.at[f"v{i}_risk"] = res.risk
+                s[f"v{i}_risk_type"] = res.risk_type
                 s[f"v{i}_prob_beat_baseline"] = res.chance_to_win
             elif isinstance(res, FrequentistTestResult):
                 s[f"v{i}_p_value"] = res.p_value
@@ -374,7 +375,8 @@ def format_variation_result(
                 **metricResult,
                 **testResult,
                 chanceToWin=row[f"{prefix}_prob_beat_baseline"],
-                risk=row[f"{prefix}_rawrisk"],
+                risk=row[f"{prefix}_risk"],
+                riskType=row[f"{prefix}_risk_type"],
             )
 
 

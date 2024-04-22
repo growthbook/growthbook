@@ -24,6 +24,7 @@ export interface SnapshotMetric {
   ciAdjusted?: [number, number];
   expected?: number;
   risk?: [number, number];
+  riskType?: "relative" | "absolute";
   stats?: MetricStats;
   pValue?: number;
   pValueAdjusted?: number;

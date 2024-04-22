@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, Union
+from typing import List, Literal, Optional, Tuple, Union
 
 from pydantic.dataclasses import dataclass
 
@@ -35,6 +35,7 @@ class BaseVariationResponse(BaselineResponse):
 class BayesianVariationResponse(BaseVariationResponse):
     chanceToWin: float
     risk: Tuple[float, float]
+    riskType: Literal["absolute", "relative"]
 
 
 @dataclass

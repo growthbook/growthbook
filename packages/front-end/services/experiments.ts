@@ -50,8 +50,18 @@ export function getRisk(
   // separate CR because sometimes "baseline" above is the variation
   baselineCR: number
 ): { risk: number; relativeRisk: number; showRisk: boolean } {
-  const risk = stats.risk?.[1] ?? 0;
-  const relativeRisk = baselineCR ? risk / baselineCR : 0;
+  const statsRisk = stats.risk?.[1] ?? 0;
+  let risk: number;
+  let relativeRisk: number;
+  if (stats.riskType === "relative") {
+    risk = statsRisk * baselineCR;
+    relativeRisk = statsRisk;
+  } else {
+    // otherwise it is absolute, including legacy snapshots
+    // that were missing `riskType` field
+    risk = statsRisk;
+    relativeRisk = baselineCR ? statsRisk / baselineCR : 0;
+  }
   const showRisk =
     baseline.cr > 0 &&
     hasEnoughData(baseline, stats, metric, metricDefaults) &&
