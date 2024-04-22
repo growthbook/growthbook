@@ -1,10 +1,13 @@
 import {
+  MetricParams,
+  PowerCalculationParams,
+} from "@/components/PowerCalculation/types";
+
+import {
   frequentistVariance,
   powerEst,
   findMde,
   powerMetricWeeks,
-  MetricParams,
-  PowerCalculationParams,
 } from "@/components/PowerCalculation/stats";
 
 describe("backend", () => {
@@ -93,6 +96,7 @@ describe("backend", () => {
       usersPerDay: usersPerDay,
       metrics: metrics,
       nVariations: nVariations,
+      targetPower: 0.8,
       alpha: alpha,
       statsEngine: {
         type: "frequentist",
@@ -101,56 +105,73 @@ describe("backend", () => {
     };
     const powerSolution = [
       0.65596,
-      0.91614,
-      0.98342,
-      0.99713,
-      0.99955,
-      0.99993,
-      0.99999,
-      1,
-      1,
       0.0541,
+      0.91614,
       0.05821,
+      0.98342,
       0.06235,
+      0.99713,
       0.0665,
+      0.99955,
       0.07067,
+      0.99993,
       0.07486,
+      0.99999,
       0.07906,
+      1,
       0.08328,
+      1,
       0.08752,
     ];
     const mdeSolution = [
       0.36767,
-      0.24505,
-      0.19525,
-      0.16673,
-      0.14774,
-      0.13394,
-      0.12336,
-      0.11491,
-      0.10796,
       1.26769,
+      0.24505,
       0.71941,
+      0.19525,
       0.54299,
+      0.16673,
       0.4506,
+      0.14774,
       0.39208,
+      0.13394,
       0.35099,
+      0.12336,
       0.32018,
+      0.11491,
       0.29603,
+      0.10796,
       0.27647,
     ];
     const sampleSizeAndRuntime = [2, 999];
-    const duration = 999;
     const resultsTS = powerMetricWeeks({ powerSettings });
-    expect(resultsTS.power.map(roundToFifthDecimal)).toEqual(powerSolution);
-    expect(resultsTS.mde.map(roundToFifthDecimal)).toEqual(mdeSolution);
+
+    const power = resultsTS.weeks.reduce(
+      (result, { metrics }) =>
+        Object.values(metrics).reduce(
+          (result, { power }) => [...result, power],
+          result
+        ),
+      []
+    );
+    expect(power.map(roundToFifthDecimal)).toEqual(powerSolution);
+
+    const mde = resultsTS.weeks.reduce(
+      (result, { metrics }) =>
+        Object.values(metrics).reduce(
+          (result, { effectSize }) => [...result, effectSize],
+          result
+        ),
+      []
+    );
+    expect(mde.map(roundToFifthDecimal)).toEqual(mdeSolution);
     expect(resultsTS.sampleSizeAndRuntime.click_through_rate.weeks).toEqual(
       sampleSizeAndRuntime[0]
     );
     expect(resultsTS.sampleSizeAndRuntime.revenue.weeks).toEqual(
       sampleSizeAndRuntime[1]
     );
-    expect(resultsTS.duration).toEqual(duration);
+    expect(resultsTS.weekThreshold).toEqual(undefined);
   });
   it("checks sequential power", () => {
     const powerSettings: PowerCalculationParams = {
@@ -158,6 +179,7 @@ describe("backend", () => {
       metrics: metrics,
       nVariations: nVariations,
       alpha: alpha,
+      targetPower: 0.8,
       statsEngine: {
         type: "frequentist",
         sequentialTesting: 5000,
@@ -165,55 +187,72 @@ describe("backend", () => {
     };
     const powerSolution = [
       0.30414,
-      0.57084,
-      0.75173,
-      0.86177,
-      0.92502,
-      0.9601,
-      0.97908,
-      0.98916,
-      0.99443,
       0.05153,
+      0.57084,
       0.05336,
+      0.75173,
       0.05512,
+      0.86177,
       0.05684,
+      0.92502,
       0.05851,
+      0.9601,
       0.06016,
+      0.97908,
       0.06178,
+      0.98916,
       0.06338,
+      0.99443,
       0.06496,
     ];
     const mdeSolution = [
       0.69817,
-      0.41527,
-      0.32173,
-      0.27201,
-      0.24014,
-      0.21752,
-      0.20041,
-      0.18688,
-      0.17583,
       5.45133,
+      0.41527,
       1.54392,
+      0.32173,
       1.03912,
+      0.27201,
       0.82437,
+      0.24014,
       0.70107,
+      0.21752,
       0.61932,
+      0.20041,
       0.56031,
+      0.18688,
       0.51526,
+      0.17583,
       0.47946,
     ];
     const sampleSizeAndRuntime = [4, 999];
-    const duration = 999;
     const resultsTS = powerMetricWeeks({ powerSettings });
-    expect(resultsTS.power.map(roundToFifthDecimal)).toEqual(powerSolution);
-    expect(resultsTS.mde.map(roundToFifthDecimal)).toEqual(mdeSolution);
+
+    const power = resultsTS.weeks.reduce(
+      (result, { metrics }) =>
+        Object.values(metrics).reduce(
+          (result, { power }) => [...result, power],
+          result
+        ),
+      []
+    );
+    expect(power.map(roundToFifthDecimal)).toEqual(powerSolution);
+
+    const mde = resultsTS.weeks.reduce(
+      (result, { metrics }) =>
+        Object.values(metrics).reduce(
+          (result, { effectSize }) => [...result, effectSize],
+          result
+        ),
+      []
+    );
+    expect(mde.map(roundToFifthDecimal)).toEqual(mdeSolution);
     expect(resultsTS.sampleSizeAndRuntime.click_through_rate.weeks).toEqual(
       sampleSizeAndRuntime[0]
     );
     expect(resultsTS.sampleSizeAndRuntime.revenue.weeks).toEqual(
       sampleSizeAndRuntime[1]
     );
-    expect(resultsTS.duration).toEqual(duration);
+    expect(resultsTS.weekThreshold).toEqual(undefined);
   });
 });
