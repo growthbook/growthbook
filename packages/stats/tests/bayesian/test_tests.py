@@ -25,7 +25,7 @@ round_ = partial(np.round, decimals=DECIMALS)
 
 def round_results_dict(result_dict):
     for k, v in result_dict.items():
-        if k == "error_message":
+        if k in ["error_message", "risk_type"]:
             pass
         elif k == "uplift":
             v = {
@@ -48,7 +48,7 @@ class TestBinom(TestCase):
                 ci=[-0.24779, 0.32943],
                 uplift=Uplift(dist="normal", mean=0.04082, stddev=0.14725),
                 chance_to_win=0.60918,
-                risk=[0.03988, 0.01988],
+                risk=[0.0814, 0.04058],
                 risk_type="relative",
             )
         )
@@ -77,7 +77,7 @@ class TestNorm(TestCase):
                 ci=[-0.02, 0.12],
                 uplift=Uplift(dist="normal", mean=0.05, stddev=0.03572),
                 chance_to_win=0.91923,
-                risk=[0.5131, 0.0131],
+                risk=[0.05131, 0.00131],
                 risk_type="relative",
             )
         )
