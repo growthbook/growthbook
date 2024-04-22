@@ -11,6 +11,8 @@ import {
 
 import { powerMetricWeeks } from "@/components/PowerCalculation/stats";
 
+const WEEKS = 9;
+
 const PowerCalculationPage = (): React.ReactElement => {
   const [showModal, setShowModal] = useState(false);
   const [powerCalculationParams, setPowerCalculationParams] = useState<
@@ -24,6 +26,7 @@ const PowerCalculationPage = (): React.ReactElement => {
     return {
       ...powerCalculationParams,
       nVariations: variations,
+      nWeeks: WEEKS,
       targetPower: 0.8,
       alpha: 0.05,
       statsEngine: {

@@ -16,6 +16,7 @@ export type MetricParams =
 export interface PowerCalculationParams {
   metrics: { [id: string]: MetricParams };
   nVariations: number;
+  nWeeks: number;
   alpha: number;
   usersPerDay: number;
   targetPower: number;
@@ -97,7 +98,7 @@ export interface SampleSizeAndRuntime {
   name: string;
   effectSize: number;
   users: number;
-  weeks: number;
+  weeks?: number;
   type: "mean" | "binomial";
 }
 

@@ -96,6 +96,7 @@ describe("backend", () => {
       usersPerDay: usersPerDay,
       metrics: metrics,
       nVariations: nVariations,
+      nWeeks: 9,
       targetPower: 0.8,
       alpha: alpha,
       statsEngine: {
@@ -179,6 +180,7 @@ describe("backend", () => {
       metrics: metrics,
       nVariations: nVariations,
       alpha: alpha,
+      nWeeks: 9,
       targetPower: 0.8,
       statsEngine: {
         type: "frequentist",

@@ -161,7 +161,7 @@ const SampleSizeAndRuntime = ({
                     </td>
                     <td>{numberFormatter.format(effectSize)}</td>
                     <td>
-                      {numberFormatter.format(weeks)} weeks;{" "}
+                      {weeks ? numberFormatter.format(weeks) : "n/a"} weeks;{" "}
                       {numberFormatter.format(users)} users
                     </td>
                   </tr>
@@ -181,7 +181,10 @@ const SampleSizeAndRuntime = ({
               </span>{" "}
               requires running your experiment for{" "}
               <span className="font-weight-bold">
-                {numberFormatter.format(selectedWeeks)} weeks
+                {selectedWeeks
+                  ? numberFormatter.format(selectedWeeks)
+                  : `more than ${numberFormatter.format(params.nWeeks)}`}{" "}
+                weeks
               </span>{" "}
               (roughly collecting{" "}
               <span className="font-weight-bold">
@@ -237,7 +240,7 @@ const MinimumDetectableEffect = ({
         <h2>Minimum Detectable Effect Over Time</h2>
       </div>
       <WeeksThreshold
-        nWeeks={results.weeks.length}
+        nWeeks={params.nWeeks}
         weekThreshold={results.weekThreshold}
         targetPower={params.targetPower}
       />
@@ -302,7 +305,7 @@ const PowerOverTime = ({
         <h2>Power Over Time</h2>
       </div>
       <WeeksThreshold
-        nWeeks={results.weeks.length}
+        nWeeks={params.nWeeks}
         weekThreshold={results.weekThreshold}
         targetPower={params.targetPower}
       />

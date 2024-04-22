@@ -241,7 +241,7 @@ export function powerMetricWeeks({
 }): PowerCalculationResults {
   const metrics = powerSettings.metrics;
   const sampleSizeAndRuntimeNumeric: number[] = []; //for each metric, the first week they achieve 80% power.
-  const nWeeks = 9; //constant for now
+  const nWeeks = powerSettings.nWeeks;
   let sequentialTuningParameter = 0.0;
   if (powerSettings.statsEngine.sequentialTesting !== false) {
     sequentialTuningParameter = powerSettings.statsEngine.sequentialTesting;
@@ -321,8 +321,10 @@ export function powerMetricWeeks({
       name: thisMetric.name,
       effectSize: thisMetric.effectSize,
       users: powerSettings.usersPerDay,
-      weeks: thisSampleSizeAndRuntimeNumeric,
       type: thisMetric.type,
+      ...(thisSampleSizeAndRuntimeNumeric !== 999
+        ? { weeks: thisSampleSizeAndRuntimeNumeric }
+        : {}),
     };
     mySampleSizeAndRuntime[thisMetric.name] = thisSampleSizeAndRuntime;
   }
