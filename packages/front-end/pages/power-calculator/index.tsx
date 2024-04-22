@@ -39,7 +39,7 @@ const PowerCalculationPage = (): React.ReactElement => {
   const results: PowerCalculationResults | undefined = useMemo(() => {
     if (!finalParams) return;
 
-    return powerMetricWeeks({ powerSettings: finalParams });
+    return powerMetricWeeks(finalParams);
   }, [finalParams]);
 
   return (

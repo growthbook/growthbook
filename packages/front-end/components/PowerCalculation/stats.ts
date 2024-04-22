@@ -234,11 +234,9 @@ export function findMde(
   return (sol_1 - mean) / mean;
 }
 
-export function powerMetricWeeks({
-  powerSettings,
-}: {
-  powerSettings: PowerCalculationParams;
-}): PowerCalculationResults {
+export function powerMetricWeeks(
+  powerSettings: PowerCalculationParams
+): PowerCalculationResults {
   const metrics = powerSettings.metrics;
   const sampleSizeAndRuntimeNumeric: number[] = []; //for each metric, the first week they achieve 80% power.
   const nWeeks = powerSettings.nWeeks;

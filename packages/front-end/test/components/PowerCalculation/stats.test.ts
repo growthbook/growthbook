@@ -144,9 +144,8 @@ describe("backend", () => {
       0.10796,
       0.27647,
     ];
-    const sampleSizeAndRuntime = [2, 999];
-    const resultsTS = powerMetricWeeks({ powerSettings });
-
+    const sampleSizeAndRuntime = [2, undefined];
+    const resultsTS = powerMetricWeeks(powerSettings);
     const power = resultsTS.weeks.reduce(
       (result, { metrics }) =>
         Object.values(metrics).reduce(
@@ -166,9 +165,11 @@ describe("backend", () => {
       []
     );
     expect(mde.map(roundToFifthDecimal)).toEqual(mdeSolution);
+
     expect(resultsTS.sampleSizeAndRuntime.click_through_rate.weeks).toEqual(
       sampleSizeAndRuntime[0]
     );
+
     expect(resultsTS.sampleSizeAndRuntime.revenue.weeks).toEqual(
       sampleSizeAndRuntime[1]
     );
@@ -227,8 +228,8 @@ describe("backend", () => {
       0.17583,
       0.47946,
     ];
-    const sampleSizeAndRuntime = [4, 999];
-    const resultsTS = powerMetricWeeks({ powerSettings });
+    const sampleSizeAndRuntime = [4, undefined];
+    const resultsTS = powerMetricWeeks(powerSettings);
 
     const power = resultsTS.weeks.reduce(
       (result, { metrics }) =>
