@@ -126,13 +126,13 @@ export default function AccountPlanNotices() {
               body={<>Please make sure that you have whitelisted 75.2.109.47</>}
             >
               <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
-                <FaExclamationTriangle /> Could not contact license server.
+                <FaExclamationTriangle /> license server unreachable
               </div>
             </Tooltip>
           ) : (
             <Tooltip body={<>{license.lastServerErrorMessage}</>}>
               <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
-                <FaExclamationTriangle /> License server error.
+                <FaExclamationTriangle /> license server error
               </div>
             </Tooltip>
           );

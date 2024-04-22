@@ -818,9 +818,12 @@ export function getLicenseError(org: MinimalOrganization): string {
   const licenseData = getLicense(key);
 
   // If there is no license it can't have an error
-  // Licenses might not have a plan if sign up for pro, but abandon checkout
-  // Or it might not have a plan if the license is set in the env var but the license server wasn't whitelisted.
+  // Licenses might not have a plan if sign up for pro, but abandon checkout, in which case we don't want to show an error
+  // Or it might not have a plan if the license is set in the env var but the license server wasn't whitelisted, in which case we do want to show the error
   if (!licenseData || !licenseData.plan) {
+    if (licenseData?.lastServerErrorMessage) {
+      return "License server down for too long";
+    }
     return "";
   }
 

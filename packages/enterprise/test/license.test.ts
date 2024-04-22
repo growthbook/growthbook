@@ -119,7 +119,7 @@ describe("src/license", () => {
       });
     });
 
-    describe("when there is a license but it has no plan", () => {
+    describe("when there is a license but it has no plan and no server error", () => {
       const licenseDataNoPlan = cloneDeep(licenseData);
       licenseDataNoPlan.plan = "";
       licenseDataNoPlan.remoteDowngrade = true; // This would cause the function to return an error, if there was a plan
@@ -138,6 +138,29 @@ describe("src/license", () => {
 
       it("should not have an error since no plan means it was an abandoned stripe checkout and not a full license", () => {
         expect(getLicenseError(org)).toBe("");
+      });
+    });
+
+    describe("when there is a license but it has no plan but has a server error", () => {
+      const licenseDataNoPlan = {
+        ...cloneDeep(licenseData),
+        plan: "",
+        lastServerErrorMessage: "Server error",
+        signedChecksum:
+          "KmcsuAwjrSNRe-9fdBxL9e33D3dmkTaU9YH2d4KqnBS87IK_bDEXEEQFOR2fovHZS0FJ6r4OrbcncDGlv2BiO7s78M3BepEyBwCeVQJ5hMTCtEhvGgkbODf0aPJmUHhxthvAk-jMUljsgHKaftR9ocYBkzuFCl12vxAHAJ3q28YAk4OmOHV6Wak0N_PF_B1qkK2VUa80gAS0HDU0qiwZXcXusbN7GMe2n3sEh_M261-i0UBTwfEBM_tI1xoWKWkdjbyAtitMBxMk4llx6A_bnb3mno35s_lhQBbevQAj-Gcc91sJh5BGNBOrssieByU1CePXpnG3VKvjCKl-jFm68b-N-s2D6kWazhg0Q5mUDjCfZQI35Ma4iiQGIqVV0kSxrstTHjKUGZJkbyum9Mmu4GahuqOrVLys_e1ialotrKsRgnvM4UKzfx0sabwXdo17fKVCZDqEciU1Wl8oqSZiENydbKasjxjcDk3esB_PX-ZLH9D-YYb7qiKwh19PEx1kbdCuxuDwwWfji2tzVLsgIuySjETu3oOZyfFEwJkPaNQUUPm5DGRhgq4Q0X_455n09K6HnMPAj4YJfT4-4PyTxJrbCGUzh-kRxN63xr8AdT3jQpoije8MClE-xt-LR8LFh40x31DoNXjPRw8RkABmwcHnNFaUfR-_OQhtnEZ771U",
+      };
+      beforeEach(async () => {
+        const mockedResponse: Response = ({
+          ok: true,
+          json: jest.fn().mockResolvedValueOnce(licenseDataNoPlan),
+        } as unknown) as Response;
+
+        mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
+        await licenseInit(licenseKey, userLicenseCodes, metaData);
+      });
+
+      it("should have an error since no plan but an error means the license server errored or could not connect on first ever try", () => {
+        expect(getLicenseError(org)).toBe("License server down for too long");
       });
     });
 
