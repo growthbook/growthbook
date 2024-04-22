@@ -192,23 +192,10 @@ class GaussianEffectABTest(BayesianABTest):
             self.mean_diff, self.std_diff, self.alpha, log=False
         )
 
+        risk = self.get_risk(self.mean_diff, self.std_diff)
         # risk is always absolute in gbstats
-        risk = self.get_risk(
-            frequentist_diff(
-                self.stat_a.mean, self.stat_b.mean, False, self.stat_a.unadjusted_mean
-            ),
-            np.sqrt(
-                frequentist_variance(
-                    self.stat_a.variance,
-                    self.stat_a.mean,
-                    self.stat_a.n,
-                    self.stat_b.variance,
-                    self.stat_b.mean,
-                    self.stat_b.n,
-                    False,
-                )
-            ),
-        )
+        if self.relative:
+            risk = [r * self.stat_a.unadjusted_mean for r in risk]
 
         result = BayesianTestResult(
             chance_to_win=ctw,
