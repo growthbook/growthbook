@@ -727,6 +727,7 @@ export async function licenseInit(
           if (
             forceRefresh ||
             !mongoCache ||
+            !mongoCache.dateUpdated ||
             new Date(mongoCache.dateUpdated) < oneWeekAgo
           ) {
             license = await updateLicenseFromServer(

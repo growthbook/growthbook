@@ -800,7 +800,7 @@ describe("src/license", () => {
             return Promise;
           });
 
-          it("should return the cache that exists (getLicenseError will return a too old message)", async () => {
+          it("should return the cache that exists if it was last updated too long ago (getLicenseError will return a too old message)", async () => {
             const callTime = now.getTime() + 8 * 24 * 60 * 60 * 1000;
             jest.setSystemTime(callTime);
 
@@ -811,6 +811,39 @@ describe("src/license", () => {
               usingMongoCache: true,
               firstFailedFetchDate: new Date(callTime),
               lastFailedFetchDate: new Date(callTime),
+              lastServerErrorMessage:
+                "License server errored with: internal server error",
+            });
+          });
+        });
+
+        describe("and when there is cached data in LicenseModel but it is an initial error (never has been a successful call to the license server)", () => {
+          const mockFindOneAndUpdate = jest.fn();
+          let previousCache;
+
+          beforeEach(() => {
+            const expectedFirstFailedFetchCache = {
+              id: licenseKey,
+              firstFailedFetchDate: "past",
+            };
+            previousCache = {
+              ...expectedFirstFailedFetchCache,
+              toJSON: () => expectedFirstFailedFetchCache,
+              findOneAndUpdate: mockFindOneAndUpdate,
+            };
+            jest
+              .spyOn(LicenseModel, "findOne")
+              .mockResolvedValue(previousCache);
+          });
+
+          it("should await fetch", async () => {
+            await licenseInit(licenseKey, userLicenseCodes, metaData);
+
+            expect(getLicense(licenseKey)).toEqual({
+              ...previousCache,
+              usingMongoCache: true,
+              firstFailedFetchDate: "past",
+              lastFailedFetchDate: new Date(now),
               lastServerErrorMessage:
                 "License server errored with: internal server error",
             });
