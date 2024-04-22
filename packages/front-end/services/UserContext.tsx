@@ -32,18 +32,12 @@ import {
 import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { Permissions, userHasPermission } from "shared/permissions";
-import {
-  getApiHost,
-  isCloud,
-  isMultiOrg,
-  isSentryEnabled,
-} from "@/services/env";
+import { isCloud, isMultiOrg, isSentryEnabled } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
 import track from "@/services/track";
 import { AppFeatures } from "@/types/app-features";
 import { sha256 } from "@/services/utils";
-import Modal from "@/components/Modal";
 
 type OrgSettingsResponse = {
   organization: OrganizationInterface;
@@ -373,26 +367,6 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     data?.superAdmin || false
   );
 
-  if (orgLoadingError) {
-    return (
-      <Modal
-        header="logo"
-        open={true}
-        cta="Try Again"
-        submit={async () => {
-          await refreshOrganization();
-        }}
-      >
-        <p>
-          Error getting organization from the GrowthBook API at{" "}
-          <code>{getApiHost()}/organization</code>.
-        </p>
-        <p>Received the following error message:</p>
-        <div className="alert alert-danger">{orgLoadingError.message}</div>
-      </Modal>
-    );
-  }
-
   return (
     <UserContext.Provider
       value={{
@@ -424,7 +398,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         organization: currentOrg?.organization,
         seatsInUse: currentOrg?.seatsInUse || 0,
         teams,
-        error,
+        error: error || orgLoadingError?.message,
         hasCommercialFeature: (feature) => commercialFeatures.has(feature),
       }}
     >
