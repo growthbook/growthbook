@@ -435,7 +435,7 @@ describe("src/license", () => {
           expect(LicenseModel.findOneAndReplace).toHaveBeenCalledTimes(1);
           expect(LicenseModel.findOneAndReplace).toHaveBeenCalledWith(
             { id: licenseKey },
-            { $set: licenseData },
+            licenseData,
             { upsert: true }
           );
           expect(LicenseModel.findOne).toHaveBeenCalledTimes(1);
@@ -476,7 +476,7 @@ describe("src/license", () => {
           expect(LicenseModel.findOneAndReplace).toHaveBeenCalledTimes(1);
           expect(LicenseModel.findOneAndReplace).toHaveBeenCalledWith(
             { id: licenseKey },
-            { $set: licenseData },
+            licenseData,
             { upsert: true }
           );
           expect(LicenseModel.findOne).toHaveBeenCalledTimes(2);
@@ -731,14 +731,12 @@ describe("src/license", () => {
             expect(LicenseModel.findOneAndReplace).toHaveBeenCalledWith(
               { id: licenseKey },
               {
-                $set: {
-                  ...previousCache,
-                  usingMongoCache: true,
-                  firstFailedFetchDate: new Date(firstCallTime),
-                  lastFailedFetchDate: new Date(firstCallTime),
-                  lastServerErrorMessage:
-                    "License server errored with: internal server error",
-                },
+                ...previousCache,
+                usingMongoCache: true,
+                firstFailedFetchDate: new Date(firstCallTime),
+                lastFailedFetchDate: new Date(firstCallTime),
+                lastServerErrorMessage:
+                  "License server errored with: internal server error",
               },
               { upsert: true }
             );
@@ -762,14 +760,12 @@ describe("src/license", () => {
             expect(LicenseModel.findOneAndReplace).toHaveBeenCalledWith(
               { id: licenseKey },
               {
-                $set: {
-                  ...previousCache,
-                  usingMongoCache: true,
-                  firstFailedFetchDate: new Date(firstCallTime),
-                  lastFailedFetchDate: new Date(secondCallTime),
-                  lastServerErrorMessage:
-                    "License server errored with: different error",
-                },
+                ...previousCache,
+                usingMongoCache: true,
+                firstFailedFetchDate: new Date(firstCallTime),
+                lastFailedFetchDate: new Date(secondCallTime),
+                lastServerErrorMessage:
+                  "License server errored with: different error",
               },
               { upsert: true }
             );

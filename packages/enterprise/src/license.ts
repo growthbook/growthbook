@@ -580,16 +580,20 @@ export async function postResendEmailVerificationEmailToLicenseServer(
   );
 }
 
-// Creates or updates the license in the MongoDB cache in case the license server goes down.
-async function createOrReplaceLicenseMongoCache(license: LicenseInterface) {
-  await LicenseModel.findOneAndReplace(
-    { id: license.id },
-    { $set: license },
-    { upsert: true }
-  );
+// Creates or replaces the license in the MongoDB cache in case the license server goes down.
+async function createOrReplaceLicenseMongoCache(
+  license: LicenseInterface | LicenseDocument
+) {
+  const licenseObject =
+    license.constructor.name === "model"
+      ? (license as LicenseDocument).toObject()
+      : license;
+  await LicenseModel.findOneAndReplace({ id: license.id }, licenseObject, {
+    upsert: true,
+  });
 }
 
-// Updates the local daily cache, the one week backup Mongo cache, and verifies the license.
+// Updates the in memory cache, the one week backup Mongo cache, and verifies the license.
 export function setAndVerifyServerLicenseData(license: LicenseInterface) {
   verifyLicenseInterface(license);
   keyToLicenseData[license.id] = license;
