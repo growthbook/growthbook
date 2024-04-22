@@ -16,6 +16,7 @@ export type MetricParams =
 export interface PowerCalculationParams {
   metrics: { [id: string]: MetricParams };
   nVariations: number;
+  alpha: number;
   usersPerDay: number;
   targetPower: number;
   statsEngine: {
@@ -92,15 +93,15 @@ export const ensureAndReturnPowerCalculationParams = (
   return v;
 };
 
-interface SampleSizeAndRuntime {
+export interface SampleSizeAndRuntime {
   name: string;
   effectSize: number;
   users: number;
-  days: number;
+  weeks: number;
   type: "mean" | "binomial";
 }
 
-interface Week {
+export interface Week {
   users: number;
   metrics: {
     [id: string]: {
@@ -114,18 +115,9 @@ interface Week {
 }
 
 export type PowerCalculationResults = {
-  duration: number;
-  power: number;
   sampleSizeAndRuntime: {
     [id: string]: SampleSizeAndRuntime;
   };
   weeks: Week[];
-  minimumDetectableEffectOverTime: {
-    weeks?: number;
-    powerThreshold: number;
-  };
-  powerOverTime: {
-    weeks?: number;
-    powerThreshold: number;
-  };
+  weekThreshold?: number;
 };

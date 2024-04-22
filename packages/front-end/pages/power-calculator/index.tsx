@@ -2,53 +2,14 @@ import { useMemo, useState } from "react";
 import PowerCalculationModal from "@/components/PowerCalculation/PowerCalculationModal";
 import EmptyPowerCalculation from "@/components/PowerCalculation/EmptyPowerCalculation";
 import PowerCalculationContent from "@/components/PowerCalculation/PowerCalculationContent";
+
 import {
   PowerCalculationParams,
   PowerCalculationResults,
   FullModalPowerCalculationParams,
 } from "@/components/PowerCalculation/types";
 
-const dummyResultsData = (metrics: PowerCalculationParams["metrics"]) => {
-  const thresholds = Object.keys(metrics).reduce(
-    (thresholds, id) => ({
-      ...thresholds,
-      [id]: 1 + Math.floor(Math.random() * 9),
-    }),
-    {}
-  );
-
-  return {
-    sampleSizeAndRuntime: Object.keys(metrics).reduce(
-      (sampleSizeAndRuntime, id) => ({
-        ...sampleSizeAndRuntime,
-        [id]: {
-          type: metrics[id].type,
-          name: metrics[id].name,
-          effectSize: Math.random(),
-          days: 1 + Math.floor(Math.random() * 10),
-          users: Math.floor(Math.random() * 12245),
-        },
-      }),
-      {}
-    ),
-    weeks: [...Array(9).keys()].map((idx) => ({
-      users: 12245,
-      metrics: Object.keys(metrics).reduce(
-        (ret, id) => ({
-          ...ret,
-          [id]: {
-            type: metrics[id].type,
-            name: metrics[id].name,
-            isThreshold: idx === thresholds[id],
-            effectSize: Math.random(),
-            power: Math.random(),
-          },
-        }),
-        {}
-      ),
-    })),
-  };
-};
+import { powerMetricWeeks } from "@/components/PowerCalculation/stats";
 
 const PowerCalculationPage = (): React.ReactElement => {
   const [showModal, setShowModal] = useState(false);
@@ -64,6 +25,7 @@ const PowerCalculationPage = (): React.ReactElement => {
       ...powerCalculationParams,
       nVariations: variations,
       targetPower: 0.8,
+      alpha: 0.05,
       statsEngine: {
         type: "frequentist",
         sequentialTesting: false,
@@ -74,18 +36,7 @@ const PowerCalculationPage = (): React.ReactElement => {
   const results: PowerCalculationResults | undefined = useMemo(() => {
     if (!finalParams) return;
 
-    return {
-      duration: 3,
-      power: 0.8,
-      minimumDetectableEffectOverTime: {
-        weeks: 3,
-        powerThreshold: 0.8,
-      },
-      powerOverTime: {
-        powerThreshold: 0.8,
-      },
-      ...dummyResultsData(finalParams.metrics),
-    };
+    return powerMetricWeeks({ powerSettings: finalParams });
   }, [finalParams]);
 
   return (

@@ -45,10 +45,14 @@ const AnalysisSettings = ({
           </p>
           <div className="alert alert-info w-75">
             <span className="font-weight-bold">
-              Run experiment for {results.duration} weeks
+              Run experiment for{" "}
+              {results.weekThreshold
+                ? `${results.weekThreshold}`
+                : `More than ${results.weeks.length}`}{" "}
+              weeks
             </span>{" "}
-            to achieve {percentFormatter.format(results.power)} power for all
-            metric.
+            to achieve {percentFormatter.format(params.targetPower)} power for
+            all metric.
           </div>
         </div>
         <div className="vr"></div>
@@ -112,7 +116,7 @@ const SampleSizeAndRuntime = ({
   const {
     name: selectedName,
     users: selectedUsers,
-    days: selectedDays,
+    weeks: selectedWeeks,
   } = sampleSizeAndRuntime[selectedRow];
 
   return (
@@ -135,9 +139,13 @@ const SampleSizeAndRuntime = ({
             </thead>
             <tbody>
               {Object.keys(sampleSizeAndRuntime).map((id) => {
-                const { type, users, days, effectSize, name } = ensureAndReturn(
-                  sampleSizeAndRuntime[id]
-                );
+                const {
+                  type,
+                  users,
+                  weeks,
+                  effectSize,
+                  name,
+                } = ensureAndReturn(sampleSizeAndRuntime[id]);
 
                 return (
                   <tr
@@ -153,7 +161,7 @@ const SampleSizeAndRuntime = ({
                     </td>
                     <td>{numberFormatter.format(effectSize)}</td>
                     <td>
-                      {numberFormatter.format(days)} days;{" "}
+                      {numberFormatter.format(weeks)} weeks;{" "}
                       {numberFormatter.format(users)} users
                     </td>
                   </tr>
@@ -173,7 +181,7 @@ const SampleSizeAndRuntime = ({
               </span>{" "}
               requires running your experiment for{" "}
               <span className="font-weight-bold">
-                {numberFormatter.format(selectedDays)} days
+                {numberFormatter.format(selectedWeeks)} weeks
               </span>{" "}
               (roughly collecting{" "}
               <span className="font-weight-bold">
@@ -188,48 +196,64 @@ const SampleSizeAndRuntime = ({
   );
 };
 
+const WeeksThreshold = ({
+  nWeeks,
+  targetPower,
+  weekThreshold,
+}: {
+  nWeeks: number;
+  targetPower: number;
+  weekThreshold?: number;
+}) =>
+  weekThreshold ? (
+    <p>
+      To achieve {percentFormatter.format(targetPower)} power for all metrics,
+      we advocate running your experiment for at least{" "}
+      <span className="font-weight-bold">
+        {numberFormatter.format(weekThreshold)} weeks
+      </span>
+      .
+    </p>
+  ) : (
+    <p>
+      The experiment needs to run for more than{" "}
+      <span className="font-weight-bold">
+        {numberFormatter.format(nWeeks)} weeks
+      </span>{" "}
+      to achieve {percentFormatter.format(targetPower)} power for all metrics.
+    </p>
+  );
+
 const MinimumDetectableEffect = ({
-  minimumDetectableEffectOverTime,
-  weeks,
-}: PowerCalculationResults) => (
+  results,
+  params,
+}: {
+  results: PowerCalculationResults;
+  params: PowerCalculationParams;
+}) => (
   <div className="row card gsbox mb-3 border">
     <div className="row pt-4 pl-4 pr-4 pb-1">
       <div className="w-100">
         <h2>Minimum Detectable Effect Over Time</h2>
       </div>
-      {minimumDetectableEffectOverTime.weeks ? (
-        <p>
-          To achieve{" "}
-          {percentFormatter.format(
-            minimumDetectableEffectOverTime.powerThreshold
-          )}{" "}
-          power for all metrics, we advocate running your experiment for at
-          least{" "}
-          <span className="font-weight-bold">
-            {numberFormatter.format(minimumDetectableEffectOverTime.weeks)}{" "}
-            weeks
-          </span>
-          .
-        </p>
-      ) : (
-        <p>
-          The experiment needs to run for more than{" "}
-          <span className="font-weight-bold">
-            {Object.keys(weeks).length} weeks
-          </span>{" "}
-          to achieve{" "}
-          {percentFormatter.format(
-            minimumDetectableEffectOverTime.powerThreshold
-          )}{" "}
-          power for all metrics.
-        </p>
-      )}
+      <WeeksThreshold
+        nWeeks={results.weeks.length}
+        weekThreshold={results.weekThreshold}
+        targetPower={params.targetPower}
+      />
+
       <table className="table">
         <thead>
           <tr>
             <th>Metric</th>
-            {weeks.map(({ users }, idx) => (
-              <th key={idx}>
+            {results.weeks.map(({ users }, idx) => (
+              <th
+                key={idx}
+                className={clsx(
+                  results.weekThreshold === idx + 1 &&
+                    "power-analysis-cell-threshold"
+                )}
+              >
                 <div className="font-weight-bold">Week {idx + 1}</div>
                 <span className="small">
                   {numberFormatter.format(users)} Users
@@ -239,12 +263,12 @@ const MinimumDetectableEffect = ({
           </tr>
         </thead>
         <tbody>
-          {Object.keys(weeks[0]?.metrics).map((id) => (
+          {Object.keys(results.weeks[0]?.metrics).map((id) => (
             <tr key={id}>
               <td>
-                <MetricLabel {...weeks[0]?.metrics[id]} />
+                <MetricLabel {...results.weeks[0]?.metrics[id]} />
               </td>
-              {weeks.map(({ metrics }, idx) => (
+              {results.weeks.map(({ metrics }, idx) => (
                 <td
                   key={`${id}-${idx}`}
                   className={clsx(
@@ -265,39 +289,36 @@ const MinimumDetectableEffect = ({
   </div>
 );
 
-const PowerOverTime = ({ powerOverTime, weeks }: PowerCalculationResults) => (
+const PowerOverTime = ({
+  params,
+  results,
+}: {
+  params: PowerCalculationParams;
+  results: PowerCalculationResults;
+}) => (
   <div className="row card gsbox mb-3 border">
     <div className="row pt-4 pl-4 pr-4 pb-1">
       <div className="w-100">
         <h2>Power Over Time</h2>
       </div>
-      {powerOverTime.weeks ? (
-        <p>
-          To achieve {percentFormatter.format(powerOverTime.powerThreshold)}{" "}
-          power for all metrics, we advocate running your experiment for at
-          least{" "}
-          <span className="font-weight-bold">
-            {numberFormatter.format(powerOverTime.weeks)} weeks
-          </span>
-          .
-        </p>
-      ) : (
-        <p>
-          The experiment needs to run for more than{" "}
-          <span className="font-weight-bold">
-            {Object.keys(weeks).length} weeks
-          </span>{" "}
-          to achieve {percentFormatter.format(powerOverTime.powerThreshold)}{" "}
-          power for all metrics.
-        </p>
-      )}
+      <WeeksThreshold
+        nWeeks={results.weeks.length}
+        weekThreshold={results.weekThreshold}
+        targetPower={params.targetPower}
+      />
 
       <table className="table">
         <thead>
           <tr>
             <th>Metric</th>
-            {weeks.map(({ users }, idx) => (
-              <th key={idx}>
+            {results.weeks.map(({ users }, idx) => (
+              <th
+                key={idx}
+                className={clsx(
+                  results.weekThreshold === idx + 1 &&
+                    "power-analysis-cell-threshold"
+                )}
+              >
                 <div className="font-weight-bold">Week {idx + 1}</div>
                 <span className="small">
                   {numberFormatter.format(users)} Users
@@ -307,12 +328,12 @@ const PowerOverTime = ({ powerOverTime, weeks }: PowerCalculationResults) => (
           </tr>
         </thead>
         <tbody>
-          {Object.keys(weeks[0]?.metrics).map((id) => (
+          {Object.keys(results.weeks[0]?.metrics).map((id) => (
             <tr key={id}>
               <td>
-                <MetricLabel {...weeks[0]?.metrics[id]} />
+                <MetricLabel {...results.weeks[0]?.metrics[id]} />
               </td>
-              {weeks.map(({ metrics }, idx) => (
+              {results.weeks.map(({ metrics }, idx) => (
                 <td
                   key={`${id}-${idx}`}
                   className={clsx(
@@ -387,8 +408,8 @@ export default function PowerCalculationContent({
         params={params}
         sampleSizeAndRuntime={results.sampleSizeAndRuntime}
       />
-      <MinimumDetectableEffect {...results} />
-      <PowerOverTime {...results} />
+      <MinimumDetectableEffect params={params} results={results} />
+      <PowerOverTime params={params} results={results} />
     </div>
   );
 }
