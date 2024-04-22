@@ -18,6 +18,13 @@ const numberFormatter = Intl.NumberFormat("en-US");
 const MIN_VARIATIONS = 2;
 const MAX_VARIATIONS = 12;
 
+const formatWeeks = ({ weeks, nWeeks }: { weeks?: number; nWeeks: number }) =>
+  weeks
+    ? `${numberFormatter.format(weeks)} ${weeks > 1 ? "weeks" : "week"}`
+    : `more than ${numberFormatter.format(nWeeks)} ${
+        nWeeks > 1 ? "weeks" : "week"
+      }`;
+
 const AnalysisSettings = ({
   params,
   results,
@@ -46,10 +53,10 @@ const AnalysisSettings = ({
           <div className="alert alert-info w-75">
             <span className="font-weight-bold">
               Run experiment for{" "}
-              {results.weekThreshold
-                ? `${results.weekThreshold}`
-                : `More than ${results.weeks.length}`}{" "}
-              weeks
+              {formatWeeks({
+                weeks: results.weekThreshold,
+                nWeeks: params.nWeeks,
+              })}
             </span>{" "}
             to achieve {percentFormatter.format(params.targetPower)} power for
             all metric.
@@ -161,8 +168,12 @@ const SampleSizeAndRuntime = ({
                     </td>
                     <td>{numberFormatter.format(effectSize)}</td>
                     <td>
-                      {weeks ? numberFormatter.format(weeks) : "n/a"} weeks;{" "}
-                      {numberFormatter.format(users)} users
+                      {weeks
+                        ? `${formatWeeks({
+                            weeks,
+                            nWeeks: params.nWeeks,
+                          })}; ${numberFormatter.format(users)} users`
+                        : formatWeeks({ weeks, nWeeks: params.nWeeks })}
                     </td>
                   </tr>
                 );
@@ -181,10 +192,7 @@ const SampleSizeAndRuntime = ({
               </span>{" "}
               requires running your experiment for{" "}
               <span className="font-weight-bold">
-                {selectedWeeks
-                  ? numberFormatter.format(selectedWeeks)
-                  : `more than ${numberFormatter.format(params.nWeeks)}`}{" "}
-                weeks
+                {formatWeeks({ weeks: selectedWeeks, nWeeks: params.nWeeks })}
               </span>{" "}
               (roughly collecting{" "}
               <span className="font-weight-bold">
@@ -211,17 +219,17 @@ const WeeksThreshold = ({
   weekThreshold ? (
     <p>
       To achieve {percentFormatter.format(targetPower)} power for all metrics,
-      we advocate running your experiment for at least{" "}
+      we advocate running your experiment for{" "}
       <span className="font-weight-bold">
-        {numberFormatter.format(weekThreshold)} weeks
+        at least {formatWeeks({ weeks: weekThreshold, nWeeks })}
       </span>
       .
     </p>
   ) : (
     <p>
-      The experiment needs to run for more than{" "}
+      The experiment needs to run for{" "}
       <span className="font-weight-bold">
-        {numberFormatter.format(nWeeks)} weeks
+        {formatWeeks({ weeks: nWeeks, nWeeks })}
       </span>{" "}
       to achieve {percentFormatter.format(targetPower)} power for all metrics.
     </p>
