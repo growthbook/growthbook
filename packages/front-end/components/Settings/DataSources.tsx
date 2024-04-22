@@ -6,13 +6,13 @@ import { ago } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import ProjectBadges from "@/components/ProjectBadges";
 import { GBAddCircle } from "@/components/Icons";
-import usePermissions from "@/hooks/usePermissions";
 import { DocLink } from "@/components/DocLink";
 import { hasFileConfig } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import NewDataSourceForm from "./NewDataSourceForm";
 
 const DataSources: FC = () => {
@@ -33,7 +33,7 @@ const DataSources: FC = () => {
       )
     : datasources;
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const {
     exists: demoDataSourceExists,
@@ -154,22 +154,23 @@ const DataSources: FC = () => {
         </div>
       )}
 
-      {!hasFileConfig() && permissions.check("createDatasources", project) && (
-        <button
-          className="btn btn-primary"
-          disabled={currentProjectIsDemo}
-          title={buttonTitle}
-          onClick={(e) => {
-            e.preventDefault();
-            setNewModalOpen(true);
-          }}
-        >
-          <span className="h4 pr-2 m-0 d-inline-block align-top">
-            <GBAddCircle />
-          </span>
-          Add Data Source
-        </button>
-      )}
+      {!hasFileConfig() &&
+        permissionsUtil.canViewCreateDataSourceModal(project) && (
+          <button
+            className="btn btn-primary"
+            disabled={currentProjectIsDemo}
+            title={buttonTitle}
+            onClick={(e) => {
+              e.preventDefault();
+              setNewModalOpen(true);
+            }}
+          >
+            <span className="h4 pr-2 m-0 d-inline-block align-top">
+              <GBAddCircle />
+            </span>
+            Add Data Source
+          </button>
+        )}
 
       {newModalOpen && (
         <NewDataSourceForm
