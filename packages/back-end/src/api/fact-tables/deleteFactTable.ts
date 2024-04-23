@@ -17,7 +17,9 @@ export const deleteFactTable = createApiRequestHandler(
       );
     }
 
-    req.checkPermissions("manageFactTables", factTable.projects);
+    if (!req.context.permissions.canDeleteFactTable(factTable)) {
+      req.context.permissions.throwPermissionError();
+    }
 
     await deleteFactTableFromDb(req.context, factTable);
 
