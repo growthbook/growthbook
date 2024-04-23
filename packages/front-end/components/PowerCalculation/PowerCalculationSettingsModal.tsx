@@ -102,7 +102,7 @@ const SelectStep = ({
                       }),
                 },
               };
-            }, metrics)
+            }, {})
           );
         }}
       />
