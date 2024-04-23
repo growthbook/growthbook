@@ -161,7 +161,7 @@ const notifySrm = async ({
   const srmThreshold =
     context.org.settings?.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
-  const triggered = srmThreshold < results.srm;
+  const triggered = results.srm < srmThreshold;
 
   await memoizeNotification({
     context,
