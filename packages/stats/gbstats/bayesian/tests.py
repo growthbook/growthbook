@@ -196,6 +196,8 @@ class GaussianEffectABTest(BayesianABTest):
         )
 
         risk = self.get_risk(self.mean_diff, self.std_diff)
+        # flip risk for inverse metrics
+        risk = [risk[0], risk[1]] if not self.inverse else [risk[1], risk[0]]
 
         result = BayesianTestResult(
             chance_to_win=ctw,
