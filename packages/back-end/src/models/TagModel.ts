@@ -77,6 +77,10 @@ export async function addTag(
   const existing = await TagModel.findOne({
     organization,
   });
+
+  if (existing?.tags?.filter((t) => t === tag).length !== 0) {
+    throw new Error("Tag name already exists.");
+  }
   const settings = existing?.settings || {};
   settings[tag] = { color, description };
 
@@ -99,11 +103,19 @@ export async function addTag(
 }
 
 export async function removeTag(organization: string, tag: string) {
+  const existing = await TagModel.findOne({
+    organization,
+  });
+
+  const settings = existing?.settings || {};
+  delete settings[tag];
+
   await TagModel.updateOne(
     {
       organization,
     },
     {
+      $set: { settings },
       $pull: { tags: tag },
     }
   );
@@ -118,4 +130,60 @@ export async function addTagsDiff(
   if (diff.length) {
     await addTags(organization, diff);
   }
+}
+
+export async function editTag(
+  organization: string,
+  tag: string,
+  oldTag: string,
+  color: string,
+  description: string
+) {
+  if (tag.length < MIN_TAG_LENGTH || tag.length > MAX_TAG_LENGTH) {
+    throw new Error(
+      `Tags must be at between ${MIN_TAG_LENGTH} and ${MAX_TAG_LENGTH} characers long.`
+    );
+  }
+  if (description.length > 256) {
+    description = description.substr(0, 256);
+  }
+
+  const existing = await TagModel.findOne({
+    organization,
+  });
+  // If settings does not exists.
+  if (!existing?.settings) {
+    throw new Error("Settings doen't exists.");
+  }
+
+  // Tag with the same name already exists.
+  if (tag !== oldTag && existing?.tags?.filter((t) => t === tag).length !== 0) {
+    throw new Error("Tag name already exists.");
+  }
+  // Assigning color, description in new tag.
+  const settings = existing?.settings;
+  settings[tag] = { color, description };
+  if (tag !== oldTag) {
+    delete settings[oldTag];
+  }
+
+  await TagModel.updateOne(
+    { organization },
+    {
+      $set: {
+        // Need to set the entire settings object, not just settings.{tag},
+        // since tags can contains dots in the name
+        settings,
+        "tags.$[element]": tag,
+      },
+    },
+    {
+      arrayFilters: [
+        {
+          element: oldTag,
+        },
+      ],
+      upsert: false,
+    }
+  );
 }

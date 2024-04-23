@@ -3,7 +3,7 @@ import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getContextFromReq } from "../../services/organizations";
 import { TagInterface } from "../../../types/tag";
-import { addTag, removeTag } from "../../models/TagModel";
+import { addTag, editTag, removeTag } from "../../models/TagModel";
 import { removeTagInMetrics } from "../../models/MetricModel";
 import { removeTagInFeature } from "../../models/FeatureModel";
 import { removeTagFromSlackIntegration } from "../../models/SlackIntegrationModel";
@@ -34,6 +34,42 @@ export const postTag = async (
   const { id, color, description } = req.body;
 
   await addTag(org.id, id, color, description);
+
+  res.status(200).json({
+    status: 200,
+  });
+};
+
+type PutTagRequest = AuthRequest<
+  {
+    id: string;
+    description: string;
+    color: string;
+  },
+  { id: string }
+>;
+
+type PutTagResponse = {
+  status: 200;
+};
+
+/**
+ * PUT /tag
+ * Create a tag resource
+ * @param req
+ * @param res
+ */
+export const putTag = async (
+  req: PutTagRequest,
+  res: Response<PutTagResponse>
+) => {
+  req.checkPermissions("manageTags");
+
+  const { org } = getOrgFromReq(req);
+  const { id, color, description } = req.body;
+  const oldId = req.params.id;
+
+  await editTag(org.id, id, oldId, color, description);
 
   res.status(200).json({
     status: 200,
