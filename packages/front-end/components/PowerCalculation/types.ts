@@ -13,6 +13,11 @@ export type MetricParams =
       conversionRate: number;
     };
 
+export interface StatsEngine {
+  type: "frequentist";
+  sequentialTesting: false | number;
+}
+
 export interface PowerCalculationParams {
   metrics: { [id: string]: MetricParams };
   nVariations: number;
@@ -20,10 +25,7 @@ export interface PowerCalculationParams {
   alpha: number;
   usersPerDay: number;
   targetPower: number;
-  statsEngine: {
-    type: "frequentist";
-    sequentialTesting: false | number;
-  };
+  statsEngine: StatsEngine;
 }
 
 export type FullModalPowerCalculationParams = Omit<
@@ -47,7 +49,7 @@ export const config = {
     isPercent: false,
     canBeNegative: false,
   },
-  effectSize: { title: "Effect Size", isPercent: true, canBeNegative: false },
+  effectSize: { title: "Effect Size", isPercent: false, canBeNegative: false },
   mean: { title: "Mean", isPercent: false, canBeNegative: true },
   standardDeviation: {
     title: "Standard Deviation",

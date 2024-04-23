@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import PowerCalculationModal from "@/components/PowerCalculation/PowerCalculationModal";
+import PowerCalculationSettingsModal from "@/components/PowerCalculation/PowerCalculationSettingsModal";
 import EmptyPowerCalculation from "@/components/PowerCalculation/EmptyPowerCalculation";
 import PowerCalculationContent from "@/components/PowerCalculation/PowerCalculationContent";
 
@@ -7,6 +7,7 @@ import {
   PowerCalculationParams,
   PowerCalculationResults,
   FullModalPowerCalculationParams,
+  StatsEngine,
 } from "@/components/PowerCalculation/types";
 
 import { powerMetricWeeks } from "@/components/PowerCalculation/stats";
@@ -19,22 +20,23 @@ const PowerCalculationPage = (): React.ReactElement => {
     FullModalPowerCalculationParams | undefined
   >();
   const [variations, setVariations] = useState(2);
+  const [statsEngine, setStatsEngine] = useState<StatsEngine>({
+    type: "frequentist",
+    sequentialTesting: false,
+  });
 
   const finalParams: PowerCalculationParams | undefined = useMemo(() => {
     if (!powerCalculationParams) return;
 
     return {
       ...powerCalculationParams,
+      statsEngine,
       nVariations: variations,
       nWeeks: WEEKS,
       targetPower: 0.8,
       alpha: 0.05,
-      statsEngine: {
-        type: "frequentist",
-        sequentialTesting: false,
-      },
     };
-  }, [powerCalculationParams, variations]);
+  }, [powerCalculationParams, variations, statsEngine]);
 
   const results: PowerCalculationResults | undefined = useMemo(() => {
     if (!finalParams) return;
@@ -45,7 +47,7 @@ const PowerCalculationPage = (): React.ReactElement => {
   return (
     <>
       {showModal && (
-        <PowerCalculationModal
+        <PowerCalculationSettingsModal
           close={() => setShowModal(false)}
           onSuccess={(p) => {
             setPowerCalculationParams(p);
@@ -62,6 +64,7 @@ const PowerCalculationPage = (): React.ReactElement => {
           results={results}
           clear={() => setPowerCalculationParams(undefined)}
           updateVariations={setVariations}
+          updateStatsEngine={setStatsEngine}
           showModal={() => {
             setPowerCalculationParams(undefined);
             setShowModal(true);

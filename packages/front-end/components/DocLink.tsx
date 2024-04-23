@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import Link from "next/link";
 
 const docSections = {
   //Pages
@@ -53,6 +54,7 @@ const docSections = {
   webflow: "/integrations/webflow",
   wordpress: "/integrations/wordpress",
   prerequisites: "/features/prerequisites",
+  statisticsSequential: "/statistics/sequential",
 };
 
 export type DocSection = keyof typeof docSections;
@@ -120,13 +122,13 @@ export function DocLink({
   const docUrl = docsOrigin + docsPath;
 
   return (
-    <a
+    <Link
       href={docUrl}
       target="_blank"
       rel="noopener noreferrer"
       className={className}
     >
       {children}
-    </a>
+    </Link>
   );
 }

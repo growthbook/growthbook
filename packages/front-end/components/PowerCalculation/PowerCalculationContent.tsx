@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { useState } from "react";
 import clsx from "clsx";
+import { ensureAndReturn } from "@/types/utils";
+import { GBHeadingArrowLeft } from "@/components/Icons";
 import {
   PowerCalculationParams,
   PowerCalculationResults,
-} from "@/components/PowerCalculation/types";
-import { ensureAndReturn } from "@/types/utils";
-import { GBHeadingArrowLeft } from "@/components/Icons";
+  StatsEngine,
+} from "./types";
+import PowerCalculationStatsEngineModal from "./PowerCalculationStatsEngineModal";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -29,76 +31,95 @@ const AnalysisSettings = ({
   params,
   results,
   updateVariations,
+  updateStatsEngine,
 }: {
   params: PowerCalculationParams;
   results: PowerCalculationResults;
   updateVariations: (_: number) => void;
+  updateStatsEngine: (_: StatsEngine) => void;
 }) => {
   const [currentVariations, setCurrentVariations] = useState(
     params.nVariations
   );
 
+  const [showStatsEngineModal, setShowStatsEngineModal] = useState(false);
+
   const isValidCurrentVariations =
     MIN_VARIATIONS <= currentVariations && currentVariations <= MAX_VARIATIONS;
 
   return (
-    <div className="row card gsbox mb-3 border">
-      <div className="row pt-4 pl-4 pr-4 pb-1">
-        <div className="col-7">
-          <h2>Analysis Settings</h2>
-          <p>
-            {params.nVariations} Variations · Frequentist (Sequential Testing
-            enabled) · <Link href="#">Edit</Link>
-          </p>
-          <div className="alert alert-info w-75">
-            <span className="font-weight-bold">
-              Run experiment for{" "}
-              {formatWeeks({
-                weeks: results.weekThreshold,
-                nWeeks: params.nWeeks,
-              })}
-            </span>{" "}
-            to achieve {percentFormatter.format(params.targetPower)} power for
-            all metric.
-          </div>
-        </div>
-        <div className="vr"></div>
-        <div className="col-4 align-self-end mb-4">
-          <div className="font-weight-bold mb-2"># of Variations</div>
-          <div className="form-group d-flex mb-0 flex-row">
-            <input
-              type="number"
-              className={clsx(
-                "form-control w-50 mr-2",
-                !isValidCurrentVariations && "border border-danger"
-              )}
-              value={currentVariations}
-              onChange={(e) => setCurrentVariations(Number(e.target.value))}
-            />
-            <button
-              disabled={
-                currentVariations === params.nVariations ||
-                !isValidCurrentVariations
-              }
-              onClick={() => updateVariations(currentVariations)}
-              className="btn border border-primary text-primary"
-            >
-              Update
-            </button>
-          </div>
-          <small
-            className={clsx(
-              "form-text text-muted",
-              isValidCurrentVariations && "invisible"
-            )}
-          >
-            <div className="text-danger">
-              Enter a value between {MIN_VARIATIONS} - {MAX_VARIATIONS}
+    <>
+      {showStatsEngineModal && (
+        <PowerCalculationStatsEngineModal
+          close={() => setShowStatsEngineModal(false)}
+          params={params.statsEngine}
+          onSubmit={(v) => {
+            updateStatsEngine(v);
+            setShowStatsEngineModal(false);
+          }}
+        />
+      )}
+      <div className="row card gsbox mb-3 border">
+        <div className="row pt-4 pl-4 pr-4 pb-1">
+          <div className="col-7">
+            <h2>Analysis Settings</h2>
+            <p>
+              {params.nVariations} Variations · Frequentist (Sequential Testing{" "}
+              {params.statsEngine.sequentialTesting ? "enabled" : "disabled"}) ·{" "}
+              <Link href="#" onClick={() => setShowStatsEngineModal(true)}>
+                Edit
+              </Link>
+            </p>
+            <div className="alert alert-info w-75">
+              <span className="font-weight-bold">
+                Run experiment for{" "}
+                {formatWeeks({
+                  weeks: results.weekThreshold,
+                  nWeeks: params.nWeeks,
+                })}
+              </span>{" "}
+              to achieve {percentFormatter.format(params.targetPower)} power for
+              all metric.
             </div>
-          </small>
+          </div>
+          <div className="vr"></div>
+          <div className="col-4 align-self-end mb-4">
+            <div className="font-weight-bold mb-2"># of Variations</div>
+            <div className="form-group d-flex mb-0 flex-row">
+              <input
+                type="number"
+                className={clsx(
+                  "form-control w-50 mr-2",
+                  !isValidCurrentVariations && "border border-danger"
+                )}
+                value={currentVariations}
+                onChange={(e) => setCurrentVariations(Number(e.target.value))}
+              />
+              <button
+                disabled={
+                  currentVariations === params.nVariations ||
+                  !isValidCurrentVariations
+                }
+                onClick={() => updateVariations(currentVariations)}
+                className="btn border border-primary text-primary"
+              >
+                Update
+              </button>
+            </div>
+            <small
+              className={clsx(
+                "form-text text-muted",
+                isValidCurrentVariations && "invisible"
+              )}
+            >
+              <div className="text-danger">
+                Enter a value between {MIN_VARIATIONS} - {MAX_VARIATIONS}
+              </div>
+            </small>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
@@ -367,12 +388,14 @@ export default function PowerCalculationContent({
   results,
   params,
   updateVariations,
+  updateStatsEngine,
   clear,
   showModal,
 }: {
   results: PowerCalculationResults;
   params: PowerCalculationParams;
   updateVariations: (_: number) => void;
+  updateStatsEngine: (_: StatsEngine) => void;
   clear: () => void;
   showModal: () => void;
 }) {
@@ -414,6 +437,7 @@ export default function PowerCalculationContent({
         params={params}
         results={results}
         updateVariations={updateVariations}
+        updateStatsEngine={updateStatsEngine}
       />
       <SampleSizeAndRuntime
         params={params}

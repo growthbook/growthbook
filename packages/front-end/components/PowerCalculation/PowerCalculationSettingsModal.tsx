@@ -257,7 +257,10 @@ const SetParamsStep = ({
   );
 };
 
-export default function PowerCalculationModal({ close, onSuccess }: Props) {
+export default function PowerCalculationSettingsModal({
+  close,
+  onSuccess,
+}: Props) {
   const [step, setStep] = useState<"select" | "set-params">("select");
 
   const form = useForm<PartialPowerCalculationParams>({
