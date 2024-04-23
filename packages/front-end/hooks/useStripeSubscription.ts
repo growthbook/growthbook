@@ -89,6 +89,9 @@ export default function useStripeSubscription() {
       !disableSelfServeBilling &&
       !organization?.enterprise && //TODO: Remove this once we have moved the license off the organization
       license?.plan != "enterprise" &&
+      (!license || // TODO: Can remove the !license check once we have moved the license off the organization
+        !["pro", "pro_sso"].includes(license.plan) || // they must be on free plan
+        license?.stripeSubscription !== undefined) && // if on pro, they must have a subscription - some self-hosted pro have an annual contract not directly through stripe.
       selfServePricingEnabled &&
       !hasActiveSubscription,
   };
