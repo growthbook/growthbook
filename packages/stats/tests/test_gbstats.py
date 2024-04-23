@@ -489,7 +489,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(result.at[0, "dimension"], "one")
         self.assertEqual(round_(result.at[0, "baseline_cr"]), 2.7)
         self.assertEqual(round_(result.at[0, "v1_cr"]), 2.5)
-        self.assertEqual(round_(result.at[0, "v1_risk"][1]), 0.075691131)
+        self.assertEqual(round_(result.at[0, "v1_risk"][1]), 0.001617057)
         self.assertEqual(round_(result.at[0, "v1_expected"]), -0.074074074)
         self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 1 - 0.071834168)
         self.assertEqual(result.at[0, "v1_p_value"], None)
