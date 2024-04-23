@@ -39,11 +39,14 @@ class GaussianEffectBayesianConfig(BayesianConfig):
 
 
 # Results
+RiskType = Literal["absolute", "relative"]
+
+
 @dataclass
 class BayesianTestResult(TestResult):
     chance_to_win: float
     risk: List[float]
-    risk_type: Literal["absolute", "relative"]
+    risk_type: RiskType
     error_message: Optional[str] = None
 
 
