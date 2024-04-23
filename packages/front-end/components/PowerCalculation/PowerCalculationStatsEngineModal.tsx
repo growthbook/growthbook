@@ -108,7 +108,11 @@ export default function PowerCalculationStatsEngineModal({
                             <span className="font-weight-bold">
                               Sequential Testing
                             </span>{" "}
-                            (Org default: ON)
+                            (Org default:{" "}
+                            {orgSettings.sequentialTestingEnabled
+                              ? "ON"
+                              : "OFF"}
+                            )
                           </div>
                           <div className="mt-2">
                             Results will be calculated with the org’s default
