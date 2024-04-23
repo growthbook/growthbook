@@ -1,9 +1,19 @@
-import { FC, useState } from "react";
+import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { FaAngleRight, FaBars, FaBell, FaBuilding } from "react-icons/fa";
+import {
+  FaAngleRight,
+  FaBars,
+  FaBell,
+  FaBuilding,
+  FaMoon,
+} from "react-icons/fa";
 import Link from "next/link";
 import clsx from "clsx";
 import Head from "next/head";
+import { DropdownMenu } from "@radix-ui/themes";
+import { BsCircleHalf } from "react-icons/bs";
+import { ImSun } from "react-icons/im";
+import { render } from "react-dom";
 import { useWatching } from "@/services/WatchProvider";
 import useGlobalMenu from "@/services/useGlobalMenu";
 import { useUser } from "@/services/UserContext";
@@ -18,6 +28,7 @@ import Field from "@/components/Forms/Field";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import styles from "./TopNav.module.scss";
 import { ThemeToggler } from "./ThemeToggler/ThemeToggler";
 import AccountPlanBadge from "./AccountPlanBadge";
@@ -43,11 +54,12 @@ const TopNav: FC<{
 
   const { breadcrumb } = usePageHead();
 
-  const { updateUser, name, email } = useUser();
+  const { updateUser, name, email, effectiveAccountPlan } = useUser();
 
   const { datasources } = useDefinitions();
 
   const { apiCall, logout, organizations, orgId, setOrgId } = useAuth();
+  const { setTheme, preferredTheme } = useAppearanceUITheme();
 
   const form = useForm({
     defaultValues: { name: name || "", enableCelebrations },
@@ -68,6 +80,41 @@ const TopNav: FC<{
     }
   });
 
+  const planCopy =
+    effectiveAccountPlan === "enterprise"
+      ? "ENTERPRISE"
+      : effectiveAccountPlan === "pro"
+      ? "PRO"
+      : effectiveAccountPlan === "pro_sso"
+      ? "PRO + SSO"
+      : "";
+
+  const activeIcon = useMemo(() => {
+    switch (preferredTheme) {
+      case "dark":
+        return (
+          <>
+            <FaMoon className="text-secondary mr-2" /> Dark
+          </>
+        );
+
+      case "light":
+        return (
+          <>
+            <ImSun className="text-secondary mr-2" />
+            Light
+          </>
+        );
+
+      case "system":
+        return (
+          <>
+            <BsCircleHalf className="text-secondary mr-2" /> System Default
+          </>
+        );
+    }
+  }, [preferredTheme]);
+
   let orgName = orgId || "";
 
   if (organizations && organizations.length) {
@@ -77,6 +124,136 @@ const TopNav: FC<{
       }
     });
   }
+  const renderLogoutDropDown = () => {
+    return (
+      <DropdownMenu.Item
+        key="sign-out"
+        onSelect={() => {
+          logout();
+        }}
+      >
+        Sign Out
+      </DropdownMenu.Item>
+    );
+  };
+  const renderEditProfileDropDown = () => {
+    return (
+      <DropdownMenu.Item
+        key="edit-profile"
+        onSelect={() => {
+          setEditUserOpen(true);
+        }}
+      >
+        Edit Profile
+      </DropdownMenu.Item>
+    );
+  };
+  const renderNameAndEmailDropdownLabel = () => {
+    return (
+      <>
+        <DropdownMenu.Label>
+          {name && <div style={{ fontSize: "1.3em" }}>{name}</div>}
+        </DropdownMenu.Label>
+        <DropdownMenu.Label>
+          <div>{email}</div>
+        </DropdownMenu.Label>
+      </>
+    );
+  };
+  const renderPersonalAccessTokensDropDown = () => {
+    return (
+      <DropdownMenu.Item>
+        <Link href="/account/personal-access-tokens">
+          My Personal Access Tokens
+        </Link>
+      </DropdownMenu.Item>
+    );
+  };
+  const renderMyReportsDropDown = () => {
+    return (
+      <DropdownMenu.Item>
+        <Link href="/reports" className="nav-link mr-1 text-secondary">
+          My Reports
+        </Link>
+      </DropdownMenu.Item>
+    );
+  };
+  const renderMyActivityFeedsDropDown = () => {
+    return (
+      <DropdownMenu.Item>
+        <Link href="/activity" className="nav-link mr-1 text-secondary">
+          <FaBell />
+        </Link>
+      </DropdownMenu.Item>
+    );
+  };
+
+  const renderThemeSubDropDown = () => {
+    return (
+      <DropdownMenu.Sub>
+        <DropdownMenu.SubTrigger>{activeIcon}</DropdownMenu.SubTrigger>
+        <DropdownMenu.SubContent>
+          <DropdownMenu.Item
+            key="system"
+            onSelect={() => {
+              setTheme("system");
+            }}
+          >
+            <BsCircleHalf className="mr-3" /> System Default
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
+            key="light"
+            onSelect={() => {
+              setTheme("light");
+            }}
+          >
+            <ImSun className="mr-3" /> Light
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
+            key="dark"
+            onSelect={() => {
+              setTheme("dark");
+            }}
+          >
+            <FaMoon className="mr-3" /> Dark
+          </DropdownMenu.Item>
+        </DropdownMenu.SubContent>
+      </DropdownMenu.Sub>
+    );
+  };
+  const renderOrganizationSubDropDown = () => {
+    if (organizations && organizations.length === 1) {
+      return <DropdownMenu.Label>{orgName}</DropdownMenu.Label>;
+    }
+    return (
+      <DropdownMenu.Sub>
+        <DropdownMenu.SubTrigger>{orgName}</DropdownMenu.SubTrigger>
+        <DropdownMenu.SubContent ali>
+          {organizations?.map((o) => (
+            <DropdownMenu.Item
+              key={o.id}
+              onSelect={() => {
+                if (setOrgId) {
+                  setOrgId(o.id);
+                }
+
+                try {
+                  localStorage.setItem("gb-last-picked-org", `"${o.id}"`);
+                } catch (e) {
+                  console.warn("Cannot set gb-last-picked-org");
+                }
+
+                setOrgDropdownOpen(false);
+              }}
+            >
+              <span className="status"></span>
+              {o.name}
+            </DropdownMenu.Item>
+          ))}
+        </DropdownMenu.SubContent>
+      </DropdownMenu.Sub>
+    );
+  };
 
   return (
     <>
@@ -153,20 +330,24 @@ const TopNav: FC<{
                   {i > 0 && (
                     <FaAngleRight className="mx-2 d-none d-lg-inline" />
                   )}
-                  {b.href ? <Link href={b.href}>{b.display}</Link> : b.display}
+                  {b.href ? (
+                    <Link className={styles.breadcrumblink} href={b.href}>
+                      {b.display}
+                    </Link>
+                  ) : (
+                    b.display
+                  )}
                 </span>
               ))
             ) : (
               <>{pageTitle}</>
             )}
           </div>
+          {/* <AccountPlanBadge /> */}
 
-          <ThemeToggler />
-
-          {showNotices && (
+          {/* {showNotices && (
             <>
               <AccountPlanNotices />
-              <AccountPlanBadge />
 
               {(watchedExperiments.length > 0 ||
                 watchedFeatures.length > 0) && (
@@ -175,14 +356,9 @@ const TopNav: FC<{
                 </Link>
               )}
             </>
-          )}
+          )} */}
 
-          {organizations && organizations.length === 1 && (
-            <div className="top-nav-org-menu mr-2">
-              <FaBuilding className="text-muted mr-1" />
-              <span className="d-none d-lg-inline">{orgName}</span>
-            </div>
-          )}
+          {/*  */}
           {organizations && organizations.length > 1 && (
             <div className="dropdown top-nav-org-menu">
               <div
@@ -234,90 +410,28 @@ const TopNav: FC<{
             </div>
           )}
 
-          <div className="dropdown top-nav-user-menu">
-            <div
-              className={`nav-link dropdown-toggle`}
-              onClick={(e) => {
-                e.preventDefault();
-                setUserDropdownOpen(!userDropdownOpen);
-              }}
-              style={{ cursor: "pointer" }}
-            >
-              <Avatar email={email || ""} size={26} />{" "}
-              <span className="d-none d-lg-inline">
-                <OverflowText maxWidth={200}>{email}</OverflowText>
-              </span>
-            </div>
-            <div
-              className={clsx("dropdown-menu dropdown-menu-right", {
-                show: userDropdownOpen,
-              })}
-            >
-              <div className={`mb-2 dropdown-item ${styles.userinfo}`}>
-                <div className="text-muted">{email}</div>
-                {name && <div style={{ fontSize: "1.3em" }}>{name}</div>}
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger>
+              <div className="nav-link">
+                <Avatar email={email || ""} size={26} />{" "}
+                <span className="d-none d-lg-inline">
+                  <OverflowText maxWidth={200}>{email}</OverflowText>
+                </span>
               </div>
-              {datasources?.length > 0 && (
-                <>
-                  <div className="dropdown-divider"></div>
-                  <Link
-                    href={"/reports"}
-                    className="dropdown-item"
-                    onClick={() => {
-                      setUserDropdownOpen(false);
-                    }}
-                  >
-                    My Reports
-                  </Link>
-                </>
-              )}
-              <div className="dropdown-divider"></div>
-              <Link
-                href={"/account/personal-access-tokens"}
-                className="dropdown-item"
-                onClick={() => {
-                  setUserDropdownOpen(false);
-                }}
-              >
-                My Personal Access Tokens
-              </Link>
-              <div className="dropdown-divider"></div>
-              <button
-                className="dropdown-item"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setEditUserOpen(true);
-                }}
-              >
-                Edit Profile
-              </button>
-              <div className="dropdown-divider"></div>
-              {!usingSSO() && (
-                <>
-                  <button
-                    className="dropdown-item"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setChangePasswordOpen(true);
-                    }}
-                  >
-                    Change Password
-                  </button>
-                  <div className="dropdown-divider"></div>
-                </>
-              )}
-              <button
-                className="dropdown-item"
-                onClick={(e) => {
-                  e.preventDefault();
-                  logout();
-                  setUserDropdownOpen(false);
-                }}
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content align="start">
+              <DropdownMenu.Label>{planCopy}</DropdownMenu.Label>
+              {renderOrganizationSubDropDown()}
+              {renderThemeSubDropDown()}
+              {renderMyActivityFeedsDropDown()}
+              {renderMyReportsDropDown()}
+              {renderPersonalAccessTokensDropDown()}
+              <DropdownMenu.Separator />
+              {renderNameAndEmailDropdownLabel()}
+              {renderEditProfileDropDown()}
+              {renderLogoutDropDown()}
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
         </div>
       </div>
     </>

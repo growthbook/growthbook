@@ -3200,3 +3200,8 @@ input:disabled {
   // border-color: var(--alert-danger-border-color);
   color: var(--alert-warning-text-color);
 }
+.gb-header-breadcrumb {
+  .gb-header-breadcrumb-link {
+    color: var(--text-color-primary);
+  }
+}
