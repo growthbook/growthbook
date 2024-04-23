@@ -535,7 +535,7 @@ export async function postSubscriptionUpdateToLicenseServer(
     })
   );
 
-  setAndVerifyServerLicenseData(license);
+  verifyAndSetServerLicenseData(license);
   return license;
 }
 
@@ -594,7 +594,7 @@ async function createOrReplaceLicenseMongoCache(
 }
 
 // Updates the in memory cache, the one week backup Mongo cache, and verifies the license.
-export function setAndVerifyServerLicenseData(license: LicenseInterface) {
+export function verifyAndSetServerLicenseData(license: LicenseInterface) {
   verifyLicenseInterface(license);
   keyToLicenseData[license.id] = license;
   keyToCacheDate[license.id] = new Date();
@@ -637,10 +637,7 @@ async function updateLicenseFromServer(
       userLicenseCodes,
       metaData
     );
-    createOrReplaceLicenseMongoCache(license).catch((e) => {
-      logger.error(`Error creating mongo cache: ${e}`);
-      throw e;
-    });
+    verifyAndSetServerLicenseData(license);
   } catch (e) {
     // attach error data to the cache so we know how long the server has been down for
     const now = new Date();
@@ -664,10 +661,7 @@ async function updateLicenseFromServer(
     license.lastFailedFetchDate = now;
     license.lastServerErrorMessage = e.message;
     license.usingMongoCache = true;
-    createOrReplaceLicenseMongoCache(license).catch((e) => {
-      logger.error(`Error creating mongo cache: ${e}`);
-      throw e;
-    });
+    verifyAndSetServerLicenseData(license);
   }
   return license;
 }
@@ -743,6 +737,9 @@ export async function licenseInit(
             // Use the cache
             license = mongoCache.toJSON();
             license.usingMongoCache = true;
+            verifyLicenseInterface(license);
+            keyToLicenseData[key] = license;
+            keyToCacheDate[key] = new Date();
             if (new Date(mongoCache.dateUpdated) < oneDayAgo) {
               // But if it is older than a day update it in the background
               backgroundUpdateLicenseFromServerForTests = updateLicenseFromServer(
@@ -757,10 +754,6 @@ export async function licenseInit(
               });
             }
           }
-
-          verifyLicenseInterface(license);
-          keyToLicenseData[key] = license;
-          keyToCacheDate[key] = new Date();
         } else {
           // Old style: the key itself has the encrypted license data in it.
           keyToLicenseData[key] = getVerifiedLicenseData(key);

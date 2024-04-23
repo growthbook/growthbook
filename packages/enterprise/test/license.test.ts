@@ -643,8 +643,9 @@ describe("src/license", () => {
           expect(fetch).toHaveBeenCalledTimes(2);
         });
 
-        it("should throw an error if the data doesn't match the signature", async () => {
-          mockedFetch.mockReset(); // this test's fetch result should be different from the others
+        it("should disregard contents if the data doesn't match the signature and return what is in the mongo cache with error fields set", async () => {
+          mockedFetch.mockReset(); // this test's fetch result should be different from the others'
+          jest.spyOn(LicenseModel, "findOne").mockRestore(); // this test should expect there to be something in mongo cache
           const licenseDateWithBadSignature = cloneDeep(licenseData);
           licenseDateWithBadSignature.signedChecksum = "bad signature";
           const mockedResponse3: Response = ({
@@ -654,10 +655,32 @@ describe("src/license", () => {
 
           mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse3));
 
-          await expect(
-            async () =>
-              await licenseInit(licenseKey, userLicenseCodes, metaData)
-          ).rejects.toThrowError("Invalid license key signature");
+          const mockFindOneAndUpdate = jest.fn();
+          const previousCache = {
+            ...licenseData,
+            toJSON: () => licenseData,
+            findOneAndUpdate: mockFindOneAndUpdate,
+          };
+          jest.spyOn(LicenseModel, "findOne").mockResolvedValue(previousCache);
+
+          // Use force refresh to make sure the bad data is returned
+          await licenseInit(licenseKey, userLicenseCodes, metaData, true);
+
+          const expectedLicenseData = {
+            ...previousCache,
+            usingMongoCache: true,
+            lastServerErrorMessage: "Invalid license key signature",
+            firstFailedFetchDate: now,
+            lastFailedFetchDate: now,
+          };
+
+          expect(getLicense(licenseKey)).toEqual(expectedLicenseData);
+          expect(fetch).toHaveBeenCalledTimes(1);
+          expect(LicenseModel.findOneAndReplace).toHaveBeenCalledWith(
+            { id: licenseKey },
+            expectedLicenseData,
+            { upsert: true }
+          );
         });
       });
 
