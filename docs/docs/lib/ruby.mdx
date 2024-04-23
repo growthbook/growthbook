@@ -200,6 +200,56 @@ For more predictability during QA, you can also globally disable all random assi
 gb.enabled = false
 ```
 
+## Sticky Bucketing
+
+**Available starting in version 1.3.0**
+
+By default GrowthBook does not persist assigned experiment variations for a user. We rely on deterministic hashing to ensure that the same user attributes always map to the same experiment variation. However, there are cases where this isn't good enough. For example, if you change targeting conditions in the middle of an experiment, users may stop being shown a variation even if they were previously bucketed into it.
+
+Sticky Bucketing is a solution to these issues. You can provide a Sticky Bucket Service to the GrowthBook instance to persist previously seen variations and ensure that the user experience remains consistent for your users.
+
+A sample `InMemoryStickyBucketService` implementation is provided for reference, but in production you will definitely want to implement your own version using a database, cookies, or similar for persistence.
+
+Sticky Bucket documents contain three fields
+
+- `attributeName` - The name of the attribute used to identify the user (e.g. `id`, `cookie_id`, etc.)
+- `attributeValue` - The value of the attribute (e.g. `123`)
+- `assignments` - A hash of persisted experiment assignments. For example: `{"exp1__0":"control"}`
+
+The attributeName/attributeValue combo is the primary key.
+
+Here's an example implementation using a theoretical `db` object:
+
+```ruby
+require 'growthbook'
+
+class MyStickyBucketService < Growthbook::StickyBucketService
+  def get_assignments(attribute_name, attribute_value)
+    db.find({
+      attributeName: attribute_name,
+      attributeValue: attribute_value
+    })
+  end
+
+  def save_assignments(doc)
+    # Insert new record if not exists, otherwise update
+    db.upsert({
+        attributeName: doc["attributeName"],
+        attributeValue: doc["attributeValue"]
+    }, {
+      "$set": {
+        assignments: doc["assignments"]
+      }
+    })
+  end
+end
+
+# Pass in an instance of this service to your GrowthBook constructor
+gb = Growthbook::Context.new(
+  sticky_bucket_service: MyStickyBucketService.new
+)
+```
+
 ## Inline experiments
 
 It's also possible to directly run an experiment directly in code without going through a feature flag.

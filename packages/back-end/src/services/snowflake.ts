@@ -29,8 +29,10 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
   conn: SnowflakeConnectionParams,
   sql: string
 ): Promise<QueryResponse<T[]>> {
+  //remove out the .us-west-2 from the account name
+  const account = conn.account.replace(/\.us-west-2$/, "");
   const connection = createConnection({
-    account: conn.account,
+    account,
     username: conn.username,
     password: conn.password,
     database: conn.database,
@@ -40,9 +42,13 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
     ...getProxySettings(),
     application: "GrowthBook_GrowthBook",
   });
-
+  // promise with timeout to prevent hanging
   await new Promise((resolve, reject) => {
+    const promiseTimeout = setTimeout(() => {
+      reject(new Error("Snowflake connection timeout"));
+    }, 30000);
     connection.connect((err, conn) => {
+      clearTimeout(promiseTimeout);
       if (err) {
         reject(err);
       } else {

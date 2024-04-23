@@ -49,6 +49,7 @@ const organizationSchema = new mongoose.Schema({
     {
       ...baseMemberFields,
       id: String,
+      lastLoginDate: Date,
     },
   ],
   invites: [
@@ -404,4 +405,28 @@ export function toOrganizationApiInterface(
     ownerEmail,
     dateCreated: dateCreated?.toISOString() || "",
   };
+}
+
+export async function updateMember(
+  org: OrganizationInterface,
+  userId: string,
+  updates: Partial<Member>
+) {
+  if (updates.id) throw new Error("Cannot update member id");
+
+  const member = org.members.find((m) => m.id === userId);
+
+  if (!member) throw new Error("Member not found");
+
+  await updateOrganization(org.id, {
+    members: org.members.map((m) => {
+      if (m.id === userId) {
+        return {
+          ...m,
+          ...updates,
+        };
+      }
+      return m;
+    }),
+  });
 }

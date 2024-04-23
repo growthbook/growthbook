@@ -40,6 +40,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { DocLink } from "@/components/DocLink";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import { LanguageEnvironment, languageMapping } from "./SDKLanguageLogo";
 
@@ -961,12 +962,14 @@ export default function SDKConnectionForm({
 
         {(showVisualEditorSettings || showRedirectSettings) && (
           <>
-            <label>Auto experiments</label>
+            <label>Auto Experiments</label>
             <div className="border rounded pt-2 pb-3 px-3 bg-light">
               {showVisualEditorSettings && (
                 <div>
                   <label htmlFor="sdk-connection-visual-experiments-toggle">
-                    Include visual experiments in endpoint&apos;s response?
+                    Enable <strong>Visual Editor experiments</strong> (
+                    <DocLink docSection="visual_editor">docs</DocLink>) for this
+                    connection?
                   </label>
                   <div className="form-inline">
                     <Toggle
@@ -983,7 +986,9 @@ export default function SDKConnectionForm({
               {showRedirectSettings && (
                 <div className="mt-3">
                   <label htmlFor="sdk-connection-redirects-toggle">
-                    Include redirect experiments in endpoint&apos;s response?
+                    Enable <strong>URL Redirect experiments</strong> (
+                    <DocLink docSection="url_redirects">docs</DocLink>) for this
+                    connection?
                   </label>
                   <div className="form-inline">
                     <Toggle

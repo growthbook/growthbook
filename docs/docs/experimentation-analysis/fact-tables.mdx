@@ -55,7 +55,7 @@ Any column can be used to create filters, but only numeric columns can be used a
 For numeric columns, you can also specify a number format, which controls how the metric is displayed on the front-end. Possible values are `currency` and `time:seconds`.
 
 :::note
-The default display currency is USD, but you can change it under **Settings** > **General** > **Metric Settings**
+The default display currency is USD, but you can change it under **Settings** → **General** → **Metric Settings**
 :::
 
 ## Filters
@@ -223,7 +223,7 @@ There are some restrictions that limit when this optimization can be performed:
 - If `Exclude In-Progress Conversions` is set for an experiment, optimization is disabled for all metrics
 - If you are using MySQL and a metric has percentile capping, it will be excluded from optimization
 
-In all other cases, this optimization is enabled by default for all Enterprise customers. It can be disabled under **Settings -> General -> Experiment Settings**. When disabled, a separate SQL query will always be run for every individual metric.
+In all other cases, this optimization is enabled by default for all Enterprise customers. It can be disabled under **Settings → General → Experiment Settings**. When disabled, a separate SQL query will always be run for every individual metric.
 
 ## Migrating Existing Metrics to Fact Tables
 

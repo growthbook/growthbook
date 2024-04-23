@@ -1,20 +1,20 @@
 {% extends "base.jinja" %}
 
 {% block preview %}
-  {{ name }} ({{ email }})
+  {{ name|noHyperlink }} ({{ email }})
 {% endblock %}
 
 {% block title %}
-  A new user joined {{ organization }} on GrowthBook
+  A new user joined <strong>{{ organization|noHyperlink }}</strong> on GrowthBook
 {% endblock %}
 
 {% block top %}
   <p>
-    Name: <strong>{{ name }}</strong><br/>
+    Name: <strong>{{ name|noHyperlink }}</strong><br/>
     Email: <strong>{{ email }}</strong><br/>
   </p>
 {% endblock %}
 
 {% block lower %}
-  <p>You are receiving this email because you are the owner for the {{ organization }} organization in GrowthBook.</p>
+  <p>You are receiving this email because you are the owner for the {{ organization|noHyperlink }} organization in GrowthBook.</p>
 {% endblock %}

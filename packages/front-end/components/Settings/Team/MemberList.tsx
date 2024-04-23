@@ -1,7 +1,7 @@
 import React, { FC, useEffect, useState } from "react";
 import { FaCheck, FaTimes } from "react-icons/fa";
 import { ExpandedMember } from "back-end/types/organization";
-import { datetime } from "shared/dates";
+import { date, datetime } from "shared/dates";
 import { RxIdCard } from "react-icons/rx";
 import router from "next/router";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
@@ -116,6 +116,7 @@ const MemberList: FC<{
                 <th>Name</th>
                 <th>Email</th>
                 <th>Date Joined</th>
+                <th>Last Login</th>
                 <th>{project ? "Project Role" : "Global Role"}</th>
                 {!project && <th>Project Roles</th>}
                 {environments.map((env) => (
@@ -148,6 +149,9 @@ const MemberList: FC<{
                     </td>
                     <td>
                       {member.dateCreated && datetime(member.dateCreated)}
+                    </td>
+                    <td>
+                      {member.lastLoginDate && date(member.lastLoginDate)}
                     </td>
                     <td>{roleInfo.role}</td>
                     {!project && (
