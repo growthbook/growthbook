@@ -2,7 +2,6 @@ import { FactTableInterface } from "back-end/types/fact-table";
 import { useState } from "react";
 import { useAuth } from "@/services/auth";
 import { useSearch } from "@/services/search";
-import usePermissions from "@/hooks/usePermissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -11,6 +10,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import FactFilterModal from "./FactFilterModal";
 
 export interface Props {
@@ -25,7 +25,7 @@ export default function FactFilterList({ factTable }: Props) {
 
   const { apiCall } = useAuth();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const { items, searchInputProps, isFiltered, SortableTH, clear } = useSearch({
     items: factTable?.filters || [],
@@ -34,10 +34,7 @@ export default function FactFilterList({ factTable }: Props) {
     searchFields: ["name^3", "description", "value^2"],
   });
 
-  const canEdit = permissions.check(
-    "manageFactTables",
-    factTable.projects || ""
-  );
+  const canEdit = permissionsUtil.canViewEditFactTableModal(factTable);
 
   return (
     <>

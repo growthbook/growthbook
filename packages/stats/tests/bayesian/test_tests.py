@@ -25,7 +25,7 @@ round_ = partial(np.round, decimals=DECIMALS)
 
 def round_results_dict(result_dict):
     for k, v in result_dict.items():
-        if k == "error_message":
+        if k in ["error_message", "risk_type"]:
             pass
         elif k == "uplift":
             v = {
@@ -48,7 +48,8 @@ class TestBinom(TestCase):
                 ci=[-0.24779, 0.32943],
                 uplift=Uplift(dist="normal", mean=0.04082, stddev=0.14725),
                 chance_to_win=0.60918,
-                risk=[0.03932, 0.01932],
+                risk=[0.0814, 0.04058],
+                risk_type="relative",
             )
         )
 
@@ -76,7 +77,8 @@ class TestNorm(TestCase):
                 ci=[-0.02, 0.12],
                 uplift=Uplift(dist="normal", mean=0.05, stddev=0.03572),
                 chance_to_win=0.91923,
-                risk=[0.51256, 0.01256],
+                risk=[0.05131, 0.00131],
+                risk_type="relative",
             )
         )
 
@@ -202,6 +204,28 @@ class TestGaussianEffectABTest(TestCase):
         risk_empirical_ctrl = np.mean(y[y > 0]) * np.mean(y > 0)
         np.testing.assert_almost_equal(b_flat.risk[0], risk_empirical_ctrl, decimal=3)
         np.testing.assert_almost_equal(b_flat.risk[1], risk_empirical_trt, decimal=3)
+
+
+class TestGaussianEffectRelativeAbsolutePriors(TestCase):
+    def test_bayesian_effect_relative_effect(self):
+        stat_c = SampleMeanStatistic(n=100, sum=1000, sum_squares=200000)
+        stat_t = SampleMeanStatistic(n=100, sum=1100, sum_squares=200005)
+
+        gaussian_inf_prior = GaussianPrior(mean=1, variance=1, informative=True)
+        abs_config_inf = GaussianEffectBayesianConfig(
+            difference_type="absolute", prior_effect=gaussian_inf_prior
+        )
+        rel_config_inf = GaussianEffectBayesianConfig(
+            difference_type="relative", prior_effect=gaussian_inf_prior
+        )
+
+        abs_test = GaussianEffectABTest(stat_c, stat_t, abs_config_inf)
+        rel_test = GaussianEffectABTest(stat_c, stat_t, rel_config_inf)
+        abs_res = abs_test.compute_result()
+        rel_res = rel_test.compute_result()
+
+        # rescaling keeps CTW pretty close
+        self.assertAlmostEqual(abs_res.chance_to_win, rel_res.chance_to_win, places=2)
 
 
 if __name__ == "__main__":

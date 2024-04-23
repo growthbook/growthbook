@@ -39,10 +39,14 @@ class GaussianEffectBayesianConfig(BayesianConfig):
 
 
 # Results
+RiskType = Literal["absolute", "relative"]
+
+
 @dataclass
 class BayesianTestResult(TestResult):
     chance_to_win: float
     risk: List[float]
+    risk_type: RiskType
     error_message: Optional[str] = None
 
 
@@ -78,6 +82,7 @@ class BayesianABTest(BaseABTest):
             uplift=Uplift(dist="normal", mean=0, stddev=0),
             risk=[0, 0],
             error_message=error_message,
+            risk_type="relative" if self.relative else "absolute",
         )
 
     def has_empty_input(self):
@@ -116,6 +121,7 @@ class BayesianABTest(BaseABTest):
                 stddev=result.uplift.stddev * adjustment,
             ),
             risk=result.risk,
+            risk_type=result.risk_type,
         )
 
 
@@ -192,23 +198,9 @@ class GaussianEffectABTest(BayesianABTest):
             self.mean_diff, self.std_diff, self.alpha, log=False
         )
 
-        # risk is always absolute in gbstats
-        risk = self.get_risk(
-            frequentist_diff(
-                self.stat_a.mean, self.stat_b.mean, False, self.stat_a.unadjusted_mean
-            ),
-            np.sqrt(
-                frequentist_variance(
-                    self.stat_a.variance,
-                    self.stat_a.mean,
-                    self.stat_a.n,
-                    self.stat_b.variance,
-                    self.stat_b.mean,
-                    self.stat_b.n,
-                    False,
-                )
-            ),
-        )
+        risk = self.get_risk(self.mean_diff, self.std_diff)
+        # flip risk for inverse metrics
+        risk = [risk[0], risk[1]] if not self.inverse else [risk[1], risk[0]]
 
         result = BayesianTestResult(
             chance_to_win=ctw,
@@ -220,6 +212,7 @@ class GaussianEffectABTest(BayesianABTest):
                 stddev=self.std_diff,
             ),
             risk=risk,
+            risk_type="relative" if self.relative else "absolute",
         )
         if self.scaled:
             result = self.scale_result(

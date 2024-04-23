@@ -4,7 +4,7 @@ import {
 } from "../src/services/stats";
 import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
-import { DifferenceType, StatsEngine } from "./stats";
+import { DifferenceType, RiskType, StatsEngine } from "./stats";
 import { Queries } from "./query";
 import {
   ExperimentReportResultDimension,
@@ -24,6 +24,7 @@ export interface SnapshotMetric {
   ciAdjusted?: [number, number];
   expected?: number;
   risk?: [number, number];
+  riskType?: RiskType;
   stats?: MetricStats;
   pValue?: number;
   pValueAdjusted?: number;
