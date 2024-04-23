@@ -4,14 +4,16 @@ import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import { getAffectedEnvsForExperiment } from "shared/util";
+import { getAffectedEnvsForExperiment, getSnapshotAnalysis } from "shared/util";
 import { getAllMetricRegressionAdjustmentStatuses } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
+  SnapshotAnalysisParams,
   createManualSnapshot,
+  createMultipleSnapshotAnalysis,
   createSnapshot,
   createSnapshotAnalysis,
   getAdditionalExperimentAnalysisSettings,
@@ -1842,8 +1844,7 @@ export async function postSnapshot(
       useCache,
       defaultAnalysisSettings: analysisSettings,
       additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
-        analysisSettings,
-        experiment
+        analysisSettings
       ),
       metricRegressionAdjustmentStatuses:
         metricRegressionAdjustmentStatuses || [],
@@ -1939,6 +1940,80 @@ export async function postSnapshotAnalysis(
       message: e.message,
     });
   }
+}
+
+function addCoverageToSnapshotIfMissing(
+  snapshot: ExperimentSnapshotInterface,
+  experiment: ExperimentInterface,
+  phase?: number
+): ExperimentSnapshotInterface {
+  if (snapshot.settings.coverage === undefined) {
+    const latestPhase = experiment.phases.length - 1;
+    snapshot.settings.coverage =
+      experiment.phases[phase ?? latestPhase].coverage;
+  }
+  return snapshot;
+}
+
+export async function postSnapshotsWithScaledImpactAnalysis(
+  req: AuthRequest<{
+    ids: string[];
+  }>,
+  res: Response<{ status: 200 } | PrivateApiErrorResponse>
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { ids } = req.body;
+  if (!ids.length) {
+    res.status(200).json({
+      status: 200,
+    });
+    return;
+  }
+  const metricMap = await getMetricMap(context);
+
+  // get latest snapshot for latest phase without dimensions but with results
+  let snapshotsPromises: Promise<ExperimentSnapshotInterface | null>[] = [];
+  snapshotsPromises = ids.map(async (i) => {
+    return await _getSnapshot(context, i, undefined, undefined, true);
+  });
+  const snapshots = await Promise.all(snapshotsPromises);
+
+  const snapshotAnalysesToCreate: SnapshotAnalysisParams[] = [];
+  await snapshots.forEach(async (s) => {
+    if (!s) return;
+    const defaultAnalysis = getSnapshotAnalysis(s);
+    if (!defaultAnalysis) return;
+
+    const scaledImpactAnalysisSettings: ExperimentSnapshotAnalysisSettings = {
+      ...defaultAnalysis.settings,
+      differenceType: "scaled",
+    };
+    if (getSnapshotAnalysis(s, scaledImpactAnalysisSettings)) {
+      return;
+    }
+
+    const experiment = await getExperimentById(context, s.experiment);
+    if (!experiment) return;
+
+    addCoverageToSnapshotIfMissing(s, experiment);
+
+    snapshotAnalysesToCreate.push({
+      experiment: experiment,
+      organization: org,
+      analysisSettings: scaledImpactAnalysisSettings,
+      metricMap: metricMap,
+      snapshot: s,
+    });
+  });
+
+  await createMultipleSnapshotAnalysis(snapshotAnalysesToCreate).catch((e) => {
+    req.log.error(e);
+  });
+  res.status(200).json({
+    status: 200,
+  });
+  return;
 }
 
 export async function deleteScreenshot(

@@ -1,4 +1,4 @@
-from typing import Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic.dataclasses import dataclass
 
@@ -53,3 +53,9 @@ class DataForStatsEngine:
     metrics: Dict[str, MetricSettingsForStatsEngine]
     analyses: List[AnalysisSettingsForStatsEngine]
     query_results: List[QueryResultsForStatsEngine]
+
+
+@dataclass
+class ExperimentDataForStatsEngine:
+    id: str
+    data: Dict[str, Any]

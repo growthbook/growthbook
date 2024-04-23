@@ -57,3 +57,9 @@ export type ExperimentMetricAnalysis = {
     dimensions: StatsEngineDimensionResponse[];
   }[];
 }[];
+
+export type MultipleExperimentMetricAnalysis = {
+  id: string;
+  results: ExperimentMetricAnalysis;
+  error?: string;
+};

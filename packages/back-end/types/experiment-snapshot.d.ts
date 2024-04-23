@@ -192,6 +192,8 @@ export interface ExperimentSnapshotTrafficDimension {
 
 // Params for gbstats
 export interface ExperimentMetricAnalysisParams {
+  id: string;
+  
   variations: ExperimentReportVariation[];
   phaseLengthHours: number;
   coverage: number;
