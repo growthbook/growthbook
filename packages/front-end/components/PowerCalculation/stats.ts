@@ -74,20 +74,19 @@ export function sequentialPowerSequentialVariance(
   alpha: number,
   sequentialTuningParameter: number
 ): number {
+  const standardErrorSampleMean = Math.sqrt(variance / n);
   const rho = calculateRho(alpha, sequentialTuningParameter);
-  const v_adjusted = variance * n;
-  const width =
-    Math.sqrt(v_adjusted) *
-    Math.sqrt(
-      (2 *
-        (n * Math.pow(rho, 2) + 1) *
-        Math.log(Math.sqrt(n * Math.pow(rho, 2) + 1) / alpha)) /
-        Math.pow(n * rho, 2)
-    );
-  //i match on rho
-  //match on width
-
-  return (width / normal.quantile(1.0 - 0.5 * alpha, 0, 1)) ** 2;
+  const partUnderRadical =
+    (2 *
+      (n * Math.pow(rho, 2) + 1) *
+      Math.log(Math.sqrt(n * Math.pow(rho, 2) + 1) / alpha)) /
+    Math.pow(n * rho, 2);
+  const zSequential = Math.sqrt(n) * Math.sqrt(partUnderRadical);
+  const zStar = normal.quantile(1.0 - 0.5 * alpha, 0, 1);
+  const standardErrorSequential =
+    (standardErrorSampleMean * zSequential) / zStar;
+  const vSequential = Math.pow(standardErrorSequential, 2);
+  return n * vSequential;
 }
 
 export function sequentialPowerStandardError(
