@@ -3,6 +3,7 @@ import normal from "@stdlib/stats/base/dists/normal";
 import {
   PowerCalculationParams,
   PowerCalculationResults,
+  MDEResults,
   SampleSizeAndRuntime,
   Week,
 } from "./types";
@@ -185,7 +186,6 @@ export function powerEst(
  * @param n Scalar sample size.
  * @param nVariations Scalar number of variations.
  * @param alpha false positive rate (default: 0.05).
- * @param twoTailed Binary indicator if the test is 1 or 2-tailed (default: true).
  * @returns Estimated power.
  */
 export function findMde(
@@ -195,15 +195,15 @@ export function findMde(
   n: number,
   nVariations: number,
   alpha: number = 0.05,
-  twoTailed: boolean = true,
   sequentialTuningParameter = 0
-): number {
+): MDEResults {
   // Error handling:
   if (power <= alpha) {
-    throw new Error("power must be greater than alpha.");
-  }
-  if (typeof twoTailed !== "boolean") {
-    throw new Error("twoTailed must be boolean.");
+    const mdeResults: MDEResults = {
+      type: "error",
+      description: "power must be greater than alpha.",
+    };
+    return mdeResults;
   }
   const nA = n / nVariations;
   const z =
@@ -219,9 +219,12 @@ export function findMde(
     );
   }
   if (nA <= (v * z ** 2) / (2 * mean ** 2)) {
-    throw new Error(
-      "need to increase number of users or reduce number of variations."
-    );
+    const mdeResults: MDEResults = {
+      type: "error",
+      description:
+        "need to increase number of users or reduce number of variations.",
+    };
+    return mdeResults;
   }
   const sigma2 = v / nA;
   const a_star = 1 - (z ** 2 * sigma2) / mean ** 2;
@@ -230,7 +233,11 @@ export function findMde(
   const disc = b_star ** 2 - 4 * a_star * c_star;
   const sol_1 = (-b_star + Math.sqrt(disc)) / (2 * a_star);
   //const sol_2 = (-b_star - Math.sqrt(disc)) / (2 * a_star);
-  return (sol_1 - mean) / mean;
+  const mdeResults: MDEResults = {
+    type: "success",
+    mde: (sol_1 - mean) / mean,
+  };
+  return mdeResults;
 }
 
 export function powerMetricWeeks(
@@ -269,6 +276,7 @@ export function powerMetricWeeks(
       thisMean = thisMetric.mean;
       thisVariance = thisMetric.standardDeviation ** 2;
     }
+    let thisMDENumeric = NaN;
     let thisSampleSizeAndRuntimeNumeric = 999;
     let lookingForSampleSizeAndRunTime = true;
     for (let j = 0; j < nWeeks; j++) {
@@ -294,20 +302,26 @@ export function powerMetricWeeks(
         powerSettings.usersPerDay * (j + 1),
         powerSettings.nVariations,
         powerSettings.alpha,
-        true,
         sequentialTuningParameter
       );
-
+      if (thisMde.type === "error") {
+        const results: PowerCalculationResults = {
+          type: "error",
+          description: thisMde.description,
+        };
+        return results;
+      } else {
+        thisMDENumeric = thisMde.mde;
+      }
       if (
         powerSettings.targetPower < thisPower &&
         metricThresholds[metricKey] === undefined
       )
         metricThresholds[metricKey] = j;
-
       weeks[j].metrics[metricKey] = {
         name: thisMetric.name,
         type: thisMetric.type,
-        effectSize: thisMde,
+        effectSize: thisMDENumeric,
         power: thisPower,
         isThreshold: metricThresholds[metricKey] === j,
       };
@@ -332,6 +346,7 @@ export function powerMetricWeeks(
 
   const results: PowerCalculationResults = {
     sampleSizeAndRuntime: mySampleSizeAndRuntime,
+    type: "success",
     weeks,
     ...(duration !== 999 ? { weekThreshold: duration } : {}),
   };
