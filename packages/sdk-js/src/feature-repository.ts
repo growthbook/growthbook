@@ -407,11 +407,11 @@ async function fetchFeatures(
   const storedPayload = instance.getPayload();
   if (useStoredPayload && storedPayload) {
     const data = storedPayload.data;
-    onNewFeatureData(key, cacheKey, data);
-    startAutoRefresh(instance);
     if (storedPayload.sse) {
       supportsSSE.add(key);
     }
+    onNewFeatureData(key, cacheKey, data);
+    startAutoRefresh(instance);
     return data;
   }
 
