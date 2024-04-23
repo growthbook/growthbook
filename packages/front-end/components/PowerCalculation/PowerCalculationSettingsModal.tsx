@@ -43,6 +43,10 @@ const SelectStep = ({
     isNaN(usersPerDay) ||
     isUsersPerDayInvalid;
 
+  const field = (key: keyof typeof config) => ({
+    [key]: config[key].defaultValue,
+  });
+
   return (
     <Modal
       open
@@ -88,13 +92,13 @@ const SelectStep = ({
                 ...metrics,
                 [id]: metrics[id] || {
                   name: metric.name,
-                  effectSize: undefined,
+                  ...field("effectSize"),
                   ...(metric.type === "binomial"
-                    ? { type: "binomial", conversionRate: undefined }
+                    ? { type: "binomial", ...field("conversionRate") }
                     : {
                         type: "mean",
-                        mean: undefined,
-                        standardDeviation: undefined,
+                        ...field("mean"),
+                        ...field("standardDeviation"),
                       }),
                 },
               };

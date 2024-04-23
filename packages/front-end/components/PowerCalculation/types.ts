@@ -48,18 +48,31 @@ export const config = {
     title: "Users Per Day",
     isPercent: false,
     canBeNegative: false,
+    defaultValue: undefined,
   },
-  effectSize: { title: "Effect Size", isPercent: false, canBeNegative: false },
-  mean: { title: "Mean", isPercent: false, canBeNegative: true },
+  effectSize: {
+    title: "Effect Size",
+    isPercent: false,
+    canBeNegative: false,
+    defaultValue: 0.5,
+  },
+  mean: {
+    title: "Mean",
+    isPercent: false,
+    canBeNegative: true,
+    defaultValue: undefined,
+  },
   standardDeviation: {
     title: "Standard Deviation",
     isPercent: false,
     canBeNegative: false,
+    defaultValue: undefined,
   },
   conversionRate: {
     title: "Conversion Rate",
     isPercent: true,
     canBeNegative: false,
+    defaultValue: undefined,
   },
 } as const;
 
