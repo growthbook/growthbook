@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import PowerCalculationSettingsModal from "@/components/PowerCalculation/PowerCalculationSettingsModal";
 import EmptyPowerCalculation from "@/components/PowerCalculation/EmptyPowerCalculation";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import PowerCalculationContent from "@/components/PowerCalculation/PowerCalculationContent";
 
 import {
@@ -16,13 +18,21 @@ const WEEKS = 9;
 
 const PowerCalculationPage = (): React.ReactElement => {
   const [showModal, setShowModal] = useState(false);
+
   const [powerCalculationParams, setPowerCalculationParams] = useState<
     FullModalPowerCalculationParams | undefined
   >();
+
   const [variations, setVariations] = useState(2);
+
+  const orgSettings = useOrgSettings();
+
   const [statsEngine, setStatsEngine] = useState<StatsEngine>({
     type: "frequentist",
-    sequentialTesting: false,
+    sequentialTesting: orgSettings.sequentialTestingEnabled
+      ? orgSettings.sequentialTestingTuningParameter ||
+        DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
+      : false,
   });
 
   const finalParams: PowerCalculationParams | undefined = useMemo(() => {
