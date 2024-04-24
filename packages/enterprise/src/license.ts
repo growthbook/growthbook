@@ -8,7 +8,7 @@ import { pick, sortBy } from "lodash";
 import AsyncLock from "async-lock";
 import { stringToBoolean } from "shared/util";
 import { ProxyAgent } from "proxy-agent";
-import { LicenseDocument, LicenseModel } from "./models/licenseModel";
+import { getLicenseByKey, LicenseModel } from "./models/licenseModel";
 
 export const LICENSE_SERVER_URL =
   process.env.LICENSE_SERVER_URL ||
@@ -70,7 +70,7 @@ export interface LicenseInterface {
   email: string; // Billing email of the person who signed up for the license
   emailVerified: boolean; // True if the email has been verified
   isTrial: boolean; // True if this is a trial license
-  plan: AccountPlan; // The assigned plan (pro, enterprise, etc.) for this license
+  plan?: AccountPlan; // The assigned plan (pro, enterprise, etc.) for this license
   seatsInUse: number; // Number of seats currently in use
   remoteDowngrade: boolean; // True if the license was downgraded remotely
   message?: {
@@ -581,14 +581,8 @@ export async function postResendEmailVerificationEmailToLicenseServer(
 }
 
 // Creates or replaces the license in the MongoDB cache in case the license server goes down.
-async function createOrReplaceLicenseMongoCache(
-  license: LicenseInterface | LicenseDocument
-) {
-  const licenseObject =
-    license.constructor.name === "model"
-      ? (license as LicenseDocument).toObject()
-      : license;
-  await LicenseModel.findOneAndReplace({ id: license.id }, licenseObject, {
+async function createOrReplaceLicenseMongoCache(license: LicenseInterface) {
+  await LicenseModel.findOneAndReplace({ id: license.id }, license, {
     upsert: true,
   });
 }
@@ -628,7 +622,7 @@ async function updateLicenseFromServer(
   licenseKey: string,
   userLicenseCodes: string[],
   metaData: LicenseMetaData,
-  mongoCache?: LicenseDocument | null
+  mongoCache: LicenseInterface | null
 ) {
   let license: LicenseInterface;
   try {
@@ -641,19 +635,15 @@ async function updateLicenseFromServer(
   } catch (e) {
     // attach error data to the cache so we know how long the server has been down for
     const now = new Date();
-    if (mongoCache === undefined) {
-      // We haven't fetched the chache yet
-      mongoCache = await LicenseModel.findOne({ id: licenseKey });
-    }
     if (mongoCache === null) {
-      // We have fetched the cache, but it doesn't exist
-      license = new LicenseModel({
+      // We are erroring on first attempt ever to fetch the license. We record the error
+      // data so that we can show the error message to the user.
+      license = {
         id: licenseKey,
         firstFailedFetchDate: now,
-      });
+      } as LicenseInterface;
     } else {
-      // At this point we know the cache exists and can't be undefined, but TS doesn't, hence the !.
-      license = mongoCache!;
+      license = mongoCache;
       if (!license.firstFailedFetchDate) {
         license.firstFailedFetchDate = now;
       }
@@ -720,7 +710,7 @@ export async function licenseInit(
           }
 
           let license: LicenseInterface;
-          const mongoCache = await LicenseModel.findOne({ id: key });
+          const mongoCache = await getLicenseByKey(key);
           const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
           if (
             forceRefresh ||
@@ -735,7 +725,7 @@ export async function licenseInit(
             );
           } else {
             // Use the cache
-            license = mongoCache.toJSON();
+            license = mongoCache;
             license.usingMongoCache = true;
             verifyLicenseInterface(license);
             keyToLicenseData[key] = license;

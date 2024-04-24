@@ -8,6 +8,7 @@ import {
   resetInMemoryLicenseCache,
   getLicenseError,
   backgroundUpdateLicenseFromServerForTests,
+  LicenseInterface,
 } from "../src/license";
 import * as LicenseModelModule from "../src/models/licenseModel";
 
@@ -41,6 +42,10 @@ describe("src/license", () => {
     emailVerified: true,
     remoteDowngrade: false,
     archived: false,
+    hardCap: false,
+    name: "",
+    email: "",
+    usingMongoCache: false,
     dateCreated: "2023-11-10T17:15:11.274Z",
     dateExpires: "2024-10-23T00:00:00.000Z",
     dateUpdated: "2023-11-21T12:08:12.610Z",
@@ -53,7 +58,7 @@ describe("src/license", () => {
     },
     signedChecksum:
       "ceT1mfCsWyyRE3B1CaaK6bXF5zUIXPIM1bASRRftDLLnFwGAjp8bAxGERzqVPeTLjy9eOAvC3nkpQhcb29jNJSy0f7d-6InMYsRPXln3fQ-EpZpxQOhoaPv2-cElier0wXmUM8jFI7FGAMZ-uugxhM4ofvoeIwrLghTHeelILNcUBiGk4AYCQrwZquTK9BXPyPCaBFrGhqM0RRZzHTpimEMS9TcmR90rrHEtXTagPVp_gEP508J1IYaVsymEt9N6Dp5Wk7ohb8XtODURsxiDJmrcqEQODvyabrNetSo3qVXsJ-qd4x6Imr79RfjLeR82lByZNqfH9r1V3omARlinDmq1VHoA3cRzA98iwcQBND1MWFZa5wikMkgQxxGqixQE6PCqAtfooBLdb_kqe_wHz3pU4qjVSw10_VjEiqlxXBLuYn20FgKMcpI5qwTUQiS0gJomkY2Nq5GQjXm-040VEgn6TqhRDQAlv4yWMBO6NaSVYQmwMjRhXLQ9mOYX6vugQMbpIO7NjvGWGoD8d_KoHZL0sriKJlVsYn3iFiIEkZIzD3mBwtMh2YCrPvX4OTCm4CSrWoEvaprx4JfFI4mgD5-XUBG_lBjb74hiLA7NdV8c3zD47BTu187PwC2-GC1Y521Y_IU8eMqW7bGJYnuSroNV7C8ccU4rRMPY9asRN0E",
-  };
+  } as LicenseInterface;
   const licenseData2 = cloneDeep(licenseData);
   licenseData2.seatsInUse = 2;
   licenseData2.signedChecksum =
@@ -100,7 +105,7 @@ describe("src/license", () => {
 
   afterEach(() => {
     jest.spyOn(JSON, "parse").mockRestore();
-    jest.spyOn(LicenseModel, "findOne").mockRestore();
+    jest.spyOn(LicenseModelModule, "getLicenseByKey").mockRestore();
     jest.useRealTimers();
     mockedFetch.mockReset();
     process.env = env;
@@ -121,10 +126,10 @@ describe("src/license", () => {
 
     describe("when there is a license but it has no plan", () => {
       const licenseDataNoPlan = cloneDeep(licenseData);
-      licenseDataNoPlan.plan = "";
+      delete licenseDataNoPlan.plan;
       licenseDataNoPlan.remoteDowngrade = true; // This would cause the function to return an error, if there was a plan
       licenseDataNoPlan.signedChecksum =
-        "boEq4MLvkvfrbuTEnN-aOZy6Vz32z7btChuS4pONGP88NDIju6FR36KBu0-8VSC2jbqEhbyMdGqG5FCmJRB-RHOk5TDazLvS1h1YDBb-3y5fbRgQCsSMMv8eyr_wG_OEG-p7eHwk-T5h0U77iONad5M3tX_rJ5gQOLdTJdjKRsB6F9Tib8t7V3BFy0CH9jmyaidrRalGPBxKa5rKiFEf9jp5jifZTD9qHq-Os9-BOYBqrfUKcnjvaGmnAJcQy6GyLqxNuq5yElupvmE0nUFXhjIi4NtSW-P5jn3FdAq05p9UQ8R1O0uOyykj36w0Cs7ATZeCNxixGoejmz2d70AV9vuoGdOtqcq6g7IJjAOOo7dsfTQBHZV-KnFracm3dFVljo5NHddykIkTYntK2TpmIQUP9jLFkgVPdKfkip2oMxqF5_TMlhneDqhY9ENXI-ThjAAVta2VR6CC0npRJvQjxU_4o1Nf0C0MN9iZI1qwtlKrNqjDP8lz2IQCKciZnH-yNrqoCLFkz3yngKOYpQH8Q2lwqnS2l3qpMR4iiAR8Nw8ViZQ62eWPN12fmF9_MVxfhC_esdiUSU1-MvFZIz8jXHGuFnAiOfWdLgutA1lBCXKGqBMI_o1hs0akJaEq8-eHF8E0cfjWMb3wdgfFNCl7PfQcNVxU2tNhsOFHwuW6PIY";
+        "XFbpDLvayp71avE47pYNPTW5MKQWl1qqhTo6Cm4mEj5ipejjhnpfoPmInxwKFK0xjnpNkGnr25NW_d0XthgotnZPKV7KMzSZ6DRe7fIRRaTP6H10e3iashAsuRX_KNlHsZgaPdbxSWYw0_vQE9bxJVLTINPog7HEf-ZQONZ6Wod4vUf91MRu8d8NK6LVp9e1OVY7HOm-klKWfrE-3jx3aloDnfGq17B0uU0NbvRfj2FyxL-vkAgUPXmRUk64RnCB2mRqkFspT1Rm-kTvRsJxbWw_sA4ZPeSGYA7SPyUl-roUlD-g-CXUwLoLOdJB2WusAu9E2EXyy9w-d9E6N1nBtEGim2X2JKXTe2aN6BMmPK6jtWFa1D1iAO4lyjxbbaH8oNZlNtb9D78c6rdrLZuWfoAgoRXEINTAIBYo0wBFLb8Wu5f0dNUvkRXdDg8RQvtaXJ0VfGwZ4cw9SVeRElwME9m4Kc8CTqKbk0HG41sDlY3ACWJalxh7xWEzH0u_LXIfllV5Sq-7YDGtGnykwXBHl7m_rQ3qi5bX7WHYBu1hdMf3gIiUwKln9U3eW4nT7D8GJlSE1kj9_6n57KhkvkqoLBsqGhncsE2C8rkdUQYB9xlja_H6k0mupNCxEnciZiRftJpLSznzyV4AdLGgiX78l1gU-Iwy28XOaMeo5Ess8W8";
 
       beforeEach(async () => {
         const mockedResponse: Response = ({
@@ -379,7 +384,9 @@ describe("src/license", () => {
 
           mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
 
-          jest.spyOn(LicenseModel, "findOne").mockResolvedValueOnce(null);
+          jest
+            .spyOn(LicenseModelModule, "getLicenseByKey")
+            .mockResolvedValueOnce(null);
         });
 
         it("should use the env variable if licenseKey argument is not provided", async () => {
@@ -438,7 +445,7 @@ describe("src/license", () => {
             licenseData,
             { upsert: true }
           );
-          expect(LicenseModel.findOne).toHaveBeenCalledTimes(1);
+          expect(LicenseModelModule.getLicenseByKey).toHaveBeenCalledTimes(1);
         });
 
         it("should fetch the license from datastore if it is not in memory", async () => {
@@ -460,12 +467,9 @@ describe("src/license", () => {
 
           expect(getLicense(licenseKey)).toEqual(licenseData);
           resetInMemoryLicenseCache();
-          jest.spyOn(LicenseModel, "findOne").mockResolvedValue({
-            ...licenseData,
-            toJSON: function () {
-              return { ...licenseData };
-            },
-          });
+          jest
+            .spyOn(LicenseModelModule, "getLicenseByKey")
+            .mockResolvedValue(cloneDeep(licenseData));
           await licenseInit(licenseKey, userLicenseCodes, metaData);
 
           expect(getLicense(licenseKey)).toEqual({
@@ -479,7 +483,7 @@ describe("src/license", () => {
             licenseData,
             { upsert: true }
           );
-          expect(LicenseModel.findOne).toHaveBeenCalledTimes(2);
+          expect(LicenseModelModule.getLicenseByKey).toHaveBeenCalledTimes(2);
         });
 
         it("should fetch the license from the license server if the license is not in memory and the datastore is too old", async () => {
@@ -645,7 +649,7 @@ describe("src/license", () => {
 
         it("should disregard contents if the data doesn't match the signature and return what is in the mongo cache with error fields set", async () => {
           mockedFetch.mockReset(); // this test's fetch result should be different from the others'
-          jest.spyOn(LicenseModel, "findOne").mockRestore(); // this test should expect there to be something in mongo cache
+          jest.spyOn(LicenseModelModule, "getLicenseByKey").mockRestore(); // this test should expect there to be something in mongo cache
           const licenseDateWithBadSignature = cloneDeep(licenseData);
           licenseDateWithBadSignature.signedChecksum = "bad signature";
           const mockedResponse3: Response = ({
@@ -655,19 +659,15 @@ describe("src/license", () => {
 
           mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse3));
 
-          const mockFindOneAndUpdate = jest.fn();
-          const previousCache = {
-            ...licenseData,
-            toJSON: () => licenseData,
-            findOneAndUpdate: mockFindOneAndUpdate,
-          };
-          jest.spyOn(LicenseModel, "findOne").mockResolvedValue(previousCache);
+          jest
+            .spyOn(LicenseModelModule, "getLicenseByKey")
+            .mockResolvedValue(cloneDeep(licenseData));
 
           // Use force refresh to make sure the bad data is returned
           await licenseInit(licenseKey, userLicenseCodes, metaData, true);
 
           const expectedLicenseData = {
-            ...previousCache,
+            ...licenseData,
             usingMongoCache: true,
             lastServerErrorMessage: "Invalid license key signature",
             firstFailedFetchDate: now,
@@ -701,7 +701,9 @@ describe("src/license", () => {
 
         describe("and when there is no cached data in LicenseModel", () => {
           beforeEach(() => {
-            jest.spyOn(LicenseModel, "findOne").mockResolvedValue(null);
+            jest
+              .spyOn(LicenseModelModule, "getLicenseByKey")
+              .mockResolvedValue(null);
 
             // Mock out the constructor so new LicenseModel(data) => data
             jest
@@ -726,18 +728,10 @@ describe("src/license", () => {
         });
 
         describe("and when there is cached data in LicenseModel", () => {
-          const mockfindOneAndReplace = jest.fn();
-          let previousCache;
-
           beforeEach(() => {
-            previousCache = {
-              ...licenseData,
-              toJSON: () => licenseData,
-              findOneAndReplace: mockfindOneAndReplace,
-            };
             jest
-              .spyOn(LicenseModel, "findOne")
-              .mockResolvedValue(previousCache);
+              .spyOn(LicenseModelModule, "getLicenseByKey")
+              .mockResolvedValue(cloneDeep(licenseData));
           });
 
           it("should return cache from LicenseModel if the license server is down and a cache exists in licenseModel that is less than 7 days and save the failures in the mongo cache", async () => {
@@ -746,21 +740,27 @@ describe("src/license", () => {
 
             await licenseInit(licenseKey, userLicenseCodes, metaData);
 
-            expect(getLicense(licenseKey)).toEqual(licenseData);
+            // The previous license data in mongo cache should be returned as it calls the license server in the background
+            expect(getLicense(licenseKey)).toEqual({
+              ...licenseData,
+              usingMongoCache: true,
+            });
 
             await backgroundUpdateLicenseFromServerForTests;
 
+            const expectedLicenseData = {
+              ...licenseData,
+              usingMongoCache: true,
+              firstFailedFetchDate: new Date(firstCallTime),
+              lastFailedFetchDate: new Date(firstCallTime),
+              lastServerErrorMessage:
+                "License server errored with: internal server error",
+            };
+            expect(getLicense(licenseKey)).toEqual(expectedLicenseData);
             expect(LicenseModel.findOneAndReplace).toHaveBeenCalledTimes(1);
             expect(LicenseModel.findOneAndReplace).toHaveBeenCalledWith(
               { id: licenseKey },
-              {
-                ...previousCache,
-                usingMongoCache: true,
-                firstFailedFetchDate: new Date(firstCallTime),
-                lastFailedFetchDate: new Date(firstCallTime),
-                lastServerErrorMessage:
-                  "License server errored with: internal server error",
-              },
+              expectedLicenseData,
               { upsert: true }
             );
 
@@ -776,24 +776,27 @@ describe("src/license", () => {
             jest.setSystemTime(secondCallTime);
             await licenseInit(licenseKey, userLicenseCodes, metaData);
 
-            expect(getLicense(licenseKey)).toEqual(licenseData);
+            // The previous license data in mongo cache should be returned as it calls the license server in the background
+            expect(getLicense(licenseKey)).toEqual(expectedLicenseData);
+
             await backgroundUpdateLicenseFromServerForTests;
+
+            const updatedLicenseData = {
+              ...licenseData,
+              usingMongoCache: true,
+              firstFailedFetchDate: new Date(firstCallTime),
+              lastFailedFetchDate: new Date(secondCallTime),
+              lastServerErrorMessage:
+                "License server errored with: different error",
+            };
+            expect(getLicense(licenseKey)).toEqual(updatedLicenseData);
 
             expect(LicenseModel.findOneAndReplace).toHaveBeenCalledTimes(2);
             expect(LicenseModel.findOneAndReplace).toHaveBeenCalledWith(
               { id: licenseKey },
-              {
-                ...previousCache,
-                usingMongoCache: true,
-                firstFailedFetchDate: new Date(firstCallTime),
-                lastFailedFetchDate: new Date(secondCallTime),
-                lastServerErrorMessage:
-                  "License server errored with: different error",
-              },
+              updatedLicenseData,
               { upsert: true }
             );
-
-            return Promise;
           });
 
           it("should return the cache that exists (getLicenseError will return a too old message)", async () => {
@@ -803,7 +806,7 @@ describe("src/license", () => {
             await licenseInit(licenseKey, userLicenseCodes, metaData);
 
             expect(getLicense(licenseKey)).toEqual({
-              ...previousCache,
+              ...licenseData,
               usingMongoCache: true,
               firstFailedFetchDate: new Date(callTime),
               lastFailedFetchDate: new Date(callTime),
