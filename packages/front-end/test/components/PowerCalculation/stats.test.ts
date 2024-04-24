@@ -37,9 +37,12 @@ describe("backend", () => {
     ).toEqual(0.52144);
   });
   it("calculates two-tailed mde correctly", () => {
-    expect(
-      +findMde(0.8, 10.0, 3909.9997749994377, 400000, 3, 0.05, true).toFixed(5)
-    ).toEqual(0.07027);
+    const mde1 = findMde(0.8, 10.0, 3909.9997749994377, 400000, 3, 0.05);
+    let mde = 100;
+    if (mde1.type === "success") {
+      mde = mde1.mde;
+    }
+    expect(parseFloat(mde.toFixed(5))).toEqual(0.07027);
   });
   it("calculates sequential power correctly", () => {
     expect(
@@ -56,18 +59,12 @@ describe("backend", () => {
     ).toEqual(0.21526);
   });
   it("calculates sequential mde correctly", () => {
-    expect(
-      +findMde(
-        0.8,
-        10.0,
-        3909.9997749994377,
-        400000,
-        3,
-        0.05,
-        true,
-        5000
-      ).toFixed(5)
-    ).toEqual(0.12439);
+    const mde1 = findMde(0.8, 10.0, 3909.9997749994377, 400000, 3, 0.05, 5000);
+    let mde = 100;
+    if (mde1.type === "success") {
+      mde = mde1.mde;
+    }
+    expect(parseFloat(mde.toFixed(5))).toEqual(0.12439);
   });
   const metrics: { [id: string]: MetricParams } = {
     click_through_rate: {
@@ -91,6 +88,7 @@ describe("backend", () => {
   function roundToFifthDecimal(num: number): number {
     return Number(num.toFixed(5));
   }
+
   it("checks power", () => {
     const powerSettings: PowerCalculationParams = {
       usersPerDay: usersPerDay,
@@ -146,34 +144,40 @@ describe("backend", () => {
     ];
     const sampleSizeAndRuntime = [2, undefined];
     const resultsTS = powerMetricWeeks(powerSettings);
-    const power = resultsTS.weeks.reduce(
-      (result, { metrics }) =>
-        Object.values(metrics).reduce(
-          (result, { power }) => [...result, power],
-          result
-        ),
-      []
-    );
-    expect(power.map(roundToFifthDecimal)).toEqual(powerSolution);
-
-    const mde = resultsTS.weeks.reduce(
-      (result, { metrics }) =>
-        Object.values(metrics).reduce(
-          (result, { effectSize }) => [...result, effectSize],
-          result
-        ),
-      []
-    );
-    expect(mde.map(roundToFifthDecimal)).toEqual(mdeSolution);
-
-    expect(resultsTS.sampleSizeAndRuntime.click_through_rate.weeks).toEqual(
-      sampleSizeAndRuntime[0]
-    );
-
-    expect(resultsTS.sampleSizeAndRuntime.revenue.weeks).toEqual(
-      sampleSizeAndRuntime[1]
-    );
-    expect(resultsTS.weekThreshold).toEqual(undefined);
+    let powerMultiple = [0.0, 0.0];
+    let mdeMultiple = [1e5, 1e5];
+    let w0 = 0;
+    const w1 = undefined;
+    if (resultsTS.type === "success") {
+      powerMultiple = resultsTS.weeks.reduce(
+        (result, { metrics }) =>
+          Object.values(metrics).reduce(
+            (result, { power }) => [...result, power],
+            result
+          ),
+        []
+      );
+      mdeMultiple = resultsTS.weeks.reduce(
+        (result, { metrics }) =>
+          Object.values(metrics).reduce(
+            (result, { effectSize }) => [...result, effectSize],
+            result
+          ),
+        []
+      );
+      if (
+        resultsTS.sampleSizeAndRuntime.click_through_rate.weeks !== undefined
+      ) {
+        w0 = resultsTS.sampleSizeAndRuntime.click_through_rate.weeks;
+      }
+      if (resultsTS.sampleSizeAndRuntime.revenue.weeks !== undefined) {
+        throw new Error("should be undefined");
+      }
+    }
+    expect(powerMultiple.map(roundToFifthDecimal)).toEqual(powerSolution);
+    expect(mdeMultiple.map(roundToFifthDecimal)).toEqual(mdeSolution);
+    expect(sampleSizeAndRuntime[0]).toEqual(w0);
+    expect(sampleSizeAndRuntime[1]).toEqual(w1);
   });
   it("checks sequential power", () => {
     const powerSettings: PowerCalculationParams = {
@@ -231,31 +235,39 @@ describe("backend", () => {
     const sampleSizeAndRuntime = [4, undefined];
     const resultsTS = powerMetricWeeks(powerSettings);
 
-    const power = resultsTS.weeks.reduce(
-      (result, { metrics }) =>
-        Object.values(metrics).reduce(
-          (result, { power }) => [...result, power],
-          result
-        ),
-      []
-    );
-    expect(power.map(roundToFifthDecimal)).toEqual(powerSolution);
-
-    const mde = resultsTS.weeks.reduce(
-      (result, { metrics }) =>
-        Object.values(metrics).reduce(
-          (result, { effectSize }) => [...result, effectSize],
-          result
-        ),
-      []
-    );
-    expect(mde.map(roundToFifthDecimal)).toEqual(mdeSolution);
-    expect(resultsTS.sampleSizeAndRuntime.click_through_rate.weeks).toEqual(
-      sampleSizeAndRuntime[0]
-    );
-    expect(resultsTS.sampleSizeAndRuntime.revenue.weeks).toEqual(
-      sampleSizeAndRuntime[1]
-    );
-    expect(resultsTS.weekThreshold).toEqual(undefined);
+    let powerMultiple = [0.0, 0.0];
+    let mdeMultiple = [1e5, 1e5];
+    let w0 = 0;
+    const w1 = undefined;
+    if (resultsTS.type === "success") {
+      powerMultiple = resultsTS.weeks.reduce(
+        (result, { metrics }) =>
+          Object.values(metrics).reduce(
+            (result, { power }) => [...result, power],
+            result
+          ),
+        []
+      );
+      mdeMultiple = resultsTS.weeks.reduce(
+        (result, { metrics }) =>
+          Object.values(metrics).reduce(
+            (result, { effectSize }) => [...result, effectSize],
+            result
+          ),
+        []
+      );
+      if (
+        resultsTS.sampleSizeAndRuntime.click_through_rate.weeks !== undefined
+      ) {
+        w0 = resultsTS.sampleSizeAndRuntime.click_through_rate.weeks;
+      }
+      if (resultsTS.sampleSizeAndRuntime.revenue.weeks !== undefined) {
+        throw new Error("should be undefined");
+      }
+    }
+    expect(powerMultiple.map(roundToFifthDecimal)).toEqual(powerSolution);
+    expect(mdeMultiple.map(roundToFifthDecimal)).toEqual(mdeSolution);
+    expect(sampleSizeAndRuntime[0]).toEqual(w0);
+    expect(sampleSizeAndRuntime[1]).toEqual(w1);
   });
 });

@@ -137,10 +137,26 @@ export interface Week {
   };
 }
 
-export type PowerCalculationResults = {
-  sampleSizeAndRuntime: {
-    [id: string]: SampleSizeAndRuntime;
-  };
-  weeks: Week[];
-  weekThreshold?: number;
-};
+export type MDEResults =
+  | {
+      type: "success";
+      mde: number;
+    }
+  | {
+      type: "error";
+      description: string;
+    };
+
+export type PowerCalculationResults =
+  | {
+      type: "success";
+      sampleSizeAndRuntime: {
+        [id: string]: SampleSizeAndRuntime;
+      };
+      weeks: Week[];
+      weekThreshold?: number;
+    }
+  | {
+      type: "error";
+      description: string;
+    };
