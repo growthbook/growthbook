@@ -127,7 +127,7 @@ const PowerCalculationPage = (): React.ReactElement => {
   }, [finalParams]);
 
   return (
-    <div className="contents container-fluid pagecontents">
+    <div className="contents power-calculator container-fluid pagecontents">
       {showModal && (
         <PowerCalculationSettingsModal
           close={() => setShowModal(false)}
