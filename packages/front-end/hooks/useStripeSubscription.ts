@@ -71,6 +71,28 @@ export default function useStripeSubscription() {
     trialEnd = getValidDate(trialEnd * 1000);
   }
 
+  const canSubscribe = () => {
+    if (disableSelfServeBilling) return false;
+
+    if (organization?.enterprise) return false; //TODO: Remove this once we have moved the license off the organization
+
+    if (license?.plan === "enterprise") return false;
+
+    // if already on pro, they must have a stripeSubscription - some self-hosted pro have an annual contract not directly through stripe.
+    if (
+      license &&
+      ["pro", "pro_sso"].includes(license.plan) &&
+      !license.stripeSubscription
+    )
+      return false;
+
+    if (!selfServePricingEnabled) return false;
+
+    if (hasActiveSubscription) return false;
+
+    return true;
+  };
+
   return {
     freeSeats,
     quote: quote,
@@ -85,14 +107,6 @@ export default function useStripeSubscription() {
     trialEnd: trialEnd as null | Date,
     showSeatOverageBanner,
     loading: !quote || !organization,
-    canSubscribe:
-      !disableSelfServeBilling &&
-      !organization?.enterprise && //TODO: Remove this once we have moved the license off the organization
-      license?.plan != "enterprise" &&
-      (!license || // TODO: Can remove the !license check once we have moved the license off the organization
-        !["pro", "pro_sso"].includes(license.plan) || // they must be on free plan
-        license?.stripeSubscription !== undefined) && // if on pro, they must have a subscription - some self-hosted pro have an annual contract not directly through stripe.
-      selfServePricingEnabled &&
-      !hasActiveSubscription,
+    canSubscribe: canSubscribe(),
   };
 }
