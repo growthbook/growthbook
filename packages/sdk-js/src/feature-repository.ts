@@ -467,7 +467,10 @@ async function fetchFeatures(
             error: e ? e.message : null,
           });
         activeFetches.delete(cacheKey);
-        return Promise.resolve({});
+        const existing = !cacheSettings.disableLocalCache
+          ? cache.get(cacheKey)
+          : undefined;
+        return Promise.resolve(existing ?? {});
       });
     activeFetches.set(cacheKey, promise);
   }
