@@ -48,6 +48,13 @@ export default function OrganizationAndLicenseSettings({
                 <strong>Owner:</strong> {org.ownerEmail}
               </div>
             </div>
+            {!isCloud() && !isMultiOrg() && (
+              <div className="form-group row">
+                <div className="col-sm-12">
+                  <strong>Organization Id:</strong> {org.id}
+                </div>
+              </div>
+            )}
           </div>
         </div>
         {(isCloud() || !isMultiOrg()) && <ShowLicenseInfo />}
