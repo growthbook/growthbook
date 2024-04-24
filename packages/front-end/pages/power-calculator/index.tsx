@@ -49,7 +49,7 @@ const PowerCalculationPage = (): React.ReactElement => {
 
   const [
     settingsModalParams,
-    setSettingsModalParams,
+    setProcessedSettingsModalParams,
   ] = useState<PartialPowerCalculationParams>(
     initialParams.settingsModalParams
   );
@@ -105,6 +105,35 @@ const PowerCalculationPage = (): React.ReactElement => {
       });
     },
     [setProcessedPowerCalculationParams]
+  );
+
+  const setSettingsModalParams = useCallback(
+    (p: PartialPowerCalculationParams | undefined) => {
+      if (!p) {
+        setProcessedSettingsModalParams(INITIAL_FORM_PARAMS);
+        return;
+      }
+
+      setProcessedSettingsModalParams({
+        ...p,
+        metrics: Object.keys(p.metrics).reduce(
+          (result, key) => ({
+            ...result,
+            [key]: Object.keys(p.metrics[key]).reduce(
+              (metric, entry) => ({
+                ...metric,
+                [entry]: config[entry]?.isPercent
+                  ? p.metrics[key][entry] * 100
+                  : p.metrics[key][entry],
+              }),
+              {}
+            ),
+          }),
+          {}
+        ),
+      });
+    },
+    [setProcessedSettingsModalParams]
   );
 
   const finalParams: PowerCalculationParams | undefined = useMemo(() => {
