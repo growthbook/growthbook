@@ -81,7 +81,7 @@ describe("backend", () => {
       type: "mean",
     },
   };
-  const usersPerDay = 4500;
+  const usersPerWeek = 4500;
   const nVariations = 3;
   const alpha = 0.05;
 
@@ -91,7 +91,7 @@ describe("backend", () => {
 
   it("checks power", () => {
     const powerSettings: PowerCalculationParams = {
-      usersPerDay: usersPerDay,
+      usersPerWeek: usersPerWeek,
       metrics: metrics,
       nVariations: nVariations,
       nWeeks: 9,
@@ -181,7 +181,7 @@ describe("backend", () => {
   });
   it("checks sequential power", () => {
     const powerSettings: PowerCalculationParams = {
-      usersPerDay: usersPerDay,
+      usersPerWeek: usersPerWeek,
       metrics: metrics,
       nVariations: nVariations,
       alpha: alpha,

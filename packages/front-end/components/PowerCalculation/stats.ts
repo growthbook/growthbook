@@ -259,7 +259,7 @@ export function powerMetricWeeks(
 
   const metricThresholds = {};
   const weeks: Week[] = [...Array(nWeeks).keys()].map((idx) => ({
-    users: (idx + 1) * powerSettings.usersPerDay,
+    users: (idx + 1) * powerSettings.usersPerWeek,
     metrics: {},
   }));
 
@@ -280,7 +280,7 @@ export function powerMetricWeeks(
     let thisSampleSizeAndRuntimeNumeric = 999;
     let lookingForSampleSizeAndRunTime = true;
     for (let j = 0; j < nWeeks; j++) {
-      const n = powerSettings.usersPerDay * (j + 1);
+      const n = powerSettings.usersPerWeek * (j + 1);
       const thisPower = powerEst(
         thisMetric.effectSize,
         thisMean,
@@ -299,7 +299,7 @@ export function powerMetricWeeks(
         0.8,
         thisMean,
         thisVariance,
-        powerSettings.usersPerDay * (j + 1),
+        powerSettings.usersPerWeek * (j + 1),
         powerSettings.nVariations,
         powerSettings.alpha,
         sequentialTuningParameter
@@ -331,7 +331,7 @@ export function powerMetricWeeks(
     const thisSampleSizeAndRuntime: SampleSizeAndRuntime = {
       name: thisMetric.name,
       effectSize: thisMetric.effectSize,
-      users: powerSettings.usersPerDay,
+      users: powerSettings.usersPerWeek,
       type: thisMetric.type,
       ...(thisSampleSizeAndRuntimeNumeric !== 999
         ? { weeks: thisSampleSizeAndRuntimeNumeric }

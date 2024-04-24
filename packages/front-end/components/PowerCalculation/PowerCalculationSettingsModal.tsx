@@ -34,16 +34,16 @@ const SelectStep = ({
   onNext: () => void;
 }) => {
   const { metrics: appMetrics } = useDefinitions();
-  const usersPerDay = form.watch("usersPerDay");
+  const usersPerWeek = form.watch("usersPerWeek");
   const metrics = form.watch("metrics");
 
   const selectedMetrics = Object.keys(metrics);
 
-  const isUsersPerDayInvalid = usersPerDay !== undefined && usersPerDay <= 0;
+  const isUsersPerDayInvalid = usersPerWeek !== undefined && usersPerWeek <= 0;
   const isNextDisabled =
     !selectedMetrics.length ||
-    usersPerDay === undefined ||
-    isNaN(usersPerDay) ||
+    usersPerWeek === undefined ||
+    isNaN(usersPerWeek) ||
     isUsersPerDayInvalid;
 
   const field = (key: keyof typeof config) => ({
@@ -115,7 +115,7 @@ const SelectStep = ({
         label={
           <div>
             <span className="font-weight-bold mr-1">
-              Estimated users per day
+              Estimated users per week
             </span>
             <Tooltip
               popperClassName="text-left"
@@ -125,7 +125,7 @@ const SelectStep = ({
           </div>
         }
         type="number"
-        {...form.register("usersPerDay", {
+        {...form.register("usersPerWeek", {
           valueAsNumber: true,
         })}
         className={isUsersPerDayInvalid ? "border border-danger" : undefined}

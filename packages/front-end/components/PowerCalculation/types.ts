@@ -23,7 +23,7 @@ export interface PowerCalculationParams {
   nVariations: number;
   nWeeks: number;
   alpha: number;
-  usersPerDay: number;
+  usersPerWeek: number;
   targetPower: number;
   statsEngine: StatsEngine;
 }
@@ -54,7 +54,7 @@ type Config = {
 const checkConfig = <T extends string>(config: { [id in T]: Config }) => config;
 
 export const config = checkConfig({
-  usersPerDay: {
+  usersPerWeek: {
     title: "Users Per Day",
     isPercent: false,
     minValue: 0,
@@ -97,7 +97,7 @@ const validEntry = (name: keyof typeof config, v: number | undefined) => {
 export const isValidPowerCalculationParams = (
   v: PartialPowerCalculationParams
 ): v is FullModalPowerCalculationParams =>
-  validEntry("usersPerDay", v.usersPerDay) &&
+  validEntry("usersPerWeek", v.usersPerWeek) &&
   Object.keys(v.metrics).every((key) => {
     const params = v.metrics[key];
     if (!params) return false;
