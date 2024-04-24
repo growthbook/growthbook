@@ -310,6 +310,7 @@ export function getDefaultExperimentAnalysisSettings(
   return {
     statsEngine,
     informativePrior: organization.settings?.informativePrior ?? false,
+    informativePriorMean: organization.settings?.informativePriorMean ?? 0,
     informativePriorStdDev:
       organization.settings?.informativePriorStdDev ??
       DEFAULT_INFORMATIVE_PRIOR_STDDEV,

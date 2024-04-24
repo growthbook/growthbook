@@ -1,4 +1,5 @@
 import {
+  DEFAULT_INFORMATIVE_PRIOR_STDDEV,
   DEFAULT_METRIC_WINDOW,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_METRIC_WINDOW_HOURS,
@@ -110,6 +111,9 @@ export function getAnalysisSettingsFromReportArgs(
     pValueCorrection: null,
     sequentialTesting: args.sequentialTestingEnabled,
     sequentialTestingTuningParameter: args.sequentialTestingTuningParameter,
+    informativePrior: args.informativePrior ?? false,
+    informativePriorMean: args.informativePriorMean ?? 0,
+    informativePriorStdDev: args.informativePriorStdDev ?? DEFAULT_INFORMATIVE_PRIOR_STDDEV,
     pValueThreshold: args.pValueThreshold,
     differenceType: args.differenceType ?? "relative",
     baselineVariationIndex: 0,

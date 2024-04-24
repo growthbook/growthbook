@@ -102,6 +102,7 @@ export interface ExperimentSnapshotAnalysisSettings {
   dimensions: string[];
   statsEngine: StatsEngine;
   informativePrior?: boolean;
+  informativePriorMean?: number;
   informativePriorStdDev?: number;
   regressionAdjusted?: boolean;
   sequentialTesting?: boolean;

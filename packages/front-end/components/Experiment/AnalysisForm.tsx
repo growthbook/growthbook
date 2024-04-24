@@ -1,12 +1,12 @@
 import React, { FC, useCallback, useState } from "react";
-import { UseFormReturn, useFieldArray, useForm } from "react-hook-form";
+import { FormProvider, UseFormReturn, useFieldArray, useForm } from "react-hook-form";
 import {
   AttributionModel,
   ExperimentInterfaceStringDates,
 } from "back-end/types/experiment";
 import { FaQuestionCircle } from "react-icons/fa";
 import { getValidDate } from "shared/dates";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import { DEFAULT_INFORMATIVE_PRIOR_STDDEV, DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import {
   getAffectedEnvsForExperiment,
   isProjectListValidForProject,
@@ -36,6 +36,7 @@ import {
   getDefaultMetricOverridesFormValue,
 } from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
+import BayesianPriorSettings from "@/components/Settings/BayesianPriorSettings";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -132,6 +133,15 @@ const AnalysisForm: FC<{
           ? experiment.sequentialTestingTuningParameter
           : orgSettings.sequentialTestingTuningParameter ??
             DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+      informativePrior: experiment.informativePrior ??
+        orgSettings.informativePrior ??
+        false,
+      informativePriorMean: experiment.informativePriorMean ??
+        orgSettings.informativePriorMean ??
+        0,
+      informativePriorStdDev: experiment.informativePriorStdDev ??
+        orgSettings.informativePriorStdDev ??
+        DEFAULT_INFORMATIVE_PRIOR_STDDEV,
       metrics: experiment.metrics,
       guardrails: experiment.guardrails || [],
       metricOverrides: getDefaultMetricOverridesFormValue(
@@ -567,6 +577,15 @@ const AnalysisForm: FC<{
           </div>
         </div>
       )}
+      {(form.watch("statsEngine") || scopedSettings.statsEngine.value) ===
+        "bayesian" && (
+          <FormProvider {...form}>
+        <div className="ml-1 mb-3">
+          
+        <BayesianPriorSettings defaultMean={orgSettings.informativePriorMean} defaultStdDev={orgSettings.informativePriorStdDev} />
+        </div>
+        </FormProvider>
+        )}
       {datasourceProperties?.queryLanguage === "sql" && (
         <div className="row">
           <div className="col">

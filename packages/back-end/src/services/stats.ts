@@ -53,6 +53,7 @@ export interface AnalysisSettingsForStatsEngine {
   dimension: string;
   stats_engine: string;
   prior_informative: boolean;
+  prior_mean: number;
   prior_stddev: number;
   sequential_testing_enabled: boolean;
   sequential_tuning_parameter: number;
@@ -138,6 +139,7 @@ export function getAnalysisSettingsForStatsEngine(
     dimension: settings.dimensions[0] || "",
     stats_engine: settings.statsEngine,
     prior_informative: Boolean(settings.informativePrior) ?? false,
+    prior_mean: Number(settings.informativePriorMean) ?? 0,
     prior_stddev:
       Number(settings.informativePriorStdDev) ??
       DEFAULT_INFORMATIVE_PRIOR_STDDEV,

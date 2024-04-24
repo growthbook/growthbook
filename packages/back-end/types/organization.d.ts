@@ -175,6 +175,7 @@ export interface OrganizationSettings {
   defaultRole?: MemberRoleInfo;
   statsEngine?: StatsEngine;
   informativePrior?: boolean;
+  informativePriorMean?: number;
   informativePriorStdDev?: number;
   pValueThreshold?: number;
   pValueCorrection?: PValueCorrection;

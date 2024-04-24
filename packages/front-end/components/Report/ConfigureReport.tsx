@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { useFieldArray, useForm } from "react-hook-form";
+import { FormProvider, useFieldArray, useForm } from "react-hook-form";
 import {
   MetricRegressionAdjustmentStatus,
   ReportInterface,
@@ -11,6 +11,7 @@ import {
 } from "back-end/types/experiment";
 import uniq from "lodash/uniq";
 import {
+  DEFAULT_INFORMATIVE_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
@@ -39,6 +40,7 @@ import SelectField from "@/components/Forms/SelectField";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
 import MetricSelector from "@/components/Experiment/MetricSelector";
+import BayesianPriorSettings from "@/components/Settings/BayesianPriorSettings";
 
 export default function ConfigureReport({
   report,
@@ -128,6 +130,9 @@ export default function ConfigureReport({
         DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       metricRegressionAdjustmentStatuses:
         report.args.metricRegressionAdjustmentStatuses || [],
+      informativePrior: report.args.informativePrior ?? false,
+      informativePriorMean: report.args.informativePriorMean ?? 0,
+      informativePriorStdDev: report.args.informativePriorStdDev ?? DEFAULT_INFORMATIVE_PRIOR_STDDEV,
       sequentialTestingEnabled:
         hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled,
       sequentialTestingTuningParameter:
@@ -496,7 +501,7 @@ export default function ConfigureReport({
 
       {form.watch("statsEngine") === "frequentist" && (
         <>
-          <div className="d-flex flex-row no-gutters align-items-center">
+          <div className="d-flex flex-row no-gutters align-items-center mb-3">
             <div className="col-3">
               <SelectField
                 label={
@@ -585,6 +590,13 @@ export default function ConfigureReport({
             </div>
           </div>
         </>
+      )}
+      {form.watch("statsEngine") === "bayesian" && (
+        <FormProvider {...form}>
+          <div className="mb-3">
+        <BayesianPriorSettings defaultMean={orgSettings.informativePriorMean} defaultStdDev={orgSettings.informativePriorStdDev} />
+        </div>
+        </FormProvider>
       )}
 
       {datasourceProperties?.queryLanguage === "sql" && (

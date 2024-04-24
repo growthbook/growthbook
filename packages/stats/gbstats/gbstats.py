@@ -221,7 +221,7 @@ def get_configured_test(
             raise ValueError(RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR)
 
         prior = GaussianPrior(
-            mean=0,
+            mean=analysis.prior_mean,
             variance=pow(analysis.prior_stddev, 2),
             informative=analysis.prior_informative,
         )
