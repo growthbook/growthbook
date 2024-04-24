@@ -6,8 +6,8 @@ import pandas as pd
 
 from gbstats.bayesian.tests import (
     BayesianTestResult,
-    GaussianEffectABTest,
-    GaussianEffectBayesianConfig,
+    EffectBayesianABTest,
+    EffectBayesianConfig,
 )
 from gbstats.frequentist.tests import (
     FrequentistConfig,
@@ -181,7 +181,7 @@ def get_configured_test(
     test_index: int,
     analysis: AnalysisSettingsForStatsEngine,
     metric: MetricSettingsForStatsEngine,
-) -> Union[GaussianEffectABTest, SequentialTwoSidedTTest, TwoSidedTTest]:
+) -> Union[EffectBayesianABTest, SequentialTwoSidedTTest, TwoSidedTTest]:
 
     stat_a = variation_statistic_from_metric_row(row, "baseline", metric)
     stat_b = variation_statistic_from_metric_row(row, f"v{test_index}", metric)
@@ -219,10 +219,10 @@ def get_configured_test(
         ):
             raise ValueError(RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR)
 
-        return GaussianEffectABTest(
+        return EffectBayesianABTest(
             stat_a,
             stat_b,
-            GaussianEffectBayesianConfig(**base_config, inverse=metric.inverse),
+            EffectBayesianConfig(**base_config, inverse=metric.inverse),
         )
 
 

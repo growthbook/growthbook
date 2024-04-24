@@ -8,9 +8,9 @@ from scipy.stats import norm
 from gbstats.bayesian.tests import (
     BayesianTestResult,
     GaussianPrior,
-    GaussianEffectABTest,
+    EffectBayesianABTest,
     GaussianPrior,
-    GaussianEffectBayesianConfig,
+    EffectBayesianConfig,
 )
 from gbstats.models.statistics import (
     ProportionStatistic,
@@ -41,7 +41,7 @@ class TestBinom(TestCase):
     def test_bayesian_binomial_ab_test(self):
         stat_a = ProportionStatistic(sum=49, n=100)
         stat_b = ProportionStatistic(sum=51, n=100)
-        result = GaussianEffectABTest(stat_a, stat_b).compute_result()
+        result = EffectBayesianABTest(stat_a, stat_b).compute_result()
         expected_rounded_dict = asdict(
             BayesianTestResult(
                 expected=0.04082,
@@ -57,7 +57,7 @@ class TestBinom(TestCase):
         self.assertDictEqual(result_rounded_dict, expected_rounded_dict)
 
     def test_missing_data(self):
-        result = GaussianEffectABTest(
+        result = EffectBayesianABTest(
             ProportionStatistic(0, 0),
             ProportionStatistic(0, 0),
         ).compute_result()
@@ -67,7 +67,7 @@ class TestBinom(TestCase):
 
 class TestNorm(TestCase):
     def test_bayesian_gaussian_ab_test(self):
-        result = GaussianEffectABTest(
+        result = EffectBayesianABTest(
             SampleMeanStatistic(sum=100, sum_squares=1002.25, n=10),
             SampleMeanStatistic(sum=105, sum_squares=1111.5, n=10),
         ).compute_result()
@@ -85,8 +85,30 @@ class TestNorm(TestCase):
         result_rounded_dict = round_results_dict(asdict(result))
         self.assertDictEqual(result_rounded_dict, expected_rounded_dict)
 
+    def test_bayesian_gaussian_ab_test_informative(self):
+        result = EffectBayesianABTest(
+            SampleMeanStatistic(sum=100, sum_squares=1002.25, n=10),
+            SampleMeanStatistic(sum=105, sum_squares=1111.5, n=10),
+            EffectBayesianConfig(
+                prior_effect=GaussianPrior(mean=0.1, variance=0.1, proper=True)
+            ),
+        ).compute_result()
+        expected_rounded_dict = asdict(
+            BayesianTestResult(
+                expected=0.05063,
+                ci=[-0.01893, 0.12019],
+                uplift=Uplift(dist="normal", mean=0.05063, stddev=0.03549),
+                chance_to_win=0.92315,
+                risk=[0.05186, 0.00123],
+                risk_type="relative",
+            )
+        )
+
+        result_rounded_dict = round_results_dict(asdict(result))
+        self.assertDictEqual(result_rounded_dict, expected_rounded_dict)
+
     def test_missing_data(self):
-        result = GaussianEffectABTest(
+        result = EffectBayesianABTest(
             SampleMeanStatistic(sum=0, sum_squares=0, n=0),
             SampleMeanStatistic(sum=0, sum_squares=0, n=0),
         ).compute_result()
@@ -94,7 +116,7 @@ class TestNorm(TestCase):
         self.assertEqual(result.expected, 0)
 
 
-class TestGaussianEffectABTest(TestCase):
+class TestEffectBayesianABTest(TestCase):
     def test_bayesian_effect_ab_test(self):
         nu = 0.9
         n_c = 11054
@@ -106,22 +128,22 @@ class TestGaussianEffectABTest(TestCase):
         quantile_upper_c = 7.217194843758751
         quantile_upper_t = 7.747193868770344
 
-        gaussian_improper_flat_prior = GaussianPrior(informative=False)
-        gaussian_flat_prior = GaussianPrior(variance=float(1e6), informative=True)
-        gaussian_inf_prior = GaussianPrior(variance=float(1), informative=True)
-        effect_config_improper_flat = GaussianEffectBayesianConfig(
+        gaussian_improper_flat_prior = GaussianPrior(proper=False)
+        gaussian_flat_prior = GaussianPrior(variance=float(1e6), proper=True)
+        gaussian_inf_prior = GaussianPrior(variance=float(1), proper=True)
+        effect_config_improper_flat = EffectBayesianConfig(
             difference_type="absolute", prior_effect=gaussian_improper_flat_prior
         )
-        effect_config_flat = GaussianEffectBayesianConfig(
+        effect_config_flat = EffectBayesianConfig(
             difference_type="absolute", prior_effect=gaussian_flat_prior
         )
-        effect_config_inf = GaussianEffectBayesianConfig(
+        effect_config_inf = EffectBayesianConfig(
             difference_type="absolute", prior_effect=gaussian_inf_prior
         )
-        effect_config_flat_rel = GaussianEffectBayesianConfig(
+        effect_config_flat_rel = EffectBayesianConfig(
             difference_type="relative", prior_effect=gaussian_flat_prior
         )
-        effect_config_inf_rel = GaussianEffectBayesianConfig(
+        effect_config_inf_rel = EffectBayesianConfig(
             difference_type="relative", prior_effect=gaussian_inf_prior
         )
 
@@ -142,19 +164,19 @@ class TestGaussianEffectABTest(TestCase):
             quantile_upper=quantile_upper_t,
         )
 
-        b_improper_flat = GaussianEffectABTest(
+        b_improper_flat = EffectBayesianABTest(
             q_stat_c, q_stat_t, config=effect_config_improper_flat
         ).compute_result()
-        b_flat = GaussianEffectABTest(
+        b_flat = EffectBayesianABTest(
             q_stat_c, q_stat_t, config=effect_config_flat
         ).compute_result()
-        b_relative_flat = GaussianEffectABTest(
+        b_relative_flat = EffectBayesianABTest(
             q_stat_c, q_stat_t, config=effect_config_flat_rel
         ).compute_result()
-        b_informative = GaussianEffectABTest(
+        b_informative = EffectBayesianABTest(
             q_stat_c, q_stat_t, config=effect_config_inf
         ).compute_result()
-        b_relative_informative = GaussianEffectABTest(
+        b_relative_informative = EffectBayesianABTest(
             q_stat_c, q_stat_t, config=effect_config_inf_rel
         ).compute_result()
 
@@ -193,7 +215,7 @@ class TestGaussianEffectABTest(TestCase):
             quantile_lower=quantile_lower_t,
             quantile_upper=quantile_upper_t,
         )
-        b_flat = GaussianEffectABTest(
+        b_flat = EffectBayesianABTest(
             q_stat_c, q_stat_t, config=effect_config_flat
         ).compute_result()
         m, s = b_flat.expected, (b_flat.ci[1] - b_flat.ci[0]) / (2 * norm.ppf(0.975))
@@ -211,16 +233,16 @@ class TestGaussianEffectRelativeAbsolutePriors(TestCase):
         stat_c = SampleMeanStatistic(n=100, sum=1000, sum_squares=200000)
         stat_t = SampleMeanStatistic(n=100, sum=1100, sum_squares=200005)
 
-        gaussian_inf_prior = GaussianPrior(mean=1, variance=1, informative=True)
-        abs_config_inf = GaussianEffectBayesianConfig(
+        gaussian_inf_prior = GaussianPrior(mean=1, variance=1, proper=True)
+        abs_config_inf = EffectBayesianConfig(
             difference_type="absolute", prior_effect=gaussian_inf_prior
         )
-        rel_config_inf = GaussianEffectBayesianConfig(
+        rel_config_inf = EffectBayesianConfig(
             difference_type="relative", prior_effect=gaussian_inf_prior
         )
 
-        abs_test = GaussianEffectABTest(stat_c, stat_t, abs_config_inf)
-        rel_test = GaussianEffectABTest(stat_c, stat_t, rel_config_inf)
+        abs_test = EffectBayesianABTest(stat_c, stat_t, abs_config_inf)
+        rel_test = EffectBayesianABTest(stat_c, stat_t, rel_config_inf)
         abs_res = abs_test.compute_result()
         rel_res = rel_test.compute_result()
 
