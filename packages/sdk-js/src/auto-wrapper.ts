@@ -1,4 +1,10 @@
-import { Context, GrowthBook } from "./index";
+import Cookies from "js-cookie";
+import {
+  BrowserCookieStickyBucketService,
+  Context,
+  GrowthBook,
+  StickyBucketService,
+} from "./index";
 
 type WindowContext = Context & {
   uuidCookieName?: string;
@@ -6,6 +12,7 @@ type WindowContext = Context & {
   uuid?: string;
   attributeKeys?: Record<string, string>;
   persistUuidOnLoad?: boolean;
+  enableStickyBuckets?: boolean;
 };
 declare global {
   interface Window {
@@ -191,6 +198,13 @@ function getAttributes() {
   return attributes;
 }
 
+// Create sticky bucket service
+let stickyBucketService: StickyBucketService | undefined = undefined;
+if (windowContext.enableStickyBuckets) {
+  stickyBucketService = new BrowserCookieStickyBucketService({
+    jsCookie: Cookies,
+  });
+}
 // Create GrowthBook instance
 const gb = new GrowthBook({
   ...dataContext,
@@ -212,6 +226,7 @@ const gb = new GrowthBook({
   },
   ...windowContext,
   attributes: getAttributes(),
+  stickyBucketService,
 });
 
 // Set the renderer to fire a custom DOM event
@@ -220,8 +235,20 @@ gb.setRenderer(() => {
   document.dispatchEvent(new CustomEvent("growthbookdata"));
 });
 
-// Load features/experiments
-gb.loadFeatures();
+(async () => {
+  // Hydrate sticky bucket service
+  if (stickyBucketService && windowContext.stickyBucketAssignmentDocs) {
+    for (const key in windowContext.stickyBucketAssignmentDocs) {
+      const doc = windowContext.stickyBucketAssignmentDocs?.[key];
+      if (doc) {
+        await stickyBucketService.saveAssignments(doc);
+      }
+    }
+  }
+
+  // Load features/experiments
+  gb.loadFeatures();
+})();
 
 // Poll for URL changes and update GrowthBook
 let currentUrl = location.href;

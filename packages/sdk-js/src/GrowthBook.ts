@@ -167,8 +167,8 @@ export class GrowthBook<
       this._setAntiFlicker();
     }
 
-    if (!context.remoteEval) {
-      if (context.clientKey && !context.loadStoredPayload) {
+    if (!context.remoteEval && !context.loadStoredPayload) {
+      if (context.clientKey) {
         this._refresh({}, true, false);
       } else if (context.stickyBucketService) {
         this.refreshStickyBuckets();
