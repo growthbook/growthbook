@@ -65,7 +65,14 @@ export default function PowerCalculationStatsEngineModal({
           options={[
             {
               key: "bayesian",
-              description: <span className="text-muted">Bayesian</span>,
+              description: (
+                <>
+                  <span className="text-muted mr-1">Bayesian</span>
+                  {orgSettings.statsEngine === "bayesian"
+                    ? "(Org default)"
+                    : ""}
+                </>
+              ),
               disabled: true,
             },
             {
@@ -73,8 +80,10 @@ export default function PowerCalculationStatsEngineModal({
               description: (
                 <div className="container">
                   <div className="row">
-                    <span className="mr-2 font-weight-bold">Frequentist</span>{" "}
-                    (Org default)
+                    <span className="mr-1 font-weight-bold">Frequentist</span>
+                    {orgSettings.statsEngine === "frequentist"
+                      ? "(Org default)"
+                      : ""}
                   </div>
                   <div className="row mt-2">
                     <span>

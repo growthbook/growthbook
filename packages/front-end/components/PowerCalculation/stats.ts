@@ -252,8 +252,8 @@ export function powerMetricWeeks(
   const mySampleSizeAndRuntime: { [id: string]: SampleSizeAndRuntime } = {};
 
   const metricThresholds = {};
-  const weeks: Week[] = [...Array(nWeeks).keys()].map(() => ({
-    users: powerSettings.usersPerDay,
+  const weeks: Week[] = [...Array(nWeeks).keys()].map((idx) => ({
+    users: (idx + 1) * powerSettings.usersPerDay,
     metrics: {},
   }));
 

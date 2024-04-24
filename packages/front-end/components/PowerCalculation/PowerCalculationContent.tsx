@@ -38,14 +38,16 @@ const AnalysisSettings = ({
   updateVariations: (_: number) => void;
   updateStatsEngine: (_: StatsEngine) => void;
 }) => {
-  const [currentVariations, setCurrentVariations] = useState(
-    params.nVariations
-  );
+  const [currentVariations, setCurrentVariations] = useState<
+    number | undefined
+  >(params.nVariations);
 
   const [showStatsEngineModal, setShowStatsEngineModal] = useState(false);
 
   const isValidCurrentVariations =
-    MIN_VARIATIONS <= currentVariations && currentVariations <= MAX_VARIATIONS;
+    currentVariations &&
+    MIN_VARIATIONS <= currentVariations &&
+    currentVariations <= MAX_VARIATIONS;
 
   return (
     <>
@@ -93,14 +95,20 @@ const AnalysisSettings = ({
                   !isValidCurrentVariations && "border border-danger"
                 )}
                 value={currentVariations}
-                onChange={(e) => setCurrentVariations(Number(e.target.value))}
+                onChange={(e) =>
+                  setCurrentVariations(
+                    e.target.value !== "" ? Number(e.target.value) : undefined
+                  )
+                }
               />
               <button
                 disabled={
                   currentVariations === params.nVariations ||
                   !isValidCurrentVariations
                 }
-                onClick={() => updateVariations(currentVariations)}
+                onClick={() =>
+                  updateVariations(ensureAndReturn(currentVariations))
+                }
                 className="btn border border-primary text-primary"
               >
                 Update
@@ -150,77 +158,86 @@ const SampleSizeAndRuntime = ({
   return (
     <div className="row card gsbox mb-3 border">
       <div className="row pt-4 pl-4 pr-4 pb-1">
-        <div className="col-7">
+        <div>
           <h2>Calculated Sample Size & Runtime</h2>
           <p>
             Needed sample sizes are based on total number of users across all
             variations.
           </p>
-
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Metric</th>
-                <th>Effect Size</th>
-                <th>Needed Sample</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.keys(sampleSizeAndRuntime).map((id) => {
-                const {
-                  type,
-                  users,
-                  weeks,
-                  effectSize,
-                  name,
-                } = ensureAndReturn(sampleSizeAndRuntime[id]);
-
-                return (
-                  <tr
-                    key={name}
-                    className={clsx(
-                      "power-analysis-row",
-                      selectedRow === id && "selected"
-                    )}
-                    onClick={() => setSelectedRow(id)}
-                  >
-                    <td>
-                      <MetricLabel name={name} type={type} />
-                    </td>
-                    <td>{numberFormatter.format(effectSize)}</td>
-                    <td>
-                      {weeks
-                        ? `${formatWeeks({
-                            weeks,
-                            nWeeks: params.nWeeks,
-                          })}; ${numberFormatter.format(users)} users`
-                        : formatWeeks({ weeks, nWeeks: params.nWeeks })}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
         </div>
-        <div className="col-4 mt-4">
-          <div className="card alert alert-info">
-            <div className="card-title uppercase-title mb-0">Summary</div>
-            <h4>{selectedName}</h4>
-            <p>
-              Reliably detecting a lift of{" "}
-              <span className="font-weight-bold">
-                {percentFormatter.format(params.targetPower)}
-              </span>{" "}
-              requires running your experiment for{" "}
-              <span className="font-weight-bold">
-                {formatWeeks({ weeks: selectedWeeks, nWeeks: params.nWeeks })}
-              </span>{" "}
-              (roughly collecting{" "}
-              <span className="font-weight-bold">
-                {numberFormatter.format(selectedUsers)} users
-              </span>
-              )
-            </p>
+
+        <div className="container">
+          <div className="row">
+            <div className="col-7">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Metric</th>
+                    <th>Effect Size</th>
+                    <th>Needed Sample</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.keys(sampleSizeAndRuntime).map((id) => {
+                    const {
+                      type,
+                      users,
+                      weeks,
+                      effectSize,
+                      name,
+                    } = ensureAndReturn(sampleSizeAndRuntime[id]);
+
+                    return (
+                      <tr
+                        key={name}
+                        className={clsx(
+                          "power-analysis-row",
+                          selectedRow === id && "selected"
+                        )}
+                        onClick={() => setSelectedRow(id)}
+                      >
+                        <td>
+                          <MetricLabel name={name} type={type} />
+                        </td>
+                        <td>{percentFormatter.format(effectSize)}</td>
+                        <td>
+                          {weeks
+                            ? `${formatWeeks({
+                                weeks,
+                                nWeeks: params.nWeeks,
+                              })}; ${numberFormatter.format(users)} users`
+                            : formatWeeks({ weeks, nWeeks: params.nWeeks })}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="col-4">
+              <div className="card alert alert-info">
+                <div className="card-title uppercase-title mb-0">Summary</div>
+                <h4>{selectedName}</h4>
+                <p>
+                  Reliably detecting a lift of{" "}
+                  <span className="font-weight-bold">
+                    {percentFormatter.format(params.targetPower)}
+                  </span>{" "}
+                  requires running your experiment for{" "}
+                  <span className="font-weight-bold">
+                    {formatWeeks({
+                      weeks: selectedWeeks,
+                      nWeeks: params.nWeeks,
+                    })}
+                  </span>{" "}
+                  (roughly collecting{" "}
+                  <span className="font-weight-bold">
+                    {numberFormatter.format(selectedUsers)} users
+                  </span>
+                  )
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -249,10 +266,8 @@ const WeeksThreshold = ({
   ) : (
     <p>
       The experiment needs to run for{" "}
-      <span className="font-weight-bold">
-        {formatWeeks({ weeks: nWeeks, nWeeks })}
-      </span>{" "}
-      to achieve {percentFormatter.format(targetPower)} power for all metrics.
+      <span className="font-weight-bold">{formatWeeks({ nWeeks })}</span> to
+      achieve {percentFormatter.format(targetPower)} power for all metrics.
     </p>
   );
 
@@ -308,7 +323,7 @@ const MinimumDetectableEffect = ({
                       "power-analysis-cell-threshold"
                   )}
                 >
-                  {numberFormatter.format(
+                  {percentFormatter.format(
                     ensureAndReturn(metrics[id]).effectSize
                   )}
                 </td>
@@ -389,15 +404,15 @@ export default function PowerCalculationContent({
   params,
   updateVariations,
   updateStatsEngine,
-  clear,
-  showModal,
+  edit,
+  newCalculation,
 }: {
   results: PowerCalculationResults;
   params: PowerCalculationParams;
   updateVariations: (_: number) => void;
   updateStatsEngine: (_: StatsEngine) => void;
-  clear: () => void;
-  showModal: () => void;
+  edit: () => void;
+  newCalculation: () => void;
 }) {
   return (
     <div className="contents container pagecontents ml-1 pr-4">
@@ -411,19 +426,19 @@ export default function PowerCalculationContent({
           Select key metrics and hypothesized effect size to determine ideal
           experiment duration.
         </div>
-        <div className="col-auto">
+        <div className="col-auto pr-0">
           <button
-            className="btn btn-link float-right text-danger"
-            onClick={() => clear()}
+            className="btn btn-outline-primary float-right"
+            onClick={edit}
             type="button"
           >
-            Clear
+            Edit
           </button>
         </div>
-        <div className="col-auto">
+        <div className="col-auto pl-1">
           <button
             className="btn btn-primary float-right"
-            onClick={() => showModal()}
+            onClick={() => newCalculation()}
             type="button"
           >
             <span className="h4 pr-2 m-0 d-inline-block align-top">
@@ -443,8 +458,8 @@ export default function PowerCalculationContent({
         params={params}
         sampleSizeAndRuntime={results.sampleSizeAndRuntime}
       />
-      <MinimumDetectableEffect params={params} results={results} />
       <PowerOverTime params={params} results={results} />
+      <MinimumDetectableEffect params={params} results={results} />
     </div>
   );
 }

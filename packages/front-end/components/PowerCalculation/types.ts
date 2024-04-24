@@ -43,48 +43,55 @@ export type PartialPowerCalculationParams = Partial<
   };
 };
 
-export const config = {
+type Config = {
+  title: string;
+  isPercent: boolean;
+  minValue?: number;
+  maxValue?: number;
+  defaultValue?: number;
+};
+
+const checkConfig = <T extends string>(config: { [id in T]: Config }) => config;
+
+export const config = checkConfig({
   usersPerDay: {
     title: "Users Per Day",
     isPercent: false,
-    canBeNegative: false,
-    defaultValue: undefined,
+    minValue: 0,
   },
   effectSize: {
-    title: "Effect Size",
-    isPercent: false,
-    canBeNegative: false,
-    defaultValue: 0.5,
+    title: "Anticipated Effect Size",
+    isPercent: true,
+    minValue: 0,
+    defaultValue: 1,
   },
   mean: {
     title: "Mean",
     isPercent: false,
-    canBeNegative: true,
-    defaultValue: undefined,
   },
   standardDeviation: {
     title: "Standard Deviation",
     isPercent: false,
-    canBeNegative: false,
-    defaultValue: undefined,
+    minValue: 0,
   },
   conversionRate: {
     title: "Conversion Rate",
     isPercent: true,
-    canBeNegative: false,
-    defaultValue: undefined,
+    minValue: 0,
+    maxValue: 100,
   },
-} as const;
+});
 
 const validEntry = (name: keyof typeof config, v: number | undefined) => {
   if (v === undefined) return false;
   if (isNaN(v)) return false;
 
-  if (config[name].isPercent) if (v < 0 || 1 < v) return false;
+  const { maxValue, minValue } = config[name];
 
-  if (config[name].canBeNegative) return true;
+  if (minValue !== undefined && v < minValue) return false;
+  if (maxValue !== undefined && maxValue < v) return false;
 
-  return 0 <= v;
+  return true;
 };
 
 export const isValidPowerCalculationParams = (

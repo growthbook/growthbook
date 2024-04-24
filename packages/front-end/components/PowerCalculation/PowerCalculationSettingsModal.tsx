@@ -19,6 +19,7 @@ import {
 export type Props = {
   close?: () => void;
   onSuccess: (_: FullModalPowerCalculationParams) => void;
+  params: PartialPowerCalculationParams;
 };
 
 type Form = UseFormReturn<PartialPowerCalculationParams>;
@@ -35,7 +36,9 @@ const SelectStep = ({
   const { metrics: appMetrics } = useDefinitions();
   const usersPerDay = form.watch("usersPerDay");
   const metrics = form.watch("metrics");
+
   const selectedMetrics = Object.keys(metrics);
+
   const isUsersPerDayInvalid = usersPerDay !== undefined && usersPerDay <= 0;
   const isNextDisabled =
     !selectedMetrics.length ||
@@ -99,10 +102,11 @@ const SelectStep = ({
                         type: "mean",
                         ...field("mean"),
                         ...field("standardDeviation"),
+                        standardDeviation: undefined,
                       }),
                 },
               };
-            }, {})
+            }, metrics)
           );
         }}
       />
@@ -147,19 +151,21 @@ const InputField = ({
   const metrics = form.watch("metrics");
   const params = ensureAndReturn(metrics[metricId]);
   const entryValue = params[entry];
-  const { title, isPercent, canBeNegative } = config[entry];
+  const { title, isPercent, maxValue, minValue } = config[entry];
 
   const isKeyInvalid = (() => {
     if (entryValue === undefined) return false;
-    if (isPercent) return entryValue < 0 || 1 < entryValue;
-    if (canBeNegative) return false;
-    return entryValue < 0;
+    if (minValue !== undefined && entryValue < minValue) return true;
+    if (maxValue !== undefined && maxValue < entryValue) return true;
+    return false;
   })();
 
   const helpText = (() => {
-    if (isPercent) return "Must be between 0 and 100";
-    if (canBeNegative) return "Must be a number";
-    return "Must be greater than 0";
+    if (minValue !== undefined && maxValue !== undefined)
+      return `Must be between ${minValue} and ${maxValue}`;
+    if (minValue !== undefined) return `Must be at least ${minValue}`;
+    if (maxValue !== undefined) return `Must be less than ${maxValue}`;
+    return "Must be a number";
   })();
 
   return (
@@ -167,6 +173,7 @@ const InputField = ({
       <Field
         label={<span className="font-weight-bold mr-1">{title}</span>}
         type="number"
+        {...(isPercent ? { append: "%" } : {})}
         {...form.register(`metrics.${metricId}.${entry}`, {
           valueAsNumber: true,
         })}
@@ -261,16 +268,15 @@ const SetParamsStep = ({
   );
 };
 
-export default function PowerCalculationSettingsModal({
+export default function PowerCalculationModal({
   close,
   onSuccess,
+  params,
 }: Props) {
   const [step, setStep] = useState<"select" | "set-params">("select");
 
   const form = useForm<PartialPowerCalculationParams>({
-    defaultValues: {
-      metrics: {},
-    },
+    defaultValues: params,
   });
 
   return (
