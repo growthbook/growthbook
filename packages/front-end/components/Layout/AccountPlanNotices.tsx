@@ -118,10 +118,8 @@ export default function AccountPlanNotices() {
               </div>
             </Tooltip>
           );
-        case "License server down for too long":
-          return license.lastServerErrorMessage?.includes(
-            "Could not connect"
-          ) ? (
+        case "License server unreachable for too long":
+          return (
             <Tooltip
               body={<>Please make sure that you have whitelisted 75.2.109.47</>}
             >
@@ -129,7 +127,9 @@ export default function AccountPlanNotices() {
                 <FaExclamationTriangle /> license server unreachable
               </div>
             </Tooltip>
-          ) : (
+          );
+        case "License server erroring for too long":
+          return (
             <Tooltip body={<>{license.lastServerErrorMessage}</>}>
               <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
                 <FaExclamationTriangle /> license server error
