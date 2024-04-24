@@ -3,6 +3,7 @@ import {
   BrowserCookieStickyBucketService,
   Context,
   GrowthBook,
+  LocalStorageStickyBucketService,
   StickyBucketService,
 } from "./index";
 
@@ -12,7 +13,7 @@ type WindowContext = Context & {
   uuid?: string;
   attributeKeys?: Record<string, string>;
   persistUuidOnLoad?: boolean;
-  enableStickyBuckets?: boolean;
+  useStickyBucketService?: "cookie" | "localStorage";
 };
 declare global {
   interface Window {
@@ -200,10 +201,12 @@ function getAttributes() {
 
 // Create sticky bucket service
 let stickyBucketService: StickyBucketService | undefined = undefined;
-if (windowContext.enableStickyBuckets) {
+if (windowContext.useStickyBucketService === "cookie") {
   stickyBucketService = new BrowserCookieStickyBucketService({
     jsCookie: Cookies,
   });
+} else if (windowContext.useStickyBucketService === "localStorage") {
+  stickyBucketService = new LocalStorageStickyBucketService();
 }
 // Create GrowthBook instance
 const gb = new GrowthBook({
