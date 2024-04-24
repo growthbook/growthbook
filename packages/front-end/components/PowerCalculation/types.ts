@@ -147,15 +147,17 @@ export type MDEResults =
       description: string;
     };
 
+export type PowerCalculationSuccessResults = {
+  type: "success";
+  sampleSizeAndRuntime: {
+    [id: string]: SampleSizeAndRuntime;
+  };
+  weeks: Week[];
+  weekThreshold?: number;
+};
+
 export type PowerCalculationResults =
-  | {
-      type: "success";
-      sampleSizeAndRuntime: {
-        [id: string]: SampleSizeAndRuntime;
-      };
-      weeks: Week[];
-      weekThreshold?: number;
-    }
+  | PowerCalculationSuccessResults
   | {
       type: "error";
       description: string;

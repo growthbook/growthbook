@@ -6,6 +6,7 @@ import { GBHeadingArrowLeft } from "@/components/Icons";
 import {
   PowerCalculationParams,
   PowerCalculationResults,
+  PowerCalculationSuccessResults,
   StatsEngine,
 } from "./types";
 import PowerCalculationStatsEngineModal from "./PowerCalculationStatsEngineModal";
@@ -72,17 +73,23 @@ const AnalysisSettings = ({
                 Edit
               </Link>
             </p>
-            <div className="alert alert-info w-75">
-              <span className="font-weight-bold">
-                Run experiment for{" "}
-                {formatWeeks({
-                  weeks: results.weekThreshold,
-                  nWeeks: params.nWeeks,
-                })}
-              </span>{" "}
-              to achieve {percentFormatter.format(params.targetPower)} power for
-              all metric.
-            </div>
+            {results.type === "error" ? (
+              <div className="alert alert-warning">
+                Computation failed: {results.description}
+              </div>
+            ) : (
+              <div className="alert alert-info w-75">
+                <span className="font-weight-bold">
+                  Run experiment for{" "}
+                  {formatWeeks({
+                    weeks: results.weekThreshold,
+                    nWeeks: params.nWeeks,
+                  })}
+                </span>{" "}
+                to achieve {percentFormatter.format(params.targetPower)} power
+                for all metric.
+              </div>
+            )}
           </div>
           <div className="vr"></div>
           <div className="col-4 align-self-end mb-4">
@@ -143,7 +150,7 @@ const SampleSizeAndRuntime = ({
   sampleSizeAndRuntime,
 }: {
   params: PowerCalculationParams;
-  sampleSizeAndRuntime: PowerCalculationResults["sampleSizeAndRuntime"];
+  sampleSizeAndRuntime: PowerCalculationSuccessResults["sampleSizeAndRuntime"];
 }) => {
   const [selectedRow, setSelectedRow] = useState(
     Object.keys(sampleSizeAndRuntime)[0]
@@ -275,7 +282,7 @@ const MinimumDetectableEffect = ({
   results,
   params,
 }: {
-  results: PowerCalculationResults;
+  results: PowerCalculationSuccessResults;
   params: PowerCalculationParams;
 }) => (
   <div className="row card gsbox mb-3 border">
@@ -341,7 +348,7 @@ const PowerOverTime = ({
   results,
 }: {
   params: PowerCalculationParams;
-  results: PowerCalculationResults;
+  results: PowerCalculationSuccessResults;
 }) => (
   <div className="row card gsbox mb-3 border">
     <div className="row pt-4 pl-4 pr-4 pb-1">
@@ -454,12 +461,16 @@ export default function PowerCalculationContent({
         updateVariations={updateVariations}
         updateStatsEngine={updateStatsEngine}
       />
-      <SampleSizeAndRuntime
-        params={params}
-        sampleSizeAndRuntime={results.sampleSizeAndRuntime}
-      />
-      <PowerOverTime params={params} results={results} />
-      <MinimumDetectableEffect params={params} results={results} />
+      {results.type !== "error" && (
+        <>
+          <SampleSizeAndRuntime
+            params={params}
+            sampleSizeAndRuntime={results.sampleSizeAndRuntime}
+          />
+          <PowerOverTime params={params} results={results} />
+          <MinimumDetectableEffect params={params} results={results} />
+        </>
+      )}
     </div>
   );
 }
