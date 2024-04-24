@@ -25,12 +25,12 @@ import {
   isSuspiciousUplift,
   quantileMetricType,
 } from "shared/experiments";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import {
-  defaultLoseRiskThreshold,
-  defaultWinRiskThreshold,
-  getExperimentMetricFormatter,
-} from "@/services/metrics";
+  DEFAULT_LOSE_RISK_THRESHOLD,
+  DEFAULT_WIN_RISK_THRESHOLD,
+} from "shared/constants";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import { getExperimentMetricFormatter } from "@/services/metrics";
 
 export type ExperimentTableRow = {
   label: string;
@@ -489,8 +489,8 @@ export function getRowResults({
     metricDefaults,
     baseline.cr
   );
-  const winRiskThreshold = metric.winRisk ?? defaultWinRiskThreshold;
-  const loseRiskThreshold = metric.loseRisk ?? defaultLoseRiskThreshold;
+  const winRiskThreshold = metric.winRisk ?? DEFAULT_WIN_RISK_THRESHOLD;
+  const loseRiskThreshold = metric.loseRisk ?? DEFAULT_LOSE_RISK_THRESHOLD;
   let riskStatus: "ok" | "warning" | "danger" = "ok";
   let riskReason = "";
   if (relativeRisk > winRiskThreshold && relativeRisk < loseRiskThreshold) {
