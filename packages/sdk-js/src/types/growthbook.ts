@@ -82,7 +82,6 @@ export type UrlTarget = {
 
 export type Experiment<T> = {
   key: string;
-  expHash?: string;
   changeType?: "redirect" | "visual";
   variations: [T, T, ...T[]];
   ranges?: VariationRange[];
@@ -116,7 +115,8 @@ export type Experiment<T> = {
   groups?: string[];
 };
 
-export type AutoExperiment = Experiment<AutoExperimentVariation> & {
+export type AutoExperiment<T = AutoExperimentVariation> = Experiment<T> & {
+  uid?: string;
   // If true, require the experiment to be manually triggered
   manual?: boolean;
 };

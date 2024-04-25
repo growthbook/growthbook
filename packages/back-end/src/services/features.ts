@@ -196,8 +196,13 @@ export function generateAutoExperimentsPayload({
 
       if (!phase) return null;
 
+      const implementationId =
+        (data.type === "redirect"
+          ? data?.urlRedirect?.id
+          : data?.visualChangeset?.id) || uniqid();
       const exp: AutoExperimentWithProject = {
         key: e.trackingKey,
+        uid: `${e.trackingKey}_${data.type}_${implementationId}`,
         status: e.status,
         project: e.project,
         variations: e.variations.map((v) => {
@@ -265,9 +270,6 @@ export function generateAutoExperimentsPayload({
       if (data.type === "redirect" && data.urlRedirect.persistQueryString) {
         exp.persistQueryString = true;
       }
-
-      // Deterministic hash based on the contents of the object
-      exp.expHash = sha256(JSON.stringify(exp), "");
 
       return exp;
     }
@@ -486,8 +488,8 @@ async function getFeatureDefinitionsResponse({
         exp.changeType = "visual";
       }
     }
-    if (!exp.expHash) {
-      exp.expHash = sha256(JSON.stringify(exp), "");
+    if (!exp.uid) {
+      exp.uid = `${exp.key}_${exp.changeType}_${uniqid()}`;
     }
     return exp;
   });

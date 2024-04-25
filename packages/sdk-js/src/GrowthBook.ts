@@ -643,6 +643,7 @@ export class GrowthBook<
     }
   }
 
+  // todo: rethink?
   private _isRedirectExperiment(exp: AutoExperiment) {
     return exp.variations.some((v) => Object.keys(v).includes("urlRedirect"));
   }
@@ -1420,7 +1421,11 @@ export class GrowthBook<
     if (this._trackedExperiments.has(k)) return;
     this._trackedExperiments.add(k);
     this._trackedExperimentKeys.add(key);
-    experiment.expHash && this._trackedExperimentHashes.add(experiment.expHash);
+    // todo: works...
+    const uid = (experiment as AutoExperiment)?.uid;
+    uid && this._trackedExperimentHashes.add(uid);
+    // todo: does not work
+    //experiment?.uid && this._trackedExperimentHashes.add(experiment.uid);
 
     if (!this._ctx.trackingCallback) {
       this._deferredTrackingCalls.push({ experiment, result });
@@ -1551,9 +1556,7 @@ export class GrowthBook<
     return false;
   }
 
-  private _isExperimentBlockedByContext(
-    experiment: Experiment<AutoExperimentVariation>
-  ): boolean {
+  private _isExperimentBlockedByContext(experiment: AutoExperiment): boolean {
     if (
       experiment.changeType === "visual" &&
       this._ctx.disableVisualExperiments
@@ -1594,8 +1597,8 @@ export class GrowthBook<
       return true;
 
     if (
-      experiment.expHash &&
-      (this._ctx.blockedExperimentHashes || []).includes(experiment.expHash)
+      experiment.uid &&
+      (this._ctx.blockedExperimentHashes || []).includes(experiment.uid)
     )
       return true;
 
