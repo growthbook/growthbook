@@ -134,8 +134,7 @@ export async function refreshFeatures(
   allowStale?: boolean,
   updateInstance?: boolean,
   backgroundSync?: boolean,
-  useStoredPayload?: boolean,
-  skipExperimentUpdate?: boolean
+  useStoredPayload?: boolean
 ): Promise<void> {
   if (!backgroundSync) {
     cacheSettings.backgroundSync = false;
@@ -148,9 +147,7 @@ export async function refreshFeatures(
     skipCache,
     useStoredPayload
   );
-  updateInstance &&
-    data &&
-    (await refreshInstance(instance, data, skipExperimentUpdate));
+  updateInstance && data && (await refreshInstance(instance, data));
 }
 
 // Subscribe a GrowthBook instance to feature changes
@@ -382,18 +379,14 @@ function onNewFeatureData(
 
 async function refreshInstance(
   instance: GrowthBook,
-  data: FeatureApiResponse,
-  skipUpdate?: boolean
+  data: FeatureApiResponse
 ): Promise<void> {
   instance.setPayload(data);
   data = await instance.decryptPayload(data, undefined, polyfills.SubtleCrypto);
 
   await instance.refreshStickyBuckets(data);
   instance.setFeatures(data.features || instance.getFeatures());
-  instance.setExperiments(
-    data.experiments || instance.getExperiments(),
-    skipUpdate
-  );
+  instance.setExperiments(data.experiments || instance.getExperiments());
 }
 
 async function fetchFeatures(

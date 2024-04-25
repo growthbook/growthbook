@@ -182,13 +182,12 @@ export class GrowthBook<
     if (this.context.payload && !this._loadFeaturesCalled) {
       options.useStoredPayload = true;
     }
-    this._loadFeaturesCalled = true;
-
-    await this._refresh(options, true, true, true);
+    await this._refresh(options, true, true);
 
     if (this._canSubscribe()) {
       subscribe(this);
     }
+    this._loadFeaturesCalled = true;
   }
 
   public async refreshFeatures(
@@ -241,8 +240,7 @@ export class GrowthBook<
   private async _refresh(
     options?: RefreshFeaturesOptions,
     allowStale?: boolean,
-    updateInstance?: boolean,
-    firstLoad?: true
+    updateInstance?: boolean
   ) {
     options = options || {};
     if (!this._ctx.clientKey) {
@@ -255,8 +253,7 @@ export class GrowthBook<
       allowStale,
       updateInstance,
       this._ctx.backgroundSync !== false,
-      options.useStoredPayload,
-      firstLoad && this._ctx.disableExperimentsOnLoad
+      options.useStoredPayload
     );
   }
 
@@ -270,15 +267,10 @@ export class GrowthBook<
     }
   }
 
-  public setFeatures(
-    features: Record<string, FeatureDefinition>,
-    skipRender?: boolean
-  ) {
+  public setFeatures(features: Record<string, FeatureDefinition>) {
     this._ctx.features = features;
     this.ready = true;
-    if (!skipRender) {
-      this._render();
-    }
+    this._render();
   }
 
   public async setEncryptedFeatures(
@@ -296,15 +288,11 @@ export class GrowthBook<
     );
   }
 
-  public setExperiments(
-    experiments: AutoExperiment[],
-    skipUpdate?: boolean
-  ): void {
+  public setExperiments(experiments: AutoExperiment[]): void {
     this._ctx.experiments = experiments;
     this.ready = true;
-    if (!skipUpdate) {
-      this._updateAllAutoExperiments();
-    }
+    if (!this._loadFeaturesCalled && this._ctx.disableExperimentsOnLoad) return;
+    this._updateAllAutoExperiments();
   }
 
   public async setEncryptedExperiments(
