@@ -1,0 +1,184 @@
+---
+title: Power Analysis
+description: Power Analysis
+sidebar_label: Power Analysis
+slug: power
+---
+
+# Power
+
+:::note
+Power analysis is currently in beta, and is available to only select customers. Currently GrowthBook offers only frequentist power analysis. Bayesian power analysis is coming soon.
+:::
+
+## What is power analysis?
+
+Power analysis helps you estimate required experimental duration. Power is the probability of observing a statistically significant result, given your feature has some effect on your metric.
+
+## When should I run power analysis?
+
+You should run power analysis before your experiment starts, to determine how long you should run your experiment. The longer the experiment runs, the more users are in the experiment (i.e., your sample size increases). Increasing your sample size lowers the uncertainty around your estimate, which makes it likelier you achieve a statistically significant result.
+
+## What is a minimum detectable effect, and how do I interpret it?
+
+Recall that your relative effect size (which we often refer to as simply the effect size), is the percentage improvement in your metric caused by your feature. For example, suppose that average revenue per customer under control is \$100, while under treatment you expect that it will be $102. This corresponds to a ($102-$100)/$100 = 2% effect size. Effect size is often referred to as lift.
+
+Given the sample variance of your metric and the sample size, the minimum detectable effect (MDE) is the smallest effect size for which your power will be at least 80%.
+
+For example, suppose your MDE is 2%. If you feel like your feature could drive a 2% improvement, then your experiment is high-powered.
+
+## How do I run a power analysis?
+
+1. Navigate to app-growthbook.io/power-calculator.
+2. Select “New Calculation”.
+3. On the first page you:
+
+- Select your metrics (maximum of 5). Currently binomial, count, duration, and revenue metrics are supported, while ratio and quantile metrics are unsupported.
+- Select your "Estimated users per week." This is the average number of **new** users your experiment will add each week. See [FAQ](#faq) below for a couple of simple estimation approaches.
+- click "Next".
+
+4. On the second page you:
+
+- enter the "Effect Size" for each metric. Effect size is the percentage improvement in your metric (i.e., the lift) you anticipate your feature will cause. Inputting your effect size is a challenging part of power analysis - see [Effect Size](#how-should-i-pick-my-effect-size)
+- for binomial metrics, enter the conversion rate.
+- for other metrics, enter the metric mean and metric standard deviation. These means and standard deviations occur across users in your experimental population.
+- click "Next".
+
+5. Now you have results! Please see the results interpretation [here](#how-do-i-interpret-power-analysis-results).
+6. By clicking "Edit", you can toggle [sequential testing](/statistics/sequential) on and off to compare power. Enabling sequential testing decreases power.
+7. You can alter the number of variations in your experiment. Increased variations result in smaller sample sizes per variation, resulting in lower power.
+
+#need to update this Image, go through results interpretation
+
+## How do I interpret power analysis results?
+
+Below is an example power analysis results page.
+![User interface for quantile metrics](/images/statistics/power_results.png)
+
+GrowthBook includes both power and MDE results to ensure that customers comfortable with either tool can use them to make decisions.
+
+## How should I pick my effect size?
+
+Selecting your effect size for power analysis requires careful thought. Your effect size is your anticipated metric lift due to your feature. Obviously you do not have complete information about the true lift, otherwise you would not be running the experiment!
+
+We advocate running power analysis for multiple effect sizes. The following questions may elicit helpful effect sizes:
+
+1. What is your best guess for the potential improvement due to your feature? Are there similar historical experiments, or pilot studies, and if so, what were their lifts?
+2. Suppose your feature is amazing - what do you think the lift would be?
+3. Suppose your feature impact is smaller than you think - how small could it be?
+
+Ideally your experiment has high power (see [here](#what-is-a-high-powered-experiment)) across a range of effect sizes.
+
+## What is a high-powered experiment?
+
+In clinical trials, the standard is 80%. This means that if you were to run your clinical trial 100 times with different patients and different randomizations each time, then you would observe statistically significant results in at least roughly 80 of those trials. When calculating MDEs, we use this default of 80%.
+
+That being said, running an experiment with less than 80% power can still help your business. The purpose of an experiment is to learn about your business, not simply to roll out features that achieve statistically significant improvement. The biggest cost to running low-powered experiments is that
+
+## How can I increase my experimental power?
+
+You can increase experimental power by increasing the number of daily users, perhaps by either expanding your population to new segments, or by including a larger percentage of user traffic in your experiment.
+
+Similarly, if you have more than 2 variations, reducing the number of variations increases power.
+
+## FAQ
+
+Frequently asked questions:
+
+1. How do I pick the number for Estimated users per week? If you know your number of daily users, you can multiply that by 7. If traffic varies by day of the week, you may want to do something like (5 _ average weekday traffic + 2 _ average weekend traffic) / 7.
+
+## GrowthBook implementation
+
+Assumptions include:
+
+1. equal sample sizes across control and treatment variations;
+2. equal variance across control and treatment variations;
+3. observations across users are independent and identically distributed; and
+4. all metrics have finite variance.
+
+Below we describe technical details of our implementation. First we start with the definition of power.  
+Define:
+
+1. the false positive rate as $\alpha$ (GrowthBook default is $\alpha=0.05$).
+2. the critical values $Z_{1-\alpha/2}= \Phi^{-1}(1-\alpha/2)$ and $Z_{1-\alpha}= \Phi^{-1}(1-\alpha)$ where $\Phi$ is the inverse CDF of the standard normal distribution.
+3. the true relative treatment effect as $\tau$, its estimate as $\hat{\tau}$ and its estimated standard error as $s$. Note that as the sample size $n$ increases, s decreases by a factor of $1/\sqrt{n}$.
+
+For a 1-sided test, the probability of a statistically significant result (i.e., the power) is
+
+$$\pi = P\left(\frac{\hat{\tau}}{s} > Z_{1-\alpha}\right)=P\left(\frac{\hat{\tau}-\tau}{s} > Z_{1-\alpha}-\frac{\tau}{s}\right)=1 - \Phi\left(Z_{1-\alpha}-\frac{\tau}{s}\right)$$.
+
+For a 2-sided test (all GrowthBook tests are 2-sided), the power is composed of the probability of a statistically significant positive result and a statistically significant negative result. Using the same algebra as above (except using $Z_{1-0.5\alpha}$ for the critical value), the probability of a statistically significant positive result is
+$\pi_{pos} = 1 - \Phi\left(Z_{1-\alpha/2}-\frac{\tau}{s}\right)$. The probability of a statistically significant negative result is $\pi_{neg} = P\left(\frac{\hat{\tau}}{s} < Z_{\alpha/2}\right)=P\left(\frac{\hat{\tau}-\tau}{s} < Z_{\alpha/2}-\frac{\tau}{s}\right)=\Phi\left(Z_{\alpha/2}-\frac{\tau}{s}\right)$.  
+For a 2-sided test, the power equals
+
+$$\pi = 1 - \Phi\left(Z_{1-\alpha/2}-\frac{\tau}{s}\right) + \Phi(Z_{\alpha/2} - \frac{\tau}{s})$$.
+
+The MDE is the smallest $\tau$ for which nominal power (i.e., 80%) is achieved. For a 1-sided test there is a closed form solution for the MDE. Solving the 1-sided power equation for $\tau$ produces
+$\text{MDE} = s\left(Z_{1-\alpha/2}-\Phi^{-1}(1 - \pi)\right) = s\left(\Phi^{-1}(1 - \alpha/2)-\Phi^{-1}(1 - \pi)\right)$.
+
+In the 2-sided case there is no closed form solution, so we instead invert the equation below, which ignores the neglible term $\Phi(Z_{\alpha/2} - \frac{\tau}{s})$ and produces power estimates very close to 0.8:
+$$\pi = 1 - \Phi\left(Z_{1-\alpha/2}-\frac{\tau}{s}\right)$$
+One subtlety with finding MDEs for relative treatment effects is that the uncertainty of the estimate depends upon the mean.
+So when inverting the power formula above to find the minimum $\tau$ that produces at least 80% power, the uncertainty term $s$ changes as $\tau$ changes.  
+We solve for the equation below, where we make explicit the dependence of $s$ on $\tau$:
+
+$$\frac{\tau}{s(\tau)} =  \Phi^{-1}\left({1-\alpha/2}\right) - \Phi^{-1}(1 - \pi).$$
+
+Define $\mu_{A}$ as the population mean of variation $A$ and $\sigma^{2}$ as the population variance.
+For variation $B$ analogously define $\mu_{B}$; recall that we assume equal variance across treatment arms.  
+Define $N$ as the per-variation sample size.
+Define the sample counterparts as ($\hat{\mu}_{A}$, $\hat{\sigma}_{A}^{2}$, $\hat{\mu}_{B}$, and $\hat{\sigma}_{B}^{2}$).
+
+Recall that our lift is defined as $$\tau = (\mu_{B}-\mu_{A})/\mu_{A}$$ and the variance of the sample lift $$\hat{\tau} = (\hat{\mu_{B}}-\hat{\mu_{A}})/\hat{\mu_{A}}$$ is
+
+$$\text{Var}(\hat{\tau}) = \frac{\sigma^{2}}{N}\frac{1}{\mu_{A}^{2}}  + \frac{\sigma^{2}}{N} *\frac{\mu_{B}^{2}}{\mu_{A}^{4}}.$$
+
+Define the constant $k = \Phi^{-1}\left({1-\alpha/2}\right) - \Phi^{-1}(1 - \pi)$.
+We solve for $\mu_{B}$ in:
+
+$$\frac{(\mu_{B}-\mu_{A})/\mu_{A}}{\sqrt{\text{Var}(\hat{\tau})}} = k^{2} \iff (\mu_{B}-\mu_{A})^{2} =k^{2}\mu_{A}^{2}\text{Var}(\hat{\tau}) = k^{2}\mu_{A}^{2}\left(\frac{\sigma^{2}}{N}\frac{1}{\mu_{A}^{2}}  + \frac{\sigma^{2}}{N} *\frac{\mu_{B}^{2}}{\mu_{A}^{4}}\right).$$
+
+Rearranging terms shows that
+$$\mu_{B}^{2}\left(1-\frac{\sigma^{2}}{N}\frac{k^{2}}{\mu_{A}^{2}}\right) + \mu_{B}\left(-2\mu_{A}\right) + \left(\mu_{A}^{2}-k^{2}\frac{\sigma^{2}}{N}\right) = 0.$$
+
+This is quadratic in $\mu_{B}$ and has solution
+
+$$
+\mu_{B} = \frac{2 \mu_{A} \pm \sqrt{4 \mu_{A}^{2}-4\left(1-\frac{\sigma^{2}}{N}\frac{k^{2}}{\mu_{A}^{2}}\right)\left(\mu_{A}^{2}-k^{2}\frac{\sigma^{2}}{N}\right)}}{2\left(1-\frac{\sigma^{2}}{N}\frac{k^{2}}{\mu_{A}^{2}}\right)}
+= \frac{\mu_{A} \pm \sqrt{\mu_{A}^{2}-\left(1-\frac{\sigma^{2}}{N}\frac{k^{2}}{\mu_{A}^{2}}\right)\left(\mu_{A}^{2}-k^{2}\frac{\sigma^{2}}{N}\right)}}{\left(1-\frac{\sigma^{2}}{N}\frac{k^{2}}{\mu_{A}^{2}}\right)}
+.
+$$
+
+The discriminant reduces to
+
+$$k^{2} * \frac{\sigma^{2}}{N} \left(2 - \frac{\sigma^{2}}{N} * \frac{k^{2}}{\mu_{A}^{2}}\right).$$
+
+so a solution for $\mu_{B}$ exists if and only if
+
+$$
+2 - \frac{\sigma^{2}}{N} * \frac{k^{2}}{\mu_{A}^{2}} > 0 \iff 2  > \frac{\sigma^{2}}{N} * \frac{k^{2}}{\mu_{A}^{2}}
+\iff N  > \frac{\sigma^{2}k^{2}}{2\mu_{A}^{2}}.
+$$
+
+Therefore, there will be some combinations of $(\mu_{A}, \sigma_{2})$ where the MDE does not exist for a given $N$.
+In these cases, $N$ needs to be increased.
+
+To estimate power under sequential testing, we adjust the variance term $s$ to account for sequential testing, and then input this adjusted variance into our power formula.
+
+In [sequential testing](/statistics/sequential) we construct confidence intervals as
+
+$\left(\hat{\tau} \pm \hat{\sigma}*\sqrt{N} * \sqrt{\frac{2(N\rho^2 + 1)}{N^2\rho^2}\log\left(\frac{\sqrt{N\rho^2 + 1}}{\alpha}\right)}\right)$
+
+where
+
+$\rho = \sqrt{\frac{-2\text{log}(\alpha) + \text{log}(-2 \text{log}(\alpha) + 1)}{N^*}}$.
+
+The approach relies upon normality and we can rewrite the confidence interval as
+
+$\left(\hat{\tau} \pm \hat{\sigma}*\sqrt{N} * \sqrt{\frac{2(N\rho^2 + 1)}{N^2\rho^2}\log\left(\frac{\sqrt{N\rho^2 + 1}}{\alpha}\right)}\frac{Z_{1-\alpha/2}}{Z_{1-\alpha/2}}\right)$$=\left(\hat{\tau} \pm \tilde{\sigma}Z_{1-\alpha/2}\right)$
+
+where
+
+$\tilde{\sigma} = \hat{\sigma}*\sqrt{N}\sqrt{\frac{2(N\rho^2 + 1)}{N^2\rho^2}\log\left(\frac{\sqrt{N\rho^2 + 1}}{\alpha}\right)}\frac{1}{Z_{1-\alpha/2}}$.
+
+We use power analysis described above, except we substitute $\tilde{\sigma}^{2}$ for $s^{2}$.

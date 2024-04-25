@@ -27,7 +27,7 @@ export function frequentistVariance(
   varB: number,
   meanB: number,
   nB: number,
-  relative: boolean,
+  relative: boolean
 ): number {
   if (relative) {
     return (
@@ -42,30 +42,29 @@ export function frequentistVariance(
 export function powerStandardError(
   variance: number,
   mean: number,
-  n: number,
-  nVariations: number,
-  effectSize: number,
+  nPerVariation: number,
+  effectSize: number
 ): number {
   return Math.sqrt(
     frequentistVariance(
       variance,
       mean,
-      n / nVariations,
+      nPerVariation,
       variance,
       mean * (1 + effectSize),
-      n / nVariations,
-      true,
-    ),
+      nPerVariation,
+      true
+    )
   );
 }
 
 export function calculateRho(
   alpha: number,
-  sequentialTuningParameter: number,
+  sequentialTuningParameter: number
 ): number {
   return Math.sqrt(
     (-2 * Math.log(alpha) + Math.log(-2 * Math.log(alpha) + 1)) /
-      sequentialTuningParameter,
+      sequentialTuningParameter
   );
 }
 
@@ -73,7 +72,7 @@ export function sequentialPowerSequentialVariance(
   variance: number,
   n: number,
   alpha: number,
-  sequentialTuningParameter: number,
+  sequentialTuningParameter: number
 ): number {
   const standardErrorSampleMean = Math.sqrt(variance / n);
   const rho = calculateRho(alpha, sequentialTuningParameter);
@@ -97,24 +96,24 @@ export function sequentialPowerStandardError(
   nVariations: number,
   effectSize: number,
   alpha: number,
-  sequentialTuningParameter: number,
+  sequentialTuningParameter: number
 ): number {
-  const v = sequentialPowerSequentialVariance(
+  const v_rel = frequentistVariance(
     variance,
+    mean,
     n / nVariations,
-    alpha,
-    sequentialTuningParameter,
+    variance,
+    mean * (1.0 + effectSize),
+    n / nVariations,
+    true
   );
   return Math.sqrt(
-    frequentistVariance(
-      v,
-      mean,
-      n / nVariations,
-      v,
-      mean * (1.0 + effectSize),
-      n / nVariations,
-      true,
-    ),
+    sequentialPowerSequentialVariance(
+      v_rel,
+      (2 * n) / nVariations,
+      alpha,
+      sequentialTuningParameter
+    )
   );
 }
 
@@ -138,11 +137,8 @@ export function powerEst(
   nVariations: number,
   alpha: number = 0.05,
   twoTailed: boolean = true,
-  sequentialTuningParameter = 0,
+  sequentialTuningParameter = 0
 ): number {
-  if (typeof twoTailed !== "boolean") {
-    throw new Error("twoTailed must be boolean.");
-  }
   const zStar = twoTailed
     ? normal.quantile(1.0 - 0.5 * alpha, 0, 1)
     : normal.quantile(1.0 - alpha, 0, 1);
@@ -156,15 +152,14 @@ export function powerEst(
       nVariations,
       effectSize,
       alpha,
-      sequentialTuningParameter,
+      sequentialTuningParameter
     );
   } else {
     standardError = powerStandardError(
       variance,
       mean,
-      n,
-      nVariations,
-      effectSize,
+      n / nVariations,
+      effectSize
     );
   }
   const standardizedEffectSize = effectSize / standardError;
@@ -186,7 +181,7 @@ export function powerEst(
  * @param n Scalar sample size.
  * @param nVariations Scalar number of variations.
  * @param alpha false positive rate (default: 0.05).
- * @returns Estimated power.
+ * @returns object of class MDEResults, containing type and either mde or description.
  */
 export function findMde(
   power: number,
@@ -195,7 +190,7 @@ export function findMde(
   n: number,
   nVariations: number,
   alpha: number = 0.05,
-  sequentialTuningParameter = 0,
+  sequentialTuningParameter = 0
 ): MDEResults {
   // Error handling:
   if (power <= alpha) {
@@ -213,11 +208,12 @@ export function findMde(
   if (sequentialTuningParameter > 0) {
     v = sequentialPowerSequentialVariance(
       variance,
-      nA,
+      2 * nA,
       alpha,
-      sequentialTuningParameter,
+      sequentialTuningParameter
     );
   }
+  //ensure the term under the radical is non-negative.
   if (nA <= (v * z ** 2) / (2 * mean ** 2)) {
     const mdeResults: MDEResults = {
       type: "error",
@@ -241,7 +237,7 @@ export function findMde(
 }
 
 export function powerMetricWeeks(
-  powerSettings: PowerCalculationParams,
+  powerSettings: PowerCalculationParams
 ): PowerCalculationResults {
   const metrics = powerSettings.metrics;
   const sampleSizeAndRuntimeNumeric: number[] = []; //for each metric, the first week they achieve 80% power.
@@ -255,7 +251,9 @@ export function powerMetricWeeks(
   }
   const nMetrics = getNumberOfMetrics(powerSettings);
   const metricKeys = Object.keys(metrics);
-  const mySampleSizeAndRuntime: { [id: string]: SampleSizeAndRuntime | undefined } = {};
+  const mySampleSizeAndRuntime: {
+    [id: string]: SampleSizeAndRuntime | undefined;
+  } = {};
 
   const metricThresholds = {};
   const weeks: Week[] = [...Array(nWeeks).keys()].map((idx) => ({
@@ -289,7 +287,7 @@ export function powerMetricWeeks(
         powerSettings.nVariations,
         powerSettings.alpha,
         true,
-        sequentialTuningParameter,
+        sequentialTuningParameter
       );
       if (thisPower >= 0.8 && lookingForSampleSizeAndRunTime) {
         lookingForSampleSizeAndRunTime = false;
@@ -302,7 +300,7 @@ export function powerMetricWeeks(
         powerSettings.usersPerWeek * (j + 1),
         powerSettings.nVariations,
         powerSettings.alpha,
-        sequentialTuningParameter,
+        sequentialTuningParameter
       );
       if (thisMde.type === "error") {
         const results: PowerCalculationResults = {
