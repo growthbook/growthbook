@@ -484,7 +484,7 @@ export default function FeaturesPage() {
           <h1>Features</h1>
         </div>
         {features.length > 0 &&
-          !permissionsUtil.canViewFeatureModal(project) &&
+          permissionsUtil.canViewFeatureModal(project) &&
           permissions.check("createFeatureDrafts", project) && (
             <div className="col-auto">
               <button
