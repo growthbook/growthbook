@@ -68,7 +68,6 @@ const EditOrganization: FC<{
               type="text"
               className="form-control"
               value={licenseKey}
-              minLength={3}
               onChange={(e) => setLicenseKey(e.target.value)}
             />
           </div>
