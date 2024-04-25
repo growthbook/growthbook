@@ -168,17 +168,6 @@ const InputField = ({
     return "Must be a number";
   })();
 
-  console.log(
-    "form",
-    form.register(`metrics.${metricId}.${entry}`, {
-      valueAsNumber: true,
-    })
-  );
-
-  console.log("entryValue", entryValue);
-
-  console.log("Form values", form.getValues());
-
   return (
     <div className="col">
       <Field
