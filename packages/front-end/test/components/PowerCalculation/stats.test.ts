@@ -166,11 +166,11 @@ describe("backend", () => {
         []
       );
       if (
-        resultsTS.sampleSizeAndRuntime.click_through_rate.weeks !== undefined
+        resultsTS.sampleSizeAndRuntime.click_through_rate?.weeks !== undefined
       ) {
-        w0 = resultsTS.sampleSizeAndRuntime.click_through_rate.weeks;
+        w0 = resultsTS.sampleSizeAndRuntime.click_through_rate?.weeks;
       }
-      if (resultsTS.sampleSizeAndRuntime.revenue.weeks !== undefined) {
+      if (resultsTS.sampleSizeAndRuntime.revenue?.weeks !== undefined) {
         throw new Error("should be undefined");
       }
     }
@@ -257,11 +257,11 @@ describe("backend", () => {
         []
       );
       if (
-        resultsTS.sampleSizeAndRuntime.click_through_rate.weeks !== undefined
+        resultsTS.sampleSizeAndRuntime.click_through_rate?.weeks !== undefined
       ) {
-        w0 = resultsTS.sampleSizeAndRuntime.click_through_rate.weeks;
+        w0 = resultsTS.sampleSizeAndRuntime.click_through_rate?.weeks;
       }
-      if (resultsTS.sampleSizeAndRuntime.revenue.weeks !== undefined) {
+      if (resultsTS.sampleSizeAndRuntime.revenue?.weeks !== undefined) {
         throw new Error("should be undefined");
       }
     }

@@ -46,6 +46,7 @@ export type PartialPowerCalculationParams = Partial<
 type Config = {
   title: string;
   isPercent: boolean;
+  tooltip?: string;
   minValue?: number;
   maxValue?: number;
   defaultValue?: number;
@@ -60,8 +61,10 @@ export const config = checkConfig({
     minValue: 0,
   },
   effectSize: {
-    title: "Anticipated Effect Size",
+    title: "Effect Size",
     isPercent: true,
+    tooltip:
+      "This is the relative effect size that you anticipate for your experiment. Setting this allows us to compute the number of weeks needed to reliably detect an effect of this size or larger.",
     minValue: 0,
     defaultValue: 1,
   },
@@ -95,41 +98,38 @@ const validEntry = (name: keyof typeof config, v: number | undefined) => {
 };
 
 export const isValidPowerCalculationParams = (
-  v: PartialPowerCalculationParams
+  v: PartialPowerCalculationParams,
 ): v is FullModalPowerCalculationParams =>
   validEntry("usersPerWeek", v.usersPerWeek) &&
   Object.keys(v.metrics).every((key) => {
     const params = v.metrics[key];
     if (!params) return false;
-    return ([
-      "effectSize",
-      ...(params.type === "binomial"
-        ? (["conversionRate"] as const)
-        : (["mean", "standardDeviation"] as const)),
-    ] as const).every((k) => validEntry(k, params[k]));
+    return (
+      [
+        "effectSize",
+        ...(params.type === "binomial"
+          ? (["conversionRate"] as const)
+          : (["mean", "standardDeviation"] as const)),
+      ] as const
+    ).every((k) => validEntry(k, params[k]));
   });
 
 export const ensureAndReturnPowerCalculationParams = (
-  v: PartialPowerCalculationParams
+  v: PartialPowerCalculationParams,
 ): FullModalPowerCalculationParams => {
   if (!isValidPowerCalculationParams(v)) throw "internal error";
   return v;
 };
 
 export interface SampleSizeAndRuntime {
-  name: string;
-  effectSize: number;
+  weeks: number;
   users: number;
-  weeks?: number;
-  type: "mean" | "binomial";
 }
 
 export interface Week {
   users: number;
   metrics: {
     [id: string]: {
-      name: string;
-      type: "mean" | "binomial";
       isThreshold: boolean;
       effectSize: number;
       power: number;
@@ -150,7 +150,7 @@ export type MDEResults =
 export type PowerCalculationSuccessResults = {
   type: "success";
   sampleSizeAndRuntime: {
-    [id: string]: SampleSizeAndRuntime;
+    [id: string]: SampleSizeAndRuntime | undefined;
   };
   weeks: Week[];
   weekThreshold?: number;

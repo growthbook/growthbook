@@ -151,28 +151,51 @@ const InputField = ({
   const metrics = form.watch("metrics");
   const params = ensureAndReturn(metrics[metricId]);
   const entryValue = params[entry];
-  const { title, isPercent, maxValue, minValue } = config[entry];
+  const { title, isPercent, tooltip, maxValue, minValue } = config[entry];
 
   const isKeyInvalid = (() => {
     if (entryValue === undefined) return false;
-    if (minValue !== undefined && entryValue < minValue) return true;
+    if (minValue !== undefined && entryValue <= minValue) return true;
     if (maxValue !== undefined && maxValue < entryValue) return true;
     return false;
   })();
 
   const helpText = (() => {
     if (minValue !== undefined && maxValue !== undefined)
-      return `Must be between ${minValue} and ${maxValue}`;
-    if (minValue !== undefined) return `Must be at least ${minValue}`;
+      return `Must be greater than ${minValue} and less than or equal to ${maxValue}`;
+    if (minValue !== undefined) return `Must be greater than ${minValue}`;
     if (maxValue !== undefined) return `Must be less than ${maxValue}`;
     return "Must be a number";
   })();
 
+  console.log(
+    "form",
+    form.register(`metrics.${metricId}.${entry}`, {
+      valueAsNumber: true,
+    })
+  );
+
+  console.log("entryValue", entryValue);
+
+  console.log("Form values", form.getValues());
+
   return (
     <div className="col">
       <Field
-        label={<span className="font-weight-bold mr-1">{title}</span>}
-        type="number"
+        label={
+          <>
+            <span className="font-weight-bold mr-1">{title}</span>{" "}
+            {tooltip && (
+              <Tooltip
+                popperClassName="text-left"
+                body={tooltip}
+                tipPosition="right"
+              />
+            )}
+          </>
+        }
+        max={maxValue}
+        min={minValue}
         {...(isPercent ? { append: "%" } : {})}
         {...form.register(`metrics.${metricId}.${entry}`, {
           valueAsNumber: true,

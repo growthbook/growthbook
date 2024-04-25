@@ -69,8 +69,8 @@ export default function PowerCalculationStatsEngineModal({
                 <>
                   <span className="text-muted mr-1">Bayesian</span>
                   {orgSettings.statsEngine === "bayesian"
-                    ? "(Org default)"
-                    : ""}
+                    ? "(Org default) - Coming Soon!"
+                    : " - Coming Soon!"}
                 </>
               ),
               disabled: true,

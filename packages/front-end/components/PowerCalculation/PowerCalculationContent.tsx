@@ -87,7 +87,7 @@ const AnalysisSettings = ({
                   })}
                 </span>{" "}
                 to achieve {percentFormatter.format(params.targetPower)} power
-                for all metric.
+                for all metrics.
               </div>
             )}
           </div>
@@ -138,10 +138,18 @@ const AnalysisSettings = ({
   );
 };
 
-const MetricLabel = ({ name, type }: { name: string; type: string }) => (
+const MetricLabel = ({
+  name,
+  effectSize,
+}: {
+  name: string;
+  effectSize: number;
+}) => (
   <>
     <div className="font-weight-bold">{name}</div>
-    <div className="small">{type === "binomial" ? "Proportion" : "Mean"}</div>
+    <div className="small">
+      Effect Size {percentFormatter.format(effectSize)}
+    </div>
   </>
 );
 
@@ -156,11 +164,8 @@ const SampleSizeAndRuntime = ({
     Object.keys(sampleSizeAndRuntime)[0]
   );
 
-  const {
-    name: selectedName,
-    users: selectedUsers,
-    weeks: selectedWeeks,
-  } = sampleSizeAndRuntime[selectedRow];
+  const selectedTarget = sampleSizeAndRuntime[selectedRow];
+  const { name: selectedName } = ensureAndReturn(params.metrics[selectedRow]);
 
   return (
     <div className="row card gsbox mb-3 border">
@@ -186,17 +191,15 @@ const SampleSizeAndRuntime = ({
                 </thead>
                 <tbody>
                   {Object.keys(sampleSizeAndRuntime).map((id) => {
-                    const {
-                      type,
-                      users,
-                      weeks,
-                      effectSize,
-                      name,
-                    } = ensureAndReturn(sampleSizeAndRuntime[id]);
+                    const target = sampleSizeAndRuntime[id];
+
+                    const { name, effectSize } = ensureAndReturn(
+                      params.metrics[id]
+                    );
 
                     return (
                       <tr
-                        key={name}
+                        key={id}
                         className={clsx(
                           "power-analysis-row",
                           selectedRow === id && "selected"
@@ -204,16 +207,18 @@ const SampleSizeAndRuntime = ({
                         onClick={() => setSelectedRow(id)}
                       >
                         <td>
-                          <MetricLabel name={name} type={type} />
+                          <MetricLabel name={name} effectSize={effectSize} />
                         </td>
                         <td>{percentFormatter.format(effectSize)}</td>
                         <td>
-                          {weeks
+                          {target
                             ? `${formatWeeks({
-                                weeks,
+                                weeks: target.weeks,
                                 nWeeks: params.nWeeks,
-                              })}; ${numberFormatter.format(users)} users`
-                            : formatWeeks({ weeks, nWeeks: params.nWeeks })}
+                              })}; ${numberFormatter.format(
+                                target.users
+                              )} users`
+                            : formatWeeks({ nWeeks: params.nWeeks })}
                         </td>
                       </tr>
                     );
@@ -231,17 +236,25 @@ const SampleSizeAndRuntime = ({
                     {percentFormatter.format(params.targetPower)}
                   </span>{" "}
                   requires running your experiment for{" "}
-                  <span className="font-weight-bold">
-                    {formatWeeks({
-                      weeks: selectedWeeks,
-                      nWeeks: params.nWeeks,
-                    })}
-                  </span>{" "}
-                  (roughly collecting{" "}
-                  <span className="font-weight-bold">
-                    {numberFormatter.format(selectedUsers)} users
-                  </span>
-                  )
+                  {selectedTarget ? (
+                    <>
+                      <span className="font-weight-bold">
+                        {formatWeeks({
+                          weeks: selectedTarget.weeks,
+                          nWeeks: params.nWeeks,
+                        })}
+                      </span>{" "}
+                      (roughly collecting{" "}
+                      <span className="font-weight-bold">
+                        {numberFormatter.format(selectedTarget.users)} users
+                      </span>
+                      )
+                    </>
+                  ) : (
+                    <span className="font-weight-bold">
+                      {formatWeeks({ nWeeks: params.nWeeks })}
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
@@ -320,7 +333,7 @@ const MinimumDetectableEffect = ({
           {Object.keys(results.weeks[0]?.metrics).map((id) => (
             <tr key={id}>
               <td>
-                <MetricLabel {...results.weeks[0]?.metrics[id]} />
+                <MetricLabel {...ensureAndReturn(params.metrics[id])} />
               </td>
               {results.weeks.map(({ metrics }, idx) => (
                 <td
@@ -385,7 +398,7 @@ const PowerOverTime = ({
           {Object.keys(results.weeks[0]?.metrics).map((id) => (
             <tr key={id}>
               <td>
-                <MetricLabel {...results.weeks[0]?.metrics[id]} />
+                <MetricLabel {...ensureAndReturn(params.metrics[id])} />
               </td>
               {results.weeks.map(({ metrics }, idx) => (
                 <td
