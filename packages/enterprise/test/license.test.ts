@@ -7,15 +7,19 @@ import {
   getLicense,
   resetInMemoryLicenseCache,
   getLicenseError,
+  backgroundUpdateLicenseFromServerForTests,
+  LicenseInterface,
 } from "../src/license";
-import { LicenseModel } from "../src/models/licenseModel";
+import * as LicenseModelModule from "../src/models/licenseModel";
+
+const LicenseModel = LicenseModelModule.LicenseModel;
 
 jest.mock("node-fetch");
 jest.mock("../src/models/licenseModel");
 
 const mockedFetch = fetch as jest.MockedFunction<typeof fetch>;
 
-describe("licenseInit, getLicense, and getLicenseError", () => {
+describe("src/license", () => {
   const env = process.env;
   const userLicenseCodes = ["code1", "code2"];
   const metaData = {
@@ -38,6 +42,10 @@ describe("licenseInit, getLicense, and getLicenseError", () => {
     emailVerified: true,
     remoteDowngrade: false,
     archived: false,
+    hardCap: false,
+    name: "",
+    email: "",
+    usingMongoCache: false,
     dateCreated: "2023-11-10T17:15:11.274Z",
     dateExpires: "2024-10-23T00:00:00.000Z",
     dateUpdated: "2023-11-21T12:08:12.610Z",
@@ -50,7 +58,7 @@ describe("licenseInit, getLicense, and getLicenseError", () => {
     },
     signedChecksum:
       "ceT1mfCsWyyRE3B1CaaK6bXF5zUIXPIM1bASRRftDLLnFwGAjp8bAxGERzqVPeTLjy9eOAvC3nkpQhcb29jNJSy0f7d-6InMYsRPXln3fQ-EpZpxQOhoaPv2-cElier0wXmUM8jFI7FGAMZ-uugxhM4ofvoeIwrLghTHeelILNcUBiGk4AYCQrwZquTK9BXPyPCaBFrGhqM0RRZzHTpimEMS9TcmR90rrHEtXTagPVp_gEP508J1IYaVsymEt9N6Dp5Wk7ohb8XtODURsxiDJmrcqEQODvyabrNetSo3qVXsJ-qd4x6Imr79RfjLeR82lByZNqfH9r1V3omARlinDmq1VHoA3cRzA98iwcQBND1MWFZa5wikMkgQxxGqixQE6PCqAtfooBLdb_kqe_wHz3pU4qjVSw10_VjEiqlxXBLuYn20FgKMcpI5qwTUQiS0gJomkY2Nq5GQjXm-040VEgn6TqhRDQAlv4yWMBO6NaSVYQmwMjRhXLQ9mOYX6vugQMbpIO7NjvGWGoD8d_KoHZL0sriKJlVsYn3iFiIEkZIzD3mBwtMh2YCrPvX4OTCm4CSrWoEvaprx4JfFI4mgD5-XUBG_lBjb74hiLA7NdV8c3zD47BTu187PwC2-GC1Y521Y_IU8eMqW7bGJYnuSroNV7C8ccU4rRMPY9asRN0E",
-  };
+  } as LicenseInterface;
   const licenseData2 = cloneDeep(licenseData);
   licenseData2.seatsInUse = 2;
   licenseData2.signedChecksum =
@@ -97,7 +105,7 @@ describe("licenseInit, getLicense, and getLicenseError", () => {
 
   afterEach(() => {
     jest.spyOn(JSON, "parse").mockRestore();
-    jest.spyOn(LicenseModel, "findOne").mockRestore();
+    jest.spyOn(LicenseModelModule, "getLicenseByKey").mockRestore();
     jest.useRealTimers();
     mockedFetch.mockReset();
     process.env = env;
@@ -105,13 +113,6 @@ describe("licenseInit, getLicense, and getLicenseError", () => {
 
   it("should not be calling localhost for the license server", async () => {
     expect(LICENSE_SERVER_URL).not.toContain("localhost");
-  });
-
-  it("should set licenseData to null if licenseKey is not provided", async () => {
-    const result = await licenseInit(undefined, userLicenseCodes, metaData);
-
-    expect(result).toBeUndefined();
-    expect(getLicense()).toBeNull();
   });
 
   describe("getLicenseError", () => {
@@ -123,12 +124,12 @@ describe("licenseInit, getLicense, and getLicenseError", () => {
       });
     });
 
-    describe("when there is a license but it has no plan", () => {
+    describe("when there is a license but it has no plan and no server error", () => {
       const licenseDataNoPlan = cloneDeep(licenseData);
-      licenseDataNoPlan.plan = "";
+      delete licenseDataNoPlan.plan;
       licenseDataNoPlan.remoteDowngrade = true; // This would cause the function to return an error, if there was a plan
       licenseDataNoPlan.signedChecksum =
-        "boEq4MLvkvfrbuTEnN-aOZy6Vz32z7btChuS4pONGP88NDIju6FR36KBu0-8VSC2jbqEhbyMdGqG5FCmJRB-RHOk5TDazLvS1h1YDBb-3y5fbRgQCsSMMv8eyr_wG_OEG-p7eHwk-T5h0U77iONad5M3tX_rJ5gQOLdTJdjKRsB6F9Tib8t7V3BFy0CH9jmyaidrRalGPBxKa5rKiFEf9jp5jifZTD9qHq-Os9-BOYBqrfUKcnjvaGmnAJcQy6GyLqxNuq5yElupvmE0nUFXhjIi4NtSW-P5jn3FdAq05p9UQ8R1O0uOyykj36w0Cs7ATZeCNxixGoejmz2d70AV9vuoGdOtqcq6g7IJjAOOo7dsfTQBHZV-KnFracm3dFVljo5NHddykIkTYntK2TpmIQUP9jLFkgVPdKfkip2oMxqF5_TMlhneDqhY9ENXI-ThjAAVta2VR6CC0npRJvQjxU_4o1Nf0C0MN9iZI1qwtlKrNqjDP8lz2IQCKciZnH-yNrqoCLFkz3yngKOYpQH8Q2lwqnS2l3qpMR4iiAR8Nw8ViZQ62eWPN12fmF9_MVxfhC_esdiUSU1-MvFZIz8jXHGuFnAiOfWdLgutA1lBCXKGqBMI_o1hs0akJaEq8-eHF8E0cfjWMb3wdgfFNCl7PfQcNVxU2tNhsOFHwuW6PIY";
+        "XFbpDLvayp71avE47pYNPTW5MKQWl1qqhTo6Cm4mEj5ipejjhnpfoPmInxwKFK0xjnpNkGnr25NW_d0XthgotnZPKV7KMzSZ6DRe7fIRRaTP6H10e3iashAsuRX_KNlHsZgaPdbxSWYw0_vQE9bxJVLTINPog7HEf-ZQONZ6Wod4vUf91MRu8d8NK6LVp9e1OVY7HOm-klKWfrE-3jx3aloDnfGq17B0uU0NbvRfj2FyxL-vkAgUPXmRUk64RnCB2mRqkFspT1Rm-kTvRsJxbWw_sA4ZPeSGYA7SPyUl-roUlD-g-CXUwLoLOdJB2WusAu9E2EXyy9w-d9E6N1nBtEGim2X2JKXTe2aN6BMmPK6jtWFa1D1iAO4lyjxbbaH8oNZlNtb9D78c6rdrLZuWfoAgoRXEINTAIBYo0wBFLb8Wu5f0dNUvkRXdDg8RQvtaXJ0VfGwZ4cw9SVeRElwME9m4Kc8CTqKbk0HG41sDlY3ACWJalxh7xWEzH0u_LXIfllV5Sq-7YDGtGnykwXBHl7m_rQ3qi5bX7WHYBu1hdMf3gIiUwKln9U3eW4nT7D8GJlSE1kj9_6n57KhkvkqoLBsqGhncsE2C8rkdUQYB9xlja_H6k0mupNCxEnciZiRftJpLSznzyV4AdLGgiX78l1gU-Iwy28XOaMeo5Ess8W8";
 
       beforeEach(async () => {
         const mockedResponse: Response = ({
@@ -145,12 +146,62 @@ describe("licenseInit, getLicense, and getLicenseError", () => {
       });
     });
 
-    describe("when there is a license but it is too out of date", () => {
+    describe("when there is a license but it has no plan but has a server error", () => {
+      const licenseDataNoPlan = {
+        ...cloneDeep(licenseData),
+        plan: "",
+        lastServerErrorMessage: "Server error",
+        signedChecksum:
+          "KmcsuAwjrSNRe-9fdBxL9e33D3dmkTaU9YH2d4KqnBS87IK_bDEXEEQFOR2fovHZS0FJ6r4OrbcncDGlv2BiO7s78M3BepEyBwCeVQJ5hMTCtEhvGgkbODf0aPJmUHhxthvAk-jMUljsgHKaftR9ocYBkzuFCl12vxAHAJ3q28YAk4OmOHV6Wak0N_PF_B1qkK2VUa80gAS0HDU0qiwZXcXusbN7GMe2n3sEh_M261-i0UBTwfEBM_tI1xoWKWkdjbyAtitMBxMk4llx6A_bnb3mno35s_lhQBbevQAj-Gcc91sJh5BGNBOrssieByU1CePXpnG3VKvjCKl-jFm68b-N-s2D6kWazhg0Q5mUDjCfZQI35Ma4iiQGIqVV0kSxrstTHjKUGZJkbyum9Mmu4GahuqOrVLys_e1ialotrKsRgnvM4UKzfx0sabwXdo17fKVCZDqEciU1Wl8oqSZiENydbKasjxjcDk3esB_PX-ZLH9D-YYb7qiKwh19PEx1kbdCuxuDwwWfji2tzVLsgIuySjETu3oOZyfFEwJkPaNQUUPm5DGRhgq4Q0X_455n09K6HnMPAj4YJfT4-4PyTxJrbCGUzh-kRxN63xr8AdT3jQpoije8MClE-xt-LR8LFh40x31DoNXjPRw8RkABmwcHnNFaUfR-_OQhtnEZ771U",
+      };
+      beforeEach(async () => {
+        const mockedResponse: Response = ({
+          ok: true,
+          json: jest.fn().mockResolvedValueOnce(licenseDataNoPlan),
+        } as unknown) as Response;
+
+        mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
+        await licenseInit(licenseKey, userLicenseCodes, metaData);
+      });
+
+      it("should have an error since no plan but an error means the license server errored or could not connect on first ever try", () => {
+        expect(getLicenseError(org)).toBe(
+          "License server erroring for too long"
+        );
+      });
+    });
+
+    describe("when there is a license but it has no plan but has a server error", () => {
+      const licenseDataNoPlan = {
+        ...cloneDeep(licenseData),
+        plan: "",
+        lastServerErrorMessage: "Could not connect to server",
+        signedChecksum:
+          "KmcsuAwjrSNRe-9fdBxL9e33D3dmkTaU9YH2d4KqnBS87IK_bDEXEEQFOR2fovHZS0FJ6r4OrbcncDGlv2BiO7s78M3BepEyBwCeVQJ5hMTCtEhvGgkbODf0aPJmUHhxthvAk-jMUljsgHKaftR9ocYBkzuFCl12vxAHAJ3q28YAk4OmOHV6Wak0N_PF_B1qkK2VUa80gAS0HDU0qiwZXcXusbN7GMe2n3sEh_M261-i0UBTwfEBM_tI1xoWKWkdjbyAtitMBxMk4llx6A_bnb3mno35s_lhQBbevQAj-Gcc91sJh5BGNBOrssieByU1CePXpnG3VKvjCKl-jFm68b-N-s2D6kWazhg0Q5mUDjCfZQI35Ma4iiQGIqVV0kSxrstTHjKUGZJkbyum9Mmu4GahuqOrVLys_e1ialotrKsRgnvM4UKzfx0sabwXdo17fKVCZDqEciU1Wl8oqSZiENydbKasjxjcDk3esB_PX-ZLH9D-YYb7qiKwh19PEx1kbdCuxuDwwWfji2tzVLsgIuySjETu3oOZyfFEwJkPaNQUUPm5DGRhgq4Q0X_455n09K6HnMPAj4YJfT4-4PyTxJrbCGUzh-kRxN63xr8AdT3jQpoije8MClE-xt-LR8LFh40x31DoNXjPRw8RkABmwcHnNFaUfR-_OQhtnEZ771U",
+      };
+      beforeEach(async () => {
+        const mockedResponse: Response = ({
+          ok: true,
+          json: jest.fn().mockResolvedValueOnce(licenseDataNoPlan),
+        } as unknown) as Response;
+
+        mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
+        await licenseInit(licenseKey, userLicenseCodes, metaData);
+      });
+
+      it("should have an error since no plan but an error means the license server errored or could not connect on first ever try", () => {
+        expect(getLicenseError(org)).toBe(
+          "License server unreachable for too long"
+        );
+      });
+    });
+
+    describe("when there is a license, and it is using cache but it is way too out of date", () => {
       const licenseDataTooOld = {
         ...cloneDeep(licenseData),
         usingMongoCache: true,
         dateUpdated: new Date(
-          now.getTime() - 8 * 24 * 60 * 60 * 1000
+          now.getTime() - 15 * 24 * 60 * 60 * 1000
         ).toISOString(),
       };
 
@@ -165,7 +216,84 @@ describe("licenseInit, getLicense, and getLicenseError", () => {
       });
 
       it("should return an error saying the server is down too long", () => {
-        expect(getLicenseError(org)).toBe("License server down for too long");
+        expect(getLicenseError(org)).toBe(
+          "License server unreachable for too long"
+        );
+      });
+    });
+
+    describe("when there is a license, and it is using cache and it is out of date, but it is less than 7 days since the first failed fetch", () => {
+      const licenseDataTooOld = {
+        ...cloneDeep(licenseData),
+        usingMongoCache: true,
+        firstFailedFetchDate: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000),
+        dateUpdated: new Date(now.getTime() - 12 * 24 * 60 * 60 * 1000),
+      };
+
+      beforeEach(async () => {
+        const mockedResponse: Response = ({
+          ok: true,
+          json: jest.fn().mockResolvedValueOnce(licenseDataTooOld),
+        } as unknown) as Response;
+
+        mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
+        await licenseInit(licenseKey, userLicenseCodes, metaData);
+      });
+
+      it("should still use cache (but we will show a warning)", () => {
+        expect(getLicenseError(org)).toBe("");
+      });
+    });
+
+    describe("when there is a license, and it is using cache and it is out of date, but it is erroring more than 7 days since the first failed fetch", () => {
+      const licenseDataTooOld = {
+        ...cloneDeep(licenseData),
+        usingMongoCache: true,
+        firstFailedFetchDate: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000),
+        lastServerErrorMessage: "Server error",
+        dateUpdated: new Date(now.getTime() - 12 * 24 * 60 * 60 * 1000),
+      };
+
+      beforeEach(async () => {
+        const mockedResponse: Response = ({
+          ok: true,
+          json: jest.fn().mockResolvedValueOnce(licenseDataTooOld),
+        } as unknown) as Response;
+
+        mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
+        await licenseInit(licenseKey, userLicenseCodes, metaData);
+      });
+
+      it("should return an error saying the server is down too long", () => {
+        expect(getLicenseError(org)).toBe(
+          "License server erroring for too long"
+        );
+      });
+    });
+
+    describe("when there is a license, and it is using cache and it is out of date, but it is unreachable for more than 7 days since the first failed fetch", () => {
+      const licenseDataTooOld = {
+        ...cloneDeep(licenseData),
+        usingMongoCache: true,
+        firstFailedFetchDate: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000),
+        lastServerErrorMessage: "Could not connect to server",
+        dateUpdated: new Date(now.getTime() - 12 * 24 * 60 * 60 * 1000),
+      };
+
+      beforeEach(async () => {
+        const mockedResponse: Response = ({
+          ok: true,
+          json: jest.fn().mockResolvedValueOnce(licenseDataTooOld),
+        } as unknown) as Response;
+
+        mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
+        await licenseInit(licenseKey, userLicenseCodes, metaData);
+      });
+
+      it("should return an error saying the server is down too long", () => {
+        expect(getLicenseError(org)).toBe(
+          "License server unreachable for too long"
+        );
       });
     });
 
@@ -319,428 +447,587 @@ describe("licenseInit, getLicense, and getLicenseError", () => {
     });
   });
 
-  describe("new style licenses where licenseKey starts with 'license_'", () => {
-    describe("and when the license server is up", () => {
-      beforeEach(() => {
-        const mockedResponse: Response = ({
-          ok: true,
-          json: jest.fn().mockResolvedValueOnce(licenseData),
-        } as unknown) as Response;
+  describe("licenseInit and getLicense", () => {
+    it("should set licenseData to null if licenseKey is not provided", async () => {
+      const result = await licenseInit(undefined, userLicenseCodes, metaData);
 
-        mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
-      });
-
-      it("should use the env variable if licenseKey argument is not provided", async () => {
-        process.env.LICENSE_KEY = licenseKey;
-        const result = await licenseInit(undefined, userLicenseCodes, metaData);
-
-        expect(getLicense()).toEqual(licenseData);
-        expect(result).toEqual(licenseData);
-      });
-
-      it("should throw an error if we call the function without userLicenseCodes or metadata", async () => {
-        expect.assertions(2);
-
-        await expect(
-          licenseInit(licenseKey, userLicenseCodes, undefined)
-        ).rejects.toThrowError(
-          "Missing userLicenseCodes or metaData for license key"
-        );
-
-        await expect(
-          licenseInit(licenseKey, undefined, metaData)
-        ).rejects.toThrowError(
-          "Missing userLicenseCodes or metaData for license key"
-        );
-      });
-
-      it("should call fetch once and the second time return in-memory cached license data if it exists and is not too old", async () => {
-        await licenseInit(licenseKey, userLicenseCodes, metaData);
-
-        expect(fetch).toHaveBeenCalledWith(
-          `${LICENSE_SERVER_URL}license/${licenseKey}/check`,
-          expect.objectContaining({
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              userHashes: userLicenseCodes,
-              metaData,
-            }),
-          })
-        );
-
-        expect(getLicense(licenseKey)).toEqual(licenseData);
-
-        await licenseInit(licenseKey, userLicenseCodes, metaData);
-        expect(getLicense(licenseKey)).toEqual(licenseData);
-        expect(fetch).toHaveBeenCalledTimes(1);
-        expect(LicenseModel.findOneAndUpdate).toHaveBeenCalledTimes(1);
-        expect(LicenseModel.findOneAndUpdate).toHaveBeenCalledWith(
-          { id: licenseKey },
-          { $set: licenseData },
-          { upsert: true }
-        );
-        expect(LicenseModel.findOne).toHaveBeenCalledTimes(1);
-      });
-
-      it("should fetch the license from datastore if it is not in memory", async () => {
-        await licenseInit(licenseKey, userLicenseCodes, metaData);
-
-        expect(fetch).toHaveBeenCalledWith(
-          `${LICENSE_SERVER_URL}license/${licenseKey}/check`,
-          expect.objectContaining({
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              userHashes: userLicenseCodes,
-              metaData,
-            }),
-          })
-        );
-
-        expect(getLicense(licenseKey)).toEqual(licenseData);
-        resetInMemoryLicenseCache();
-        jest.spyOn(LicenseModel, "findOne").mockResolvedValue({
-          ...licenseData,
-          toJSON: () => licenseData,
-          save: jest.fn(),
-          set: jest.fn(),
-        });
-        await licenseInit(licenseKey, userLicenseCodes, metaData);
-
-        expect(getLicense(licenseKey)).toEqual(licenseData);
-        expect(fetch).toHaveBeenCalledTimes(1);
-        expect(LicenseModel.findOneAndUpdate).toHaveBeenCalledTimes(1);
-        expect(LicenseModel.findOneAndUpdate).toHaveBeenCalledWith(
-          { id: licenseKey },
-          { $set: licenseData },
-          { upsert: true }
-        );
-        expect(LicenseModel.findOne).toHaveBeenCalledTimes(2);
-      });
-
-      it("should fetch the license from the license server if the license is not in memory and the datastore is too old", async () => {
-        await licenseInit(licenseKey, userLicenseCodes, metaData);
-
-        expect(fetch).toHaveBeenCalledWith(
-          `${LICENSE_SERVER_URL}license/${licenseKey}/check`,
-          expect.objectContaining({
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              userHashes: userLicenseCodes,
-              metaData,
-            }),
-          })
-        );
-
-        expect(getLicense(licenseKey)).toEqual(licenseData);
-
-        jest.spyOn(LicenseModel, "findOne").mockResolvedValue({
-          ...licenseData,
-          toJSON: () => licenseData,
-          save: jest.fn(),
-          set: jest.fn(),
-        });
-
-        const twoDaysFromNow = now.getTime() + 2 * 24 * 60 * 60 * 1000;
-        jest.setSystemTime(twoDaysFromNow);
-
-        const mockedResponse2: Response = ({
-          ok: true,
-          json: jest.fn().mockResolvedValueOnce(licenseData2),
-        } as unknown) as Response; // Create a mock Response object
-
-        mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse2));
-
-        await licenseInit(licenseKey, userLicenseCodes, metaData);
-        expect(getLicense(licenseKey)).toEqual(licenseData2);
-        expect(fetch).toHaveBeenCalledTimes(2);
-      });
-
-      it("should call fetch once for each key when called with multiple keys simultaneously, and getLicense should return correct licenseData for each key", async () => {
-        mockedFetch.mockReset(); // this test is different from the others
-
-        const licenseKey2 = "license_19exntswvlosvp1dasdfads";
-        const mockedResponse: Response = ({
-          ok: true,
-          json: jest.fn().mockResolvedValueOnce(licenseData),
-        } as unknown) as Response;
-
-        const licenseData3 = cloneDeep(licenseData2);
-        licenseData3.id = licenseKey2;
-
-        const mockedResponse2: Response = ({
-          ok: true,
-          json: jest.fn().mockResolvedValueOnce(licenseData3),
-        } as unknown) as Response;
-
-        mockedFetch
-          .mockResolvedValueOnce(Promise.resolve(mockedResponse))
-          .mockResolvedValueOnce(Promise.resolve(mockedResponse2));
-
-        // Number of concurrent requests
-        const numRequests = 10;
-
-        // Execute multiple concurrent requests
-        const results = await Promise.all(
-          Array.from({ length: numRequests }).map(async (_, i) => {
-            if (i % 2 === 0) {
-              return await licenseInit(licenseKey, userLicenseCodes, metaData);
-            } else {
-              return await licenseInit(licenseKey2, userLicenseCodes, metaData);
-            }
-          })
-        );
-
-        expect(fetch).toHaveBeenCalledTimes(2);
-
-        expect(results[0]).toEqual(licenseData);
-        expect(results[1]).toEqual(licenseData3);
-        expect(
-          results.every((result, i) =>
-            i % 2 === 0 ? result === licenseData : result === licenseData3
-          )
-        ).toBe(true);
-
-        expect(getLicense(licenseKey)).toEqual(licenseData);
-        expect(getLicense(licenseKey2)).toEqual(licenseData3);
-      });
-
-      it("should call fetch twice rather than use the in-memory cache if it has been over a day since the last fetch, and update the licenseData", async () => {
-        await licenseInit(licenseKey, userLicenseCodes, metaData);
-
-        expect(fetch).toHaveBeenCalledWith(
-          `${LICENSE_SERVER_URL}license/${licenseKey}/check`,
-          expect.objectContaining({
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              userHashes: userLicenseCodes,
-              metaData,
-            }),
-          })
-        );
-
-        expect(getLicense(licenseKey)).toEqual(licenseData);
-        const tenDaysFromNow = now.getTime() + 10 * 24 * 60 * 60 * 1000;
-        jest.setSystemTime(tenDaysFromNow);
-
-        const mockedResponse2: Response = ({
-          ok: true,
-          json: jest.fn().mockResolvedValueOnce(licenseData2),
-        } as unknown) as Response; // Create a mock Response object
-
-        mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse2));
-
-        await licenseInit(licenseKey, userLicenseCodes, metaData);
-        expect(getLicense(licenseKey)).toEqual(licenseData2);
-        expect(fetch).toHaveBeenCalledTimes(2);
-      });
-
-      it("should call fetch twice rather than use the in-memory cache if forceRefresh flag is true", async () => {
-        await licenseInit(licenseKey, userLicenseCodes, metaData);
-
-        expect(getLicense(licenseKey)).toEqual(licenseData);
-
-        const mockedResponse2: Response = ({
-          ok: true,
-          json: jest.fn().mockResolvedValueOnce(licenseData2),
-        } as unknown) as Response; // Create a mock Response object
-
-        jest.spyOn(LicenseModel, "findOne").mockResolvedValue({
-          ...licenseData,
-          toJSON: () => licenseData,
-          save: jest.fn(),
-          set: jest.fn(),
-        });
-
-        mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse2));
-
-        await licenseInit(licenseKey, userLicenseCodes, metaData, true);
-        expect(getLicense(licenseKey)).toEqual(licenseData2);
-        expect(fetch).toHaveBeenCalledTimes(2);
-      });
-
-      it("should throw an error if the data doesn't match the signature", async () => {
-        mockedFetch.mockReset(); // this test's fetch result should be different from the others
-        const licenseDateWithBadSignature = cloneDeep(licenseData);
-        licenseDateWithBadSignature.signedChecksum = "bad signature";
-        const mockedResponse3: Response = ({
-          ok: true,
-          json: jest.fn().mockResolvedValueOnce(licenseDateWithBadSignature),
-        } as unknown) as Response; // Create a mock Response object
-
-        mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse3));
-
-        await expect(
-          async () => await licenseInit(licenseKey, userLicenseCodes, metaData)
-        ).rejects.toThrowError("Invalid license key signature");
-      });
+      expect(result).toBeUndefined();
+      expect(getLicense()).toBeNull();
     });
 
-    describe("and when the license server is down", () => {
-      beforeEach(() => {
-        const mockedResponse: Response = ({
-          ok: false,
-          statusText: "internal server error",
-          text: jest.fn().mockResolvedValueOnce("internal server error"),
-        } as unknown) as Response; // Create a mock Response object
+    describe("new style licenses where licenseKey starts with 'license_'", () => {
+      describe("and when the license server is up", () => {
+        beforeEach(() => {
+          const mockedResponse: Response = ({
+            ok: true,
+            json: jest.fn().mockResolvedValueOnce(licenseData),
+          } as unknown) as Response;
 
-        mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
-      });
+          mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
 
-      afterEach(() => {
-        mockedFetch.mockReset();
-      });
+          jest
+            .spyOn(LicenseModelModule, "getLicenseByKey")
+            .mockResolvedValueOnce(null);
+        });
 
-      describe("and when there is no cached data in LicenseModel", () => {
-        it("should throw error if the license server is down and there is no cached data in LicenseModel", async () => {
+        it("should use the env variable if licenseKey argument is not provided", async () => {
+          process.env.LICENSE_KEY = licenseKey;
+          const result = await licenseInit(
+            undefined,
+            userLicenseCodes,
+            metaData
+          );
+
+          expect(getLicense()).toEqual(licenseData);
+          expect(result).toEqual(licenseData);
+        });
+
+        it("should throw an error if we call the function without userLicenseCodes or metadata", async () => {
+          expect.assertions(2);
+
           await expect(
-            async () =>
-              await licenseInit(licenseKey, userLicenseCodes, metaData)
+            licenseInit(licenseKey, userLicenseCodes, undefined)
           ).rejects.toThrowError(
-            "License server errored with: internal server error"
+            "Missing userLicenseCodes or metaData for license key"
+          );
+
+          await expect(
+            licenseInit(licenseKey, undefined, metaData)
+          ).rejects.toThrowError(
+            "Missing userLicenseCodes or metaData for license key"
           );
         });
-      });
 
-      describe("and when there is cached data in LicenseModel", () => {
-        beforeEach(() => {
+        it("should call fetch once and the second time return in-memory cached license data if it exists and is not too old", async () => {
+          await licenseInit(licenseKey, userLicenseCodes, metaData);
+
+          expect(fetch).toHaveBeenCalledWith(
+            `${LICENSE_SERVER_URL}license/${licenseKey}/check`,
+            expect.objectContaining({
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                userHashes: userLicenseCodes,
+                metaData,
+              }),
+            })
+          );
+
+          expect(getLicense(licenseKey)).toEqual(licenseData);
+
+          await licenseInit(licenseKey, userLicenseCodes, metaData);
+          expect(getLicense(licenseKey)).toEqual(licenseData);
+          expect(fetch).toHaveBeenCalledTimes(1);
+          expect(LicenseModel.findOneAndReplace).toHaveBeenCalledTimes(1);
+          expect(LicenseModel.findOneAndReplace).toHaveBeenCalledWith(
+            { id: licenseKey },
+            licenseData,
+            { upsert: true }
+          );
+          expect(LicenseModelModule.getLicenseByKey).toHaveBeenCalledTimes(1);
+        });
+
+        it("should fetch the license from datastore if it is not in memory", async () => {
+          await licenseInit(licenseKey, userLicenseCodes, metaData);
+
+          expect(fetch).toHaveBeenCalledWith(
+            `${LICENSE_SERVER_URL}license/${licenseKey}/check`,
+            expect.objectContaining({
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                userHashes: userLicenseCodes,
+                metaData,
+              }),
+            })
+          );
+
+          expect(getLicense(licenseKey)).toEqual(licenseData);
+          resetInMemoryLicenseCache();
+          jest
+            .spyOn(LicenseModelModule, "getLicenseByKey")
+            .mockResolvedValue(cloneDeep(licenseData));
+          await licenseInit(licenseKey, userLicenseCodes, metaData);
+
+          expect(getLicense(licenseKey)).toEqual({
+            ...licenseData,
+            usingMongoCache: true,
+          });
+          expect(fetch).toHaveBeenCalledTimes(1);
+          expect(LicenseModel.findOneAndReplace).toHaveBeenCalledTimes(1);
+          expect(LicenseModel.findOneAndReplace).toHaveBeenCalledWith(
+            { id: licenseKey },
+            licenseData,
+            { upsert: true }
+          );
+          expect(LicenseModelModule.getLicenseByKey).toHaveBeenCalledTimes(2);
+        });
+
+        it("should fetch the license from the license server if the license is not in memory and the datastore is too old", async () => {
+          await licenseInit(licenseKey, userLicenseCodes, metaData);
+
+          expect(fetch).toHaveBeenCalledWith(
+            `${LICENSE_SERVER_URL}license/${licenseKey}/check`,
+            expect.objectContaining({
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                userHashes: userLicenseCodes,
+                metaData,
+              }),
+            })
+          );
+
+          expect(getLicense(licenseKey)).toEqual(licenseData);
+
           jest.spyOn(LicenseModel, "findOne").mockResolvedValue({
             ...licenseData,
             toJSON: () => licenseData,
             save: jest.fn(),
             set: jest.fn(),
           });
-        });
 
-        it("should return cache from LicenseModel if the license server is down and a cache exists in licenseModel that is less than 7 days", async () => {
-          jest.setSystemTime(now.getTime() + 2 * 24 * 60 * 60 * 1000);
-          const mockedResponse: Response = ({
-            ok: false,
+          const twoDaysFromNow = now.getTime() + 8 * 24 * 60 * 60 * 1000;
+          jest.setSystemTime(twoDaysFromNow);
+
+          const mockedResponse2: Response = ({
+            ok: true,
+            json: jest.fn().mockResolvedValueOnce(licenseData2),
           } as unknown) as Response; // Create a mock Response object
 
-          mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
+          mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse2));
+
+          await licenseInit(licenseKey, userLicenseCodes, metaData);
+          expect(getLicense(licenseKey)).toEqual(licenseData2);
+          expect(fetch).toHaveBeenCalledTimes(2);
+        });
+
+        it("should call fetch once for each key when called with multiple keys simultaneously, and getLicense should return correct licenseData for each key", async () => {
+          mockedFetch.mockReset(); // this test is different from the others
+
+          const mockedResponse: Response = ({
+            ok: true,
+            json: jest.fn().mockResolvedValueOnce(licenseData),
+          } as unknown) as Response;
+
+          const licenseKey2 = "license_19exntswvlosvp1dasdfads";
+          const licenseData3 = cloneDeep(licenseData2);
+          licenseData3.id = licenseKey2;
+
+          const mockedResponse2: Response = ({
+            ok: true,
+            json: jest.fn().mockResolvedValueOnce(licenseData3),
+          } as unknown) as Response;
+
+          mockedFetch.mockImplementation((url) => {
+            const urlString = String(url);
+            if (urlString.includes(licenseKey)) {
+              return Promise.resolve(mockedResponse);
+            } else if (urlString.includes(licenseKey2)) {
+              return Promise.resolve(mockedResponse2);
+            }
+            return Promise.reject({} as Response);
+          });
+
+          // Number of concurrent requests
+          const numRequests = 10;
+
+          // Execute multiple concurrent requests
+          const results = await Promise.all(
+            Array.from({ length: numRequests }).map(async (_, i) => {
+              if (i % 2 === 0) {
+                return await licenseInit(
+                  licenseKey,
+                  userLicenseCodes,
+                  metaData
+                );
+              } else {
+                return await licenseInit(
+                  licenseKey2,
+                  userLicenseCodes,
+                  metaData
+                );
+              }
+            })
+          );
+
+          expect(fetch).toHaveBeenCalledTimes(2);
+
+          expect(results[0]).toEqual(licenseData);
+          expect(results[1]).toEqual(licenseData3);
+          expect(
+            results.every((result, i) =>
+              i % 2 === 0 ? result === licenseData : result === licenseData3
+            )
+          ).toBe(true);
+
+          expect(getLicense(licenseKey)).toEqual(licenseData);
+          expect(getLicense(licenseKey2)).toEqual(licenseData3);
+        });
+
+        it("should call fetch twice rather than use the in-memory cache if it has been over a day since the last fetch, and update the licenseData", async () => {
+          await licenseInit(licenseKey, userLicenseCodes, metaData);
+
+          expect(fetch).toHaveBeenCalledWith(
+            `${LICENSE_SERVER_URL}license/${licenseKey}/check`,
+            expect.objectContaining({
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                userHashes: userLicenseCodes,
+                metaData,
+              }),
+            })
+          );
+
+          expect(getLicense(licenseKey)).toEqual(licenseData);
+          const tenDaysFromNow = now.getTime() + 10 * 24 * 60 * 60 * 1000;
+          jest.setSystemTime(tenDaysFromNow);
+
+          const mockedResponse2: Response = ({
+            ok: true,
+            json: jest.fn().mockResolvedValueOnce(licenseData2),
+          } as unknown) as Response; // Create a mock Response object
+
+          mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse2));
+
+          await licenseInit(licenseKey, userLicenseCodes, metaData);
+          expect(getLicense(licenseKey)).toEqual(licenseData2);
+          expect(fetch).toHaveBeenCalledTimes(2);
+        });
+
+        it("should call fetch twice rather than use the in-memory cache if forceRefresh flag is true", async () => {
           await licenseInit(licenseKey, userLicenseCodes, metaData);
 
           expect(getLicense(licenseKey)).toEqual(licenseData);
+
+          const mockedResponse2: Response = ({
+            ok: true,
+            json: jest.fn().mockResolvedValueOnce(licenseData2),
+          } as unknown) as Response; // Create a mock Response object
+
+          jest.spyOn(LicenseModel, "findOne").mockResolvedValue({
+            ...licenseData,
+            toJSON: () => licenseData,
+            save: jest.fn(),
+            set: jest.fn(),
+          });
+
+          mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse2));
+
+          await licenseInit(licenseKey, userLicenseCodes, metaData, true);
+          expect(getLicense(licenseKey)).toEqual(licenseData2);
+          expect(fetch).toHaveBeenCalledTimes(2);
         });
 
-        it("should throw an error if the license server is down and a cache exists in licenseModel but it is older than 7 days.", async () => {
-          jest.setSystemTime(now.getTime() + 8 * 24 * 60 * 60 * 1000);
+        it("should disregard contents if the data doesn't match the signature and return what is in the mongo cache with error fields set", async () => {
+          mockedFetch.mockReset(); // this test's fetch result should be different from the others'
+          jest.spyOn(LicenseModelModule, "getLicenseByKey").mockRestore(); // this test should expect there to be something in mongo cache
+          const licenseDateWithBadSignature = cloneDeep(licenseData);
+          licenseDateWithBadSignature.signedChecksum = "bad signature";
+          const mockedResponse3: Response = ({
+            ok: true,
+            json: jest.fn().mockResolvedValueOnce(licenseDateWithBadSignature),
+          } as unknown) as Response; // Create a mock Response object
 
-          await expect(
-            async () =>
-              await licenseInit(licenseKey, userLicenseCodes, metaData)
-          ).rejects.toThrowError(
-            "License server is not working and cached license data is too old"
+          mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse3));
+
+          jest
+            .spyOn(LicenseModelModule, "getLicenseByKey")
+            .mockResolvedValue(cloneDeep(licenseData));
+
+          // Use force refresh to make sure the bad data is returned
+          await licenseInit(licenseKey, userLicenseCodes, metaData, true);
+
+          const expectedLicenseData = {
+            ...licenseData,
+            usingMongoCache: true,
+            lastServerErrorMessage: "Invalid license key signature",
+            firstFailedFetchDate: now,
+            lastFailedFetchDate: now,
+          };
+
+          expect(getLicense(licenseKey)).toEqual(expectedLicenseData);
+          expect(fetch).toHaveBeenCalledTimes(1);
+          expect(LicenseModel.findOneAndReplace).toHaveBeenCalledWith(
+            { id: licenseKey },
+            expectedLicenseData,
+            { upsert: true }
           );
         });
       });
+
+      describe("and when the license server is down", () => {
+        beforeEach(() => {
+          const mockedResponse: Response = ({
+            ok: false,
+            statusText: "internal server error",
+            text: jest.fn().mockResolvedValue("internal server error"),
+          } as unknown) as Response;
+
+          mockedFetch.mockResolvedValue(Promise.resolve(mockedResponse));
+        });
+
+        afterEach(() => {
+          mockedFetch.mockReset();
+        });
+
+        describe("and when there is no cached data in LicenseModel", () => {
+          beforeEach(() => {
+            jest
+              .spyOn(LicenseModelModule, "getLicenseByKey")
+              .mockResolvedValue(null);
+
+            // Mock out the constructor so new LicenseModel(data) => data
+            jest
+              .spyOn(LicenseModelModule, "LicenseModel")
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              .mockImplementation((data: any) => {
+                return data;
+              });
+          });
+
+          it("should throw error if the license server is down and there is no cached data in LicenseModel", async () => {
+            await licenseInit(licenseKey, userLicenseCodes, metaData);
+            expect(getLicense(licenseKey)).toEqual({
+              firstFailedFetchDate: now,
+              id: "license_19exntswvlosvp1d6",
+              lastServerErrorMessage:
+                "License server errored with: internal server error",
+              lastFailedFetchDate: now,
+              usingMongoCache: true,
+            });
+          });
+        });
+
+        describe("and when there is cached data in LicenseModel", () => {
+          beforeEach(() => {
+            jest
+              .spyOn(LicenseModelModule, "getLicenseByKey")
+              .mockResolvedValue(cloneDeep(licenseData));
+          });
+
+          it("should return cache from LicenseModel if the license server is down and a cache exists in licenseModel that is less than 7 days and save the failures in the mongo cache", async () => {
+            const firstCallTime = now.getTime() + 2 * 24 * 60 * 60 * 1000;
+            jest.setSystemTime(firstCallTime);
+
+            await licenseInit(licenseKey, userLicenseCodes, metaData);
+
+            // The previous license data in mongo cache should be returned as it calls the license server in the background
+            expect(getLicense(licenseKey)).toEqual({
+              ...licenseData,
+              usingMongoCache: true,
+            });
+
+            await backgroundUpdateLicenseFromServerForTests;
+
+            const expectedLicenseData = {
+              ...licenseData,
+              usingMongoCache: true,
+              firstFailedFetchDate: new Date(firstCallTime),
+              lastFailedFetchDate: new Date(firstCallTime),
+              lastServerErrorMessage:
+                "License server errored with: internal server error",
+            };
+            expect(getLicense(licenseKey)).toEqual(expectedLicenseData);
+            expect(LicenseModel.findOneAndReplace).toHaveBeenCalledTimes(1);
+            expect(LicenseModel.findOneAndReplace).toHaveBeenCalledWith(
+              { id: licenseKey },
+              expectedLicenseData,
+              { upsert: true }
+            );
+
+            const mockedResponse: Response = ({
+              ok: false,
+              statusText: "different error",
+              text: jest.fn().mockResolvedValueOnce("different error"),
+            } as unknown) as Response;
+
+            mockedFetch.mockResolvedValue(Promise.resolve(mockedResponse));
+
+            const secondCallTime = now.getTime() + 4 * 24 * 60 * 60 * 1000;
+            jest.setSystemTime(secondCallTime);
+            await licenseInit(licenseKey, userLicenseCodes, metaData);
+
+            // The previous license data in mongo cache should be returned as it calls the license server in the background
+            expect(getLicense(licenseKey)).toEqual(expectedLicenseData);
+
+            await backgroundUpdateLicenseFromServerForTests;
+
+            const updatedLicenseData = {
+              ...licenseData,
+              usingMongoCache: true,
+              firstFailedFetchDate: new Date(firstCallTime),
+              lastFailedFetchDate: new Date(secondCallTime),
+              lastServerErrorMessage:
+                "License server errored with: different error",
+            };
+            expect(getLicense(licenseKey)).toEqual(updatedLicenseData);
+
+            expect(LicenseModel.findOneAndReplace).toHaveBeenCalledTimes(2);
+            expect(LicenseModel.findOneAndReplace).toHaveBeenCalledWith(
+              { id: licenseKey },
+              updatedLicenseData,
+              { upsert: true }
+            );
+          });
+
+          it("should return the cache that exists if it was last updated too long ago (getLicenseError will return a too old message)", async () => {
+            const callTime = now.getTime() + 8 * 24 * 60 * 60 * 1000;
+            jest.setSystemTime(callTime);
+
+            await licenseInit(licenseKey, userLicenseCodes, metaData);
+
+            expect(getLicense(licenseKey)).toEqual({
+              ...licenseData,
+              usingMongoCache: true,
+              firstFailedFetchDate: new Date(callTime),
+              lastFailedFetchDate: new Date(callTime),
+              lastServerErrorMessage:
+                "License server errored with: internal server error",
+            });
+          });
+        });
+
+        describe("and when there is cached data in LicenseModel but it is an initial error (never has been a successful call to the license server)", () => {
+          beforeEach(() => {
+            const expectedFirstFailedFetchCache = {
+              id: licenseKey,
+              firstFailedFetchDate: "past",
+            };
+            jest
+              .spyOn(LicenseModelModule, "getLicenseByKey")
+              // @ts-expect-error - when the first call to initLisense fails, we save a stub LicenseKey.
+              .mockResolvedValue(cloneDeep(expectedFirstFailedFetchCache));
+          });
+
+          it("should await fetch", async () => {
+            await licenseInit(licenseKey, userLicenseCodes, metaData);
+
+            expect(getLicense(licenseKey)).toEqual({
+              id: licenseKey,
+              usingMongoCache: true,
+              firstFailedFetchDate: "past",
+              lastFailedFetchDate: new Date(now),
+              lastServerErrorMessage:
+                "License server errored with: internal server error",
+            });
+          });
+        });
+      });
     });
-  });
 
-  describe("old style licenses where licenseKey does NOT start with 'license_' but contains the license data encoded in itself", () => {
-    it("should use the env variable if the licenseKey argument references an expired license", async () => {
-      const licenseData3 = cloneDeep(licenseData);
-      const tenDaysAgo = new Date(now);
-      tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
-      licenseData3.dateExpires = tenDaysAgo.toISOString();
-      licenseData3.signedChecksum =
-        "O8U7fSZb2eA_NIi6N5MJSxqsHNZ98E_nkoyBK7tQ_0pIGhXpQCrAy04ec_l_YLiNCVR8UKeZVQuf58_bdgBCXVQsEZSWDRSpmf_8lw3NjwHEBgh9KdDzsZVIN-bzywA27sQIsR4MS6kmZOgm2ml91WfRblCUf9q6kbXfXFBKgtt-afGUZDqYVnC-bPbZvoRKmyREpnw3u-CMlTvMPrxkpUuRCCWWcQe6o5S7LUW_L3Z9e-9kEEYC3mh2ERnjojSblR_sdSa_mDgLA20p9w0_Amhrw-6zKIi6ZyMUHHz3iUKXjvEpp4OqqHhm5Fooax07Hn4e18Om9ZisaZ22IRKeJyjjuZdGMnK3cfNhUaHkWW_FSHaDnTouQRdtA-hBP5l4ktauLKKVKuomvwunDq5-MHrcENfcUedV6eB68R0OGEi8bQVCGSnLrO48gTrQzbwVem5EAgr1n7PwpCdzZntUZfQ9QnoPhRRBPNFPGcCJih4ZlOsuDpYRpie7ritAupI7sRbuw_vk00fEBb0NAqA5pNBH7JMjUPhsUwYtXJumkbHZt8p1gz1U5A9UIgZT8rjiwHifqgOyo435M2xcHDHqPahjRDq8K11NZATNAf9AFlnIPPiYg-hHMIhugArpG-EuOsEekVQqjzGfm6CC24f6cyllhRYk22ae04cdbcm4iaA";
-      const mockedResponse3: Response = ({
-        ok: true,
-        json: jest.fn().mockResolvedValueOnce(licenseData3),
-      } as unknown) as Response;
+    describe("old style licenses where licenseKey does NOT start with 'license_' but contains the license data encoded in itself", () => {
+      it("should use the env variable if the licenseKey argument references an expired license", async () => {
+        const licenseData3 = cloneDeep(licenseData);
+        const tenDaysAgo = new Date(now);
+        tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+        licenseData3.dateExpires = tenDaysAgo.toISOString();
+        licenseData3.signedChecksum =
+          "O8U7fSZb2eA_NIi6N5MJSxqsHNZ98E_nkoyBK7tQ_0pIGhXpQCrAy04ec_l_YLiNCVR8UKeZVQuf58_bdgBCXVQsEZSWDRSpmf_8lw3NjwHEBgh9KdDzsZVIN-bzywA27sQIsR4MS6kmZOgm2ml91WfRblCUf9q6kbXfXFBKgtt-afGUZDqYVnC-bPbZvoRKmyREpnw3u-CMlTvMPrxkpUuRCCWWcQe6o5S7LUW_L3Z9e-9kEEYC3mh2ERnjojSblR_sdSa_mDgLA20p9w0_Amhrw-6zKIi6ZyMUHHz3iUKXjvEpp4OqqHhm5Fooax07Hn4e18Om9ZisaZ22IRKeJyjjuZdGMnK3cfNhUaHkWW_FSHaDnTouQRdtA-hBP5l4ktauLKKVKuomvwunDq5-MHrcENfcUedV6eB68R0OGEi8bQVCGSnLrO48gTrQzbwVem5EAgr1n7PwpCdzZntUZfQ9QnoPhRRBPNFPGcCJih4ZlOsuDpYRpie7ritAupI7sRbuw_vk00fEBb0NAqA5pNBH7JMjUPhsUwYtXJumkbHZt8p1gz1U5A9UIgZT8rjiwHifqgOyo435M2xcHDHqPahjRDq8K11NZATNAf9AFlnIPPiYg-hHMIhugArpG-EuOsEekVQqjzGfm6CC24f6cyllhRYk22ae04cdbcm4iaA";
+        const mockedResponse3: Response = ({
+          ok: true,
+          json: jest.fn().mockResolvedValueOnce(licenseData3),
+        } as unknown) as Response;
 
-      mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse3));
+        mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse3));
 
-      process.env.LICENSE_KEY = oldLicenseKey;
-      const result = await licenseInit(licenseKey, userLicenseCodes, metaData);
+        process.env.LICENSE_KEY = oldLicenseKey;
+        const result = await licenseInit(
+          licenseKey,
+          userLicenseCodes,
+          metaData
+        );
 
-      expect(getLicense(licenseKey)).toEqual(oldLicenseData);
-      expect(result).toEqual(oldLicenseData);
-    });
+        expect(getLicense(licenseKey)).toEqual(oldLicenseData);
+        expect(result).toEqual(oldLicenseData);
+      });
 
-    it("should not use the env variable if the licenseKey argument does not reference an expired license", async () => {
-      const mockedResponse: Response = ({
-        ok: true,
-        json: jest.fn().mockResolvedValueOnce(licenseData),
-      } as unknown) as Response;
+      it("should not use the env variable if the licenseKey argument does not reference an expired license", async () => {
+        const mockedResponse: Response = ({
+          ok: true,
+          json: jest.fn().mockResolvedValueOnce(licenseData),
+        } as unknown) as Response;
 
-      mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
+        mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
 
-      process.env.LICENSE_KEY = oldLicenseKey;
-      const result = await licenseInit(licenseKey, userLicenseCodes, metaData);
+        process.env.LICENSE_KEY = oldLicenseKey;
+        const result = await licenseInit(
+          licenseKey,
+          userLicenseCodes,
+          metaData
+        );
 
-      expect(getLicense(licenseKey)).toEqual(licenseData);
-      expect(result).toEqual(licenseData);
-    });
+        expect(getLicense(licenseKey)).toEqual(licenseData);
+        expect(result).toEqual(licenseData);
+      });
 
-    it("should read license data from the key itself and use the in-memory cache if called a second time, even if a long time has passed, as old style license keys should never expire", async () => {
-      await licenseInit(oldLicenseKey);
-
-      expect(getLicense(oldLicenseKey)).toEqual(oldLicenseData);
-
-      const tenYearsFromNow =
-        old_license_now.getTime() + 10 * 365 * 24 * 60 * 60 * 1000;
-      jest.setSystemTime(tenYearsFromNow);
-      jest.spyOn(JSON, "parse").mockReturnValue({ foo: "bar" }); // This is an invalid license, but we should use the cache so won't see an error.
-
-      await licenseInit(oldLicenseKey, userLicenseCodes, metaData);
-      expect(getLicense(oldLicenseKey)).toEqual(oldLicenseData);
-    });
-
-    it("should throw an error if the data doesn't match the signature", async () => {
-      await expect(
-        async () => await licenseInit(oldLicenseKey + "extrasignature")
-      ).rejects.toThrowError("Invalid license key signature");
-    });
-
-    it("should use the old expiry date 'eat' if the new one 'exp' is not present", async () => {
-      const oldLicenseOriginalData2 = cloneDeep(oldLicenseOrginalData);
-      // @ts-expect-error Ignoring TypeScript error here because we intentionally passed malformed data for testing purposes
-      oldLicenseOriginalData2.eat = oldLicenseOriginalData2.exp;
-      // @ts-expect-error Ignoring TypeScript error here because we intentionally passed malformed data for testing purposes
-      delete oldLicenseOriginalData2.exp;
-      jest.spyOn(JSON, "parse").mockReturnValue(oldLicenseOriginalData2);
-
-      await licenseInit(oldLicenseKey);
-
-      expect(getLicense(oldLicenseKey)).toEqual(oldLicenseData);
-    });
-
-    it("should throw an error if there is no expiry date on the license", async () => {
-      const oldLicenseOriginalData2 = cloneDeep(oldLicenseOrginalData);
-      // @ts-expect-error Ignoring TypeScript error here because we intentionally passed malformed data for testing purposes
-      delete oldLicenseOriginalData2.exp;
-      jest.spyOn(JSON, "parse").mockReturnValue(oldLicenseOriginalData2);
-
-      await expect(async () => {
+      it("should read license data from the key itself and use the in-memory cache if called a second time, even if a long time has passed, as old style license keys should never expire", async () => {
         await licenseInit(oldLicenseKey);
-      }).rejects.toThrowError("Invalid License Key - Missing expiration date");
-    });
 
-    it("should automatically assume enterprise plan if no plan is specified", async () => {
-      const oldLicenseOriginalData2 = cloneDeep(oldLicenseOrginalData);
-      // @ts-expect-error Ignoring TypeScript error here because we intentionally passed malformed data for testing purposes
-      delete oldLicenseOriginalData2.plan;
-      jest.spyOn(JSON, "parse").mockReturnValue(oldLicenseOriginalData2);
+        expect(getLicense(oldLicenseKey)).toEqual(oldLicenseData);
 
-      await licenseInit(oldLicenseKey);
+        const tenYearsFromNow =
+          old_license_now.getTime() + 10 * 365 * 24 * 60 * 60 * 1000;
+        jest.setSystemTime(tenYearsFromNow);
+        jest.spyOn(JSON, "parse").mockReturnValue({ foo: "bar" }); // This is an invalid license, but we should use the cache so won't see an error.
 
-      const expected = cloneDeep(oldLicenseData);
-      expected.plan = "enterprise";
-      expect(getLicense(oldLicenseKey)).toEqual(expected);
+        await licenseInit(oldLicenseKey, userLicenseCodes, metaData);
+        expect(getLicense(oldLicenseKey)).toEqual(oldLicenseData);
+      });
+
+      it("should throw an error if the data doesn't match the signature", async () => {
+        await expect(
+          async () => await licenseInit(oldLicenseKey + "extrasignature")
+        ).rejects.toThrowError("Invalid license key signature");
+      });
+
+      it("should use the old expiry date 'eat' if the new one 'exp' is not present", async () => {
+        const oldLicenseOriginalData2 = cloneDeep(oldLicenseOrginalData);
+        // @ts-expect-error Ignoring TypeScript error here because we intentionally passed malformed data for testing purposes
+        oldLicenseOriginalData2.eat = oldLicenseOriginalData2.exp;
+        // @ts-expect-error Ignoring TypeScript error here because we intentionally passed malformed data for testing purposes
+        delete oldLicenseOriginalData2.exp;
+        jest.spyOn(JSON, "parse").mockReturnValue(oldLicenseOriginalData2);
+
+        await licenseInit(oldLicenseKey);
+
+        expect(getLicense(oldLicenseKey)).toEqual(oldLicenseData);
+      });
+
+      it("should throw an error if there is no expiry date on the license", async () => {
+        const oldLicenseOriginalData2 = cloneDeep(oldLicenseOrginalData);
+        // @ts-expect-error Ignoring TypeScript error here because we intentionally passed malformed data for testing purposes
+        delete oldLicenseOriginalData2.exp;
+        jest.spyOn(JSON, "parse").mockReturnValue(oldLicenseOriginalData2);
+
+        await expect(async () => {
+          await licenseInit(oldLicenseKey);
+        }).rejects.toThrowError(
+          "Invalid License Key - Missing expiration date"
+        );
+      });
+
+      it("should automatically assume enterprise plan if no plan is specified", async () => {
+        const oldLicenseOriginalData2 = cloneDeep(oldLicenseOrginalData);
+        // @ts-expect-error Ignoring TypeScript error here because we intentionally passed malformed data for testing purposes
+        delete oldLicenseOriginalData2.plan;
+        jest.spyOn(JSON, "parse").mockReturnValue(oldLicenseOriginalData2);
+
+        await licenseInit(oldLicenseKey);
+
+        const expected = cloneDeep(oldLicenseData);
+        expected.plan = "enterprise";
+        expect(getLicense(oldLicenseKey)).toEqual(expected);
+      });
     });
   });
 });

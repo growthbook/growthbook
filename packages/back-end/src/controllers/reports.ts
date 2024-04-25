@@ -23,7 +23,6 @@ import { generateReportNotebook } from "../services/notebook";
 import { getContextFromReq } from "../services/organizations";
 import { reportArgsFromSnapshot } from "../services/reports";
 import { AuthRequest } from "../types/AuthRequest";
-import { ExperimentInterface } from "../../types/experiment";
 import { getFactTableMap } from "../models/FactTableModel";
 
 export async function postReportFromSnapshot(
@@ -215,14 +214,6 @@ export async function refreshReport(
     throw new Error("Unknown report id");
   }
 
-  let experiment: ExperimentInterface | null = null;
-
-  if (report.experimentId) {
-    experiment = await getExperimentById(context, report.experimentId || "");
-  }
-
-  req.checkPermissions("runQueries", experiment?.project || "");
-
   const useCache = !req.query["force"];
 
   const statsEngine = report.args?.statsEngine || DEFAULT_STATS_ENGINE;
@@ -332,6 +323,7 @@ export async function putReport(
       updatedReport.args.datasource,
       true
     );
+
     const queryRunner = new ReportQueryRunner(
       context,
       updatedReport,
@@ -362,17 +354,11 @@ export async function cancelReport(
     throw new Error("Could not cancel query");
   }
 
-  const experiment = await getExperimentById(
-    context,
-    report.experimentId || ""
-  );
-
-  req.checkPermissions("runQueries", experiment?.project || "");
-
   const integration = await getIntegrationFromDatasourceId(
     context,
     report.args.datasource
   );
+
   const queryRunner = new ReportQueryRunner(context, report, integration);
   await queryRunner.cancelQueries();
 

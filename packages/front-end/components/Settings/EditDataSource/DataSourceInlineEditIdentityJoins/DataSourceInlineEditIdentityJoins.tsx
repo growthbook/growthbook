@@ -6,12 +6,11 @@ import {
   IdentityJoinQuery,
 } from "back-end/types/datasource";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
-import { checkDatasourceProjectPermissions } from "@/services/datasources";
 import { AddEditIdentityJoinModal } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/AddEditIdentityJoinModal";
-import usePermissions from "@/hooks/usePermissions";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 type DataSourceInlineEditIdentityJoinsProps = DataSourceQueryEditingModalBaseProps;
 
@@ -24,14 +23,8 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
 
-  const permissions = usePermissions();
-  canEdit =
-    canEdit &&
-    checkDatasourceProjectPermissions(
-      dataSource,
-      permissions,
-      "editDatasourceSettings"
-    );
+  const permissionsUtil = usePermissionsUtil();
+  canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
 
   const [openIndexes, setOpenIndexes] = useState<boolean[]>([]);
 

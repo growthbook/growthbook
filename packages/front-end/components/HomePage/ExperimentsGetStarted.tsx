@@ -191,8 +191,12 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                       // Otherwise, you need full create access
                       !hasFileConfig() &&
                       !(hasDataSource
-                        ? permissions.check("editDatasourceSettings", project)
-                        : permissions.check("createDatasources", project))
+                        ? datasources.some((datasource) =>
+                            permissionsUtil.canUpdateDataSourceSettings(
+                              datasource
+                            )
+                          )
+                        : permissionsUtil.canViewCreateDataSourceModal(project))
                     }
                     cta="Add data source"
                     finishedCTA="View data sources"

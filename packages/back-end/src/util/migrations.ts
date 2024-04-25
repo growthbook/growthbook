@@ -10,8 +10,7 @@ import {
   DataSourceInterface,
   DataSourceSettings,
 } from "../../types/datasource";
-import SqlIntegration from "../integrations/SqlIntegration";
-import { getSourceIntegrationObject } from "../services/datasource";
+import { decryptDataSourceParams } from "../services/datasource";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
@@ -178,8 +177,21 @@ export function upgradeDatasourceObject(
 
   // Upgrade old docs to the new exposure queries format
   if (settings && !settings?.queries?.exposure) {
-    const integration = getSourceIntegrationObject(datasource);
-    if (integration instanceof SqlIntegration) {
+    const isSQL = !["google_analytics", "mixpanel"].includes(datasource.type);
+    if (isSQL) {
+      let schema = "";
+      try {
+        const params = decryptDataSourceParams(datasource.params);
+        if (
+          "defaultSchema" in params &&
+          typeof params.defaultSchema === "string"
+        ) {
+          schema = params.defaultSchema;
+        }
+      } catch (e) {
+        // Ignore decryption errors, they are handled elsewhere
+      }
+
       settings.queries = settings.queries || {};
       settings.queries.exposure = [
         {
@@ -190,11 +202,7 @@ export function upgradeDatasourceObject(
           dimensions: settings.experimentDimensions || [],
           query:
             settings.queries.experimentsQuery ||
-            getDefaultExperimentQuery(
-              settings,
-              "user_id",
-              integration.getSchema()
-            ),
+            getDefaultExperimentQuery(settings, "user_id", schema),
         },
         {
           id: "anonymous_id",
@@ -204,11 +212,7 @@ export function upgradeDatasourceObject(
           dimensions: settings.experimentDimensions || [],
           query:
             settings.queries.experimentsQuery ||
-            getDefaultExperimentQuery(
-              settings,
-              "anonymous_id",
-              integration.getSchema()
-            ),
+            getDefaultExperimentQuery(settings, "anonymous_id", schema),
         },
       ];
     }
