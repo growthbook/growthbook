@@ -184,7 +184,6 @@ export interface Context {
   features?: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
   forcedVariations?: Record<string, number>;
-  blockedExperiments?: string[];
   blockedExperimentHashes?: string[];
   disableVisualExperiments?: boolean;
   disableJsInjection?: boolean;
@@ -236,7 +235,6 @@ export interface Context {
   antiFlicker?: boolean;
   antiFlickerTimeout?: number;
   applyDomChangesCallback?: ApplyDomChangesCallback;
-  isBrowser?: boolean;
 }
 
 export type SubscriptionFunction = (

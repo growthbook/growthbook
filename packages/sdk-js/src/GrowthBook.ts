@@ -70,8 +70,7 @@ export class GrowthBook<
   private _renderer: null | RenderFunction;
   private _redirectedUrl: string;
   private _trackedExperiments: Set<string>;
-  private _trackedExperimentKeys: Set<string>;
-  private _trackedExperimentHashes: Set<string>;
+  private _ranExperimentIds: Set<string>;
   private _trackedFeatures: Record<string, string>;
   private _subscriptions: Set<SubscriptionFunction>;
   private _rtQueue: RealtimeUsageData[];
@@ -104,8 +103,7 @@ export class GrowthBook<
     this._ctx = this.context = context;
     this._renderer = null;
     this._trackedExperiments = new Set();
-    this._trackedExperimentKeys = new Set();
-    this._trackedExperimentHashes = new Set();
+    this._ranExperimentIds = new Set();
     this._trackedFeatures = {};
     this.debug = false;
     this._subscriptions = new Set();
@@ -153,7 +151,7 @@ export class GrowthBook<
       this.ready = true;
     }
 
-    if ((isBrowser || context.isBrowser) && context.enableDevMode) {
+    if (isBrowser && context.enableDevMode) {
       window._growthbook = this;
       document.dispatchEvent(new Event("gbloaded"));
     }
@@ -443,24 +441,8 @@ export class GrowthBook<
     return this._ctx.experiments || [];
   }
 
-  public getTrackedFeatures(): Record<string, string> {
-    return this._trackedFeatures;
-  }
-
-  public getTrackedExperiments(): string[] {
-    return Array.from(this._trackedExperimentKeys);
-  }
-
-  public getTrackedExperimentHashes(): string[] {
-    return Array.from(this._trackedExperimentHashes);
-  }
-
-  public getBlockedExperiments(): string[] {
-    return this._ctx.blockedExperiments || [];
-  }
-
-  public setBlockedExperiments(experiments: string[]) {
-    this._ctx.blockedExperiments = experiments;
+  public getRanExperimentIds(): string[] {
+    return Array.from(this._ranExperimentIds);
   }
 
   public getBlockedExperimentHashes(): string[] {
@@ -499,8 +481,7 @@ export class GrowthBook<
     this._subscriptions.clear();
     this._assigned.clear();
     this._trackedExperiments.clear();
-    this._trackedExperimentKeys.clear();
-    this._trackedExperimentHashes.clear();
+    this._ranExperimentIds.clear();
     this._trackedFeatures = {};
     this._rtQueue = [];
     if (this._rtTimer) {
@@ -508,7 +489,7 @@ export class GrowthBook<
     }
     unsubscribe(this);
 
-    if ((isBrowser || this._ctx.isBrowser) && window._growthbook === this) {
+    if (isBrowser && window._growthbook === this) {
       delete window._growthbook;
     }
 
@@ -712,7 +693,7 @@ export class GrowthBook<
     }
 
     // In browser environments, queue up feature usage to be tracked in batches
-    if (!(isBrowser || this._ctx.isBrowser) || !window.fetch) return;
+    if (!isBrowser || !window.fetch) return;
     this._rtQueue.push({
       key,
       on: res.on,
@@ -1420,12 +1401,11 @@ export class GrowthBook<
       result.hashAttribute + result.hashValue + key + result.variationId;
     if (this._trackedExperiments.has(k)) return;
     this._trackedExperiments.add(k);
-    this._trackedExperimentKeys.add(key);
     // todo: works...
     const uid = (experiment as AutoExperiment)?.uid;
-    uid && this._trackedExperimentHashes.add(uid);
+    uid && this._ranExperimentIds.add(uid);
     // todo: does not work
-    //experiment?.uid && this._trackedExperimentHashes.add(experiment.uid);
+    //experiment?.uid && this._ranExperimentIds.add(experiment.uid);
 
     if (!this._ctx.trackingCallback) {
       this._deferredTrackingCalls.push({ experiment, result });
@@ -1531,10 +1511,7 @@ export class GrowthBook<
   }
 
   private _getContextUrl() {
-    return (
-      this._ctx.url ||
-      (isBrowser || this._ctx.isBrowser ? window.location.href : "")
-    );
+    return this._ctx.url || (isBrowser ? window.location.href : "");
   }
 
   private _urlIsValid(urlRegex: RegExp): boolean {
@@ -1593,9 +1570,6 @@ export class GrowthBook<
       }
     }
 
-    if ((this._ctx.blockedExperiments || []).includes(experiment.key))
-      return true;
-
     if (
       experiment.uid &&
       (this._ctx.blockedExperimentHashes || []).includes(experiment.uid)
@@ -1641,7 +1615,7 @@ export class GrowthBook<
   }
 
   private _applyDOMChanges(changes: AutoExperimentVariation) {
-    if (!(isBrowser || this._ctx.isBrowser)) return;
+    if (!isBrowser) return;
     const undo: (() => void)[] = [];
     if (changes.css) {
       const s = document.createElement("style");
