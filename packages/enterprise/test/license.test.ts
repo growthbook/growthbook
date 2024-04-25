@@ -898,29 +898,22 @@ describe("src/license", () => {
         });
 
         describe("and when there is cached data in LicenseModel but it is an initial error (never has been a successful call to the license server)", () => {
-          const mockFindOneAndUpdate = jest.fn();
-          let previousCache;
-
           beforeEach(() => {
             const expectedFirstFailedFetchCache = {
               id: licenseKey,
               firstFailedFetchDate: "past",
             };
-            previousCache = {
-              ...expectedFirstFailedFetchCache,
-              toJSON: () => expectedFirstFailedFetchCache,
-              findOneAndUpdate: mockFindOneAndUpdate,
-            };
             jest
-              .spyOn(LicenseModel, "findOne")
-              .mockResolvedValue(previousCache);
+              .spyOn(LicenseModelModule, "getLicenseByKey")
+              // @ts-expect-error - when the first call to initLisense fails, we save a stub LicenseKey.
+              .mockResolvedValue(cloneDeep(expectedFirstFailedFetchCache));
           });
 
           it("should await fetch", async () => {
             await licenseInit(licenseKey, userLicenseCodes, metaData);
 
             expect(getLicense(licenseKey)).toEqual({
-              ...previousCache,
+              id: licenseKey,
               usingMongoCache: true,
               firstFailedFetchDate: "past",
               lastFailedFetchDate: new Date(now),

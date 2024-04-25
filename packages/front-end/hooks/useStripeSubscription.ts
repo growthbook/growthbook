@@ -81,7 +81,7 @@ export default function useStripeSubscription() {
     // if already on pro, they must have a stripeSubscription - some self-hosted pro have an annual contract not directly through stripe.
     if (
       license &&
-      ["pro", "pro_sso"].includes(license.plan) &&
+      ["pro", "pro_sso"].includes(license.plan || "") &&
       !license.stripeSubscription
     )
       return false;
