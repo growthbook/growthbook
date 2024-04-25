@@ -8,6 +8,7 @@ import {
   ReportInterface,
 } from "back-end/types/report";
 import { BsArrowRepeat } from "react-icons/bs";
+import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
 import ResultsDownloadButton from "@/components/Experiment/ResultsDownloadButton";
@@ -17,6 +18,7 @@ import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton"
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { trackReport } from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function ResultMoreMenu({
   editMetrics,
@@ -34,6 +36,7 @@ export default function ResultMoreMenu({
   variations,
   trackingKey,
   dimension,
+  datasource,
   project,
 }: {
   editMetrics?: () => void;
@@ -51,11 +54,13 @@ export default function ResultMoreMenu({
   variations?: ExperimentReportVariation[];
   trackingKey?: string;
   dimension?: string;
+  datasource?: DataSourceInterfaceWithParams | null;
   project?: string;
 }) {
   const { apiCall } = useAuth();
   const router = useRouter();
   const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
 
   const canEdit = permissions.check("createAnalyses", project);
@@ -72,17 +77,19 @@ export default function ResultMoreMenu({
           className="dropdown-item py-2"
         />
       )}
-      {forceRefresh && permissions.check("runQueries", project || "") && (
-        <button
-          className="btn dropdown-item py-2"
-          onClick={(e) => {
-            e.preventDefault();
-            forceRefresh();
-          }}
-        >
-          <BsArrowRepeat className="mr-2" /> Re-run All Queries
-        </button>
-      )}
+      {forceRefresh &&
+        datasource &&
+        permissionsUtil.canRunExperimentQueries(datasource) && (
+          <button
+            className="btn dropdown-item py-2"
+            onClick={(e) => {
+              e.preventDefault();
+              forceRefresh();
+            }}
+          >
+            <BsArrowRepeat className="mr-2" /> Re-run All Queries
+          </button>
+        )}
       {hasData && queries && generateReport && canEdit && (
         <Button
           className="dropdown-item py-2"

@@ -18,6 +18,7 @@ import {
   mergeParams,
   encryptParams,
   testQuery,
+  getIntegrationFromDatasourceId,
 } from "../services/datasource";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import {
@@ -364,7 +365,7 @@ export async function getDataSources(req: AuthRequest, res: Response) {
   res.status(200).json({
     status: 200,
     datasources: datasources.map((d) => {
-      const integration = getSourceIntegrationObject(d);
+      const integration = getSourceIntegrationObject(context, d);
       return {
         id: d.id,
         name: d.name,
@@ -385,16 +386,9 @@ export async function getDataSource(
   const context = getContextFromReq(req);
   const { id } = req.params;
 
-  const datasource = await getDataSourceById(context, id);
-  if (!datasource) {
-    res.status(404).json({
-      status: 404,
-      message: "Cannot find data source",
-    });
-    return;
-  }
+  const integration = await getIntegrationFromDatasourceId(context, id);
 
-  const integration = getSourceIntegrationObject(datasource);
+  const datasource = integration.datasource;
 
   res.status(200).json({
     id: datasource.id,
@@ -419,7 +413,6 @@ export async function postDataSources(
   res: Response
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { name, description, type, params, projects } = req.body;
   const settings = req.body.settings || {};
 
@@ -437,7 +430,7 @@ export async function postDataSources(
     };
 
     const datasource = await createDataSource(
-      org.id,
+      context,
       name,
       type,
       params,
@@ -592,7 +585,7 @@ export async function putDataSource(
     // If the connection params changed, re-validate the connection
     // If the user is just updating the display name, no need to do this
     if (params) {
-      const integration = getSourceIntegrationObject(datasource);
+      const integration = getSourceIntegrationObject(context, datasource);
       mergeParams(integration, params);
       await integration.testConnection();
       updates.params = encryptParams(integration.params);
@@ -744,12 +737,9 @@ export async function testLimitedQuery(
       message: "Cannot find data source",
     });
   }
-  req.checkPermissions(
-    "runQueries",
-    datasource?.projects?.length ? datasource.projects : []
-  );
 
   const { results, sql, duration, error } = await testQuery(
+    context,
     datasource,
     query,
     templateVariables
@@ -825,16 +815,11 @@ export async function postDimensionSlices(
   const { org } = context;
   const { dataSourceId, queryId, lookbackDays } = req.body;
 
-  const datasourceObj = await getDataSourceById(context, dataSourceId);
-  if (!datasourceObj) {
-    throw new Error("Could not find datasource");
-  }
-  req.checkPermissions(
-    "runQueries",
-    datasourceObj?.projects?.length ? datasourceObj.projects : []
+  const integration = await getIntegrationFromDatasourceId(
+    context,
+    dataSourceId,
+    true
   );
-
-  const integration = getSourceIntegrationObject(datasourceObj, true);
 
   const model = await createDimensionSlices({
     organization: org.id,
@@ -868,20 +853,12 @@ export async function cancelDimensionSlices(
   if (!dimensionSlices) {
     throw new Error("Could not cancel automatic dimension");
   }
-  const datasource = await getDataSourceById(
+
+  const integration = await getIntegrationFromDatasourceId(
     context,
-    dimensionSlices.datasource
+    dimensionSlices.datasource,
+    true
   );
-  if (!datasource) {
-    throw new Error("Could not find datasource");
-  }
-
-  req.checkPermissions(
-    "runQueries",
-    datasource.projects ? datasource.projects : []
-  );
-
-  const integration = getSourceIntegrationObject(datasource, true);
 
   const queryRunner = new DimensionSlicesQueryRunner(
     context,
