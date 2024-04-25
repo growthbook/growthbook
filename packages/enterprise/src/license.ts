@@ -727,6 +727,7 @@ export async function licenseInit(
           if (
             forceRefresh ||
             !mongoCache ||
+            !mongoCache.dateUpdated || // If the first call to get the license errors, the cache will be created with no dateUpdated
             new Date(mongoCache.dateUpdated) < oneWeekAgo
           ) {
             license = await updateLicenseFromServer(
@@ -818,9 +819,14 @@ export function getLicenseError(org: MinimalOrganization): string {
   const licenseData = getLicense(key);
 
   // If there is no license it can't have an error
-  // Licenses might not have a plan if sign up for pro, but abandon checkout
-  // Or it might not have a plan if the license is set in the env var but the license server wasn't whitelisted.
+  // Licenses might not have a plan if sign up for pro, but abandon checkout, in which case we don't want to show an error
+  // Or it might not have a plan if the license is set in the env var but the license server wasn't whitelisted, in which case we do want to show the error
   if (!licenseData || !licenseData.plan) {
+    if (licenseData?.lastServerErrorMessage?.includes("Could not connect")) {
+      return "License server unreachable for too long";
+    } else if (licenseData?.lastServerErrorMessage) {
+      return "License server erroring for too long";
+    }
     return "";
   }
 
@@ -841,7 +847,14 @@ export function getLicenseError(org: MinimalOrganization): string {
     }
 
     if (new Date() > cachedDataGoodUntil) {
-      return "License server down for too long";
+      if (
+        !licenseData?.lastServerErrorMessage ||
+        licenseData?.lastServerErrorMessage?.includes("Could not connect")
+      ) {
+        return "License server unreachable for too long";
+      } else {
+        return "License server erroring for too long";
+      }
     }
   }
 
