@@ -12,7 +12,7 @@ import {
   FullModalPowerCalculationParams,
   StatsEngine,
   config,
-} from "@/components/PowerCalculation/types";
+} from "@/components/PowerCalculation/base";
 
 import { powerMetricWeeks } from "@/components/PowerCalculation/stats";
 

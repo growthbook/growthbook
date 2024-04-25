@@ -14,7 +14,8 @@ import {
   MetricParams,
   FullModalPowerCalculationParams,
   PartialPowerCalculationParams,
-} from "./types";
+  percentFormatter,
+} from "./base";
 
 export type Props = {
   close?: () => void;
@@ -168,17 +169,6 @@ const InputField = ({
     return "Must be a number";
   })();
 
-  console.log(
-    "form",
-    form.register(`metrics.${metricId}.${entry}`, {
-      valueAsNumber: true,
-    })
-  );
-
-  console.log("entryValue", entryValue);
-
-  console.log("Form values", form.getValues());
-
   return (
     <div className="col">
       <Field
@@ -200,6 +190,11 @@ const InputField = ({
         {...form.register(`metrics.${metricId}.${entry}`, {
           valueAsNumber: true,
         })}
+        value={
+          entryValue !== undefined && isPercent
+            ? percentFormatter.format(entryValue)
+            : entryValue
+        }
         className={clsx("w-50", isKeyInvalid && "border border-danger")}
         helpText={
           isKeyInvalid ? (

@@ -8,15 +8,10 @@ import {
   PowerCalculationResults,
   PowerCalculationSuccessResults,
   StatsEngine,
-} from "./types";
+  percentFormatter,
+  numberFormatter,
+} from "./base";
 import PowerCalculationStatsEngineModal from "./PowerCalculationStatsEngineModal";
-
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 0,
-});
-
-const numberFormatter = Intl.NumberFormat("en-US");
 
 const MIN_VARIATIONS = 2;
 const MAX_VARIATIONS = 12;

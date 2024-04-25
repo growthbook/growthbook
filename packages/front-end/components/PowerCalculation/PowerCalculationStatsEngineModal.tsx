@@ -7,7 +7,7 @@ import { DocLink } from "@/components/DocLink";
 import Toggle from "@/components/Forms/Toggle";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
-import { StatsEngine } from "./types";
+import { StatsEngine } from "./base";
 
 export type Props = {
   close: () => void;

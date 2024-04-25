@@ -98,24 +98,22 @@ const validEntry = (name: keyof typeof config, v: number | undefined) => {
 };
 
 export const isValidPowerCalculationParams = (
-  v: PartialPowerCalculationParams,
+  v: PartialPowerCalculationParams
 ): v is FullModalPowerCalculationParams =>
   validEntry("usersPerWeek", v.usersPerWeek) &&
   Object.keys(v.metrics).every((key) => {
     const params = v.metrics[key];
     if (!params) return false;
-    return (
-      [
-        "effectSize",
-        ...(params.type === "binomial"
-          ? (["conversionRate"] as const)
-          : (["mean", "standardDeviation"] as const)),
-      ] as const
-    ).every((k) => validEntry(k, params[k]));
+    return ([
+      "effectSize",
+      ...(params.type === "binomial"
+        ? (["conversionRate"] as const)
+        : (["mean", "standardDeviation"] as const)),
+    ] as const).every((k) => validEntry(k, params[k]));
   });
 
 export const ensureAndReturnPowerCalculationParams = (
-  v: PartialPowerCalculationParams,
+  v: PartialPowerCalculationParams
 ): FullModalPowerCalculationParams => {
   if (!isValidPowerCalculationParams(v)) throw "internal error";
   return v;
@@ -162,3 +160,10 @@ export type PowerCalculationResults =
       type: "error";
       description: string;
     };
+
+export const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 0,
+});
+
+export const numberFormatter = Intl.NumberFormat("en-US");
