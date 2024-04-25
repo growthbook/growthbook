@@ -19,11 +19,6 @@ import Tab from "@/components/Tabs/Tab";
 import Toggle from "@/components/Forms/Toggle";
 import BayesianPriorSettings from "@/components/Settings/BayesianPriorSettings";
 
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
-
 export default function StatsEngineSettings() {
   const form = useFormContext();
 

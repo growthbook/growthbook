@@ -3,7 +3,7 @@ import os from "os";
 import { PythonShell } from "python-shell";
 import cloneDeep from "lodash/cloneDeep";
 import {
-  DEFAULT_INFORMATIVE_PRIOR_STDDEV,
+  DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   EXPOSURE_DATE_DIMENSION_NAME,
@@ -52,7 +52,7 @@ export interface AnalysisSettingsForStatsEngine {
   baseline_index: number;
   dimension: string;
   stats_engine: string;
-  prior_informative: boolean;
+  prior_proper: boolean;
   prior_mean: number;
   prior_stddev: number;
   sequential_testing_enabled: boolean;
@@ -138,11 +138,10 @@ export function getAnalysisSettingsForStatsEngine(
     baseline_index: settings.baselineVariationIndex ?? 0,
     dimension: settings.dimensions[0] || "",
     stats_engine: settings.statsEngine,
-    prior_informative: Boolean(settings.informativePrior) ?? false,
-    prior_mean: Number(settings.informativePriorMean) ?? 0,
+    prior_proper: Boolean(settings.properPrior) ?? false,
+    prior_mean: Number(settings.properPriorMean) ?? 0,
     prior_stddev:
-      Number(settings.informativePriorStdDev) ??
-      DEFAULT_INFORMATIVE_PRIOR_STDDEV,
+      Number(settings.properPriorStdDev) ?? DEFAULT_PROPER_PRIOR_STDDEV,
     sequential_testing_enabled: settings.sequentialTesting ?? false,
     sequential_tuning_parameter: sequentialTestingTuningParameterNumber,
     difference_type: settings.differenceType,

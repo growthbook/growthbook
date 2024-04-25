@@ -58,9 +58,9 @@ export interface ExperimentReportArgs {
   statsEngine?: StatsEngine;
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
-  informativePrior?: boolean;
-  informativePriorMean?: number;
-  informativePriorStdDev?: number;
+  properPrior?: boolean;
+  properPriorMean?: number;
+  properPriorStdDev?: number;
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
   pValueThreshold?: number;

@@ -11,7 +11,7 @@ import {
 } from "back-end/types/experiment";
 import uniq from "lodash/uniq";
 import {
-  DEFAULT_INFORMATIVE_PRIOR_STDDEV,
+  DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
@@ -130,9 +130,10 @@ export default function ConfigureReport({
         DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       metricRegressionAdjustmentStatuses:
         report.args.metricRegressionAdjustmentStatuses || [],
-      informativePrior: report.args.informativePrior ?? false,
-      informativePriorMean: report.args.informativePriorMean ?? 0,
-      informativePriorStdDev: report.args.informativePriorStdDev ?? DEFAULT_INFORMATIVE_PRIOR_STDDEV,
+      properPrior: report.args.properPrior ?? false,
+      properPriorMean: report.args.properPriorMean ?? 0,
+      properPriorStdDev:
+        report.args.properPriorStdDev ?? DEFAULT_PROPER_PRIOR_STDDEV,
       sequentialTestingEnabled:
         hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled,
       sequentialTestingTuningParameter:
@@ -594,8 +595,11 @@ export default function ConfigureReport({
       {form.watch("statsEngine") === "bayesian" && (
         <FormProvider {...form}>
           <div className="mb-3">
-        <BayesianPriorSettings defaultMean={orgSettings.informativePriorMean} defaultStdDev={orgSettings.informativePriorStdDev} />
-        </div>
+            <BayesianPriorSettings
+              defaultMean={orgSettings.properPriorMean}
+              defaultStdDev={orgSettings.properPriorStdDev}
+            />
+          </div>
         </FormProvider>
       )}
 

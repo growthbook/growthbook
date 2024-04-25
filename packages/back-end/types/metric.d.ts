@@ -1,6 +1,7 @@
 import {
   CappingType,
   MetricCappingSettings,
+  MetricPriorSettings,
   MetricWindowSettings,
 } from "./fact-table";
 import { Queries } from "./query";
@@ -65,6 +66,7 @@ export interface MetricInterface {
 
   cappingSettings: MetricCappingSettings;
   windowSettings: MetricWindowSettings;
+  priorSettings: MetricPriorSettings;
 
   winRisk?: number;
   loseRisk?: number;

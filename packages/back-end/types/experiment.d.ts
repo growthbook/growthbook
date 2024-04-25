@@ -176,9 +176,9 @@ export interface ExperimentInterface {
   linkedFeatures?: string[];
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
-  informativePrior?: boolean;
-  informativePriorMean?: number;
-  informativePriorStdDev?: number;
+  properPrior?: boolean;
+  properPriorMean?: number;
+  properPriorStdDev?: number;
   statsEngine?: StatsEngine;
   manualLaunchChecklist?: { key: string; status: "complete" | "incomplete" }[];
 }

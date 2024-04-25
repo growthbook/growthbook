@@ -580,10 +580,10 @@ export default function ReportPage() {
                       <div>
                         <span className="text-muted">Informative prior:</span>{" "}
                         <span>
-                          {report.args?.informativePrior &&
-                          report.args?.informativePriorStdDev &&
-                          report.args?.informativePriorMean !== undefined
-                            ? `N(${report.args.informativePriorMean}, ${report.args.informativePriorStdDev}^2)`
+                          {report.args?.properPrior &&
+                          report.args?.properPriorStdDev &&
+                          report.args?.properPriorMean !== undefined
+                            ? `N(${report.args.properPriorMean}, ${report.args.properPriorStdDev}^2)`
                             : "Disabled"}
                         </span>
                       </div>

@@ -6,8 +6,8 @@ import pandas as pd
 
 from gbstats.bayesian.tests import (
     BayesianTestResult,
-    GaussianEffectABTest,
-    GaussianEffectBayesianConfig,
+    EffectBayesianABTest,
+    EffectBayesianConfig,
     GaussianPrior,
 )
 from gbstats.frequentist.tests import (
@@ -182,7 +182,7 @@ def get_configured_test(
     test_index: int,
     analysis: AnalysisSettingsForStatsEngine,
     metric: MetricSettingsForStatsEngine,
-) -> Union[GaussianEffectABTest, SequentialTwoSidedTTest, TwoSidedTTest]:
+) -> Union[EffectBayesianABTest, SequentialTwoSidedTTest, TwoSidedTTest]:
 
     stat_a = variation_statistic_from_metric_row(row, "baseline", metric)
     stat_b = variation_statistic_from_metric_row(row, f"v{test_index}", metric)
@@ -223,12 +223,12 @@ def get_configured_test(
         prior = GaussianPrior(
             mean=analysis.prior_mean,
             variance=pow(analysis.prior_stddev, 2),
-            informative=analysis.prior_informative,
+            proper=analysis.prior_proper,
         )
-        return GaussianEffectABTest(
+        return EffectBayesianABTest(
             stat_a,
             stat_b,
-            GaussianEffectBayesianConfig(
+            EffectBayesianConfig(
                 **base_config,
                 inverse=metric.inverse,
                 prior_effect=prior,

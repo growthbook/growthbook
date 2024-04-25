@@ -17,6 +17,7 @@ import {
   cappingTypeValidator,
   factMetricValidator,
   quantileSettingsValidator,
+  priorSettingsValidator,
 } from "../src/routers/fact-table/fact-table.validators";
 import { TestQueryRow } from "../src/types/Integration";
 import { CreateProps, UpdateProps } from "./models";
@@ -78,6 +79,7 @@ export type ConversionWindowUnit = z.infer<
   typeof conversionWindowUnitValidator
 >;
 export type MetricWindowSettings = z.infer<typeof windowSettingsValidator>;
+export type MetricPriorSettings = z.infer<typeof priorSettingsValidator>;
 
 export type FactMetricInterface = z.infer<typeof factMetricValidator>;
 

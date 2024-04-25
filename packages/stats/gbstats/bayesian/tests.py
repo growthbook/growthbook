@@ -23,7 +23,7 @@ from gbstats.utils import truncated_normal_mean
 class GaussianPrior:
     mean: float = 0
     variance: float = 1
-    informative: bool = False
+    proper: bool = False
 
 
 @dataclass
@@ -34,7 +34,7 @@ class BayesianConfig(BaseConfig):
 
 
 @dataclass
-class GaussianEffectBayesianConfig(BayesianConfig):
+class EffectBayesianConfig(BayesianConfig):
     prior_effect: GaussianPrior = field(default_factory=GaussianPrior)
 
 
@@ -89,12 +89,9 @@ class BayesianABTest(BaseABTest):
         return self.stat_a.n == 0 or self.stat_b.n == 0
 
     def credible_interval(
-        self, mean_diff: float, std_diff: float, alpha: float, log: bool
+        self, mean_diff: float, std_diff: float, alpha: float
     ) -> List[float]:
         ci = norm.ppf([alpha / 2, 1 - alpha / 2], mean_diff, std_diff)
-
-        if log:
-            return (np.exp(ci) - 1).tolist()
         return ci.tolist()
 
     def chance_to_win(self, mean_diff: float, std_diff: float) -> float:
@@ -125,26 +122,26 @@ class BayesianABTest(BaseABTest):
         )
 
 
-class GaussianEffectABTest(BayesianABTest):
+class EffectBayesianABTest(BayesianABTest):
     def __init__(
         self,
         stat_a: TestStatistic,
         stat_b: TestStatistic,
-        config: GaussianEffectBayesianConfig = GaussianEffectBayesianConfig(),
+        config: EffectBayesianConfig = EffectBayesianConfig(),
     ):
         super().__init__(stat_a, stat_b, config)
         # rescale prior if needed
         if self.relative and config.prior_type == "absolute":
             self.prior_effect = GaussianPrior(
-                config.prior_effect.mean / self.stat_a.unadjusted_mean,
+                config.prior_effect.mean / abs(self.stat_a.unadjusted_mean),
                 config.prior_effect.variance / pow(self.stat_a.unadjusted_mean, 2),
-                config.prior_effect.informative,
+                config.prior_effect.proper,
             )
         elif not self.relative and config.prior_type == "relative":
             self.prior_effect = GaussianPrior(
-                config.prior_effect.mean * self.stat_a.unadjusted_mean,
+                config.prior_effect.mean * abs(self.stat_a.unadjusted_mean),
                 config.prior_effect.variance * pow(self.stat_a.unadjusted_mean, 2),
-                config.prior_effect.informative,
+                config.prior_effect.proper,
             )
         else:
             self.prior_effect = config.prior_effect
@@ -179,7 +176,7 @@ class GaussianEffectABTest(BayesianABTest):
 
         post_prec = (
             1 / data_variance
-            + int(self.prior_effect.informative) / self.prior_effect.variance
+            + int(self.prior_effect.proper) / self.prior_effect.variance
         )
         self.mean_diff = (
             (
@@ -187,16 +184,14 @@ class GaussianEffectABTest(BayesianABTest):
                 + self.prior_effect.mean / self.prior_effect.variance
             )
             / post_prec
-            if self.prior_effect.informative
+            if self.prior_effect.proper
             else data_mean
         )
 
         self.std_diff = np.sqrt(1 / post_prec)
 
         ctw = self.chance_to_win(self.mean_diff, self.std_diff)
-        ci = self.credible_interval(
-            self.mean_diff, self.std_diff, self.alpha, log=False
-        )
+        ci = self.credible_interval(self.mean_diff, self.std_diff, self.alpha)
 
         risk = self.get_risk(self.mean_diff, self.std_diff)
         # flip risk for inverse metrics
