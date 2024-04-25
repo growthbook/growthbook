@@ -337,7 +337,11 @@ export default function FeaturesPage() {
                         <StaleFeatureIcon
                           staleReason={staleReason}
                           onClick={() => {
-                            if (permissionsUtil.canViewFeatureModal(project))
+                            if (
+                              permissionsUtil.canViewFeatureModal(
+                                feature.project
+                              )
+                            )
                               setFeatureToToggleStaleDetection(feature);
                           }}
                         />
@@ -345,15 +349,17 @@ export default function FeaturesPage() {
                     </td>
                     <td>
                       <MoreMenu>
-                        <button
-                          className="dropdown-item"
-                          onClick={() => {
-                            setFeatureToDuplicate(feature);
-                            setModalOpen(true);
-                          }}
-                        >
-                          Duplicate
-                        </button>
+                        {permissionsUtil.canCreateFeature(feature) ? (
+                          <button
+                            className="dropdown-item"
+                            onClick={() => {
+                              setFeatureToDuplicate(feature);
+                              setModalOpen(true);
+                            }}
+                          >
+                            Duplicate
+                          </button>
+                        ) : null}
                       </MoreMenu>
                     </td>
                   </tr>
