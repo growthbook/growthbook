@@ -378,6 +378,7 @@ export default function ReportPage() {
                 <div className="col-auto">
                   <ResultMoreMenu
                     id={report.id}
+                    datasource={datasource}
                     hasData={hasData}
                     forceRefresh={async () => {
                       try {
@@ -494,6 +495,7 @@ export default function ReportPage() {
               ))}
             {report.results && !report.args.dimension && (
               <VariationIdWarning
+                datasource={datasource}
                 unknownVariations={report.results?.unknownVariations || []}
                 isUpdating={status === "running"}
                 setVariationIds={async (ids) => {
@@ -526,6 +528,7 @@ export default function ReportPage() {
                 }}
                 variations={variations}
                 results={report.results?.dimensions?.[0]}
+                project={experimentData?.experiment.project}
               />
             )}
             {hasData &&

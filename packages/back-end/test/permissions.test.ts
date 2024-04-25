@@ -11,6 +11,7 @@ import { OrganizationInterface } from "../types/organization";
 import { TeamInterface } from "../types/team";
 import { FeatureInterface } from "../types/feature";
 import { MetricInterface } from "../types/metric";
+import { DataSourceInterface } from "../types/datasource";
 
 describe("Build base user permissions", () => {
   const testOrg: OrganizationInterface = {
@@ -5188,5 +5189,137 @@ describe("PermissionsUtilClass.canDeleteDataSource", () => {
     );
 
     expect(permissions.canDeleteDataSource({ projects: [] })).toEqual(false);
+  });
+});
+
+describe("PermissionsUtilClass.canRunTestQueries check", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+  it("canRunTestQueries returns false for user with global 'engineer' role", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    const sampleDataSource: Pick<DataSourceInterface, "id" | "projects"> = {
+      id: "data_abc",
+    };
+
+    expect(permissions.canRunTestQueries(sampleDataSource)).toEqual(false);
+  });
+
+  it("canRunTestQueries returns true for user with global 'analyst' role", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    const sampleDataSource: Pick<DataSourceInterface, "id" | "projects"> = {
+      id: "data_abc",
+    };
+
+    expect(permissions.canRunTestQueries(sampleDataSource)).toEqual(true);
+  });
+
+  it("canRunTestQueries returns false for user with global 'collaborator' role, and project-specific 'analyst' roles, but none in the project in question", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("collaborator", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+          def: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    const sampleDataSource: Pick<DataSourceInterface, "id" | "projects"> = {
+      id: "data_abc",
+      projects: ["ghi", "xyz"],
+    };
+
+    expect(permissions.canRunTestQueries(sampleDataSource)).toEqual(false);
+  });
+
+  it("canRunTestQueries returns true for user with global 'collaborator' role, and project-specific 'analyst' role for atleast 1 project", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("collaborator", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+          def: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    const sampleDataSource: Pick<DataSourceInterface, "id" | "projects"> = {
+      id: "data_abc",
+      projects: ["ghi", "xyz", "abc"],
+    };
+
+    expect(permissions.canRunTestQueries(sampleDataSource)).toEqual(true);
   });
 });

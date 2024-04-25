@@ -62,6 +62,7 @@ const updateStaleInformationSchemaTable = trackJob(
 
     try {
       const { tableData } = await fetchTableData(
+        context,
         datasource,
         informationSchema,
         informationSchemaTableId
