@@ -11,7 +11,6 @@ type WindowContext = Context & {
   uuidCookieName?: string;
   uuidKey?: string;
   uuid?: string;
-  attributeKeys?: Record<string, string>;
   persistUuidOnLoad?: boolean;
   useStickyBucketService?: "cookie" | "localStorage";
 };
@@ -153,7 +152,6 @@ function getAutoAttributes(
   windowContext: WindowContext
 ) {
   const useCookies = dataContext.noAutoCookies == null;
-  const attributeKeys = windowContext.attributeKeys || {};
 
   const ua = navigator.userAgent;
 
@@ -175,15 +173,13 @@ function getAutoAttributes(
   return {
     ...getDataLayerVariables(),
     [uuidKey]: _uuid,
-    [attributeKeys.url || "url"]: location.href,
-    [attributeKeys.path || "path"]: location.pathname,
-    [attributeKeys.host || "host"]: location.host,
-    [attributeKeys.query || "query"]: location.search,
-    [attributeKeys.pageTitle || "pageTitle"]: document && document.title,
-    [attributeKeys.deviceType || "deviceType"]: ua.match(/Mobi/)
-      ? "mobile"
-      : "desktop",
-    [attributeKeys.browser || "browser"]: browser,
+    url: location.href,
+    path: location.pathname,
+    host: location.host,
+    query: location.search,
+    pageTitle: document && document.title,
+    deviceType: ua.match(/Mobi/) ? "mobile" : "desktop",
+    browser,
     ...getUtmAttributes(),
   };
 }
