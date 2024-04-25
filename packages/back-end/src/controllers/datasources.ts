@@ -25,7 +25,7 @@ import {
   createExperiment,
   getSampleExperiment,
 } from "../models/ExperimentModel";
-import { getQueriesByIds } from "../models/QueryModel";
+import { getQueriesByDatasource, getQueriesByIds } from "../models/QueryModel";
 import { findSegmentsByDataSource } from "../models/SegmentModel";
 import { createManualSnapshot } from "../services/experiments";
 import { findDimensionsByDataSource } from "../models/DimensionModel";
@@ -766,6 +766,31 @@ export async function getDataSourceMetrics(
   res.status(200).json({
     status: 200,
     metrics,
+  });
+}
+
+export async function getDataSourceQueries(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  const datasourceObj = await getDataSourceById(context, id);
+  if (!datasourceObj) {
+    throw new Error("Could not find datasource");
+  }
+
+  req.checkPermissions(
+    "readData",
+    datasourceObj?.projects?.length ? datasourceObj.projects : []
+  );
+
+  const queries = await getQueriesByDatasource(context.org.id, id);
+
+  res.status(200).json({
+    status: 200,
+    queries,
   });
 }
 
