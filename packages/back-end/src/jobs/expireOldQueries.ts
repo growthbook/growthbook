@@ -15,6 +15,7 @@ import {
 import { getStaleQueries } from "../models/QueryModel";
 import { findReportsByQueryId, updateReport } from "../models/ReportModel";
 import { trackJob } from "../services/otel";
+import { getContextForAgendaJobByOrgId } from "../services/organizations";
 import { logger } from "../util/logger";
 const JOB_NAME = "expireOldQueries";
 
@@ -43,10 +44,15 @@ const expireOldQueries = trackJob(JOB_NAME, async () => {
     const snapshot = snapshots[i];
     logger.info("Updating status of snapshot " + snapshot.id);
     updateQueryStatus(snapshot.queries, queryIds);
-    await updateSnapshot(snapshot.organization, snapshot.id, {
-      error: "Queries were interupted. Please try updating results again.",
-      status: "error",
-      queries: snapshot.queries,
+    await updateSnapshot({
+      organization: snapshot.organization,
+      id: snapshot.id,
+      updates: {
+        error: "Queries were interupted. Please try updating results again.",
+        status: "error",
+        queries: snapshot.queries,
+      },
+      context: await getContextForAgendaJobByOrgId(snapshot.organization),
     });
   }
 

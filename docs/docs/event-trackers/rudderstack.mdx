@@ -18,7 +18,7 @@ If you have already set up RudderStack, you can skip this step. RudderStack allo
 Once you have a RudderStack account, you need to create a BigQuery bucket for the event data to be stored. You can follow the [directions from RudderStack](https://www.rudderstack.com/docs/destinations/storage-platforms/google-cloud-storage/), but the short version is:
 
 - From the Google Cloud console for BigQuery, create a new bucket (or you can also use an already existing bucket).
-- Create a new service account under [IAM & Admin -> Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts) for RudderStack to connect to this bucket.
+- Create a new service account under [IAM & Admin → Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts) for RudderStack to connect to this bucket.
 - Give Storage `Object Admin` role access to the newly created service account.
 - Under the `actions` menu on the service account you just created, click on manage keys to create a new key. Choose key
   type as JSON. This will cause a JSON key file to be downloaded to your computer.
@@ -66,7 +66,7 @@ Now that we have data flowing into BigQuery, we need to have GrowthBook connect 
 is best practice to create another service account for GrowthBook to connect to BigQuery.
 (We have a complete guide on how to do this here: [Setting up BigQuery as a data source](/guide/bigquery))
 
-Navigate to Analysis -> Data Sources from within GrowthBook and click on 'Add Data Source'
+Navigate to Analysis → Data Sources from within GrowthBook and click on 'Add Data Source'
 Button. From the window that pops up, select RudderStack:
 
 <img
@@ -96,7 +96,7 @@ This step depends on your needs as an organization. Keep in mind that metric que
 users who do an event, but will be joined to the experiment exposure information when determining the impact of
 experiment results.
 
-Metrics are added from the Analysis -> Metrics menu.
+Metrics are added from the Analysis → Metrics menu.
 
 <img
   src="/images/guides/metrics-addmetric.png"

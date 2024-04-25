@@ -195,10 +195,9 @@ export async function postInformationSchema(
     return;
   }
 
-  req.checkPermissions(
-    "editDatasourceSettings",
-    datasource?.projects?.length ? datasource.projects : ""
-  );
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
 
   await queueCreateInformationSchema(datasource.id, org.id);
 
