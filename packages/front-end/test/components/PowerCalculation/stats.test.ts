@@ -1,7 +1,7 @@
 import {
   MetricParams,
   PowerCalculationParams,
-} from "@/components/PowerCalculation/base";
+} from "@/components/PowerCalculation/types";
 
 import {
   frequentistVariance,
