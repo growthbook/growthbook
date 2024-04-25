@@ -148,10 +148,9 @@ export async function refreshFeatures(
     skipCache,
     useStoredPayload
   );
-  const sse = supportsSSE.has(getKey(instance));
   updateInstance &&
     data &&
-    (await refreshInstance(instance, data, sse, skipExperimentUpdate));
+    (await refreshInstance(instance, data, skipExperimentUpdate));
 }
 
 // Subscribe a GrowthBook instance to feature changes
@@ -363,14 +362,13 @@ function onNewFeatureData(
     return;
   }
 
-  const sse = supportsSSE.has(key);
   if (!cacheSettings.disableLocalCache) {
     // Update in-memory cache
     cache.set(cacheKey, {
       data,
       version,
       staleAt,
-      sse,
+      sse: supportsSSE.has(key),
     });
     cleanupCache();
   }
@@ -379,17 +377,15 @@ function onNewFeatureData(
 
   // Update features for all subscribed GrowthBook instances
   const instances = subscribedInstances.get(key);
-  instances &&
-    instances.forEach((instance) => refreshInstance(instance, data, sse));
+  instances && instances.forEach((instance) => refreshInstance(instance, data));
 }
 
 async function refreshInstance(
   instance: GrowthBook,
   data: FeatureApiResponse,
-  sse?: boolean,
   skipUpdate?: boolean
 ): Promise<void> {
-  instance.shouldStorePayload() && instance.setPayload({ data, sse });
+  instance.setPayload(data);
   data = await instance.decryptPayload(data, undefined, polyfills.SubtleCrypto);
 
   await instance.refreshStickyBuckets(data);
@@ -413,13 +409,12 @@ async function fetchFeatures(
   // Bypass normal fetch if hydrating from a stored payload
   const storedPayload = instance.getPayload();
   if (useStoredPayload && storedPayload) {
-    const data = storedPayload.data;
-    if (storedPayload.sse) {
+    if (instance.getBackgroundSync()) {
       supportsSSE.add(key);
     }
-    onNewFeatureData(key, cacheKey, data);
+    onNewFeatureData(key, cacheKey, storedPayload);
     startAutoRefresh(instance);
-    return data;
+    return storedPayload;
   }
 
   let promise = !useStoredPayload ? activeFetches.get(cacheKey) : undefined;

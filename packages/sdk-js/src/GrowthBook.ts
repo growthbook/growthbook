@@ -21,7 +21,6 @@ import type {
   StickyAssignmentsDocument,
   StickyAttributeKey,
   StickyExperimentKey,
-  StoredPayload,
   SubscriptionFunction,
   TrackingCallback,
   TrackingData,
@@ -165,7 +164,7 @@ export class GrowthBook<
       this._setAntiFlicker();
     }
 
-    if (!context.remoteEval && !context.loadStoredPayload) {
+    if (!context.remoteEval && !context.payload) {
       if (context.clientKey) {
         this._refresh({}, true, false);
       } else if (context.stickyBucketService) {
@@ -180,7 +179,7 @@ export class GrowthBook<
       // interpret deprecated autoRefresh option as subscribeToChanges
       this._ctx.subscribeToChanges = true;
     }
-    if (this.context.loadStoredPayload && !this._loadFeaturesCalled) {
+    if (this.context.payload && !this._loadFeaturesCalled) {
       options.useStoredPayload = true;
     }
     this._loadFeaturesCalled = true;
@@ -221,20 +220,14 @@ export class GrowthBook<
   public getClientKey(): string {
     return this._ctx.clientKey || "";
   }
-  public getPayload(): StoredPayload | undefined {
+  public getPayload(): FeatureApiResponse | undefined {
     return this._ctx.payload;
   }
-  public setPayload(payload: StoredPayload | undefined) {
-    if (payload && payload.sse === undefined) {
-      const oldPayload = this.getPayload();
-      if (oldPayload) {
-        payload.sse = oldPayload.sse;
-      }
-    }
+  public setPayload(payload: FeatureApiResponse | undefined) {
     this._ctx.payload = payload;
   }
-  public shouldStorePayload(): boolean {
-    return this._ctx.storePayload || false;
+  public getBackgroundSync(): boolean {
+    return this._ctx.backgroundSync ?? true;
   }
 
   public isRemoteEval(): boolean {

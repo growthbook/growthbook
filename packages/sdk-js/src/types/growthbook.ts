@@ -223,9 +223,7 @@ export interface Context {
   streamingHost?: string;
   apiHostRequestHeaders?: Record<string, string>;
   streamingHostRequestHeaders?: Record<string, string>;
-  payload?: StoredPayload;
-  storePayload?: boolean;
-  loadStoredPayload?: boolean;
+  payload?: FeatureApiResponse;
   clientKey?: string;
   renderer?: null | RenderFunction;
   decryptionKey?: string;
@@ -290,11 +288,6 @@ export type FeatureApiResponse = {
   encryptedFeatures?: string;
   experiments?: AutoExperiment[];
   encryptedExperiments?: string;
-};
-
-export type StoredPayload = {
-  data: FeatureApiResponse;
-  sse?: boolean;
 };
 
 // Polyfills required for non-standard browser environments (ReactNative, Node, etc.)
