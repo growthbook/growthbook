@@ -5,7 +5,6 @@ import { FaChrome } from "react-icons/fa";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import usePermissions from "@/hooks/usePermissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -23,7 +22,6 @@ export interface Props {
 export default function FeaturesGetStarted({ features }: Props) {
   const settings = useOrgSettings();
   const router = useRouter();
-  const permissions = usePermissions();
   const permissionsUtil = usePermissionsUtil();
 
   const { organization } = useUser();
