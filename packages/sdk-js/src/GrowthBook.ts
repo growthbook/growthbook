@@ -1393,7 +1393,10 @@ export class GrowthBook<
     }
   }
 
-  private _track<T>(experiment: Experiment<T>, result: Result<T>) {
+  private _track<T>(
+    experiment: Experiment<T> & Pick<AutoExperiment, "uid">,
+    result: Result<T>
+  ) {
     const key = experiment.key;
 
     // Make sure a tracking callback is only fired once per unique experiment
@@ -1402,7 +1405,7 @@ export class GrowthBook<
     if (this._trackedExperiments.has(k)) return;
     this._trackedExperiments.add(k);
     // todo: works...
-    const uid = (experiment as AutoExperiment)?.uid;
+    const uid = experiment?.uid;
     uid && this._ranExperimentIds.add(uid);
     // todo: does not work
     //experiment?.uid && this._ranExperimentIds.add(experiment.uid);
