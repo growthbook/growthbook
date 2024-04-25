@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import PowerCalculationSettingsModal from "@/components/PowerCalculation/PowerCalculationSettingsModal";
 import EmptyPowerCalculation from "@/components/PowerCalculation/EmptyPowerCalculation";
@@ -11,7 +11,6 @@ import {
   PartialPowerCalculationParams,
   FullModalPowerCalculationParams,
   StatsEngine,
-  config,
 } from "@/components/PowerCalculation/types";
 
 import { powerMetricWeeks } from "@/components/PowerCalculation/stats";
@@ -43,13 +42,13 @@ const PowerCalculationPage = (): React.ReactElement => {
 
   const [showModal, setShowModal] = useState(false);
 
-  const [powerCalculationParams, setProcessedPowerCalculationParams] = useState<
+  const [powerCalculationParams, setPowerCalculationParams] = useState<
     FullModalPowerCalculationParams | undefined
   >(initialParams.powerCalculationParams);
 
   const [
     settingsModalParams,
-    setProcessedSettingsModalParams,
+    setSettingsModalParams,
   ] = useState<PartialPowerCalculationParams>(
     initialParams.settingsModalParams
   );
@@ -77,64 +76,6 @@ const PowerCalculationPage = (): React.ReactElement => {
       })
     );
   }, [powerCalculationParams, settingsModalParams, variations, statsEngine]);
-
-  const setPowerCalculationParams = useCallback(
-    (p: FullModalPowerCalculationParams | undefined) => {
-      if (!p) {
-        setProcessedPowerCalculationParams(undefined);
-        return;
-      }
-
-      setProcessedPowerCalculationParams({
-        ...p,
-        metrics: Object.keys(p.metrics).reduce(
-          (result, key) => ({
-            ...result,
-            [key]: Object.keys(p.metrics[key]).reduce(
-              (metric, entry) => ({
-                ...metric,
-                [entry]: config[entry]?.isPercent
-                  ? p.metrics[key][entry] / 100
-                  : p.metrics[key][entry],
-              }),
-              {}
-            ),
-          }),
-          {}
-        ),
-      });
-    },
-    [setProcessedPowerCalculationParams]
-  );
-
-  const setSettingsModalParams = useCallback(
-    (p: PartialPowerCalculationParams | undefined) => {
-      if (!p) {
-        setProcessedSettingsModalParams(INITIAL_FORM_PARAMS);
-        return;
-      }
-
-      setProcessedSettingsModalParams({
-        ...p,
-        metrics: Object.keys(p.metrics).reduce(
-          (result, key) => ({
-            ...result,
-            [key]: Object.keys(p.metrics[key]).reduce(
-              (metric, entry) => ({
-                ...metric,
-                [entry]: config[entry]?.isPercent
-                  ? p.metrics[key][entry] * 100
-                  : p.metrics[key][entry],
-              }),
-              {}
-            ),
-          }),
-          {}
-        ),
-      });
-    },
-    [setProcessedSettingsModalParams]
-  );
 
   const finalParams: PowerCalculationParams | undefined = useMemo(() => {
     if (!powerCalculationParams) return;

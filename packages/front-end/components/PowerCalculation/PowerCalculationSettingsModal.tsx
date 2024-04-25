@@ -4,6 +4,7 @@ import clsx from "clsx";
 import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Field from "@/components/Forms/Field";
+import PercentField from "@/components/Forms/PercentField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ensureAndReturn } from "@/types/utils";
@@ -88,7 +89,7 @@ const SelectStep = ({
             "metrics",
             value.reduce((metrics, id) => {
               const metric = ensureAndReturn(
-                appMetrics.find((m) => m.id === id)
+                appMetrics.find((m) => m.id === id),
               );
 
               return {
@@ -106,7 +107,7 @@ const SelectStep = ({
                       }),
                 },
               };
-            }, {})
+            }, {}),
           );
         }}
       />
@@ -161,41 +162,53 @@ const InputField = ({
   })();
 
   const helpText = (() => {
-    if (minValue !== undefined && maxValue !== undefined)
-      return `Must be greater than ${minValue} and less than or equal to ${maxValue}`;
-    if (minValue !== undefined) return `Must be greater than ${minValue}`;
-    if (maxValue !== undefined) return `Must be less than ${maxValue}`;
+    const min = isPercent && minValue ? minValue * 100 : minValue;
+    const max = isPercent && maxValue ? maxValue * 100 : maxValue;
+
+    if (min !== undefined && max !== undefined)
+      return `Must be greater than ${min} and less than or equal to ${max}`;
+    if (min !== undefined) return `Must be greater than ${min}`;
+    if (max !== undefined) return `Must be less than ${max}`;
     return "Must be a number";
   })();
 
+  const commonOptions = {
+    label: (
+      <>
+        <span className="font-weight-bold mr-1">{title}</span>{" "}
+        {tooltip && (
+          <Tooltip
+            popperClassName="text-left"
+            body={tooltip}
+            tipPosition="right"
+          />
+        )}
+      </>
+    ),
+    min: minValue,
+    max: maxValue,
+    className: clsx("w-50", isKeyInvalid && "border border-danger"),
+    helpText: isKeyInvalid ? (
+      <div className="text-danger">{helpText}</div>
+    ) : undefined,
+  };
+
   return (
     <div className="col">
-      <Field
-        label={
-          <>
-            <span className="font-weight-bold mr-1">{title}</span>{" "}
-            {tooltip && (
-              <Tooltip
-                popperClassName="text-left"
-                body={tooltip}
-                tipPosition="right"
-              />
-            )}
-          </>
-        }
-        max={maxValue}
-        min={minValue}
-        {...(isPercent ? { append: "%" } : {})}
-        {...form.register(`metrics.${metricId}.${entry}`, {
-          valueAsNumber: true,
-        })}
-        className={clsx("w-50", isKeyInvalid && "border border-danger")}
-        helpText={
-          isKeyInvalid ? (
-            <div className="text-danger">{helpText}</div>
-          ) : undefined
-        }
-      />
+      {isPercent ? (
+        <PercentField
+          {...commonOptions}
+          value={entryValue}
+          onChange={(v) => form.setValue(`metrics.${metricId}.${entry}`, v)}
+        />
+      ) : (
+        <Field
+          {...commonOptions}
+          {...form.register(`metrics.${metricId}.${entry}`, {
+            valueAsNumber: true,
+          })}
+        />
+      )}
     </div>
   );
 };
@@ -223,7 +236,7 @@ const MetricParamsInput = ({
               form={form}
               metricId={metricId}
             />
-          )
+          ),
         )}
       </div>
     </div>

@@ -66,7 +66,7 @@ export const config = checkConfig({
     tooltip:
       "This is the relative effect size that you anticipate for your experiment. Setting this allows us to compute the number of weeks needed to reliably detect an effect of this size or larger.",
     minValue: 0,
-    defaultValue: 1,
+    defaultValue: 0.01,
   },
   mean: {
     title: "Mean",
@@ -81,7 +81,7 @@ export const config = checkConfig({
     title: "Conversion Rate",
     isPercent: true,
     minValue: 0,
-    maxValue: 100,
+    maxValue: 1,
   },
 });
 
@@ -91,31 +91,29 @@ const validEntry = (name: keyof typeof config, v: number | undefined) => {
 
   const { maxValue, minValue } = config[name];
 
-  if (minValue !== undefined && v < minValue) return false;
+  if (minValue !== undefined && v <= minValue) return false;
   if (maxValue !== undefined && maxValue < v) return false;
 
   return true;
 };
 
 export const isValidPowerCalculationParams = (
-  v: PartialPowerCalculationParams,
+  v: PartialPowerCalculationParams
 ): v is FullModalPowerCalculationParams =>
   validEntry("usersPerWeek", v.usersPerWeek) &&
   Object.keys(v.metrics).every((key) => {
     const params = v.metrics[key];
     if (!params) return false;
-    return (
-      [
-        "effectSize",
-        ...(params.type === "binomial"
-          ? (["conversionRate"] as const)
-          : (["mean", "standardDeviation"] as const)),
-      ] as const
-    ).every((k) => validEntry(k, params[k]));
+    return ([
+      "effectSize",
+      ...(params.type === "binomial"
+        ? (["conversionRate"] as const)
+        : (["mean", "standardDeviation"] as const)),
+    ] as const).every((k) => validEntry(k, params[k]));
   });
 
 export const ensureAndReturnPowerCalculationParams = (
-  v: PartialPowerCalculationParams,
+  v: PartialPowerCalculationParams
 ): FullModalPowerCalculationParams => {
   if (!isValidPowerCalculationParams(v)) throw "internal error";
   return v;
