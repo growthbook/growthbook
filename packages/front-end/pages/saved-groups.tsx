@@ -3,13 +3,13 @@ import Link from "next/link";
 import IdLists from "@/components/SavedGroups/IdLists";
 import ConditionGroups from "@/components/SavedGroups/ConditionGroups";
 import { useUser } from "@/services/UserContext";
-import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export const getSavedGroupMessage = (
   featuresUsingSavedGroups: Set<string> | undefined
@@ -57,7 +57,7 @@ export default function SavedGroupsPage() {
 
   const { refreshOrganization } = useUser();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
   const attributeSchema = useAttributeSchema();
 
@@ -76,7 +76,7 @@ export default function SavedGroupsPage() {
 
     // If user has permissions to manage attributes, auto-add $groups attribute
     //TODO: When we make Saved Groups a project-level feature, we should pass in the Saved Groups projects below
-    if (permissions.check("manageTargetingAttributes", [])) {
+    if (permissionsUtil.canCreateAttribute({})) {
       apiCall<{ added: boolean }>("/organization/auto-groups-attribute", {
         method: "POST",
       })
@@ -89,7 +89,13 @@ export default function SavedGroupsPage() {
           // Ignore errors
         });
     }
-  }, [apiCall, refreshOrganization, attributeSchema, savedGroups, permissions]);
+  }, [
+    apiCall,
+    refreshOrganization,
+    attributeSchema,
+    savedGroups,
+    permissionsUtil,
+  ]);
 
   if (!savedGroups) return <LoadingOverlay />;
 

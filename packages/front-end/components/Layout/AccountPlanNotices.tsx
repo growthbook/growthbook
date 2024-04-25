@@ -99,7 +99,7 @@ export default function AccountPlanNotices() {
     }
   }
 
-  // Notices for accounts using a license key
+  // Notices for accounts using a license key that result in a downgrade to starter
   if (license) {
     if (licenseError) {
       switch (licenseError) {
@@ -118,13 +118,21 @@ export default function AccountPlanNotices() {
               </div>
             </Tooltip>
           );
-        case "License server down for too long":
+        case "License server unreachable for too long":
           return (
             <Tooltip
               body={<>Please make sure that you have whitelisted 75.2.109.47</>}
             >
               <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
-                <FaExclamationTriangle /> Could not contact license server.
+                <FaExclamationTriangle /> license server unreachable
+              </div>
+            </Tooltip>
+          );
+        case "License server erroring for too long":
+          return (
+            <Tooltip body={<>{license.lastServerErrorMessage}</>}>
+              <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
+                <FaExclamationTriangle /> license server error
               </div>
             </Tooltip>
           );
@@ -241,23 +249,50 @@ export default function AccountPlanNotices() {
       }
     }
 
-    if (license?.usingMongoCache) {
-      // Cache is good for a week
+    //Warnings that don't result in a downgrade
+
+    if (
+      license?.usingMongoCache &&
+      license.firstFailedFetchDate &&
+      license.lastFailedFetchDate
+    ) {
+      // Cache is good for a week from the first failed fetch date
       const cachedDataGoodUntil = new Date(
-        new Date(license.dateUpdated).getTime() + 7 * 24 * 60 * 60 * 1000
+        new Date(license.firstFailedFetchDate).getTime() +
+          7 * 24 * 60 * 60 * 1000
       );
+
       const daysLeftInCache = daysLeft(cachedDataGoodUntil.toDateString());
-      if (daysLeftInCache < 5) {
-        return (
-          <Tooltip
-            body={<>Please make sure that you have whitelisted 75.2.109.47</>}
-          >
-            <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
-              <FaExclamationTriangle /> Could not contact license server. Fix
-              within {daysLeftInCache} days.
-            </div>
-          </Tooltip>
-        );
+      const daysDown =
+        daysLeft(new Date(license.lastFailedFetchDate).toDateString()) -
+        daysLeft(new Date(license.firstFailedFetchDate).toDateString());
+
+      if (daysDown > 1 && license.lastServerErrorMessage) {
+        if (license.lastServerErrorMessage.startsWith("Could not connect")) {
+          return (
+            <Tooltip
+              body={<>Please make sure that you have whitelisted 75.2.109.47</>}
+            >
+              <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
+                <FaExclamationTriangle /> Could not connect to license server
+                {/*license keys specified in env vars that have never connected to the license server successfully won't have any plan and hence aren't in danger of being downgraded */}
+                {license.plan
+                  ? `. Fix within ${daysLeftInCache} day${
+                      daysLeftInCache != 1 ? "s" : ""
+                    }.`
+                  : ""}
+              </div>
+            </Tooltip>
+          );
+        } else {
+          return (
+            <Tooltip body={<>{license.lastServerErrorMessage}</>}>
+              <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
+                <FaExclamationTriangle /> License server error
+              </div>
+            </Tooltip>
+          );
+        }
       }
     }
     // Trial license is almost up
@@ -318,7 +353,7 @@ export default function AccountPlanNotices() {
           }
         >
           <div className="alert alert-danger py-1 px-2 d-none d-md-block mb-0 mr-1">
-            <FaExclamationTriangle /> license quota exceded
+            <FaExclamationTriangle /> license quota exceeded
           </div>
         </Tooltip>
       );

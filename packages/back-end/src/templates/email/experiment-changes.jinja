@@ -2,11 +2,11 @@
 {% import "utils.jinja" as utils %}
 
 {% block preview %}
-  Experiment {{ experimentName }} has a significant metric
+  Experiment {{ experimentName|noHyperlink }} has a significant metric
 {% endblock %}
 
 {% block title %}
-  The experiment '{{ experimentName }}' has a significant metric
+  The experiment "{{ experimentName|noHyperlink }}" has a significant metric
 {% endblock %}
 
 {% block top %}

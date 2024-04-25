@@ -18,6 +18,7 @@ import {
   mergeParams,
   encryptParams,
   testQuery,
+  getIntegrationFromDatasourceId,
 } from "../services/datasource";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import {
@@ -223,11 +224,11 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
 
     const metricMap = await getMetricMap(context);
 
-    await createManualSnapshot(
+    await createManualSnapshot({
       experiment,
-      0,
-      [15500, 15400],
-      {
+      phaseIndex: 0,
+      users: [15500, 15400],
+      metrics: {
         [metric1.id]: [
           {
             users: 15500,
@@ -257,7 +258,7 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
           },
         ],
       },
-      {
+      analysisSettings: {
         statsEngine,
         dimensions: [],
         pValueCorrection: null,
@@ -266,8 +267,9 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
         differenceType: "relative",
         regressionAdjusted: false,
       },
-      metricMap
-    );
+      metricMap,
+      context,
+    });
   }
 
   res.status(200).json({
@@ -288,10 +290,10 @@ export async function deleteDataSource(
   if (!datasource) {
     throw new Error("Cannot find datasource");
   }
-  req.checkPermissions(
-    "createDatasources",
-    datasource?.projects?.length ? datasource.projects : ""
-  );
+
+  if (!context.permissions.canDeleteDataSource(datasource)) {
+    context.permissions.throwPermissionError();
+  }
 
   // Make sure this data source isn't the organizations default
   if (org.settings?.defaultDataSource === datasource.id) {
@@ -363,7 +365,7 @@ export async function getDataSources(req: AuthRequest, res: Response) {
   res.status(200).json({
     status: 200,
     datasources: datasources.map((d) => {
-      const integration = getSourceIntegrationObject(d);
+      const integration = getSourceIntegrationObject(context, d);
       return {
         id: d.id,
         name: d.name,
@@ -384,16 +386,9 @@ export async function getDataSource(
   const context = getContextFromReq(req);
   const { id } = req.params;
 
-  const datasource = await getDataSourceById(context, id);
-  if (!datasource) {
-    res.status(404).json({
-      status: 404,
-      message: "Cannot find data source",
-    });
-    return;
-  }
+  const integration = await getIntegrationFromDatasourceId(context, id);
 
-  const integration = getSourceIntegrationObject(datasource);
+  const datasource = integration.datasource;
 
   res.status(200).json({
     id: datasource.id,
@@ -417,11 +412,13 @@ export async function postDataSources(
   }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { name, description, type, params, projects } = req.body;
   const settings = req.body.settings || {};
 
-  req.checkPermissions("createDatasources", projects?.length ? projects : "");
+  if (!context.permissions.canCreateDataSource({ projects })) {
+    context.permissions.throwPermissionError();
+  }
 
   try {
     // Set default event properties and queries
@@ -433,7 +430,7 @@ export async function postDataSources(
     };
 
     const datasource = await createDataSource(
-      org.id,
+      context,
       name,
       type,
       params,
@@ -516,14 +513,24 @@ export async function putDataSource(
     });
     return;
   }
+
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
   // Require higher permissions to change connection settings vs updating query settings
-  const permissionLevel = params
-    ? "createDatasources"
-    : "editDatasourceSettings";
-  req.checkPermissions(
-    permissionLevel,
-    datasource?.projects?.length ? datasource.projects : ""
-  );
+  if (params) {
+    if (!context.permissions.canUpdateDataSourceParams(datasource)) {
+      context.permissions.throwPermissionError();
+    }
+  }
+
+  // If changing projects, make sure the user has access to the new projects as well
+  if (projects) {
+    if (!context.permissions.canUpdateDataSourceSettings({ projects })) {
+      context.permissions.throwPermissionError();
+    }
+  }
 
   if (type && type !== datasource.type) {
     res.status(400).json({
@@ -575,14 +582,10 @@ export async function putDataSource(
         tokens.refresh_token || "";
     }
 
-    if (updates?.projects?.length) {
-      req.checkPermissions(permissionLevel, updates.projects);
-    }
-
     // If the connection params changed, re-validate the connection
     // If the user is just updating the display name, no need to do this
     if (params) {
-      const integration = getSourceIntegrationObject(datasource);
+      const integration = getSourceIntegrationObject(context, datasource);
       mergeParams(integration, params);
       await integration.testConnection();
       updates.params = encryptParams(integration.params);
@@ -624,10 +627,9 @@ export async function updateExposureQuery(
     return;
   }
 
-  req.checkPermissions(
-    "editDatasourceSettings",
-    dataSource?.projects?.length ? dataSource.projects : ""
-  );
+  if (!context.permissions.canUpdateDataSourceSettings(dataSource)) {
+    context.permissions.throwPermissionError();
+  }
 
   const copy = cloneDeep<DataSourceInterface>(dataSource);
   const exposureQueryIndex = copy.settings.queries?.exposure?.findIndex(
@@ -670,8 +672,16 @@ export async function updateExposureQuery(
   }
 }
 
-export async function postGoogleOauthRedirect(req: AuthRequest, res: Response) {
-  req.checkPermissions("createDatasources", "");
+export async function postGoogleOauthRedirect(
+  req: AuthRequest<{ projects?: string[] }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { projects } = req.body;
+
+  if (!context.permissions.canCreateDataSource({ projects })) {
+    context.permissions.throwPermissionError();
+  }
 
   const oauth2Client = getOauth2Client();
 
@@ -727,12 +737,9 @@ export async function testLimitedQuery(
       message: "Cannot find data source",
     });
   }
-  req.checkPermissions(
-    "runQueries",
-    datasource?.projects?.length ? datasource.projects : []
-  );
 
   const { results, sql, duration, error } = await testQuery(
+    context,
     datasource,
     query,
     templateVariables
@@ -808,16 +815,11 @@ export async function postDimensionSlices(
   const { org } = context;
   const { dataSourceId, queryId, lookbackDays } = req.body;
 
-  const datasourceObj = await getDataSourceById(context, dataSourceId);
-  if (!datasourceObj) {
-    throw new Error("Could not find datasource");
-  }
-  req.checkPermissions(
-    "runQueries",
-    datasourceObj?.projects?.length ? datasourceObj.projects : []
+  const integration = await getIntegrationFromDatasourceId(
+    context,
+    dataSourceId,
+    true
   );
-
-  const integration = getSourceIntegrationObject(datasourceObj, true);
 
   const model = await createDimensionSlices({
     organization: org.id,
@@ -851,20 +853,12 @@ export async function cancelDimensionSlices(
   if (!dimensionSlices) {
     throw new Error("Could not cancel automatic dimension");
   }
-  const datasource = await getDataSourceById(
+
+  const integration = await getIntegrationFromDatasourceId(
     context,
-    dimensionSlices.datasource
+    dimensionSlices.datasource,
+    true
   );
-  if (!datasource) {
-    throw new Error("Could not find datasource");
-  }
-
-  req.checkPermissions(
-    "runQueries",
-    datasource.projects ? datasource.projects : []
-  );
-
-  const integration = getSourceIntegrationObject(datasource, true);
 
   const queryRunner = new DimensionSlicesQueryRunner(
     context,

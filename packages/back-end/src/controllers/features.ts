@@ -1288,6 +1288,7 @@ async function getDraftRevision(
       feature,
       user: context.auditUser,
       environments: getEnvironmentIdsFromOrg(context.org),
+      baseVersion: version,
       org,
     });
 

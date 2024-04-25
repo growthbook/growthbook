@@ -18,7 +18,7 @@ import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton"
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import track from "@/services/track";
-import usePermissions from "@/hooks/usePermissions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const smallPercentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -202,7 +202,7 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
 }) => {
   const { apiCall } = useAuth();
   const [error, setError] = useState<string>("");
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const [openLookbackField, setOpenLookbackField] = useState<boolean>(false);
   const form = useForm({
     defaultValues: {
@@ -242,7 +242,7 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
       <div className="col-12">
         <div className="col-auto ml-auto">
           <div className="row align-items-center mb-3">
-            {permissions.check("runQueries", dataSource.projects || []) ? (
+            {permissionsUtil.canRunHealthQueries(dataSource) ? (
               <div className="mr-2">
                 <form
                   onSubmit={async (e) => {
