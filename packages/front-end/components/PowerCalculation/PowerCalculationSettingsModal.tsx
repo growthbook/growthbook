@@ -106,7 +106,7 @@ const SelectStep = ({
                       }),
                 },
               };
-            }, metrics)
+            }, {})
           );
         }}
       />
