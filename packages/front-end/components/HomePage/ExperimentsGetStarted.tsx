@@ -5,7 +5,6 @@ import { ProjectInterface } from "back-end/types/project";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { envAllowsCreatingMetrics, hasFileConfig } from "@/services/env";
-import usePermissions from "@/hooks/usePermissions";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import MetricForm from "@/components/Metrics/MetricForm";
 import { DocLink } from "@/components/DocLink";
@@ -23,7 +22,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 const ExperimentsGetStarted = (): React.ReactElement => {
   const { metrics, datasources, mutateDefinitions, project } = useDefinitions();
 
-  const permissions = usePermissions();
   const permissionsUtil = usePermissionsUtil();
 
   const [dataSourceOpen, setDataSourceOpen] = useState(false);

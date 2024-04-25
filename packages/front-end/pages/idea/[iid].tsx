@@ -54,7 +54,7 @@ const IdeaPage = (): ReactElement => {
     getDatasourceById,
   } = useDefinitions();
 
-  const { permissions, getUserDisplay } = useUser();
+  const { getUserDisplay } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
   const { apiCall } = useAuth();
