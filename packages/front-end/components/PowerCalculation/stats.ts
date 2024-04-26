@@ -213,8 +213,8 @@ export function findMde(
       sequentialTuningParameter
     );
   }
-  //ensure the term under the radical is non-negative.
-  if (nA <= (v * z ** 2) / (2 * mean ** 2)) {
+  //ensure the term under the radical is non-negative and that a positive solution exists.
+  if (nA <= (v * z ** 2) / mean ** 2) {
     const mdeResults: MDEResults = {
       type: "error",
       description:
@@ -302,13 +302,7 @@ export function powerMetricWeeks(
         powerSettings.alpha,
         sequentialTuningParameter
       );
-      if (thisMde.type === "error") {
-        const results: PowerCalculationResults = {
-          type: "error",
-          description: thisMde.description,
-        };
-        return results;
-      } else {
+      if (thisMde.type === "success") {
         thisMDENumeric = thisMde.mde;
       }
       if (
