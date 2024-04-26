@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import clsx from "clsx";
 import { ensureAndReturn } from "@/types/utils";
 import { GBHeadingArrowLeft } from "@/components/Icons";
@@ -14,6 +14,7 @@ import PowerCalculationStatsEngineModal from "./PowerCalculationStatsEngineModal
 const percentFormatter = (() => {
   const formatter = new Intl.NumberFormat(undefined, {
     style: "percent",
+
     maximumFractionDigits: 0,
   });
 
@@ -168,10 +169,13 @@ const SampleSizeAndRuntime = ({
   );
 
   const selectedTarget = sampleSizeAndRuntime[selectedRow];
-  const {
-    name: selectedName,
-    effectSize: selectedEffectSize,
-  } = ensureAndReturn(params.metrics[selectedRow]);
+  const { name: selectedName, effectSize: selectedEffectSize } = useMemo(() => {
+    const newSelectedRow = params.metrics[selectedRow]
+      ? selectedRow
+      : Object.keys(sampleSizeAndRuntime)[0];
+    setSelectedRow(newSelectedRow);
+    return ensureAndReturn(params.metrics[newSelectedRow]);
+  }, [params.metrics, selectedRow, sampleSizeAndRuntime, setSelectedRow]);
 
   return (
     <div className="row card gsbox mb-3 border">
