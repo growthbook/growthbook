@@ -32,6 +32,10 @@ export default function EnvironmentToggle({
   const envs = feature.environmentSettings;
   const env = envs?.[environment];
 
+  const [isEnvToggled, setIsEnvToggled] = useState(env?.enabled ?? false);
+  const [optismicticError, setOptimisticError] = useState(false);
+  const [optimisticErrorMsg, setOptimisticErrorMsg] = useState("");
+
   const [desiredState, setDesiredState] = useState(env?.enabled ?? false);
   const [confirming, setConfirming] = useState(false);
 
@@ -52,12 +56,14 @@ export default function EnvironmentToggle({
           state,
         }),
       });
+
       track("Feature Environment Toggle", {
         environment,
         enabled: state,
       });
     } catch (e) {
-      console.error(e);
+      setOptimisticError(true);
+      setOptimisticErrorMsg(e.message);
     }
 
     setToggling(false);
@@ -75,7 +81,10 @@ export default function EnvironmentToggle({
           }}
           open={true}
           cta="Confirm"
-          submit={() => submit(feature, environment, desiredState)}
+          submit={async () => {
+            await submit(feature, environment, desiredState);
+            setIsEnvToggled(desiredState);
+          }}
         >
           You are about to set the <strong>{environment}</strong> environment to{" "}
           <strong>{desiredState ? "enabled" : "disabled"}</strong>.
@@ -83,23 +92,45 @@ export default function EnvironmentToggle({
       ) : (
         ""
       )}
+
+      <Modal
+        header="Toggle environment error"
+        close={() => {
+          setIsEnvToggled(!isEnvToggled);
+          setOptimisticError(false);
+          setOptimisticErrorMsg("");
+        }}
+        open={optismicticError}
+      >
+        <p>
+          Error updating {environment} environment for <code>{feature.id}</code>
+          .
+        </p>
+        <div className="alert alert-danger">{optimisticErrorMsg}</div>
+      </Modal>
+
       <Toggle
-        value={env?.enabled ?? false}
+        value={isEnvToggled}
         id={id}
-        disabledMessage="You don't have permission to change features in this environment"
+        disabledMessage={
+          toggling
+            ? "Rolling out changes"
+            : "You don't have permission to change features in this environment"
+        }
         disabled={
+          toggling ||
           !permissions.check("publishFeatures", feature.project, [environment])
         }
         setValue={async (on) => {
           if (toggling) return;
-          if (on && env?.enabled) return;
-          if (!on && !env?.enabled) return;
-
+          if (on && isEnvToggled) return;
+          if (!on && !isEnvToggled) return;
           if (showConfirmation) {
             setDesiredState(on);
             setConfirming(true);
           } else {
-            await submit(feature, environment, on);
+            setIsEnvToggled(on);
+            submit(feature, environment, on);
           }
         }}
         type="environment"
