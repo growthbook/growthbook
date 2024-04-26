@@ -42,7 +42,6 @@ import TagsFilter, {
 } from "@/components/Tags/TagsFilter";
 import SortedTags from "@/components/Tags/SortedTags";
 import Toggle from "@/components/Forms/Toggle";
-import usePermissions from "@/hooks/usePermissions";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
@@ -76,7 +75,6 @@ export default function FeaturesPage() {
 
   const { organization } = useUser();
 
-  const permissions = usePermissions();
   const permissionsUtil = usePermissionsUtil();
   const { project, getProjectById } = useDefinitions();
   const settings = useOrgSettings();
