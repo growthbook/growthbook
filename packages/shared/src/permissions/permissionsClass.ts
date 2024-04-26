@@ -239,12 +239,12 @@ export class Permissions {
     return this.checkProjectFilterPermission(metric, "createMetrics");
   };
 
-  public canBypassApprovalChecks = (
+  public canManageFeatureDrafts = (
     feature: Pick<FeatureInterface, "project">
-  ): boolean => {
+  ) => {
     return this.checkProjectFilterPermission(
       { projects: feature.project ? [feature.project] : [] },
-      "bypassApprovalChecks"
+      "manageFeatureDrafts"
     );
   };
 
@@ -254,6 +254,15 @@ export class Permissions {
     return this.checkProjectFilterPermission(
       { projects: feature.project ? [feature.project] : [] },
       "canReview"
+    );
+  };
+
+  public canBypassApprovalChecks = (
+    feature: Pick<FeatureInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: feature.project ? [feature.project] : [] },
+      "bypassApprovalChecks"
     );
   };
 

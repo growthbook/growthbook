@@ -349,7 +349,10 @@ export default function FeaturesPage() {
                     </td>
                     <td>
                       <MoreMenu>
-                        {permissionsUtil.canCreateFeature(feature) ? (
+                        {permissionsUtil.canCreateFeature(feature) &&
+                        permissionsUtil.canManageFeatureDrafts({
+                          project: projectId,
+                        }) ? (
                           <button
                             className="dropdown-item"
                             onClick={() => {
@@ -461,6 +464,10 @@ export default function FeaturesPage() {
   const showArchivedToggle = features.some((f) => f.archived);
   const stepsRequired = !hasActiveConnection || !hasFeatures;
 
+  const canCreateFeatures = permissionsUtil.canManageFeatureDrafts({
+    project,
+  });
+
   return (
     <div className="contents container pagecontents">
       {modalOpen && (
@@ -491,7 +498,7 @@ export default function FeaturesPage() {
         </div>
         {features.length > 0 &&
           permissionsUtil.canViewFeatureModal(project) &&
-          permissions.check("createFeatureDrafts", project) && (
+          canCreateFeatures && (
             <div className="col-auto">
               <button
                 className="btn btn-primary float-right"

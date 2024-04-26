@@ -302,10 +302,7 @@ export default function FeaturesOverview({
     (!isLive || drafts.length > 0);
 
   const canEdit = permissionsUtil.canViewFeatureModal(projectId);
-  const canEditDrafts = permissions.check(
-    "createFeatureDrafts",
-    feature.project
-  );
+  const canEditDrafts = permissionsUtil.canManageFeatureDrafts(feature);
   const renderStatusCopy = () => {
     switch (revision.status) {
       case "approved":

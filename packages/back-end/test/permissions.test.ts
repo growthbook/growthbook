@@ -2738,8 +2738,8 @@ describe("PermissionsUtilClass.canDeleteDimension check", () => {
     expect(permissions.canDeleteDimension()).toEqual(true);
   });
 });
-// permissionsClass Project Permissions Test
 
+// permissionsClass Project Permissions Test
 describe("PermissionsUtilClass.canCreateIdea check", () => {
   const testOrg: OrganizationInterface = {
     id: "org_sktwi1id9l7z9xkjb",
@@ -5321,6 +5321,173 @@ describe("PermissionsUtilClass.canRunTestQueries check", () => {
     };
 
     expect(permissions.canRunTestQueries(sampleDataSource)).toEqual(true);
+  });
+});
+
+describe("PermissionsUtilClass.canManageFeatureDrafts", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("User with collaborator role is not able to manage feature drafts", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("collaborator", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canManageFeatureDrafts({ project: "" })).toEqual(false);
+  });
+
+  it("User with engineer role is able to manage feature drafts", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canManageFeatureDrafts({ project: "" })).toEqual(true);
+  });
+
+  it("User with anaylst role is not able to manage feature drafts", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canManageFeatureDrafts({ project: "" })).toEqual(false);
+  });
+
+  it("User with global readonly role is not able to manage feature drafts for feature without a project", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("engineer", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(permissions.canManageFeatureDrafts({ project: "" })).toEqual(false);
+  });
+
+  it("User with global readonly role is able to manage feature drafts if their project specific permissions grant it", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("engineer", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(permissions.canManageFeatureDrafts({ project: "abc123" })).toEqual(
+      true
+    );
+  });
+
+  it("canManageFeatureDrafts works as expected for a feature without the project property", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("collaborator", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(permissions.canManageFeatureDrafts({})).toEqual(true);
+  });
+
+  it("canManageFeatureDrafts works as expected for a feature without the project property", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("collaborator", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("engineer", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(permissions.canManageFeatureDrafts({})).toEqual(false);
   });
 });
 
