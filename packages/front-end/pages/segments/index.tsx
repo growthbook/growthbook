@@ -34,7 +34,7 @@ const SegmentPage: FC = () => {
   const hasCreatePermission = permissionsUtil.canCreateSegment();
   let canStoreSegmentsInMongo = false;
 
-  if (!hasFileConfig || (hasFileConfig() && storeSegmentsInMongo())) {
+  if (!hasFileConfig() || (hasFileConfig() && storeSegmentsInMongo())) {
     canStoreSegmentsInMongo = true;
   }
 
