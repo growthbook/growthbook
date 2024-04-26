@@ -127,26 +127,35 @@ export async function clearCache(): Promise<void> {
   await updatePersistentCache();
 }
 
-export async function refreshFeatures(
-  instance: GrowthBook,
-  timeout?: number,
-  skipCache?: boolean,
-  allowStale?: boolean,
-  updateInstance?: boolean,
-  backgroundSync?: boolean,
-  useStoredPayload?: boolean
-): Promise<void> {
+// Get or fetch features and refresh the SDK instance
+export async function refreshFeatures({
+  instance,
+  timeout,
+  skipCache,
+  allowStale,
+  updateInstance,
+  backgroundSync,
+  useStoredPayload,
+}: {
+  instance: GrowthBook;
+  timeout?: number;
+  skipCache?: boolean;
+  allowStale?: boolean;
+  updateInstance?: boolean;
+  backgroundSync?: boolean;
+  useStoredPayload?: boolean;
+}): Promise<void> {
   if (!backgroundSync) {
     cacheSettings.backgroundSync = false;
   }
 
-  const data = await fetchFeaturesWithCache(
+  const data = await fetchFeaturesWithCache({
     instance,
     allowStale,
     timeout,
     skipCache,
-    useStoredPayload
-  );
+    useStoredPayload,
+  });
   updateInstance && data && (await refreshInstance(instance, data));
 }
 
@@ -191,13 +200,20 @@ async function updatePersistentCache() {
   }
 }
 
-async function fetchFeaturesWithCache(
-  instance: GrowthBook,
-  allowStale?: boolean,
-  timeout?: number,
-  skipCache?: boolean,
-  useStoredPayload?: boolean
-): Promise<FeatureApiResponse | null> {
+// SWR wrapper for fetching features. May indirectly or directly start SSE streaming.
+async function fetchFeaturesWithCache({
+  instance,
+  allowStale,
+  timeout,
+  skipCache,
+  useStoredPayload,
+}: {
+  instance: GrowthBook;
+  allowStale?: boolean;
+  timeout?: number;
+  skipCache?: boolean;
+  useStoredPayload?: boolean;
+}): Promise<FeatureApiResponse | null> {
   const key = getKey(instance);
   const cacheKey = getCacheKey(instance);
   const now = new Date();
@@ -389,6 +405,7 @@ async function refreshInstance(
   instance.setExperiments(data.experiments || instance.getExperiments());
 }
 
+// Fetch the features payload from helper function or from in-mem injected payload
 async function fetchFeatures(
   instance: GrowthBook,
   useStoredPayload?: boolean
@@ -465,8 +482,7 @@ async function fetchFeatures(
   return promise;
 }
 
-// Watch a feature endpoint for changes
-// Will prefer SSE if enabled, otherwise fall back to cron
+// Start SSE streaming, listens to feature payload changes and triggers a refresh or re-fetch
 function startAutoRefresh(instance: GrowthBook): void {
   const key = getKey(instance);
   const cacheKey = getCacheKey(instance);

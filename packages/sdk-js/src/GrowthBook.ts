@@ -166,7 +166,10 @@ export class GrowthBook<
 
     if (!context.remoteEval && !context.payload) {
       if (context.clientKey) {
-        this._refresh({}, true, false);
+        this._refresh({
+          allowStale: true,
+          updateInstance: false,
+        });
       } else if (context.stickyBucketService) {
         this.refreshStickyBuckets();
       }
@@ -182,7 +185,11 @@ export class GrowthBook<
     if (this.context.payload && !this._loadFeaturesCalled) {
       options.useStoredPayload = true;
     }
-    await this._refresh(options, true, true);
+    await this._refresh({
+      ...(options || {}),
+      allowStale: true,
+      updateInstance: true,
+    });
 
     if (this._canSubscribe()) {
       subscribe(this);
@@ -193,7 +200,11 @@ export class GrowthBook<
   public async refreshFeatures(
     options?: RefreshFeaturesOptions
   ): Promise<void> {
-    await this._refresh(options, false, true);
+    await this._refresh({
+      ...(options || {}),
+      allowStale: false,
+      updateInstance: true,
+    });
   }
 
   public getApiInfo(): [ApiHost, ClientKey] {
@@ -237,24 +248,29 @@ export class GrowthBook<
     return this._ctx.cacheKeyAttributes;
   }
 
-  private async _refresh(
-    options?: RefreshFeaturesOptions,
-    allowStale?: boolean,
-    updateInstance?: boolean
-  ) {
-    options = options || {};
+  private async _refresh({
+    timeout,
+    skipCache,
+    allowStale,
+    updateInstance,
+    useStoredPayload,
+  }: RefreshFeaturesOptions & {
+    allowStale?: boolean;
+    updateInstance?: boolean;
+  }) {
     if (!this._ctx.clientKey) {
       throw new Error("Missing clientKey");
     }
-    await refreshFeatures(
-      this,
-      options.timeout,
-      options.skipCache || this._ctx.enableDevMode,
+    // Trigger refresh in feature repository
+    await refreshFeatures({
+      instance: this,
+      timeout,
+      skipCache: skipCache || this._ctx.enableDevMode,
       allowStale,
       updateInstance,
-      this._ctx.backgroundSync !== false,
-      options.useStoredPayload
-    );
+      backgroundSync: this._ctx.backgroundSync ?? true,
+      useStoredPayload,
+    });
   }
 
   private _render() {
@@ -434,13 +450,16 @@ export class GrowthBook<
   }
 
   private _canSubscribe() {
-    return this._ctx.backgroundSync !== false && this._ctx.subscribeToChanges;
+    return (this._ctx.backgroundSync ?? true) && this._ctx.subscribeToChanges;
   }
 
   private async _refreshForRemoteEval() {
     if (!this._ctx.remoteEval) return;
     if (!this._loadFeaturesCalled) return;
-    await this._refresh({}, false, true).catch(() => {
+    await this._refresh({
+      allowStale: false,
+      updateInstance: true,
+    }).catch(() => {
       // Ignore errors
     });
   }
