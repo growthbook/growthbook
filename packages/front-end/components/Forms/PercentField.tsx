@@ -1,3 +1,4 @@
+import { useState } from "react";
 import Field, { FieldProps } from "./Field";
 
 type Props = {
@@ -15,6 +16,10 @@ export default function PercentField({
   onChange,
   ...fieldProps
 }: Props) {
+  const [actualValue, setActualValue] = useState<number | undefined>(
+    value !== undefined ? Number(formatter.format(value * 100)) : value
+  );
+
   return (
     <Field
       type="number"
@@ -23,14 +28,14 @@ export default function PercentField({
       {...fieldProps}
       min={Object.keys(fieldProps).includes("min") ? fieldProps.min : 0}
       max={Object.keys(fieldProps).includes("max") ? fieldProps.max : 100}
-      value={value !== undefined ? formatter.format(value * 100) : value}
+      value={actualValue}
       onChange={(event) => {
         const value =
           typeof event.target.value === "string" && event.target.value !== ""
-            ? Number(event.target.value) / 100
+            ? Number(event.target.value)
             : undefined;
-
-        onChange(value);
+        setActualValue(value);
+        onChange(value !== undefined ? value / 100 : value);
       }}
     />
   );
