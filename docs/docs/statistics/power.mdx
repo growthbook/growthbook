@@ -53,27 +53,36 @@ For example, suppose your MDE is 2%. If you feel like your feature could drive a
 
 ## How do I interpret power analysis results?
 
-In this section we run through an example power analysis.
-
-After starting power analysis, you will need to select metrics and enter estimated users per week. In our example, we choose a binomial metric (Retention - [1, 14) Days) and a revenue metric (Purchases - Total Revenue (72 hour window)). We refer to these metrics as "retention" and "revenue" respectively going forward. We estimate that 500,000 new users per week visit our website.
+In this section we run through an example power analysis. After starting power analysis, you will need to select metrics and enter estimated users per week.
 
 ![metric and users input](/images/statistics/power_1.png)
 
-You then input your effect sizes, which are the best guesses for your expected metric improvements due to your feature. We provide guidance for effect size selection [here](#how-should-i-pick-my-effect-size). For our feature we anticpate a 2% improvement in retention. For retention, the conversion rate is 10%. This 10% number should come from an offline query that measures your conversion rate on your experimental population. We expect a 1% improvement in revenue, which has a mean of $0.10 and a standard deviation of $0.22 (as with conversion rate, the mean and standard deviation come from an offline query that you run on your population). We then submit our data.
+In our example, we choose a binomial metric (Retention - [1, 14) Days) and a revenue metric (Purchases - Total Revenue (72 hour window)). We refer to these metrics as "retention" and "revenue" respectively going forward. We estimate that 500,000 new users per week visit our website.
+
+You then input your effect sizes, which are the best guesses for your expected metric improvements due to your feature.
 
 ![metric and users input](/images/statistics/power_2.png)
 
-Now we can see the results! At the top of the page is a box called Analysis Settings. The summary here says, "Run experiment for 4 weeks to achieve 80% power for all metrics." This is the most important piece of information from power analysis. If running your experiment for 4 weeks is compatible with your business constraints, costs, and rollout timeframe, then you do not need to dive into the numbers below this statement. If you want to rerun power results with number of variations greater than 2, then click "# of Variations" and then click "Update". If you want to toggle on or off "Sequential Testing", then press the "Edit" button and select the appropriate option. Enabling sequential testing reduces power.
+We provide guidance for effect size selection [here](#how-should-i-pick-my-effect-size). For our feature we anticpate a 2% improvement in retention. For retention, the conversion rate is 10%. This 10% number should come from an offline query that measures your conversion rate on your experimental population. We expect a 1% improvement in revenue, which has a mean of $0.10 and a standard deviation of $0.22 (as with conversion rate, the mean and standard deviation come from an offline query that you run on your population). We then submit our data.
 
+Now we can see the results!
 ![metric and users input](/images/statistics/power_3.png)
 
-Below Analysis Settings is Calculated Sample Size and Runtime, which contains the number of weeks (or equivalently the number of users) needed to run your experiment to achieve 80% power by metric. Clicking on a row in the table causes the information in the box to the right to change. We expect 80% power for retention if we run the experiment for 2 weeks. For revenue, we need to run the experiment for 4 weeks to achieve at least 80% power.
+At the top of the page is a box called Analysis Settings. The summary here says, "Run experiment for 4 weeks to achieve 80% power for all metrics." This is the most important piece of information from power analysis. If running your experiment for 4 weeks is compatible with your business constraints, costs, and rollout timeframe, then you do not need to dive into the numbers below this statement. If you want to rerun power results with number of variations greater than 2, then click "# of Variations" and then click "Update". If you want to toggle on or off "Sequential Testing", then press the "Edit" button and select the appropriate option. Enabling sequential testing reduces power.
 
-Calculated Sample Size and Runtime is Power Over Time, which contains power estimates by metric. The columns in Power Over Time correspond to different weeks. For example, in the first week power for retention is 65%. The highlighted column in week 4 is the first week where at least 80% power is achieved for all metrics. As expected, power increases over time, as new users are added to the experiment.
+Below "Analysis Settings" is "Calculated Sample Size and Runtime", which contains the number of weeks (or equivalently the number of users) needed to run your experiment to achieve 80% power by metric. Clicking on a row in the table causes the information in the box to the right to change. We expect 80% power for retention if we run the experiment for 2 weeks. For revenue, we need to run the experiment for 4 weeks to achieve at least 80% power.
 
-![metric and users input](/images/statistics/power_6.png)
+Beneath "Calculated Sample Size and Runtime" is "Power Over Time", which contains power estimates by metric.
 
-Beneath Power Over Time is Minimum Detectable Effect Over Time. Minimum Detectable Effect Over Time is structured the same as Power Over Time, except it contains MDEs rather than power estimates. The Week 1 revenue MDE is 2%. This means that if your true lift is 2%, after 1 week you will have at least 80% chance of observing a statistically significant result. As expected, MDEs decrease over time, as new users are added to the experiment.
+![metric and users input](/images/statistics/power_4.png)
+
+The columns in Power Over Time correspond to different weeks. For example, in the first week power for retention is 65%. The highlighted column in week 4 is the first week where at least 80% power is achieved for all metrics. As expected, power increases over time, as new users are added to the experiment.
+
+Beneath Power Over Time is Minimum Detectable Effect Over Time.
+
+![metric and users input](/images/statistics/mde.png)
+
+Minimum Detectable Effect Over Time is structured the same as Power Over Time, except it contains MDEs rather than power estimates. The Week 1 revenue MDE is 2%. This means that if your true lift is 2%, after 1 week you will have at least 80% chance of observing a statistically significant result. As expected, MDEs decrease over time, as new users are added to the experiment.
 
 If you see `N/A` in your MDE results, this means that you need to increase your number of weekly users, as the MDE calculation failed.
 
@@ -104,6 +113,7 @@ Frequently asked questions:
 1. How do I pick the number for Estimated Users Per Week? If you know your number of daily users, you can multiply that by 7. If traffic varies by day of the week, you may want to do something like (5 _ average weekday traffic + 2 _ average weekend traffic) / 7.
 2. How can I increase my experimental power? You can increase experimental power by increasing the number of daily users, perhaps by either expanding your population to new segments, or by including a larger percentage of user traffic in your experiment. Similarly, if you have more than 2 variations, reducing the number of variations increases power.
 3. What if my experiment is low-powered? Should I still run it? The biggest cost to running a low-powered experiment is that your results will probably be noisy, and you will face ambiguity in your rollout/rollback decision. That being said, you will probably still have learnings from your experiment.
+4. What does "N/A" mean for my MDE result? It means there is no solution for the MDE, given the current number of weekly users, control mean, and control variance. Increase your number of weekly users or reduce your number of treatment variations.
 
 ## GrowthBook implementation
 
@@ -120,6 +130,7 @@ We make the following assumptions:
 2. equal variance across control and treatment variations;
 3. observations across users are independent and identically distributed; and
 4. all metrics have finite variance.
+5. you are running a two-sample t-test. If in practice you use [CUPED](/statistics/cuped), your power will be higher. Use CUPED!
 
 For a 1-sided test, the probability of a statistically significant result (i.e., the power) is
 
