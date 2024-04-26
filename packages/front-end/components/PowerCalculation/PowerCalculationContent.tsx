@@ -11,22 +11,27 @@ import {
 } from "./types";
 import PowerCalculationStatsEngineModal from "./PowerCalculationStatsEngineModal";
 
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 0,
-});
+const percentFormatter = (() => {
+  const formatter = new Intl.NumberFormat(undefined, {
+    style: "percent",
+    maximumFractionDigits: 0,
+  });
 
-const numberFormatter = Intl.NumberFormat("en-US");
+  return (v: number) => (isNaN(v) ? "N/A" : formatter.format(v));
+})();
+
+const numberFormatter = (() => {
+  const formatter = Intl.NumberFormat("en-US");
+  return (v: number) => (isNaN(v) ? "N/A" : formatter.format(v));
+})();
 
 const MIN_VARIATIONS = 2;
 const MAX_VARIATIONS = 12;
 
 const formatWeeks = ({ weeks, nWeeks }: { weeks?: number; nWeeks: number }) =>
   weeks
-    ? `${numberFormatter.format(weeks)} ${weeks > 1 ? "weeks" : "week"}`
-    : `more than ${numberFormatter.format(nWeeks)} ${
-        nWeeks > 1 ? "weeks" : "week"
-      }`;
+    ? `${numberFormatter(weeks)} ${weeks > 1 ? "weeks" : "week"}`
+    : `more than ${numberFormatter(nWeeks)} ${nWeeks > 1 ? "weeks" : "week"}`;
 
 const AnalysisSettings = ({
   params,
@@ -86,8 +91,8 @@ const AnalysisSettings = ({
                     nWeeks: params.nWeeks,
                   })}
                 </span>{" "}
-                to achieve {percentFormatter.format(params.targetPower)} power
-                for all metrics.
+                to achieve {percentFormatter(params.targetPower)} power for all
+                metrics.
               </div>
             )}
           </div>
@@ -147,9 +152,7 @@ const MetricLabel = ({
 }) => (
   <>
     <div className="font-weight-bold">{name}</div>
-    <div className="small">
-      Effect Size {percentFormatter.format(effectSize)}
-    </div>
+    <div className="small">Effect Size {percentFormatter(effectSize)}</div>
   </>
 );
 
@@ -212,15 +215,13 @@ const SampleSizeAndRuntime = ({
                         <td>
                           <MetricLabel name={name} effectSize={effectSize} />
                         </td>
-                        <td>{percentFormatter.format(effectSize)}</td>
+                        <td>{percentFormatter(effectSize)}</td>
                         <td>
                           {target
                             ? `${formatWeeks({
                                 weeks: target.weeks,
                                 nWeeks: params.nWeeks,
-                              })}; ${numberFormatter.format(
-                                target.users
-                              )} users`
+                              })}; ${numberFormatter(target.users)} users`
                             : formatWeeks({ nWeeks: params.nWeeks })}
                         </td>
                       </tr>
@@ -236,7 +237,7 @@ const SampleSizeAndRuntime = ({
                 <p>
                   Reliably detecting a lift of{" "}
                   <span className="font-weight-bold">
-                    {percentFormatter.format(selectedEffectSize)}
+                    {percentFormatter(selectedEffectSize)}
                   </span>{" "}
                   requires running your experiment for{" "}
                   {selectedTarget ? (
@@ -249,7 +250,7 @@ const SampleSizeAndRuntime = ({
                       </span>{" "}
                       (roughly collecting{" "}
                       <span className="font-weight-bold">
-                        {numberFormatter.format(selectedTarget.users)} users
+                        {numberFormatter(selectedTarget.users)} users
                       </span>
                       )
                     </>
@@ -279,8 +280,8 @@ const WeeksThreshold = ({
 }) =>
   weekThreshold ? (
     <p>
-      To achieve {percentFormatter.format(targetPower)} power for all metrics,
-      we advocate running your experiment for{" "}
+      To achieve {percentFormatter(targetPower)} power for all metrics, we
+      advocate running your experiment for{" "}
       <span className="font-weight-bold">
         at least {formatWeeks({ weeks: weekThreshold, nWeeks })}
       </span>
@@ -290,7 +291,7 @@ const WeeksThreshold = ({
     <p>
       The experiment needs to run for{" "}
       <span className="font-weight-bold">{formatWeeks({ nWeeks })}</span> to
-      achieve {percentFormatter.format(targetPower)} power for all metrics.
+      achieve {percentFormatter(targetPower)} power for all metrics.
     </p>
   );
 
@@ -325,9 +326,7 @@ const MinimumDetectableEffect = ({
                 )}
               >
                 <div className="font-weight-bold">Week {idx + 1}</div>
-                <span className="small">
-                  {numberFormatter.format(users)} Users
-                </span>
+                <span className="small">{numberFormatter(users)} Users</span>
               </th>
             ))}
           </tr>
@@ -346,9 +345,7 @@ const MinimumDetectableEffect = ({
                       "power-analysis-cell-threshold"
                   )}
                 >
-                  {percentFormatter.format(
-                    ensureAndReturn(metrics[id]).effectSize
-                  )}
+                  {percentFormatter(ensureAndReturn(metrics[id]).effectSize)}
                 </td>
               ))}
             </tr>
@@ -390,9 +387,7 @@ const PowerOverTime = ({
                 )}
               >
                 <div className="font-weight-bold">Week {idx + 1}</div>
-                <span className="small">
-                  {numberFormatter.format(users)} Users
-                </span>
+                <span className="small">{numberFormatter(users)} Users</span>
               </th>
             ))}
           </tr>
@@ -411,7 +406,7 @@ const PowerOverTime = ({
                       "power-analysis-cell-threshold"
                   )}
                 >
-                  {percentFormatter.format(ensureAndReturn(metrics[id]).power)}
+                  {percentFormatter(ensureAndReturn(metrics[id]).power)}
                 </td>
               ))}
             </tr>
