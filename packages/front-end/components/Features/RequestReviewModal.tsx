@@ -269,11 +269,11 @@ export default function RequestReviewModal({
                   />
                   <label
                     htmlFor="adminPublish"
-                    className="text-body cursor-pointer font-weight-bold mb-0 mr-1"
+                    className="cursor-pointer font-weight-bold mb-0 mr-1"
                   >
-                    Bypass approval requirement to publish
+                    Bypass approval requirement to publish (optional for Admins
+                    only)
                   </label>
-                  (optional for Admins only)
                 </div>
               </div>
             )}
