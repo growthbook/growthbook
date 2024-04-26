@@ -479,9 +479,7 @@ async function getFeatureDefinitionsResponse({
     if (!exp.changeType) {
       if (
         exp.urlPatterns &&
-        exp.variations.some((variation) => {
-          return variation.urlRedirect;
-        })
+        exp.variations.some((variation) => variation.urlRedirect)
       ) {
         exp.changeType = "redirect";
       } else {

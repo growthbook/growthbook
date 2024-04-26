@@ -82,7 +82,6 @@ export type UrlTarget = {
 
 export type Experiment<T> = {
   key: string;
-  changeType?: "redirect" | "visual";
   variations: [T, T, ...T[]];
   ranges?: VariationRange[];
   meta?: VariationMeta[];
@@ -117,6 +116,7 @@ export type Experiment<T> = {
 
 export type AutoExperiment<T = AutoExperimentVariation> = Experiment<T> & {
   uid?: string;
+  changeType?: "redirect" | "visual";
   // If true, require the experiment to be manually triggered
   manual?: boolean;
 };
@@ -171,8 +171,7 @@ export type NavigateCallback = (
 ) => void | Promise<void>;
 
 export type ApplyDomChangesCallback = (
-  changes: AutoExperimentVariation,
-  gb?: GrowthBook
+  changes: AutoExperimentVariation
 ) => () => void;
 
 export type RenderFunction = () => void;
@@ -184,7 +183,7 @@ export interface Context {
   features?: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
   forcedVariations?: Record<string, number>;
-  blockedExperimentHashes?: string[];
+  blockedExperimentIds?: string[];
   disableVisualExperiments?: boolean;
   disableJsInjection?: boolean;
   jsInjectionNonce?: string;

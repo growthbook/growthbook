@@ -426,14 +426,6 @@ export class GrowthBook<
     return Array.from(this._ranExperimentIds);
   }
 
-  public getBlockedExperimentHashes(): string[] {
-    return this._ctx.blockedExperimentHashes || [];
-  }
-
-  public setBlockedExperimentHashes(experiments: string[]) {
-    this._ctx.blockedExperimentHashes = experiments;
-  }
-
   public subscribe(cb: SubscriptionFunction): () => void {
     this._subscriptions.add(cb);
     return () => {
@@ -583,7 +575,7 @@ export class GrowthBook<
         }
       } else {
         const undo = this._ctx.applyDomChangesCallback
-          ? this._ctx.applyDomChangesCallback(result.value, this)
+          ? this._ctx.applyDomChangesCallback(result.value)
           : this._applyDOMChanges(result.value);
         if (undo) {
           this._activeAutoExperiments.set(experiment, {
@@ -605,9 +597,17 @@ export class GrowthBook<
     }
   }
 
-  // todo: rethink?
-  private _isRedirectExperiment(exp: AutoExperiment) {
-    return exp.variations.some((v) => Object.keys(v).includes("urlRedirect"));
+  private _getExperimentChangeType(
+    exp: AutoExperiment
+  ): AutoExperiment["changeType"] {
+    if (exp.changeType) return exp.changeType;
+    if (
+      exp.urlPatterns &&
+      exp.variations.some((variation) => variation.urlRedirect)
+    ) {
+      return "redirect";
+    }
+    return "visual";
   }
 
   private _updateAllAutoExperiments(forceRerun?: boolean) {
@@ -627,7 +627,10 @@ export class GrowthBook<
       const result = this._runAutoExperiment(exp, forceRerun);
 
       // Once you're in a redirect experiment, break out of the loop and don't run any further experiments
-      if (result?.inExperiment && this._isRedirectExperiment(exp)) {
+      if (
+        result?.inExperiment &&
+        this._getExperimentChangeType(exp) === "redirect"
+      ) {
         break;
       }
     }
@@ -1518,13 +1521,11 @@ export class GrowthBook<
   }
 
   private _isExperimentBlockedByContext(experiment: AutoExperiment): boolean {
-    if (
-      experiment.changeType === "visual" &&
-      this._ctx.disableVisualExperiments
-    )
+    const changeType = this._getExperimentChangeType(experiment);
+    if (changeType === "visual" && this._ctx.disableVisualExperiments)
       return true;
 
-    if (experiment.changeType === "redirect") {
+    if (changeType === "redirect") {
       if (this._ctx.disableUrlRedirectExperiments) return true;
 
       if (this._ctx.disableCrossOriginUrlRedirectExperiments) {
@@ -1556,7 +1557,7 @@ export class GrowthBook<
 
     if (
       experiment.uid &&
-      (this._ctx.blockedExperimentHashes || []).includes(experiment.uid)
+      (this._ctx.blockedExperimentIds || []).includes(experiment.uid)
     )
       return true;
 
