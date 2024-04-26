@@ -196,6 +196,7 @@ export interface OrganizationSettings {
   codeReferencesEnabled?: boolean;
   codeRefsBranchesToFilter?: string[];
   codeRefsPlatformUrl?: string;
+  powerCalculatorEnabled?: boolean;
 }
 
 export interface SubscriptionQuote {

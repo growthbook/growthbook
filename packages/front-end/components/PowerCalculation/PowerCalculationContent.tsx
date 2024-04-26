@@ -438,7 +438,12 @@ export default function PowerCalculationContent({
     <div className="contents container pagecontents ml-1 pr-4">
       <div className="row mb-4">
         <div className="col">
-          <h1>Power Calculator</h1>
+          <div className="d-flex justify-space-between align-items-center">
+            <span className="badge badge-purple text-uppercase mr-2">
+              Alpha
+            </span>
+            <h1>Power Calculator</h1>
+          </div>
         </div>
       </div>
       <div className="row mb-4">
