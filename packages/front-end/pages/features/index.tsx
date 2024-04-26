@@ -345,8 +345,10 @@ export default function FeaturesPage() {
                     </td>
                     <td>
                       <MoreMenu>
-                        {permissions.check("manageFeatures", project) &&
-                        canManageFeatureDrafts ? (
+                        {permissions.check("manageFeatures", projectId) &&
+                        permissionsUtil.canManageFeatureDrafts({
+                          project: projectId,
+                        }) ? (
                           <button
                             className="dropdown-item"
                             onClick={() => {
@@ -458,7 +460,7 @@ export default function FeaturesPage() {
   const showArchivedToggle = features.some((f) => f.archived);
   const stepsRequired = !hasActiveConnection || !hasFeatures;
 
-  const canManageFeatureDrafts = permissionsUtil.canManageFeatureDrafts({
+  const canCreateFeatures = permissionsUtil.canManageFeatureDrafts({
     project,
   });
 
@@ -492,7 +494,7 @@ export default function FeaturesPage() {
         </div>
         {features.length > 0 &&
           permissions.check("manageFeatures", project) &&
-          canManageFeatureDrafts && (
+          canCreateFeatures && (
             <div className="col-auto">
               <button
                 className="btn btn-primary float-right"

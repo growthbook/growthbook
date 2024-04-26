@@ -184,7 +184,7 @@ export default function FeatureFromExperimentModal({
 
   if (
     !permissionsUtil.canManageFeatureDrafts({
-      project: experiment.project || project,
+      project: experiment.project ?? project,
     })
   ) {
     ctaEnabled = false;
