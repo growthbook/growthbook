@@ -925,7 +925,7 @@ export async function postExperimentArchive(
     return;
   }
 
-  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
 
@@ -991,7 +991,7 @@ export async function postExperimentUnarchive(
     return;
   }
 
-  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
 
@@ -1050,7 +1050,7 @@ export async function postExperimentStatus(
     throw new Error("You do not have access to this experiment");
   }
 
-  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
 
@@ -1250,7 +1250,7 @@ export async function deleteExperimentPhase(
     return;
   }
 
-  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
 
@@ -1319,7 +1319,7 @@ export async function putExperimentPhase(
     throw new Error("Invalid phase");
   }
 
-  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
 
@@ -1401,7 +1401,7 @@ export async function postExperimentTargeting(
     return;
   }
 
-  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
 
@@ -1517,7 +1517,7 @@ export async function postExperimentPhase(
     });
     return;
   }
-  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
 
@@ -1987,7 +1987,7 @@ export async function deleteScreenshot(
     return;
   }
 
-  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
 
@@ -2061,7 +2061,7 @@ export async function addScreenshot(
     return;
   }
 
-  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
 

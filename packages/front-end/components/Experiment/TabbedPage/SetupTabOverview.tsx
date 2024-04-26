@@ -42,11 +42,10 @@ export default function SetupTabOverview({
 
   const permissionsUtil = usePermissionsUtil();
 
-  const canCreateAnalyses =
-    !disableEditing &&
-    permissionsUtil.canViewExperimentModal(experiment.project);
   const canEditExperiment =
-    !experiment.archived && !disableEditing && canCreateAnalyses;
+    !experiment.archived &&
+    permissionsUtil.canViewExperimentModal(experiment.project) &&
+    !disableEditing;
 
   return (
     <div>

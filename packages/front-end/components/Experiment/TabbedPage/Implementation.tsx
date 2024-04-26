@@ -40,10 +40,9 @@ export default function Implementation({
   const permissions = usePermissions();
   const permissionsUtil = usePermissionsUtil();
 
-  const canCreateAnalyses = permissionsUtil.canViewExperimentModal(
-    experiment.project
-  );
-  const canEditExperiment = !experiment.archived && canCreateAnalyses;
+  const canEditExperiment =
+    !experiment.archived &&
+    permissionsUtil.canViewExperimentModal(experiment.project);
 
   const hasVisualEditorPermission =
     canEditExperiment &&

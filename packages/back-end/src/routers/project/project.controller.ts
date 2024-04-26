@@ -209,7 +209,6 @@ export const deleteProject = async (
       if (!context.permissions.canDeleteMetric({ projects: [id] })) {
         context.permissions.throwPermissionError();
       }
-
       await deleteAllMetricsForAProject({
         projectId: id,
         context,
@@ -246,11 +245,13 @@ export const deleteProject = async (
   // Clean up experiments
   if (deleteExperiments) {
     try {
-      if (!context.permissions.canDeleteExperiment({ project: id }))
-        await deleteAllExperimentsForAProject({
-          projectId: id,
-          context,
-        });
+      if (!context.permissions.canDeleteExperiment({ project: id })) {
+        context.permissions.throwPermissionError();
+      }
+      await deleteAllExperimentsForAProject({
+        projectId: id,
+        context,
+      });
     } catch (e) {
       return res.json({
         status: 403,

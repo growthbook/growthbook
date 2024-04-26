@@ -199,7 +199,7 @@ const ExperimentsPage = (): React.ReactElement => {
     );
   }
 
-  const canAdd = !permissionsUtil.canViewExperimentModal(project);
+  const canAdd = permissionsUtil.canViewExperimentModal(project);
 
   const hasArchivedExperiments = experiments.some((item) => item.archived);
 

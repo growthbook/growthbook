@@ -131,10 +131,11 @@ export default function ExperimentHeader({
 
   const [showStartExperiment, setShowStartExperiment] = useState(false);
 
-  const canCreateAnalyses = permissionsUtil.canViewExperimentModal(
+  const hasUpdatePermissions = permissionsUtil.canViewExperimentModal(
     experiment.project
   );
-  const canEditExperiment = !experiment.archived && canCreateAnalyses;
+  const canDeleteExperiment = permissionsUtil.canDeleteExperiment(experiment);
+  const canEditExperiment = !experiment.archived && hasUpdatePermissions;
 
   let hasRunExperimentsPermission = true;
   const envs = getAffectedEnvsForExperiment({ experiment });
@@ -422,7 +423,7 @@ export default function ExperimentHeader({
                     </button>
                   </ConfirmButton>
                 )}
-                {canCreateAnalyses && experiment.archived && (
+                {hasUpdatePermissions && experiment.archived && (
                   <button
                     className="dropdown-item"
                     onClick={async (e) => {
@@ -443,7 +444,7 @@ export default function ExperimentHeader({
                     Unarchive
                   </button>
                 )}
-                {canCreateAnalyses && (
+                {canDeleteExperiment && (
                   <DeleteButton
                     className="dropdown-item text-danger"
                     useIcon={false}

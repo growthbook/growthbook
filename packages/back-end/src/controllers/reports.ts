@@ -272,11 +272,10 @@ export async function putReport(
     throw new Error("Could not find connected experiment");
   }
 
-  // Reports don't have projects, but the experiment does, so check that
+  // Reports don't have projects, but the experiment does, so check the experiment's project for permission
   if (!context.permissions.canUpdateReport(experiment)) {
     context.permissions.throwPermissionError();
   }
-  req.checkPermissions("runQueries", experiment.project || "");
 
   const updates: Partial<ReportInterface> = {};
   let needsRun = false;
