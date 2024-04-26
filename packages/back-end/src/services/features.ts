@@ -202,7 +202,7 @@ export function generateAutoExperimentsPayload({
           : data?.visualChangeset?.id) || uniqid();
       const exp: AutoExperimentWithProject = {
         key: e.trackingKey,
-        uid: `${e.trackingKey}_${data.type}_${implementationId}`,
+        changeId: `${e.trackingKey}_${data.type}_${implementationId}`,
         status: e.status,
         project: e.project,
         variations: e.variations.map((v) => {
@@ -486,8 +486,8 @@ async function getFeatureDefinitionsResponse({
         exp.changeType = "visual";
       }
     }
-    if (!exp.uid) {
-      exp.uid = `${exp.key}_${exp.changeType}_${uniqid()}`;
+    if (!exp.changeId) {
+      exp.changeId = `${exp.key}_${exp.changeType}_${uniqid()}`;
     }
     return exp;
   });
