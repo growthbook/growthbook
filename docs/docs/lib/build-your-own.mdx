@@ -7,7 +7,7 @@ slug: build-your-own
 
 # Build Your Own SDK
 
-**Latest spec version: 0.5.4 [View Changelog](#changelog)**
+**Latest spec version: 0.5.5 [View Changelog](#changelog)**
 
 This guide is meant for library authors looking to build a GrowthBook SDK in a currently unsupported language.
 
@@ -1109,6 +1109,15 @@ There is a language-agnostic test suite stored as a JSON file `packages/sdk-js/t
 
 The cases.json file is an object. The keys are the function being tested, and the values are arrays of test cases. The test case arrays structure is different for each function and listed below:
 
+- **evalCondition**
+  - name of the test case (string)
+  - condition
+  - attributes
+  - expected return value (boolean)
+- **versionCompare** is an object with comparison type properties `lt`, `gt`, `eq`, each with an array of test cases
+  - version (string)
+  - other version (string)
+  - expected to match for comparison type (boolean)
 - **hash**
   - seed (string)
   - value to hash (string)
@@ -1118,6 +1127,18 @@ The cases.json file is an object. The keys are the function being tested, and th
   - Name of the test case (string)
   - Arguments array ([numVariations, coverage, weights or null])
   - expected result
+- **feature** (evalFeature)
+  - name of the test case (string)
+  - context passed into GrowthBook constructor
+  - name of the feature (string)
+  - expected result
+- **run**
+  - name of the test case (string)
+  - context passed into GrowthBook constructor
+  - experiment object
+  - expected value
+  - inExperiment (boolean)
+  - hashUsed (boolean)
 - **chooseVariation**
   - name of the test case (string)
   - n (hash)
@@ -1137,32 +1158,22 @@ The cases.json file is an object. The keys are the function being tested, and th
 - **getEqualWeights**
   - numVariations
   - expected result (weights rounded to 8 decimal places)
-- **evalCondition**
-  - name of the test case (string)
-  - condition
-  - attributes
-  - expected return value (boolean)
-- **feature** (evalFeature)
-  - name of the test case (string)
-  - context passed into GrowthBook constructor
-  - name of the feature (string)
-  - expected result
-- **run**
-  - name of the test case (string)
-  - context passed into GrowthBook constructor
-  - experiment object
-  - expected value
-  - inExperiment (boolean)
-  - hashUsed (boolean)
 - **decrypt**
   - name of the test case (string)
   - encrypted text (string)
   - decryption key (string)
   - expected result (string or `null` if the decryption should fail)
-- **versionCompare** is an object with comparison type properties `lt`, `gt`, `eq`, each with an array of test cases
-  - version (string)
-  - other version (string)
-  - expected to match for comparison type (boolean)
+- **stickyBucket**
+  - name of the test case (string)
+  - context passed into GrowthBook constructor
+  - array of preexisting sticky bucket assignment docs
+  - name of the feature (string)
+  - expected result
+  - expected sticky bucket assignment docs
+- **urlRedirect**
+  - name of the test case (string)
+  - context passed into GrowthBook constructor
+  - expected array of result objects
 
 In addition to the above, you should write custom test cases for things like event subscriptions, tracking callbacks, getters/setters, etc. that are more language-specific.
 
@@ -1218,3 +1229,8 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
 - **v0.5.4** 2024-02-23
   - New `parentConditions` property of FeatureRules
   - New `parentConditions` property of Experiments
+- **v0.5.5** 2024-04-09
+  - Add test cases for URL Redirects
+  - Add `navigate` method to Context
+  - Add `persistQueryString` property to Experiment
+  - Add and improve test cases for StickyBucket

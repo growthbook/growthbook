@@ -141,6 +141,7 @@ export async function mergeStaleInformationSchemaWithUpdate(
 }
 
 export async function fetchTableData(
+  context: ReqContext,
   datasource: DataSourceInterface,
   informationSchema: InformationSchemaInterface,
   tableId: string
@@ -151,7 +152,11 @@ export async function fetchTableData(
   tableSchema: string;
   tableName: string;
 }> {
-  const integration = getSourceIntegrationObject(datasource);
+  if (!context.permissions.canRunSchemaQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource);
 
   if (!integration.getTableData) {
     throw new Error("Table data not supported for this data source");
@@ -191,12 +196,17 @@ export async function fetchTableData(
 }
 
 export async function generateInformationSchema(
+  context: ReqContext,
   datasource: DataSourceInterface
 ): Promise<{
   informationSchema: InformationSchema[];
   refreshMS: number;
 }> {
-  const integration = getSourceIntegrationObject(datasource);
+  if (!context.permissions.canRunSchemaQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource);
 
   if (!integration.getInformationSchema) {
     throw new Error("Information schema not supported for this data source");
@@ -232,6 +242,7 @@ export async function initializeDatasourceInformationSchema(
   });
 
   const { informationSchema, refreshMS } = await generateInformationSchema(
+    context,
     datasource
   );
 
@@ -245,12 +256,12 @@ export async function initializeDatasourceInformationSchema(
 }
 
 export async function updateDatasourceInformationSchema(
+  context: ReqContext,
   datasource: DataSourceInterface,
-  organization: string,
   informationSchema: InformationSchemaInterface
 ): Promise<void> {
   // Reset the informationSchema to remove any errors and change status to "PENDING"
-  await updateInformationSchemaById(organization, informationSchema.id, {
+  await updateInformationSchemaById(context.org.id, informationSchema.id, {
     status: "PENDING",
     error: null,
   });
@@ -258,12 +269,12 @@ export async function updateDatasourceInformationSchema(
   const {
     informationSchema: updatedInformationSchema,
     refreshMS,
-  } = await generateInformationSchema(datasource);
+  } = await generateInformationSchema(context, datasource);
 
   const mergedInformationSchema = await mergeStaleInformationSchemaWithUpdate(
     informationSchema.databases,
     updatedInformationSchema,
-    organization
+    context.org.id
   );
 
   const tablesToDelete = await getRecentlyDeletedTables(
@@ -273,13 +284,13 @@ export async function updateDatasourceInformationSchema(
 
   if (tablesToDelete.length > 0) {
     await removeDeletedInformationSchemaTables(
-      organization,
+      context.org.id,
       informationSchema.id,
       tablesToDelete
     );
   }
 
-  await updateInformationSchemaById(organization, informationSchema.id, {
+  await updateInformationSchemaById(context.org.id, informationSchema.id, {
     ...informationSchema,
     databases: mergedInformationSchema,
     status: "COMPLETE",

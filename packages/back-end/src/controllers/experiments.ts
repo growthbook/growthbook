@@ -1,4 +1,5 @@
 import { Response } from "express";
+
 import uniqid from "uniqid";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
@@ -44,10 +45,7 @@ import {
   updateSnapshot,
   updateSnapshotsOnPhaseDelete,
 } from "../models/ExperimentSnapshotModel";
-import {
-  getIntegrationFromDatasourceId,
-  getSourceIntegrationObject,
-} from "../services/datasource";
+import { getIntegrationFromDatasourceId } from "../services/datasource";
 import { addTagsDiff } from "../models/TagModel";
 import { getContextFromReq, userHasAccess } from "../services/organizations";
 import { removeExperimentFromPresentations } from "../services/presentations";
@@ -1665,12 +1663,11 @@ export async function cancelSnapshot(
     });
   }
 
-  req.checkPermissions("runQueries", experiment.project || "");
-
   const integration = await getIntegrationFromDatasourceId(
     context,
     snapshot.settings.datasourceId
   );
+
   const queryRunner = new ExperimentResultsQueryRunner(
     context,
     snapshot,
@@ -1706,8 +1703,6 @@ export async function postSnapshot(
     });
     return;
   }
-
-  req.checkPermissions("runQueries", experiment.project || "");
 
   let project = null;
   if (experiment.project) {
@@ -1789,14 +1784,15 @@ export async function postSnapshot(
     }
 
     try {
-      const snapshot = await createManualSnapshot(
+      const snapshot = await createManualSnapshot({
         experiment,
-        phase,
+        phaseIndex: phase,
         users,
         metrics,
         analysisSettings,
-        metricMap
-      );
+        metricMap,
+        context,
+      });
       res.status(200).json({
         status: 200,
         snapshot,
@@ -1824,14 +1820,6 @@ export async function postSnapshot(
       });
       return;
     }
-  }
-
-  if (experiment.organization !== org.id) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this experiment",
-    });
-    return;
   }
 
   try {
@@ -1916,7 +1904,12 @@ export async function postSnapshotAnalysis(
     snapshot.settings.coverage =
       experiment.phases[phaseIndex ?? latestPhase].coverage;
     // JIT migrate snapshots to have
-    await updateSnapshot(org.id, id, { settings: snapshot.settings });
+    await updateSnapshot({
+      organization: org.id,
+      id,
+      updates: { settings: snapshot.settings },
+      context,
+    });
   }
 
   const metricMap = await getMetricMap(context);
@@ -1928,6 +1921,7 @@ export async function postSnapshotAnalysis(
       analysisSettings: analysisSettings,
       metricMap: metricMap,
       snapshot: snapshot,
+      context,
     });
     res.status(200).json({
       status: 200,
@@ -2099,9 +2093,6 @@ export async function cancelPastExperiments(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  // for safety, check if the user has runQueries globally or in atleast 1 project
-  req.checkPermissions("runQueries", []);
-
   const context = getContextFromReq(req);
   const { org } = context;
   const { id } = req.params;
@@ -2114,6 +2105,7 @@ export async function cancelPastExperiments(
     context,
     pastExperiments.datasource
   );
+
   const queryRunner = new PastExperimentsQueryRunner(
     context,
     pastExperiments,
@@ -2171,16 +2163,11 @@ export async function postPastExperiments(
   const { org } = context;
   const { datasource, force } = req.body;
 
-  const datasourceObj = await getDataSourceById(context, datasource);
-  if (!datasourceObj) {
-    throw new Error("Could not find datasource");
-  }
-  req.checkPermissions(
-    "runQueries",
-    datasourceObj?.projects?.length ? datasourceObj.projects : []
+  const integration = await getIntegrationFromDatasourceId(
+    context,
+    datasource,
+    true
   );
-
-  const integration = getSourceIntegrationObject(datasourceObj, true);
 
   let pastExperiments = await getPastExperimentsModelByDatasource(
     org.id,

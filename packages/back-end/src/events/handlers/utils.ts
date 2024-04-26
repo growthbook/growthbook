@@ -83,6 +83,8 @@ export const getFilterDataForNotificationEvent = (
           : [],
       };
 
+    case "experiment.info":
+    case "experiment.warning":
     case "webhook.test":
       return { tags: [], projects: [] };
 
@@ -110,6 +112,8 @@ export const filterEventForEnvironments = ({
     case "experiment.created":
     case "experiment.updated":
     case "experiment.deleted":
+    case "experiment.info":
+    case "experiment.warning":
       return true;
 
     case "feature.created":

@@ -51,6 +51,7 @@ const IdeaPage = (): ReactElement => {
     getSegmentById,
     refreshTags,
     getProjectById,
+    getDatasourceById,
   } = useDefinitions();
 
   const { permissions, getUserDisplay } = useUser();
@@ -107,6 +108,9 @@ const IdeaPage = (): ReactElement => {
   const canCreateIdeasInCurrentProject = permissionsUtil.canViewIdeaModal(
     project
   );
+
+  const metric = getMetricById(estimate?.metric || "");
+  const datasource = getDatasourceById(metric?.datasource || "");
 
   return (
     <div className="container-fluid pagecontents pt-3">
@@ -404,20 +408,18 @@ const IdeaPage = (): ReactElement => {
                 </div>
               </div>
 
-              {(!idea.estimateParams || !estimate) &&
-                permissions.check("runQueries", idea.project || "") &&
-                canEdit && (
-                  <div className="mt-2 text-center">
-                    <button
-                      className="btn btn-outline-primary"
-                      onClick={() => {
-                        setImpactOpen(true);
-                      }}
-                    >
-                      <FaChartLine /> Estimate Impact
-                    </button>
-                  </div>
-                )}
+              {(!idea.estimateParams || !estimate) && canEdit && (
+                <div className="mt-2 text-center">
+                  <button
+                    className="btn btn-outline-primary"
+                    onClick={() => {
+                      setImpactOpen(true);
+                    }}
+                  >
+                    <FaChartLine /> Estimate Impact
+                  </button>
+                </div>
+              )}
 
               <hr />
               <ImpactProjections
@@ -433,12 +435,13 @@ const IdeaPage = (): ReactElement => {
                     title="Parameters"
                     open={() => setImpactOpen(true)}
                     canOpen={
-                      permissions.check("runQueries", idea.project || "") &&
+                      (!datasource ||
+                        permissionsUtil.canRunMetricQueries(datasource)) &&
                       canEdit
                     }
                   >
                     <RightRailSectionGroup title="Metric" type="badge">
-                      {getMetricById(estimate?.metric)?.name}
+                      {metric?.name}
                     </RightRailSectionGroup>
                     <RightRailSectionGroup
                       title="Percent of Traffic"

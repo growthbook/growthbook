@@ -17,11 +17,15 @@ export function getUpdateFactMetricPropsFromBody(
     cappingSettings,
     windowSettings,
     regressionAdjustmentSettings,
+    riskThresholdSuccess,
+    riskThresholdDanger,
     ...otherFields
   } = body;
 
   const updates: UpdateFactMetricProps = {
     ...otherFields,
+    winRisk: riskThresholdSuccess,
+    loseRisk: riskThresholdDanger,
   };
 
   const metricType = updates.metricType;
