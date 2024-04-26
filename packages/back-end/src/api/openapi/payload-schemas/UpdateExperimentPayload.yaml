@@ -58,6 +58,21 @@ properties:
     type: string
   excludeFromPayload:
     type: boolean
+  inProgressConversions:
+    type: string
+    enum:
+      - loose
+      - strict
+  attributionModel:
+    type: string
+    enum:
+      - firstExposure
+      - experimentDuration
+  statsEngine:
+    type: string
+    enum:
+      - bayesian
+      - frequentist
   variations:
     type: array
     minItems: 2
