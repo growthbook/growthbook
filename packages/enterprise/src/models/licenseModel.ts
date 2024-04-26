@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import omit from "lodash/omit";
 import { LicenseInterface } from "../license";
 
 const licenseSchema = new mongoose.Schema({
@@ -54,3 +55,15 @@ export type LicenseDocument = mongoose.Document & LicenseInterface;
 const LicenseModel = mongoose.model<LicenseDocument>("License", licenseSchema);
 
 export { LicenseModel };
+
+export function toInterface(doc: LicenseDocument): LicenseInterface {
+  const ret = doc.toJSON<LicenseDocument>();
+  return omit(ret, ["__v", "_id"]);
+}
+
+export async function getLicenseByKey(
+  key: string
+): Promise<LicenseInterface | null> {
+  const doc = await LicenseModel.findOne({ id: key });
+  return doc ? toInterface(doc) : null;
+}

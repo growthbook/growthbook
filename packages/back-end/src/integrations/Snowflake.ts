@@ -20,7 +20,9 @@ export default class Snowflake extends SqlIntegration {
     return true;
   }
   createUnitsTableOptions() {
-    return snowflakeCreateTableOptions(this.settings.pipelineSettings ?? {});
+    return snowflakeCreateTableOptions(
+      this.datasource.settings.pipelineSettings ?? {}
+    );
   }
   getFormatDialect(): FormatDialect {
     return "snowflake";

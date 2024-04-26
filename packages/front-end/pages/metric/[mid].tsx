@@ -21,6 +21,10 @@ import { BsGear } from "react-icons/bs";
 import { IdeaInterface } from "back-end/types/idea";
 import { date } from "shared/dates";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import {
+  DEFAULT_LOSE_RISK_THRESHOLD,
+  DEFAULT_WIN_RISK_THRESHOLD,
+} from "shared/constants";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DiscussionThread from "@/components/DiscussionThread";
@@ -28,11 +32,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
-import {
-  defaultWinRiskThreshold,
-  defaultLoseRiskThreshold,
-  getMetricFormatter,
-} from "@/services/metrics";
+import { getMetricFormatter } from "@/services/metrics";
 import MetricForm from "@/components/Metrics/MetricForm";
 import Tabs from "@/components/Tabs/Tabs";
 import Tab from "@/components/Tabs/Tab";
@@ -52,7 +52,6 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import PickSegmentModal from "@/components/Segments/PickSegmentModal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/components/Button";
-import usePermissions from "@/hooks/usePermissions";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
@@ -74,7 +73,6 @@ const MetricPage: FC = () => {
   const router = useRouter();
   const { mid } = router.query;
   const permissionsUtil = usePermissionsUtil();
-  const permissions = usePermissions();
   const displayCurrency = useCurrency();
   const { apiCall } = useAuth();
   const {
@@ -145,6 +143,8 @@ const MetricPage: FC = () => {
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
+  const canRunMetricQuery =
+    datasource && permissionsUtil.canRunMetricQueries(datasource);
   const experiments = data.experiments;
 
   let analysis = data.metric.analysis || null;
@@ -568,30 +568,23 @@ const MetricPage: FC = () => {
                               ) : (
                                 <span className="mr-1">Apply a segment</span>
                               )}
-                              {canEditMetric &&
-                                permissions.check(
-                                  "runQueries",
-                                  metric.projects || []
-                                ) && (
-                                  <a
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      setSegmentOpen(true);
-                                    }}
-                                    href="#"
-                                  >
-                                    <BsGear />
-                                  </a>
-                                )}
+                              {canEditMetric && canRunMetricQuery && (
+                                <a
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setSegmentOpen(true);
+                                  }}
+                                  href="#"
+                                >
+                                  <BsGear />
+                                </a>
+                              )}
                             </>
                           )}
                         </div>
                         <div style={{ flex: 1 }} />
                         <div className="col-auto">
-                          {permissions.check(
-                            "runQueries",
-                            metric.projects || []
-                          ) && (
+                          {canRunMetricQuery && (
                             <form
                               onSubmit={async (e) => {
                                 e.preventDefault();
@@ -848,8 +841,10 @@ const MetricPage: FC = () => {
                       {!analysis && (
                         <div>
                           <em>
-                            No data for this metric yet. Click the Run Analysis
-                            button above.
+                            No data for this metric yet.{" "}
+                            {canRunMetricQuery
+                              ? "Click the Run Analysis button above."
+                              : null}
                           </em>
                         </div>
                       )}
@@ -1285,13 +1280,13 @@ const MetricPage: FC = () => {
                   <li className="mb-2">
                     <span className="text-gray">Acceptable risk &lt;</span>{" "}
                     <span className="font-weight-bold">
-                      {(metric.winRisk || defaultWinRiskThreshold) * 100}%
+                      {(metric.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100}%
                     </span>
                   </li>
                   <li className="mb-2">
                     <span className="text-gray">Unacceptable risk &gt;</span>{" "}
                     <span className="font-weight-bold">
-                      {(metric.loseRisk || defaultLoseRiskThreshold) * 100}%
+                      {(metric.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100}%
                     </span>
                   </li>
                 </ul>

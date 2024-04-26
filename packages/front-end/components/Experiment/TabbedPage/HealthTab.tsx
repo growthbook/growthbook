@@ -4,7 +4,6 @@ import Link from "next/link";
 import SRMDrawer from "@/components/HealthTab/SRMDrawer";
 import MultipleExposuresDrawer from "@/components/HealthTab/MultipleExposuresDrawer";
 import { useUser } from "@/services/UserContext";
-import usePermissions from "@/hooks/usePermissions";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Button from "@/components/Button";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
@@ -44,7 +43,6 @@ export default function HealthTab({
   } = useSnapshot();
   const { runHealthTrafficQuery } = useOrgSettings();
   const { refreshOrganization } = useUser();
-  const permissions = usePermissions();
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
@@ -54,9 +52,11 @@ export default function HealthTab({
   );
 
   const hasPermissionToConfigHealthTag =
-    permissionsUtil.canManageOrgSettings() &&
-    permissions.check("runQueries", datasource?.projects || []) &&
-    permissions.check("editDatasourceSettings", datasource?.projects || []);
+    (datasource &&
+      permissionsUtil.canManageOrgSettings() &&
+      permissionsUtil.canRunHealthQueries(datasource) &&
+      permissionsUtil.canUpdateDataSourceSettings(datasource)) ||
+    false;
   const [healthIssues, setHealthIssues] = useState<IssueValue[]>([]);
   const [setupModalOpen, setSetupModalOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);

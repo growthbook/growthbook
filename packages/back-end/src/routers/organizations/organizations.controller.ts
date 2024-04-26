@@ -10,6 +10,7 @@ import {
   orgHasPremiumFeature,
 } from "enterprise";
 import { hasReadAccess } from "shared/permissions";
+import { experimentHasLinkedChanges } from "shared/util";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -157,7 +158,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     status: 200,
     metrics,
     datasources: datasources.map((d) => {
-      const integration = getSourceIntegrationObject(d);
+      const integration = getSourceIntegrationObject(context, d);
       return {
         id: d.id,
         name: d.name,
@@ -711,9 +712,10 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
 
   const namespaces: NamespaceUsage = {};
 
-  // Get all of the active experiments that are tied to a namespace
+  // Get active legacy experiment rules on features
   const allFeatures = await getAllFeatures(context);
   allFeatures.forEach((f) => {
+    if (f.archived) return;
     environments.forEach((env) => {
       if (!f.environmentSettings?.[env]?.enabled) return;
       const rules = f.environmentSettings?.[env]?.rules || [];
@@ -743,6 +745,20 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
 
   const allExperiments = await getAllExperiments(context);
   allExperiments.forEach((e) => {
+    if (e.archived) return;
+
+    // Skip experiments that are not linked to any changes since they aren't included in the payload
+    if (!experimentHasLinkedChanges(e)) return;
+
+    // Skip if experiment is stopped and doesn't have a temporary rollout enabled
+    if (
+      e.status === "stopped" &&
+      (e.excludeFromPayload || !e.releasedVariationId)
+    ) {
+      return;
+    }
+
+    // Skip if a namespace isn't enabled on the latest phase
     if (!e.phases) return;
     const phase = e.phases[e.phases.length - 1];
     if (!phase) return;
@@ -1314,9 +1330,13 @@ export const autoAddGroupsAttribute = async (
   res: Response<{ status: 200; added: boolean }>
 ) => {
   // Add missing `$groups` attribute automatically if it's being referenced by a Saved Group
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
-  req.checkPermissions("manageTargetingAttributes", []);
+  // TODO: When we add project-scoping to saved groups - pass in the actual projects array below
+  if (!context.permissions.canCreateAttribute({})) {
+    context.permissions.throwPermissionError();
+  }
 
   let added = false;
 
@@ -1981,11 +2001,8 @@ export async function putLicenseKey(
     throw new Error("Must be part of an organization");
   }
   req.checkPermissions("manageBilling");
-  if (IS_CLOUD) {
-    throw new Error("License keys are only applicable to self-hosted accounts");
-  }
 
-  if (IS_MULTI_ORG) {
+  if (!IS_CLOUD && IS_MULTI_ORG) {
     throw new Error(
       "You must use the LICENSE_KEY environmental variable on multi org sites."
     );

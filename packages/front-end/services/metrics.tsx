@@ -7,9 +7,6 @@ import {
 import { ExperimentMetricInterface } from "shared/experiments";
 import { decimalToPercent } from "@/services/utils";
 
-export const defaultWinRiskThreshold = 0.0025;
-export const defaultLoseRiskThreshold = 0.0125;
-
 export function getMetricConversionTitle(type: MetricType): string {
   // TODO: support more metric types
   if (type === "count") {
