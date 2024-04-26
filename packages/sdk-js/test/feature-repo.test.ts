@@ -1011,4 +1011,58 @@ describe("feature-repo", () => {
     cleanup();
     await clearCache();
   });
+
+  it("loads features from a hydrated payload", async () => {
+    await clearCache();
+
+    // Value from api is "initial"
+    const apiFeatures = {
+      foo: {
+        defaultValue: "api",
+      },
+    };
+    const hydratedFeatures = {
+      foo: {
+        defaultValue: "hydrated",
+      },
+    };
+    const [f, cleanup] = mockApi({ features: apiFeatures });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      payload: { features: hydratedFeatures },
+    });
+    // Initial value of feature should be null
+    expect(growthbook.evalFeature("foo").value).toEqual(null);
+    expect(f.mock.calls.length).toEqual(0);
+
+    // Calling loadFeatures() the first time moves the payload into the feature repo. It is available for use
+    await growthbook.loadFeatures();
+    expect(growthbook.evalFeature("foo").value).toEqual("hydrated");
+
+    // Once cache expires, subsequent loadFeatures() calls will pull from the API
+    await sleep(2100);
+    await growthbook.loadFeatures();
+    expect(growthbook.evalFeature("foo").value).toEqual("api");
+    expect(f.mock.calls.length).toEqual(1);
+
+    // We can force the SDK to use a dynamically-set payload instead of fetching by passing a flag to loadFeatures()
+    hydratedFeatures.foo.defaultValue = "new hydrated value";
+
+    // flag not set yet, use cached features
+    growthbook.setPayload({ features: hydratedFeatures });
+    await growthbook.loadFeatures();
+    expect(growthbook.evalFeature("foo").value).toEqual("api");
+
+    // flag set, use new hydrated features
+    growthbook.setPayload({ features: hydratedFeatures });
+    await growthbook.loadFeatures({ useStoredPayload: true });
+    expect(growthbook.evalFeature("foo").value).toEqual("new hydrated value");
+
+    await clearCache();
+    growthbook.destroy();
+
+    cleanup();
+  });
 });
