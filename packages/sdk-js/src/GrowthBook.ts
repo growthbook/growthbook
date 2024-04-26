@@ -1407,11 +1407,7 @@ export class GrowthBook<
       result.hashAttribute + result.hashValue + key + result.variationId;
     if (this._trackedExperiments.has(k)) return;
     this._trackedExperiments.add(k);
-    // todo: works...
-    const uid = experiment?.uid;
-    uid && this._ranExperimentIds.add(uid);
-    // todo: does not work
-    //experiment?.uid && this._ranExperimentIds.add(experiment.uid);
+    experiment.uid && this._ranExperimentIds.add(experiment.uid);
 
     if (!this._ctx.trackingCallback) {
       this._deferredTrackingCalls.push({ experiment, result });
