@@ -115,7 +115,7 @@ export type Experiment<T> = {
 };
 
 export type AutoExperiment<T = AutoExperimentVariation> = Experiment<T> & {
-  uid?: string;
+  changeId?: string;
   changeType?: "redirect" | "visual";
   // If true, require the experiment to be manually triggered
   manual?: boolean;
@@ -165,10 +165,7 @@ export type TrackingCallback = (
   result: Result<any>
 ) => void;
 
-export type NavigateCallback = (
-  url: string,
-  gb?: GrowthBook
-) => void | Promise<void>;
+export type NavigateCallback = (url: string) => void | Promise<void>;
 
 export type ApplyDomChangesCallback = (
   changes: AutoExperimentVariation
@@ -183,7 +180,7 @@ export interface Context {
   features?: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
   forcedVariations?: Record<string, number>;
-  blockedExperimentIds?: string[];
+  blockedExperimentChangeIds?: string[];
   disableVisualExperiments?: boolean;
   disableJsInjection?: boolean;
   jsInjectionNonce?: string;

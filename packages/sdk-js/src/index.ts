@@ -34,6 +34,7 @@ export type {
   StickyAssignmentsDocument,
   TrackingData,
   TrackingCallback,
+  NavigateCallback,
   ApplyDomChangesCallback,
 } from "./types/growthbook";
 

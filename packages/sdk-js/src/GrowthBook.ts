@@ -69,7 +69,7 @@ export class GrowthBook<
   private _renderer: null | RenderFunction;
   private _redirectedUrl: string;
   private _trackedExperiments: Set<string>;
-  private _ranExperimentIds: Set<string>;
+  private _ranExperimentChangeIds: Set<string>;
   private _trackedFeatures: Record<string, string>;
   private _subscriptions: Set<SubscriptionFunction>;
   private _rtQueue: RealtimeUsageData[];
@@ -102,7 +102,7 @@ export class GrowthBook<
     this._ctx = this.context = context;
     this._renderer = null;
     this._trackedExperiments = new Set();
-    this._ranExperimentIds = new Set();
+    this._ranExperimentChangeIds = new Set();
     this._trackedFeatures = {};
     this.debug = false;
     this._subscriptions = new Set();
@@ -438,8 +438,8 @@ export class GrowthBook<
     return this._ctx.experiments || [];
   }
 
-  public getRanExperimentIds(): string[] {
-    return Array.from(this._ranExperimentIds);
+  public getRanExperimentChangeIds(): string[] {
+    return Array.from(this._ranExperimentChangeIds);
   }
 
   public subscribe(cb: SubscriptionFunction): () => void {
@@ -473,7 +473,7 @@ export class GrowthBook<
     this._subscriptions.clear();
     this._assigned.clear();
     this._trackedExperiments.clear();
-    this._ranExperimentIds.clear();
+    this._ranExperimentChangeIds.clear();
     this._trackedFeatures = {};
     this._rtQueue = [];
     if (this._rtTimer) {
@@ -1397,7 +1397,7 @@ export class GrowthBook<
   }
 
   private _track<T>(
-    experiment: Experiment<T> & Pick<AutoExperiment, "uid">,
+    experiment: Experiment<T> & Pick<AutoExperiment, "changeId">,
     result: Result<T>
   ) {
     const key = experiment.key;
@@ -1407,7 +1407,8 @@ export class GrowthBook<
       result.hashAttribute + result.hashValue + key + result.variationId;
     if (this._trackedExperiments.has(k)) return;
     this._trackedExperiments.add(k);
-    experiment.uid && this._ranExperimentIds.add(experiment.uid);
+    experiment.changeId &&
+      this._ranExperimentChangeIds.add(experiment.changeId);
 
     if (!this._ctx.trackingCallback) {
       this._deferredTrackingCalls.push({ experiment, result });
@@ -1571,8 +1572,8 @@ export class GrowthBook<
     }
 
     if (
-      experiment.uid &&
-      (this._ctx.blockedExperimentIds || []).includes(experiment.uid)
+      experiment.changeId &&
+      (this._ctx.blockedExperimentChangeIds || []).includes(experiment.changeId)
     )
       return true;
 
