@@ -1052,11 +1052,7 @@ export class GrowthBook<
     }
 
     // 2.1 If the experiment is blocked, return immediately
-    if (
-      this._isExperimentBlockedByContext(
-        experiment as Experiment<AutoExperimentVariation>
-      )
-    ) {
+    if (this._isExperimentBlockedByContext(experiment as AutoExperiment)) {
       process.env.NODE_ENV !== "production" &&
         this.log("Experiment blocked", { id: key });
       return this._getResult(experiment, -1, false, featureId);
