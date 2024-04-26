@@ -165,7 +165,10 @@ const SampleSizeAndRuntime = ({
   );
 
   const selectedTarget = sampleSizeAndRuntime[selectedRow];
-  const { name: selectedName } = ensureAndReturn(params.metrics[selectedRow]);
+  const {
+    name: selectedName,
+    effectSize: selectedEffectSize,
+  } = ensureAndReturn(params.metrics[selectedRow]);
 
   return (
     <div className="row card gsbox mb-3 border">
@@ -233,7 +236,7 @@ const SampleSizeAndRuntime = ({
                 <p>
                   Reliably detecting a lift of{" "}
                   <span className="font-weight-bold">
-                    {percentFormatter.format(params.targetPower)}
+                    {percentFormatter.format(selectedEffectSize)}
                   </span>{" "}
                   requires running your experiment for{" "}
                   {selectedTarget ? (
