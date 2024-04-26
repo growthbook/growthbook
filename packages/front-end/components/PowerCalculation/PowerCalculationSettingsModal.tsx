@@ -116,7 +116,7 @@ const SelectStep = ({
         label={
           <div>
             <span className="font-weight-bold mr-1">
-              Estimated users per week
+              Estimated Users Per Week
             </span>
             <Tooltip
               popperClassName="text-left"
