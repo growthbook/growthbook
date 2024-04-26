@@ -87,13 +87,13 @@ const SelectStep = ({
         onChange={(value: string[]) => {
           form.setValue(
             "metrics",
-            value.reduce((metrics, id) => {
+            value.reduce((result, id) => {
               const metric = ensureAndReturn(
                 appMetrics.find((m) => m.id === id)
               );
 
               return {
-                ...metrics,
+                ...result,
                 [id]: metrics[id] || {
                   name: metric.name,
                   ...field("effectSize"),
