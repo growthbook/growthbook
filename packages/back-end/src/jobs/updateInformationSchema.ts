@@ -41,8 +41,8 @@ const updateInformationSchema = trackJob(
 
     try {
       await updateDatasourceInformationSchema(
+        context,
         datasource,
-        organization,
         informationSchema
       );
     } catch (e) {

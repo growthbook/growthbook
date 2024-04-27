@@ -83,6 +83,7 @@ const experimentSchema = new mongoose.Schema({
   observations: String,
   hypothesis: String,
   metrics: [String],
+  pastNotifications: [String],
   metricOverrides: [
     {
       _id: false,

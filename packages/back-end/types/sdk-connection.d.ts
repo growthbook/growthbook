@@ -61,6 +61,7 @@ export type SDKLanguage =
   | "android"
   | "ios"
   | "flutter"
+  | "elixir"
   | "edge-lambda"
   | "edge-cloudflare"
   | "other";

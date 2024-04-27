@@ -18,6 +18,7 @@ import * as swift_json from "./sdk-versions/swift.json";
 import * as go_json from "./sdk-versions/go.json";
 import * as flutter_json from "./sdk-versions/flutter.json";
 import * as csharp_json from "./sdk-versions/csharp.json";
+import * as elixir_json from "./sdk-versions/elixir.json";
 import * as edge_lambda_json from "./sdk-versions/edge-lambda.json";
 import * as edge_cloudflare_json from "./sdk-versions/edge-cloudflare.json";
 import * as other_json from "./sdk-versions/other.json";
@@ -48,6 +49,7 @@ const sdks: SDKRecords = {
   go: go_json,
   flutter: flutter_json,
   csharp: csharp_json,
+  elixir: elixir_json,
   "edge-lambda": edge_lambda_json,
   "edge-cloudflare": edge_cloudflare_json,
   other: other_json,
@@ -72,6 +74,7 @@ const defaultSdkVersions: Record<SDKLanguage, string> = {
   go: "0.1.4",
   flutter: "1.1.2",
   csharp: "0.2.0",
+  elixir: "0.2.0",
   "edge-lambda": "0.1.0",
   "edge-cloudflare": "0.1.0",
   other: "0.0.0",

@@ -182,6 +182,19 @@ if (gb.IsOn(${JSON.stringify(featureId)})) {
       />
     );
   }
+  if (language === "elixir") {
+    return (
+      <Code
+        language="elixir"
+        code={`
+feature = GrowthBook.feature(context, ${JSON.stringify(featureId)})
+if feature.on? do
+  IO.puts "Feature is enabled"
+end
+        `.trim()}
+      />
+    );
+  }
 
   return <em>Depends on your platform</em>;
 }

@@ -42,6 +42,7 @@ export const notificationEventNames = [
   "experiment.created",
   "experiment.updated",
   "experiment.deleted",
+  "experiment.warning",
   // User
   "user.login",
 ] as const;
@@ -75,6 +76,10 @@ export const eventWebHookEventOptions: {
   {
     id: "experiment.deleted",
     name: "experiment.deleted",
+  },
+  {
+    id: "experiment.warning",
+    name: "experiment.warning",
   },
 ];
 

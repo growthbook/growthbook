@@ -564,7 +564,7 @@ function validateId(id: string) {
   }
 }
 
-function validateConfig(config: ConfigFile, organizationId: string) {
+function validateConfig(context: ReqContext, config: ConfigFile) {
   const errors: string[] = [];
 
   const datasourceIds: string[] = [];
@@ -579,11 +579,11 @@ function validateConfig(config: ConfigFile, organizationId: string) {
         const { params, ...props } = ds;
 
         // This will throw an error if something required is missing
-        getSourceIntegrationObject({
+        getSourceIntegrationObject(context, {
           ...props,
           params: encryptParams(params),
           id: k,
-          organization: organizationId,
+          organization: context.org.id,
           dateCreated: new Date(),
           dateUpdated: new Date(),
         } as DataSourceInterface);
@@ -642,7 +642,7 @@ export async function importConfig(
   config: ConfigFile
 ) {
   const organization = context.org;
-  const errors = validateConfig(config, organization.id);
+  const errors = validateConfig(context, config);
   if (errors.length > 0) {
     throw new Error(errors.join("\n"));
   }
@@ -671,7 +671,7 @@ export async function importConfig(
             let params = existing.params;
             // If params are changing, merge them with existing and test the connection
             if (ds.params) {
-              const integration = getSourceIntegrationObject(existing);
+              const integration = getSourceIntegrationObject(context, existing);
               mergeParams(integration, ds.params);
               await integration.testConnection();
               params = encryptParams(integration.params);
@@ -698,7 +698,7 @@ export async function importConfig(
             await updateDataSource(context, existing, updates);
           } else {
             await createDataSource(
-              organization.id,
+              context,
               ds.name || k,
               ds.type,
               ds.params,
