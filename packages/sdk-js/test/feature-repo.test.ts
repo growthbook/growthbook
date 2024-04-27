@@ -103,6 +103,7 @@ describe("feature-repo", () => {
       maxAge: 2000,
       cacheKey: localStorageCacheKey,
       backgroundSync: true,
+      disableLocalCache: false,
     });
   });
   afterEach(async () => {
@@ -494,6 +495,14 @@ describe("feature-repo", () => {
     expect(growthbook2.evalFeature("foo").value).toEqual("streaming");
     expect(growthbook2.getPayload()).toEqual(streamingPayload);
 
+    // New instance created should use the latest streaming value
+    const growthbook3 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    await growthbook3.init();
+    expect(growthbook3.evalFeature("foo").value).toEqual("streaming");
+
     // Make sure the cache was updated
     const lsValue = JSON.parse(
       localStorage.getItem(localStorageCacheKey) || "[]"
@@ -504,6 +513,75 @@ describe("feature-repo", () => {
 
     growthbook.destroy();
     growthbook2.destroy();
+    growthbook3.destroy();
+    cleanup();
+    event.clear();
+  });
+
+  it("Can use streaming with init({payload})", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "api",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    const [f, cleanup] = mockApi(apiPayload, true);
+
+    const hydratedPayload = {
+      features: {
+        foo: {
+          defaultValue: "initial",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2010-05-01T00:00:12Z",
+    };
+
+    const streamingPayload = {
+      features: {
+        foo: {
+          defaultValue: "streaming",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2020-05-01T00:00:12Z",
+    };
+
+    // Mock SSE
+    const event = new MockEvent({
+      url: "https://fakeapi.sample.io/sub/sdk-abc123",
+      setInterval: 50,
+      responses: [
+        {
+          type: "features",
+          data: JSON.stringify(streamingPayload),
+        },
+      ],
+    });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    await growthbook.init({ payload: hydratedPayload, streaming: true });
+
+    // Initial value from hydrated payload
+    expect(growthbook.evalFeature("foo").value).toEqual("initial");
+
+    // Wait for SSE
+    await sleep(100);
+
+    // Value should be updated
+    expect(growthbook.evalFeature("foo").value).toEqual("streaming");
+
+    // Ensure fetch was never called
+    expect(f.mock.calls.length).toEqual(0);
+
+    growthbook.destroy();
     cleanup();
     event.clear();
   });
@@ -1126,7 +1204,7 @@ describe("feature-repo", () => {
     expect(growthbook.evalFeature("foo").value).toEqual("hydrated");
     expect(f.mock.calls.length).toEqual(0);
 
-    // Once cache expires, subsequent loadFeatures() calls will pull from the API
+    // Once cache expires, subsequent refreshFeatures() calls will pull from the API
     await sleep(2100);
     await growthbook.refreshFeatures();
     expect(growthbook.evalFeature("foo").value).toEqual("api");
@@ -1139,6 +1217,47 @@ describe("feature-repo", () => {
     expect(f.mock.calls.length).toEqual(1);
 
     growthbook.destroy();
+    cleanup();
+  });
+
+  it("can disableLocalCache", async () => {
+    // Mock API
+    const [f, cleanup] = mockApi({
+      features: {
+        foo: {
+          defaultValue: "api",
+        },
+      },
+    });
+
+    // Disable localCache
+    configureCache({
+      disableLocalCache: true,
+    });
+
+    // Each new GrowthBook instance hits the API
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    await growthbook.init();
+    expect(growthbook.evalFeature("foo").value).toEqual("api");
+    expect(f.mock.calls.length).toEqual(1);
+
+    // New instance should hit the API
+    const growthbook2 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    await growthbook2.init();
+    expect(growthbook2.evalFeature("foo").value).toEqual("api");
+    expect(f.mock.calls.length).toEqual(2);
+
+    // Local cache should be empty
+    expect(localStorage.getItem(localStorageCacheKey)).toEqual("[]");
+
+    growthbook.destroy();
+    growthbook2.destroy();
     cleanup();
   });
 });
