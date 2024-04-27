@@ -594,6 +594,38 @@ var gb = new GrowthBook.GrowthBook(context);
       </>
     );
   }
+  if (language === "elixir") {
+    return (
+      <>
+        Get features from the GrowthBook API
+        <Code
+          language="elixir"
+          code={`
+:inets.start()
+:ssl.start()
+
+url = '${featuresEndpoint}'
+headers = [{'accept', 'application/json'}]
+
+http_request_opts = [
+  ssl: [
+    verify: :verify_peer,
+    cacerts: :public_key.cacerts_get(),
+    customize_hostname_check: [
+      match_fun: :public_key.pkix_verify_hostname_match_fun(:https)
+    ]
+  ]
+]
+
+{:ok, {_, _, json}} = :httpc.request(:get, {url, headers}, http_request_opts, [])
+
+%{"status" => 200, "features" => features} = Jason.decode!(json)
+features = GrowthBook.Config.features_from_config(features)
+          `.trim()}
+        />
+      </>
+    );
+  }
 
   return (
     <p>

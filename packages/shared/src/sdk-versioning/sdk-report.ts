@@ -22,6 +22,7 @@ const languages = [
   "go",
   "flutter",
   "csharp",
+  "elixir",
   "nocode-other",
   "nocode-webflow",
   "nocode-shopify",

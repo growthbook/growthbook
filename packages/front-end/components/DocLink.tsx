@@ -32,6 +32,7 @@ const docSections = {
   python: "/lib/python",
   java: "/lib/java",
   csharp: "/lib/csharp",
+  elixir: "/lib/elixir",
   flutter: "/lib/flutter",
   nocode: "/lib/script-tag",
   //Other
