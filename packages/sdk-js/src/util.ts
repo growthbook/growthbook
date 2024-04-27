@@ -1,3 +1,4 @@
+import { getPolyfills } from "./feature-repository";
 import { UrlTarget, UrlTargetType, VariationRange } from "./types/growthbook";
 
 function hashFnv32a(str: string): number {
@@ -260,7 +261,10 @@ export async function decrypt(
   subtle?: SubtleCrypto
 ): Promise<string> {
   decryptionKey = decryptionKey || "";
-  subtle = subtle || (globalThis.crypto && globalThis.crypto.subtle);
+  subtle =
+    subtle ||
+    (globalThis.crypto && globalThis.crypto.subtle) ||
+    getPolyfills().SubtleCrypto;
   if (!subtle) {
     throw new Error("No SubtleCrypto implementation found");
   }

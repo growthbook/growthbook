@@ -202,6 +202,10 @@ export class GrowthBook<
         subscribe(this);
       }
     } else {
+      if (options.streaming) {
+        this._ctx.subscribeToChanges = true;
+      }
+
       await this.loadFeatures(options);
     }
     this._loadFeaturesCalled = true;

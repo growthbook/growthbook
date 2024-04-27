@@ -5,6 +5,7 @@ import {
   clearCache,
   setPolyfills,
   FeatureApiResponse,
+  prefetchPayload,
 } from "../src";
 
 /* eslint-disable */
@@ -23,11 +24,6 @@ setPolyfills({
   SubtleCrypto: webcrypto.subtle,
 });
 const localStorageCacheKey = "growthbook:cache:features";
-configureCache({
-  staleTTL: 100,
-  maxAge: 2000,
-  cacheKey: localStorageCacheKey,
-});
 
 async function sleep(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
@@ -100,9 +96,20 @@ async function seedLocalStorage(
 }
 
 describe("feature-repo", () => {
-  it("debounces fetch requests", async () => {
+  beforeEach(async () => {
     await clearCache();
+    configureCache({
+      staleTTL: 100,
+      maxAge: 2000,
+      cacheKey: localStorageCacheKey,
+      backgroundSync: true,
+    });
+  });
+  afterEach(async () => {
+    await clearCache();
+  });
 
+  it("debounces fetch requests", async () => {
     const [f, cleanup] = mockApi({
       features: {
         foo: {
@@ -141,7 +148,6 @@ describe("feature-repo", () => {
     expect(growthbook2.evalFeature("foo").value).toEqual("initial");
     expect(growthbook3.evalFeature("foo").value).toEqual("initial");
 
-    await clearCache();
     growthbook1.destroy();
     growthbook2.destroy();
     growthbook3.destroy();
@@ -149,9 +155,40 @@ describe("feature-repo", () => {
     cleanup();
   });
 
-  it("uses cache and can refresh manually", async () => {
-    await clearCache();
+  it("prefetches", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "api",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
 
+    const [f, cleanup] = mockApi(apiPayload);
+
+    await prefetchPayload({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    expect(f.mock.calls.length).toEqual(1);
+
+    // New instance uses prefetched value
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    await growthbook.init();
+    expect(f.mock.calls.length).toEqual(1);
+    expect(growthbook.evalFeature("foo").value).toEqual("api");
+    expect(growthbook.getPayload()).toEqual(apiPayload);
+
+    growthbook.destroy();
+    cleanup();
+  });
+
+  it("uses cache and can refresh manually", async () => {
     // Value from api is "initial"
     const features = {
       foo: {
@@ -167,7 +204,7 @@ describe("feature-repo", () => {
     await sleep(20);
     // Initial value of feature should be null
     expect(growthbook.evalFeature("foo").value).toEqual(null);
-    expect(f.mock.calls.length).toEqual(1);
+    expect(f.mock.calls.length).toEqual(0);
 
     // Once features are loaded, value should be from the fetch request
     await growthbook.loadFeatures();
@@ -242,7 +279,6 @@ describe("feature-repo", () => {
 
     expect(f.mock.calls.length).toEqual(2);
 
-    await clearCache();
     growthbook.destroy();
     growthbook2.destroy();
     growthbook3.destroy();
@@ -253,7 +289,6 @@ describe("feature-repo", () => {
   });
 
   it("uses localStorage cache", async () => {
-    await clearCache();
     await seedLocalStorage();
 
     const data = {
@@ -323,13 +358,11 @@ describe("feature-repo", () => {
       },
     });
 
-    await clearCache();
     growthbook.destroy();
     cleanup();
   });
 
   it("restores SSE state from cache", async () => {
-    await clearCache();
     await seedLocalStorage(true);
 
     const [f, cleanup] = mockApi(
@@ -383,15 +416,99 @@ describe("feature-repo", () => {
     // Should still not hit the API
     expect(f.mock.calls.length).toEqual(0);
 
-    await clearCache();
     growthbook.destroy();
     cleanup();
     event.clear();
   });
 
-  it("updates features based on SSE", async () => {
-    await clearCache();
+  it("prefetches with SSE", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "api",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
 
+    const [f, cleanup] = mockApi(apiPayload, true);
+
+    const streamingPayload = {
+      features: {
+        foo: {
+          defaultValue: "streaming",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2010-05-01T00:00:12Z",
+    };
+
+    // Simulate SSE data
+    const event = new MockEvent({
+      url: "https://fakeapi.sample.io/sub/sdk-abc123",
+      setInterval: 50,
+      responses: [
+        {
+          type: "features",
+          data: JSON.stringify(streamingPayload),
+        },
+      ],
+    });
+
+    await prefetchPayload({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+      streaming: true,
+    });
+    expect(f.mock.calls.length).toEqual(1);
+
+    // New instance without streaming
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    await growthbook.init();
+    expect(f.mock.calls.length).toEqual(1);
+    expect(growthbook.evalFeature("foo").value).toEqual("api");
+    expect(growthbook.getPayload()).toEqual(apiPayload);
+
+    // New instance with streaming
+    const growthbook2 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    await growthbook2.init({ streaming: true });
+    expect(f.mock.calls.length).toEqual(1);
+    expect(growthbook2.evalFeature("foo").value).toEqual("api");
+    expect(growthbook2.getPayload()).toEqual(apiPayload);
+
+    // Wait for SSE
+    await sleep(100);
+
+    // New instance without streaming should still have the old value
+    expect(growthbook.evalFeature("foo").value).toEqual("api");
+    expect(growthbook.getPayload()).toEqual(apiPayload);
+
+    // New instance with streaming should have the new value
+    expect(growthbook2.evalFeature("foo").value).toEqual("streaming");
+    expect(growthbook2.getPayload()).toEqual(streamingPayload);
+
+    // Make sure the cache was updated
+    const lsValue = JSON.parse(
+      localStorage.getItem(localStorageCacheKey) || "[]"
+    );
+    expect(lsValue.length).toEqual(1);
+    expect(lsValue[0][0]).toEqual("https://fakeapi.sample.io||sdk-abc123");
+    expect(lsValue[0][1].sse).toEqual(true);
+
+    growthbook.destroy();
+    growthbook2.destroy();
+    cleanup();
+    event.clear();
+  });
+
+  it("updates features based on SSE", async () => {
     const [f, cleanup] = mockApi(
       {
         features: {
@@ -459,7 +576,6 @@ describe("feature-repo", () => {
     expect(lsValue[0][0]).toEqual("https://fakeapi.sample.io||qwerty1234");
     expect(lsValue[0][1].sse).toEqual(true);
 
-    await clearCache();
     growthbook.destroy();
     growthbook2.destroy();
     cleanup();
@@ -467,7 +583,6 @@ describe("feature-repo", () => {
   });
 
   it("automatically refreshes localStorage cache in the background when stale", async () => {
-    await clearCache();
     await seedLocalStorage(
       false,
       "https://fakeapi.sample.io",
@@ -505,14 +620,11 @@ describe("feature-repo", () => {
     expect(f.mock.calls.length).toEqual(1);
     expect(growthbook.evalFeature("foo").value).toEqual("api");
 
-    await clearCache();
     growthbook.destroy();
-
     cleanup();
   });
 
   it("doesn't restore from localStorage cache when ttl is more than maxAge", async () => {
-    await clearCache();
     await seedLocalStorage(
       false,
       "https://fakeapi.sample.io",
@@ -557,14 +669,11 @@ describe("feature-repo", () => {
       },
     });
 
-    await clearCache();
     growthbook.destroy();
-
     cleanup();
   });
 
   it("doesn't cache when `enableDevMode` is on", async () => {
-    await clearCache();
     await seedLocalStorage();
 
     const apiVersion = "2025-01-01T00:00:00Z";
@@ -603,15 +712,11 @@ describe("feature-repo", () => {
       },
     });
 
-    await clearCache();
     growthbook.destroy();
-
     cleanup();
   });
 
   it("exposes a gb.ready flag", async () => {
-    await clearCache();
-
     const [f, cleanup] = mockApi({
       features: {
         foo: {
@@ -641,14 +746,11 @@ describe("feature-repo", () => {
     });
     expect(growthbook.ready).toEqual(true);
 
-    await clearCache();
     growthbook.destroy();
     cleanup();
   });
 
   it("handles broken fetch responses gracefully", async () => {
-    await clearCache();
-
     const [f, cleanup] = mockApi(null);
 
     // eslint-disable-next-line
@@ -681,14 +783,11 @@ describe("feature-repo", () => {
     expect(log.mock.calls.length).toEqual(2);
     expect(log.mock.calls[1][0]).toEqual("Error fetching features");
 
-    await clearCache();
     growthbook.destroy();
     cleanup();
   });
 
   it("handles super long API requests gracefully", async () => {
-    await clearCache();
-
     const [f, cleanup] = mockApi(
       {
         features: {
@@ -725,14 +824,11 @@ describe("feature-repo", () => {
       },
     });
 
-    await clearCache();
     growthbook.destroy();
     cleanup();
   });
 
   it("Handles SSE errors gracefuly", async () => {
-    await clearCache();
-
     const [f, cleanup] = mockApi(
       {
         features: {
@@ -783,14 +879,12 @@ describe("feature-repo", () => {
     growthbook.debug = false;
     expect(growthbook.evalFeature("foo").value).toEqual("initial");
 
-    await clearCache();
     growthbook.destroy();
     cleanup();
     event.clear();
   });
 
   it("handles localStorage errors gracefully", async () => {
-    clearCache();
     setPolyfills({
       localStorage: {
         setItem() {
@@ -832,7 +926,6 @@ describe("feature-repo", () => {
   });
 
   it("doesn't do background sync when disabled", async () => {
-    await clearCache();
     configureCache({
       backgroundSync: false,
     });
@@ -896,20 +989,13 @@ describe("feature-repo", () => {
 
     expect(f.mock.calls.length).toEqual(1);
 
-    await clearCache();
     growthbook.destroy();
     growthbook2.destroy();
     cleanup();
     event.clear();
-
-    configureCache({
-      backgroundSync: true,
-    });
   });
 
   it("doesn't do background sync when backgroundSync is set to false", async () => {
-    await clearCache();
-
     const [f, cleanup] = mockApi(
       {
         features: {
@@ -971,7 +1057,6 @@ describe("feature-repo", () => {
 
     expect(f.mock.calls.length).toEqual(1);
 
-    await clearCache();
     growthbook.destroy();
     growthbook2.destroy();
     cleanup();
@@ -979,7 +1064,6 @@ describe("feature-repo", () => {
   });
 
   it("decrypts features correctly", async () => {
-    await clearCache();
     const [f, cleanup] = mockApi({
       features: {},
       encryptedFeatures:
@@ -1009,12 +1093,9 @@ describe("feature-repo", () => {
     });
     growthbook.destroy();
     cleanup();
-    await clearCache();
   });
 
   it("loads features from a hydrated payload", async () => {
-    await clearCache();
-
     // Value from api is "initial"
     const apiFeatures = {
       foo: {
@@ -1031,38 +1112,33 @@ describe("feature-repo", () => {
     const growthbook = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
-      payload: { features: hydratedFeatures },
     });
     // Initial value of feature should be null
     expect(growthbook.evalFeature("foo").value).toEqual(null);
     expect(f.mock.calls.length).toEqual(0);
 
-    // Calling loadFeatures() the first time moves the payload into the feature repo. It is available for use
-    await growthbook.loadFeatures();
+    // Calling init() moves the payload into the feature repo. It is available for use
+    await growthbook.init({
+      payload: {
+        features: hydratedFeatures,
+      },
+    });
     expect(growthbook.evalFeature("foo").value).toEqual("hydrated");
+    expect(f.mock.calls.length).toEqual(0);
 
     // Once cache expires, subsequent loadFeatures() calls will pull from the API
     await sleep(2100);
-    await growthbook.loadFeatures();
+    await growthbook.refreshFeatures();
     expect(growthbook.evalFeature("foo").value).toEqual("api");
     expect(f.mock.calls.length).toEqual(1);
 
-    // We can force the SDK to use a dynamically-set payload instead of fetching by passing a flag to loadFeatures()
+    // We can force the SDK to use a new payload that overwrites the one from the api
     hydratedFeatures.foo.defaultValue = "new hydrated value";
-
-    // flag not set yet, use cached features
-    growthbook.setPayload({ features: hydratedFeatures });
-    await growthbook.loadFeatures();
-    expect(growthbook.evalFeature("foo").value).toEqual("api");
-
-    // flag set, use new hydrated features
-    growthbook.setPayload({ features: hydratedFeatures });
-    await growthbook.loadFeatures({ useStoredPayload: true });
+    await growthbook.setPayload({ features: hydratedFeatures });
     expect(growthbook.evalFeature("foo").value).toEqual("new hydrated value");
+    expect(f.mock.calls.length).toEqual(1);
 
-    await clearCache();
     growthbook.destroy();
-
     cleanup();
   });
 });
