@@ -180,7 +180,7 @@ export interface Context {
   features?: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
   forcedVariations?: Record<string, number>;
-  blockedExperimentChangeIds?: string[];
+  blockedChangeIds?: string[];
   disableVisualExperiments?: boolean;
   disableJsInjection?: boolean;
   jsInjectionNonce?: string;
@@ -219,7 +219,6 @@ export interface Context {
   streamingHost?: string;
   apiHostRequestHeaders?: Record<string, string>;
   streamingHostRequestHeaders?: Record<string, string>;
-  payload?: FeatureApiResponse;
   clientKey?: string;
   renderer?: null | RenderFunction;
   decryptionKey?: string;
@@ -230,6 +229,19 @@ export interface Context {
   antiFlickerTimeout?: number;
   applyDomChangesCallback?: ApplyDomChangesCallback;
 }
+
+export type PrefetchOptions = Pick<
+  Context,
+  | "decryptionKey"
+  | "apiHost"
+  | "apiHostRequestHeaders"
+  | "streamingHost"
+  | "streamingHostRequestHeaders"
+> & {
+  clientKey: string;
+  streaming?: boolean;
+  skipCache?: boolean;
+};
 
 export type SubscriptionFunction = (
   experiment: Experiment<any>,
@@ -352,18 +364,23 @@ export type CacheSettings = {
 export type ApiHost = string;
 export type ClientKey = string;
 
+export type InitOptions = {
+  timeout?: number;
+  skipCache?: boolean;
+  payload?: FeatureApiResponse;
+  streaming?: boolean;
+};
+
 export type LoadFeaturesOptions = {
   /** @deprecated */
   autoRefresh?: boolean;
   timeout?: number;
   skipCache?: boolean;
-  useStoredPayload?: boolean;
 };
 
 export type RefreshFeaturesOptions = {
   timeout?: number;
   skipCache?: boolean;
-  useStoredPayload?: boolean;
 };
 
 export interface Filter {

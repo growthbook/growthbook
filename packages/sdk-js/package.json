@@ -39,8 +39,7 @@
   },
   "author": "Jeremy Dorn",
   "dependencies": {
-    "dom-mutator": "^0.6.0",
-    "js-cookie": "^3.0.5"
+    "dom-mutator": "^0.6.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.19.3",
@@ -59,6 +58,7 @@
     "ioredis-mock": "^8.9.0",
     "jest": "^27.1.1",
     "jest-localstorage-mock": "^2.4.26",
+    "js-cookie": "^3.0.5",
     "mocksse": "^1.0.4",
     "npm-run-all": "^4.1.5",
     "rimraf": "^3.0.2",

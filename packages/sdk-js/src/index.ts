@@ -36,6 +36,8 @@ export type {
   TrackingCallback,
   NavigateCallback,
   ApplyDomChangesCallback,
+  InitOptions,
+  PrefetchOptions,
 } from "./types/growthbook";
 
 export type {
@@ -50,6 +52,8 @@ export {
   helpers,
   onVisible,
   onHidden,
+  prefetchPayload,
+  getPolyfills,
 } from "./feature-repository";
 
 export { GrowthBook } from "./GrowthBook";

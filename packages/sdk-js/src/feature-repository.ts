@@ -4,8 +4,9 @@ import {
   FeatureApiResponse,
   Helpers,
   Polyfills,
+  PrefetchOptions,
 } from "./types/growthbook";
-import type { GrowthBook } from ".";
+import { GrowthBook } from ".";
 
 type CacheEntry = {
   data: FeatureApiResponse;
@@ -119,12 +120,31 @@ export function configureCache(overrides: Partial<CacheSettings>): void {
   }
 }
 
+export function getPolyfills(): Polyfills {
+  return polyfills;
+}
+
 export async function clearCache(): Promise<void> {
   cache.clear();
   activeFetches.clear();
   clearAutoRefresh();
   cacheInitialized = false;
   await updatePersistentCache();
+}
+
+export async function prefetchPayload(options: PrefetchOptions) {
+  // Create a temporary instance, just to fetch the payload
+  const instance = new GrowthBook(options);
+
+  await refreshFeatures({
+    instance,
+    skipCache: options.skipCache,
+    allowStale: false,
+    updateInstance: false,
+    backgroundSync: options.streaming,
+  });
+
+  instance.destroy();
 }
 
 // Get or fetch features and refresh the SDK instance
@@ -135,7 +155,6 @@ export async function refreshFeatures({
   allowStale,
   updateInstance,
   backgroundSync,
-  useStoredPayload,
 }: {
   instance: GrowthBook;
   timeout?: number;
@@ -143,7 +162,6 @@ export async function refreshFeatures({
   allowStale?: boolean;
   updateInstance?: boolean;
   backgroundSync?: boolean;
-  useStoredPayload?: boolean;
 }): Promise<void> {
   if (!backgroundSync) {
     cacheSettings.backgroundSync = false;
@@ -154,7 +172,6 @@ export async function refreshFeatures({
     allowStale,
     timeout,
     skipCache,
-    useStoredPayload,
   });
   updateInstance && data && (await refreshInstance(instance, data));
 }
@@ -206,13 +223,11 @@ async function fetchFeaturesWithCache({
   allowStale,
   timeout,
   skipCache,
-  useStoredPayload,
 }: {
   instance: GrowthBook;
   allowStale?: boolean;
   timeout?: number;
   skipCache?: boolean;
-  useStoredPayload?: boolean;
 }): Promise<FeatureApiResponse | null> {
   const key = getKey(instance);
   const cacheKey = getCacheKey(instance);
@@ -229,7 +244,6 @@ async function fetchFeaturesWithCache({
   if (
     existing &&
     !skipCache &&
-    !useStoredPayload &&
     (allowStale || existing.staleAt > now) &&
     existing.staleAt > minStaleAt
   ) {
@@ -246,10 +260,7 @@ async function fetchFeaturesWithCache({
     }
     return existing.data;
   } else {
-    return await promiseTimeout(
-      fetchFeatures(instance, useStoredPayload),
-      timeout
-    );
+    return await promiseTimeout(fetchFeatures(instance), timeout);
   }
 }
 
@@ -397,18 +408,12 @@ async function refreshInstance(
   instance: GrowthBook,
   data: FeatureApiResponse
 ): Promise<void> {
-  instance.setPayload(data);
-  data = await instance.decryptPayload(data, undefined, polyfills.SubtleCrypto);
-
-  await instance.refreshStickyBuckets(data);
-  instance.setFeatures(data.features || instance.getFeatures());
-  instance.setExperiments(data.experiments || instance.getExperiments());
+  await instance.setPayload(data);
 }
 
 // Fetch the features payload from helper function or from in-mem injected payload
 async function fetchFeatures(
-  instance: GrowthBook,
-  useStoredPayload?: boolean
+  instance: GrowthBook
 ): Promise<FeatureApiResponse> {
   const { apiHost, apiRequestHeaders } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
@@ -416,18 +421,7 @@ async function fetchFeatures(
   const key = getKey(instance);
   const cacheKey = getCacheKey(instance);
 
-  // Bypass normal fetch if hydrating from a stored payload
-  const storedPayload = instance.getPayload();
-  if (useStoredPayload && storedPayload) {
-    if (instance.getBackgroundSync()) {
-      supportsSSE.add(key);
-    }
-    onNewFeatureData(key, cacheKey, storedPayload);
-    startAutoRefresh(instance);
-    return storedPayload;
-  }
-
-  let promise = !useStoredPayload ? activeFetches.get(cacheKey) : undefined;
+  let promise = activeFetches.get(cacheKey);
   if (!promise) {
     const fetcher: Promise<Response> = remoteEval
       ? helpers.fetchRemoteEvalCall({
@@ -483,11 +477,19 @@ async function fetchFeatures(
 }
 
 // Start SSE streaming, listens to feature payload changes and triggers a refresh or re-fetch
-function startAutoRefresh(instance: GrowthBook): void {
+export function startAutoRefresh(
+  instance: GrowthBook,
+  forceSSE: boolean = false
+): void {
   const key = getKey(instance);
   const cacheKey = getCacheKey(instance);
   const { streamingHost, streamingHostRequestHeaders } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
+
+  if (forceSSE) {
+    supportsSSE.add(key);
+  }
+
   if (
     cacheSettings.backgroundSync &&
     supportsSSE.has(key) &&

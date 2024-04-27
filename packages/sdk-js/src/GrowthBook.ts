@@ -28,6 +28,7 @@ import type {
   VariationRange,
   WidenPrimitives,
   FeatureEvalContext,
+  InitOptions,
 } from "./types/growthbook";
 import type { ConditionInterface } from "./types/mongrule";
 import {
@@ -46,7 +47,12 @@ import {
   toString,
 } from "./util";
 import { evalCondition } from "./mongrule";
-import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
+import {
+  refreshFeatures,
+  startAutoRefresh,
+  subscribe,
+  unsubscribe,
+} from "./feature-repository";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -69,7 +75,7 @@ export class GrowthBook<
   private _renderer: null | RenderFunction;
   private _redirectedUrl: string;
   private _trackedExperiments: Set<string>;
-  private _ranExperimentChangeIds: Set<string>;
+  private _completedChangeIds: Set<string>;
   private _trackedFeatures: Record<string, string>;
   private _subscriptions: Set<SubscriptionFunction>;
   private _rtQueue: RealtimeUsageData[];
@@ -94,6 +100,8 @@ export class GrowthBook<
   private _loadFeaturesCalled: boolean;
   private _deferredTrackingCalls: TrackingData[];
 
+  private _payload: FeatureApiResponse | undefined;
+
   constructor(context?: Context) {
     context = context || {};
     // These properties are all initialized in the constructor instead of above
@@ -102,7 +110,7 @@ export class GrowthBook<
     this._ctx = this.context = context;
     this._renderer = null;
     this._trackedExperiments = new Set();
-    this._ranExperimentChangeIds = new Set();
+    this._completedChangeIds = new Set();
     this._trackedFeatures = {};
     this.debug = false;
     this._subscriptions = new Set();
@@ -164,16 +172,39 @@ export class GrowthBook<
       this._setAntiFlicker();
     }
 
-    if (!context.remoteEval && !context.payload) {
-      if (context.clientKey) {
-        this._refresh({
-          allowStale: true,
-          updateInstance: false,
-        });
-      } else if (context.stickyBucketService) {
-        this.refreshStickyBuckets();
-      }
+    // Legacy - passing in features/experiments into the constructor instead of using init
+    if (this.ready) {
+      this.refreshStickyBuckets(this.getPayload());
     }
+  }
+
+  public async setPayload(payload: FeatureApiResponse): Promise<void> {
+    this._payload = payload;
+    const data = await this.decryptPayload(payload);
+    await this.refreshStickyBuckets(data);
+    data.features && this.setFeatures(data.features);
+    data.experiments && this.setExperiments(data.experiments);
+    this.ready = true;
+    this._render();
+  }
+
+  public async init(options?: InitOptions): Promise<void> {
+    options = options || {};
+    if (options.payload) {
+      if (options.streaming && !this._ctx.clientKey) {
+        throw new Error("Must specify clientKey to enable streaming");
+      }
+
+      await this.setPayload(options.payload);
+
+      if (options.streaming) {
+        startAutoRefresh(this, true);
+        subscribe(this);
+      }
+    } else {
+      await this.loadFeatures(options);
+    }
+    this._loadFeaturesCalled = true;
   }
 
   public async loadFeatures(options?: LoadFeaturesOptions): Promise<void> {
@@ -181,9 +212,6 @@ export class GrowthBook<
     if (options.autoRefresh) {
       // interpret deprecated autoRefresh option as subscribeToChanges
       this._ctx.subscribeToChanges = true;
-    }
-    if (this.context.payload && !this._loadFeaturesCalled) {
-      options.useStoredPayload = true;
     }
     await this._refresh({
       ...(options || {}),
@@ -231,10 +259,12 @@ export class GrowthBook<
     return this._ctx.clientKey || "";
   }
   public getPayload(): FeatureApiResponse | undefined {
-    return this._ctx.payload;
-  }
-  public setPayload(payload: FeatureApiResponse | undefined) {
-    this._ctx.payload = payload;
+    return (
+      this._payload || {
+        features: this.getFeatures(),
+        experiments: this.getExperiments(),
+      }
+    );
   }
   public getBackgroundSync(): boolean {
     return this._ctx.backgroundSync ?? true;
@@ -253,7 +283,6 @@ export class GrowthBook<
     skipCache,
     allowStale,
     updateInstance,
-    useStoredPayload,
   }: RefreshFeaturesOptions & {
     allowStale?: boolean;
     updateInstance?: boolean;
@@ -269,7 +298,6 @@ export class GrowthBook<
       allowStale,
       updateInstance,
       backgroundSync: this._ctx.backgroundSync ?? true,
-      useStoredPayload,
     });
   }
 
@@ -438,8 +466,8 @@ export class GrowthBook<
     return this._ctx.experiments || [];
   }
 
-  public getRanExperimentChangeIds(): string[] {
-    return Array.from(this._ranExperimentChangeIds);
+  public getCompletedChangeIds(): string[] {
+    return Array.from(this._completedChangeIds);
   }
 
   public subscribe(cb: SubscriptionFunction): () => void {
@@ -473,9 +501,10 @@ export class GrowthBook<
     this._subscriptions.clear();
     this._assigned.clear();
     this._trackedExperiments.clear();
-    this._ranExperimentChangeIds.clear();
+    this._completedChangeIds.clear();
     this._trackedFeatures = {};
     this._rtQueue = [];
+    this._payload = undefined;
     if (this._rtTimer) {
       clearTimeout(this._rtTimer);
     }
@@ -1403,8 +1432,7 @@ export class GrowthBook<
       result.hashAttribute + result.hashValue + key + result.variationId;
     if (this._trackedExperiments.has(k)) return;
     this._trackedExperiments.add(k);
-    experiment.changeId &&
-      this._ranExperimentChangeIds.add(experiment.changeId);
+    experiment.changeId && this._completedChangeIds.add(experiment.changeId);
 
     if (!this._ctx.trackingCallback) {
       this._deferredTrackingCalls.push({ experiment, result });
@@ -1569,9 +1597,10 @@ export class GrowthBook<
 
     if (
       experiment.changeId &&
-      (this._ctx.blockedExperimentChangeIds || []).includes(experiment.changeId)
-    )
+      (this._ctx.blockedChangeIds || []).includes(experiment.changeId)
+    ) {
       return true;
+    }
 
     return false;
   }
