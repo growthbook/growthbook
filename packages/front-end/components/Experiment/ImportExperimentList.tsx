@@ -372,7 +372,10 @@ const ImportExperimentList: FC<{
                 <SortableTH field="startDate">Date Started</SortableTH>
                 <SortableTH field="endDate">Date Ended</SortableTH>
                 <SortableTH field="numVariations">Variations</SortableTH>
-                <SortableTH field="users">Total Users</SortableTH>
+                <SortableTH field="users">
+                  Approx Users{" "}
+                  <Tooltip body="This count does not de-duplicate users across days and is likely inflated. Once imported, the user counts will be accurate." />
+                </SortableTH>
                 <th>Traffic Split</th>
                 <th></th>
               </tr>
