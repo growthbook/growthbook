@@ -45,6 +45,7 @@ import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
+import Toggle from "@/components/Forms/Toggle";
 import MetricsSelector, { MetricsSelectorTooltip } from "./MetricsSelector";
 
 const weekAgo = new Date();
@@ -134,6 +135,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
     false
   );
+
+  const [autoRefreshResults, setAutoRefreshResults] = useState(true);
 
   const {
     datasources,
@@ -285,6 +288,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     }
     if (source === "duplicate" && initialValue?.id) {
       params.originalId = initialValue.id;
+    }
+
+    if (autoRefreshResults && isImport) {
+      params.autoRefreshResults = true;
     }
 
     const res = await apiCall<
@@ -662,6 +669,18 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               />
             </div>
           </div>
+
+          {isImport && (
+            <div className="form-group">
+              <Toggle
+                id="auto_refresh_results"
+                label="Auto Refresh Results"
+                value={autoRefreshResults}
+                setValue={setAutoRefreshResults}
+              />
+              <label>Populate Results on Save</label>
+            </div>
+          )}
         </Page>
       )}
     </PagedModal>
