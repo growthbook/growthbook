@@ -2,6 +2,7 @@ import Cookies from "js-cookie";
 import {
   BrowserCookieStickyBucketService,
   Context,
+  FeatureApiResponse,
   GrowthBook,
   LocalStorageStickyBucketService,
   StickyBucketService,
@@ -13,6 +14,7 @@ type WindowContext = Context & {
   uuid?: string;
   persistUuidOnLoad?: boolean;
   useStickyBucketService?: "cookie" | "localStorage";
+  payload?: FeatureApiResponse;
 };
 declare global {
   interface Window {
@@ -246,7 +248,7 @@ gb.setRenderer(() => {
   }
 
   // Load features/experiments
-  gb.loadFeatures();
+  gb.init({ payload: windowContext.payload });
 })();
 
 // Poll for URL changes and update GrowthBook
