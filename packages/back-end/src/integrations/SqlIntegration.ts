@@ -298,6 +298,8 @@ export default abstract class SqlIntegration
       this.datasource.settings.queries?.exposure || []
     ).map(({ id }) => this.getExposureQuery(id));
 
+    const end = new Date();
+
     return format(
       `-- Past Experiments
     WITH
@@ -327,6 +329,7 @@ export default abstract class SqlIntegration
             ) e${i}
           WHERE
             timestamp > ${this.toTimestamp(params.from)}
+            AND timestamp <= ${this.toTimestamp(end)}
           GROUP BY
             experiment_id,
             variation_id,

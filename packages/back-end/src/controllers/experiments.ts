@@ -2142,16 +2142,20 @@ export async function getPastExperimentsList(
 
   const trackingKeyMap: Record<string, string> = {};
   (pastExperiments.experiments || []).forEach((e) => {
-    const id = experimentMap.get(e.trackingKey);
-    if (id) {
-      trackingKeyMap[e.trackingKey] = id;
-    }
+    const keys = [e.trackingKey, e.trackingKey + "::" + e.exposureQueryId];
+    keys.forEach((key) => {
+      const id = experimentMap.get(key);
+      if (id) {
+        trackingKeyMap[key] = id;
+      }
+    });
   });
 
   res.status(200).json({
     status: 200,
     experiments: pastExperiments,
     existing: trackingKeyMap,
+    lookbackDays: IMPORT_LIMIT_DAYS,
   });
 }
 
