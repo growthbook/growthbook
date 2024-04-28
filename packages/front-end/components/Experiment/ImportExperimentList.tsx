@@ -446,7 +446,7 @@ const ImportExperimentList: FC<{
                 value={dedupeFilter}
                 setValue={setDedupeFilter}
               />{" "}
-              Group by Experiment{" "}
+              Group by Experiment Id{" "}
               <Tooltip body="How to handle experiments that appear in multiple Assignment Queries. If toggled ON, collapse them into a single row. If OFF, show each one in a separate row." />
             </div>
           </div>
