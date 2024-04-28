@@ -80,10 +80,13 @@ const round = (n: number) => Math.floor(n * 1e8) / 1e8;
 const roundArray = (arr: number[]) => arr.map((n) => round(n));
 const roundArrayArray = (arr: number[][]) => arr.map((a) => roundArray(a));
 
+function sleep(ms = 20) {
+  return new Promise((res) => setTimeout(res, ms));
+}
+
 /* eslint-disable */
 const { webcrypto } = require("node:crypto");
 import { TextEncoder, TextDecoder } from "util";
-import { sleep } from "./visual-changes.test";
 global.TextEncoder = TextEncoder;
 (global as any).TextDecoder = TextDecoder;
 /* eslint-enable */

@@ -102,13 +102,15 @@ export class GrowthBook<
 
   private _payload: FeatureApiResponse | undefined;
 
+  private _autoExperimentsAllowed;
+
   constructor(context?: Context) {
     context = context || {};
     // These properties are all initialized in the constructor instead of above
     // This saves ~80 bytes in the final output
     this.version = SDK_VERSION;
     this._ctx = this.context = context;
-    this._renderer = null;
+    this._renderer = context.renderer || null;
     this._trackedExperiments = new Set();
     this._completedChangeIds = new Set();
     this._trackedFeatures = {};
@@ -125,10 +127,7 @@ export class GrowthBook<
     this._loadFeaturesCalled = false;
     this._redirectedUrl = "";
     this._deferredTrackingCalls = [];
-
-    if (context.renderer) {
-      this._renderer = context.renderer;
-    }
+    this._autoExperimentsAllowed = !context.disableExperimentsOnLoad;
 
     if (context.remoteEval) {
       if (context.decryptionKey) {
@@ -165,9 +164,7 @@ export class GrowthBook<
 
     if (context.experiments) {
       this.ready = true;
-      if (!context.disableExperimentsOnLoad) {
-        this._updateAllAutoExperiments();
-      }
+      this._updateAllAutoExperiments();
     } else if (context.antiFlicker) {
       this._setAntiFlicker();
     }
@@ -339,7 +336,6 @@ export class GrowthBook<
   public setExperiments(experiments: AutoExperiment[]): void {
     this._ctx.experiments = experiments;
     this.ready = true;
-    if (!this._loadFeaturesCalled && this._ctx.disableExperimentsOnLoad) return;
     this._updateAllAutoExperiments();
   }
 
@@ -553,10 +549,14 @@ export class GrowthBook<
     const experiments = this._ctx.experiments.filter((exp) => exp.key === key);
     return experiments
       .map((exp) => {
-        if (!exp.manual) return null;
         return this._runAutoExperiment(exp);
       })
       .filter((res) => res !== null);
+  }
+
+  public triggerAutoExperiments() {
+    this._autoExperimentsAllowed = true;
+    this._updateAllAutoExperiments(true);
   }
 
   private _runAutoExperiment(experiment: AutoExperiment, forceRerun?: boolean) {
@@ -663,6 +663,8 @@ export class GrowthBook<
   }
 
   private _updateAllAutoExperiments(forceRerun?: boolean) {
+    if (!this._autoExperimentsAllowed) return;
+
     const experiments = this._ctx.experiments || [];
 
     // Stop any experiments that are no longer defined
@@ -1566,36 +1568,39 @@ export class GrowthBook<
 
   private _isExperimentBlockedByContext(experiment: AutoExperiment): boolean {
     const changeType = this._getExperimentChangeType(experiment);
-    if (changeType === "visual" && this._ctx.disableVisualExperiments)
-      return true;
+    if (changeType === "visual") {
+      if (this._ctx.disableVisualExperiments) return true;
+
+      if (this._ctx.disableJsInjection) {
+        if (experiment.variations.some((v) => v.js)) {
+          return true;
+        }
+      }
+    }
 
     if (changeType === "redirect") {
       if (this._ctx.disableUrlRedirectExperiments) return true;
 
-      if (this._ctx.disableCrossOriginUrlRedirectExperiments) {
-        let isCrossOrigin = false;
-        try {
-          if (
-            !experiment.urlPatterns ||
-            !experiment.urlPatterns[0] ||
-            !experiment.urlPatterns[0].pattern
-          )
-            return false;
-          const originUrl = new URL(experiment.urlPatterns[0].pattern);
-          for (const variation of experiment.variations) {
-            const variantUrl = new URL(variation?.urlRedirect || "");
-            if (
-              originUrl.protocol !== variantUrl.protocol ||
-              originUrl.host !== variantUrl.host
-            ) {
-              isCrossOrigin = true;
-              break;
-            }
+      // Validate URLs
+      try {
+        const current = new URL(this._getContextUrl());
+        for (const v of experiment.variations) {
+          if (!v || !v.urlRedirect) continue;
+          const url = new URL(v.urlRedirect);
+
+          // If we're blocking cross origin redirects, block if the protocol or host is different
+          if (this._ctx.disableCrossOriginUrlRedirectExperiments) {
+            if (url.protocol !== current.protocol) return true;
+            if (url.host !== current.host) return true;
           }
-        } catch (e) {
-          // ignore invalid URLs
         }
-        return isCrossOrigin;
+      } catch (e) {
+        // Problem parsing one of the URLs
+        this.log("Error parsing current or redirect URL", {
+          id: experiment.key,
+          error: e,
+        });
+        return true;
       }
     }
 
@@ -1653,7 +1658,7 @@ export class GrowthBook<
       document.head.appendChild(s);
       undo.push(() => s.remove());
     }
-    if (changes.js && !this._ctx.disableJsInjection) {
+    if (changes.js) {
       const script = document.createElement("script");
       script.innerHTML = changes.js;
       if (this._ctx.jsInjectionNonce) {
