@@ -1,5 +1,4 @@
-import { Athena } from "aws-sdk";
-import { ResultSet } from "aws-sdk/clients/athena";
+import { Athena, ResultSet } from "@aws-sdk/client-athena";
 import { AthenaConnectionParams } from "../../types/integrations/athena";
 import { logger } from "../util/logger";
 import { IS_CLOUD } from "../util/secrets";
@@ -13,8 +12,11 @@ function getAthenaInstance(params: AthenaConnectionParams) {
   }
 
   return new Athena({
-    accessKeyId: params.accessKeyId,
-    secretAccessKey: params.secretAccessKey,
+    credentials: {
+      accessKeyId: params.accessKeyId || '',
+      secretAccessKey: params.secretAccessKey || '',
+    },
+
     region: params.region,
   });
 }
@@ -27,8 +29,7 @@ export async function cancelAthenaQuery(
   await athena
     .stopQueryExecution({
       QueryExecutionId: id,
-    })
-    .promise();
+    });
 }
 
 export async function runAthenaQuery(
@@ -57,8 +58,7 @@ export async function runAthenaQuery(
         OutputLocation: bucketUri,
       },
       WorkGroup: workGroup || "primary",
-    })
-    .promise();
+    });
 
   if (!QueryExecutionId) {
     throw new Error("Failed to start query");
@@ -74,7 +74,6 @@ export async function runAthenaQuery(
       setTimeout(() => {
         athena
           .getQueryExecution({ QueryExecutionId })
-          .promise()
           .then((resp) => {
             const State = resp.QueryExecution?.Status?.State;
             const StateChangeReason =
@@ -118,7 +117,6 @@ export async function runAthenaQuery(
             } else {
               athena
                 .getQueryResults({ QueryExecutionId })
-                .promise()
                 .then(({ ResultSet }) => {
                   if (ResultSet) {
                     resolve(ResultSet);
@@ -152,7 +150,7 @@ export async function runAthenaQuery(
           const obj: any = {};
           if (row.Data) {
             row.Data.forEach((value, i) => {
-              obj[keys[i]] = value.VarCharValue || null;
+              obj[keys[i] as any] = value.VarCharValue || null;
             });
           }
           return obj;
@@ -162,6 +160,6 @@ export async function runAthenaQuery(
   }
 
   // Cancel the query if it reaches this point
-  await athena.stopQueryExecution({ QueryExecutionId }).promise();
+  await athena.stopQueryExecution({ QueryExecutionId });
   throw new Error("Query timed out after 30 minutes");
 }

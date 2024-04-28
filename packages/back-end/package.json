@@ -27,6 +27,7 @@
     "generate-api-types": "yarn generate-api-models && swagger-cli bundle -t yaml src/api/openapi/openapi.tmp.yaml -o generated/spec.yaml && node src/scripts/generate-openapi.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-athena": "^3.564.0",
     "@clickhouse/client": "^1.0.1",
     "@databricks/sql": "^1.8.1",
     "@dqbd/tiktoken": "^1.0.7",
