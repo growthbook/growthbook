@@ -635,6 +635,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               />
             )}
             <div className="form-group">
+              <label className="font-weight-bold mb-1">Goal Metrics</label>
               <div className="mb-1">
                 <span className="font-italic">
                   Metrics you are trying to improve with this experiment.{" "}
