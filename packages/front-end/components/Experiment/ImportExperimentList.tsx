@@ -22,6 +22,7 @@ import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton"
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { generateVariationId } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -62,19 +63,30 @@ const ImportExperimentList: FC<{
     `${pastExperimentsMinLength || 6}`
   );
   const [alreadyImportedFilter, setAlreadyImportedFilter] = useState(true);
+  const [dedupeFilter, setDedupeFilter] = useState(true);
   const [statusFilter, setStatusFilter] = useState<"" | "running" | "stopped">(
     ""
   );
 
+  const [minVariationsFilter, setMinVariationsFilter] = useState("2");
+
   // Searching
   const filterResults = useCallback(
     (items: typeof pastExpArr) => {
-      return items.filter((e) => {
+      const rows = items.filter((e) => {
         if (minUsersFilter && e.users < (parseInt(minUsersFilter) || 0)) {
           return false;
         }
         if (alreadyImportedFilter && data?.existing?.[e.trackingKey]) {
-          return false;
+          if (dedupeFilter && data?.existing?.[e.trackingKey]) {
+            return false;
+          }
+          if (
+            !dedupeFilter &&
+            data?.existing?.[e.trackingKey + "::" + e.exposureQueryId]
+          ) {
+            return false;
+          }
         }
         const status =
           daysBetween(e.endDate, new Date()) < 2 ? "running" : "stopped";
@@ -88,15 +100,41 @@ const ImportExperimentList: FC<{
         ) {
           return false;
         }
+
+        if (
+          minVariationsFilter &&
+          e.numVariations < parseInt(minVariationsFilter)
+        ) {
+          return false;
+        }
+
         // Passed all the filters, include it in the table
         return true;
       });
+
+      // Group by trackingKey insteadd of trackingKey/exposureQueryId
+      if (dedupeFilter) {
+        const deduped = new Map<string, typeof rows[0]>();
+        rows.forEach((e) => {
+          const key = e.trackingKey;
+          if (!deduped.has(key)) {
+            deduped.set(key, e);
+          } else if ((deduped.get(key)?.users || 0) < e.users) {
+            deduped.set(key, e);
+          }
+        });
+        return Array.from(deduped.values());
+      }
+
+      return rows;
     },
     [
       alreadyImportedFilter,
+      dedupeFilter,
       data?.existing,
       minLengthFilter,
       minUsersFilter,
+      minVariationsFilter,
       statusFilter,
     ]
   );
@@ -133,9 +171,12 @@ const ImportExperimentList: FC<{
     setAlreadyImportedFilter(false);
     setMinUsersFilter("0");
     setMinLengthFilter("0");
+    setMinVariationsFilter("0");
     setStatusFilter("");
     clearSearch();
   }
+
+  const hasStarted = data.experiments.queries.length > 0;
 
   return (
     <>
@@ -167,15 +208,17 @@ const ImportExperimentList: FC<{
             </>
           )}
         </div>
-        <div className="col-auto ml-auto">
-          <div
-            className="text-muted"
-            style={{ fontSize: "0.8em" }}
-            title={datetime(data.experiments.runStarted ?? "")}
-          >
-            last updated {ago(data.experiments.runStarted ?? "")}
+        {hasStarted && (
+          <div className="col-auto ml-auto">
+            <div
+              className="text-muted"
+              style={{ fontSize: "0.8em" }}
+              title={datetime(data.experiments.runStarted ?? "")}
+            >
+              last updated {ago(data.experiments.runStarted ?? "")}
+            </div>
           </div>
-        </div>
+        )}
         {datasource && permissionsUtil.canRunPastExperimentQueries(datasource) && (
           <div className="col-auto">
             <form
@@ -198,6 +241,28 @@ const ImportExperimentList: FC<{
                 model={data.experiments}
               />
             </form>
+            <MoreMenu>
+              {data.experiments.latestData && (
+                <a
+                  href="#"
+                  className="dropdown-item"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    await apiCall<{ id: string }>("/experiments/import", {
+                      method: "POST",
+                      body: JSON.stringify({
+                        datasource: data.experiments.datasource,
+                        force: true,
+                        refresh: true,
+                      }),
+                    });
+                    await mutate();
+                  }}
+                >
+                  Full Refresh
+                </a>
+              )}
+            </MoreMenu>
           </div>
         )}
       </div>
@@ -231,26 +296,51 @@ const ImportExperimentList: FC<{
       )}
       {pastExpArr.length === 0 && status !== "failed" && (
         <div>
-          <h4>No experiments found</h4>
-          <p>
-            No past experiments were returned from this data source. If you are
-            expecting past experiments, check the following:
-          </p>
-          <ul>
-            <li>
-              Too old: this query only shows experiments from the last 12 months
-              by default (you can adjust the import date limit from the
-              settings)
-            </li>
-            <li>
-              Not enough traffic: experiments are not shown if they had less
-              than 5 users per variation
-            </li>
-            <li>
-              Incorrect query: the experiment exposure query runs but is not
-              pulling the right data
-            </li>
-          </ul>
+          {!hasStarted ? (
+            <>
+              <p>
+                Click the &apos;Refresh List&apos; button above to query your
+                data source for past experiments.
+              </p>
+              <p>
+                This will query the past <strong>12 months</strong> of data in
+                all of your Experiment Assignment queries.{" "}
+                {!isCloud() && (
+                  <>
+                    You can adjust this with the <code>IMPORT_LIMIT_DAYS</code>{" "}
+                    environment variable (default 365).
+                  </>
+                )}
+              </p>
+              <p>
+                After this initial import, you will be able to perform
+                incremental queries to keep this list up-to-date.
+              </p>
+            </>
+          ) : (
+            <>
+              <h4>No experiments found</h4>
+              <p>
+                No past experiments were returned from this data source. If you
+                are expecting past experiments, check the following:
+              </p>
+              <ul>
+                <li>
+                  Too old: this query only shows experiments from the last 12
+                  months by default (you can adjust the import date limit from
+                  the settings)
+                </li>
+                <li>
+                  Not enough traffic: experiments are not shown if they had less
+                  than 5 users per variation
+                </li>
+                <li>
+                  Incorrect query: the experiment exposure query runs but is not
+                  pulling the right data
+                </li>
+              </ul>
+            </>
+          )}
         </div>
       )}
       {pastExpArr.length > 0 && (
@@ -316,6 +406,21 @@ const ImportExperimentList: FC<{
             </div>
             <div className="col-auto">
               <Field
+                label="Variations"
+                labelClassName="small mb-0"
+                type="number"
+                min={0}
+                step={1}
+                style={{ width: 60 }}
+                prepend={">"}
+                value={minVariationsFilter}
+                onChange={(e) => {
+                  setMinVariationsFilter(e.target.value);
+                }}
+              />
+            </div>
+            <div className="col-auto">
+              <Field
                 label="Status"
                 labelClassName="small mb-0"
                 options={[
@@ -347,6 +452,15 @@ const ImportExperimentList: FC<{
                 setValue={setAlreadyImportedFilter}
               />{" "}
               Hide Imported
+            </div>
+            <div className="col-auto align-self-center">
+              <Toggle
+                id="dedupe-experiments"
+                value={dedupeFilter}
+                setValue={setDedupeFilter}
+              />{" "}
+              De-dupe{" "}
+              <Tooltip body="If an experiment appears in multiple Assignment Queries, de-dupe the experiment and show it only once." />
             </div>
           </div>
           <small>
@@ -382,11 +496,26 @@ const ImportExperimentList: FC<{
             </thead>
             <tbody>
               {items.map((e) => {
+                const existingId = dedupeFilter
+                  ? data?.existing?.[e.trackingKey]
+                  : data?.existing?.[e.trackingKey + "::" + e.exposureQueryId];
+
                 return (
                   <tr key={e.trackingKey}>
                     <td>{e.exposureQueryName}</td>
                     <td>{e.experimentName || e.trackingKey}</td>
-                    <td>{date(e.startDate)}</td>
+                    <td>
+                      <Tooltip
+                        body={
+                          e.startOfRange
+                            ? "We only have partial data for this experiment since it was already running at the start of our query"
+                            : ""
+                        }
+                      >
+                        {date(e.startDate)}
+                        {e.startOfRange ? "*" : ""}
+                      </Tooltip>
+                    </td>
                     <td>{date(e.endDate)}</td>
                     <td>{e.numVariations}</td>
                     <td>{numberFormatter.format(e.users)}</td>
@@ -394,12 +523,8 @@ const ImportExperimentList: FC<{
                       {e.weights.map((w) => Math.round(w * 100)).join("/")}
                     </td>
                     <td>
-                      {data?.existing?.[e.trackingKey] ? (
-                        <Link
-                          href={`/experiment/${data.existing[e.trackingKey]}`}
-                        >
-                          imported
-                        </Link>
+                      {existingId ? (
+                        <Link href={`/experiment/${existingId}`}>imported</Link>
                       ) : (
                         <button
                           className={`btn btn-primary`}
@@ -490,7 +615,7 @@ const ImportExperimentList: FC<{
           </table>
         </div>
       )}
-      {showQueries && (
+      {showQueries && hasStarted && (
         <div>
           <ViewAsyncQueriesButton
             queries={

@@ -2137,6 +2137,7 @@ export async function getPastExperimentsList(
   const experimentMap = new Map<string, string>();
   (experiments || []).forEach((e) => {
     experimentMap.set(e.trackingKey, e.id);
+    experimentMap.set(e.trackingKey + "::" + e.exposureQueryId, e.id);
   });
 
   const trackingKeyMap: Record<string, string> = {};
@@ -2156,12 +2157,12 @@ export async function getPastExperimentsList(
 
 //experiments/import, sent here right after "add experiment"
 export async function postPastExperiments(
-  req: AuthRequest<{ datasource: string; force: boolean }>,
+  req: AuthRequest<{ datasource: string; force: boolean; refresh?: boolean }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { datasource, force } = req.body;
+  const { datasource, force, refresh } = req.body;
 
   const integration = await getIntegrationFromDatasourceId(
     context,
@@ -2177,7 +2178,6 @@ export async function postPastExperiments(
   const start = new Date();
   start.setDate(start.getDate() - IMPORT_LIMIT_DAYS);
 
-  let needsRun = false;
   if (!pastExperiments) {
     pastExperiments = await createPastExperiments({
       organization: org.id,
@@ -2186,14 +2186,17 @@ export async function postPastExperiments(
       start,
       queries: [],
     });
-    needsRun = true;
   }
 
+  let needsRun = false;
   if (force) {
     needsRun = true;
     pastExperiments = await updatePastExperiments(pastExperiments, {
       config: {
-        start,
+        start:
+          !refresh && pastExperiments.config
+            ? pastExperiments.config.start
+            : start,
         end: new Date(),
       },
     });
@@ -2207,6 +2210,7 @@ export async function postPastExperiments(
     );
     pastExperiments = await queryRunner.startAnalysis({
       from: start,
+      forceRefresh: !!refresh,
     });
   }
 

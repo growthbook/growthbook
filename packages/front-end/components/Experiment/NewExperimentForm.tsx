@@ -520,6 +520,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           )}
 
           <hr />
+          {isImport && (
+            <div className="alert alert-info">
+              We guessed at the variation percents below based on the data we
+              saw. They might need to be adjusted.
+            </div>
+          )}
           <FeatureVariationsInput
             valueType={"string"}
             coverage={form.watch("phases.0.coverage")}
