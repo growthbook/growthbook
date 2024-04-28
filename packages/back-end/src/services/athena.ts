@@ -16,7 +16,6 @@ function getAthenaInstance(params: AthenaConnectionParams) {
       accessKeyId: params.accessKeyId || '',
       secretAccessKey: params.secretAccessKey || '',
     },
-
     region: params.region,
   });
 }
