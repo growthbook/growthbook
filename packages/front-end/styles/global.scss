@@ -115,6 +115,24 @@ pre {
   }
 }
 
+.power-analysis-params {
+  background-color: var(--background-primary-light);
+}
+
+.power-analysis-row {
+  cursor: pointer;
+  &.selected {
+    background-color: var(--background-color);
+  }
+  &:hover {
+    background-color: var(--background-primary-light);
+  }
+}
+
+.power-analysis-cell-threshold {
+  background-color: var(--alert-info-background);
+}
+
 .w-100px {
   width: 100px !important;
 }
