@@ -114,7 +114,9 @@ export type Experiment<T> = {
   groups?: string[];
 };
 
-export type AutoExperiment = Experiment<AutoExperimentVariation> & {
+export type AutoExperiment<T = AutoExperimentVariation> = Experiment<T> & {
+  changeId?: string;
+  changeType?: "redirect" | "visual";
   // If true, require the experiment to be manually triggered
   manual?: boolean;
 };
@@ -163,6 +165,12 @@ export type TrackingCallback = (
   result: Result<any>
 ) => void;
 
+export type NavigateCallback = (url: string) => void | Promise<void>;
+
+export type ApplyDomChangesCallback = (
+  changes: AutoExperimentVariation
+) => () => void;
+
 export type RenderFunction = () => void;
 
 export interface Context {
@@ -172,6 +180,13 @@ export interface Context {
   features?: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
   forcedVariations?: Record<string, number>;
+  blockedChangeIds?: string[];
+  disableVisualExperiments?: boolean;
+  disableJsInjection?: boolean;
+  jsInjectionNonce?: string;
+  disableUrlRedirectExperiments?: boolean;
+  disableCrossOriginUrlRedirectExperiments?: boolean;
+  disableExperimentsOnLoad?: boolean;
   stickyBucketAssignmentDocs?: Record<
     StickyAttributeKey,
     StickyAssignmentsDocument
@@ -208,11 +223,25 @@ export interface Context {
   renderer?: null | RenderFunction;
   decryptionKey?: string;
   remoteEval?: boolean;
-  navigate?: (url: string) => void;
+  navigate?: NavigateCallback;
   navigateDelay?: number;
   antiFlicker?: boolean;
   antiFlickerTimeout?: number;
+  applyDomChangesCallback?: ApplyDomChangesCallback;
 }
+
+export type PrefetchOptions = Pick<
+  Context,
+  | "decryptionKey"
+  | "apiHost"
+  | "apiHostRequestHeaders"
+  | "streamingHost"
+  | "streamingHostRequestHeaders"
+> & {
+  clientKey: string;
+  streaming?: boolean;
+  skipCache?: boolean;
+};
 
 export type SubscriptionFunction = (
   experiment: Experiment<any>,
@@ -329,10 +358,18 @@ export type CacheSettings = {
   maxEntries: number;
   disableIdleStreams: boolean;
   idleStreamInterval: number;
+  disableLocalCache: boolean;
 };
 
 export type ApiHost = string;
 export type ClientKey = string;
+
+export type InitOptions = {
+  timeout?: number;
+  skipCache?: boolean;
+  payload?: FeatureApiResponse;
+  streaming?: boolean;
+};
 
 export type LoadFeaturesOptions = {
   /** @deprecated */
