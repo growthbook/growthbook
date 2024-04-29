@@ -7,12 +7,12 @@ import { ago, datetime } from "shared/dates";
 import { FaExclamationTriangle } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
 import { useUser } from "@/services/UserContext";
 import { trackReport } from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function ExperimentReportsList({
   experiment,
@@ -21,7 +21,7 @@ export default function ExperimentReportsList({
 }) {
   const router = useRouter();
   const { apiCall } = useAuth();
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { userId, users } = useUser();
   const { getDatasourceById } = useDefinitions();
 
@@ -106,34 +106,32 @@ export default function ExperimentReportsList({
                 </td>
                 <td>{name}</td>
                 <td style={{ width: 50 }}>
-                  {(permissions.superDelete || report.userId === userId) && (
-                    <>
-                      <DeleteButton
-                        displayName="Custom Report"
-                        link={true}
-                        className="fade-hover"
-                        text=""
-                        useIcon={true}
-                        onClick={async () => {
-                          await apiCall<{ status: number; message?: string }>(
-                            `/report/${report.id}`,
-                            {
-                              method: "DELETE",
-                              //body: JSON.stringify({ id: report.id }),
-                            }
-                          );
-                          trackReport(
-                            "delete",
-                            "ExperimentReportsList",
-                            getDatasourceById(report.args.datasource)?.type ||
-                              null,
-                            report
-                          );
-                          mutate();
-                        }}
-                      />
-                    </>
-                  )}
+                  {permissionsUtil.canSuperDelete() ||
+                  report.userId === userId ? (
+                    <DeleteButton
+                      displayName="Custom Report"
+                      link={true}
+                      className="fade-hover"
+                      text=""
+                      useIcon={true}
+                      onClick={async () => {
+                        await apiCall<{ status: number; message?: string }>(
+                          `/report/${report.id}`,
+                          {
+                            method: "DELETE",
+                          }
+                        );
+                        trackReport(
+                          "delete",
+                          "ExperimentReportsList",
+                          getDatasourceById(report.args.datasource)?.type ||
+                            null,
+                          report
+                        );
+                        mutate();
+                      }}
+                    />
+                  ) : null}
                 </td>
               </tr>
             );

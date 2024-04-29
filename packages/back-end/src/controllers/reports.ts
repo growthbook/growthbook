@@ -168,7 +168,8 @@ export async function deleteReport(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const report = await getReportById(org.id, req.params.id);
 
   if (!report) {
@@ -177,7 +178,9 @@ export async function deleteReport(
 
   // Only allow admins to delete other people's reports
   if (report.userId !== req.userId) {
-    req.checkPermissions("superDelete");
+    if (!context.permissions.canSuperDelete()) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   await deleteReportById(org.id, req.params.id);

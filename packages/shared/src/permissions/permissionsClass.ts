@@ -55,6 +55,10 @@ export class Permissions {
     return this.checkGlobalPermission("createDimensions");
   };
 
+  public canSuperDelete = (): boolean => {
+    return this.checkGlobalPermission("superDelete");
+  };
+
   //Project Permissions
   public canCreateVisualChange = (
     experiment: Pick<ExperimentInterface, "project">
