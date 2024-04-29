@@ -55,8 +55,9 @@ export class Permissions {
     return this.checkGlobalPermission("createDimensions");
   };
 
-  public canSuperDelete = (): boolean => {
-    return this.checkGlobalPermission("superDelete");
+  //Required permission in order to delete reports created by other users
+  public canSuperDeleteReport = (): boolean => {
+    return this.checkGlobalPermission("superDeleteReport");
   };
 
   //Project Permissions
