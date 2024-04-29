@@ -93,6 +93,7 @@ export default function SDKLanguageSelector({
     "java",
     "csharp",
     "go",
+    "elixir",
   ]);
   const mobile = filterLanguages(["ios", "android", "flutter"]);
   const nocode = filterLanguages([
