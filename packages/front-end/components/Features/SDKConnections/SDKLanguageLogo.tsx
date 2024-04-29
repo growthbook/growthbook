@@ -140,7 +140,7 @@ export const languageMapping: Record<
     color: "#543364",
     label: "Elixir",
     docs: "elixir",
-    environment: "backend",
+    type: "backend",
   },
   ios: {
     Icon: FaApple,
