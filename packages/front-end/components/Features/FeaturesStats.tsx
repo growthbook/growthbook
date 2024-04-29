@@ -74,7 +74,7 @@ export default function FeaturesStats({
             {hasFeature ? (
               <Tooltip
                 shouldDisplay={!permissionsUtil.canManageOrgSettings()}
-                body="You need to be an admin to enable this feature."
+                body="You need permission to manage organization settings to adjust toggle this feature."
               >
                 <Button
                   disabled={!permissionsUtil.canManageOrgSettings()}
