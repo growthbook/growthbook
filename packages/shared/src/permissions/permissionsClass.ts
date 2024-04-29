@@ -73,7 +73,7 @@ export class Permissions {
 
   //Required permission in order to delete reports created by other users
   public canSuperDeleteReport = (): boolean => {
-    return this.checkGlobalPermission("superDeleteReport");
+    return this.checkGlobalFilterPermission("superDeleteReport");
   };
 
   //Project Permissions
