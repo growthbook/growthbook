@@ -32,27 +32,48 @@ export class Permissions {
 
   //Global Permissions
   public canCreatePresentation = (): boolean => {
-    return this.checkGlobalPermission("createPresentations");
+    return this.checkGlobalFilterPermission("createPresentations");
   };
 
   public canUpdatePresentation = (): boolean => {
-    return this.checkGlobalPermission("createPresentations");
+    return this.checkGlobalFilterPermission("createPresentations");
   };
 
   public canDeletePresentation = (): boolean => {
-    return this.checkGlobalPermission("createPresentations");
+    return this.checkGlobalFilterPermission("createPresentations");
   };
 
   public canCreateDimension = (): boolean => {
-    return this.checkGlobalPermission("createDimensions");
+    return this.checkGlobalFilterPermission("createDimensions");
   };
 
   public canUpdateDimension = (): boolean => {
-    return this.checkGlobalPermission("createDimensions");
+    return this.checkGlobalFilterPermission("createDimensions");
   };
 
   public canDeleteDimension = (): boolean => {
-    return this.checkGlobalPermission("createDimensions");
+    return this.checkGlobalFilterPermission("createDimensions");
+  };
+
+  public canCreateSegment = (): boolean => {
+    return this.checkGlobalFilterPermission("createSegments");
+  };
+
+  public canUpdateSegment = (): boolean => {
+    return this.checkGlobalFilterPermission("createSegments");
+  };
+
+  public canDeleteSegment = (): boolean => {
+    return this.checkGlobalFilterPermission("createSegments");
+  };
+
+  public canManageOrgSettings = (): boolean => {
+    return this.checkGlobalFilterPermission("organizationSettings");
+  };
+
+  //Required permission in order to delete reports created by other users
+  public canSuperDeleteReport = (): boolean => {
+    return this.checkGlobalFilterPermission("superDeleteReport");
   };
 
   //Project Permissions
@@ -335,8 +356,14 @@ export class Permissions {
     );
   }
 
-  private checkGlobalPermission(permission: GlobalPermission): boolean {
-    return this.hasPermission(permission, "");
+  private checkGlobalFilterPermission(
+    permissionToCheck: GlobalPermission
+  ): boolean {
+    if (this.superAdmin) {
+      return true;
+    }
+
+    return this.userPermissions.global.permissions[permissionToCheck] || false;
   }
 
   private checkProjectFilterPermission(
