@@ -17,7 +17,8 @@ export default function scimMiddleware(
   }
 
   try {
-    req.checkPermissions("manageTeam");
+    // req.checkPermissions("manageTeam");
+    // if (!req.context.permissions.)
   } catch (e) {
     return res.status(403).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
