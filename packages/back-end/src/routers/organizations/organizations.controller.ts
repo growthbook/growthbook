@@ -1180,7 +1180,9 @@ export async function putOrganization(
   const existingEnvironments = getEnvironments(org);
 
   if (connections || name) {
-    req.checkPermissions("organizationSettings");
+    if (!context.permissions.canManageOrgSettings()) {
+      context.permissions.throwPermissionError();
+    }
   }
   if (settings) {
     Object.keys(settings).forEach((k: keyof OrganizationSettings) => {
@@ -1237,7 +1239,9 @@ export async function putOrganization(
       } else if (k === "namespaces") {
         req.checkPermissions("manageNamespaces");
       } else {
-        req.checkPermissions("organizationSettings");
+        if (!context.permissions.canManageOrgSettings()) {
+          context.permissions.throwPermissionError();
+        }
       }
     });
   }
@@ -1758,9 +1762,12 @@ export async function postImportConfig(
   }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
-
   const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageOrgSettings()) {
+    context.permissions.throwPermissionError();
+  }
+
   const { contents } = req.body;
 
   const config: ConfigFile = JSON.parse(contents);
@@ -1776,7 +1783,11 @@ export async function postImportConfig(
 }
 
 export async function getOrphanedUsers(req: AuthRequest, res: Response) {
-  req.checkPermissions("organizationSettings");
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageOrgSettings()) {
+    context.permissions.throwPermissionError();
+  }
 
   if (IS_CLOUD) {
     throw new Error("Unable to get orphaned users on GrowthBook Cloud");
@@ -1816,7 +1827,11 @@ export async function addOrphanedUser(
   req: AuthRequest<MemberRoleWithProjects, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageOrgSettings()) {
+    context.permissions.throwPermissionError();
+  }
 
   if (IS_CLOUD) {
     throw new Error("This action is not permitted on GrowthBook Cloud");
@@ -1885,7 +1900,11 @@ export async function deleteOrphanedUser(
   req: AuthRequest<unknown, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageOrgSettings()) {
+    context.permissions.throwPermissionError();
+  }
 
   if (IS_CLOUD) {
     throw new Error("Unable to delete orphaned users on GrowthBook Cloud");
@@ -1935,7 +1954,11 @@ export async function putAdminResetUserPassword(
   >,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageOrgSettings()) {
+    context.permissions.throwPermissionError();
+  }
 
   const { updatedPassword } = req.body;
   const userToUpdateId = req.params.id;

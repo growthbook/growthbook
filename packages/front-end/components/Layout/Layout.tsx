@@ -152,7 +152,8 @@ const navlinks: SidebarLinkProps[] = [
         name: "General",
         href: "/settings",
         path: /^settings$/,
-        filter: ({ permissions }) => permissions.check("organizationSettings"),
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canManageOrgSettings(),
       },
       {
         name: "Team",

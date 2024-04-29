@@ -5,12 +5,12 @@ import { OrganizationSettings } from "back-end/types/organization";
 import { FaGitAlt, FaExternalLinkAlt } from "react-icons/fa";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { useUser } from "@/services/UserContext";
-import usePermissions from "@/hooks/usePermissions";
 import Button from "@/components/Button";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBPremiumBadge } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const generatePlatformUrl = (
   platformUrl: string,
@@ -38,7 +38,7 @@ export default function FeaturesStats({
   } = orgSettings;
   const { accountPlan, hasCommercialFeature } = useUser();
   const hasFeature = hasCommercialFeature("code-references");
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const codeRefs = useMemo(() => {
     if (!codeRefsBranchesToFilter || codeRefsBranchesToFilter.length === 0) {
@@ -73,11 +73,11 @@ export default function FeaturesStats({
             </p>
             {hasFeature ? (
               <Tooltip
-                shouldDisplay={!permissions.organizationSettings}
-                body="You need to be an admin to enable this feature."
+                shouldDisplay={!permissionsUtil.canManageOrgSettings()}
+                body="You need permission to manage organization settings to adjust toggle this feature."
               >
                 <Button
-                  disabled={!permissions.organizationSettings}
+                  disabled={!permissionsUtil.canManageOrgSettings()}
                   onClick={async () => {
                     router.push("/settings#configure-code-refs");
                   }}
