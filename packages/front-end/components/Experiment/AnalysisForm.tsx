@@ -141,13 +141,6 @@ const AnalysisForm: FC<{
           ? experiment.sequentialTestingTuningParameter
           : orgSettings.sequentialTestingTuningParameter ??
             DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-      properPrior: experiment.properPrior ?? orgSettings.properPrior ?? false,
-      properPriorMean:
-        experiment.properPriorMean ?? orgSettings.properPriorMean ?? 0,
-      properPriorStdDev:
-        experiment.properPriorStdDev ??
-        orgSettings.properPriorStdDev ??
-        DEFAULT_PROPER_PRIOR_STDDEV,
       metrics: experiment.metrics,
       guardrails: experiment.guardrails || [],
       metricOverrides: getDefaultMetricOverridesFormValue(
@@ -582,17 +575,6 @@ const AnalysisForm: FC<{
             </label>
           </div>
         </div>
-      )}
-      {(form.watch("statsEngine") || scopedSettings.statsEngine.value) ===
-        "bayesian" && (
-        <FormProvider {...form}>
-          <div className="ml-1 mb-3">
-            <BayesianPriorSettings
-              defaultMean={orgSettings.properPriorMean}
-              defaultStdDev={orgSettings.properPriorStdDev}
-            />
-          </div>
-        </FormProvider>
       )}
       {datasourceProperties?.queryLanguage === "sql" && (
         <div className="row">

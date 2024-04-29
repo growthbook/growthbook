@@ -13,7 +13,7 @@ import {
 } from "./report";
 import { DimensionInterface } from "./dimension";
 import { AttributionModel } from "./experiment";
-import { MetricWindowSettings } from "./fact-table";
+import { MetricPriorSettings, MetricWindowSettings } from "./fact-table";
 
 export interface SnapshotMetric {
   value: number;
@@ -85,6 +85,9 @@ export interface MetricForSnapshot {
     regressionAdjustmentAvailable: boolean;
     regressionAdjustmentDays: number;
     regressionAdjustmentReason: string;
+    properPrior: boolean;
+    properPriorMean: number;
+    properPriorStdDev: number;
     windowSettings: MetricWindowSettings;
   };
 }

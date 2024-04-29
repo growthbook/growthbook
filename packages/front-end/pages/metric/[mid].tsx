@@ -69,6 +69,7 @@ import PageHead from "@/components/Layout/PageHead";
 import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { MetricPriorRightRailSectionGroup } from "@/components/Metrics/MetricPriorRightRailSectionGroup";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -116,11 +117,12 @@ const MetricPage: FC = () => {
   }>(`/metric/${mid}`);
 
   const {
+    metricDefaults,
     getMinSampleSizeForMetric,
     getMinPercentageChangeForMetric,
     getMaxPercentageChangeForMetric,
   } = useOrganizationMetricDefaults();
-
+  console.log(metricDefaults);
   const form = useForm<{ name: string; description: string }>();
 
   useEffect(() => {
@@ -1296,6 +1298,11 @@ const MetricPage: FC = () => {
                   </li>
                 </ul>
               </RightRailSectionGroup>
+
+              <MetricPriorRightRailSectionGroup
+                metric={metric}
+                metricDefaults={metricDefaults}
+              />
 
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-2">

@@ -45,6 +45,7 @@ import { MetricCappingSettingsForm } from "@/components/Metrics/MetricForm/Metri
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { MetricDelayHours } from "@/components/Metrics/MetricForm/MetricDelayHours";
 import { AppFeatures } from "@/types/app-features";
+import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
 
 export interface Props {
   close?: () => void;
@@ -392,6 +393,7 @@ export default function FactMetricModal({
         existing?.regressionAdjustmentDays ||
         (settings.regressionAdjustmentDays ??
           DEFAULT_REGRESSION_ADJUSTMENT_DAYS),
+      priorSettings: existing?.priorSettings || metricDefaults.priorSettings,
     },
   });
 
@@ -927,6 +929,13 @@ export default function FactMetricModal({
                     metricType={type}
                   />
                 ) : null}
+
+                <div className="mb-1">
+                  <MetricPriorSettingsForm
+                    form={form}
+                    metricDefaults={metricDefaults}
+                  />
+                </div>
                 <PremiumTooltip commercialFeature="regression-adjustment">
                   <label className="mb-1">
                     <GBCuped /> Regression Adjustment (CUPED)

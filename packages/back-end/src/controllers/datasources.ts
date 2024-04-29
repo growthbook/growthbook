@@ -1,7 +1,10 @@
 import { Response } from "express";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
-import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import {
+  DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
 import * as bq from "@google-cloud/bigquery";
 import { AuthRequest } from "../types/AuthRequest";
 import { getContextFromReq } from "../services/organizations";
@@ -99,6 +102,12 @@ export async function postSampleData(
         windowValue: 0,
         windowUnit: "hours",
       },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+      },
       name: "Sample Conversions",
       description: `Part of the GrowthBook sample data set. Feel free to delete when finished exploring.`,
       type: "binomial",
@@ -129,6 +138,12 @@ export async function postSampleData(
         delayHours: 0,
         windowValue: 0,
         windowUnit: "hours",
+      },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
       },
       name: "Sample Revenue per User",
       description: `Part of the GrowthBook sample data set. Feel free to delete when finished exploring.`,
@@ -257,6 +272,7 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
           },
         ],
       },
+      org.settings?.metricDefaults?.priorSettings,
       {
         statsEngine,
         dimensions: [],

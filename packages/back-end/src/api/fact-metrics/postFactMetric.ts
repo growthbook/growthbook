@@ -5,6 +5,7 @@ import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_METRIC_WINDOW_HOURS,
+  DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import {
@@ -94,6 +95,13 @@ export async function getCreateMetricPropsFromBody(
     cappingSettings: {
       type: "",
       value: 0,
+    },
+    // TODO allow for prior via API
+    priorSettings: {
+      override: false,
+      proper: false,
+      mean: 0,
+      stddev: DEFAULT_PROPER_PRIOR_STDDEV,
     },
     regressionAdjustmentOverride: false,
     regressionAdjustmentDays:

@@ -575,20 +575,6 @@ export default function ReportPage() {
                         : "Bayesian"}
                     </span>
                   </div>
-                  {report.args?.statsEngine === "bayesian" && (
-                    <>
-                      <div>
-                        <span className="text-muted">Informative prior:</span>{" "}
-                        <span>
-                          {report.args?.properPrior &&
-                          report.args?.properPriorStdDev &&
-                          report.args?.properPriorMean !== undefined
-                            ? `N(${report.args.properPriorMean}, ${report.args.properPriorStdDev}^2)`
-                            : "Disabled"}
-                        </span>
-                      </div>
-                    </>
-                  )}
                   {report.args?.statsEngine === "frequentist" && (
                     <>
                       <div>

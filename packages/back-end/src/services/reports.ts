@@ -11,6 +11,7 @@ import {
   isBinomialMetric,
   ExperimentMetricInterface,
 } from "shared/experiments";
+import { MetricPriorSettings } from "@back-end/types/fact-table";
 import {
   ExperimentReportArgs,
   ExperimentReportVariation,
@@ -111,9 +112,6 @@ export function getAnalysisSettingsFromReportArgs(
     pValueCorrection: null,
     sequentialTesting: args.sequentialTestingEnabled,
     sequentialTestingTuningParameter: args.sequentialTestingTuningParameter,
-    properPrior: args.properPrior ?? false,
-    properPriorMean: args.properPriorMean ?? 0,
-    properPriorStdDev: args.properPriorStdDev ?? DEFAULT_PROPER_PRIOR_STDDEV,
     pValueThreshold: args.pValueThreshold,
     differenceType: args.differenceType ?? "relative",
     baselineVariationIndex: 0,
@@ -134,6 +132,12 @@ export function getSnapshotSettingsFromReportArgs(
         getMetricForSnapshot(
           m,
           metricMap,
+          {
+            override: false,
+            proper: args.properPrior ?? false,
+            mean: args.properPriorMean ?? 0,
+            stddev: args.properPriorStdDev ?? DEFAULT_PROPER_PRIOR_STDDEV,
+          },
           args.metricRegressionAdjustmentStatuses,
           args.metricOverrides
         )
@@ -168,6 +172,7 @@ export function getSnapshotSettingsFromReportArgs(
 export function getMetricForSnapshot(
   id: string | null | undefined,
   metricMap: Map<string, ExperimentMetricInterface>,
+  orgPriorSettings: MetricPriorSettings,
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[],
   metricOverrides?: MetricOverride[]
 ): MetricForSnapshot | null {
@@ -208,6 +213,18 @@ export function getMetricForSnapshot(
           metric.windowSettings.windowValue ??
           DEFAULT_METRIC_WINDOW_HOURS,
       },
+      // TODO allow for metric prior overrides by experiment
+      ...(metric.priorSettings.override
+        ? {
+            properPrior: metric.priorSettings.proper,
+            properPriorMean: metric.priorSettings.mean,
+            properPriorStdDev: metric.priorSettings.stddev,
+          }
+        : {
+            properPrior: orgPriorSettings.proper,
+            properPriorMean: orgPriorSettings.mean,
+            properPriorStdDev: orgPriorSettings.stddev,
+          }),
       regressionAdjustmentDays:
         regressionAdjustmentStatus?.regressionAdjustmentDays ??
         DEFAULT_REGRESSION_ADJUSTMENT_DAYS,

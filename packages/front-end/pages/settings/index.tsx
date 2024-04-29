@@ -3,7 +3,6 @@ import React, { useEffect, useState } from "react";
 import { FormProvider, useForm, useFormContext } from "react-hook-form";
 import isEqual from "lodash/isEqual";
 import {
-  DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
@@ -87,6 +86,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         //startDate?: Date;
       },
       metricDefaults: {
+        priorSettings: metricDefaults.priorSettings,
         minimumSampleSize: metricDefaults.minimumSampleSize,
         maxPercentageChange: metricDefaults.maxPercentageChange * 100,
         minPercentageChange: metricDefaults.minPercentageChange * 100,
@@ -103,9 +103,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
       pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
       pValueCorrection: null,
       statsEngine: DEFAULT_STATS_ENGINE,
-      properPrior: false,
-      properPriorMean: 0,
-      properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
       regressionAdjustmentEnabled: DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
       sequentialTestingEnabled: false,
@@ -138,6 +135,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     metricAnalysisDays: form.watch("metricAnalysisDays"),
     metricDefaults: {
       minimumSampleSize: form.watch("metricDefaults.minimumSampleSize"),
+      priorSettings: form.watch("metricDefaults.priorSettings"),
       maxPercentageChange: form.watch("metricDefaults.maxPercentageChange"),
       minPercentageChange: form.watch("metricDefaults.minPercentageChange"),
     },
@@ -153,9 +151,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
     multipleExposureMinPercent: form.watch("multipleExposureMinPercent"),
     statsEngine: form.watch("statsEngine"),
     confidenceLevel: form.watch("confidenceLevel"),
-    properPrior: form.watch("properPrior"),
-    properPriorMean: form.watch("properPriorMean"),
-    properPriorStdDev: form.watch("properPriorStdDev"),
     pValueThreshold: form.watch("pValueThreshold"),
     pValueCorrection: form.watch("pValueCorrection"),
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),

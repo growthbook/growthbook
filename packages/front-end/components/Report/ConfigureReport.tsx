@@ -502,7 +502,7 @@ export default function ConfigureReport({
 
       {form.watch("statsEngine") === "frequentist" && (
         <>
-          <div className="d-flex flex-row no-gutters align-items-center mb-3">
+          <div className="d-flex flex-row no-gutters align-items-center mb-3 ml-1">
             <div className="col-3">
               <SelectField
                 label={
@@ -531,7 +531,7 @@ export default function ConfigureReport({
             </div>
           </div>
 
-          <div className="d-flex flex-row no-gutters align-items-top">
+          <div className="d-flex flex-row no-gutters align-items-top ml-1">
             <div className="col-3">
               <SelectField
                 label={
@@ -594,10 +594,10 @@ export default function ConfigureReport({
       )}
       {form.watch("statsEngine") === "bayesian" && (
         <FormProvider {...form}>
-          <div className="mb-3">
+          <div className="mb-3 ml-1">
             <BayesianPriorSettings
-              defaultMean={orgSettings.properPriorMean}
-              defaultStdDev={orgSettings.properPriorStdDev}
+              defaultMean={orgSettings.metricDefaults?.priorSettings?.mean}
+              defaultStdDev={orgSettings.metricDefaults?.priorSettings?.stddev}
             />
           </div>
         </FormProvider>

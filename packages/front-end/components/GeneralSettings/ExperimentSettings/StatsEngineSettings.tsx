@@ -167,10 +167,8 @@ export default function StatsEngineSettings() {
               })}
             />
           </div>
-          <div className="p-3 my-3 border rounded">
-            <h5 className="font-weight-bold mb-4">Priors</h5>
-            <BayesianPriorSettings />
-          </div>
+
+          <BayesianPriorSettings />
         </Tab>
 
         <Tab id="frequentist" display="Frequentist">
