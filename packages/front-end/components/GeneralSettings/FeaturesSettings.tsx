@@ -155,7 +155,7 @@ export default function FeaturesSettings() {
                           label: e.name,
                         };
                       })}
-                      placeholder="All Environments"
+                      placeholder="All Projects"
                     />
                     <label htmlFor={`environments-${i}`} className="h5 mt-3">
                       Environments
