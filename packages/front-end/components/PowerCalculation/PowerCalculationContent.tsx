@@ -11,15 +11,16 @@ import {
 } from "./types";
 import PowerCalculationStatsEngineModal from "./PowerCalculationStatsEngineModal";
 
-const percentFormatter = (() => {
-  const formatter = new Intl.NumberFormat(undefined, {
-    style: "percent",
-
-    maximumFractionDigits: 0,
-  });
-
-  return (v: number) => (isNaN(v) ? "N/A" : formatter.format(v));
-})();
+const percentFormatter = (
+  v: number,
+  { digits }: { digits: number } = { digits: 0 }
+) =>
+  isNaN(v)
+    ? "N/A"
+    : new Intl.NumberFormat(undefined, {
+        style: "percent",
+        maximumFractionDigits: digits,
+      }).format(v);
 
 const numberFormatter = (() => {
   const formatter = Intl.NumberFormat("en-US");
@@ -153,7 +154,9 @@ const MetricLabel = ({
 }) => (
   <>
     <div className="font-weight-bold">{name}</div>
-    <div className="small">Effect Size {percentFormatter(effectSize)}</div>
+    <div className="small">
+      Effect Size {percentFormatter(effectSize, { digits: 2 })}
+    </div>
   </>
 );
 
@@ -219,7 +222,7 @@ const SampleSizeAndRuntime = ({
                         <td>
                           <MetricLabel name={name} effectSize={effectSize} />
                         </td>
-                        <td>{percentFormatter(effectSize)}</td>
+                        <td>{percentFormatter(effectSize, { digits: 2 })}</td>
                         <td>
                           {target
                             ? `${formatWeeks({
@@ -241,7 +244,7 @@ const SampleSizeAndRuntime = ({
                 <p>
                   Reliably detecting a lift of{" "}
                   <span className="font-weight-bold">
-                    {percentFormatter(selectedEffectSize)}
+                    {percentFormatter(selectedEffectSize, { digits: 2 })}
                   </span>{" "}
                   requires running your experiment for{" "}
                   {selectedTarget ? (
@@ -349,7 +352,9 @@ const MinimumDetectableEffect = ({
                       "power-analysis-cell-threshold"
                   )}
                 >
-                  {percentFormatter(ensureAndReturn(metrics[id]).effectSize)}
+                  {percentFormatter(ensureAndReturn(metrics[id]).effectSize, {
+                    digits: 2,
+                  })}
                 </td>
               ))}
             </tr>
