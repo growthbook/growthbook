@@ -98,7 +98,7 @@ export class GrowthBook<
   >;
   private _triggeredExpKeys: Set<string>;
   private _loadFeaturesCalled: boolean;
-  private _deferredTrackingCalls: TrackingData[];
+  private _deferredTrackingCalls: Map<string, TrackingData>;
 
   private _payload: FeatureApiResponse | undefined;
 
@@ -126,7 +126,7 @@ export class GrowthBook<
     this._triggeredExpKeys = new Set();
     this._loadFeaturesCalled = false;
     this._redirectedUrl = "";
-    this._deferredTrackingCalls = [];
+    this._deferredTrackingCalls = new Map();
     this._autoExperimentsAllowed = !context.disableExperimentsOnLoad;
 
     if (context.remoteEval) {
@@ -502,6 +502,7 @@ export class GrowthBook<
     this._assigned.clear();
     this._trackedExperiments.clear();
     this._completedChangeIds.clear();
+    this._deferredTrackingCalls.clear();
     this._trackedFeatures = {};
     this._rtQueue = [];
     this._payload = undefined;
@@ -1376,6 +1377,11 @@ export class GrowthBook<
     // 14. Fire the tracking callback
     this._track(experiment, result);
 
+    // 14.1 Keep track of completed changeIds
+    "changeId" in experiment &&
+      experiment.changeId &&
+      this._completedChangeIds.add(experiment.changeId as string);
+
     // 15. Return the result
     process.env.NODE_ENV !== "production" &&
       this.log("In experiment", {
@@ -1391,59 +1397,63 @@ export class GrowthBook<
     else console.log(msg, ctx);
   }
 
-  public getDeferredTrackingCalls() {
-    return this._deferredTrackingCalls;
+  public getDeferredTrackingCalls(): TrackingData[] {
+    return Array.from(this._deferredTrackingCalls.values());
   }
 
   public setDeferredTrackingCalls(calls: TrackingData[]) {
-    this._deferredTrackingCalls = calls;
+    this._deferredTrackingCalls = new Map(
+      calls
+        .filter((c) => c && c.experiment && c.result)
+        .map((c) => {
+          return [this._getTrackKey(c.experiment, c.result), c];
+        })
+    );
   }
 
   public fireDeferredTrackingCalls() {
-    let hasInvalidTrackingCall = false;
     this._deferredTrackingCalls.forEach((call: TrackingData) => {
       if (!call || !call.experiment || !call.result) {
         console.error("Invalid deferred tracking call", { call: call });
-        hasInvalidTrackingCall = true;
       } else {
         this._track(call.experiment, call.result);
       }
     });
 
-    this._deferredTrackingCalls = [];
-
-    if (hasInvalidTrackingCall) {
-      throw new Error("Invalid tracking data");
-    }
+    this._deferredTrackingCalls.clear();
   }
 
   public setTrackingCallback(callback: TrackingCallback) {
     this._ctx.trackingCallback = callback;
-
-    try {
-      this.fireDeferredTrackingCalls();
-    } catch (e) {
-      console.error(e);
-    }
+    this.fireDeferredTrackingCalls();
   }
 
-  private _track<T>(
-    experiment: Experiment<T> & Pick<AutoExperiment, "changeId">,
-    result: Result<T>
+  private _getTrackKey(
+    experiment: Experiment<unknown>,
+    result: Result<unknown>
   ) {
-    const key = experiment.key;
+    return (
+      result.hashAttribute +
+      result.hashValue +
+      experiment.key +
+      result.variationId
+    );
+  }
 
-    // Make sure a tracking callback is only fired once per unique experiment
-    const k =
-      result.hashAttribute + result.hashValue + key + result.variationId;
-    if (this._trackedExperiments.has(k)) return;
-    this._trackedExperiments.add(k);
-    experiment.changeId && this._completedChangeIds.add(experiment.changeId);
+  private _track<T>(experiment: Experiment<T>, result: Result<T>) {
+    const k = this._getTrackKey(experiment, result);
 
     if (!this._ctx.trackingCallback) {
-      this._deferredTrackingCalls.push({ experiment, result });
+      // Add to deferred tracking if it hasn't already been added
+      if (!this._deferredTrackingCalls.has(k)) {
+        this._deferredTrackingCalls.set(k, { experiment, result });
+      }
       return;
     }
+
+    // Make sure a tracking callback is only fired once per unique experiment
+    if (this._trackedExperiments.has(k)) return;
+    this._trackedExperiments.add(k);
 
     try {
       this._ctx.trackingCallback(experiment, result);
