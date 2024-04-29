@@ -1,5 +1,18 @@
-import { getPolyfills } from "./feature-repository";
-import { UrlTarget, UrlTargetType, VariationRange } from "./types/growthbook";
+import {
+  Polyfills,
+  UrlTarget,
+  UrlTargetType,
+  VariationRange,
+} from "./types/growthbook";
+
+const polyfills: Polyfills = {
+  fetch: globalThis.fetch ? globalThis.fetch.bind(globalThis) : undefined,
+  SubtleCrypto: globalThis.crypto ? globalThis.crypto.subtle : undefined,
+  EventSource: globalThis.EventSource,
+};
+export function getPolyfills(): Polyfills {
+  return polyfills;
+}
 
 function hashFnv32a(str: string): number {
   let hval = 0x811c9dc5;
@@ -264,7 +277,7 @@ export async function decrypt(
   subtle =
     subtle ||
     (globalThis.crypto && globalThis.crypto.subtle) ||
-    getPolyfills().SubtleCrypto;
+    polyfills.SubtleCrypto;
   if (!subtle) {
     throw new Error("No SubtleCrypto implementation found");
   }

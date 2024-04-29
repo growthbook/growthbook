@@ -53,7 +53,6 @@ export {
   onVisible,
   onHidden,
   prefetchPayload,
-  getPolyfills,
 } from "./feature-repository";
 
 export { GrowthBook } from "./GrowthBook";
@@ -68,4 +67,4 @@ export {
 
 export { evalCondition } from "./mongrule";
 
-export { isURLTargeted } from "./util";
+export { isURLTargeted, getPolyfills } from "./util";

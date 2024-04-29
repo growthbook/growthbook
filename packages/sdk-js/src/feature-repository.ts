@@ -6,7 +6,8 @@ import {
   Polyfills,
   PrefetchOptions,
 } from "./types/growthbook";
-import { GrowthBook } from ".";
+import { GrowthBook } from "./GrowthBook";
+import { getPolyfills } from "./util";
 
 type CacheEntry = {
   data: FeatureApiResponse;
@@ -37,11 +38,9 @@ const cacheSettings: CacheSettings = {
   idleStreamInterval: 20000,
   disableLocalCache: false,
 };
-const polyfills: Polyfills = {
-  fetch: globalThis.fetch ? globalThis.fetch.bind(globalThis) : undefined,
-  SubtleCrypto: globalThis.crypto ? globalThis.crypto.subtle : undefined,
-  EventSource: globalThis.EventSource,
-};
+
+const polyfills = getPolyfills();
+
 export const helpers: Helpers = {
   fetchFeaturesCall: ({ host, clientKey, headers }) => {
     return (polyfills.fetch as typeof globalThis.fetch)(
@@ -118,10 +117,6 @@ export function configureCache(overrides: Partial<CacheSettings>): void {
   if (!cacheSettings.backgroundSync) {
     clearAutoRefresh();
   }
-}
-
-export function getPolyfills(): Polyfills {
-  return polyfills;
 }
 
 export async function clearCache(): Promise<void> {
