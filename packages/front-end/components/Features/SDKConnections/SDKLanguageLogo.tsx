@@ -11,6 +11,7 @@ import {
   SiShopify,
   SiWebflow,
   SiWordpress,
+  SiElixir,
 } from "react-icons/si";
 import { ReactElement } from "react";
 import { isSDKOutdated } from "shared/sdk-versioning";
@@ -124,6 +125,13 @@ export const languageMapping: Record<
     color: "#29BEB0",
     label: "Golang",
     docs: "go",
+    environment: "backend",
+  },
+  elixir: {
+    Icon: SiElixir,
+    color: "#543364",
+    label: "Elixir",
+    docs: "elixir",
     environment: "backend",
   },
   ios: {
