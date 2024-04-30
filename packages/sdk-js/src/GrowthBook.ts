@@ -1034,6 +1034,8 @@ export class GrowthBook<
   ): boolean {
     if (!range && coverage === undefined) return true;
 
+    if (!range && coverage === 0) return false;
+
     const { hashValue } = this._getHashAttribute(
       hashAttribute,
       fallbackAttribute

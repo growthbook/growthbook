@@ -1,6 +1,6 @@
 # Changelog
 
-## **1.0.0** - Apr 31, 2024
+## **1.0.0** - May 1, 2024
 
 - New `init` function as a replacement for `loadFeatures`.
 - Support payload import/export via `init({ payload })`, `setPayload`, and `getPayload`. Better supports hybrid apps, as well as externalizing the SDK Payload.
@@ -16,7 +16,7 @@
 - Get a list of triggered experiments by their `changeId` (a new, more-specific AutoExperiment identifier) via `getCompletedChangeIds`.
 - Disable in-memory cache via `configureCache({ disableLocalCache: true })`
 - Easier streaming customization via `init({ streaming: true })`.
-- Prefetch payloads on backend SDK instances via `prefetchPayload()`. Also allows feature repository SSE streaming without connection each SDK instance to streaming (useful for NodeJS).
+- Prefetch payloads (and optionally begin streaming) before you create a GrowthBook instance with `prefetchPayload()`
 - Many improvements to `auto.min.js` script
   - Payload hydration via `payload` context property
   - Support sticky bucketing via `useStickyBucketService` context property (accepts "cookie" and "localStorage"); override cookie or localStorage key via `stickyBucketPrefix` context property.
