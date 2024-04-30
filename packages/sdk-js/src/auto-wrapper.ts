@@ -13,6 +13,7 @@ type WindowContext = Context & {
   uuidKey?: string;
   uuid?: string;
   persistUuidOnLoad?: boolean;
+  noStreaming?: boolean;
   useStickyBucketService?: "cookie" | "localStorage";
   stickyBucketPrefix?: string;
   payload?: FeatureApiResponse;
@@ -169,7 +170,10 @@ function getAutoAttributes(
     : "unknown";
 
   const _uuid = getUUID(useCookies);
-  if (windowContext.persistUuidOnLoad && useCookies) {
+  if (
+    (windowContext.persistUuidOnLoad || dataContext.persistUuidOnLoad) &&
+    useCookies
+  ) {
     persistUUID();
   }
 
@@ -200,14 +204,26 @@ function getAttributes() {
 
 // Create sticky bucket service
 let stickyBucketService: StickyBucketService | undefined = undefined;
-if (windowContext.useStickyBucketService === "cookie") {
+if (
+  windowContext.useStickyBucketService === "cookie" ||
+  dataContext.useStickyBucketService === "cookie"
+) {
   stickyBucketService = new BrowserCookieStickyBucketService({
-    prefix: windowContext.stickyBucketPrefix || undefined,
+    prefix:
+      windowContext.stickyBucketPrefix ||
+      dataContext.stickyBucketPrefix ||
+      undefined,
     jsCookie: Cookies,
   });
-} else if (windowContext.useStickyBucketService === "localStorage") {
+} else if (
+  windowContext.useStickyBucketService === "localStorage" ||
+  dataContext.useStickyBucketService === "localStorage"
+) {
   stickyBucketService = new LocalStorageStickyBucketService({
-    prefix: windowContext.stickyBucketPrefix || undefined,
+    prefix:
+      windowContext.stickyBucketPrefix ||
+      dataContext.stickyBucketPrefix ||
+      undefined,
   });
 }
 // Create GrowthBook instance
@@ -252,7 +268,14 @@ gb.setRenderer(() => {
   }
 
   // Load features/experiments
-  gb.init({ payload: windowContext.payload });
+  gb.init({
+    payload: windowContext.payload,
+    streaming: !(
+      windowContext.noStreaming ||
+      dataContext.noStreaming ||
+      windowContext.backgroundSync === false
+    ),
+  });
 })();
 
 // Poll for URL changes and update GrowthBook

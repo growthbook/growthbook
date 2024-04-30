@@ -25,6 +25,7 @@ export type {
   UrlTarget,
   AutoExperiment,
   AutoExperimentVariation,
+  AutoExperimentChangeType,
   DOMMutation,
   UrlTargetType,
   RenderFunction,
