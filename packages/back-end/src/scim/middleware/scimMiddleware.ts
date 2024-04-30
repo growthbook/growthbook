@@ -1,5 +1,6 @@
 import { Response, NextFunction } from "express";
 import { orgHasPremiumFeature } from "enterprise";
+import { getContextFromReq } from "@back-end/src/services/organizations";
 import { AuthRequest } from "../../types/AuthRequest";
 import { usingOpenId } from "../../services/auth";
 import { ScimError } from "../../../types/scim";
@@ -17,8 +18,10 @@ export default function scimMiddleware(
   }
 
   try {
-    // req.checkPermissions("manageTeam");
-    // if (!req.context.permissions.)
+    const context = getContextFromReq(req);
+    if (!context.permissions.canManageTeam()) {
+      context.permissions.throwPermissionError();
+    }
   } catch (e) {
     return res.status(403).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
