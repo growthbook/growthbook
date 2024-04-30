@@ -314,6 +314,32 @@ export default function MyApp() {
 }
 ```
 
+### URL Redirect Experiments
+
+Similarly to Visual Editor experiments, URL redirect tests will run automatically if targetting conditions are met.
+
+If you are using this SDK in a Single Page App (SPA), you'll want to pass in a custom navigation function into the SDK (as default navigation for URL Redirects uses `window.location.replace(url)`) and set the `navigateDelay` to 0.
+
+```js
+// Example in Next.js
+import router from "next/router";
+
+const gb = new GrowthBook({
+    navigate: (url) => router.replace(url),
+    navigateDelay: 0,
+    // ... other settings
+});
+```
+
+For SPA's you will also need to let the GrowthBook instance know when the URL changes so the active experiments can update accordingly.
+
+```js
+// Call this every time a navigation event happens in your SPA
+function onRouteChange() {
+  gb.setURL(window.location.href);
+}
+```
+
 ### Sticky Bucketing
 
 Sticky bucketing ensures that users see the same experiment variant, even when user session, user login status, or experiment parameters change. See the [Sticky Bucketing docs](/app/sticky-bucketing) for more information. If your organization and experiment supports sticky bucketing, you must implement an instance of the `StickyBucketService` to use Sticky Bucketing. The JS SDK exports several implementations of this service for common use cases, or you may build your own:

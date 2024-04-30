@@ -89,6 +89,7 @@ export interface Member extends MemberRoleWithProjects {
   dateCreated?: Date;
   externalId?: string;
   managedByIdp?: boolean;
+  lastLoginDate?: Date;
 }
 
 export interface ExpandedMember extends Member {
@@ -195,6 +196,7 @@ export interface OrganizationSettings {
   codeReferencesEnabled?: boolean;
   codeRefsBranchesToFilter?: string[];
   codeRefsPlatformUrl?: string;
+  powerCalculatorEnabled?: boolean;
 }
 
 export interface SubscriptionQuote {

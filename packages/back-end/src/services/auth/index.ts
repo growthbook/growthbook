@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { SSO_CONFIG } from "enterprise";
 import { userHasPermission } from "shared/permissions";
+import { logger } from "../../util/logger";
 import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
 import { markUserAsVerified, UserModel } from "../../models/UserModel";
@@ -9,7 +10,7 @@ import { Permission } from "../../../types/organization";
 import { UserInterface } from "../../../types/user";
 import { AuditInterface } from "../../../types/audit";
 import { getUserByEmail } from "../users";
-import { hasOrganization } from "../../models/OrganizationModel";
+import { hasOrganization, updateMember } from "../../models/OrganizationModel";
 import {
   IdTokenCookie,
   AuthChecksCookie,
@@ -128,7 +129,7 @@ export async function processJWT(
     if (IS_CLOUD && !req.loginMethod?.id && user.verified && !req.verified) {
       res.status(406).json({
         status: 406,
-        message: "You must verify your email address before using GrowthBook",
+        message: "You must log in via SSO to use GrowthBook",
       });
       return;
     }
@@ -152,6 +153,31 @@ export async function processJWT(
             message: "You do not have access to that organization",
           });
           return;
+        }
+
+        const memberRecord = req.organization.members.find(
+          (m) => m.id === req.userId
+        );
+        if (memberRecord) {
+          const lastLoginDate = memberRecord.lastLoginDate;
+          const now = new Date();
+          const interval = 1000 * 60 * 60 * 12; // 12 hr
+          if (
+            !lastLoginDate ||
+            lastLoginDate.getTime() < now.getTime() - interval
+          ) {
+            try {
+              await updateMember(req.organization, memberRecord.id, {
+                lastLoginDate: now,
+              });
+            } catch (e) {
+              logger.error("error updating last login date", {
+                organization: req.organization.id,
+                member: memberRecord.id,
+                error: e,
+              });
+            }
+          }
         }
 
         req.teams = await getTeamsForOrganization(req.organization.id);

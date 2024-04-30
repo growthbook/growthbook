@@ -20,9 +20,9 @@ export const updateFactTable = createApiRequestHandler(
     if (!factTable) {
       throw new Error("Could not find factTable with that id");
     }
-    req.checkPermissions("manageFactTables", factTable.projects);
-    if (req.body.projects) {
-      req.checkPermissions("manageFactTables", req.body.projects);
+
+    if (!req.context.permissions.canUpdateFactTable(factTable, req.body)) {
+      req.context.permissions.throwPermissionError();
     }
 
     // Validate projects

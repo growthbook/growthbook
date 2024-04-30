@@ -8,6 +8,7 @@ import { BsFlag } from "react-icons/bs";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import clsx from "clsx";
 import { PiShuffle } from "react-icons/pi";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
@@ -63,6 +64,7 @@ const ExperimentsPage = (): React.ReactElement => {
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
 
   const { getUserDisplay, permissions, userId } = useUser();
+  const settings = useOrgSettings();
 
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -222,6 +224,15 @@ const ExperimentsPage = (): React.ReactElement => {
               <h1>Experiments</h1>
             </div>
             <div style={{ flex: 1 }} />
+            {settings.powerCalculatorEnabled && (
+              <Link
+                className="btn btn-outline-primary float-right"
+                type="button"
+                href="/power-calculator"
+              >
+                Power Calculator
+              </Link>
+            )}
             {canAdd && (
               <div className="col-auto">
                 <button

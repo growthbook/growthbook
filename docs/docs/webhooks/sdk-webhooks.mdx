@@ -52,7 +52,7 @@ app.post(
     const webhookSecret = req.get("webhook-secret");
 
     if (webhookSecret && webhookSecret.startsWith("whsec_")) {
-      const signingKey = received.split("whsec_")[1];
+      const signingKey = webhookSecret.split("whsec_")[1];
       const computed = crypto
         .createHmac("sha256", GROWTHBOOK_WEBHOOK_SECRET)
         .update(payload)

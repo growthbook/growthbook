@@ -39,14 +39,10 @@ export async function getIdeas(
 }
 
 export async function getEstimatedImpact(
-  req: AuthRequest<{ metric: string; segment?: string; ideaId?: string }>,
+  req: AuthRequest<{ metric: string; segment?: string }>,
   res: Response
 ) {
-  const { metric, segment, ideaId } = req.body;
-
-  const idea = await getIdeaById(ideaId || "");
-
-  req.checkPermissions("runQueries", idea?.project || "");
+  const { metric, segment } = req.body;
 
   const context = getContextFromReq(req);
   const estimate = await getImpactEstimate(
