@@ -178,7 +178,9 @@ export interface Context {
   enabled?: boolean;
   attributes?: Attributes;
   url?: string;
+  /* @deprecated */
   features?: Record<string, FeatureDefinition>;
+  /* @deprecated */
   experiments?: AutoExperiment[];
   forcedVariations?: Record<string, number>;
   blockedChangeIds?: string[];
@@ -196,14 +198,18 @@ export interface Context {
   stickyBucketService?: StickyBucketService;
   log?: (msg: string, ctx: any) => void;
   qaMode?: boolean;
+  /* @deprecated */
   backgroundSync?: boolean;
+  /* @deprecated */
   subscribeToChanges?: boolean;
   enableDevMode?: boolean;
   /* @deprecated */
   disableDevTools?: boolean;
   trackingCallback?: TrackingCallback;
   onFeatureUsage?: (key: string, result: FeatureResult<any>) => void;
+  /* @deprecated */
   realtimeKey?: string;
+  /* @deprecated */
   realtimeInterval?: number;
   cacheKeyAttributes?: (keyof Attributes)[];
   /* @deprecated */
