@@ -11,6 +11,7 @@ import {
 } from "react-icons/fa";
 import { FeatureInterface } from "back-end/types/feature";
 import Link from "next/link";
+import { getDefaultSDKVersion } from "shared/sdk-versioning";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getApiHost, getCdnHost } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -83,6 +84,9 @@ export default function CodeSnippetModal({
   const [showTestModal, setShowTestModal] = useState(false);
 
   const [language, setLanguage] = useState<SDKLanguage>("javascript");
+  const [version, setVersion] = useState<string>(
+    getDefaultSDKVersion("javascript")
+  );
 
   const [configOpen, setConfigOpen] = useState(true);
   const [installationOpen, setInstallationOpen] = useState(true);
@@ -96,10 +100,14 @@ export default function CodeSnippetModal({
   useEffect(() => {
     if (!currentConnection) return;
 
-    // connection changes & current language isn't included in new connection, reset to default
-    if (!currentConnection.languages.includes(language)) {
-      setLanguage(currentConnection.languages[0] || "javascript");
-    }
+    const language = currentConnection.languages[0] ?? "javascript";
+    const version =
+      (currentConnection?.languages?.length === 1 &&
+      currentConnection?.languages?.[0] === language
+        ? currentConnection?.sdkVersion
+        : undefined) ?? getDefaultSDKVersion(language);
+    setLanguage(language);
+    setVersion(version);
   }, [currentConnection]);
 
   if (!currentConnection) {
@@ -202,7 +210,13 @@ export default function CodeSnippetModal({
               <SDKLanguageSelector
                 value={[language]}
                 setValue={([language]) => {
+                  const version =
+                    (currentConnection?.languages?.length === 1 &&
+                    currentConnection?.languages?.[0] === language
+                      ? currentConnection?.sdkVersion
+                      : undefined) ?? getDefaultSDKVersion(language);
                   setLanguage(language);
+                  setVersion(version);
                 }}
                 multiple={false}
                 includeOther={false}
@@ -354,6 +368,7 @@ export default function CodeSnippetModal({
                 <div className="appbox bg-light p-3">
                   <GrowthBookSetupCodeSnippet
                     language={language}
+                    version={version}
                     apiHost={apiHost}
                     apiKey={clientKey}
                     encryptionKey={encryptionKey}

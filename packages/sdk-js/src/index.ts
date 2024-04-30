@@ -72,4 +72,5 @@ export {
   isURLTargeted,
   getPolyfills,
   getAutoExperimentChangeType,
+  paddedVersionString,
 } from "./util";
