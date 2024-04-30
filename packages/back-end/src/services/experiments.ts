@@ -1800,8 +1800,9 @@ export function postExperimentApiPayloadToInterface(
     activationMetric: "",
     segment: "",
     queryFilter: "",
-    skipPartialData: false,
-    attributionModel: "firstExposure",
+    skipPartialData: payload.inProgressConversions === "strict",
+    attributionModel: payload.attributionModel || "firstExposure",
+    ...(payload.statsEngine ? { statsEngine: payload.statsEngine } : {}),
     variations:
       payload.variations.map((v) => ({
         ...v,
@@ -1854,6 +1855,9 @@ export function updateExperimentApiPayloadToInterface(
     variations,
     releasedVariationId,
     excludeFromPayload,
+    inProgressConversions,
+    attributionModel,
+    statsEngine,
   } = payload;
   return {
     ...(trackingKey ? { trackingKey } : {}),
@@ -1872,6 +1876,11 @@ export function updateExperimentApiPayloadToInterface(
     ...(status ? { status } : {}),
     ...(releasedVariationId !== undefined ? { releasedVariationId } : {}),
     ...(excludeFromPayload !== undefined ? { excludeFromPayload } : {}),
+    ...(inProgressConversions !== undefined
+      ? { skipPartialData: inProgressConversions === "strict" }
+      : {}),
+    ...(attributionModel !== undefined ? { attributionModel } : {}),
+    ...(statsEngine !== undefined ? { statsEngine } : {}),
     ...(variations
       ? {
           variations: variations?.map((v) => ({

@@ -3155,6 +3155,12 @@ export interface operations {
           minBucketVersion?: number;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
+          /** @enum {string} */
+          inProgressConversions?: "loose" | "strict";
+          /** @enum {string} */
+          attributionModel?: "firstExposure" | "experimentDuration";
+          /** @enum {string} */
+          statsEngine?: "bayesian" | "frequentist";
           variations: ({
               id?: string;
               key: string;
@@ -3473,6 +3479,12 @@ export interface operations {
           minBucketVersion?: number;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
+          /** @enum {string} */
+          inProgressConversions?: "loose" | "strict";
+          /** @enum {string} */
+          attributionModel?: "firstExposure" | "experimentDuration";
+          /** @enum {string} */
+          statsEngine?: "bayesian" | "frequentist";
           variations?: ({
               id?: string;
               key: string;
