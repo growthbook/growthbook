@@ -333,7 +333,7 @@ const MinimumDetectableEffect = ({
                 key={idx}
                 className={clsx(
                   results.weekThreshold === idx + 1 &&
-                    "power-analysis-cell-threshold"
+                    "power-analysis-cell-threshold power-analysis-overall-header-threshold"
                 )}
               >
                 {(() => {
@@ -366,7 +366,7 @@ const MinimumDetectableEffect = ({
           </tr>
         </thead>
         <tbody>
-          {Object.keys(results.weeks[0]?.metrics).map((id) => (
+          {Object.keys(results.weeks[0]?.metrics).map((id, pos) => (
             <tr key={id}>
               <td>
                 <MetricLabel {...ensureAndReturn(params.metrics[id])} />
@@ -376,7 +376,12 @@ const MinimumDetectableEffect = ({
                   key={`${id}-${idx}`}
                   className={clsx(
                     ensureAndReturn(metrics[id]).isThreshold &&
-                      "power-analysis-cell-threshold"
+                      "power-analysis-cell-threshold",
+                    results.weekThreshold === idx + 1 &&
+                      "power-analysis-overall-cell-threshold",
+                    Object.keys(results.weeks[0]?.metrics).length == pos + 1 &&
+                      results.weekThreshold === idx + 1 &&
+                      "power-analysis-overall-bottom-threshold"
                   )}
                 >
                   {(() => {
@@ -446,7 +451,7 @@ const PowerOverTime = ({
                 key={idx}
                 className={clsx(
                   results.weekThreshold === idx + 1 &&
-                    "power-analysis-cell-threshold"
+                    "power-analysis-cell-threshold power-analysis-overall-header-threshold"
                 )}
               >
                 {(() => {
@@ -479,7 +484,7 @@ const PowerOverTime = ({
           </tr>
         </thead>
         <tbody>
-          {Object.keys(results.weeks[0]?.metrics).map((id) => (
+          {Object.keys(results.weeks[0]?.metrics).map((id, pos) => (
             <tr key={id}>
               <td>
                 <MetricLabel {...ensureAndReturn(params.metrics[id])} />
@@ -489,7 +494,12 @@ const PowerOverTime = ({
                   key={`${id}-${idx}`}
                   className={clsx(
                     ensureAndReturn(metrics[id]).isThreshold &&
-                      "power-analysis-cell-threshold"
+                      "power-analysis-cell-threshold",
+                    results.weekThreshold === idx + 1 &&
+                      "power-analysis-overall-cell-threshold",
+                    Object.keys(results.weeks[0]?.metrics).length == pos + 1 &&
+                      results.weekThreshold === idx + 1 &&
+                      "power-analysis-overall-bottom-threshold"
                   )}
                 >
                   {(() => {

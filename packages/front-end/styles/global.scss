@@ -131,6 +131,22 @@ pre {
 
 .power-analysis-cell-threshold {
   background-color: var(--alert-info-background);
+  cursor: help;
+}
+
+.power-analysis-overall-header-threshold {
+  border-top: 1px solid colors.$highlight-purple !important;
+  border-left: 1px solid colors.$highlight-purple !important;
+  border-right: 1px solid colors.$highlight-purple !important;
+}
+
+.power-analysis-overall-cell-threshold {
+  border-left: 1px solid colors.$highlight-purple !important;
+  border-right: 1px solid colors.$highlight-purple !important;
+}
+
+.power-analysis-overall-bottom-threshold {
+  border-bottom: 1px solid colors.$highlight-purple !important;
 }
 
 .w-100px {
