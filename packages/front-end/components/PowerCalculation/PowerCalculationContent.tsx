@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import clsx from "clsx";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { ensureAndReturn } from "@/types/utils";
 import { GBHeadingArrowLeft } from "@/components/Icons";
 import {
@@ -155,7 +156,7 @@ const MetricLabel = ({
   <>
     <div className="font-weight-bold">{name}</div>
     <div className="small">
-      Effect Size {percentFormatter(effectSize, { digits: 2 })}
+      Effect Size {percentFormatter(effectSize, { digits: 1 })}
     </div>
   </>
 );
@@ -222,7 +223,7 @@ const SampleSizeAndRuntime = ({
                         <td>
                           <MetricLabel name={name} effectSize={effectSize} />
                         </td>
-                        <td>{percentFormatter(effectSize, { digits: 2 })}</td>
+                        <td>{percentFormatter(effectSize, { digits: 1 })}</td>
                         <td>
                           {target
                             ? `${formatWeeks({
@@ -244,7 +245,7 @@ const SampleSizeAndRuntime = ({
                 <p>
                   Reliably detecting a lift of{" "}
                   <span className="font-weight-bold">
-                    {percentFormatter(selectedEffectSize, { digits: 2 })}
+                    {percentFormatter(selectedEffectSize, { digits: 1 })}
                   </span>{" "}
                   requires running your experiment for{" "}
                   {selectedTarget ? (
@@ -332,8 +333,31 @@ const MinimumDetectableEffect = ({
                     "power-analysis-cell-threshold"
                 )}
               >
-                <div className="font-weight-bold">Week {idx + 1}</div>
-                <span className="small">{numberFormatter(users)} Users</span>
+                {(() => {
+                  const content = (
+                    <>
+                      <div className="font-weight-bold">Week {idx + 1}</div>
+                      <span className="small">
+                        {numberFormatter(users)} Users
+                      </span>
+                    </>
+                  );
+
+                  if (results.weekThreshold === idx + 1)
+                    return (
+                      <Tooltip
+                        popperClassName="text-top"
+                        body={`Week ${
+                          idx + 1
+                        } is the first week when all your metrics meet their expected effect size.`}
+                        tipPosition="top"
+                      >
+                        {content}
+                      </Tooltip>
+                    );
+
+                  return content;
+                })()}
               </th>
             ))}
           </tr>
@@ -352,9 +376,36 @@ const MinimumDetectableEffect = ({
                       "power-analysis-cell-threshold"
                   )}
                 >
-                  {percentFormatter(ensureAndReturn(metrics[id]).effectSize, {
-                    digits: 2,
-                  })}
+                  {(() => {
+                    const content = percentFormatter(
+                      ensureAndReturn(metrics[id]).effectSize,
+                      {
+                        digits: 1,
+                      }
+                    );
+
+                    if (ensureAndReturn(metrics[id]).isThreshold) {
+                      const { effectSize, name } = ensureAndReturn(
+                        params.metrics[id]
+                      );
+                      return (
+                        <Tooltip
+                          popperClassName="text-top"
+                          body={`Week ${
+                            idx + 1
+                          } is the first week where the minimum detectable effect over time dropped bellow your target effect size of ${percentFormatter(
+                            effectSize,
+                            { digits: 1 }
+                          )} for your ${name} metric.`}
+                          tipPosition="top"
+                        >
+                          {content}
+                        </Tooltip>
+                      );
+                    }
+
+                    return content;
+                  })()}
                 </td>
               ))}
             </tr>
@@ -395,8 +446,31 @@ const PowerOverTime = ({
                     "power-analysis-cell-threshold"
                 )}
               >
-                <div className="font-weight-bold">Week {idx + 1}</div>
-                <span className="small">{numberFormatter(users)} Users</span>
+                {(() => {
+                  const content = (
+                    <>
+                      <div className="font-weight-bold">Week {idx + 1}</div>
+                      <span className="small">
+                        {numberFormatter(users)} Users
+                      </span>
+                    </>
+                  );
+
+                  if (results.weekThreshold === idx + 1)
+                    return (
+                      <Tooltip
+                        popperClassName="text-top"
+                        body={`Week ${
+                          idx + 1
+                        } is the first week when all your metrics meet their expected effect size.`}
+                        tipPosition="top"
+                      >
+                        {content}
+                      </Tooltip>
+                    );
+
+                  return content;
+                })()}
               </th>
             ))}
           </tr>
@@ -415,7 +489,36 @@ const PowerOverTime = ({
                       "power-analysis-cell-threshold"
                   )}
                 >
-                  {percentFormatter(ensureAndReturn(metrics[id]).power)}
+                  {(() => {
+                    const content = percentFormatter(
+                      ensureAndReturn(metrics[id]).power
+                    );
+
+                    if (ensureAndReturn(metrics[id]).isThreshold) {
+                      const { targetPower } = params;
+                      const { effectSize, name } = ensureAndReturn(
+                        params.metrics[id]
+                      );
+                      return (
+                        <Tooltip
+                          popperClassName="text-top"
+                          body={`Week ${
+                            idx + 1
+                          } is the first week with at least ${percentFormatter(
+                            targetPower
+                          )} power to detect an effect size of ${percentFormatter(
+                            effectSize,
+                            { digits: 1 }
+                          )} for your ${name} metric.`}
+                          tipPosition="top"
+                        >
+                          {content}
+                        </Tooltip>
+                      );
+                    }
+
+                    return content;
+                  })()}
                 </td>
               ))}
             </tr>
