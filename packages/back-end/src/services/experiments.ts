@@ -1799,8 +1799,9 @@ export function postExperimentApiPayloadToInterface(
     activationMetric: "",
     segment: "",
     queryFilter: "",
-    skipPartialData: false,
-    attributionModel: "firstExposure",
+    skipPartialData: payload.inProgressConversions === "strict",
+    attributionModel: payload.attributionModel || "firstExposure",
+    ...(payload.statsEngine ? { statsEngine: payload.statsEngine } : {}),
     variations:
       payload.variations.map((v) => ({
         ...v,
