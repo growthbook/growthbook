@@ -12,7 +12,7 @@
   - `disableCrossOriginUrlRedirectExperiments` blocks redirects if the origin changes
   - `disableExperimentsOnLoad` prevents AutoExperiments from running automatically; `triggerAutoExperiments` manually triggers them.
 - Provide a custom DOM mutation method by setting context `applyDomChangesCallback`. Useful for server-side rendering visual experiments.
-- New `jsInjectionNonce` setting to add a nonce onto any injected <sript\> tags. This provides a safer alternative to allowing `unsafe-inline` in your Content Security Policy.
+- New `jsInjectionNonce` setting to add a nonce onto any injected <script\> tags. This provides a safer alternative to allowing `unsafe-inline` in your Content Security Policy.
 - Get a list of triggered experiments by their `changeId` (a new, more-specific AutoExperiment identifier) via `getCompletedChangeIds`.
 - Disable in-memory cache via `configureCache({ disableLocalCache: true })` or the new GrowthBook constructor option `disableCache`.
 - Easier streaming customization via `init({ streaming: true })`.
