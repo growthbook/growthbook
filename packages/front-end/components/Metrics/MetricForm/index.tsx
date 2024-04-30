@@ -5,22 +5,16 @@ import {
   MetricType,
   Operator,
 } from "back-end/types/metric";
-import { UseFormReturn, useFieldArray, useForm } from "react-hook-form";
+import { useFieldArray, useForm } from "react-hook-form";
 import { FaArrowRight, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import {
   DEFAULT_LOSE_RISK_THRESHOLD,
-  DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { isProjectListValidForProject } from "shared/util";
-import {
-  MetricCappingSettings,
-  MetricPriorSettings,
-  MetricWindowSettings,
-} from "@back-end/types/fact-table";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -50,7 +44,6 @@ import ConfirmModal from "@/components/ConfirmModal";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import BayesianPriorSettings from "@/components/Settings/BayesianPriorSettings";
 import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
 import { MetricWindowSettingsForm } from "./MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "./MetricCappingSettingsForm";
@@ -58,40 +51,6 @@ import { MetricDelayHours } from "./MetricDelayHours";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
-
-export type MetricFormData = {
-  datasource: string;
-  name: string;
-  description: string;
-  type: MetricType;
-  table: string;
-  denominator: string;
-  column: string;
-  inverse: boolean;
-  ignoreNulls: boolean;
-  queryFormat: "sql" | "builder";
-  cappingSettings: MetricCappingSettings;
-  windowSettings: MetricWindowSettings;
-  sql: string;
-  eventName: string;
-  valueColumn: string;
-  aggregation: string;
-  conditions: Condition[];
-  userIdTypes: string[];
-  userIdColumns: Record<string, string>;
-  timestampColumn: string;
-  tags: string[];
-  projects: string[];
-  winRisk: number;
-  loseRisk: number;
-  maxPercentChange: number;
-  minPercentChange: number;
-  minSampleSize: number;
-  regressionAdjustmentOverride: boolean;
-  regressionAdjustmentEnabled: boolean;
-  regressionAdjustmentDays: number;
-  priorSettings: MetricPriorSettings;
-};
 
 export type MetricFormProps = {
   initialStep?: number;
@@ -344,7 +303,7 @@ const MetricForm: FC<MetricFormProps> = ({
     validDatasources.find((d) => d.id === initialDatasourceId) ||
     validDatasources[0];
 
-  const form: UseFormReturn<MetricFormData> = useForm({
+  const form = useForm({
     defaultValues: {
       datasource: initialDatasource?.id || "",
       name: current.name || "",
@@ -388,12 +347,7 @@ const MetricForm: FC<MetricFormProps> = ({
         current.regressionAdjustmentDays ??
         settings.regressionAdjustmentDays ??
         DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
-      priorSettings: current.priorSettings || {
-        override: false,
-        proper: settings.properPrior ?? false,
-        mean: settings.properPriorMean ?? 0,
-        stddev: settings.properPriorStdDev ?? DEFAULT_PROPER_PRIOR_STDDEV,
-      },
+      priorSettings: current.priorSettings || metricDefaults.priorSettings,
     },
   });
 
@@ -1263,7 +1217,10 @@ const MetricForm: FC<MetricFormProps> = ({
               <MetricDelayHours form={form} />
 
               <MetricPriorSettingsForm
-                form={form}
+                priorSettings={form.watch("priorSettings")}
+                setPriorSettings={(priorSettings) =>
+                  form.setValue("priorSettings", priorSettings)
+                }
                 metricDefaults={metricDefaults}
               />
 

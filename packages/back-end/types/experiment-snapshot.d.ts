@@ -13,7 +13,7 @@ import {
 } from "./report";
 import { DimensionInterface } from "./dimension";
 import { AttributionModel } from "./experiment";
-import { MetricPriorSettings, MetricWindowSettings } from "./fact-table";
+import { MetricWindowSettings } from "./fact-table";
 
 export interface SnapshotMetric {
   value: number;

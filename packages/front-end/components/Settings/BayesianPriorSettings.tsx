@@ -82,7 +82,7 @@ export default function BayesianPriorSettings({
               </div>
               <div>
                 <small className="text-muted mt-1">
-                  {`Your prior beliefs are that the average lift is ${percentFormatter.format(
+                  {`Your prior distribution specifies that the average lift is ${percentFormatter.format(
                     form.watch("metricDefaults.priorSettings.mean")
                   )}, and that ~68% of experiment lifts lie between ${percentFormatter.format(
                     -1 * form.watch("metricDefaults.priorSettings.stddev") +

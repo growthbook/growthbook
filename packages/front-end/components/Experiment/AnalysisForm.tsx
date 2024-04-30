@@ -1,20 +1,12 @@
 import React, { FC, useCallback, useState } from "react";
-import {
-  FormProvider,
-  UseFormReturn,
-  useFieldArray,
-  useForm,
-} from "react-hook-form";
+import { UseFormReturn, useFieldArray, useForm } from "react-hook-form";
 import {
   AttributionModel,
   ExperimentInterfaceStringDates,
 } from "back-end/types/experiment";
 import { FaQuestionCircle } from "react-icons/fa";
 import { getValidDate } from "shared/dates";
-import {
-  DEFAULT_PROPER_PRIOR_STDDEV,
-  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-} from "shared/constants";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import {
   getAffectedEnvsForExperiment,
   isProjectListValidForProject,
@@ -35,7 +27,6 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import BayesianPriorSettings from "@/components/Settings/BayesianPriorSettings";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import MetricsSelector, { MetricsSelectorTooltip } from "./MetricsSelector";

@@ -16,7 +16,7 @@ export function MetricPriorRightRailSectionGroup({
         <li className="mt-3 mb-2">
           <span className="uppercase-title lg">Priors</span>
           <small className="d-block mb-1 text-muted">
-            Only applicable to bayesian analyses
+            Only applicable to Bayesian analyses
           </small>
         </li>
         {metric.priorSettings?.override ? (
@@ -36,7 +36,7 @@ export function MetricPriorRightRailSectionGroup({
                   </span>
                 </li>
                 <li className="mb-2">
-                  <span className="text-gray">Satandard Deviation:</span>{" "}
+                  <span className="text-gray">Standard Deviation:</span>{" "}
                   <span className="font-weight-bold">
                     {metric.priorSettings.stddev}
                   </span>
@@ -66,7 +66,7 @@ export function MetricPriorRightRailSectionGroup({
                       </span>
                     </div>
                     <div className="mb-1 small">
-                      <span className="text-gray">Satandard Deviation:</span>{" "}
+                      <span className="text-gray">Standard Deviation:</span>{" "}
                       <span className="font-weight-bold">
                         {metricDefaults?.priorSettings.stddev ??
                           DEFAULT_PROPER_PRIOR_STDDEV}

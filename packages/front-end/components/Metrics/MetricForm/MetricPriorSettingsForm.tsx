@@ -1,8 +1,7 @@
-import { CreateFactMetricProps } from "@back-end/types/fact-table";
+import { MetricPriorSettings } from "@back-end/types/fact-table";
 import { MetricDefaults } from "@back-end/types/organization";
-import { UseFormReturn } from "react-hook-form";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
-import { MetricFormData } from "@/components/Metrics/MetricForm";
+import { useState } from "react";
 import Toggle from "@/components/Forms/Toggle";
 import Field from "@/components/Forms/Field";
 
@@ -12,17 +11,22 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 });
 
 export function MetricPriorSettingsForm({
-  form,
+  priorSettings,
+  setPriorSettings,
   metricDefaults,
 }: {
-  form: UseFormReturn<MetricFormData | CreateFactMetricProps>;
+  priorSettings: MetricPriorSettings;
+  setPriorSettings: (value: MetricPriorSettings) => void;
   metricDefaults: MetricDefaults;
 }) {
+  const [mean, setMean] = useState<string>(String(priorSettings.mean));
+  const [stddev, setStddev] = useState<string>(String(priorSettings.stddev));
+
   return (
-    <>
+    <div className="form-group">
       <label className="mb-1">Metric Priors</label>
       <small className="d-block mb-1 text-muted">
-        Only applicable to bayesian analyses
+        Only applicable to Bayesian analyses
       </small>
       <div className="px-3 py-2 pb-0 mb-2 border rounded">
         <div className="form-group mb-0 mr-0 form-inline">
@@ -30,8 +34,14 @@ export function MetricPriorSettingsForm({
             <input
               type="checkbox"
               className="form-check-input"
-              {...form.register("priorSettings.override")}
               id={"toggle-properPriorOverride"}
+              checked={priorSettings.override}
+              onChange={(v) =>
+                setPriorSettings({
+                  ...priorSettings,
+                  override: v.target.checked,
+                })
+              }
             />
             <label
               className="mr-1 cursor-pointer"
@@ -43,7 +53,7 @@ export function MetricPriorSettingsForm({
         </div>
         <div
           style={{
-            display: form.watch("priorSettings.override") ? "block" : "none",
+            display: priorSettings.override ? "block" : "none",
           }}
         >
           <div className="d-flex my-2 border-bottom"></div>
@@ -56,9 +66,9 @@ export function MetricPriorSettingsForm({
             </label>
             <Toggle
               id={"toggle-properPrior"}
-              value={!!form.watch("priorSettings.proper")}
+              value={!!priorSettings.proper}
               setValue={(value) => {
-                form.setValue("priorSettings.proper", value);
+                setPriorSettings({ ...priorSettings, proper: value });
               }}
             />
             <small className="form-text text-muted">
@@ -67,9 +77,8 @@ export function MetricPriorSettingsForm({
             </small>
           </div>
 
-          {(metricDefaults.priorSettings?.proper &&
-            !form.watch("priorSettings.override")) ||
-          form.watch("priorSettings.proper") ? (
+          {(metricDefaults.priorSettings?.proper && !priorSettings.override) ||
+          priorSettings.proper ? (
             <>
               <div className="row">
                 <div className="col">
@@ -82,9 +91,17 @@ export function MetricPriorSettingsForm({
                     helpText={`Organization default: ${
                       metricDefaults.priorSettings?.mean ?? 0
                     }`}
-                    {...form.register("priorSettings.mean", {
-                      valueAsNumber: true,
-                    })}
+                    value={mean}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setMean(value);
+                      if (value !== "") {
+                        setPriorSettings({
+                          ...priorSettings,
+                          mean: Number(value),
+                        });
+                      }
+                    }}
                   />
                 </div>
                 <div className="col">
@@ -93,31 +110,39 @@ export function MetricPriorSettingsForm({
                     type="number"
                     step="any"
                     containerClassName="mb-0 mt-3"
-                    min="0"
                     required
                     helpText={`Organization default: ${
                       metricDefaults.priorSettings?.stddev ??
                       DEFAULT_PROPER_PRIOR_STDDEV
                     }`}
-                    {...form.register("priorSettings.stddev", {
-                      valueAsNumber: true,
-                      validate: (v) => {
-                        return !(v <= 0);
-                      },
-                    })}
+                    value={stddev}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setStddev(value);
+                      const input = e.target;
+                      if (Number(value) <= 0) {
+                        input.setCustomValidity("Value must be greater than 0");
+                      } else {
+                        input.setCustomValidity("");
+                      }
+                      if (value !== "") {
+                        setPriorSettings({
+                          ...priorSettings,
+                          stddev: Number(value),
+                        });
+                      }
+                    }}
                   />
                 </div>
               </div>
               <div>
                 <small className="text-muted mt-1">
-                  {`Your prior beliefs are that the average lift is ${percentFormatter.format(
-                    form.watch("priorSettings.mean")
+                  {`Your prior distribution specifies that the average lift is ${percentFormatter.format(
+                    priorSettings.mean
                   )}, and that ~68% of experiment lifts lie between ${percentFormatter.format(
-                    -1 * form.watch("priorSettings.stddev") +
-                      form.watch("priorSettings.mean")
+                    -1 * priorSettings.stddev + priorSettings.mean
                   )} and ${percentFormatter.format(
-                    form.watch("priorSettings.stddev") +
-                      form.watch("priorSettings.mean")
+                    priorSettings.stddev + priorSettings.mean
                   )}`}
                 </small>
               </div>
@@ -125,6 +150,6 @@ export function MetricPriorSettingsForm({
           ) : null}
         </div>
       </div>
-    </>
+    </div>
   );
 }

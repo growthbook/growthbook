@@ -930,12 +930,14 @@ export default function FactMetricModal({
                   />
                 ) : null}
 
-                <div className="mb-1">
-                  <MetricPriorSettingsForm
-                    form={form}
-                    metricDefaults={metricDefaults}
-                  />
-                </div>
+                <MetricPriorSettingsForm
+                  priorSettings={form.watch("priorSettings")}
+                  setPriorSettings={(priorSettings) =>
+                    form.setValue("priorSettings", priorSettings)
+                  }
+                  metricDefaults={metricDefaults}
+                />
+
                 <PremiumTooltip commercialFeature="regression-adjustment">
                   <label className="mb-1">
                     <GBCuped /> Regression Adjustment (CUPED)
