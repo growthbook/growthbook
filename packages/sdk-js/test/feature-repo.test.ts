@@ -751,7 +751,7 @@ describe("feature-repo", () => {
     cleanup();
   });
 
-  it("doesn't cache when `enableDevMode` is on", async () => {
+  it("doesn't cache when `disableCache` is true", async () => {
     await seedLocalStorage();
 
     const apiVersion = "2025-01-01T00:00:00Z";
@@ -767,7 +767,7 @@ describe("feature-repo", () => {
     const growthbook = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
-      enableDevMode: true,
+      disableCache: true,
     });
     // Initial value of feature should be null
     expect(growthbook.evalFeature("foo").value).toEqual(null);
