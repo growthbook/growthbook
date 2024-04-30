@@ -8,8 +8,8 @@ import TagsModal from "@/components/Tags/TagsModal";
 import Tag from "@/components/Tags/Tag";
 import { GBAddCircle } from "@/components/Icons";
 import { useSearch } from "@/services/search";
-import usePermissions from "@/hooks/usePermissions";
 import Field from "@/components/Forms/Field";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const TagsPage: FC = () => {
   const { tags, mutateDefinitions } = useDefinitions();
@@ -24,9 +24,14 @@ const TagsPage: FC = () => {
     searchFields: ["id", "description"],
   });
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
-  if (!permissions.manageTags) {
+  const canManageTags =
+    permissionsUtil.canCreateTag() ||
+    permissionsUtil.canUpdateTag() ||
+    permissionsUtil.canDeleteTag();
+
+  if (!canManageTags) {
     return (
       <div className="container pagecontents">
         <div className="alert alert-danger">
@@ -85,27 +90,31 @@ const TagsPage: FC = () => {
                       <Tag tag={t.id} skipMargin={true} />
                     </td>
                     <td>
-                      <button
-                        className="btn btn-outline-primary tr-hover"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setModalOpen(t);
-                        }}
-                      >
-                        <FaPencilAlt />
-                      </button>{" "}
-                      <DeleteButton
-                        deleteMessage="Are you sure? Deleting a tag will remove it from all features, metrics, and experiments."
-                        className="tr-hover"
-                        displayName="Tag"
-                        onClick={async () => {
-                          await apiCall(`/tag/`, {
-                            method: "DELETE",
-                            body: JSON.stringify({ id: t.id }),
-                          });
-                          mutateDefinitions();
-                        }}
-                      />
+                      {permissionsUtil.canUpdateTag() ? (
+                        <button
+                          className="btn btn-outline-primary tr-hover mr-2"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setModalOpen(t);
+                          }}
+                        >
+                          <FaPencilAlt />
+                        </button>
+                      ) : null}
+                      {permissionsUtil.canDeleteTag() ? (
+                        <DeleteButton
+                          deleteMessage="Are you sure? Deleting a tag will remove it from all features, metrics, and experiments."
+                          className="tr-hover"
+                          displayName="Tag"
+                          onClick={async () => {
+                            await apiCall(`/tag/`, {
+                              method: "DELETE",
+                              body: JSON.stringify({ id: t.id }),
+                            });
+                            mutateDefinitions();
+                          }}
+                        />
+                      ) : null}
                     </td>
                   </tr>
                 );
@@ -123,18 +132,20 @@ const TagsPage: FC = () => {
       ) : (
         <></>
       )}
-      <button
-        className="btn btn-primary"
-        onClick={(e) => {
-          e.preventDefault();
-          setModalOpen({});
-        }}
-      >
-        <span className="h4 pr-2 m-0 d-inline-block">
-          <GBAddCircle />
-        </span>{" "}
-        Add Tag
-      </button>
+      {permissionsUtil.canCreateTag() ? (
+        <button
+          className="btn btn-primary"
+          onClick={(e) => {
+            e.preventDefault();
+            setModalOpen({});
+          }}
+        >
+          <span className="h4 pr-2 m-0 d-inline-block">
+            <GBAddCircle />
+          </span>{" "}
+          Add Tag
+        </button>
+      ) : null}
     </div>
   );
 };

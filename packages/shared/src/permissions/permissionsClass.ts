@@ -55,6 +55,18 @@ export class Permissions {
     return this.checkGlobalPermission("createDimensions");
   };
 
+  public canCreateTag = (): boolean => {
+    return this.checkGlobalPermission("manageTags");
+  };
+
+  public canUpdateTag = (): boolean => {
+    return this.checkGlobalPermission("manageTags");
+  };
+
+  public canDeleteTag = (): boolean => {
+    return this.checkGlobalPermission("manageTags");
+  };
+
   //Project Permissions
   public canCreateVisualChange = (
     experiment: Pick<ExperimentInterface, "project">

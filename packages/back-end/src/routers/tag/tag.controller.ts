@@ -28,19 +28,55 @@ export const postTag = async (
   req: CreateTagRequest,
   res: Response<CreateTagResponse>
 ) => {
-  req.checkPermissions("manageTags");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canCreateTag()) {
+    context.permissions.throwPermissionError();
+  }
   const { id, color, description } = req.body;
 
-  await addTag(org.id, id, color, description);
+  await addTag(context.org.id, id, color, description);
 
   res.status(200).json({
     status: 200,
   });
 };
 
-// endregion POST /tag
+// endregion PUT /tag
+
+// region PUT /tag
+
+type UpdateTagRequest = AuthRequest<TagInterface>;
+
+type UpdateTagResponse = {
+  status: 200;
+};
+
+/**
+ * PUT /tag
+ * Create a tag resource
+ * @param req
+ * @param res
+ */
+export const putTag = async (
+  req: UpdateTagRequest,
+  res: Response<UpdateTagResponse>
+) => {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canUpdateTag()) {
+    context.permissions.throwPermissionError();
+  }
+  const { id, color, description } = req.body;
+
+  await addTag(context.org.id, id, color, description);
+
+  res.status(200).json({
+    status: 200,
+  });
+};
+
+// endregion PUT /tag
 
 // region DELETE /tag/:id
 
@@ -63,9 +99,11 @@ export const deleteTag = async (
     EventAuditUserForResponseLocals
   >
 ) => {
-  req.checkPermissions("manageTags");
-
   const context = getContextFromReq(req);
+
+  if (!context.permissions.canDeleteTag()) {
+    context.permissions.throwPermissionError();
+  }
   const { org } = context;
   const { id } = req.body;
 

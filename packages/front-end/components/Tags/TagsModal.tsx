@@ -46,7 +46,7 @@ export default function TagsModal({
       header={existing?.id ? `Edit Tag: ${existing.id}` : "Create Tag"}
       submit={form.handleSubmit(async (value) => {
         await apiCall(`/tag`, {
-          method: "POST",
+          method: existing?.id ? "PUT" : "POST",
           body: JSON.stringify(value),
         });
         await onSuccess();

@@ -2,8 +2,8 @@ import { FC } from "react";
 import { StylesConfig } from "react-select";
 import { TagInterface } from "back-end/types/tag";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import usePermissions from "@/hooks/usePermissions";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { isLight } from "./Tag";
 
 export interface ColorOption {
@@ -33,10 +33,10 @@ const TagsInput: FC<{
   creatable = true,
 }) => {
   const { tags, getTagById } = useDefinitions();
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   if (!tagOptions) tagOptions = tags;
 
-  if (!permissions.manageTags) {
+  if (!permissionsUtil.canCreateTag()) {
     creatable = false;
   }
 
