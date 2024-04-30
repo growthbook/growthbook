@@ -98,12 +98,12 @@ export class GrowthBook<
     { valueHash: string; undo: () => void }
   >;
   private _triggeredExpKeys: Set<string>;
-  private _loadFeaturesCalled: boolean;
+  private _initialized: boolean;
   private _deferredTrackingCalls: Map<string, TrackingData>;
 
   private _payload: FeatureApiResponse | undefined;
 
-  private _autoExperimentsAllowed;
+  private _autoExperimentsAllowed: boolean;
 
   constructor(context?: Context) {
     context = context || {};
@@ -125,7 +125,7 @@ export class GrowthBook<
     this._attributeOverrides = {};
     this._activeAutoExperiments = new Map();
     this._triggeredExpKeys = new Set();
-    this._loadFeaturesCalled = false;
+    this._initialized = false;
     this._redirectedUrl = "";
     this._deferredTrackingCalls = new Map();
     this._autoExperimentsAllowed = !context.disableExperimentsOnLoad;
@@ -187,36 +187,44 @@ export class GrowthBook<
   }
 
   public async init(options?: InitOptions): Promise<void> {
+    this._initialized = true;
+
     options = options || {};
+    if (options.streaming && !this._ctx.clientKey) {
+      throw new Error("Must specify clientKey to enable streaming");
+    }
+
     if (options.payload) {
-      if (options.streaming && !this._ctx.clientKey) {
-        throw new Error("Must specify clientKey to enable streaming");
-      }
-
       await this.setPayload(options.payload);
-
       if (options.streaming) {
         startAutoRefresh(this, true);
-        subscribe(this);
       }
     } else {
-      if (options.streaming) {
-        this._ctx.subscribeToChanges = true;
-      }
-
-      await this.loadFeatures(options);
+      await refreshFeatures({
+        instance: this,
+        timeout: options.timeout,
+        skipCache: !!options.skipCache,
+        allowStale: true,
+        updateInstance: true,
+        backgroundSync: !!options.streaming,
+      });
     }
-    this._loadFeaturesCalled = true;
+
+    if (options.streaming) {
+      subscribe(this);
+    }
   }
 
   public async loadFeatures(options?: LoadFeaturesOptions): Promise<void> {
+    this._initialized = true;
+
     if (!options) options = {};
     if (options.autoRefresh) {
       // interpret deprecated autoRefresh option as subscribeToChanges
       this._ctx.subscribeToChanges = true;
     }
     await this._refresh({
-      ...(options || {}),
+      ...options,
       allowStale: true,
       updateInstance: true,
     });
@@ -224,7 +232,6 @@ export class GrowthBook<
     if (this._canSubscribe()) {
       subscribe(this);
     }
-    this._loadFeaturesCalled = true;
   }
 
   public async refreshFeatures(
@@ -484,7 +491,7 @@ export class GrowthBook<
 
   private async _refreshForRemoteEval() {
     if (!this._ctx.remoteEval) return;
-    if (!this._loadFeaturesCalled) return;
+    if (!this._initialized) return;
     await this._refresh({
       allowStale: false,
       updateInstance: true,
