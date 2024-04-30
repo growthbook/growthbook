@@ -158,7 +158,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     status: 200,
     metrics,
     datasources: datasources.map((d) => {
-      const integration = getSourceIntegrationObject(d);
+      const integration = getSourceIntegrationObject(context, d);
       return {
         id: d.id,
         name: d.name,

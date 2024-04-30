@@ -291,7 +291,11 @@ export async function getAllInviteEmailsInDb() {
   return inviteEmails;
 }
 
-export async function getOrganization() {
+export async function getSelfHostedOrganization() {
+  if (IS_CLOUD) {
+    throw new Error("getSelfHostedOrganization() is not supported on cloud");
+  }
+
   const doc = await OrganizationModel.findOne();
   return doc ? toInterface(doc) : null;
 }
