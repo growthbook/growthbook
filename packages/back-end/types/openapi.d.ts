@@ -1103,6 +1103,7 @@ export interface components {
               metricId: string;
               variations: ({
                   variationId: string;
+                  users?: number;
                   analyses: ({
                       /** @enum {unknown} */
                       engine: "bayesian" | "frequentist";
@@ -3709,6 +3710,7 @@ export interface operations {
                       metricId: string;
                       variations: ({
                           variationId: string;
+                          users?: number;
                           analyses: ({
                               /** @enum {unknown} */
                               engine: "bayesian" | "frequentist";

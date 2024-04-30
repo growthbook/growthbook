@@ -4555,6 +4555,8 @@ components:
                         properties:
                           variationId:
                             type: string
+                          users:
+                            type: number
                           analyses:
                             type: array
                             items:

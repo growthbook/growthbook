@@ -933,6 +933,7 @@ export function toSnapshotApiInterface(
             const data = v.metrics[m];
             return {
               variationId: variationIds[i],
+              users: v.users,
               analyses: [
                 {
                   engine:
