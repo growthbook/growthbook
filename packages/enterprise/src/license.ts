@@ -652,6 +652,7 @@ async function updateLicenseFromServer(
     license.lastServerErrorMessage = e.message;
     license.usingMongoCache = true;
     verifyAndSetServerLicenseData(license);
+    throw e;
   }
   return license;
 }
