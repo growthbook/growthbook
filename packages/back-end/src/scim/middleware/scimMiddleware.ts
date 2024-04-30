@@ -1,6 +1,6 @@
 import { Response, NextFunction } from "express";
 import { orgHasPremiumFeature } from "enterprise";
-import { getContextFromReq } from "@back-end/src/services/organizations";
+import { getContextFromReq } from "../../services/organizations";
 import { AuthRequest } from "../../types/AuthRequest";
 import { usingOpenId } from "../../services/auth";
 import { ScimError } from "../../../types/scim";
