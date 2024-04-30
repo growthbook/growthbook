@@ -203,6 +203,7 @@ export interface Context {
   /* @deprecated */
   subscribeToChanges?: boolean;
   enableDevMode?: boolean;
+  disableCache?: boolean;
   /* @deprecated */
   disableDevTools?: boolean;
   trackingCallback?: TrackingCallback;

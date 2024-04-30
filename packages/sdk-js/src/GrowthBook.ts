@@ -190,23 +190,19 @@ export class GrowthBook<
     this._initialized = true;
 
     options = options || {};
-    if (options.streaming && !this._ctx.clientKey) {
-      throw new Error("Must specify clientKey to enable streaming");
-    }
-
     if (options.payload) {
       await this.setPayload(options.payload);
       if (options.streaming) {
+        if (!this._ctx.clientKey) {
+          throw new Error("Must specify clientKey to enable streaming");
+        }
         startAutoRefresh(this, true);
       }
     } else {
-      await refreshFeatures({
-        instance: this,
-        timeout: options.timeout,
-        skipCache: !!options.skipCache,
+      await this._refresh({
+        ...options,
         allowStale: true,
         updateInstance: true,
-        backgroundSync: !!options.streaming,
       });
     }
 
@@ -218,7 +214,7 @@ export class GrowthBook<
   public async loadFeatures(options?: LoadFeaturesOptions): Promise<void> {
     this._initialized = true;
 
-    if (!options) options = {};
+    options = options || {};
     if (options.autoRefresh) {
       // interpret deprecated autoRefresh option as subscribeToChanges
       this._ctx.subscribeToChanges = true;
@@ -267,16 +263,13 @@ export class GrowthBook<
   public getClientKey(): string {
     return this._ctx.clientKey || "";
   }
-  public getPayload(): FeatureApiResponse | undefined {
+  public getPayload(): FeatureApiResponse {
     return (
       this._payload || {
         features: this.getFeatures(),
         experiments: this.getExperiments(),
       }
     );
-  }
-  public getBackgroundSync(): boolean {
-    return this._ctx.backgroundSync ?? true;
   }
 
   public isRemoteEval(): boolean {
@@ -292,9 +285,11 @@ export class GrowthBook<
     skipCache,
     allowStale,
     updateInstance,
+    streaming,
   }: RefreshFeaturesOptions & {
     allowStale?: boolean;
     updateInstance?: boolean;
+    streaming?: boolean;
   }) {
     if (!this._ctx.clientKey) {
       throw new Error("Missing clientKey");
@@ -303,10 +298,10 @@ export class GrowthBook<
     await refreshFeatures({
       instance: this,
       timeout,
-      skipCache: skipCache || this._ctx.enableDevMode,
+      skipCache: skipCache || this._ctx.disableCache,
       allowStale,
       updateInstance,
-      backgroundSync: this._ctx.backgroundSync ?? true,
+      backgroundSync: streaming ?? this._ctx.backgroundSync ?? true,
     });
   }
 

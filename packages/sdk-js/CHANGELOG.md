@@ -3,20 +3,21 @@
 ## **1.0.0** - May 1, 2024
 
 - New `init` function as a replacement for `loadFeatures`.
-- Support payload import/export via `init({ payload })`, `setPayload`, and `getPayload`. Better supports hybrid apps, as well as externalizing the SDK Payload.
+- Support payload import/export via `init({ payload })`, `setPayload`, and `getPayload`. Makes it easier to share data between front-end, back-end, and other services.
 - Ability to block or control experiments by various context properties
   - `blockedChangeIds` targets individual experiments
   - `disableVisualExperiments` prevents visual experiments from running
   - `disableJsInjection` blocks any visual experiments which write <script\> code
   - `disableUrlRedirectExperiments` prevents redirect experiments from running
   - `disableCrossOriginUrlRedirectExperiments` blocks redirects if the origin changes
-  - `jsInjectionNonce` injects a nonce string onto any generated <sript\> tags
   - `disableExperimentsOnLoad` prevents AutoExperiments from running automatically; `triggerAutoExperiments` manually triggers them.
 - Provide a custom DOM mutation method by setting context `applyDomChangesCallback`. Useful for server-side rendering visual experiments.
+- New `jsInjectionNonce` setting to add a nonce onto any injected <sript\> tags. This provides a safer alternative to allowing `unsafe-inline` in your Content Security Policy.
 - Get a list of triggered experiments by their `changeId` (a new, more-specific AutoExperiment identifier) via `getCompletedChangeIds`.
-- Disable in-memory cache via `configureCache({ disableLocalCache: true })`
+- Disable in-memory cache via `configureCache({ disableLocalCache: true })` or the new GrowthBook constructor option `disableCache`.
 - Easier streaming customization via `init({ streaming: true })`.
-- Prefetch payloads (and optionally begin streaming) before you create a GrowthBook instance with `prefetchPayload()`
+- Prefetch payloads (and optionally begin streaming) before you create a GrowthBook instance with `prefetchPayload()`.
+- Changed the behavior of the `enableDevMode` option. Previously, setting this to true also disabled the SDK cache by default. Now, it does not and you must specify the additional setting `disableCache: true` to keep the same behavior as before.
 - Many improvements to `auto.min.js` script
   - Payload hydration via `payload` context property
   - Support sticky bucketing via `useStickyBucketService` context property (accepts "cookie" and "localStorage"); override cookie or localStorage key via `stickyBucketPrefix` context property.
