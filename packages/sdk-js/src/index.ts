@@ -67,4 +67,8 @@ export {
 
 export { evalCondition } from "./mongrule";
 
-export { isURLTargeted, getPolyfills } from "./util";
+export {
+  isURLTargeted,
+  getPolyfills,
+  getAutoExperimentChangeType,
+} from "./util";

@@ -114,9 +114,10 @@ export type Experiment<T> = {
   groups?: string[];
 };
 
+export type AutoExperimentChangeType = "redirect" | "visual" | "unknown";
+
 export type AutoExperiment<T = AutoExperimentVariation> = Experiment<T> & {
   changeId?: string;
-  changeType?: "redirect" | "visual";
   // If true, require the experiment to be manually triggered
   manual?: boolean;
 };

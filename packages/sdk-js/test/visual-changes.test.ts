@@ -585,6 +585,40 @@ describe("Auto experiments", () => {
     gb.destroy();
   });
 
+  it("Never blocks feature flag rule experiments", async () => {
+    // Not blocked
+    const gb = new GrowthBook({
+      attributes: { id: "1" },
+      blockedChangeIds: ["bar", "foo"],
+      disableCrossOriginUrlRedirectExperiments: true,
+      disableExperimentsOnLoad: true,
+      disableJsInjection: true,
+      disableUrlRedirectExperiments: true,
+      disableVisualExperiments: true,
+      url: "http://www.example.com/home",
+    });
+    await gb.init({
+      payload: {
+        features: {
+          foo: {
+            defaultValue: 0,
+            rules: [
+              {
+                weights: [0, 1],
+                variations: [0, 1],
+                hashVersion: 2,
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    expect(gb.getFeatureValue("foo", -1)).toEqual(1);
+
+    gb.destroy();
+  });
+
   it("Skips various experiments and changes based on the context", async () => {
     document.head.innerHTML = "";
     document.body.innerHTML = "<h1>title</h1>";

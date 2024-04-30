@@ -34,6 +34,7 @@ import type { ConditionInterface } from "./types/mongrule";
 import {
   chooseVariation,
   decrypt,
+  getAutoExperimentChangeType,
   getBucketRanges,
   getQueryStringOverride,
   getUrlRegExp,
@@ -571,8 +572,18 @@ export class GrowthBook<
     )
       return null;
 
-    // Run the experiment
-    const result = this.run(experiment);
+    // Check if this particular experiment is blocked by context settings
+    // For example, if all visualEditor experiments are disabled
+    const isBlocked = this._isAutoExperimentBlockedByContext(experiment);
+    if (isBlocked) {
+      process.env.NODE_ENV !== "production" &&
+        this.log("Auto experiment blocked", { id: experiment.key });
+    }
+
+    // Run the experiment (if blocked exclude)
+    const result = isBlocked
+      ? this._getResult(experiment, -1, false, "")
+      : this.run(experiment);
 
     // A hash to quickly tell if the assigned value changed
     const valueHash = JSON.stringify(result.value);
@@ -592,7 +603,13 @@ export class GrowthBook<
 
     // Apply new changes
     if (result.inExperiment) {
-      if (result.value.urlRedirect && experiment.urlPatterns) {
+      const changeType = getAutoExperimentChangeType(experiment);
+
+      if (
+        changeType === "redirect" &&
+        result.value.urlRedirect &&
+        experiment.urlPatterns
+      ) {
         const url = experiment.persistQueryString
           ? mergeQueryStrings(this._getContextUrl(), result.value.urlRedirect)
           : result.value.urlRedirect;
@@ -626,7 +643,7 @@ export class GrowthBook<
             }
           }
         }
-      } else {
+      } else if (changeType === "visual") {
         const undo = this._ctx.applyDomChangesCallback
           ? this._ctx.applyDomChangesCallback(result.value)
           : this._applyDOMChanges(result.value);
@@ -650,19 +667,6 @@ export class GrowthBook<
     }
   }
 
-  private _getExperimentChangeType(
-    exp: AutoExperiment
-  ): AutoExperiment["changeType"] {
-    if (exp.changeType) return exp.changeType;
-    if (
-      exp.urlPatterns &&
-      exp.variations.some((variation) => variation.urlRedirect)
-    ) {
-      return "redirect";
-    }
-    return "visual";
-  }
-
   private _updateAllAutoExperiments(forceRerun?: boolean) {
     if (!this._autoExperimentsAllowed) return;
 
@@ -684,7 +688,7 @@ export class GrowthBook<
       // Once you're in a redirect experiment, break out of the loop and don't run any further experiments
       if (
         result?.inExperiment &&
-        this._getExperimentChangeType(exp) === "redirect"
+        getAutoExperimentChangeType(exp) === "redirect"
       ) {
         break;
       }
@@ -1086,13 +1090,6 @@ export class GrowthBook<
     if (this._ctx.enabled === false) {
       process.env.NODE_ENV !== "production" &&
         this.log("Context disabled", { id: key });
-      return this._getResult(experiment, -1, false, featureId);
-    }
-
-    // 2.1 If the experiment is blocked, return immediately
-    if (this._isExperimentBlockedByContext(experiment as AutoExperiment)) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Experiment blocked", { id: key });
       return this._getResult(experiment, -1, false, featureId);
     }
 
@@ -1578,8 +1575,10 @@ export class GrowthBook<
     return false;
   }
 
-  private _isExperimentBlockedByContext(experiment: AutoExperiment): boolean {
-    const changeType = this._getExperimentChangeType(experiment);
+  private _isAutoExperimentBlockedByContext(
+    experiment: AutoExperiment
+  ): boolean {
+    const changeType = getAutoExperimentChangeType(experiment);
     if (changeType === "visual") {
       if (this._ctx.disableVisualExperiments) return true;
 
@@ -1588,9 +1587,7 @@ export class GrowthBook<
           return true;
         }
       }
-    }
-
-    if (changeType === "redirect") {
+    } else if (changeType === "redirect") {
       if (this._ctx.disableUrlRedirectExperiments) return true;
 
       // Validate URLs
@@ -1614,6 +1611,9 @@ export class GrowthBook<
         });
         return true;
       }
+    } else {
+      // Block any unknown changeTypes
+      return true;
     }
 
     if (
