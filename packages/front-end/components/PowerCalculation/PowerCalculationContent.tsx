@@ -401,10 +401,10 @@ const MinimumDetectableEffect = ({
                           popperClassName="text-top"
                           body={`Week ${
                             idx + 1
-                          } is the first week where the minimum detectable effect over time dropped bellow your target effect size of ${percentFormatter(
+                          } is the first week where the minimum detectable effect over time dropped below your target effect size of ${percentFormatter(
                             effectSize,
                             { digits: 1 }
-                          )} for your ${name} metric.`}
+                          )} for ${name}.`}
                           tipPosition="top"
                         >
                           {content}
@@ -522,7 +522,7 @@ const PowerOverTime = ({
                           )} power to detect an effect size of ${percentFormatter(
                             effectSize,
                             { digits: 1 }
-                          )} for your ${name} metric.`}
+                          )} for ${name}.`}
                           tipPosition="top"
                         >
                           {content}
