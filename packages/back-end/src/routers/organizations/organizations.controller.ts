@@ -1173,7 +1173,7 @@ export async function putOrganization(
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { name, settings, connections, externalId } = req.body;
+  const { name, settings, connections, externalId, licenseKey } = req.body;
 
   const deletedEnvIds: string[] = [];
   const envsWithModifiedProjects: Environment[] = [];
@@ -1271,6 +1271,12 @@ export async function putOrganization(
         };
         orig.connections = org.connections;
       }
+    }
+
+    if (licenseKey && licenseKey.trim() !== org.licenseKey) {
+      updates.licenseKey = licenseKey.trim();
+      orig.licenseKey = org.licenseKey;
+      await setLicenseKey(org, updates.licenseKey);
     }
 
     await updateOrganization(org.id, updates);
@@ -1968,6 +1974,27 @@ export async function putAdminResetUserPassword(
   });
 }
 
+async function setLicenseKey(org: OrganizationInterface, licenseKey: string) {
+  if (!IS_CLOUD && IS_MULTI_ORG) {
+    throw new Error(
+      "You must use the LICENSE_KEY environmental variable on multi org sites."
+    );
+  }
+
+  try {
+    org.licenseKey = licenseKey;
+    await initializeLicenseForOrg(org, licenseKey, true);
+  } catch (error) {
+    // As we show this error on the front-end, show a more generic invalid license key error
+    // if the error is not related to being able to connect to the license server
+    if (error.message.includes("Could not connect")) {
+      throw new Error(error?.message);
+    } else {
+      throw new Error("Invalid license key");
+    }
+  }
+}
+
 export async function putLicenseKey(
   req: AuthRequest<{ licenseKey: string }>,
   res: Response
@@ -1979,29 +2006,12 @@ export async function putLicenseKey(
   }
   req.checkPermissions("manageBilling");
 
-  if (!IS_CLOUD && IS_MULTI_ORG) {
-    throw new Error(
-      "You must use the LICENSE_KEY environmental variable on multi org sites."
-    );
-  }
-
   const licenseKey = req.body.licenseKey.trim();
   if (!licenseKey) {
     throw new Error("missing license key");
   }
 
-  try {
-    org.licenseKey = licenseKey;
-    await initializeLicenseForOrg(org);
-  } catch (error) {
-    // As we show this error on the front-end, show a more generic invalid license key error
-    // if the error is not related to being able to connect to the license server
-    if (error.message.includes("Could not connect")) {
-      throw new Error(error?.message);
-    } else {
-      throw new Error("Invalid license key");
-    }
-  }
+  await setLicenseKey(org, licenseKey);
 
   try {
     await updateOrganization(orgId, {
