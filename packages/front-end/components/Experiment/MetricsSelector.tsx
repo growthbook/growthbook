@@ -226,7 +226,9 @@ const MetricsSelector: FC<{
         </div>
       )}
       {selected.length > 0 && (
-        <div style={{ position: "absolute", right: 0, color: "#029dd1" }}>
+        <div
+          style={{ position: "absolute", right: 0, top: 40, color: "#029dd1" }}
+        >
           <ClickToCopy compact valueToCopy={JSON.stringify(selected)} />
         </div>
       )}
