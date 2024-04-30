@@ -207,7 +207,7 @@ const SampleSizeAndRuntime = ({
                   {Object.keys(sampleSizeAndRuntime).map((id) => {
                     const target = sampleSizeAndRuntime[id];
 
-                    const { name, effectSize } = ensureAndReturn(
+                    const { name, type, effectSize } = ensureAndReturn(
                       params.metrics[id]
                     );
 
@@ -221,7 +221,10 @@ const SampleSizeAndRuntime = ({
                         onClick={() => setSelectedRow(id)}
                       >
                         <td>
-                          <MetricLabel name={name} effectSize={effectSize} />
+                          <div className="font-weight-bold">{name}</div>
+                          <div className="small">
+                            {type === "binomial" ? "Proportion" : "Mean"}
+                          </div>
                         </td>
                         <td>{percentFormatter(effectSize, { digits: 1 })}</td>
                         <td>
