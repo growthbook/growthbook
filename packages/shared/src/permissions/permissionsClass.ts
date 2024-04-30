@@ -55,6 +55,10 @@ export class Permissions {
     return this.checkGlobalPermission("createDimensions");
   };
 
+  public canManageIntegrations = (): boolean => {
+    return this.checkGlobalPermission("manageIntegrations");
+  };
+
   //Project Permissions
   public canCreateVisualChange = (
     experiment: Pick<ExperimentInterface, "project">

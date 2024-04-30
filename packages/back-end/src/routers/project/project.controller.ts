@@ -265,7 +265,9 @@ export const deleteProject = async (
   // Clean up Slack integrations
   if (deleteSlackIntegrations) {
     try {
-      req.checkPermissions("manageIntegrations");
+      if (!context.permissions.canManageIntegrations()) {
+        context.permissions.throwPermissionError();
+      }
 
       await deleteAllSlackIntegrationsForAProject({
         projectId: id,

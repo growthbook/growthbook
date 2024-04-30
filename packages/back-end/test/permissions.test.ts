@@ -2738,6 +2738,83 @@ describe("PermissionsUtilClass.canDeleteDimension check", () => {
     expect(permissions.canDeleteDimension()).toEqual(true);
   });
 });
+
+describe("PermissionsUtilClass.canManageIntegrations check", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("User with global readonly role can not manage integration", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canManageIntegrations()).toEqual(false);
+  });
+
+  it("User with global collaborator role can not manage integration", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("collaborator", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canManageIntegrations()).toEqual(false);
+  });
+
+  it("User with global admin role can manage integration", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("admin", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canManageIntegrations()).toEqual(true);
+  });
+});
 // permissionsClass Project Permissions Test
 
 describe("PermissionsUtilClass.canCreateIdea check", () => {
