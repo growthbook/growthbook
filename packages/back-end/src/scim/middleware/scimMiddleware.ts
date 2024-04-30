@@ -1,11 +1,10 @@
 import { Response, NextFunction } from "express";
 import { orgHasPremiumFeature } from "enterprise";
-import { AuthRequest } from "../../types/AuthRequest";
 import { usingOpenId } from "../../services/auth";
-import { ScimError } from "../../../types/scim";
+import { BaseScimRequest, ScimError } from "../../../types/scim";
 
 export default function scimMiddleware(
-  req: AuthRequest,
+  req: BaseScimRequest,
   res: Response,
   next: NextFunction
 ): Response<ScimError> | undefined {
