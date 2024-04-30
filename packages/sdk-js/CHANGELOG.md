@@ -1,5 +1,29 @@
 # Changelog
 
+## **1.0.0** - Apr 31, 2024
+
+- New `init` function as a replacement for `loadFeatures`.
+- Support payload import/export via `init({ payload })`, `setPayload`, and `getPayload`. Better supports hybrid apps, as well as externalizing the SDK Payload.
+- Ability to block or control experiments by various context properties
+  - `blockedChangeIds` targets individual experiments
+  - `disableVisualExperiments` prevents visual experiments from running
+  - `disableJsInjection` blocks any visual experiments which write <script\> code
+  - `disableUrlRedirectExperiments` prevents redirect experiments from running
+  - `disableCrossOriginUrlRedirectExperiments` blocks redirects if the origin changes
+  - `jsInjectionNonce` injects a nonce string onto any generated <sript\> tags
+  - `disableExperimentsOnLoad` prevents AutoExperiments from running automatically; `triggerAutoExperiments` manually triggers them.
+- Provide a custom DOM mutation method by setting context `applyDomChangesCallback`. Useful for server-side rendering visual experiments.
+- Get a list of triggered experiments by their `changeId` (a new, more-specific AutoExperiment identifier) via `getCompletedChangeIds`.
+- Disable in-memory cache via `configureCache({ disableLocalCache: true })`
+- Easier streaming customization via `init({ streaming: true })`.
+- Prefetch payloads on backend SDK instances via `prefetchPayload()`. Also allows feature repository SSE streaming without connection each SDK instance to streaming (useful for NodeJS).
+- Many improvements to `auto.min.js` script
+  - Payload hydration via `payload` context property
+  - Support sticky bucketing via `useStickyBucketService` context property (accepts "cookie" and "localStorage"); override cookie or localStorage key via `stickyBucketPrefix` context property.
+  - Hydrate sticky bucket docs by setting context `stickyBucketAssignmentDocs` (useful for SSR hydration without reliance on cookies)
+  - Customize attributes/cookies via `uuidCookieName` (default "gbuuid") and `uuidKey` (default "id").
+  - Force a uuid cookie write on load via `persistUuidOnLoad` (useful for SSR hydration)
+
 ## **0.36.0** - Mar 21, 2024
 
 - Support for URL Redirect tests. New context options `navigate` (default `(url) => window.location.replace(url)`) and `navigateDelay` (default 100ms) for browsers. Plus, new method `getRedirectUrl()` for back-end/edge implementations.

@@ -14,6 +14,7 @@ type WindowContext = Context & {
   uuid?: string;
   persistUuidOnLoad?: boolean;
   useStickyBucketService?: "cookie" | "localStorage";
+  stickyBucketPrefix?: string;
   payload?: FeatureApiResponse;
 };
 declare global {
@@ -201,10 +202,13 @@ function getAttributes() {
 let stickyBucketService: StickyBucketService | undefined = undefined;
 if (windowContext.useStickyBucketService === "cookie") {
   stickyBucketService = new BrowserCookieStickyBucketService({
+    prefix: windowContext.stickyBucketPrefix || undefined,
     jsCookie: Cookies,
   });
 } else if (windowContext.useStickyBucketService === "localStorage") {
-  stickyBucketService = new LocalStorageStickyBucketService();
+  stickyBucketService = new LocalStorageStickyBucketService({
+    prefix: windowContext.stickyBucketPrefix || undefined,
+  });
 }
 // Create GrowthBook instance
 const gb = new GrowthBook({
