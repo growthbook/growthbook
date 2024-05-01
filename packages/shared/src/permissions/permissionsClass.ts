@@ -59,6 +59,18 @@ export class Permissions {
     return this.checkGlobalPermission("manageNorthStarMetric");
   };
 
+  public canCreateSavedGroup = (): boolean => {
+    return this.checkGlobalPermission("manageSavedGroups");
+  };
+
+  public canUpdateSavedGroup = (): boolean => {
+    return this.checkGlobalPermission("manageSavedGroups");
+  };
+
+  public canDeleteSavedGroup = (): boolean => {
+    return this.checkGlobalPermission("manageSavedGroups");
+  };
+
   //Project Permissions
   public canCreateVisualChange = (
     experiment: Pick<ExperimentInterface, "project">
