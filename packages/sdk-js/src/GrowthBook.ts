@@ -29,6 +29,7 @@ import type {
   WidenPrimitives,
   FeatureEvalContext,
   InitOptions,
+  InitResponse,
 } from "./types/growthbook";
 import type { ConditionInterface } from "./types/mongrule";
 import {
@@ -115,7 +116,7 @@ export class GrowthBook<
     this._trackedExperiments = new Set();
     this._completedChangeIds = new Set();
     this._trackedFeatures = {};
-    this.debug = false;
+    this.debug = !!context.debug;
     this._subscriptions = new Set();
     this._rtQueue = [];
     this._rtTimer = 0;
@@ -180,13 +181,18 @@ export class GrowthBook<
     this._payload = payload;
     const data = await this.decryptPayload(payload);
     await this.refreshStickyBuckets(data);
-    data.features && this.setFeatures(data.features);
-    data.experiments && this.setExperiments(data.experiments);
+    if (data.features) {
+      this._ctx.features = data.features;
+    }
+    if (data.experiments) {
+      this._ctx.experiments = data.experiments;
+      this._updateAllAutoExperiments();
+    }
     this.ready = true;
     this._render();
   }
 
-  public async init(options?: InitOptions): Promise<void> {
+  public async init(options?: InitOptions): Promise<InitResponse> {
     this._initialized = true;
 
     options = options || {};
@@ -197,20 +203,28 @@ export class GrowthBook<
           throw new Error("Must specify clientKey to enable streaming");
         }
         startAutoRefresh(this, true);
+        subscribe(this);
       }
+
+      return {
+        success: true,
+        source: "init",
+      };
     } else {
-      await this._refresh({
+      const { data, ...res } = await this._refresh({
         ...options,
         allowStale: true,
-        updateInstance: true,
       });
-    }
+      if (options.streaming) {
+        subscribe(this);
+      }
 
-    if (options.streaming) {
-      subscribe(this);
+      await this.setPayload(data || {});
+      return res;
     }
   }
 
+  /** @deprecated Use {@link init} */
   public async loadFeatures(options?: LoadFeaturesOptions): Promise<void> {
     this._initialized = true;
 
@@ -219,11 +233,11 @@ export class GrowthBook<
       // interpret deprecated autoRefresh option as subscribeToChanges
       this._ctx.subscribeToChanges = true;
     }
-    await this._refresh({
+    const { data } = await this._refresh({
       ...options,
       allowStale: true,
-      updateInstance: true,
     });
+    await this.setPayload(data || {});
 
     if (this._canSubscribe()) {
       subscribe(this);
@@ -233,11 +247,13 @@ export class GrowthBook<
   public async refreshFeatures(
     options?: RefreshFeaturesOptions
   ): Promise<void> {
-    await this._refresh({
+    const res = await this._refresh({
       ...(options || {}),
       allowStale: false,
-      updateInstance: true,
     });
+    if (res.data) {
+      await this.setPayload(res.data);
+    }
   }
 
   public getApiInfo(): [ApiHost, ClientKey] {
@@ -284,23 +300,20 @@ export class GrowthBook<
     timeout,
     skipCache,
     allowStale,
-    updateInstance,
     streaming,
   }: RefreshFeaturesOptions & {
     allowStale?: boolean;
-    updateInstance?: boolean;
     streaming?: boolean;
   }) {
     if (!this._ctx.clientKey) {
       throw new Error("Missing clientKey");
     }
     // Trigger refresh in feature repository
-    await refreshFeatures({
+    return refreshFeatures({
       instance: this,
       timeout,
       skipCache: skipCache || this._ctx.disableCache,
       allowStale,
-      updateInstance,
       backgroundSync: streaming ?? this._ctx.backgroundSync ?? true,
     });
   }
@@ -315,12 +328,14 @@ export class GrowthBook<
     }
   }
 
+  /** @deprecated Use {@link setPayload} */
   public setFeatures(features: Record<string, FeatureDefinition>) {
     this._ctx.features = features;
     this.ready = true;
     this._render();
   }
 
+  /** @deprecated Use {@link setPayload} */
   public async setEncryptedFeatures(
     encryptedString: string,
     decryptionKey?: string,
@@ -336,12 +351,14 @@ export class GrowthBook<
     );
   }
 
+  /** @deprecated Use {@link setPayload} */
   public setExperiments(experiments: AutoExperiment[]): void {
     this._ctx.experiments = experiments;
     this.ready = true;
     this._updateAllAutoExperiments();
   }
 
+  /** @deprecated Use {@link setPayload} */
   public async setEncryptedExperiments(
     encryptedString: string,
     decryptionKey?: string,
@@ -487,12 +504,12 @@ export class GrowthBook<
   private async _refreshForRemoteEval() {
     if (!this._ctx.remoteEval) return;
     if (!this._initialized) return;
-    await this._refresh({
+    const res = await this._refresh({
       allowStale: false,
-      updateInstance: true,
-    }).catch(() => {
-      // Ignore errors
     });
+    if (res.data) {
+      await this.setPayload(res.data);
+    }
   }
 
   public getAllResults() {
@@ -1413,6 +1430,8 @@ export class GrowthBook<
   }
 
   public fireDeferredTrackingCalls() {
+    if (!this._ctx.trackingCallback) return;
+
     this._deferredTrackingCalls.forEach((call: TrackingData) => {
       if (!call || !call.experiment || !call.result) {
         console.error("Invalid deferred tracking call", { call: call });

@@ -20,13 +20,6 @@ Install with a package manager
 npm install --save @growthbook/growthbook
 ```
 
-or use directly in your HTML without installing first:
-
-```html
-<!-- Creates `window.growthbook` with all of the exported classes -->
-<script src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/index.js"></script>
-```
-
 ## Quick Usage
 
 ### Step 1: Configure your app
@@ -38,10 +31,6 @@ import { GrowthBook } from "@growthbook/growthbook";
 const gb = new GrowthBook({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
-  // Enable easier debugging during development
-  enableDevMode: true,
-  // Update the instance in realtime as features change in GrowthBook
-  subscribeToChanges: true,
   // Targeting attributes
   attributes: {
     id: "123",
@@ -57,8 +46,9 @@ const gb = new GrowthBook({
   },
 });
 
-// Wait for features to be available
-await gb.loadFeatures();
+// Download features and experiments from the CDN
+// Also, start running any Visual Editor or URL Redirect experiments
+await gb.init();
 ```
 
 ### Step 2: Start Feature Flagging!
@@ -77,28 +67,11 @@ const color = gb.getFeatureValue("button-color", "blue");
 
 ## Node.js
 
-If using this SDK in a server-side environment, you may need to configure some polyfills for missing browser APIs.
+The GrowthBook SDK officially supports Node v18 and above.
 
-```js
-const { setPolyfills } = require("@growthbook/growthbook");
+In browser environments, you typically want a single global GrowthBook instance.
 
-setPolyfills({
-  // Required when using built-in feature loading and Node 17 or lower
-  fetch: require("cross-fetch"),
-  // Required when using encrypted feature flags and Node 18 or lower
-  SubtleCrypto: require("node:crypto").webcrypto.subtle,
-  // Optional, can make feature rollouts faster
-  EventSource: require("eventsource"),
-  // Optional, can reduce startup times by persisting cached feature flags
-  localStorage: {
-    // Example using Redis
-    getItem: (key) => redisClient.get(key),
-    setItem: (key, value) => redisClient.set(key, value),
-  }
-})
-```
-
-Create a separate GrowthBook instance for every incoming request. This is easiest if you use a middleware:
+In server environments, you instead want a separate GrowthBook instance for every incoming request. Here's an example middleware you can use:
 
 ```js
 // Example using Express
@@ -106,24 +79,17 @@ app.use(function(req, res, next) {
   // Create a GrowthBook instance and store in the request
   req.growthbook = new GrowthBook({
     apiHost: "https://cdn.growthbook.io",
-    clientKey: "sdk-abc123",
-    // Set this to `false` to improve performance in server-side environments
-    enableDevMode: false,
-    // Important: make sure this is set to `false`, otherwise features may change in the middle of a request
-    subscribeToChanges: false,
+    clientKey: "sdk-abc123"
   });
 
   // Clean up at the end of the request
   res.on('close', () => req.growthbook.destroy());
 
   // Wait for features to load (will be cached in-memory for future requests)
-  req.growthbook.loadFeatures()
-    .then(() => next())
-    .catch((e) => {
-      console.error("Failed to load features from GrowthBook", e);
-      next();
-    })
-})
+  req.growthbook.init({timeout: 1000})
+    .catch((e) => console.error("Failed to load features from GrowthBook", e))
+    .finally(() => next());
+});
 ```
 
 Then, you can access the GrowthBook instance from any route:
@@ -135,9 +101,9 @@ app.get("/", (req, res) => {
 })
 ```
 
-## Loading Features
+## Loading Features and Experiments
 
-In order for the GrowthBook SDK to work, it needs to have feature definitions from the GrowthBook API. There are 2 ways to get this data into the SDK.
+In order for the GrowthBook SDK to work, it needs to have feature and experiment definitions from the GrowthBook API. There are a few ways to get this data into the SDK.
 
 ### Built-in Fetching and Caching
 
@@ -149,41 +115,105 @@ const gb = new GrowthBook({
   clientKey: "sdk-abc123",
   // Only required if you have feature encryption enabled in GrowthBook
   decryptionKey: "key_abc123",
-  // Update the instance in realtime as features change in GrowthBook (default: false)
-  subscribeToChanges: true,
 });
 
-// Wait for features to be downloaded
-await gb.loadFeatures({
-  // If the network request takes longer than this (in milliseconds), continue
-  // Default: `0` (no timeout)
+// Wait for features to be downloaded with a timeout (in ms)
+await gb.init({
   timeout: 2000,
 });
 ```
 
-Until features are loaded, all features will evaluate to `null`. If you're ok with a potential flicker in your application (features going from `null` to their real value), you can call `loadFeatures` without awaiting the result.
+Until features are loaded, all features will evaluate to `null`. If you're ok with a potential flicker in your application (features going from `null` to their real value), you can call `init` without awaiting the result.
 
 If you want to refresh the features at any time (e.g. when a navigation event occurs), you can call `gb.refreshFeatures()`.
 
-#### Streaming Updates
+#### Error Handling
 
-By default, the SDK will open a streaming connection using Server-Sent Events (SSE) to receive feature updates in realtime as they are changed in GrowthBook. This is only supported on GrowthBook Cloud or if running a GrowthBook Proxy Server.
+In the case of network issues, the `init` call will not throw an error. Instead, it will stay in the default state where every feature evaluates to `null`.
+
+You can still get access to the error if needed:
+
+```ts
+const res = await gb.init({
+  timeout: 1000
+});
+console.log(res);
+```
+
+The return value has 3 properties:
+
+- **status** - `true` if the GrowthBook instance was populated with features/experiments. Otherwise `false`
+- **source** - Where this result came from. One of the following values: `network`, `cache`, `init`, `error`, or `timeout`
+- **error** - If status is `false`, this will contain an `Error` object with more details about the error
+
+### Custom Integration
+
+If you prefer to handle the network and caching logic yourself, you can pass in a full JSON "payload" directly into the SDK. For example, you might store features in Postgres and send it down to your front-end as part of your app's initial bootstrap API call.
+
+```ts
+await gb.init({
+  payload: {
+    features: {
+      "feature-1": {...},
+      "feature-2": {...},
+      "another-feature": {...},
+    }
+  }
+})
+```
+
+The data structure for "payload" is exactly the same as what is returned by the GrowthBook SDK endpoints and webhooks.
+
+You can update the payload at any time by calling `setPayload(newPayloadJSON)` and there is also a `getPayload()` method, which is useful in hybrid apps where you want to hydrate the client with data from the server.
+
+Note: you don't need to specify `clientKey` or `apiHost` on your GrowthBook instance unless you want to enable streaming (see below) or call `refreshFeatures()`.
+
+## Streaming Updates
+
+The GrowthBook SDK supports streaming with Server-Sent Events (SSE). When enabled, changes to features within GrowthBook will be streamed to the SDK in realtime as they are published. This is only supported on GrowthBook Cloud or if running a GrowthBook Proxy Server.
+
+### Streaming in Browser Environments
+
+SSE is supported on all major browsers, so enabling streaming is as easy as passing `streaming: true` into your `init` call:
+
+```ts
+gb.init({
+  streaming: true,
+  // Other settings...
+})
+```
 
 You may also differentiate your streaming host URL from your API host by setting the `streamingHost` property in the GrowthBook constructor (ex: Remote Evaluation is done on a CDN edge worker while Streaming is done through a GrowthBook Proxy server).
 
-If you want to disable streaming updates (to limit API usage on GrowthBook Cloud for example), you can set `backgroundSync` to `false`.
+### Streaming in Node.js
 
-```ts
-const gb = new GrowthBook({
-  apiHost: "https://cdn.growthbook.io",
-  clientKey: "sdk-abc123",
+Node.js does not natively support SSE, but there is a small library you can install:
 
-  // Disable background streaming connection
-  backgroundSync: false,
-});
+```bash npm2yarn
+npm install --save eventsource
 ```
 
-#### Remote Evaluation
+Instead of enabling streaming separately for every GrowthBook instance, we recommend opening a single shared stream at app startup instead:
+
+```js
+const { setPolyfills, prefetchPayload } = require("@growthbook/growthbook");
+
+// Configure GrowthBook to use the eventsource library
+setPolyfills({
+  EventSource: require("eventsource"),
+});
+
+// Start a streaming connection
+prefetchPayload({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  streaming: true
+}).then(() => console.log("Streaming connection open!"))
+```
+
+This will work as long as you use the exact same `apiHost` and `clientKey` when creating GrowthBook instances in your middleware.
+
+## Remote Evaluation
 
 When used in a front-end context, the JS SDK may be run in Remote Evaluation mode. This mode brings the security benefits of a backend SDK to the front end by evaluating feature flags exclusively on a private server. Using Remote Evaluation ensures that any sensitive information within targeting rules or unused feature variations are never seen by the client. Note that Remote Evaluation should not be used in a backend context.
 
@@ -209,9 +239,12 @@ If you would like to implement Sticky Bucketing while using Remote Evaluation, y
 
 :::
 
-#### Customize the Cache Settings
+## Caching
 
-The JavaScript SDK has a built-in caching layer using a browser's localStorage by default. This localStorage implementation can be polyfilled for mobile or back-end use cases.
+The JavaScript SDK has 2 caching layers:
+
+1. In-memory cache (available on all platforms)
+2. Persistent localStorage cache (only available in browsers by default)
 
 There are a number of cache settings you can configure within GrowthBook. This must be done BEFORE creating a GrowthBook instance.
 
@@ -229,8 +262,6 @@ configureCache({
   maxAge: 1000 * 60 * 60 * 24,
   // For Remote Eval only - limit the number of cache entries (~1 entry per user)
   maxEntries: 10,
-  // Set to `false` to disable SSE streaming
-  backgroundSync: true,
   // When `false`, we add a `visibilitychange` listener to disable SSE when the page is idle
   disableIdleStreams: false,
   // Consider a page "idle" when it is hidden for this long (default 20 seconds)
@@ -238,25 +269,27 @@ configureCache({
 })
 ```
 
-### Custom Integration
+### Polyfilling localStorage
 
-If you prefer to handle the network and caching logic yourself, you can instead pass in a features JSON object directly. For example, you might store features in Postgres and send it down to your front-end as part of your app's initial bootstrap API call.
+Outside of a browser environment, you can still use persistent caching. You just need to provide an implementation of the localStorage interface.
 
-```ts
-const gb = new GrowthBook({
-  features: {
-    "feature-1": {...},
-    "feature-2": {...},
-    "another-feature": {...},
+Here's an example of using Redis in Node.js:
+
+```js
+const { setPolyfills } = require("@growthbook/growthbook");
+
+setPolyfills({
+  localStorage: {
+    // Example using Redis
+    getItem: (key) => redisClient.get(key),
+    setItem: (key, value) => redisClient.set(key, value),
   }
-})
+});
 ```
 
-Note that you don't have to call `gb.loadFeatures()`. There's nothing to load - everything required is already passed in. No network requests are made to GrowthBook at all.
+This must be done BEFORE you call either `prefetchPayload` or create the first GrowthBook instance.
 
-You can update features at any time by calling `gb.setFeatures()` with a new JSON object.
-
-### Re-rendering When Features Change
+## Re-rendering When Features Change
 
 When features change (e.g. by calling `gb.refreshFeatures()`), you need to re-render your app so that all of your feature flag checks can be re-evaluated. You can specify your own custom rendering function for this purpose:
 
@@ -314,6 +347,18 @@ function onRouteChange() {
 }
 ```
 
+Visual Editor experiments are enabled by default, but can be disabled with various GrowthBook constructor settings:
+
+- **disableVisualExperiments** - If true, all visual editor experiments will be skipped
+- **disableJsInjection** - If true, any visual editor experiment that injects custom javascript will be skipped.
+
+#### Content Security Policy
+
+If you plan to use the Custom Javascript feature of the Visual Editor and you have a Content Security Policy on your site, there are two options:
+
+1. Enable `unsafe-inline` script-src
+2. OR generate a unique nonce value, add it to your script-src directive, and pass it into the GrowthBook constructor as `jsInjectionNonce`
+
 ### URL Redirect Experiments
 
 Similarly to Visual Editor experiments, URL redirect tests will run automatically if targetting conditions are met.
@@ -338,6 +383,30 @@ For SPA's you will also need to let the GrowthBook instance know when the URL ch
 function onRouteChange() {
   gb.setURL(window.location.href);
 }
+```
+
+URL Redirect experiments are enabled by default, but can be disabled with various GrowthBook constructor settings:
+
+- **disableUrlRedirectExperiments** - If true, all URL Redirect experiments will be skipped
+- **disableCrossOriginUrlRedirectExperiments** - If true, any URL Redirect with a destination pointing to a different origin will be skipped.
+
+### Deferred Tracking
+
+Sometimes, your analytics tracker is loaded after GrowthBook. In that case, you should not specify a `trackingCallback` in the constructor and instead use `setTrackingCallback` later when ready. When you do this, the GrowthBook instance will queue up tracking calls and then fire them all at once when you set the callback.
+
+There are some scenarios where you need to queue up tracking calls in one GrowthBook instance and fire them in another. For example, if your analytics tracker is only available on the front-end, but you are running experiments in Node.js.
+
+Export the queue tracking calls with the `getDeferredTrackingCalls()` method. The result is a serializable JSON object:
+
+```ts
+const tracks = gb.getDeferredTrackingCalls();
+```
+
+Then, import with `setDeferredTrackingCalls`. This does not fire them automatically. You must call `fireDeferredTrackingCalls` after.
+
+```ts
+gb2.setDeferredTrackingCalls(tracks);
+gb2.fireDeferredTrackingCalls();
 ```
 
 ### Sticky Bucketing
@@ -423,6 +492,19 @@ gb.isOn("buton-color"); // "buton" instead of "button"
 
 Instead of defining the `AppFeatures` interface manually like above, you can auto-generate it from your GrowthBook account using the [GrowthBook CLI](/tools/cli).
 
+## Updating
+
+As a general philosophy, we aim to keep the SDK 100% backwards compatible at all times. View the [Changelog](https://github.com/growthbook/growthbook/blob/main/packages/sdk-js/CHANGELOG.md) for a complete list of all SDK changes.
+
+### Updating to 1.0.0
+
+Updating from a **0.X.X** release to **1.0.0** is still backwards compatible for the vast majority of use cases, although there are a few minor changes:
+
+- The `enableDevMode: true` setting previously also disabled cache as a side-effect. This is no longer the case in 1.0.0, and you must explicitly also set `disableCache: true`
+- Previously, a network request to fetch features was started immediately upon creating a GrowthBook instance. Starting in 1.0.0, it waits until you call `loadFeatures` (or the new `init` method) before starting the network request. As a replacement, there is now a standalone `prefetchPayload` function that you can use to kick off a network request outside of the context of a GrowthBook instance.
+
+In addition to the above, we highly recommend switching from `loadFeatures()` to the new `init()` method. The `init()` method solves many pain points including easier error handling and more control over caching and streaming. See the Loading Features section above for more info.
+
 ## GrowthBook Instance (reference)
 
 ### Attributes
@@ -486,7 +568,7 @@ gb.setAttributes({
   tags: userTags,
 });
 
-await gb.loadFeatures();
+await gb.init();
 
 // In this example, we are using Node.js's built-in crypto library
 function sha256(str) {

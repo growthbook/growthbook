@@ -39,6 +39,8 @@ export type {
   ApplyDomChangesCallback,
   InitOptions,
   PrefetchOptions,
+  InitResponse,
+  Helpers,
 } from "./types/growthbook";
 
 export type {

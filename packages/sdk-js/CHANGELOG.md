@@ -17,7 +17,9 @@
 - Disable in-memory cache via `configureCache({ disableLocalCache: true })` or the new GrowthBook constructor option `disableCache`.
 - Easier streaming customization via `init({ streaming: true })`.
 - Prefetch payloads (and optionally begin streaming) before you create a GrowthBook instance with `prefetchPayload()`.
+- New `debug` setting to turn on debug logging
 - Changed the behavior of the `enableDevMode` option. Previously, setting this to true also disabled the SDK cache by default. Now, it does not and you must specify the additional setting `disableCache: true` to keep the same behavior as before.
+- Network requests are no longer started when creating a GrowthBook instance. It now waits until `loadFeatures` (or the new `init`) is called.
 - Many improvements to `auto.min.js` script
   - Payload hydration via `payload` context property
   - Support sticky bucketing via `useStickyBucketService` context property (accepts "cookie" and "localStorage"); override cookie or localStorage key via `stickyBucketPrefix` context property.

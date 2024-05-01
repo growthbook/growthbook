@@ -178,9 +178,7 @@ export interface Context {
   enabled?: boolean;
   attributes?: Attributes;
   url?: string;
-  /* @deprecated */
   features?: Record<string, FeatureDefinition>;
-  /* @deprecated */
   experiments?: AutoExperiment[];
   forcedVariations?: Record<string, number>;
   blockedChangeIds?: string[];
@@ -196,32 +194,33 @@ export interface Context {
   >;
   stickyBucketIdentifierAttributes?: string[];
   stickyBucketService?: StickyBucketService;
+  debug?: boolean;
   log?: (msg: string, ctx: any) => void;
   qaMode?: boolean;
-  /* @deprecated */
+  /** @deprecated */
   backgroundSync?: boolean;
-  /* @deprecated */
+  /** @deprecated */
   subscribeToChanges?: boolean;
   enableDevMode?: boolean;
   disableCache?: boolean;
-  /* @deprecated */
+  /** @deprecated */
   disableDevTools?: boolean;
   trackingCallback?: TrackingCallback;
   onFeatureUsage?: (key: string, result: FeatureResult<any>) => void;
-  /* @deprecated */
+  /** @deprecated */
   realtimeKey?: string;
-  /* @deprecated */
+  /** @deprecated */
   realtimeInterval?: number;
   cacheKeyAttributes?: (keyof Attributes)[];
-  /* @deprecated */
+  /** @deprecated */
   user?: {
     id?: string;
     anonId?: string;
     [key: string]: string | undefined;
   };
-  /* @deprecated */
+  /** @deprecated */
   overrides?: Record<string, ExperimentOverride>;
-  /* @deprecated */
+  /** @deprecated */
   groups?: Record<string, boolean>;
   apiHost?: string;
   streamingHost?: string;
@@ -257,6 +256,22 @@ export type SubscriptionFunction = (
 ) => void;
 
 export type VariationRange = [number, number];
+
+export interface InitResponse {
+  // If a payload was set
+  success: boolean;
+  // Where the payload came from, if set
+  source: "init" | "cache" | "network" | "error" | "timeout";
+  // If the payload could not be set (success = false), this will hold the fetch error
+  error?: Error;
+}
+
+export interface FetchResponse {
+  data: FeatureApiResponse | null;
+  success: boolean;
+  source: "cache" | "network" | "error" | "timeout";
+  error?: Error;
+}
 
 export type JSONValue =
   | null

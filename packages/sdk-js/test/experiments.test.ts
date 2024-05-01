@@ -805,4 +805,38 @@ describe("experiments", () => {
 
     gb2.destroy();
   });
+
+  it("handles deferred tracking calls when there is no trackingCallback", () => {
+    const gb = new GrowthBook({
+      attributes: { id: "1" },
+    });
+    const exp: AutoExperiment<number> = {
+      key: "my-test",
+      variations: [0, 1],
+    };
+    const result = gb.run(exp);
+    gb.destroy();
+
+    // Can set deferred tracking calls on an existing GrowthBook instance
+    const trackingCallback = jest.fn();
+    const gb2 = new GrowthBook();
+    gb2.setDeferredTrackingCalls([
+      ({
+        invalid: true,
+      } as unknown) as TrackingData,
+      {
+        experiment: exp,
+        result,
+      },
+    ]);
+    // This should do nothing because there's no trackingCallback yet
+    gb2.fireDeferredTrackingCalls();
+
+    gb2.setTrackingCallback(trackingCallback);
+    expect(trackingCallback).toHaveBeenCalledTimes(1);
+    expect(trackingCallback).toHaveBeenCalledWith(exp, result);
+    expect(gb2.getDeferredTrackingCalls()).toEqual([]);
+
+    gb2.destroy();
+  });
 });
