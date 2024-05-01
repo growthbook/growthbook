@@ -335,11 +335,11 @@ export class Permissions {
     );
   }
 
-  private checkGlobalPermission(permission: GlobalPermission): boolean {
+  public checkGlobalPermission(permission: GlobalPermission): boolean {
     return this.hasPermission(permission, "");
   }
 
-  private checkProjectFilterPermission(
+  public checkProjectFilterPermission(
     obj: { projects?: string[] },
     permission: ProjectScopedPermission
   ): boolean {
