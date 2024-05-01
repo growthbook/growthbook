@@ -67,7 +67,6 @@ export default function StringArrayField({
             onKeyDown={(event) => handleKeyDown(event)}
             onBlur={() => {
               if (!inputValue) return;
-              console.log("blur called");
               onChange([...value, ...checkForPasteDelimitation(inputValue)]);
               setInputValue("");
             }}
